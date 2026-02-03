@@ -1,0 +1,4 @@
+question,intent,payload_json
+查一下土豪流失,query_metric,{"metrics":["revenue_amt_1d"],"filters":["level>=5"],"dimensions":["dt"],"time_range":"last_7d"}
+选出MA多头的票,screening,{"factors":["ma_bull"],"universe":"A-share","limit":50}
+画一张最近流水趋势图,plot_chart,{"metric":"revenue_amt_1d","dimension":"dt","time_range":"last_30d","chart_type":"line"}

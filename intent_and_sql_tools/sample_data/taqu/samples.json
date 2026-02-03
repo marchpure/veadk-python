@@ -1,0 +1,37 @@
+[
+  {
+    "q": "查一下土豪流失",
+    "json": {
+      "intent": "query_metric",
+      "payload": {
+        "metrics": ["revenue_amt_1d"],
+        "filters": ["level>=5"],
+        "dimensions": ["dt"],
+        "time_range": "last_7d"
+      }
+    }
+  },
+  {
+    "q": "选出MA多头的票",
+    "json": {
+      "intent": "screening",
+      "payload": {
+        "factors": ["ma_bull"],
+        "universe": "A-share",
+        "limit": 50
+      }
+    }
+  },
+  {
+    "q": "画一张最近流水趋势图",
+    "json": {
+      "intent": "plot_chart",
+      "payload": {
+        "metric": "revenue_amt_1d",
+        "dimension": "dt",
+        "time_range": "last_30d",
+        "chart_type": "line"
+      }
+    }
+  }
+]

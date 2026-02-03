@@ -1,0 +1,10 @@
+术语：土豪 = level >= 5
+术语：流失 = is_active = 0
+术语：流水 = revenue_amt_1d
+术语：成本 = cost_amt_1d
+术语：补贴 = subsidy_amt_1d
+术语：利润 = profit_amt_1d
+术语：退货 = return_cnt_1d 或 return_amt_1d
+口径：营收 = revenue_amt_1d
+口径：成本营收 = cost_revenue_amt_1d
+口径：补贴营收 = subsidy_revenue_amt_1d

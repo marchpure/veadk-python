@@ -1,4 +1,4 @@
-from sdk.registry import ToolRegistry
+from intent_and_sql_tools.common.registry import ToolRegistry
 
 
 @ToolRegistry.register(intent="plot_chart", tool_name="visualize_data")
