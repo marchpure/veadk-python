@@ -97,7 +97,7 @@ class MockVannaImpl:
 class ArkChat:
     def __init__(self, config: dict):
         self._config = config or {}
-        self._api_key = os.getenv("ARK_API_KEY", "38484cc0-29ab-4119-99b1-e453e23aeb5c")
+        self._api_key = os.getenv("ARK_API_KEY")
         self._model = os.getenv("ARK_MODEL", "doubao-seed-1-8-251228")
         self._api_base = os.getenv("ARK_API_BASE", "https://ark.cn-beijing.volces.com/api/v3")
         if not self._api_key:

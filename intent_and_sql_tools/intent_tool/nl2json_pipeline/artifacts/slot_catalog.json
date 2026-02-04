@@ -1,0 +1,406 @@
+{
+  "slots": [
+    {
+      "slot_id": "1",
+      "slot_name": "concept_id",
+      "slot_desc": "Unique numeric identifier for a specific stock concept or sector, used to distinguish and reference the concept.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "term_id",
+        "identifier",
+        "unique ID",
+        "概念ID",
+        "唯一标识符"
+      ],
+      "examples": [
+        "405",
+        "402",
+        "407"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "term_id",
+          "identifier",
+          "unique ID",
+          "概念ID",
+          "唯一标识符"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "2",
+      "slot_name": "concept_name",
+      "slot_desc": "Core term identifying a specific stock concept sector, serving as the main name and identifier for the concept group.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "概念名称",
+        "核心概念",
+        "name",
+        "概念",
+        "concept name"
+      ],
+      "examples": [
+        "氢能源",
+        "信托概念",
+        "网约车概念",
+        "专精特新"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "概念名称",
+          "核心概念",
+          "name",
+          "概念",
+          "concept name"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "3",
+      "slot_name": "sector_type",
+      "slot_desc": "Type of sector the constituent stocks belong to, including industry, concept, region, index, stock type, policy, etc., or specific sub-types like 概念板块 (concept sector) or 行业板块 (industry sector).",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "行业",
+        "概念",
+        "区域",
+        "指数",
+        "股票类型",
+        "政策",
+        "概念板块",
+        "行业板块",
+        "SectorType"
+      ],
+      "examples": [
+        "行业",
+        "概念",
+        "区域",
+        "指数",
+        "股票类型",
+        "概念板块",
+        "行业板块"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "行业",
+          "概念",
+          "区域",
+          "指数",
+          "股票类型"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "4",
+      "slot_name": "concept_sector",
+      "slot_desc": "Specific category of stock concept sector, consisting of component stocks associated with its theme or related entities.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "概念股",
+        "概念板块",
+        "成分股",
+        "主题板块",
+        "concept sector"
+      ],
+      "examples": [
+        "氢能源",
+        "信托概念",
+        "医药生物",
+        "人工智能",
+        "GDR概念"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "概念股",
+          "概念板块",
+          "成分股",
+          "主题板块",
+          "concept sector"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "5",
+      "slot_name": "technical_indicator",
+      "slot_desc": "Technical analysis indicators used to analyze stock price trends, momentum, and potential reversals, including moving averages, RSI, MACD, volume indicators, etc.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "KDJ",
+        "RSI",
+        "布林线",
+        "成交量",
+        "量比",
+        "OBV",
+        "MACD",
+        "均线",
+        "ATR",
+        "技术指标"
+      ],
+      "examples": [
+        "KDJ顶背离",
+        "RSI短线超卖",
+        "布林线收缩",
+        "成交量短期均线金叉",
+        "高量比",
+        "OBV显著上移"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "KDJ",
+          "RSI",
+          "布林线",
+          "成交量",
+          "量比"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "6",
+      "slot_name": "price_action",
+      "slot_desc": "Analysis of stock price movement relative to moving averages (support/resistance) and specific candlestick patterns.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "回踩",
+        "均线",
+        "T字涨停",
+        "倒T字跌停",
+        "价格趋势",
+        "支撑",
+        "阻力"
+      ],
+      "examples": [
+        "回踩5日线",
+        "T字涨停",
+        "倒T字跌停",
+        "回踩半年线"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "回踩",
+          "均线",
+          "T字涨停",
+          "倒T字跌停",
+          "价格趋势"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "7",
+      "slot_name": "volume_analysis",
+      "slot_desc": "Analysis of trading volume dynamics, including volume-to-price relationships, volume ratio indicators, and volume change patterns.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "量价",
+        "突然爆量",
+        "量比",
+        "缩倍量",
+        "积极换手",
+        "volume analysis"
+      ],
+      "examples": [
+        "量价雷达",
+        "突然爆量",
+        "量比多头",
+        "凹口量"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "量价",
+          "突然爆量",
+          "量比",
+          "缩倍量",
+          "积极换手"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "8",
+      "slot_name": "kline_pattern",
+      "slot_desc": "Candlestick patterns and overall trend conditions, including reversal signals, momentum shifts, and trend continuations.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "K线形态",
+        "均线粘合",
+        "金叉",
+        "死叉",
+        "一阳指",
+        "趋势反转"
+      ],
+      "examples": [
+        "一阳指",
+        "顺水行舟_短周期",
+        "低量异动",
+        "K线重心扭转"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "K线形态",
+          "均线粘合",
+          "金叉",
+          "死叉",
+          "一阳指"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "9",
+      "slot_name": "time_duration",
+      "slot_desc": "Time period used in analysis, including trading days, short/medium/long term, and specific intervals like 5日, 10日, 60日.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "5日",
+        "10日",
+        "20日",
+        "30日",
+        "60日",
+        "短期",
+        "中期",
+        "长期"
+      ],
+      "examples": [
+        "5",
+        "10",
+        "20",
+        "30",
+        "60",
+        "短期",
+        "中期"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "5日",
+          "10日",
+          "20日",
+          "30日",
+          "60日"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "10",
+      "slot_name": "signal_type",
+      "slot_desc": "Analysis signals and states, including new highs/lows, breakouts, divergences, and warning signals.",
+      "value_type": "single",
+      "priority": "medium",
+      "keywords": [
+        "新高",
+        "突破",
+        "背离",
+        "盘整",
+        "预警",
+        "买入信号",
+        "卖出信号"
+      ],
+      "examples": [
+        "新高",
+        "突破",
+        "背离",
+        "盘整",
+        "预警",
+        "买入信号"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "新高",
+          "突破",
+          "背离",
+          "盘整",
+          "预警"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "11",
+      "slot_name": "quantity_price_relation",
+      "slot_desc": "Relationship between trading volume and price, including volume-to-price ratios, resonance, divergence, and abnormal volume patterns.",
+      "value_type": "single",
+      "priority": "medium",
+      "keywords": [
+        "量价共振",
+        "量价背离",
+        "量价配合",
+        "量价突破",
+        "成交量均线金叉"
+      ],
+      "examples": [
+        "量价共振",
+        "量价背离",
+        "量价配合",
+        "量价突破"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "量价共振",
+          "量价背离",
+          "量价配合",
+          "量价突破",
+          "成交量均线金叉"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "12",
+      "slot_name": "concept_subtype",
+      "slot_desc": "Specific subcategory of stock concept within a broader sector, e.g., '医药生物', '人工智能' under the 'concept_sector'.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "医药生物",
+        "人工智能",
+        "科技制造",
+        "新能源",
+        "政策",
+        "subtype"
+      ],
+      "examples": [
+        "医药生物",
+        "人工智能",
+        "科技制造",
+        "新能源",
+        "IGCC"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "医药生物",
+          "人工智能",
+          "科技制造",
+          "新能源",
+          "政策"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    }
+  ]
+}
