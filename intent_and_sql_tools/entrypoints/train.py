@@ -4,7 +4,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from intent_and_sql_tools.data_agent_tool.train import train_data_agent
 from intent_and_sql_tools.intent_tool.train import train_intent, train_schema_induction_phase_a
 from intent_and_sql_tools.intent_tool.nl2json_pipeline.train.config import (
     ArkConfig,
@@ -15,7 +14,7 @@ from intent_and_sql_tools.intent_tool.nl2json_pipeline.train.config import (
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["intent", "sql", "all", "schema_phase_a"])
+    parser.add_argument("mode", choices=["intent", "all", "schema_phase_a"])
     parser.add_argument("--config", default=None)
     parser.add_argument("--data-dir", default=None)
     parser.add_argument("--brain-doc-file", default=None)
@@ -40,10 +39,6 @@ def main():
     parser.add_argument("--ark-model", default=None)
     parser.add_argument("--ark-timeout", type=float, default=60.0)
     parser.add_argument("--ark-max-retries", type=int, default=3)
-    parser.add_argument("--hands-ddl-file", default=None)
-    parser.add_argument("--hands-doc-file", default=None)
-    parser.add_argument("--hands-samples-file", default=None)
-    parser.add_argument("--hands-sql-file", default=None)
     parser.add_argument("--mock", action="store_true")
     args = parser.parse_args()
     print(f"[train] mode={args.mode}")
@@ -76,18 +71,6 @@ def main():
             use_mock=args.mock,
         )
         print("[train] intent training done")
-    elif args.mode == "sql":
-        print("[train] start sql training")
-        train_data_agent(
-            config_path=args.config,
-            data_dir=args.data_dir,
-            ddl_file=args.hands_ddl_file,
-            doc_file=args.hands_doc_file,
-            samples_file=args.hands_samples_file,
-            sql_file=args.hands_sql_file,
-            use_mock=args.mock,
-        )
-        print("[train] sql training done")
     else:
         if args.mode == "schema_phase_a":
             if term_source is None:
@@ -123,17 +106,6 @@ def main():
             use_mock=args.mock,
         )
         print("[train] intent training done")
-        print("[train] start sql training")
-        train_data_agent(
-            config_path=args.config,
-            data_dir=args.data_dir,
-            ddl_file=args.hands_ddl_file,
-            doc_file=args.hands_doc_file,
-            samples_file=args.hands_samples_file,
-            sql_file=args.hands_sql_file,
-            use_mock=args.mock,
-        )
-        print("[train] sql training done")
 
 
 if __name__ == "__main__":

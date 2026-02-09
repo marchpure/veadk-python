@@ -73,6 +73,7 @@
         "区域",
         "指数",
         "股票类型",
+        "主板",
         "政策",
         "概念板块",
         "行业板块",
@@ -84,6 +85,7 @@
         "区域",
         "指数",
         "股票类型",
+        "主板",
         "概念板块",
         "行业板块"
       ],
@@ -93,7 +95,50 @@
           "概念",
           "区域",
           "指数",
-          "股票类型"
+          "股票类型",
+          "主板"
+        ],
+        "summary": null,
+        "extras": {}
+      }
+    },
+    {
+      "slot_id": "13",
+      "slot_name": "stock_market",
+      "slot_desc": "Stock market or board scope, such as exchange, main board, growth board, or A-share market.",
+      "value_type": "single",
+      "priority": "high",
+      "keywords": [
+        "主板",
+        "沪市",
+        "深市",
+        "沪深",
+        "上交所",
+        "深交所",
+        "上证",
+        "深证",
+        "A股",
+        "创业板",
+        "科创板"
+      ],
+      "examples": [
+        "主板",
+        "沪市",
+        "深市",
+        "沪深两市",
+        "上交所",
+        "深交所",
+        "A股",
+        "创业板",
+        "科创板"
+      ],
+      "slot_signature_hint": {
+        "top_terms": [
+          "主板",
+          "沪市",
+          "深市",
+          "上交所",
+          "深交所"
         ],
         "summary": null,
         "extras": {}

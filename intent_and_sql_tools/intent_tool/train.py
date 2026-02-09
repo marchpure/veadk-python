@@ -96,6 +96,8 @@ def _load_samples(samples_path: Path, fewshot_path: str | None, fewshot_format: 
         examples = load_fewshot(FewShotConfig(path=fewshot_path, format=fewshot_format))
         if examples:
             return [{"q": item.query, "json": item.ground_truth_json} for item in examples]
+    if samples_path.suffix.lower() == ".csv":
+        return []
     samples = read_json(samples_path)
     if samples:
         return samples

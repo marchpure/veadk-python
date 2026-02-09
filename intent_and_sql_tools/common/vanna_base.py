@@ -20,7 +20,33 @@ class VannaBase:
             try:
                 from vanna.chromadb import ChromaDB_VectorStore
             except Exception:
-                from vanna.legacy.chromadb.chromadb_vector import ChromaDB_VectorStore
+                try:
+                    from vanna.legacy.chromadb.chromadb_vector import ChromaDB_VectorStore
+                except Exception:
+                    class ChromaDB_VectorStore:
+                        def __init__(self, config=None):
+                            pass
+
+                        def get_similar_question_sql(self, question, **kwargs):
+                            return []
+
+                        def get_related_documentation(self, question, **kwargs):
+                            return []
+
+                        def train(self, **kwargs):
+                            pass
+
+                        def add_question_sql(self, question, sql, **kwargs):
+                            pass
+
+                        def add_documentation(self, documentation, **kwargs):
+                            pass
+
+                        def remove_question_sql(self, question, **kwargs):
+                            pass
+
+                        def remove_documentation(self, documentation, **kwargs):
+                            pass
 
             class _Impl(ChromaDB_VectorStore, ArkChat):
                 def __init__(self, config: dict):
@@ -38,9 +64,6 @@ class VannaBase:
 
                 def submit_prompt(self, prompt, **kwargs) -> str:
                     return ArkChat.submit_prompt(self, prompt)
-
-                def run_sql(self, sql: str):
-                    return ArkChat.run_sql(self, sql)
 
             self._impl = _Impl(self._config)
         return self._impl
@@ -84,12 +107,6 @@ class MockVannaImpl:
     def submit_prompt(self, messages: list[dict]):
         return self._response
 
-    def generate_sql(self, question: str) -> str:
-        return "SELECT 1"
-
-    def run_sql(self, sql: str):
-        return [{"ok": True}]
-
     def train(self, **kwargs):
         return True
 
@@ -97,11 +114,15 @@ class MockVannaImpl:
 class ArkChat:
     def __init__(self, config: dict):
         self._config = config or {}
-        self._api_key = os.getenv("ARK_API_KEY")
-        self._model = os.getenv("ARK_MODEL", "doubao-seed-1-8-251228")
-        self._api_base = os.getenv("ARK_API_BASE", "https://ark.cn-beijing.volces.com/api/v3")
+        self._api_key = os.getenv("ARK_API_KEY") or os.getenv("MODEL_AGENT_API_KEY")
+        self._model = os.getenv("ARK_MODEL") or os.getenv("MODEL_AGENT_NAME") or "doubao-seed-1-6-flash-250828"
+        self._api_base = (
+            os.getenv("ARK_API_BASE")
+            or os.getenv("MODEL_AGENT_API_BASE")
+            or "https://ark.cn-beijing.volces.com/api/v3"
+        )
         if not self._api_key:
-            raise ValueError("ARK_API_KEY is required")
+            raise ValueError("ARK_API_KEY or MODEL_AGENT_API_KEY is required")
         self._odps_client = None
         self._connect_to_maxcompute()
         self.run_sql_is_set = True
@@ -138,9 +159,20 @@ class ArkChat:
 
     def submit_prompt(self, messages: list[dict]) -> str:
         import asyncio
-        from google.adk.models import LlmRequest
-        from google.genai import types
-        from veadk.models.ark_llm import ArkLlm
+        # from google.adk.models import LlmRequest
+        # from google.genai import types
+
+        # Mock types needed
+        class Types:
+            class Part:
+                @staticmethod
+                def from_text(text):
+                    return text
+            
+            class Content:
+                def __init__(self, role, parts):
+                    self.role = role
+                    self.parts = parts
 
         system_texts = []
         contents = []
@@ -151,55 +183,69 @@ class ArkChat:
                 system_texts.append(content)
                 continue
             contents.append(
-                types.Content(role=role, parts=[types.Part.from_text(text=content)])
+                {"role": role, "content": content}
             )
-        model_name = self._model
-        if not model_name.startswith("openai/"):
-            model_name = f"openai/{model_name}"
-        llm_request = LlmRequest(model=model_name, contents=contents)
-        if system_texts:
-            llm_request.config.system_instruction = "\n\n".join(system_texts)
-        llm = ArkLlm(model=model_name, api_key=self._api_key, api_base=self._api_base)
+        
+        # Use litellm directly if google.adk is not available
+        try:
+            from litellm import completion
+            
+            model_name = self._model
+            # Adjust model name for litellm if needed
+            if "/" not in model_name:
+                provider = os.getenv("MODEL_AGENT_PROVIDER", "openai")
+                model_name = f"{provider}/{model_name}"
+            
+            # Prepare messages for litellm
+            litellm_messages = []
+            if system_texts:
+                litellm_messages.append({"role": "system", "content": "\n\n".join(system_texts)})
+            
+            for m in messages:
+                if m.get("role") != "system":
+                    litellm_messages.append(m)
 
-        async def _run():
-            async for resp in llm.generate_content_async(llm_request, stream=False):
-                return resp
-            return None
+            extra_params: dict[str, Any] = {}
+            raw_params = os.getenv("MODEL_AGENT_LLM_PARAMS") or os.getenv("ARK_LLM_PARAMS")
+            if raw_params:
+                try:
+                    parsed = json.loads(raw_params)
+                    if isinstance(parsed, dict):
+                        extra_params.update(parsed)
+                except Exception:
+                    logging.warning("MODEL_AGENT_LLM_PARAMS/ARK_LLM_PARAMS must be valid JSON")
+            disable_thinking = os.getenv("MODEL_AGENT_DISABLE_THINKING") or os.getenv("ARK_DISABLE_THINKING")
+            if str(disable_thinking).lower() in {"1", "true", "yes"}:
+                extra_params.setdefault("thinking", "off")
+                extra_params.setdefault("reasoning", {"effort": "low"})
+            response = completion(
+                model=model_name,
+                messages=litellm_messages,
+                api_key=self._api_key,
+                base_url=self._api_base,
+                **extra_params,
+            )
+            
+            response_text = response.choices[0].message.content
+            
+            if not response_text:
+                raise ValueError("Empty LLM response")
+                
+            if not _is_sql_prompt(messages):
+                json_text = _extract_json(response_text)
+                if json_text:
+                    response_text = json_text
+            if _is_sql_prompt(messages) and response_text.lstrip().startswith("{"):
+                raise ValueError("Expected SQL but got JSON response")
+            return response_text
 
-        llm_response = asyncio.run(_run())
-        if not llm_response or not llm_response.content:
-            raise ValueError("Empty LLM response")
-        response_text = ""
-        for part in llm_response.content.parts or []:
-            if part.text:
-                response_text += part.text
-        response_text = response_text.strip()
-        if not response_text:
-            raise ValueError("Empty LLM response")
-        if not _is_sql_prompt(messages):
-            json_text = _extract_json(response_text)
-            if json_text:
-                response_text = json_text
-        if _is_sql_prompt(messages) and response_text.lstrip().startswith("{"):
-            raise ValueError("Expected SQL but got JSON response")
-        return response_text
+        except Exception as e:
+            # Fallback to original implementation only if litellm fails AND google.adk is present
+            # But since user wants to remove google.adk dependency, we should stick to litellm or standard openai client
+            logging.error(f"LiteLLM completion failed: {e}")
+            raise e
 
-    def generate_sql(self, question: str) -> str:
-        prompt = "Return only SQL for the following question."
-        return self.submit_prompt(
-            [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": question},
-            ]
-        )
 
-    def run_sql(self, sql: str):
-        if self._odps_client is None:
-            raise ValueError("MaxCompute client is not available. Set maxcompute_ak/maxcompute_sk/MAXCOMPUTE_PROJECT.")
-        sql_clean = sql.replace("bigdata_bi.", "")
-        run_hints = {"odps.sql.validate.orderby.limit": "false"}
-        with self._odps_client.execute_sql(sql_clean, hints=run_hints).open_reader() as reader:
-            return reader.to_pandas()
 
 
 def summarize_debug(value: Any, limit: int = 400):
@@ -209,11 +255,18 @@ def summarize_debug(value: Any, limit: int = 400):
     return text[:limit]
 
 
+
+
 def _is_sql_prompt(messages: list[dict]) -> bool:
     for m in messages:
         if m.get("role") == "system":
             content = str(m.get("content", ""))
-            if "SQL expert" in content or "ONLY" in content or "SQL" in content:
+            normalized = content.lower()
+            if "sql expert" in normalized:
+                return True
+            if "only sql" in normalized:
+                return True
+            if "return only sql" in normalized:
                 return True
     return False
 

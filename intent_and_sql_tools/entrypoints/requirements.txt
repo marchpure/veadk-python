@@ -1,0 +1,10 @@
+fastapi==0.123.10
+uvicorn==0.40.0
+pydantic==2.12.5
+pydantic-settings==2.12.0
+pyyaml==6.0.3
+litellm==1.81.0
+loguru==0.7.3
+volcengine==1.0.214
+vanna==2.0.1
+# chromadb>=0.6.0

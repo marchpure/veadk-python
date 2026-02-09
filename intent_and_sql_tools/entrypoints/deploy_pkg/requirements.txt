@@ -1,0 +1,9 @@
+fastapi==0.123.10
+uvicorn==0.40.0
+pydantic==2.12.5
+pydantic-settings==2.12.0
+PyYAML==6.0.3
+litellm==1.81.0
+loguru==0.7.3
+click==8.1.7
+volcengine==1.0.214
