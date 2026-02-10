@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/overview-chart/param.v2.schema.json",
+  "title": "OverviewChart Param Output Schema (V2 Only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "groupId",
+    "date",
+    "globalFilterRule",
+    "eventRules",
+    "combineRules",
+    "groupRules"
+  ],
+  "properties": {
+    "cacheSwitch": { "type": ["boolean", "null"] },
+
+    "groupId": { "type": ["integer", "string"] },
+
+    "date": { "$ref": "#/$defs/DateSelector" },
+
+    "globalFilterRule": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/GlobalFilterRuleV2" },
+      "description": "Global filters applied to whole query"
+    },
+
+    "eventRules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/EventRuleV2" },
+      "description": "Base metrics / events"
+    },
+
+    "combineRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CombineRuleV2" },
+      "description": "Derived metrics via expression referencing marks"
+    },
+
+    "groupRules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/GroupRuleV2" },
+      "description": "Group-by dimensions"
+    },
+
+    "chartGroups": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Optional: which group series to show"
+    },
+
+    "chartMetrics": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Optional: which metric series to show"
+    },
+
+    "limit": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "Optional: topN limit for grouped results"
+    },
+
+    "joinAttr": { "type": ["boolean", "null"] },
+    "relationKey": { "type": ["string", "null"] },
+
+    "chartType": { "type": ["integer", "string", "null"] },
+    "showType": { "type": ["integer", "string", "null"] },
+    "trendShow": { "type": ["integer", "string", "null"] },
+
+    "param": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Extra params for specific chart types; keep extensible"
+    },
+
+    "dataRange": {
+      "type": ["array", "null"],
+      "items": { "type": ["string", "null"] }
+    }
+  },
+
+  "$defs": {
+    "CommonFilterParam": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value1", "value2", "valueArr"],
+      "properties": {
+        "value1": { "type": ["string", "number", "boolean", "null"] },
+        "value2": { "type": ["string", "number", "boolean", "null"] },
+        "valueArr": {
+          "type": "array",
+          "items": { "type": ["string", "number", "boolean", "null"] }
+        }
+      }
+    },
+
+    "FilterRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "attrId", "operation", "param"],
+      "properties": {
+        "type": {
+          "type": "integer",
+          "description": "1 user_attr, 2 event_attr, 3 nested_attr (consistent with your system)"
+        },
+        "attrId": { "type": ["integer", "string", "null"] },
+        "operation": { "type": ["integer", "string", "null"] },
+        "param": { "$ref": "#/$defs/CommonFilterParam" }
+      }
+    },
+
+    "AggregateV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregateId"],
+      "properties": {
+        "aggregateId": { "type": ["integer", "string"] },
+        "attrId": { "type": ["integer", "string", "null"] },
+        "param": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Optional; keep extensible"
+        }
+      }
+    },
+
+    "EventRuleV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mark", "filters", "eventId", "type", "aggregate"],
+      "properties": {
+        "alias": { "type": ["string", "null"] },
+
+        "mark": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+          "description": "Metric mark (A/B/C...) used in combine expressions"
+        },
+
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FilterRule" }
+        },
+
+        "eventId": { "type": ["integer", "string"] },
+
+        "type": {
+          "type": "integer",
+          "description": "1 event, 2 virtual_event etc (consistent with your system)"
+        },
+
+        "aggregate": { "$ref": "#/$defs/AggregateV2" },
+
+        "op": {
+          "type": ["integer", "null"],
+          "description": "Optional AND/OR flag used by some backends"
+        }
+      }
+    },
+
+    "GlobalFilterRuleV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alias", "mark", "filters"],
+      "properties": {
+        "alias": { "type": ["string", "null"] },
+        "mark": { "type": ["string", "null"] },
+
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FilterRule" }
+        },
+
+        "op": { "type": ["integer", "null"] }
+      }
+    },
+
+    "CombineRuleV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mark", "expression", "dataType"],
+      "properties": {
+        "mark": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,31}$",
+          "description": "Derived metric mark"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expression referencing marks, e.g. 'A / B * 100'"
+        },
+        "dataType": {
+          "type": ["string", "integer"],
+          "description": "Backend datatype hint (as in csv: often 2/3 etc)"
+        },
+        "markEdit": { "type": ["boolean", "null"] }
+      }
+    },
+
+    "GroupRuleV2": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["attrId", "type"],
+      "properties": {
+        "attrId": { "type": ["integer", "string"] },
+        "type": { "type": "integer", "description": "1 user_attr, 2 event_attr" },
+
+        "groupType": { "type": ["integer", "string", "null"] },
+        "groupInterval": { "type": ["integer", "string", "null"] }
+      }
+    },
+
+    "DatePeriod": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["today", "range", "last", "from"] },
+
+        "text": { "type": ["string", "null"] },
+        "realtime": { "type": ["boolean", "null"] },
+
+        "range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer" },
+          "description": "Unix ts seconds: [start, end]"
+        },
+
+        "last": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amount", "unit"],
+          "properties": {
+            "amount": { "type": "integer", "minimum": 1 },
+            "unit": { "type": "string", "enum": ["hour", "day", "week", "month", "year"] }
+          }
+        }
+      }
+    },
+
+    "DateSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interval", "startTime", "endTime", "periods"],
+      "properties": {
+        "isDynamic": { "type": ["boolean", "null"] },
+
+        "interval": {
+          "type": ["integer", "string", "null"],
+          "description": "Time bucket enum used by backend (keep flexible)"
+        },
+
+        "startTime": { "type": ["string", "null"] },
+        "endTime": { "type": ["string", "null"] },
+
+        "periods": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/DatePeriod" }
+        }
+      }
+    }
+  }
+}
