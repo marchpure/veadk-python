@@ -1,10 +1,13 @@
 # Session B VEADK Studio Runtime Report
 
-## Commit
+## Commits
 
-- Implementation commit hash: `d1cc3da`.
+- `defdffcb30ad5b0b473a19b3a83c1791ffd0e034` - `feat(studio): integrate datastudio knowledge assets`
+- `a6a93f6a671c66868183fd36e0638b49eb6e7a44` - `refactor(studio): align datastudio gateway module layout`
+- `acc04c5274356164728a3911306250414c3071ea` - `fix(runtime): derive datastudio mcp tools server-side`
 - Branch: `parallel/kc-veadk-studio`.
-- Base before this commit: `4185d25`.
+- Push target: `marchpure/parallel/kc-veadk-studio`.
+- Base: `66df2b0` (`marchpure/main`), avoiding `.github/workflows` changes because the available GitHub token cannot update workflow files.
 
 ## Scope
 
@@ -33,6 +36,7 @@ Key files:
 - `frontend/src/create/CustomCreate.tsx`
 - `frontend/src/create/CustomCreate.css`
 - `veadk/cli/generated_agent_codegen.py`
+- `veadk/cli/generated_agent_mcp.py`
 - `veadk/cli/generated_agent_skills.py`
 - `veadk/cli/generated_agent_security.py`
 - `frontend/tests/knowledgeCenter.test.mjs`
@@ -41,6 +45,10 @@ Key files:
 - `tests/cli/test_datastudio_gateway.py`
 - `tests/cli/test_generated_agent_backend_codegen.py`
 - `tests/cli/test_generated_agent_backend_codegen_extended.py`
+- `docs/knowledge-center/session-reports/browser-smoke/verify-kc-smoke.mjs`
+- `docs/knowledge-center/session-reports/browser-smoke/kc-smoke-result.json`
+- `docs/knowledge-center/session-reports/browser-smoke/kc-smoke-desktop.png`
+- `docs/knowledge-center/session-reports/browser-smoke/kc-smoke-mobile.png`
 
 ## Data Studio Gateway
 
@@ -78,7 +86,8 @@ Real interface switch points:
 
 - Asset list proxy: `GET {DATASTUDIO_BASE_URL}/api/external/assets`.
 - Asset detail proxy: `GET {DATASTUDIO_BASE_URL}/api/external/assets/{asset_type}/{asset_id}`.
-- Generated runtime MCP URL: explicit asset `mcp_url`, else `DATASTUDIO_MCP_URL`, else `{DATASTUDIO_BASE_URL}/api/mcp/assets/{asset_type}/{asset_id}`.
+- Gateway-normalized MCP URL: explicit asset `mcp_url`, else `DATASTUDIO_MCP_URL`, else `{DATASTUDIO_BASE_URL}/api/mcp/assets/{asset_type}/{asset_id}`.
+- Generated runtime MCP tools use the selected asset's concrete `dataStudioMcpUrl`; imported YAML/API drafts that omit it are rejected by policy.
 
 HTTP behavior:
 
@@ -106,6 +115,8 @@ Data Studio assets are selectable as a fourth skill source, but are stored separ
 - `AgentDraft.dataAssets` carries selected Data Studio assets.
 - YAML import/export round-trips `dataAssets`.
 - Codegen converts `dataAssets` into selected skill materialization plus Byaan MCP tool entries.
+- Backend generation also expands `dataAssets` into Byaan MCP tool entries, so direct API/imported YAML drafts cannot produce a query-only skill without a runtime MCP tool.
+- Data Studio runtime assets must include a concrete `dataStudioMcpUrl`; missing MCP URLs are rejected by generated-project policy instead of producing a non-queryable Agent.
 
 Credential handling:
 
@@ -114,8 +125,9 @@ Credential handling:
 
 Runtime path from `mcpTools` to tools:
 
-- Frontend codegen: `frontend/src/create/codegenDraft.ts` creates Data Studio MCP entries with `authTokenEnv: "BYAAN_MCP_API_KEY"`.
+- Frontend codegen: `frontend/src/create/codegenDraft.ts` creates Data Studio MCP entries with `authTokenEnv: "BYAAN_MCP_API_KEY"` when a concrete asset MCP URL is present.
 - Backend model: `veadk/cli/generated_agent_codegen.py` accepts `McpTool.authTokenEnv`.
+- Backend normalization: `veadk/cli/generated_agent_codegen.py::with_data_asset_mcp_tools` derives Byaan MCP tool entries from `AgentDraft.dataAssets` before project generation and debug runtime env collection.
 - Backend runtime generation: `generated_agent_codegen.py` emits `TrustedMcpToolset(connection_params=StreamableHTTPConnectionParams(...))`.
 - Auth header generation reads `os.getenv("BYAAN_MCP_API_KEY", "")` at runtime.
 - Skill loading includes `selectedSkills + dataAssets`, so Data Studio assets are materialized under `skills/[slug]/SKILL.md`.
@@ -134,12 +146,16 @@ Generated Data Studio `SKILL.md` files include:
 
 Passed:
 
-- `uv run pytest tests/cli/test_datastudio_gateway.py tests/cli/test_generated_agent_backend_codegen.py tests/cli/test_generated_agent_backend_codegen_extended.py`
-  - Result: `84 passed, 7 warnings`.
-- `cd frontend && node --test tests/knowledgeCenter.test.mjs tests/markdownPromptEditor.test.mjs tests/configYaml.test.mjs`
-  - Result: `43 passed`.
+- `python -m py_compile frontend/server/datastudio/*.py veadk/cli/datastudio_gateway.py veadk/cli/generated_agent_codegen.py veadk/cli/generated_agent_security.py veadk/cli/generated_agent_mcp.py`
+  - Result: passed.
+- `uv run pytest tests/cli/test_generated_agent_backend_codegen_extended.py::test_datastudio_asset_generates_trusted_mcp_and_env_reference tests/cli/test_generated_agent_backend_codegen_extended.py::test_datastudio_asset_alone_generates_runtime_mcp_tool tests/cli/test_generated_agent_backend_codegen_extended.py::test_datastudio_asset_requires_mcp_url_for_runtime tests/cli/test_generated_agent_backend_codegen.py::test_datastudio_asset_materialization_writes_skill_md`
+  - Result: `4 passed`.
+- `uv run pytest tests/cli/test_generated_agent_backend_codegen.py tests/cli/test_generated_agent_backend_codegen_extended.py tests/cli/test_generated_agent_mcp.py`
+  - Result: `84 passed, 3 warnings`.
+- `cd frontend && node --test tests/knowledgeCenter.test.mjs tests/configYaml.test.mjs`
+  - Result: `10 passed`.
 - `cd frontend && npm test`
-  - Result: `647 passed`.
+  - Result: `650 passed`.
 - `cd frontend && npm run build`
   - Result: passed. Vite emitted existing chunk-size/dynamic-import warnings.
 - `uv sync --all-extras`
@@ -147,8 +163,15 @@ Passed:
 - `uv pip install -e .`
   - Result: passed.
 - `uv run pytest -n 16`
-  - Result: `2046 passed, 6 skipped, 40 warnings`.
-  - Note: the extra skip is `test_publish_workflow_sends_release_request_to_server` because this push-safe branch is based on `marchpure/main`, where `.github/workflows/publish-studio-release.yaml` is absent.
+  - Result: `2048 passed, 6 skipped, 40 warnings`.
+  - Note: one expected skip is `test_publish_workflow_sends_release_request_to_server` because this push-safe branch is based on `marchpure/main`, where `.github/workflows/publish-studio-release.yaml` is absent.
+- Knowledge Center browser smoke:
+  - Server command: `DATASTUDIO_MOCK=true DATASTUDIO_EMBED_URL=http://127.0.0.1:18080 DATASTUDIO_MCP_URL=https://byaan.example/api/mcp uv run veadk studio --auth-mode gateway --host 127.0.0.1 --port 18031 --frontend-dir veadk/webui --no-open`
+  - Smoke command: `KC_SMOKE_URL=http://127.0.0.1:18031 node docs/knowledge-center/session-reports/browser-smoke/verify-kc-smoke.mjs`
+  - Result: desktop `PASS`, mobile `PASS`.
+  - Artifacts: `docs/knowledge-center/session-reports/browser-smoke/kc-smoke-result.json`, `kc-smoke-desktop.png`, `kc-smoke-mobile.png`.
+- `git diff --check -- . ':(exclude)veadk/webui/assets/*'`
+  - Result: passed.
 - `rg -n "DATASTUDIO_API_KEY" frontend/src veadk/webui`
   - Result: no matches.
 - placeholder-secret scan across `frontend/src`, `veadk/webui`, `veadk/cli`, and `docs/knowledge-center`
@@ -158,6 +181,7 @@ Notes:
 
 - `uv run ruff check ...` was attempted, but `ruff` is not installed in this project environment.
 - Vite build emitted existing chunk-size/dynamic-import warnings.
+- Browser smoke validates the real Studio shell, Knowledge Center navigation, iframe presence, and desktop/mobile layout using mock gateway settings. It does not validate real BYAAN iframe contents because no live BYAAN app was running for this session.
 
 ## Session D Integration Items
 

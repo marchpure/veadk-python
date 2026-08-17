@@ -1,0 +1,88 @@
+{
+  "url": "http://127.0.0.1:18031",
+  "startedAt": "2026-08-17T17:53:48.711Z",
+  "runs": [
+    {
+      "viewport": "desktop",
+      "size": "1440x900",
+      "screenshot": "kc-smoke-desktop.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "overflow": [],
+      "assertions": [
+        {
+          "name": "root mounted",
+          "ok": true
+        },
+        {
+          "name": "sidebar visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center nav visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center shell visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center four steps visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center iframe visible",
+          "ok": true
+        },
+        {
+          "name": "body has rendered text",
+          "ok": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "viewport": "mobile",
+      "size": "390x844",
+      "screenshot": "kc-smoke-mobile.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "requestFailures": [],
+      "overflow": [],
+      "assertions": [
+        {
+          "name": "root mounted",
+          "ok": true
+        },
+        {
+          "name": "sidebar visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center nav visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center shell visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center four steps visible",
+          "ok": true
+        },
+        {
+          "name": "knowledge center iframe visible",
+          "ok": true
+        },
+        {
+          "name": "body has rendered text",
+          "ok": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "finishedAt": "2026-08-17T17:54:01.624Z",
+  "passed": true
+}
