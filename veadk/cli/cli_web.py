@@ -129,6 +129,28 @@ def patch_adkwebserver_disable_openapi():
     google.adk.cli.adk_web_server.AdkWebServer.get_fast_api_app = wrapped_get_fast_api
 
 
+def patch_adk_fast_api_datastudio_routes():
+    """Mount VeADK Studio Data Studio routes on the real ADK FastAPI app."""
+    import google.adk.cli.fast_api
+
+    current_get_fast_api_app = google.adk.cli.fast_api.get_fast_api_app
+    if getattr(current_get_fast_api_app, "_veadk_datastudio_patched", False):
+        return
+
+    def wrapped_get_fast_api_app(*args, **kwargs):
+        app = current_get_fast_api_app(*args, **kwargs)
+        if not getattr(app.state, "_veadk_datastudio_routes_mounted", False):
+            from frontend.server.datastudio import mount_datastudio_routes
+
+            mount_datastudio_routes(app)
+            app.state._veadk_datastudio_routes_mounted = True
+        return app
+
+    wrapped_get_fast_api_app._veadk_datastudio_patched = True
+    wrapped_get_fast_api_app._veadk_original_get_fast_api_app = current_get_fast_api_app
+    google.adk.cli.fast_api.get_fast_api_app = wrapped_get_fast_api_app
+
+
 @click.command()
 @click.option("--host", default="127.0.0.1", help="Host to run the web server on")
 def web(host: str) -> None:
@@ -179,6 +201,7 @@ def web(host: str) -> None:
 
     google.adk.cli.adk_web_server.AdkWebServer.__init__ = init_for_veadk
     patch_adkwebserver_disable_openapi()
+    patch_adk_fast_api_datastudio_routes()
 
     import google.adk.cli.cli_tools_click as cli_tools_click
 

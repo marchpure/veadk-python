@@ -27,6 +27,36 @@ _PYTHON_LICENSE_HEADER = """# Copyright (c) 2025 Beijing Volcano Engine Technolo
 # Licensed under the Apache License, Version 2.0 (the "License");
 """
 
+_DATASTUDIO_URL_HELPERS = '''
+def _datastudio_query_url(path_or_url: str) -> str:
+    """Resolve and validate a Data Studio query URL before attaching BYAAN_MCP_API_KEY."""
+    base = os.environ["DATASTUDIO_BASE_URL"].rstrip("/")
+    parsed_base = urlparse(base)
+    if parsed_base.scheme not in {"http", "https"} or not parsed_base.netloc:
+        raise ValueError("DATASTUDIO_BASE_URL must be an http(s) URL")
+
+    candidate = (path_or_url or "").strip()
+    if candidate.startswith("/"):
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme or parsed_candidate.netloc:
+            raise ValueError("Data Studio query URL must not be protocol-relative")
+        url = urljoin(f"{base}/", candidate.lstrip("/"))
+    else:
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme not in {"http", "https"} or not parsed_candidate.netloc:
+            raise ValueError("Data Studio query URL must be relative or http(s)")
+        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:
+            raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
+        url = candidate
+
+    parsed_url = urlparse(url)
+    if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:
+        raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
+    if not parsed_url.path.startswith("/api/external/assets/"):
+        raise ValueError("Data Studio query URL must target /api/external/assets")
+    return url
+'''.strip()
+
 
 class GeneratedFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -207,16 +237,13 @@ def _data_assets(draft: AgentDraft) -> list[SelectedSkill]:
     ]
 
 
-def _query_url_expr(asset: SelectedSkill) -> str:
+def _query_url_literal(asset: SelectedSkill) -> str:
     explicit = (asset.dataStudioQueryUrl or "").strip()
     if explicit:
         return _py_str(explicit)
     asset_type = asset.dataStudioAssetType.strip()
     asset_id = asset.dataStudioAssetId.strip()
-    return (
-        'f"{os.environ[\'DATASTUDIO_BASE_URL\'].rstrip(\'/\')}/api/external/assets/'
-        f"{asset_type}/{asset_id}/query\""
-    )
+    return _py_str(f"/api/external/assets/{asset_type}/{asset_id}/query")
 
 
 def _tool_name(asset: SelectedSkill) -> str:
@@ -226,14 +253,15 @@ def _tool_name(asset: SelectedSkill) -> str:
 def _render_datastudio_tool(asset: SelectedSkill) -> str:
     function_name = _tool_name(asset)
     asset_label = asset.name or asset.dataStudioAssetId
-    query_url = _query_url_expr(asset)
+    query_url = _query_url_literal(asset)
     return f'''
 def {function_name}(query: str = "", filters: dict | None = None, limit: int = 100) -> dict:
     """Query the Byaan Data Studio asset {asset_label} through the REST external API."""
+    query_url = _datastudio_query_url({query_url})
     token = os.environ["BYAAN_MCP_API_KEY"]
     payload = {{"query": query, "filters": filters or {{}}, "limit": limit}}
     response = requests.post(
-        {query_url},
+        query_url,
         json=payload,
         headers={{"Authorization": f"Bearer {{token}}"}},
         timeout=30,
@@ -251,7 +279,7 @@ def _render_agent_py(project_name: str, draft: AgentDraft) -> str:
         "from google.adk.agents import Agent",
     ]
     if assets:
-        imports.extend(["import os", "import requests"])
+        imports.extend(["import os", "from urllib.parse import urljoin, urlparse", "import requests"])
     tool_blocks = [_render_datastudio_tool(asset) for asset in assets]
     tool_names = [_tool_name(asset) for asset in assets]
     instruction = draft.instruction or "You are a helpful assistant."
@@ -262,7 +290,8 @@ def _render_agent_py(project_name: str, draft: AgentDraft) -> str:
     ]
     if tool_names:
         kwargs.append(f"tools=[{', '.join(tool_names)}]")
-    body = "\n\n".join([*imports, *tool_blocks])
+    helper_blocks = [_DATASTUDIO_URL_HELPERS] if assets else []
+    body = "\n\n".join([*imports, *helper_blocks, *tool_blocks])
     return (
         body
         + "\n\nroot_agent = Agent(\n    "

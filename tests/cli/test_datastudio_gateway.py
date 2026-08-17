@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 
 import pytest
+from fastapi import FastAPI
 from fastapi import HTTPException
 from starlette.datastructures import QueryParams
 
+from veadk.cli.cli_web import patch_adk_fast_api_datastudio_routes
 from frontend.server.datastudio import gateways as datastudio_gateways
 from frontend.server.datastudio import service as datastudio_gateway
 
@@ -73,6 +75,27 @@ def test_datastudio_config_hides_key_and_requires_server_configuration(
     with pytest.raises(HTTPException) as exc_info:
         datastudio_gateway.require_configured()
     assert exc_info.value.status_code == 409
+
+
+def test_datastudio_routes_mount_on_real_veadk_web_app_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+    import google.adk.cli.fast_api as adk_fast_api
+
+    original = adk_fast_api.get_fast_api_app
+
+    def fake_get_fast_api_app(*_args: object, **_kwargs: object) -> FastAPI:
+        return FastAPI()
+
+    monkeypatch.setattr(adk_fast_api, "get_fast_api_app", fake_get_fast_api_app)
+    patch_adk_fast_api_datastudio_routes()
+
+    app = adk_fast_api.get_fast_api_app(agents_dir=".", web=True)
+    paths = {getattr(route, "path", "") for route in app.router.routes}
+
+    assert "/web/datastudio/config" in paths
+    assert "/web/datastudio/assets" in paths
+    assert "/web/datastudio/assets/{asset_type}/{asset_id}" in paths
+
+    monkeypatch.setattr(adk_fast_api, "get_fast_api_app", original)
 
 
 @pytest.mark.asyncio
