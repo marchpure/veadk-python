@@ -4636,3 +4636,75 @@
     border-left: 0;
   }
 }
+
+.cw-datastudio {
+  display: grid;
+  gap: 12px;
+}
+
+.cw-datastudio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cw-datastudio-card {
+  display: grid;
+  gap: 7px;
+  min-height: 190px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  text-align: left;
+  cursor: pointer;
+}
+
+.cw-datastudio-card:hover,
+.cw-datastudio-card.is-on {
+  border-color: hsl(var(--primary));
+}
+
+.cw-datastudio-card-head,
+.cw-datastudio-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cw-datastudio-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.cw-datastudio-name {
+  font-weight: 650;
+}
+
+.cw-datastudio-desc,
+.cw-datastudio-meta,
+.cw-datastudio-example,
+.cw-datastudio-permission {
+  font-size: 12px;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+
+.cw-datastudio-example {
+  color: hsl(var(--foreground));
+}
+
+.cw-datastudio-pager {
+  justify-content: flex-end;
+}
+
+@media (max-width: 700px) {
+  .cw-datastudio-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

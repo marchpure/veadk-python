@@ -99,6 +99,7 @@ import type { SkillSource } from "./skills/types";
 import { SkillHubPicker } from "./SkillHubPicker";
 import { LocalPicker } from "./LocalPicker";
 import { SkillSpacePicker } from "./SkillSpacePicker";
+import { DataStudioAssetPicker } from "./DataStudioAssetPicker";
 import {
   CloudEnvironmentAdvancedTrigger,
   CloudEnvironmentConfigurator,
@@ -1891,6 +1892,9 @@ function SelectedSkillRow({
   } else if (s.source === "skillspace") {
     Icon = AgentKitSkillsIcon;
     label = "AgentKit Skills 中心";
+  } else if (s.source === "datastudio") {
+    Icon = Database;
+    label = "Data Studio 资产";
   }
   return (
     <motion.div
@@ -1932,6 +1936,7 @@ const SKILL_SOURCES: {
 }[] = [
   { id: "local", label: "本地文件", icon: FolderUp },
   { id: "skillspace", label: "AgentKit Skills 中心", icon: AgentKitSkillsIcon },
+  { id: "datastudio", label: "知识资产", icon: Database },
   { id: "skillhub", label: "火山 Find Skill 技能广场", icon: Globe },
 ];
 
@@ -2075,6 +2080,9 @@ function SkillsSourceTabs({
                       cloudProvider={cloudProvider}
                     />
                   )}
+                  {active === "datastudio" && (
+                    <DataStudioAssetPicker selected={selected} onChange={onChange} />
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -2088,6 +2096,9 @@ function SkillsSourceTabs({
 function skillKey(s: SelectedSkill): string {
   if (s.source === "skillhub") return `hub:${s.namespace}/${s.slug}`;
   if (s.source === "local") return `local:${s.folder}`;
+  if (s.source === "datastudio") {
+    return `ds:${s.dataStudioAssetType}/${s.dataStudioAssetId}/${s.dataStudioVersion || ""}`;
+  }
   return `ss:${s.skillSpaceId}/${s.skillId}/${s.version || ""}`;
 }
 

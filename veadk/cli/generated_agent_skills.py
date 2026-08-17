@@ -54,6 +54,8 @@ async def materialize_selected_skills(
 ) -> None:
     existing = {file.path for file in project.files}
     for skill in _collect_selected_skills(draft):
+        if skill.source == "datastudio":
+            continue
         original_folder = skill.folder
         if skill.source == "skillhub":
             files = await _download_skillhub_skill(skill)
@@ -96,6 +98,8 @@ def _skill_key(skill: SelectedSkill) -> str:
         return f"hub:{skill.namespace or 'public'}/{skill.slug}"
     if skill.source == "local":
         return f"local:{skill.folder}"
+    if skill.source == "datastudio":
+        return f"ds:{skill.dataStudioAssetType}/{skill.dataStudioAssetId}/{skill.dataStudioVersion or ''}"
     return f"ss:{skill.skillSpaceId}/{skill.skillId}/{skill.version or ''}"
 
 

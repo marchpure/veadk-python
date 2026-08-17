@@ -131,11 +131,33 @@ function toConfig(draft: AgentDraft): Record<string, unknown> {
         base.namespace = s.namespace ?? "public";
       } else if (s.source === "local") {
         base.localFiles = s.localFiles ?? [];
-      } else {
+      } else if (s.source === "skillspace") {
         base.skillSpaceId = s.skillSpaceId;
         base.skillSpaceName = s.skillSpaceName;
         base.skillId = s.skillId;
         if (s.version) base.version = s.version;
+      } else if (s.source === "datastudio") {
+        base.dataStudioAssetType = s.dataStudioAssetType;
+        base.dataStudioAssetId = s.dataStudioAssetId;
+        if (s.dataStudioVersion) base.dataStudioVersion = s.dataStudioVersion;
+        if (typeof s.dataStudioGateScore === "number") {
+          base.dataStudioGateScore = s.dataStudioGateScore;
+        }
+        if (s.dataStudioMetrics?.length) base.dataStudioMetrics = s.dataStudioMetrics;
+        if (s.dataStudioExampleQuestions?.length) {
+          base.dataStudioExampleQuestions = s.dataStudioExampleQuestions;
+        }
+        if (s.dataStudioPermissionHint) {
+          base.dataStudioPermissionHint = s.dataStudioPermissionHint;
+        }
+        if (s.dataStudioQueryUrl) base.dataStudioQueryUrl = s.dataStudioQueryUrl;
+        if (s.dataStudioTimeField) base.dataStudioTimeField = s.dataStudioTimeField;
+        if (s.dataStudioDimensions?.length) {
+          base.dataStudioDimensions = s.dataStudioDimensions;
+        }
+        if (s.dataStudioEvidence?.length) {
+          base.dataStudioEvidence = s.dataStudioEvidence;
+        }
       }
       return base;
     });

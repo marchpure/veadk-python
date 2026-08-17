@@ -1,0 +1,65 @@
+.kc-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: hsl(var(--background));
+}
+
+.kc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.kc-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.kc-header p {
+  margin: 4px 0 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.kc-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: hsl(var(--primary));
+  text-decoration: none;
+}
+
+.kc-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.kc-spin {
+  animation: kc-spin 1s linear infinite;
+}
+
+.kc-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  color: hsl(var(--muted-foreground));
+}
+
+.kc-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+}
+
+@keyframes kc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -176,7 +176,9 @@ function parseSelectedSkills(o: Record<string, unknown>): SelectedSkill[] {
     const so = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
     const src = asString(so.source);
     const source: SelectedSkill["source"] =
-      src === "local" || src === "skillspace" || src === "skillhub" ? src : "skillhub";
+      src === "local" || src === "skillspace" || src === "skillhub" || src === "datastudio"
+        ? src
+        : "skillhub";
     const name =
       asString(so.name) ||
       asString(so.slug) ||
@@ -211,6 +213,34 @@ function parseSelectedSkills(o: Record<string, unknown>): SelectedSkill[] {
         .filter((x): x is { path: string; content: string } => x !== null);
       if (localFiles.length === 0) continue;
       out.push({ source, folder, name, description, localFiles });
+      continue;
+    }
+    if (source === "datastudio") {
+      const assetType = asString(so.dataStudioAssetType);
+      const assetId = asString(so.dataStudioAssetId).trim();
+      if (!assetId || (assetType !== "dashboard" && assetType !== "semantic_model")) {
+        continue;
+      }
+      out.push({
+        source,
+        folder,
+        name,
+        description,
+        dataStudioAssetType: assetType,
+        dataStudioAssetId: assetId,
+        dataStudioVersion: asString(so.dataStudioVersion),
+        dataStudioGateScore:
+          typeof so.dataStudioGateScore === "number"
+            ? so.dataStudioGateScore
+            : undefined,
+        dataStudioMetrics: asStringArray(so.dataStudioMetrics),
+        dataStudioExampleQuestions: asStringArray(so.dataStudioExampleQuestions),
+        dataStudioPermissionHint: asString(so.dataStudioPermissionHint),
+        dataStudioQueryUrl: asString(so.dataStudioQueryUrl),
+        dataStudioTimeField: asString(so.dataStudioTimeField),
+        dataStudioDimensions: asStringArray(so.dataStudioDimensions),
+        dataStudioEvidence: asStringArray(so.dataStudioEvidence),
+      });
       continue;
     }
     const skillSpaceId = asString(so.skillSpaceId);

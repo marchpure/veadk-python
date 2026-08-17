@@ -49,6 +49,36 @@ _PYTHON_LICENSE_HEADER = """# Copyright (c) 2025 Beijing Volcano Engine Technolo
 # limitations under the License.
 """
 
+_DATASTUDIO_URL_HELPERS = '''
+def _datastudio_query_url(path_or_url: str) -> str:
+    """Resolve and validate a Data Studio query URL before reading BYAAN_MCP_API_KEY."""
+    base = os.environ["DATASTUDIO_BASE_URL"].rstrip("/")
+    parsed_base = urlparse(base)
+    if parsed_base.scheme not in {"http", "https"} or not parsed_base.netloc:
+        raise ValueError("DATASTUDIO_BASE_URL must be an http(s) URL")
+
+    candidate = (path_or_url or "").strip()
+    if candidate.startswith("/"):
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme or parsed_candidate.netloc:
+            raise ValueError("Data Studio query URL must not be protocol-relative")
+        url = urljoin(f"{base}/", candidate.lstrip("/"))
+    else:
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme not in {"http", "https"} or not parsed_candidate.netloc:
+            raise ValueError("Data Studio query URL must be relative or http(s)")
+        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:
+            raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
+        url = candidate
+
+    parsed_url = urlparse(url)
+    if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:
+        raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
+    if not parsed_url.path.startswith("/api/external/assets/"):
+        raise ValueError("Data Studio query URL must target /api/external/assets")
+    return url
+'''.strip()
+
 _AGENTKIT_BASE_IMAGES = {
     "volcengine": "agentkit-prod-public-cn-beijing.cr.volces.com/base/py-simple:python3.12-bookworm-slim-latest",
     "byteplus": "agentkit-prod-public-ap-southeast-1.cr.bytepluses.com/base/py-simple:python3.12-bookworm-slim-latest",
@@ -131,7 +161,7 @@ class A2ARegistryConfig(BaseModel):
 class SelectedSkill(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["skillhub", "local", "skillspace"] = "skillhub"
+    source: Literal["skillhub", "local", "skillspace", "datastudio"] = "skillhub"
     folder: str = ""
     name: str = ""
     description: str = ""
@@ -143,6 +173,17 @@ class SelectedSkill(BaseModel):
     skillSpaceRegion: str = ""
     skillId: str = ""
     version: str = ""
+    dataStudioAssetType: Literal["dashboard", "semantic_model"] | str = ""
+    dataStudioAssetId: str = ""
+    dataStudioVersion: str = ""
+    dataStudioGateScore: float | None = None
+    dataStudioMetrics: list[str] = Field(default_factory=list)
+    dataStudioExampleQuestions: list[str] = Field(default_factory=list)
+    dataStudioPermissionHint: str = ""
+    dataStudioQueryUrl: str = ""
+    dataStudioTimeField: str = ""
+    dataStudioDimensions: list[str] = Field(default_factory=list)
+    dataStudioEvidence: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _default_folder(self) -> "SelectedSkill":
@@ -289,6 +330,7 @@ class _Acc:
         self.pre_lines: list[str] = []
         self.env: list[EnvVar] = list(model_env_for_provider(cloud_provider))
         self.extras: set[str] = set()
+        self.packages: set[str] = set()
         self.used_names: set[str] = set()
         self.used_env_names: set[str] = set()
         self.agent_display_names: dict[str, str] = {}
@@ -371,6 +413,37 @@ def _safe_draft_payload(draft: AgentDraft) -> dict[str, Any]:
     """Serialize editable metadata without deployment values or MCP secrets."""
     payload = draft.model_dump(mode="json", by_alias=True)
     used: set[str] = set()
+    datastudio_keys = {
+        "dataStudioAssetType",
+        "dataStudioAssetId",
+        "dataStudioVersion",
+        "dataStudioGateScore",
+        "dataStudioMetrics",
+        "dataStudioExampleQuestions",
+        "dataStudioPermissionHint",
+        "dataStudioQueryUrl",
+        "dataStudioTimeField",
+        "dataStudioDimensions",
+        "dataStudioEvidence",
+    }
+
+    def empty_value(value: Any) -> bool:
+        return value is None or value == "" or value == [] or value == {}
+
+    def sanitize_selected_skills(node: dict[str, Any]) -> None:
+        skills = node.get("selectedSkills")
+        if not isinstance(skills, list):
+            return
+        for skill in skills:
+            if not isinstance(skill, dict):
+                continue
+            if skill.get("source") != "datastudio":
+                for key in datastudio_keys:
+                    skill.pop(key, None)
+                continue
+            for key in list(skill):
+                if key in datastudio_keys and empty_value(skill.get(key)):
+                    skill.pop(key, None)
 
     def sanitize(node: dict[str, Any]) -> None:
         if node.get("cloudProvider") == "volcengine":
@@ -417,6 +490,7 @@ def _safe_draft_payload(draft: AgentDraft) -> dict[str, Any]:
                 deployment.pop("modelApiKeyId", None)
             if not str(deployment.get("modelApiKeyName") or "").strip():
                 deployment.pop("modelApiKeyName", None)
+        sanitize_selected_skills(node)
         sub_agents = node.get("subAgents")
         if isinstance(sub_agents, list):
             for sub_agent in sub_agents:
@@ -494,6 +568,76 @@ def _emit_tool_stub(acc: _Acc, name: str, description: str) -> str:
         f'    return {{"result": f"{fn} 尚未实现: {{query}}"}}'
     )
     return fn
+
+
+def _datastudio_assets(draft: AgentDraft) -> list[SelectedSkill]:
+    return [
+        skill
+        for skill in draft.selectedSkills
+        if skill.source == "datastudio"
+        and skill.dataStudioAssetType in {"dashboard", "semantic_model"}
+        and skill.dataStudioAssetId.strip()
+    ]
+
+
+def _datastudio_query_url_literal(asset: SelectedSkill) -> str:
+    explicit = (asset.dataStudioQueryUrl or "").strip()
+    if explicit:
+        return _py_str(explicit)
+    asset_type = asset.dataStudioAssetType.strip()
+    asset_id = asset.dataStudioAssetId.strip()
+    return _py_str(f"/api/external/assets/{asset_type}/{asset_id}/query")
+
+
+def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
+    function_name = _unique_ident(
+        acc,
+        f"query_{asset.folder or asset.name or asset.dataStudioAssetId}",
+        "query_datastudio_asset",
+    )
+    asset_label = asset.name or asset.dataStudioAssetId
+    query_url = _datastudio_query_url_literal(asset)
+    _add_import(acc, "import os")
+    _add_import(acc, "from urllib.parse import urljoin, urlparse")
+    _add_import(acc, "import requests")
+    acc.packages.add("requests>=2.32.0")
+    acc.env.append(
+        EnvVar(
+            "DATASTUDIO_BASE_URL",
+            True,
+            "https://byaan.example",
+            "Byaan Data Studio base URL",
+        )
+    )
+    acc.env.append(
+        EnvVar(
+            "BYAAN_MCP_API_KEY",
+            True,
+            "replace-with-your-byaan-api-key",
+            "Byaan Data Studio REST API Key",
+        )
+    )
+    if _DATASTUDIO_URL_HELPERS not in acc.pre_lines:
+        acc.pre_lines.append(_DATASTUDIO_URL_HELPERS)
+    acc.pre_lines.append(
+        f'''
+def {function_name}(query: str = "", filters: dict | None = None, limit: int = 100) -> dict:
+    """Query the Byaan Data Studio asset {asset_label} through the REST external API."""
+    query_url = _datastudio_query_url({query_url})
+    token = os.environ["BYAAN_MCP_API_KEY"]
+    payload = {{"query": query, "filters": filters or {{}}, "limit": limit}}
+    response = requests.post(
+        query_url,
+        json=payload,
+        headers={{"Authorization": f"Bearer {{token}}"}},
+        timeout=30,
+    )
+    response.raise_for_status()
+    body = response.json()
+    return body.get("data", body) if isinstance(body, dict) else {{"data": body}}
+'''.strip()
+    )
+    return function_name
 
 
 def _build_orchestrator(acc: _Acc, draft: AgentDraft, var_name: str) -> str:
@@ -662,8 +806,13 @@ def _build_agent(acc: _Acc, draft: AgentDraft, var_name: str) -> str:
         if name.strip():
             tool_exprs.append(_emit_tool_stub(acc, name, ""))
 
+    for asset in _datastudio_assets(draft):
+        tool_exprs.append(_emit_datastudio_tool(acc, asset))
+
     skill_folders = [
-        skill.folder for skill in draft.selectedSkills if skill.folder.strip()
+        skill.folder
+        for skill in draft.selectedSkills
+        if skill.source != "datastudio" and skill.folder.strip()
     ]
     if skill_folders:
         _add_import(acc, "from pathlib import Path as _Path")
@@ -881,7 +1030,11 @@ def render_env_example(env: list[EnvVar]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_requirements(extras: set[str], include_feishu_channel: bool) -> str:
+def render_requirements(
+    extras: set[str],
+    include_feishu_channel: bool,
+    packages: set[str] | None = None,
+) -> str:
     # Pin minimum versions so the Docker image upgrades past pre-installed
     # older veadk releases that lack the newer tools and use Starlette 1.x
     # which removed Router.on_startup (breaks AgentkitAgentServer.lifespan).
@@ -891,8 +1044,9 @@ def render_requirements(extras: set[str], include_feishu_channel: bool) -> str:
     unique_extras = sorted(all_extras)
     extras_str = f"[{','.join(unique_extras)}]" if unique_extras else ""
     pkg = f"veadk-python{extras_str}>=1.0.5"
-    packages = [pkg, "agentkit-sdk-python", "google-adk", "starlette<1.0.0"]
-    return "\n".join(packages) + "\n"
+    required_packages = [pkg, "agentkit-sdk-python", "google-adk", "starlette<1.0.0"]
+    required_packages.extend(sorted(packages or set()))
+    return "\n".join(required_packages) + "\n"
 
 
 def render_readme(name: str, draft: AgentDraft) -> str:
@@ -1718,7 +1872,11 @@ def generate_project_from_draft(draft: AgentDraft) -> GeneratedProject:
         ),
         GeneratedFile(
             path="requirements.txt",
-            content=render_requirements(acc.extras, feishu_channel_enabled),
+            content=render_requirements(
+                acc.extras,
+                feishu_channel_enabled,
+                acc.packages,
+            ),
         ),
         GeneratedFile(path="README.md", content=render_readme(pkg, draft)),
     ]

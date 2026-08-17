@@ -173,6 +173,14 @@ def _validate_node(
         MAX_KNOWLEDGEBASE_INDEX_LEN,
     )
     _validate_catalog_ids("tracingExporters", draft.tracingExporters, EXPORTER_BY_ID)
+    for skill in draft.selectedSkills:
+        if skill.source != "datastudio":
+            continue
+        if skill.dataStudioAssetType not in {"dashboard", "semantic_model"}:
+            raise DebugPolicyError("Data Studio asset is missing type")
+        if not skill.dataStudioAssetId.strip():
+            raise DebugPolicyError("Data Studio asset is missing id")
+        _validate_datastudio_query_url(skill.dataStudioQueryUrl)
 
     if len(draft.customTools) > MAX_CUSTOM_TOOLS:
         raise DebugPolicyError("Too many custom tools")
@@ -203,6 +211,23 @@ def _validate_node(
             allow_stdio_mcp=allow_stdio_mcp,
         )
     return total
+
+
+def _validate_datastudio_query_url(value: str) -> None:
+    query_url = value.strip()
+    if not query_url:
+        return
+    parsed = urlparse(query_url)
+    if query_url.startswith("/"):
+        if parsed.scheme or parsed.netloc:
+            raise DebugPolicyError("Data Studio query URL must not be protocol-relative")
+        if not parsed.path.startswith("/api/external/assets/"):
+            raise DebugPolicyError("Data Studio query URL must target /api/external/assets")
+        return
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise DebugPolicyError("Data Studio query URL must be relative or http(s)")
+    if not parsed.path.startswith("/api/external/assets/"):
+        raise DebugPolicyError("Data Studio query URL must target /api/external/assets")
 
 
 def validate_url_not_private(

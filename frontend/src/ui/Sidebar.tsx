@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   Plus,
   Trash2,
+  Database,
 } from "lucide-react";
 import { BookOpen } from "@openai/apps-sdk-ui/components/Icon";
 import type {
@@ -36,6 +37,7 @@ export type SidebarPage =
   | "new-chat"
   | "agents"
   | "library"
+  | "knowledge-center"
   | "applications"
   | "search"
   | "feedback"
@@ -92,6 +94,7 @@ export interface SidebarProps {
   onSearch: () => void;
   onQuickCreate: () => void;
   onLibrary: () => void;
+  onKnowledgeCenter: () => void;
   onAddAgent: () => void;
   onMyAgents: () => void;
   onApplications: () => void;
@@ -258,6 +261,7 @@ export function Sidebar({
   onSearch,
   onQuickCreate,
   onLibrary,
+  onKnowledgeCenter,
   onAddAgent,
   onMyAgents,
   onApplications,
@@ -378,6 +382,18 @@ export function Sidebar({
         >
           <BookOpen className="icon" />
           <span className="sidebar-nav-label">库</span>
+        </button>
+        <button
+          className={`new-chat new-chat--knowledge${
+            activePage === "knowledge-center" ? " is-active" : ""
+          }`}
+          onClick={onKnowledgeCenter}
+          aria-label="知识资产"
+          aria-current={activePage === "knowledge-center" ? "page" : undefined}
+          title="知识资产"
+        >
+          <Database className="icon" />
+          <span className="sidebar-nav-label">知识资产</span>
         </button>
         {show("search") && (
           <SearchButton active={activePage === "search"} onClick={onSearch} />

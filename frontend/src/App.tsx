@@ -90,6 +90,7 @@ import { Sidebar, type SidebarPage } from "./ui/Sidebar";
 import { AgentInfoPanel } from "./ui/AgentTopology";
 import type { SkillCenterWorkspaceLaunch } from "./ui/SkillCenter";
 import { LibraryView, type LibraryTab } from "./ui/LibraryView";
+import { KnowledgeCenterView } from "./knowledge-center/KnowledgeCenter";
 import { AddAgentKitView } from "./ui/AddAgentKit";
 import { AgentWorkspace } from "./ui/AgentWorkspace";
 import {
@@ -1737,6 +1738,7 @@ export default function App() {
     useState<AgentFeedbackCase | null>(null);
   const [myAgents, setMyAgents] = useState(false);
   const [systemInfo, setSystemInfo] = useState(false);
+  const [knowledgeCenter, setKnowledgeCenter] = useState(false);
   const [applicationsView, setApplicationsView] =
     useState<"catalog" | ApplicationId | null>(null);
   // A search result may belong to a different agent; remember it so the
@@ -2029,6 +2031,7 @@ export default function App() {
       if (deletedCurrentSelection) {
         clearSelectedAgentAfterRemoval();
         setCreateView(null);
+        setKnowledgeCenter(false);
         setSkillCenter(false);
         setAddAgent(false);
         setAddMenu(false);
@@ -2045,6 +2048,7 @@ export default function App() {
         deletedRuntimeIds.has(agentDetailTarget.runtime.runtimeId)
       ) {
         setCreateView(null);
+        setKnowledgeCenter(false);
         setSkillCenter(false);
         setAddAgent(false);
         setAddMenu(false);
@@ -2389,6 +2393,7 @@ export default function App() {
           localStorage.removeItem(LS.app);
           setAppName("");
           setCreateView(null);
+          setKnowledgeCenter(false);
           setSkillCenter(false);
           setAddAgent(false);
           setAddMenu(false);
@@ -2719,6 +2724,7 @@ export default function App() {
     setAccess(null);
     setCreateView(null);
     setImportedDraft(null);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setAddAgent(false);
     setAddMenu(false);
@@ -3931,6 +3937,7 @@ export default function App() {
   function openNewChat() {
     setPlatformFeedbackOrigin(null);
     setCreateView(null);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setSkillCenterLaunch(null);
     setAddAgent(false);
@@ -4020,6 +4027,7 @@ export default function App() {
     setCreateView(null);
     setAddAgent(false);
     setAddMenu(false);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setManageAgents(false);
     setFeedbackCaseReturnAgentId(appName);
@@ -4034,6 +4042,7 @@ export default function App() {
     setCreateView(null);
     setAddAgent(false);
     setAddMenu(false);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setFocusedDeploymentTaskId("");
     setFocusedWorkspaceAgentId(agentId);
@@ -4953,6 +4962,7 @@ export default function App() {
     setMyAgents(false);
     setManageAgents(false);
     setCreateView(null);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setAddAgent(false);
     setAddMenu(false);
@@ -5050,6 +5060,7 @@ export default function App() {
     viewSidRef.current = "";
     setSessionId("");
     setCreateView(null);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setAddAgent(false);
     setAddMenu(false);
@@ -5072,6 +5083,7 @@ export default function App() {
     viewSidRef.current = "";
     setSessionId("");
     setCreateView(null);
+    setKnowledgeCenter(false);
     setSkillCenter(false);
     setAddAgent(false);
     setAddMenu(false);
@@ -5137,6 +5149,8 @@ export default function App() {
 
   const sidebarActivePage: SidebarPage = platformFeedbackOrigin !== null
     ? "feedback"
+    : knowledgeCenter
+      ? "knowledge-center"
     : skillCenter
       ? "library"
       : systemInfo
@@ -5224,6 +5238,7 @@ export default function App() {
         onLibrary={() => {
           if (sandboxSession) exitSandboxSession();
           setCreateView(null);
+          setKnowledgeCenter(false);
           setAddAgent(false);
           setAddMenu(false);
           setSearchView(false);
@@ -5240,6 +5255,28 @@ export default function App() {
           setSkillCenter(true);
           setError("");
         }}
+        onKnowledgeCenter={() => {
+          if (sandboxSession) exitSandboxSession();
+          setPlatformFeedbackOrigin(null);
+          viewSidRef.current = "";
+          setSessionId("");
+          setCreateView(null);
+          setKnowledgeCenter(false);
+          setSkillCenter(false);
+          setSkillCenterLaunch(null);
+          setAddAgent(false);
+          setAddMenu(false);
+          setSearchView(false);
+          setManageAgents(false);
+          setAgentDetailTarget(null);
+          setSandboxAgentDetailTarget(null);
+          setSandboxAgentWorkspace(null);
+          setMyAgents(false);
+          setSystemInfo(false);
+          setApplicationsView(null);
+          setKnowledgeCenter(true);
+          setError("");
+        }}
         onAddAgent={() => {
           if (!canCreateAgents) {
             setError("当前账号没有添加 Agent 的权限。");
@@ -5248,6 +5285,7 @@ export default function App() {
           if (sandboxSession) exitSandboxSession();
           viewSidRef.current = "";
           setCreateView(null);
+          setKnowledgeCenter(false);
           setSkillCenter(false);
           setSearchView(false);
           setManageAgents(false);
@@ -5270,6 +5308,7 @@ export default function App() {
           viewSidRef.current = "";
           setSessionId("");
           setCreateView(null);
+          setKnowledgeCenter(false);
           setSkillCenter(false);
           setAddAgent(false);
           setAddMenu(false);
@@ -5286,6 +5325,7 @@ export default function App() {
         onIssueFeedback={() => {
           if (platformFeedbackOrigin !== null) return;
           setSystemInfo(false);
+          setKnowledgeCenter(false);
           setPlatformFeedbackOrigin(
             sidebarActivePage ??
               (sandboxSession
@@ -5620,6 +5660,8 @@ export default function App() {
                 provider={cloudProvider}
                 region={studioRegion || defaultCloudRegion(cloudProvider)}
               />
+            ) : knowledgeCenter ? (
+              <KnowledgeCenterView />
             ) : applicationsView === "coding-agents" ? (
               <CodingAgentsIntegration
                 onBack={() => setApplicationsView("catalog")}

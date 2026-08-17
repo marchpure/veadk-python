@@ -4,7 +4,9 @@
 import type { ProjectFile } from "../project";
 
 /** Discriminator for where a selected skill came from. */
-export type SkillSource = "skillhub" | "local" | "skillspace";
+export type SkillSource = "skillhub" | "local" | "skillspace" | "datastudio";
+
+export type DataStudioAssetType = "dashboard" | "semantic_model";
 
 /** A selectable hit from any source. Pickers produce these before the user
  *  toggles them into SelectedSkill. */
@@ -30,6 +32,18 @@ export interface SkillHit {
   skillSpaceRegion?: string;
   skillId?: string;
   version?: string;
+  // Data Studio assets published by Byaan Knowledge Center.
+  dataStudioAssetType?: DataStudioAssetType;
+  dataStudioAssetId?: string;
+  dataStudioVersion?: string;
+  dataStudioGateScore?: number;
+  dataStudioMetrics?: string[];
+  dataStudioExampleQuestions?: string[];
+  dataStudioPermissionHint?: string;
+  dataStudioQueryUrl?: string;
+  dataStudioTimeField?: string;
+  dataStudioDimensions?: string[];
+  dataStudioEvidence?: string[];
 }
 
 /** A skill the user has added to the draft. Saved in YAML and materialized
@@ -52,6 +66,18 @@ export interface SelectedSkill {
   skillSpaceRegion?: string;
   skillId?: string;
   version?: string;
+  // Data Studio asset identity and runtime hints.
+  dataStudioAssetType?: DataStudioAssetType;
+  dataStudioAssetId?: string;
+  dataStudioVersion?: string;
+  dataStudioGateScore?: number;
+  dataStudioMetrics?: string[];
+  dataStudioExampleQuestions?: string[];
+  dataStudioPermissionHint?: string;
+  dataStudioQueryUrl?: string;
+  dataStudioTimeField?: string;
+  dataStudioDimensions?: string[];
+  dataStudioEvidence?: string[];
 }
 
 /** Source-specific downloader signature. Resolves to ProjectFiles to merge

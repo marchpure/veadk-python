@@ -1757,6 +1757,10 @@ def _run_frontend_server(
         create_region_candidates_resolver=_knowledge_create_regions,
     )
 
+    from frontend.server.datastudio import mount_datastudio_routes
+
+    mount_datastudio_routes(app)
+
     from frontend.server.video.routes import (
         build_video_service,
         mount_video_routes,
