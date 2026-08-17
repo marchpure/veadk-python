@@ -15,10 +15,13 @@
 import os
 from typing import Any
 
-from dotenv import find_dotenv
+from dotenv import find_dotenv, load_dotenv, dotenv_values
 from pydantic import BaseModel, Field
 
+from veadk.configs.auth_configs import VeIdentityConfig
+from veadk.configs.model_configs import RealtimeModelConfig
 from veadk.configs.database_configs import (
+    MilvusConfig,
     MysqlConfig,
     OpensearchConfig,
     RedisConfig,
@@ -30,10 +33,32 @@ from veadk.configs.tool_configs import BuiltinToolConfigs, PromptPilotConfig
 from veadk.configs.tracing_configs import (
     APMPlusConfig,
     CozeloopConfig,
+    OpenTelemetryConfig,
     PrometheusConfig,
     TLSConfig,
 )
+from veadk.utils.logger import get_logger
 from veadk.utils.misc import set_envs
+
+logger = get_logger(__name__)
+
+env_file_path = os.path.join(os.getcwd(), ".env")
+if os.path.isfile(env_file_path):
+    load_dotenv(env_file_path)
+    env_from_dotenv = dotenv_values(env_file_path)
+    logger.info(f"Find `.env` file in {env_file_path}, load envs.")
+else:
+    env_from_dotenv = {}
+    logger.info("No `.env` file found.")
+
+provider = (os.getenv("CLOUD_PROVIDER") or "").lower()
+if provider == "byteplus":
+    byteplus_access_key = os.getenv("BYTEPLUS_ACCESS_KEY")
+    if byteplus_access_key:
+        os.environ["VOLCENGINE_ACCESS_KEY"] = byteplus_access_key
+    byteplus_secret_key = os.getenv("BYTEPLUS_SECRET_KEY")
+    if byteplus_secret_key:
+        os.environ["VOLCENGINE_SECRET_KEY"] = byteplus_secret_key
 
 
 class VeADKConfig(BaseModel):
@@ -43,6 +68,9 @@ class VeADKConfig(BaseModel):
     tool: BuiltinToolConfigs = Field(default_factory=BuiltinToolConfigs)
     prompt_pilot: PromptPilotConfig = Field(default_factory=PromptPilotConfig)
 
+    opentelemetry_config: OpenTelemetryConfig = Field(
+        default_factory=OpenTelemetryConfig
+    )
     apmplus_config: APMPlusConfig = Field(default_factory=APMPlusConfig)
     cozeloop_config: CozeloopConfig = Field(default_factory=CozeloopConfig)
     tls_config: TLSConfig = Field(default_factory=TLSConfig)
@@ -52,9 +80,13 @@ class VeADKConfig(BaseModel):
     opensearch: OpensearchConfig = Field(default_factory=OpensearchConfig)
     mysql: MysqlConfig = Field(default_factory=MysqlConfig)
     redis: RedisConfig = Field(default_factory=RedisConfig)
+    milvus: MilvusConfig = Field(default_factory=MilvusConfig)
     viking_knowledgebase: VikingKnowledgebaseConfig = Field(
         default_factory=VikingKnowledgebaseConfig
     )
+
+    veidentity: VeIdentityConfig = Field(default_factory=VeIdentityConfig)
+    realtime_model: RealtimeModelConfig = Field(default_factory=RealtimeModelConfig)
 
 
 def getenv(
@@ -73,6 +105,20 @@ def getenv(
     """
     value = os.getenv(env_name, default_value)
 
+    if value == default_value or not value:
+        provider = (os.getenv("CLOUD_PROVIDER") or "").lower()
+        if provider == "byteplus":
+            if env_name == "VOLCENGINE_ACCESS_KEY":
+                byteplus_key = os.getenv("BYTEPLUS_ACCESS_KEY")
+                if byteplus_key:
+                    os.environ["VOLCENGINE_ACCESS_KEY"] = byteplus_key
+                    value = byteplus_key
+            elif env_name == "VOLCENGINE_SECRET_KEY":
+                byteplus_key = os.getenv("BYTEPLUS_SECRET_KEY")
+                if byteplus_key:
+                    os.environ["VOLCENGINE_SECRET_KEY"] = byteplus_key
+                    value = byteplus_key
+
     if allow_false_values:
         return value
 
@@ -86,10 +132,15 @@ def getenv(
 
 config_yaml_path = find_dotenv(filename="config.yaml", usecwd=True)
 
-veadk_environments = {}
+veadk_environments = dict(env_from_dotenv)
 
 if config_yaml_path:
-    config_dict, _veadk_environments = set_envs(config_yaml_path=config_yaml_path)
+    logger.info(f"Find `config.yaml` file in {config_yaml_path}")
+    config_dict, _veadk_environments = set_envs(
+        config_yaml_path=config_yaml_path, env_from_dotenv=env_from_dotenv
+    )
     veadk_environments.update(_veadk_environments)
+else:
+    logger.warning("No `config.yaml` file found.")
 
 settings = VeADKConfig()

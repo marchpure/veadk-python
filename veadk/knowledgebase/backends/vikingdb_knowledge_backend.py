@@ -14,6 +14,7 @@
 
 import asyncio
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -21,24 +22,108 @@ from typing import Any, Literal
 import requests
 from pydantic import Field
 from typing_extensions import override
+from volcengine.auth.SignerV4 import SignerV4
+from volcengine.base.Request import Request
+from volcengine.Credentials import Credentials
+from volcengine.viking_knowledgebase import VikingKnowledgeBaseService
 
 import veadk.config  # noqa E401
-from veadk.config import getenv
+from veadk.auth.veauth.utils import (
+    VeIAMCredential,
+    get_credential_from_vefaas_iam,
+)
 from veadk.configs.database_configs import NormalTOSConfig, TOSConfig
+from veadk.integrations.ve_tos.ve_tos import VeTOS
 from veadk.knowledgebase.backends.base_backend import BaseKnowledgebaseBackend
-from veadk.knowledgebase.backends.utils import build_vikingdb_knowledgebase_request
 from veadk.knowledgebase.entry import KnowledgebaseEntry
 from veadk.utils.logger import get_logger
-from veadk.utils.misc import formatted_timestamp
-
-try:
-    from veadk.integrations.ve_tos.ve_tos import VeTOS
-except ImportError:
-    raise ImportError(
-        "Please install VeADK extensions\npip install veadk-python[extensions]"
-    )
+from veadk.utils.misc import formatted_timestamp, getenv
 
 logger = get_logger(__name__)
+
+
+def _viking_cloud_provider() -> str:
+    return (
+        os.getenv("AGENTKIT_CLOUD_PROVIDER")
+        or os.getenv("CLOUD_PROVIDER")
+        or "volcengine"
+    ).lower()
+
+
+def _viking_access_key_from_env() -> str | None:
+    if _viking_cloud_provider() == "byteplus":
+        return os.getenv("BYTEPLUS_ACCESS_KEY")
+    return os.getenv("VOLCENGINE_ACCESS_KEY")
+
+
+def _viking_secret_key_from_env() -> str | None:
+    if _viking_cloud_provider() == "byteplus":
+        return os.getenv("BYTEPLUS_SECRET_KEY")
+    return os.getenv("VOLCENGINE_SECRET_KEY")
+
+
+def _viking_session_token_from_env() -> str:
+    if _viking_cloud_provider() == "byteplus":
+        return os.getenv("BYTEPLUS_SESSION_TOKEN", "")
+    return os.getenv("VOLCENGINE_SESSION_TOKEN", "")
+
+
+def _byteplus_viking_region(region: str | None) -> str:
+    """Return the supported BytePlus VikingDB Knowledge Base region."""
+    region = (region or "").strip()
+    if not region or region in {"cn-beijing", "cn-shanghai", "cn-guangzhou"}:
+        return "cn-hongkong"
+    return region
+
+
+def build_vikingdb_knowledgebase_request(
+    path: str,
+    volcengine_access_key: str,
+    volcengine_secret_key: str,
+    session_token: str = "",
+    method: Literal["GET", "POST", "PUT", "DELETE"] = "POST",
+    region: str = "cn-beijing",
+    params=None,
+    data=None,
+    doseq=0,
+) -> Request:
+    if params:
+        for key in params:
+            if (
+                type(params[key]) is int
+                or type(params[key]) is float
+                or type(params[key]) is bool
+            ):
+                params[key] = str(params[key])
+            elif type(params[key]) is list:
+                if not doseq:
+                    params[key] = ",".join(params[key])
+
+    r = Request()
+    r.set_shema("https")
+    r.set_method(method)
+    r.set_connection_timeout(10)
+    r.set_socket_timeout(10)
+
+    mheaders = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    r.set_headers(mheaders)
+
+    if params:
+        r.set_query(params)
+
+    r.set_path(path)
+
+    if data is not None:
+        r.set_body(json.dumps(data))
+
+    credentials = Credentials(
+        volcengine_access_key, volcengine_secret_key, "air", region, session_token
+    )
+    SignerV4.sign(r, credentials)
+    return r
 
 
 def _read_file_to_bytes(file_path: str) -> tuple[bytes, str]:
@@ -58,22 +143,116 @@ def get_files_in_directory(directory: str):
 
 
 class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
-    volcengine_access_key: str = Field(
-        default_factory=lambda: getenv("VOLCENGINE_ACCESS_KEY")
+    """Volcengine Viking DB knowledgebase backend.
+
+    Volcegnine Viking DB knowledgebase provides powerful knowledgebase storage and search.
+
+    Attributes:
+        volcengine_access_key (str | None):
+            Access key for Volcengine. Loaded automatically from the
+            `VOLCENGINE_ACCESS_KEY` environment variable if not provided.
+
+        volcengine_secret_key (str | None):
+            Secret key for Volcengine. Loaded automatically from the
+            `VOLCENGINE_SECRET_KEY` environment variable if not provided.
+
+        session_token (str):
+            Optional session token for temporary credentials. Defaults to an empty string.
+
+        volcengine_project (str):
+            VikingDB knowledgebase project name in the Volcengine console platform.
+            Defaults to `"default"`.
+
+        region (str): Region of the VikingDB knowledgebase. Defaults to `"cn-beijing"`.
+
+        tos_config (TOSConfig | NormalTOSConfig):
+            TOS configuration used for uploading files to TOS (Volcengine’s Object Storage).
+            Defaults to a new instance of `TOSConfig`.
+
+    Notes:
+        Please make sure that you have created a bucket in your TOS.
+
+    Examples:
+        Init a knowledgebase based on VikingDB knowledgebase backend.
+
+        ```python
+        knowledgebase = Knowledgebase(backend="redis")
+        ```
+
+        With more configurations:
+
+        ```python
+        ...
+        ```
+    """
+
+    volcengine_access_key: str | None = Field(
+        default_factory=_viking_access_key_from_env
+    )
+    volcengine_secret_key: str | None = Field(
+        default_factory=_viking_secret_key_from_env
+    )
+    session_token: str = Field(default_factory=_viking_session_token_from_env)
+
+    volcengine_project: str = Field(
+        default_factory=lambda: os.getenv("DATABASE_VIKING_PROJECT", "default")
+    )
+    resource_id: str = Field(
+        default_factory=lambda: os.getenv("DATABASE_VIKING_RESOURCE_ID", "")
     )
 
-    volcengine_secret_key: str = Field(
-        default_factory=lambda: getenv("VOLCENGINE_SECRET_KEY")
+    version: str = Field(
+        default_factory=lambda: os.getenv("DATABASE_VIKING_VERSION", "2")
     )
 
-    volcengine_project: str = "default"
-    """VikingDB knowledgebase project in Volcengine console platform. Default by `default`"""
+    cloud_provider: str = Field(
+        default_factory=lambda: os.getenv("CLOUD_PROVIDER", "volces")
+    )
 
-    region: str = "cn-beijing"
-    """VikingDB knowledgebase region"""
+    region: str = Field(default="")
+    base_url: str = Field(default="")
+    host: str = Field(default="")
+    schema: str = "https"
 
     tos_config: TOSConfig | NormalTOSConfig = Field(default_factory=TOSConfig)
-    """TOS config, used to upload files to TOS"""
+
+    _viking_sdk_client = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.cloud_provider.lower() == "byteplus":
+            self.region = _byteplus_viking_region(
+                self.region or os.getenv("DATABASE_VIKING_REGION")
+            )
+            self.base_url = (
+                self.base_url
+                or f"https://api-knowledgebase.mlp.{self.region}.bytepluses.com"
+            )
+            self.host = (
+                self.host or f"api-knowledgebase.mlp.{self.region}.bytepluses.com"
+            )
+            if (
+                "tos_config" not in self.model_fields_set
+                and not os.getenv("DATABASE_TOS_REGION")
+                and not os.getenv("DATABASE_TOS_ENDPOINT")
+            ):
+                self.tos_config.region = self.region
+                self.tos_config.endpoint = f"tos-{self.region}.bytepluses.com"
+        elif not self.region:
+            self.region = os.getenv("DATABASE_VIKING_REGION", "cn-beijing")
+            self.base_url = f"https://api-knowledgebase.mlp.{self.region}.volces.com"
+            self.host = f"api-knowledgebase.mlp.{self.region}.volces.com"
+
+        logger.info(f"Cloud provider: {self.cloud_provider.lower()}")
+        logger.info(f"VikingDBKnowledgeBackend: region={self.region}, host={self.host}")
+
+        self.precheck_index_naming()
+
+        # check whether collection exist, if not, create it
+        if not self.collection_status()["existed"]:
+            logger.warning(
+                f"VikingDB knowledgebase collection {self.index} does not exist, please create it first..."
+            )
+            self.create_collection()
 
     def precheck_index_naming(self):
         if not (
@@ -86,20 +265,22 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
                 "it must start with an English letter, contain only letters, numbers, and underscores, and have a length of 1-128."
             )
 
-    def model_post_init(self, __context: Any) -> None:
-        self.precheck_index_naming()
+    def _get_tos_client(self, tos_bucket_name: str) -> VeTOS:
+        ak = None
+        sk = None
+        sts_token = None
+        if not (self.volcengine_access_key and self.volcengine_secret_key):
+            cred = self._set_service_info()
+            ak = cred.access_key_id
+            sk = cred.secret_access_key
+            sts_token = cred.session_token
 
-        # check whether collection exist, if not, create it
-        if not self.collection_status()["existed"]:
-            logger.warning(
-                f"VikingDB knowledgebase collection {self.index} does not exist, please create it first..."
-            )
-
-        self._tos_client = VeTOS(
-            ak=self.volcengine_access_key,
-            sk=self.volcengine_secret_key,
+        return VeTOS(
+            ak=ak or self.volcengine_access_key,
+            sk=sk or self.volcengine_secret_key,
+            session_token=sts_token or self.session_token,
             region=self.tos_config.region,
-            bucket_name=self.tos_config.bucket,
+            bucket_name=tos_bucket_name or self.tos_config.bucket,
         )
 
     @override
@@ -267,10 +448,12 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         DELETE_COLLECTION_PATH = "/api/knowledge/collection/delete"
 
         response = self._do_request(
-            body={
-                "name": self.index,
-                "project": self.volcengine_project,
-            },
+            body=self._with_resource_id(
+                {
+                    "name": self.index,
+                    "project": self.volcengine_project,
+                }
+            ),
             path=DELETE_COLLECTION_PATH,
             method="POST",
         )
@@ -283,11 +466,13 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
     def delete_doc_by_id(self, id: str) -> bool:
         DELETE_DOC_PATH = "/api/knowledge/doc/delete"
         response = self._do_request(
-            body={
-                "collection_name": self.index,
-                "project": self.volcengine_project,
-                "doc_id": id,
-            },
+            body=self._with_resource_id(
+                {
+                    "collection_name": self.index,
+                    "project": self.volcengine_project,
+                    "doc_id": id,
+                }
+            ),
             path=DELETE_DOC_PATH,
             method="POST",
         )
@@ -305,12 +490,14 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         """
         LIST_DOCS_PATH = "/api/knowledge/doc/list"
         response = self._do_request(
-            body={
-                "collection_name": self.index,
-                "project": self.volcengine_project,
-                "offset": offset,
-                "limit": limit,
-            },
+            body=self._with_resource_id(
+                {
+                    "collection_name": self.index,
+                    "project": self.volcengine_project,
+                    "offset": offset,
+                    "limit": limit,
+                }
+            ),
             path=LIST_DOCS_PATH,
             method="POST",
         )
@@ -329,12 +516,14 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         """
         LIST_CHUNKS_PATH = "/api/knowledge/point/list"
         response = self._do_request(
-            body={
-                "collection_name": self.index,
-                "project": self.volcengine_project,
-                "offset": offset,
-                "limit": limit,
-            },
+            body=self._with_resource_id(
+                {
+                    "collection_name": self.index,
+                    "project": self.volcengine_project,
+                    "offset": offset,
+                    "limit": limit,
+                }
+            ),
             path=LIST_CHUNKS_PATH,
             method="POST",
         )
@@ -357,10 +546,12 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
     def collection_status(self):
         COLLECTION_INFO_PATH = "/api/knowledge/collection/info"
         response = self._do_request(
-            body={
-                "name": self.index,
-                "project": self.volcengine_project,
-            },
+            body=self._with_resource_id(
+                {
+                    "name": self.index,
+                    "project": self.volcengine_project,
+                }
+            ),
             path=COLLECTION_INFO_PATH,
             method="POST",
         )
@@ -380,15 +571,22 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
 
     def create_collection(self) -> None:
         CREATE_COLLECTION_PATH = "/api/knowledge/collection/create"
-
+        if self.version not in ["2", "4"]:
+            raise ValueError(
+                f"The version number must be 2 or 4. The current value: {self.version}. For details, please refer to: `https://www.volcengine.com/docs/84313/1254593?lang=zh`"
+            )
         response = self._do_request(
             body={
                 "name": self.index,
                 "project": self.volcengine_project,
                 "description": "Created by Volcengine Agent Development Kit (VeADK).",
+                "version": int(self.version),
             },
             path=CREATE_COLLECTION_PATH,
             method="POST",
+        )
+        logger.debug(
+            f"Create collection {self.index} using project {self.volcengine_project} response: {response}"
         )
 
         if response.get("code") != 0:
@@ -404,6 +602,8 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         metadata: dict | None = None,
     ) -> str:
         # Here, we set the metadata via the TOS object, ref: https://www.volcengine.com/docs/84313/1254624
+        self._tos_client = self._get_tos_client(tos_bucket_name)
+
         self._tos_client.bucket_name = tos_bucket_name
         coro = self._tos_client.upload(
             object_key=object_key,
@@ -424,12 +624,14 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         ADD_DOC_PATH = "/api/knowledge/doc/add"
 
         response = self._do_request(
-            body={
-                "collection_name": self.index,
-                "project": self.volcengine_project,
-                "add_type": "tos",
-                "tos_path": tos_url,
-            },
+            body=self._with_resource_id(
+                {
+                    "collection_name": self.index,
+                    "project": self.volcengine_project,
+                    "add_type": "tos",
+                    "tos_path": tos_url,
+                }
+            ),
             path=ADD_DOC_PATH,
             method="POST",
         )
@@ -441,10 +643,8 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         top_k: int = 5,
         metadata: dict | None = None,
         rerank: bool = True,
-        chunk_diffusion_count: int | None = 3,
+        chunk_diffusion_count: int | None = 0,
     ) -> list[KnowledgebaseEntry]:
-        SEARCH_KNOWLEDGE_PATH = "/api/knowledge/collection/search_knowledge"
-
         query_param = (
             {
                 "doc_filter": {
@@ -464,37 +664,80 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
             "chunk_diffusion_count": chunk_diffusion_count,
         }
 
-        response = self._do_request(
-            body={
-                "name": self.index,
-                "project": self.volcengine_project,
-                "query": query,
-                "limit": top_k,
-                "query_param": query_param,
-                "post_processing": post_precessing,
-            },
-            path=SEARCH_KNOWLEDGE_PATH,
-            method="POST",
+        ak = None
+        sk = None
+        sts_token = None
+        if not (self.volcengine_access_key and self.volcengine_secret_key):
+            cred = self._set_service_info()
+            ak = cred.access_key_id
+            sk = cred.secret_access_key
+            sts_token = cred.session_token
+
+        self._viking_sdk_client = VikingKnowledgeBaseService(
+            host=self.host,
+            ak=ak or self.volcengine_access_key,
+            sk=sk or self.volcengine_secret_key,
+            sts_token=sts_token or self.session_token,
+            scheme=self.schema,
         )
 
-        if response.get("code") != 0:
-            raise ValueError(
-                f"Error during knowledge search: {response.get('code')}, message: {response.get('message')}"
-            )
+        response = self._viking_sdk_client.search_knowledge(
+            collection_name=self.index,
+            project=self.volcengine_project,
+            query=query,
+            limit=top_k,
+            query_param=query_param,
+            post_processing=post_precessing,
+            resource_id=self.resource_id or None,
+        )
+
+        logger.debug(
+            f"Search knowledge {self.index} using project {self.volcengine_project} original response: {response}"
+        )
 
         entries = []
-        for result in response.get("data", {}).get("result_list", []):
-            doc_meta_raw_str = result.get("doc_info", {}).get("doc_meta")
-            doc_meta_list = json.loads(doc_meta_raw_str) if doc_meta_raw_str else []
-            metadata = {}
-            for meta in doc_meta_list:
-                metadata[meta["field_name"]] = meta["field_value"]
-
-            entries.append(
-                KnowledgebaseEntry(content=result.get("content", ""), metadata=metadata)
+        if not response.get("result_list", []):
+            logger.warning(
+                f"Search knowledge {self.index} using project {self.volcengine_project} got empty response."
             )
+        else:
+            logger.debug(
+                f"Search knowledge {self.index} using project {self.volcengine_project} got {len(response.get('result_list', []))} results."
+            )
+            for result in response.get("result_list", []):
+                doc_meta_raw_str = result.get("doc_info", {}).get("doc_meta")
+                doc_meta_list = json.loads(doc_meta_raw_str) if doc_meta_raw_str else []
+                metadata = {}
+                for meta in doc_meta_list:
+                    metadata[meta["field_name"]] = meta["field_value"]
+
+                entries.append(
+                    KnowledgebaseEntry(
+                        content=result.get("content", ""), metadata=metadata
+                    )
+                )
 
         return entries
+
+    def _set_service_info(self) -> VeIAMCredential:
+        env_host = getenv(
+            "DATABASE_VIKING_BASE_URL",
+            default_value=None,
+            allow_false_values=True,
+        )
+        if env_host:
+            if env_host.startswith("http://") or env_host.startswith("https://"):
+                self.base_url = env_host
+                split_url = env_host.split("://")
+                self.host = split_url[-1]
+                self.schema = split_url[0]
+            else:
+                raise ValueError(
+                    "DATABASE_VIKING_BASE_URL must start with http:// or https://"
+                )
+
+        cred = get_credential_from_vefaas_iam()
+        return cred
 
     def _do_request(
         self,
@@ -502,18 +745,29 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
         path: str,
         method: Literal["GET", "POST", "PUT", "DELETE"] = "POST",
     ) -> dict:
-        VIKINGDB_KNOWLEDGEBASE_BASE_URL = "api-knowledgebase.mlp.cn-beijing.volces.com"
+        full_path = f"{self.base_url}{path}"
+
+        ak = None
+        sk = None
+        sts_token = None
+        if not (self.volcengine_access_key and self.volcengine_secret_key):
+            cred = self._set_service_info()
+            ak = cred.access_key_id
+            sk = cred.secret_access_key
+            sts_token = cred.session_token
 
         request = build_vikingdb_knowledgebase_request(
             path=path,
-            volcengine_access_key=self.volcengine_access_key,
-            volcengine_secret_key=self.volcengine_secret_key,
+            volcengine_access_key=ak or self.volcengine_access_key,
+            volcengine_secret_key=sk or self.volcengine_secret_key,
+            session_token=sts_token or self.session_token,
             method=method,
             data=body,
+            region=self.region,
         )
         response = requests.request(
             method=method,
-            url=f"https://{VIKINGDB_KNOWLEDGEBASE_BASE_URL}{path}",
+            url=full_path,
             headers=request.headers,
             data=request.body,
         )
@@ -522,3 +776,8 @@ class VikingDBKnowledgeBackend(BaseKnowledgebaseBackend):
                 f"VikingDBKnowledgeBackend error during request: {response.json()}"
             )
         return response.json()
+
+    def _with_resource_id(self, body: dict) -> dict:
+        if self.resource_id:
+            return {**body, "resource_id": self.resource_id}
+        return body

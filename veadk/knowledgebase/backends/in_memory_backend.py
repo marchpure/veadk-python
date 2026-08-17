@@ -14,23 +14,32 @@
 
 from llama_index.core import Document, SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.schema import BaseNode
-from llama_index.embeddings.openai_like import OpenAILikeEmbedding
 from pydantic import Field
 from typing_extensions import Any, override
 
 from veadk.configs.model_configs import EmbeddingModelConfig, NormalEmbeddingModelConfig
 from veadk.knowledgebase.backends.base_backend import BaseKnowledgebaseBackend
 from veadk.knowledgebase.backends.utils import get_llama_index_splitter
+from veadk.models.ark_embedding import create_embedding_model
 
 
 class InMemoryKnowledgeBackend(BaseKnowledgebaseBackend):
+    """A in-memory implementation backend for knowledgebase.
+
+    In-memory backend stores embedded text in a vector storage from Llama-index.
+
+    Attributes:
+        embedding_config (EmbeddingModelConfig):
+            Embedding config for text embedding and search.
+            Embedding config contains embedding model name and the corresponding dim.
+    """
+
     embedding_config: NormalEmbeddingModelConfig | EmbeddingModelConfig = Field(
         default_factory=EmbeddingModelConfig
     )
-    """Embedding model configs"""
 
     def model_post_init(self, __context: Any) -> None:
-        self._embed_model = OpenAILikeEmbedding(
+        self._embed_model = create_embedding_model(
             model_name=self.embedding_config.name,
             api_key=self.embedding_config.api_key,
             api_base=self.embedding_config.api_base,

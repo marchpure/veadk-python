@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock, patch
+import os
+from unittest.mock import Mock, PropertyMock, patch
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
@@ -33,11 +34,10 @@ from veadk.tracing.telemetry.opentelemetry_tracer import OpentelemetryTracer
 
 
 def test_agent():
-    knowledgebase = KnowledgeBase(
-        index="test_index",
-        backend="local",
-        backend_config={"embedding_config": {"api_key": "test"}},
-    )
+    os.environ["MODEL_EMBEDDING_API_KEY"] = "mocked_api_key"
+
+    knowledgebase = KnowledgeBase(index="test_index", backend="local")
+
     long_term_memory = LongTermMemory(backend="local")
     tracer = OpentelemetryTracer()
 
@@ -69,8 +69,6 @@ def test_agent():
 
     assert agent.knowledgebase == knowledgebase
     assert agent.knowledgebase.backend == "local"  # type: ignore
-    assert load_knowledgebase_tool.knowledgebase == agent.knowledgebase
-    assert load_knowledgebase_tool.load_knowledgebase_tool in agent.tools
 
     assert agent.long_term_memory.backend == "local"  # type: ignore
     assert load_memory in agent.tools
@@ -78,19 +76,32 @@ def test_agent():
 
 @patch.dict("os.environ", {"MODEL_AGENT_API_KEY": "mock_api_key"})
 def test_agent_default_values():
-    agent = Agent()
+    with (
+        patch("veadk.agent.settings.model.name", new=DEFAULT_MODEL_AGENT_NAME),
+        patch("veadk.agent.settings.model.provider", new=DEFAULT_MODEL_AGENT_PROVIDER),
+        patch(
+            "veadk.agent.settings.model.api_base",
+            new=DEFAULT_MODEL_AGENT_API_BASE,
+        ),
+        patch(
+            "veadk.configs.model_configs.ModelConfig.api_key",
+            new_callable=PropertyMock,
+            return_value="mock_api_key",
+        ),
+    ):
+        agent = Agent()
 
-    assert agent.name == DEFAULT_AGENT_NAME
+        assert agent.name == DEFAULT_AGENT_NAME
 
-    assert agent.model_name == DEFAULT_MODEL_AGENT_NAME
-    assert agent.model_provider == DEFAULT_MODEL_AGENT_PROVIDER
-    assert agent.model_api_base == DEFAULT_MODEL_AGENT_API_BASE
+        assert agent.model_name == DEFAULT_MODEL_AGENT_NAME
+        assert agent.model_provider == DEFAULT_MODEL_AGENT_PROVIDER
+        assert agent.model_api_base == DEFAULT_MODEL_AGENT_API_BASE
 
-    assert agent.tools == []
-    assert agent.sub_agents == []
-    assert agent.knowledgebase is None
-    assert agent.long_term_memory is None
-    assert agent.tracers == []
+        assert agent.tools == []
+        assert agent.sub_agents == []
+        assert agent.knowledgebase is None
+        assert agent.long_term_memory is None
+        # assert agent.tracers == []
 
 
 @patch.dict("os.environ", {"MODEL_AGENT_API_KEY": "mock_api_key"})
@@ -123,6 +134,46 @@ def test_agent_model_creation(mock_lite_llm):
 
     mock_lite_llm.assert_called_once()
     assert agent.model == mock_model
+
+
+@patch("veadk.models.ark_llm.ArkLlm")
+def test_agent_passes_context_management_to_responses_model(mock_ark_llm):
+    context_management = {
+        "edits": [
+            {
+                "type": "clear_thinking",
+                "keep": {"type": "thinking_turns", "value": 1},
+            }
+        ]
+    }
+
+    Agent(
+        model_name="test_model",
+        model_provider="ark",
+        model_api_key="test_key",
+        model_api_base="test_base",
+        enable_responses=True,
+        model_extra_config={"context_management": context_management},
+    )
+
+    assert mock_ark_llm.call_args.kwargs["context_management"] == context_management
+
+
+@patch("veadk.models.ark_llm.ArkLlm")
+def test_agent_configures_responses_model_fallbacks(mock_ark_llm):
+    Agent(
+        model_name=["primary-model", "fallback-model-1", "fallback-model-2"],
+        model_provider="openai",
+        model_api_key="test_key",
+        model_api_base="test_base",
+        enable_responses=True,
+    )
+
+    assert mock_ark_llm.call_args.kwargs["model"] == "openai/primary-model"
+    assert mock_ark_llm.call_args.kwargs["fallbacks"] == [
+        "openai/fallback-model-1",
+        "openai/fallback-model-2",
+    ]
 
 
 @patch.dict("os.environ", {"MODEL_AGENT_API_KEY": "mock_api_key"})

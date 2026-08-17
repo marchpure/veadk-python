@@ -16,142 +16,68 @@
 The document of this tool see: https://www.volcengine.com/docs/85508/1650263
 """
 
-import datetime
-import hashlib
-import hmac
-import json
-from urllib.parse import quote
-
+import os
 import requests
 
-from veadk.config import getenv
+from google.adk.tools import ToolContext
+
+from veadk.auth.veauth.utils import get_credential_from_vefaas_iam
 from veadk.utils.logger import get_logger
+from veadk.utils.volcengine_sign import ve_request
 
 logger = get_logger(__name__)
+_BYTEPLUS_WEB_SEARCH_URL = "https://torchlight.byteintlapi.com/search_api/web_search"
 
 
-Service = "volc_torchlight_api"
-Version = "2025-01-01"
-Region = "cn-beijing"
-Host = "mercury.volcengineapi.com"
-ContentType = "application/json"
+def _extract_web_results(response: object) -> list[dict]:
+    if isinstance(response, list):
+        return [item for item in response if isinstance(item, dict)]
+    if not isinstance(response, dict):
+        return []
+    candidates: list[object] = [
+        ((response.get("Result") or {}).get("WebResults")),
+        ((response.get("Result") or {}).get("Results")),
+        ((response.get("Result") or {}).get("SearchResults")),
+        ((response.get("Data") or {}).get("WebResults")),
+        ((response.get("Data") or {}).get("Results")),
+        ((response.get("data") or {}).get("web_results")),
+        ((response.get("data") or {}).get("results")),
+        response.get("WebResults"),
+        response.get("results"),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, list):
+            return [item for item in candidate if isinstance(item, dict)]
+    return []
 
 
-def norm_query(params):
-    query = ""
-    for key in sorted(params.keys()):
-        if isinstance(params[key], list):
-            for k in params[key]:
-                query = (
-                    query + quote(key, safe="-_.~") + "=" + quote(k, safe="-_.~") + "&"
-                )
-        else:
-            query = (
-                query
-                + quote(key, safe="-_.~")
-                + "="
-                + quote(params[key], safe="-_.~")
-                + "&"
-            )
-    query = query[:-1]
-    return query.replace("+", "%20")
+def _result_summary(item: dict) -> str:
+    for key in ("Summary", "summary", "Snippet", "snippet", "Content", "content"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
 
 
-def hmac_sha256(key: bytes, content: str):
-    return hmac.new(key, content.encode("utf-8"), hashlib.sha256).digest()
-
-
-def hash_sha256(content: str):
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-
-def request(method, date, query, header, ak, sk, action, body):
-    credential = {
-        "access_key_id": ak,
-        "secret_access_key": sk,
-        "service": Service,
-        "region": Region,
-    }
-    request_param = {
-        "body": body,
-        "host": Host,
-        "path": "/",
-        "method": method,
-        "content_type": ContentType,
-        "date": date,
-        "query": {"Action": action, "Version": Version, **query},
-    }
-    if body is None:
-        request_param["body"] = ""
-    # 第四步：接下来开始计算签名。在计算签名前，先准备好用于接收签算结果的 signResult 变量，并设置一些参数。
-    # 初始化签名结果的结构体
-    x_date = request_param["date"].strftime("%Y%m%dT%H%M%SZ")
-    short_x_date = x_date[:8]
-    x_content_sha256 = hash_sha256(request_param["body"])
-    sign_result = {
-        "Host": request_param["host"],
-        "X-Content-Sha256": x_content_sha256,
-        "X-Date": x_date,
-        "Content-Type": request_param["content_type"],
-    }
-    signed_headers_str = ";".join(
-        ["content-type", "host", "x-content-sha256", "x-date"]
+def _byteplus_web_search(query: str, count: int = 5) -> dict:
+    api_key = os.getenv("BYTEPLUS_WEB_SEARCH_API_KEY")
+    if not api_key:
+        raise ValueError("BYTEPLUS_WEB_SEARCH_API_KEY is not set.")
+    response = requests.post(
+        url=os.getenv("BYTEPLUS_WEB_SEARCH_URL", _BYTEPLUS_WEB_SEARCH_URL),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={"Query": query, "Count": count},
+        timeout=60,
     )
-    # signed_headers_str = signed_headers_str + ";x-security-token"
-    canonical_request_str = "\n".join(
-        [
-            request_param["method"].upper(),
-            request_param["path"],
-            norm_query(request_param["query"]),
-            "\n".join(
-                [
-                    "content-type:" + request_param["content_type"],
-                    "host:" + request_param["host"],
-                    "x-content-sha256:" + x_content_sha256,
-                    "x-date:" + x_date,
-                ]
-            ),
-            "",
-            signed_headers_str,
-            x_content_sha256,
-        ]
-    )
-
-    hashed_canonical_request = hash_sha256(canonical_request_str)
-
-    credential_scope = "/".join(
-        [short_x_date, credential["region"], credential["service"], "request"]
-    )
-    string_to_sign = "\n".join(
-        ["HMAC-SHA256", x_date, credential_scope, hashed_canonical_request]
-    )
-
-    k_date = hmac_sha256(credential["secret_access_key"].encode("utf-8"), short_x_date)
-    k_region = hmac_sha256(k_date, credential["region"])
-    k_service = hmac_sha256(k_region, credential["service"])
-    k_signing = hmac_sha256(k_service, "request")
-    signature = hmac_sha256(k_signing, string_to_sign).hex()
-
-    sign_result["Authorization"] = (
-        "HMAC-SHA256 Credential={}, SignedHeaders={}, Signature={}".format(
-            credential["access_key_id"] + "/" + credential_scope,
-            signed_headers_str,
-            signature,
-        )
-    )
-    header = {**header, **sign_result}
-    # header = {**header, **{"X-Security-Token": SessionToken}}
-    r = requests.request(
-        method=method,
-        url="https://{}{}".format(request_param["host"], request_param["path"]),
-        headers=header,
-        params=request_param["query"],
-        data=request_param["body"],
-    )
-    return r.json()
+    response.raise_for_status()
+    data = response.json()
+    return data if isinstance(data, dict) else {"results": data}
 
 
-def web_search(query: str) -> list[str]:
+def web_search(query: str, tool_context: ToolContext | None = None) -> list[str]:
     """Search a query in websites.
 
     Args:
@@ -160,33 +86,72 @@ def web_search(query: str) -> list[str]:
     Returns:
         A list of result documents.
     """
-    req = {
-        "Query": query,
-        "SearchType": "web",
-        "Count": 5,
-        "NeedSummary": True,
-    }
-    ak = getenv("VOLCENGINE_ACCESS_KEY")
-    sk = getenv("VOLCENGINE_SECRET_KEY")
+    provider = (os.getenv("CLOUD_PROVIDER") or "").lower()
+    logger.info(f"Cloud provider: {provider}")
+    if provider == "byteplus":
+        try:
+            response = _byteplus_web_search(query, count=5)
+            return [
+                summary
+                for summary in (
+                    _result_summary(item) for item in _extract_web_results(response)
+                )
+                if summary
+            ]
+        except Exception as e:
+            logger.error(f"BytePlus web search failed {e}")
+            return [f"Web search failed: {e}"]
 
-    now = datetime.datetime.utcnow()
-    response_body = request(
-        "POST",
-        now,
-        {},
-        {},
-        ak,
-        sk,
-        "WebSearch",
-        json.dumps(req),
+    ak = None
+    sk = None
+    # First try to get tool-specific AK/SK
+    ak = os.getenv("TOOL_WEB_SEARCH_ACCESS_KEY")
+    sk = os.getenv("TOOL_WEB_SEARCH_SECRET_KEY")
+    if ak and sk:
+        logger.debug("Successfully get tool-specific AK/SK.")
+    elif tool_context:
+        ak = tool_context.state.get("VOLCENGINE_ACCESS_KEY")
+        sk = tool_context.state.get("VOLCENGINE_SECRET_KEY")
+    session_token = ""
+
+    if not (ak and sk):
+        logger.debug("Get AK/SK from tool context failed.")
+        ak = os.getenv("VOLCENGINE_ACCESS_KEY")
+        sk = os.getenv("VOLCENGINE_SECRET_KEY")
+        if not (ak and sk):
+            logger.debug("Get AK/SK from environment variables failed.")
+            credential = get_credential_from_vefaas_iam()
+            ak = credential.access_key_id
+            sk = credential.secret_access_key
+            session_token = credential.session_token
+        else:
+            logger.debug("Successfully get AK/SK from environment variables.")
+    else:
+        logger.debug("Successfully get AK/SK from tool context.")
+
+    response = ve_request(
+        request_body={
+            "Query": query,
+            "SearchType": "web",
+            "Count": 5,
+            "NeedSummary": True,
+        },
+        action="WebSearch",
+        ak=ak,
+        sk=sk,
+        service="volc_torchlight_api",
+        version="2025-01-01",
+        region="cn-beijing",
+        host="mercury.volcengineapi.com",
+        header={"X-Security-Token": session_token},
     )
 
     try:
-        results: list = response_body["Result"]["WebResults"]
+        results: list = response["Result"]["WebResults"]
         final_results = []
         for result in results:
             final_results.append(result["Summary"].strip())
         return final_results
     except Exception as e:
-        logger.error(f"Web search failed {e}, response body: {response_body}")
-        return [response_body]
+        logger.error(f"Web search failed {e}, response body: {response}")
+        return [response]

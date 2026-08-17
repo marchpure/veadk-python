@@ -18,10 +18,12 @@ import os
 import sys
 import time
 import types
-from typing import Any, Dict, List, MutableMapping, Tuple
+from typing import Any, Dict, List, MutableMapping, Optional, Tuple
 
 import requests
 from yaml import safe_load
+
+import __main__
 
 
 def read_file(file_path):
@@ -36,18 +38,14 @@ def formatted_timestamp() -> str:
     return time.strftime("%Y%m%d%H%M%S", time.localtime())
 
 
-def read_png_to_bytes(png_path: str) -> bytes:
-    # Determine whether it is a local file or a network file
-    if png_path.startswith(("http://", "https://")):
-        # Network file: Download via URL and return bytes
-        response = requests.get(png_path)
-        response.raise_for_status()  # Check if the HTTP request is successful
+def read_file_to_bytes(file_path: str) -> bytes:
+    if file_path.startswith(("http://", "https://")):
+        response = requests.get(file_path)
+        response.raise_for_status()
         return response.content
     else:
-        # Local file
-        with open(png_path, "rb") as f:
-            data = f.read()
-    return data
+        with open(file_path, "rb") as f:
+            return f.read()
 
 
 def load_module_from_file(module_name: str, file_path: str) -> types.ModuleType:
@@ -131,35 +129,111 @@ def getenv(
         )
 
 
-def set_envs(config_yaml_path: str) -> tuple[dict, dict]:
+def set_envs(config_yaml_path: str, env_from_dotenv: dict = None) -> tuple[dict, dict]:
+    from veadk.utils.logger import get_logger
+
+    logger = get_logger(__name__)
+
     with open(config_yaml_path, "r", encoding="utf-8") as yaml_file:
         config_dict = safe_load(yaml_file)
 
     flatten_config_dict = flatten_dict(config_dict)
-
+    config_upper_map = {k.upper(): v for k, v in flatten_config_dict.items()}
+    all_keys = {k.upper() for k in flatten_config_dict.keys()} | set(
+        env_from_dotenv.keys() if env_from_dotenv else []
+    )
     veadk_environments = {}
-    for k, v in flatten_config_dict.items():
-        k = k.upper()
-
+    for k in all_keys:
         if k in os.environ:
+            logger.info(
+                f"Environment variable {k} has been set, value in `config.yaml` will be ignored."
+            )
             veadk_environments[k] = os.environ[k]
             continue
-        veadk_environments[k] = str(v)
-        os.environ[k] = str(v)
+        veadk_environments[k] = str(config_upper_map.get(k))
+        os.environ[k] = str(config_upper_map.get(k))
+
+    provider = (os.getenv("CLOUD_PROVIDER") or "").lower()
+    if provider == "byteplus":
+        byteplus_access_key = veadk_environments.get("BYTEPLUS_ACCESS_KEY")
+        if byteplus_access_key:
+            os.environ["VOLCENGINE_ACCESS_KEY"] = byteplus_access_key
+        byteplus_secret_key = veadk_environments.get("BYTEPLUS_SECRET_KEY")
+        if byteplus_secret_key:
+            os.environ["VOLCENGINE_SECRET_KEY"] = byteplus_secret_key
 
     return config_dict, veadk_environments
 
 
-def get_temp_dir():
+def get_agents_dir():
     """
-    Return the corresponding temporary directory based on the operating system
-    - For Windows systems, return the system's default temporary directory
-    - For other systems (macOS, Linux, etc.), return the /tmp directory
+    Get the directory of agents.
+
+    Returns:
+        str: The agents directory (parent directory of the app)
     """
-    # First determine if it is a Windows system
-    if sys.platform.startswith("win"):
-        # Windows systems use the temporary directory from environment variables
-        return os.environ.get("TEMP", os.environ.get("TMP", r"C:\WINDOWS\TEMP"))
+    return os.path.dirname(get_agent_dir())
+
+
+def get_agent_dir():
+    """
+    Get the directory of the currently executed entry script.
+
+    Returns:
+        str: The agent directory
+    """
+    # Try using __main__.__file__ (works for most CLI scripts and uv run environments)
+    if hasattr(__main__, "__file__"):
+        full_path = os.path.dirname(os.path.abspath(__main__.__file__))
+    # Fallback to sys.argv[0] (usually gives the entry script path)
+    elif len(sys.argv) > 0 and sys.argv[0]:
+        full_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+    # Fallback to current working directory (for REPL / Jupyter Notebook)
     else:
-        # Non-Windows systems (macOS, Linux, etc.) uniformly return /tmp
-        return "/tmp"
+        full_path = os.getcwd()
+
+    return full_path
+
+
+async def upload_to_files_api(
+    local_path: str,
+    fps: Optional[float] = None,
+    poll_interval: float = 3.0,
+    max_wait_seconds: float = 10 * 60,
+) -> str:
+    from volcenginesdkarkruntime import AsyncArk
+
+    from veadk.config import getenv, settings
+    from veadk.consts import DEFAULT_MODEL_AGENT_API_BASE
+
+    client = AsyncArk(
+        api_key=getenv("MODEL_AGENT_API_KEY", settings.model.api_key),
+        base_url=getenv("DEFAULT_MODEL_AGENT_API_BASE", DEFAULT_MODEL_AGENT_API_BASE),
+    )
+    file = await client.files.create(
+        file=open(local_path, "rb"),
+        purpose="user_data",
+        preprocess_configs={
+            "video": {
+                "fps": fps,
+            }
+        }
+        if fps
+        else None,
+    )
+    await client.files.wait_for_processing(
+        id=file.id,
+        poll_interval=poll_interval,
+        max_wait_seconds=max_wait_seconds,
+    )
+    return file.id
+
+
+def write_string_to_file(file_path: str, content: str):
+    dir_path = os.path.dirname(file_path)
+
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)

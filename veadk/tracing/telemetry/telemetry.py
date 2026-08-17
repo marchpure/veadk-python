@@ -23,17 +23,18 @@ from opentelemetry import trace
 from opentelemetry.context import get_value
 from opentelemetry.sdk.trace import Span, _Span
 
-from veadk.tracing.telemetry.attributes.attributes import ATTRIBUTES
+from veadk.tracing.telemetry.attributes.attributes import ATTRIBUTES, get_attributes
 from veadk.tracing.telemetry.attributes.extractors.types import (
     ExtractorResponse,
     LLMAttributesParams,
     ToolAttributesParams,
 )
+from veadk.tracing.telemetry.content_tracing import should_trace_content
+from veadk.tracing.telemetry import portal_metrics
 from veadk.utils.logger import get_logger
+from veadk.utils.misc import safe_json_serialize
 
 logger = get_logger(__name__)
-
-meter_uploader = None
 
 
 def _upload_call_llm_metrics(
@@ -42,18 +43,20 @@ def _upload_call_llm_metrics(
     llm_request: LlmRequest,
     llm_response: LlmResponse,
 ) -> None:
-    from veadk.agent import Agent
+    """Record LLM call metrics through the global MeterProvider.
 
-    if isinstance(invocation_context.agent, Agent):
-        tracers = invocation_context.agent.tracers
-        for tracer in tracers:
-            for exporter in getattr(tracer, "exporters", []):
-                if getattr(exporter, "meter_uploader", None):
-                    global meter_uploader
-                    meter_uploader = exporter.meter_uploader
-                    exporter.meter_uploader.record_call_llm(
-                        invocation_context, event_id, llm_request, llm_response
-                    )
+    Recording is independent from exporter configuration. OpenTelemetry's
+    default proxy instruments remain no-op until a real provider is installed.
+
+    Args:
+        invocation_context: Context containing agent, session, and user information
+        event_id: Unique identifier for this LLM call event
+        llm_request: The request sent to the language model
+        llm_response: The response received from the language model
+    """
+    portal_metrics.portal_metric_recorder.record_call_llm(
+        invocation_context, event_id, llm_request, llm_response
+    )
 
 
 def _upload_tool_call_metrics(
@@ -61,20 +64,43 @@ def _upload_tool_call_metrics(
     args: dict[str, Any],
     function_response_event: Event,
 ):
-    global meter_uploader
-    if meter_uploader:
-        meter_uploader.record_tool_call(tool, args, function_response_event)
-    else:
-        logger.warning(
-            "Meter uploader is not initialized yet. Skip recording tool call metrics."
-        )
+    """Record tool call metrics through the global MeterProvider.
+
+    Records tool execution metrics including function name, arguments,
+    execution time, and response details for observability and debugging.
+
+    Args:
+        tool: The tool instance that was executed
+        args: Arguments passed to the tool function
+        function_response_event: Event containing the tool's response data
+
+    """
+    portal_metrics.portal_metric_recorder.record_tool_call(
+        tool, args, function_response_event
+    )
 
 
 def _set_agent_input_attribute(
     span: Span, invocation_context: InvocationContext
 ) -> None:
-    # We only save the original user input as the agent input
-    # hence once the `agent.input` has been set, we don't overwrite it
+    """Set agent input attributes and events on the given span.
+
+    This function captures the original user input and adds it as span attributes
+    and events in OpenTelemetry format. It handles both text and image content
+    while avoiding duplicate entries for the same input.
+
+    Args:
+        span: The OpenTelemetry span to annotate with input data
+        invocation_context: Context containing user input and session information
+
+    Note:
+        - Only sets input once per span to avoid duplication
+        - Supports multimodal content (text and images)
+        - Follows gen_ai attribute conventions
+    """
+    if not should_trace_content():
+        return
+
     event_names = [event.name for event in span.events]
     if "gen_ai.user.message" in event_names:
         return
@@ -100,11 +126,20 @@ def _set_agent_input_attribute(
                 "session_id": invocation_context.session.id,
             },
         )
+
+        # set gen_ai.input attribute required by APMPlus
+        span.set_attribute(
+            "gen_ai.input",
+            safe_json_serialize(user_content.model_dump(exclude_none=True)),
+        )
         for idx, part in enumerate(user_content.parts):
             if part.text:
                 span.add_event(
                     "gen_ai.user.message",
-                    {f"parts.{idx}.type": "text", f"parts.{idx}.content": part.text},
+                    {
+                        f"parts.{idx}.type": "text",
+                        f"parts.{idx}.content": part.text,
+                    },
                 )
             if part.inline_data:
                 span.add_event(
@@ -126,8 +161,48 @@ def _set_agent_input_attribute(
 
 
 def _set_agent_output_attribute(span: Span, llm_response: LlmResponse) -> None:
+    """Set agent output attributes and events on the given span.
+
+    Captures the LLM response content and adds it as span attributes and events
+    in OpenTelemetry format for tracing and observability purposes.
+
+    Args:
+        span: The OpenTelemetry span to annotate with output data
+        llm_response: The language model response containing generated content
+
+    Note:
+        - Follows gen_ai attribute conventions
+        - Handles multipart responses with proper indexing
+    """
+    if not should_trace_content():
+        return
+
     content = llm_response.content
     if content and content.parts:
+        output_parts = []
+        for part in content.parts:
+            if not part.text:
+                output_parts = []
+                break
+            output_parts.append(
+                {
+                    "type": "reasoning" if getattr(part, "thought", False) else "text",
+                    "content": part.text,
+                }
+            )
+
+        output = (
+            {"messages": [{"role": content.role, "parts": output_parts}]}
+            if output_parts
+            else content.model_dump(exclude_none=True)
+        )
+
+        # set gen_ai.output attribute required by APMPlus
+        span.set_attribute(
+            "gen_ai.output",
+            safe_json_serialize(output),
+        )
+
         for idx, part in enumerate(content.parts):
             if part.text:
                 span.add_event(
@@ -145,6 +220,24 @@ def set_common_attributes_on_model_span(
     current_span: _Span,
     **kwargs,
 ) -> None:
+    """Set common attributes on model-related spans including invocation and agent run spans.
+
+    This function applies standardized attributes across multiple span types to ensure
+    consistent telemetry data. It handles token usage accumulation, input/output
+    annotation, and hierarchical span attribute propagation.
+
+    Key Operations:
+    - Sets agent input/output on invocation and agent run spans
+    - Accumulates token usage across multiple LLM calls
+    - Applies common attributes from the ATTRIBUTES mapping
+    - Handles span hierarchy and context propagation
+
+    Args:
+        invocation_context: Context containing agent, session, and user information
+        llm_response: The language model response with usage metadata
+        current_span: The current OpenTelemetry span being processed
+        **kwargs: Additional keyword arguments for attribute extraction
+    """
     common_attributes = ATTRIBUTES.get("common", {})
     try:
         invocation_span: Span = get_value("invocation_span_instance")  # type: ignore
@@ -173,10 +266,15 @@ def set_common_attributes_on_model_span(
                 current_step_token_usage + int(prev_total_token_usage)  # type: ignore
             )  # we can ignore this warning, cause we manually set the attribute to int before
             invocation_span.set_attribute(
-                "gen_ai.usage.total_tokens", accumulated_total_token_usage
+                # record input/output token usage?
+                "gen_ai.usage.total_tokens",
+                accumulated_total_token_usage,
             )
 
-        if agent_run_span and agent_run_span.name.startswith("agent_run"):
+        if agent_run_span and (
+            agent_run_span.name.startswith("agent_run")
+            or agent_run_span.name.startswith("invoke_agent")
+        ):
             _set_agent_input_attribute(agent_run_span, invocation_context)
             _set_agent_output_attribute(agent_run_span, llm_response)
             for attr_name, attr_extractor in common_attributes.items():
@@ -191,6 +289,14 @@ def set_common_attributes_on_model_span(
 
 
 def set_common_attributes_on_tool_span(current_span: _Span) -> None:
+    """Set common attributes on tool execution spans.
+
+    Propagates common attributes from the parent invocation span to tool spans
+    to maintain consistent context across the execution trace hierarchy.
+
+    Args:
+        current_span: The tool execution span to annotate with common attributes
+    """
     common_attributes = ATTRIBUTES.get("common", {})
 
     invocation_span: Span = get_value("invocation_span_instance")  # type: ignore
@@ -209,12 +315,32 @@ def trace_tool_call(
     tool: BaseTool,
     args: dict[str, Any],
     function_response_event: Event,
+    **kwargs,
 ) -> None:
+    """Trace a tool function call with comprehensive telemetry data.
+
+    This function is the main entry point for tool call tracing, capturing
+    execution details, arguments, responses, and performance metrics for
+    debugging and observability purposes.
+
+    Tracing Data Captured:
+    - Tool name and function signature
+    - Input arguments and parameter values
+    - Execution timing and performance metrics
+    - Response data and return values
+    - Error information if execution fails
+    - Common context attributes (user, session, agent)
+
+    Args:
+        tool: The tool instance being executed
+        args: Dictionary of arguments passed to the tool function
+        function_response_event: Event containing the tool's execution response
+    """
     span = trace.get_current_span()
 
     set_common_attributes_on_tool_span(current_span=span)  # type: ignore
 
-    tool_attributes_mapping = ATTRIBUTES.get("tool", {})
+    tool_attributes_mapping = get_attributes("tool")
     params = ToolAttributesParams(tool, args, function_response_event)
 
     for attr_name, attr_extractor in tool_attributes_mapping.items():
@@ -229,8 +355,37 @@ def trace_call_llm(
     event_id: str,
     llm_request: LlmRequest,
     llm_response: LlmResponse,
+    span: Span | None = None,
+    *args,
+    **kwargs,
 ) -> None:
-    span: Span = trace.get_current_span()  # type: ignore
+    """Trace a language model call with comprehensive telemetry data.
+
+    This function is the main entry point for LLM call tracing, capturing
+    request/response details, token usage, timing, and context information
+    for cost tracking, performance analysis, and debugging.
+
+    Tracing Data Captured:
+    - Model name and provider information
+    - Request parameters and prompt content
+    - Response content and metadata
+    - Token usage (input, output, total)
+    - Execution timing and latency
+    - Context information (user, session, agent)
+    - Error information if the call fails
+
+    Args:
+        invocation_context: Context containing agent, session, and user information
+        event_id: Unique identifier for this LLM call event
+        llm_request: The request object sent to the language model
+        llm_response: The response object received from the language model
+        span: The owning call_llm span supplied by newer ADK releases
+    """
+    # Newer ADK releases pass the owning ``call_llm`` span explicitly because
+    # the current span is the nested model-instrumentation span at this point.
+    # Older ADK releases only pass the original four arguments.
+    if span is None:
+        span = trace.get_current_span()  # type: ignore
 
     from veadk.agent import Agent
 
@@ -242,6 +397,7 @@ def trace_call_llm(
         user_id=invocation_context.user_id,
         app_name=invocation_context.app_name,
         session_id=invocation_context.session.id,
+        invocation_id=invocation_context.invocation_id,
         model_provider=invocation_context.agent.model_provider
         if isinstance(invocation_context.agent, Agent)
         else "",
@@ -260,7 +416,7 @@ def trace_call_llm(
         ),
     )
 
-    llm_attributes_mapping = ATTRIBUTES.get("llm", {})
+    llm_attributes_mapping = get_attributes("llm")
     params = LLMAttributesParams(
         invocation_context=invocation_context,
         event_id=event_id,
@@ -276,4 +432,4 @@ def trace_call_llm(
 
 
 # Do not modify this function
-def trace_send_data(): ...
+def trace_send_data(**kwargs): ...

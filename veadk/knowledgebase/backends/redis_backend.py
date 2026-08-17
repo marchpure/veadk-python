@@ -19,7 +19,6 @@ from llama_index.core import (
     VectorStoreIndex,
 )
 from llama_index.core.schema import BaseNode
-from llama_index.embeddings.openai_like import OpenAILikeEmbedding
 from pydantic import Field
 from typing_extensions import Any, override
 
@@ -28,6 +27,7 @@ from veadk.configs.database_configs import RedisConfig
 from veadk.configs.model_configs import EmbeddingModelConfig, NormalEmbeddingModelConfig
 from veadk.knowledgebase.backends.base_backend import BaseKnowledgebaseBackend
 from veadk.knowledgebase.backends.utils import get_llama_index_splitter
+from veadk.models.ark_embedding import create_embedding_model
 
 try:
     from llama_index.vector_stores.redis import RedisVectorStore
@@ -44,13 +44,40 @@ except ImportError:
 
 
 class RedisKnowledgeBackend(BaseKnowledgebaseBackend):
+    """Redis based backend for knowledgebase.
+
+    Redis backend stores embedded text in a redis database by Llama-index.
+
+    Attributes:
+        redis_config (RedisConfig):
+            Redis database configurations.
+            Mainly contains redis database host, port, etc.
+        embedding_config (EmbeddingModelConfig):
+            Embedding configurations for text embedding and search.
+            Embedding config contains embedding model name and the corresponding dim.
+
+    Notes:
+        Please ensure that your redis database supports Redisaearch stack.
+
+    Examples:
+        Init a knowledgebase based on redis backend.
+
+        ```python
+        knowledgebase = Knowledgebase(backend="redis")
+        ```
+
+        With more configurations:
+
+        ```python
+        ...
+        ```
+    """
+
     redis_config: RedisConfig = Field(default_factory=RedisConfig)
-    """Redis client configs"""
 
     embedding_config: EmbeddingModelConfig | NormalEmbeddingModelConfig = Field(
         default_factory=EmbeddingModelConfig
     )
-    """Embedding model configs"""
 
     def model_post_init(self, __context: Any) -> None:
         # We will use `from_url` to init Redis client once the
@@ -61,10 +88,11 @@ class RedisKnowledgeBackend(BaseKnowledgebaseBackend):
             host=self.redis_config.host,
             port=self.redis_config.port,
             db=self.redis_config.db,
+            username=self.redis_config.username,
             password=self.redis_config.password,
         )
 
-        self._embed_model = OpenAILikeEmbedding(
+        self._embed_model = create_embedding_model(
             model_name=self.embedding_config.name,
             api_key=self.embedding_config.api_key,
             api_base=self.embedding_config.api_base,
@@ -85,7 +113,7 @@ class RedisKnowledgeBackend(BaseKnowledgebaseBackend):
         self._vector_store = RedisVectorStore(
             schema=self._schema,
             redis_client=self._redis_client,
-            overwrite=True,
+            overwrite=False,
             collection_name=self.index,
         )
 
@@ -93,8 +121,8 @@ class RedisKnowledgeBackend(BaseKnowledgebaseBackend):
             vector_store=self._vector_store
         )
 
-        self._vector_index = VectorStoreIndex.from_documents(
-            documents=[],
+        self._vector_index = VectorStoreIndex(
+            nodes=[],
             storage_context=self._storage_context,
             embed_model=self._embed_model,
         )

@@ -30,9 +30,9 @@ def vesearch(query: str) -> str:
     bot_id = str(getenv("TOOL_VESEARCH_ENDPOINT"))
 
     if api_key == "":
-        return "Invoke `vesearch` failed. Please set VESEARCH_API_KEY as your environment variable."
+        return "Invoke `vesearch` failed. Please set TOOL_VESEARCH_API_KEY as your environment variable."
     if bot_id == "":
-        return "Invoke `vesearch` failed. Please set VESEARCH_BOT_ID as your environment variable."
+        return "Invoke `vesearch` failed. Please set TOOL_VESEARCH_ENDPOINT as your environment variable."
 
     URL = "https://open.feedcoopapi.com/agent_api/agent/chat/completion"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
@@ -41,7 +41,7 @@ def vesearch(query: str) -> str:
         "messages": [{"role": "user", "content": query}],
     }
 
-    response = requests.post(URL, json=data, headers=headers)
+    response = requests.post(URL, json=data, headers=headers, timeout=30)
     if response.status_code == 200:
         result = response.json()
         return result["choices"][0]["message"]["content"]

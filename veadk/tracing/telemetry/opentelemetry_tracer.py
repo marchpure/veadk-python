@@ -15,14 +15,11 @@
 from __future__ import annotations
 
 import json
-import time
 from typing import Any
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk import trace as trace_sdk
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider, SpanLimits
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace import SpanLimits, TracerProvider
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing_extensions import override
 
@@ -30,20 +27,54 @@ from veadk.tracing.base_tracer import BaseTracer
 from veadk.tracing.telemetry.exporters.apmplus_exporter import APMPlusExporter
 from veadk.tracing.telemetry.exporters.base_exporter import BaseExporter
 from veadk.tracing.telemetry.exporters.inmemory_exporter import InMemoryExporter
+from veadk.tracing.telemetry.portal_metrics import portal_metric_recorder
 from veadk.utils.logger import get_logger
+from veadk.utils.misc import get_agent_dir
 from veadk.utils.patches import patch_google_adk_telemetry
-from veadk.utils.misc import get_temp_dir
 
 logger = get_logger(__name__)
 
 
-def _update_resource_attributions(
-    provider: TracerProvider, resource_attributes: dict
-) -> None:
-    provider._resource = provider._resource.merge(Resource.create(resource_attributes))
-
-
 class OpentelemetryTracer(BaseModel, BaseTracer):
+    """OpenTelemetry-based tracer implementation for comprehensive agent observability.
+
+    This class provides a complete tracing solution using OpenTelemetry standards,
+    supporting multiple exporters for different observability platforms. It captures
+    detailed execution traces including LLM calls, tool invocations, and agent workflow
+    patterns for debugging and performance analysis.
+
+    Key Features:
+    - Multi-exporter support (APMPlus, in-memory, custom exporters)
+    - Thread-safe span processing with configurable limits
+    - Local trace dumping with JSON serialization
+    - Resource attribute management for metadata enrichment
+    - Force flush capabilities for immediate data export
+
+    Architecture:
+    The tracer initializes a global TracerProvider with custom span processors for
+    each configured exporter. It maintains an internal in-memory exporter for local
+    operations while supporting external observability platforms simultaneously.
+
+    Attributes:
+        name: Identifier for this tracer instance, used in file naming and logging
+        exporters: List of exporter instances for sending trace data to different backends
+
+    Examples:
+        Basic usage with APMPlus exporter:
+        ```python
+        exporters = [
+            CozeloopExporter(),
+            APMPlusExporter(),
+            TLSExporter(),
+        ]
+        tracer = OpentelemetryTracer(exporters=exporters)
+        ```
+
+    Note:
+        - InMemoryExporter cannot be explicitly added to exporters list
+        - Span limits are set to 4096 attributes for comprehensive data capture
+    """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str = Field(
@@ -60,12 +91,31 @@ class OpentelemetryTracer(BaseModel, BaseTracer):
     @field_validator("exporters")
     @classmethod
     def forbid_inmemory_exporter(cls, v: list[BaseExporter]) -> list[BaseExporter]:
+        """Validate that InMemoryExporter is not explicitly added to exporters list.
+
+        InMemoryExporter is automatically managed internally and should not be
+        included in the user-provided exporters list to avoid conflicts.
+
+        Args:
+            v: List of exporter instances to validate
+
+        Returns:
+            list[BaseExporter]: The validated list of exporters
+
+        Raises:
+            ValueError: If InMemoryExporter is found in the exporters list
+        """
         for e in v:
             if isinstance(e, InMemoryExporter):
                 raise ValueError("InMemoryExporter is not allowed in exporters list")
         return v
 
     def model_post_init(self, context: Any) -> None:
+        """Initialize the tracer after model construction.
+
+        This method performs post-initialization setup including Google ADK
+        telemetry patching and global tracer provider configuration.
+        """
         # Replace Google ADK tracing funcs
         # `trace_call_llm` and `trace_tool_call`
         patch_google_adk_telemetry()
@@ -77,50 +127,40 @@ class OpentelemetryTracer(BaseModel, BaseTracer):
         # provider conflicts
         self._init_global_tracer_provider()
 
+        # Record the model provider's response id (e.g. Ark's x-request-id) on
+        # the LLM span as `gen_ai.response.id`. Registered only when a tracer is
+        # used; a no-op otherwise.
+        from veadk.tracing.telemetry.litellm_response_id import (
+            register as _register_response_id_callback,
+        )
+
+        _register_response_id_callback()
+
     def _init_global_tracer_provider(self) -> None:
-        # set provider anyway, then get global provider
-        trace_api.set_tracer_provider(
-            trace_sdk.TracerProvider(
-                span_limits=SpanLimits(
-                    max_attributes=4096,
-                )
+        """Initialize the global OpenTelemetry tracer provider with configured exporters.
+
+        This method sets up the global tracer provider, configures span processors
+        for each exporter, and ensures proper resource attribution. It also handles
+        duplicate exporter detection and in-memory span collection setup.
+        """
+        global_tracer_provider = trace_api.get_tracer_provider()
+        have_global_tracer_provider = not isinstance(
+            global_tracer_provider, trace_api.ProxyTracerProvider
+        )
+
+        if not have_global_tracer_provider:
+            provider = trace_sdk.TracerProvider(
+                span_limits=SpanLimits(max_attributes=4096)
             )
-        )
-        global_tracer_provider: TracerProvider = trace_api.get_tracer_provider()  # type: ignore
+            trace_api.set_tracer_provider(provider)
+            global_tracer_provider = trace_api.get_tracer_provider()
 
-        span_processors = global_tracer_provider._active_span_processor._span_processors
-        have_apmplus_exporter = any(
-            isinstance(p, (BatchSpanProcessor, SimpleSpanProcessor))
-            and hasattr(p.span_exporter, "_endpoint")
-            and "apmplus" in p.span_exporter._endpoint
-            for p in span_processors
-        )
-
-        if have_apmplus_exporter:
-            self.exporters = [
-                e for e in self.exporters if not isinstance(e, APMPlusExporter)
-            ]
+        global_tracer_provider: TracerProvider
+        self._global_tracer_provider = global_tracer_provider
+        self._apmplus_managed_externally = have_global_tracer_provider
 
         for exporter in self.exporters:
-            processor = exporter.processor
-            resource_attributes = exporter.resource_attributes
-
-            if resource_attributes:
-                _update_resource_attributions(
-                    global_tracer_provider, resource_attributes
-                )
-
-            if processor:
-                global_tracer_provider.add_span_processor(processor)
-                self._processors.append(processor)
-
-                logger.debug(
-                    f"Add span processor for exporter `{exporter.__class__.__name__}` to OpentelemetryTracer."
-                )
-            else:
-                logger.error(
-                    f"Add span processor for exporter `{exporter.__class__.__name__}` to OpentelemetryTracer failed."
-                )
+            self._activate_exporter(exporter)
 
         self._inmemory_exporter = InMemoryExporter()
         if self._inmemory_exporter.processor:
@@ -131,39 +171,118 @@ class OpentelemetryTracer(BaseModel, BaseTracer):
             ) + global_tracer_provider._active_span_processor._span_processors
 
             self._processors.append(self._inmemory_exporter.processor)
+            self.exporters.append(self._inmemory_exporter)
         else:
             logger.warning(
                 "InMemoryExporter processor is not initialized, cannot add to OpentelemetryTracer."
             )
 
-        logger.info(f"Init OpentelemetryTracer with {len(self._processors)} exporters.")
+        logger.info(
+            f"Init OpentelemetryTracer with {len(self._processors)} exporter(s)."
+        )
+
+    def _activate_exporter(self, exporter: BaseExporter) -> bool:
+        return self._register_exporter(exporter)
+
+    def _register_exporter(self, exporter: BaseExporter) -> bool:
+        if isinstance(exporter, APMPlusExporter) and self.apmplus_managed_externally:
+            logger.info(
+                "Reuse existing global TracerProvider and skip registering "
+                "APMPlusExporter span processor."
+            )
+            return False
+
+        if exporter.register(self._global_tracer_provider):
+            self._processors.append(exporter.processor)
+            logger.debug(
+                f"Add span processor for exporter `{exporter.__class__.__name__}` to OpentelemetryTracer."
+            )
+            return True
+
+        if exporter.processor is None:
+            logger.error(
+                f"Add span processor for exporter `{exporter.__class__.__name__}` to OpentelemetryTracer failed."
+            )
+        return False
+
+    @property
+    def apmplus_managed_externally(self) -> bool:
+        """Whether a global provider existed before this tracer was initialized."""
+        return self._apmplus_managed_externally
+
+    def add_exporter(self, exporter: BaseExporter) -> bool:
+        """Add an exporter and immediately register it with the global provider."""
+        if not any(existing is exporter for existing in self.exporters):
+            self.exporters.append(exporter)
+
+        return self._activate_exporter(exporter)
 
     @property
     def trace_file_path(self) -> str:
+        """Get the file path of the most recent trace dump.
+
+        Returns:
+            str: Full path to the trace file, or placeholder if not yet dumped
+        """
         return self._trace_file_path
 
     @property
     def trace_id(self) -> str:
+        """Get the current trace ID in hexadecimal format.
+
+        Returns:
+            str: Hexadecimal representation of the current trace ID, or
+                placeholder string if trace ID cannot be retrieved
+        """
         try:
-            trace_id = hex(int(self._inmemory_exporter._exporter.trace_id))[2:]  # type: ignore
+            # OTel/W3C trace ids are 128-bit -> 32 lowercase hex chars,
+            # zero-padded. `hex(...)[2:]` drops leading zeros (yielding a
+            # 31-char id when the high nibble is 0), so format with `032x` to
+            # match what the cloud exporters report.
+            trace_id = format(int(self._inmemory_exporter._exporter.trace_id), "032x")  # type: ignore
             return trace_id
         except Exception as e:
             logger.error(f"Failed to get trace_id from InMemoryExporter: {e}")
             return self._trace_id
 
     def force_export(self) -> None:
-        """Force to export spans in all processors."""
-        for processor in self._processors:
-            time.sleep(0.05)
-            processor.force_flush()
+        """Force immediate export of all pending spans across all processors.
+
+        The global TracerProvider owns the complete processor pipeline, including
+        processors installed before VeADK initialized. Flushing the provider
+        therefore covers both externally managed and VeADK-managed processors.
+        """
+        self._global_tracer_provider.force_flush()
+        portal_metric_recorder.force_flush()
 
     @override
     def dump(
         self,
         user_id: str = "unknown_user_id",
         session_id: str = "unknown_session_id",
-        path: str = get_temp_dir(),
+        path: str = get_agent_dir(),
     ) -> str:
+        """Dump collected trace data to a local JSON file.
+
+        This method exports all spans associated with the current session to a
+        structured JSON file for offline analysis. The file includes span metadata,
+        timing information, attributes, and parent-child relationships.
+
+        Args:
+            user_id: User identifier for trace organization and file naming
+            session_id: Session identifier for filtering and organizing spans
+            path: Directory path for the output file. Defaults to agents directory
+
+        Returns:
+            str: Full path to the created trace file, or empty string if export fails
+
+        Note:
+            - Forces export of all pending spans before dumping
+            - Filters spans by session_id for relevant data only
+            - File format is structured JSON with span details and relationships
+            - Supports non-ASCII characters for international content
+        """
+
         def _build_trace_file_path(path: str, user_id: str, session_id: str) -> str:
             return f"{path}/{self.name}_{user_id}_{session_id}_{self.trace_id}.json"
 

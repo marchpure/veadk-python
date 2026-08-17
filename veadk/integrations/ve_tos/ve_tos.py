@@ -21,7 +21,6 @@ from urllib.parse import urlparse
 
 from veadk.consts import DEFAULT_TOS_BUCKET_NAME
 from veadk.utils.logger import get_logger
-from veadk.utils.misc import getenv
 
 if TYPE_CHECKING:
     pass
@@ -36,11 +35,37 @@ class VeTOS:
         self,
         ak: str = "",
         sk: str = "",
-        region: str = "cn-beijing",
-        bucket_name: str = DEFAULT_TOS_BUCKET_NAME,
+        session_token: str = "",
+        region: str = "",
+        bucket_name: str = "",
     ) -> None:
         self.ak = ak if ak else os.getenv("VOLCENGINE_ACCESS_KEY", "")
         self.sk = sk if sk else os.getenv("VOLCENGINE_SECRET_KEY", "")
+        self.session_token = session_token or os.getenv("VOLCENGINE_SESSION_TOKEN", "")
+
+        # get provider from env
+        provider = (os.getenv("CLOUD_PROVIDER") or "").lower()
+        logger.info(f"Cloud provider: {provider}")
+
+        if provider == "byteplus":
+            self.sld = "bytepluses"
+            default_region = "ap-southeast-1"
+        else:
+            self.sld = "volces"
+            default_region = "cn-beijing"
+
+        self.region = region
+        if not self.region:
+            self.region = (
+                os.getenv("REGION")
+                or os.getenv("DATABASE_TOS_REGION")
+                or default_region
+            )
+
+        logger.info(
+            f"TOS client ready: region={self.region}, endpoint=tos-{self.region}.{self.sld}.com"
+        )
+
         # Add empty value validation
         if not self.ak or not self.sk:
             raise ValueError(
@@ -48,9 +73,8 @@ class VeTOS:
                 "either via parameters or environment variables."
             )
 
-        self.region = region
         self.bucket_name = (
-            bucket_name if bucket_name else getenv("", DEFAULT_TOS_BUCKET_NAME)
+            bucket_name or os.getenv("DATABASE_TOS_BUCKET") or DEFAULT_TOS_BUCKET_NAME
         )
         self._tos_module = None
 
@@ -71,7 +95,8 @@ class VeTOS:
             self._client = self._tos_module.TosClientV2(
                 ak=self.ak,
                 sk=self.sk,
-                endpoint=f"tos-{self.region}.volces.com",
+                security_token=self.session_token,
+                endpoint=f"tos-{self.region}.{self.sld}.com",
                 region=self.region,
             )
             logger.info("Init TOS client.")
@@ -85,7 +110,8 @@ class VeTOS:
             self._client = self._tos_module.TosClientV2(
                 self.ak,
                 self.sk,
-                endpoint=f"tos-{self.region}.volces.com",
+                security_token=self.session_token,
+                endpoint=f"tos-{self.region}.{self.sld}.com",
                 region=self.region,
             )
             logger.info("refreshed client successfully.")
@@ -250,7 +276,7 @@ class VeTOS:
     def build_tos_url(self, object_key: str, bucket_name: str = "") -> str:
         bucket_name = self._check_bucket_name(bucket_name)
         tos_url: str = (
-            f"https://{bucket_name}.tos-{self.region}.volces.com/{object_key}"
+            f"https://{bucket_name}.tos-{self.region}.{self.sld}.com/{object_key}"
         )
         return tos_url
 
@@ -427,7 +453,7 @@ class VeTOS:
         bucket_name: str = "",
         object_key: str = "",
         metadata: dict | None = None,
-    ) -> None:
+    ) -> bool:
         """Asynchronously upload byte data to TOS bucket
 
         Args:
@@ -435,13 +461,16 @@ class VeTOS:
             bucket_name: TOS bucket name
             object_key: Object key, auto-generated if None
             metadata: Metadata to associate with the object
+
+        Returns:
+            ``True`` when the object was uploaded, otherwise ``False``.
         """
         bucket_name = self._check_bucket_name(bucket_name)
         if not object_key:
             object_key = self._build_object_key_for_bytes()
         # Use common function to check client and bucket
         if not self._ensure_client_and_bucket(bucket_name):
-            return
+            return False
         try:
             # Use asyncio.to_thread to execute blocking TOS operations in thread
             await asyncio.to_thread(
@@ -452,10 +481,10 @@ class VeTOS:
                 meta=metadata,
             )
             logger.debug(f"Async upload success, object_key: {object_key}")
-            return
+            return True
         except Exception as e:
             logger.error(f"Async upload failed: {e}")
-            return
+            return False
 
     def upload_file(
         self,
@@ -601,7 +630,7 @@ class VeTOS:
                     bucket=bucket_name,
                     key=object_key,
                     file_path=file_path,
-                    metadata=metadata,
+                    meta=metadata,
                 )
                 logger.debug(f"Async upload success, object_key: {object_key}")
             return
@@ -698,6 +727,80 @@ class VeTOS:
 
         except Exception as e:
             logger.error(f"Image download failed: {str(e)}")
+            return False
+
+    def download_directory(
+        self, bucket_name: str, prefix: str, local_dir: str = "/tmp"
+    ) -> bool:
+        """Download entire directory from TOS bucket to local directory
+
+        Args:
+            bucket_name: TOS bucket name
+            prefix: Directory prefix in TOS (e.g., "skills/pdf/")
+            local_dir: Local directory path to save files
+
+        Returns:
+            bool: True if download succeeds, False otherwise
+        """
+        bucket_name = self._check_bucket_name(bucket_name)
+
+        if not self._client:
+            logger.error("TOS client is not initialized")
+            return False
+
+        try:
+            # Ensure prefix ends with /
+            if prefix and not prefix.endswith("/"):
+                prefix += "/"
+
+            # Create local directory if not exists
+            os.makedirs(local_dir, exist_ok=True)
+
+            # List all objects with the prefix
+            is_truncated = True
+            next_continuation_token = ""
+            downloaded_count = 0
+
+            while is_truncated:
+                out = self._client.list_objects_type2(
+                    bucket_name,
+                    prefix=prefix,
+                    continuation_token=next_continuation_token,
+                )
+                is_truncated = out.is_truncated
+                next_continuation_token = out.next_continuation_token
+
+                # Download each object
+                for content in out.contents:
+                    object_key = content.key
+
+                    # Skip directory markers (objects ending with /)
+                    if object_key.endswith("/"):
+                        continue
+
+                    # Calculate relative path and local file path
+                    relative_path = object_key[len(prefix) :]
+                    local_file_path = os.path.join(local_dir, relative_path)
+
+                    # Create subdirectories if needed
+                    local_file_dir = os.path.dirname(local_file_path)
+                    if local_file_dir:
+                        os.makedirs(local_file_dir, exist_ok=True)
+
+                    # Download the file
+                    if self.download(bucket_name, object_key, local_file_path):
+                        downloaded_count += 1
+                        logger.debug(f"Downloaded: {object_key} -> {local_file_path}")
+                    else:
+                        logger.warning(f"Failed to download: {object_key}")
+
+            logger.info(
+                f"Downloaded {downloaded_count} files from {bucket_name}/{prefix} to {local_dir}"
+            )
+            return downloaded_count > 0
+
+        except Exception as e:
+            logger.error(f"Failed to download directory: {str(e)}")
             return False
 
     def close(self):

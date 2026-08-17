@@ -14,23 +14,52 @@
 
 import time
 from pathlib import Path
+import os
 
-from google.adk.cli.utils import evals
+# Note: ``from google.adk.cli.utils import evals`` is imported lazily inside
+# ``add_session_to_eval_set`` below. On google-adk 2.0, that submodule pulls
+# in ``gcs_eval_set_results_manager`` at top level, which requires
+# ``google-cloud-storage`` to be installed. We don't want loading
+# ``veadk.evaluation`` (or, transitively, ``veadk.Runner``) to fail for users
+# who never touch the eval recorder, so defer the import to the call site.
 from google.adk.evaluation.eval_case import EvalCase, SessionInput
 from google.adk.evaluation.local_eval_sets_manager import LocalEvalSetsManager
 from google.adk.sessions import BaseSessionService
 
 from veadk.utils.logger import get_logger
-from veadk.utils.misc import formatted_timestamp, get_temp_dir
+from veadk.utils.misc import formatted_timestamp, get_agents_dir
 
 logger = get_logger(__name__)
 
 
 class EvalSetRecorder(LocalEvalSetsManager):
+    """Records evaluation sets from sessions for later use in testing.
+
+    This class extends LocalEvalSetsManager to add sessions to eval sets.
+    It handles dumping eval sets to files from session data.
+
+    Attributes:
+        eval_set_id (str): ID of the eval set. Defaults to 'default'.
+        session_service (BaseSessionService): Service for session management.
+
+    Note:
+        Uses temporary directory for storing eval sets.
+        Creates eval cases from session invocations.
+    """
+
     def __init__(
         self, session_service: BaseSessionService, eval_set_id: str = "default"
     ):
-        super().__init__(agents_dir=get_temp_dir())
+        """Initializes the eval set recorder with session service and ID.
+
+        Args:
+            session_service (BaseSessionService): Service to retrieve sessions.
+            eval_set_id (str): ID for the eval set. Defaults to 'default'.
+
+        Raises:
+            ValueError: If eval_set_id is invalid.
+        """
+        super().__init__(agents_dir=get_agents_dir())
         self.eval_set_id = eval_set_id if eval_set_id != "" else "default"
         self.session_service: BaseSessionService = session_service
 
@@ -42,6 +71,21 @@ class EvalSetRecorder(LocalEvalSetsManager):
         session_id: str,
         user_id: str,
     ):
+        """Adds a session to the evaluation set as an eval case.
+
+        This method retrieves a session and converts it to eval invocations.
+        It creates a new eval case with timestamp.
+
+        Args:
+            app_name (str): Name of the app for the session.
+            eval_set_id (str): ID of the eval set to add to.
+            session_id (str): ID of the session to add.
+            user_id (str): ID of the user owning the session.
+
+        Raises:
+            AssertionError: If session not found.
+            ValueError: If adding eval case fails.
+        """
         eval_id = f"veadk_eval_{formatted_timestamp()}"
 
         # Get the session
@@ -51,6 +95,8 @@ class EvalSetRecorder(LocalEvalSetsManager):
         assert session, "Session not found."
 
         # Convert the session data to eval invocations
+        from google.adk.cli.utils import evals  # lazy: see top-of-file note
+
         invocations = evals.convert_session_to_eval_invocations(session)
 
         # Populate the session with initial session state.
@@ -74,10 +120,27 @@ class EvalSetRecorder(LocalEvalSetsManager):
         user_id: str,
         session_id: str,
     ) -> str:
+        """Dumps the current eval set to a file path.
+
+        This method creates the eval set if needed and adds the session.
+        It ensures directory exists and logs the dump path.
+
+        Args:
+            app_name (str): Name of the app.
+            user_id (str): ID of the user.
+            session_id (str): ID of the session to dump.
+
+        Returns:
+            str: Path where the eval set was dumped.
+
+        Raises:
+            ValueError: If dump operation fails.
+        """
         dump_path = self._get_eval_set_file_path(app_name, self.eval_set_id)
         Path(dump_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self.create_eval_set(app_name=app_name, eval_set_id=self.eval_set_id)
+        if not os.path.exists(dump_path):
+            self.create_eval_set(app_name=app_name, eval_set_id=self.eval_set_id)
 
         await self.add_session_to_eval_set(
             app_name=app_name,

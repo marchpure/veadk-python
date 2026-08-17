@@ -15,12 +15,12 @@ model:
     api_key: 
   # [optional] for knowledgebase
   embedding:
-    name: doubao-embedding-text-240715
-    dim: 2560
+    name: doubao-embedding-vision-250615
+    dim: 2048
     api_base: https://ark.cn-beijing.volces.com/api/v3/
     api_key:
   video:
-    name: doubao-seedance-1-0-pro-250528
+    name: doubao-seedance-1-5-pro-251215
     api_base: https://ark.cn-beijing.volces.com/api/v3/
     api_key: 
   image:
@@ -37,6 +37,22 @@ volcengine:
   access_key:
   secret_key:
 
+agentkit:
+  # [optional] default AgentKit tool id fallback for all sandbox tools
+  tool_id:
+  # [optional] dedicated tool id for `run_code`
+  tool_id_script:
+  # [optional] dedicated tool id for `execute_skills`
+  tool_id_skills:
+  # [optional] dedicated tool id for `coding`
+  tool_id_opencode:
+  # [optional] AgentKit endpoint configs
+  tool_host:
+  tool_service_code: agentkit
+  tool_region: cn-beijing
+  tool_scheme: https
+  top_scheme: https
+
 tool:
   # [optional] https://console.volcengine.com/ask-echo/my-agent
   vesearch: 
@@ -46,17 +62,37 @@ tool:
   web_scraper: 
     endpoint: 
     api_key:    # `token`
+  # [optional] https://console.volcengine.com/speech/new/experience/tts
+  text_to_speech:
+    app_id:     # `app_id`
+    api_key:    # `app_secret`
+    speaker:    # `speaker`
   # [optional] https://open.larkoffice.com/app
   lark: 
     endpoint:   # `app_id`
     api_key:    # `app_secret`
     token:      # `user_token`
+  # [optional] for Feishu bot channel extension based on lark_oapi.channel
+  feishu_channel:
+    app_id:
+    app_secret:
+    transport: ws  # `ws` | `webhook`
   # [optional] for Volcengine Lake AI Service https://www.volcengine.com/product/las
+  mobile_use:
+    tool_id: #https://console.volcengine.com/ACEP
+      - # `product_id`-`pod_id_1`
+      - # `product_id`-`pod_id_1`
+  # [optional] for Vod Tool  https://console.volcengine.com/vod
+  vod:
+    groups:
+    timeout: 10.0
+
   las:
     url: #mcp sse url
     dataset_id:  #dataset name
   mcp_router:
     url: #mcp sse/streamable-http url
+    api_key: #mcp api key
   code_sandbox:
     url: #mcp sse/streamable-http url
     api_key: #mcp api key
@@ -66,11 +102,15 @@ tool:
   computer_sandbox:
     url: #mcp sse/streamable-http url
     api_key: #mcp api key
+  # [optional] for Volcengine LLM Shield https://www.volcengine.com/product/LLM-FW
+  llm_shield:
+    app_id:
 
 
 observability:
   # [optional] for exporting tracing data to Volcengine CozeLoop and APMPlus platform
   opentelemetry:
+    trace_content: true # true | false, collect agent/LLM/tool input and output content in traces
     apmplus:
       endpoint: http://apmplus-cn-beijing.volces.com:4317
       api_key: 
@@ -116,6 +156,16 @@ database:
     port: 6379  # default Redis port
     password: 
     db: 0       # default 
+  # [optional] for KnowledgeBase(backend="milvus")
+  milvus:
+    uri: ./milvus.db # local Milvus Lite file path or remote URI, for example http://localhost:19530
+    # token: # optional; takes precedence over user/password
+    # user:
+    # password:
+    # db_name: default
+    # overwrite: false
+    # timeout: 5.0
+    # output_fields: text,metadata
   # [optional] for knowledgebase (https://console.volcengine.com/vikingdb)
   viking:
     project: default    # user project in Volcengine Viking DB
@@ -128,7 +178,41 @@ database:
   mem0:
     base_url: # default "https://api.mem0.ai/v1", using full https url including port
     api_key:  #api_key
-    
+  # [optional] for KnowledgeBase(backend="openviking") and LongTermMemory(backend="openviking")
+  openviking:
+    url: http://127.0.0.1:1933 # OpenViking HTTP server base URL
+    api_key: your-openviking-api-key # OpenViking service owner API key
+    # user_id: default # OpenViking owner/context id used by knowledge and memory
+    # memory_policy: '{"self":{"enabled":false},"peer":{"enabled":true},"memory_types":["entities","events","preferences"]}' # JSON string; omit to keep the default policy
+    # Optional knowledgebase settings:
+    # account:
+    # user:
+    # actor_peer_id:
+    # target_uri: viking://user/{OpenViking user_id or default}/resources/{index}/
+    # wait: true
+    # import_timeout: 300
+    # hydrate_results: true
+    # read_limit: 200
+    # score_threshold: 0.3
+    # use_context_search: false
+  tos_vector:
+    endpoint: tosvectors-cn-beijing.volces.com # default Volcengine TOS Vector endpoint
+    region: cn-beijing                  # default Volcengine TOS Vector region
+    bucket:
+    account_id:
+  # [optional] for long-term memory backend="tos_context" (TOS ContextBucket). Requires tos>=2.9.4b1.
+  # Note: distinct from `tos` (object storage) and `tos_vector` (vector store); this is the ContextBucket memory service.
+  tos_context:
+    account_id:                                 # [required] account ID for ContextBucket control-plane
+    control_endpoint:                           # [required] ContextBucket controller (control-plane) endpoint
+    bucket_name:                                # ContextBucket name; falls back to LongTermMemory `index`/`app_name`
+    endpoint: tos-cn-beijing.volces.com         # default Volcengine TOS data-plane endpoint
+    region: cn-beijing                          # default Volcengine TOS region
+
+# Dynamic config
+nacos:
+  endpoint:
+  password:
 
 
 # [optional] for prompt optimization in cli/app

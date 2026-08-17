@@ -17,11 +17,14 @@ from functools import cached_property
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from veadk.auth.veauth.ark_veauth import ARKVeAuth
+from veadk.auth.veauth.ark_veauth import get_ark_token
+from veadk.auth.veauth.speech_veauth import get_speech_token
 from veadk.consts import (
     DEFAULT_MODEL_AGENT_API_BASE,
     DEFAULT_MODEL_AGENT_NAME,
     DEFAULT_MODEL_AGENT_PROVIDER,
+    DEFAULT_MODEL_EMBEDDING_NAME,
+    DEFAULT_MODEL_EMBEDDING_DIM,
 )
 
 
@@ -37,26 +40,39 @@ class ModelConfig(BaseSettings):
     api_base: str = DEFAULT_MODEL_AGENT_API_BASE
     """The api base of the model for agent reasoning."""
 
+    api_key_name: str = ""
+    """Name of the ARK API key to use (env MODEL_AGENT_API_KEY_NAME). When set
+    and no explicit MODEL_AGENT_API_KEY is provided, the key value is resolved by
+    name at runtime instead of defaulting to the first key in the account."""
+
     @cached_property
     def api_key(self) -> str:
-        return os.getenv("MODEL_AGENT_API_KEY") or ARKVeAuth().token
+        if explicit := os.getenv("MODEL_AGENT_API_KEY"):
+            return explicit
+        if self.api_key_name:
+            return get_ark_token(api_key_name=self.api_key_name)
+        return get_ark_token()
 
 
 class EmbeddingModelConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MODEL_EMBEDDING_")
 
-    name: str = "doubao-embedding-text-240715"
+    name: str = DEFAULT_MODEL_EMBEDDING_NAME
     """Model name for embedding."""
 
-    dim: int = 2560
+    dim: int = DEFAULT_MODEL_EMBEDDING_DIM
     """Embedding dim is different from different models."""
 
-    api_base: str = "https://ark.cn-beijing.volces.com/api/v3/"
+    api_base: str = DEFAULT_MODEL_AGENT_API_BASE
     """The api base of the model for embedding."""
 
     @cached_property
     def api_key(self) -> str:
-        return os.getenv("MODEL_EMBEDDING_API_KEY") or ARKVeAuth().token
+        return (
+            os.getenv("MODEL_EMBEDDING_API_KEY")
+            or os.getenv("MODEL_AGENT_API_KEY")  # try to use agent's model api key
+            or get_ark_token()
+        )
 
 
 class NormalEmbeddingModelConfig(BaseSettings):
@@ -72,3 +88,17 @@ class NormalEmbeddingModelConfig(BaseSettings):
     """The api base of the model for embedding."""
 
     api_key: str
+
+
+class RealtimeModelConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="MODEL_REALTIME_")
+
+    name: str = "doubao_realtime_voice_model"
+    """Model name for realtime."""
+
+    api_base: str = "wss://openspeech.bytedance.com/api/v3/realtime/dialogue"
+    """The api base of the model for realtime."""
+
+    @cached_property
+    def api_key(self) -> str:
+        return os.getenv("MODEL_REALTIME_API_KEY") or get_speech_token()

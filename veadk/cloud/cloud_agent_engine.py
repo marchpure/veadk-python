@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import socket
 import subprocess
@@ -22,8 +23,11 @@ from typing import Any
 from pydantic import BaseModel
 
 from veadk.cloud.cloud_app import CloudApp
-from veadk.config import getenv
+from veadk.config import getenv, veadk_environments
+from veadk.integrations.ve_apig.ve_apig import APIGateway
 from veadk.integrations.ve_faas.ve_faas import VeFaaS
+from veadk.integrations.ve_identity.identity_client import IdentityClient
+from veadk.utils.cloud_provider import DEFAULT_CLOUD_PROVIDER, CloudProvider
 from veadk.utils.logger import get_logger
 from veadk.utils.misc import formatted_timestamp
 
@@ -31,18 +35,111 @@ logger = get_logger(__name__)
 
 
 class CloudAgentEngine(BaseModel):
-    volcengine_access_key: str = getenv("VOLCENGINE_ACCESS_KEY")
-    volcengine_secret_key: str = getenv("VOLCENGINE_SECRET_KEY")
+    """Manages cloud agent deployment and operations on Volcengine FaaS platform.
+
+    This class handles authentication with Volcengine, deploys local projects to FaaS,
+    updates function code, removes applications, and supports local testing.
+
+    Attributes:
+        volcengine_access_key (str): Access key for Volcengine authentication.
+            Defaults to VOLCENGINE_ACCESS_KEY environment variable.
+        volcengine_secret_key (str): Secret key for Volcengine authentication.
+            Defaults to VOLCENGINE_SECRET_KEY environment variable.
+        region (str): Region for Volcengine services. Defaults to "cn-beijing".
+        project (str): Volcengine project for the VeFaaS function. Defaults to
+            "default".
+        _vefaas_service (VeFaaS): Internal VeFaaS client instance, initialized post-creation.
+        _veapig_service (APIGateway): Internal VeAPIG client instance, initialized post-creation.
+        _veidentity_service (IdentityClient): Internal Identity client instance, initialized post-creation.
+
+    Note:
+        Credentials must be set via environment variables for default behavior.
+        This class performs interactive confirmations for destructive operations like removal.
+
+    Examples:
+        ```python
+        from veadk.cloud.cloud_agent_engine import CloudAgentEngine
+        engine = CloudAgentEngine()
+        app = engine.deploy("test-app", "/path/to/local/project")
+        print(app.vefaas_endpoint)
+        ```
+    """
+
+    volcengine_access_key: str = getenv(
+        "VOLCENGINE_ACCESS_KEY", "", allow_false_values=True
+    )
+    volcengine_secret_key: str = getenv(
+        "VOLCENGINE_SECRET_KEY", "", allow_false_values=True
+    )
+    volcengine_session_token: str = getenv(
+        "VOLCENGINE_SESSION_TOKEN", "", allow_false_values=True
+    ) or getenv("VOLC_SESSIONTOKEN", "", allow_false_values=True)
     region: str = "cn-beijing"
+    project: str = "default"
+    provider: CloudProvider = DEFAULT_CLOUD_PROVIDER
+    vefaas_application_template_id: str = getenv(
+        "VEFAAS_APPLICATION_TEMPLATE_ID", "", allow_false_values=True
+    )
 
     def model_post_init(self, context: Any, /) -> None:
+        """Initializes the internal VeFaaS service after Pydantic model validation.
+
+        Creates a VeFaaS instance using the configured access key, secret key, and region.
+
+        Args:
+            self: The CloudAgentEngine instance.
+            context: Pydantic post-init context parameter (not used).
+
+        Returns:
+            None
+
+        Note:
+            This is a Pydantic lifecycle method, ensuring service readiness after init.
+        """
         self._vefaas_service = VeFaaS(
             access_key=self.volcengine_access_key,
             secret_key=self.volcengine_secret_key,
+            session_token=self.volcengine_session_token,
             region=self.region,
+            project_name=self.project,
+            provider=self.provider,
+            application_template_id=self.vefaas_application_template_id,
+        )
+        self._veapig_service = APIGateway(
+            access_key=self.volcengine_access_key,
+            secret_key=self.volcengine_secret_key,
+            region=self.region,
+            session_token=self.volcengine_session_token,
+            provider=self.provider,
+        )
+        self._veidentity_service = IdentityClient(
+            access_key=self.volcengine_access_key,
+            secret_key=self.volcengine_secret_key,
+            session_token=self.volcengine_session_token,
+            region=self.region,
+            provider=self.provider,
         )
 
     def _prepare(self, path: str, name: str):
+        """Prepares the local project for deployment by validating path and name.
+
+        Checks if the path exists and is a directory, validates application name format.
+
+        Args:
+            path (str): Full or relative path to the local agent project directory.
+            name (str): Intended VeFaaS application name.
+
+        Returns:
+            None
+
+        Raises:
+            AssertionError: If path does not exist or is not a directory.
+            ValueError: If name contains invalid characters like underscores.
+
+        Note:
+            Includes commented code for handling requirements.txt; not executed currently.
+            Called internally by deploy and update methods.
+        """
         # basic check
         assert os.path.exists(path), f"Local agent project path `{path}` not exists."
         assert os.path.isdir(path), (
@@ -73,10 +170,23 @@ class CloudAgentEngine(BaseModel):
         #     )
 
     def _try_launch_fastapi_server(self, path: str):
-        """Try to launch a fastapi server for tests according to user's configuration.
+        """Tries to start a FastAPI server locally for testing deployment readiness.
+
+        Runs the project's run.sh script and checks connectivity on port 8000.
 
         Args:
-            path (str): Local agent project path.
+            path (str): Path to the local project containing run.sh.
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If server startup times out after 30 seconds.
+
+        Note:
+            Sets _FAAS_FUNC_TIMEOUT environment to 900 seconds.
+            Streams output to console and terminates process after successful check.
+            Assumes run.sh launches server on 0.0.0.0:8000.
         """
         RUN_SH = f"{path}/run.sh"
 
@@ -126,35 +236,60 @@ class CloudAgentEngine(BaseModel):
         gateway_service_name: str = "",
         gateway_upstream_name: str = "",
         use_adk_web: bool = False,
+        auth_method: str = "none",
+        identity_user_pool_name: str = "",
+        identity_client_name: str = "",
+        identity_user_pool_uid: str = "",
+        identity_client_uid: str = "",
+        client_secret: str = "",
+        reuse_gateway: bool = False,
         local_test: bool = False,
+        enable_mcp_session: bool = True,
+        keep_failed_deploy: bool = False,
     ) -> CloudApp:
-        """Deploy local agent project to Volcengine FaaS platform.
+        """Deploys a local agent project to Volcengine FaaS, creating necessary resources.
+
+        Prepares project, optionally tests locally, deploys via VeFaaS, and returns app instance.
 
         Args:
-            application_name (str): Expected VeFaaS application name.
-            path (str): Local agent project path.
-            gateway_name (str): Gateway name.
-            gateway_service_name (str): Gateway service name.
-            gateway_upstream_name (str): Gateway upstream name.
-            use_adk_web (bool): Whether to use ADK Web.
-            local_test (bool): Whether to run local test for FastAPI Server.
+            application_name (str): Unique name for the VeFaaS application.
+            path (str): Local directory path of the agent project.
+            gateway_name (str, optional): Custom gateway resource name. Defaults to timestamped.
+            gateway_service_name (str, optional): Custom service name. Defaults to timestamped.
+            gateway_upstream_name (str, optional): Custom upstream name. Defaults to timestamped.
+            use_adk_web (bool): Enable ADK Web configuration. Defaults to False.
+            auth_method (str, optional): Authentication for the agent. Defaults to none.
+            identity_user_pool_name (str, optional): Custom user pool name. Defaults to timestamped.
+            identity_client_name (str, optional): Custom client name. Defaults to timestamped.
+            local_test (bool): Perform FastAPI server test before deploy. Defaults to False.
 
         Returns:
-            CloudApp: The deployed cloud application instance.
+            CloudApp: Deployed application with endpoint, name, and ID.
+
+        Raises:
+            ValueError: On deployment failure, such as invalid config or VeFaaS errors.
+
+        Note:
+            Converts path to absolute; sets telemetry opt-out and ADK Web env vars.
+            Generates default gateway names if not specified.
+
+        Examples:
+            ```python
+            app = engine.deploy("my-agent", "./agent-project", local_test=True)
+            print(f"Deployed at: {app.vefaas_endpoint}")
+            ```
         """
         # prevent deepeval writing operations
-        import veadk.config
+        veadk_environments["DEEPEVAL_TELEMETRY_OPT_OUT"] = "YES"
 
-        veadk.config.veadk_environments["DEEPEVAL_TELEMETRY_OPT_OUT"] = "YES"
+        enable_key_auth = False
+        if auth_method == "api-key":
+            enable_key_auth = True
 
         if use_adk_web:
-            import veadk.config
-
-            veadk.config.veadk_environments["USE_ADK_WEB"] = "True"
+            veadk_environments["USE_ADK_WEB"] = "True"
         else:
-            import veadk.config
-
-            veadk.config.veadk_environments["USE_ADK_WEB"] = "False"
+            veadk_environments["USE_ADK_WEB"] = "False"
 
         # convert `path` to absolute path
         path = str(Path(path).resolve())
@@ -163,12 +298,21 @@ class CloudAgentEngine(BaseModel):
         if local_test:
             self._try_launch_fastapi_server(path)
 
-        if not gateway_name:
+        # When reusing a gateway, leave gateway_name empty so VeFaaS.deploy picks
+        # an existing serverless gateway (avoids hitting the per-account gateway
+        # quota on every deploy).
+        if not gateway_name and not reuse_gateway:
             gateway_name = f"{application_name}-gw-{formatted_timestamp()}"
         if not gateway_service_name:
             gateway_service_name = f"{application_name}-gw-svr-{formatted_timestamp()}"
         if not gateway_upstream_name:
             gateway_upstream_name = f"{application_name}-gw-us-{formatted_timestamp()}"
+        if not identity_user_pool_name:
+            identity_user_pool_name = (
+                f"{application_name}-id-up-{formatted_timestamp()}"
+            )
+        if not identity_client_name:
+            identity_client_name = f"{application_name}-id-cli-{formatted_timestamp()}"
 
         try:
             vefaas_application_url, app_id, function_id = self._vefaas_service.deploy(
@@ -177,20 +321,170 @@ class CloudAgentEngine(BaseModel):
                 gateway_name=gateway_name,
                 gateway_service_name=gateway_service_name,
                 gateway_upstream_name=gateway_upstream_name,
+                enable_key_auth=enable_key_auth,
+                enable_mcp_session=enable_mcp_session,
+                keep_failed_deploy=keep_failed_deploy,
             )
             _ = function_id  # for future use
 
-            return CloudApp(
+            veapig_gateway_id, _, veapig_route_id = (
+                self._vefaas_service.get_application_route(app_id=app_id)
+            )
+
+            if auth_method == "oauth2":
+                # Resolve the Identity user pool: reuse an existing one by UID
+                # when given (frontend deploy passes --user-pool-id), else
+                # get-or-create by name.
+                if identity_user_pool_uid:
+                    identity_user_pool = self._veidentity_service.get_user_pool(
+                        uid=identity_user_pool_uid,
+                    )
+                    if not identity_user_pool:
+                        raise ValueError(
+                            f"User pool not found by UID: {identity_user_pool_uid}"
+                        )
+                else:
+                    identity_user_pool = self._veidentity_service.get_user_pool(
+                        name=identity_user_pool_name,
+                    )
+                    if not identity_user_pool:
+                        identity_user_pool = self._veidentity_service.create_user_pool(
+                            name=identity_user_pool_name,
+                        )
+                identity_user_pool_id = identity_user_pool[0]
+                identity_user_pool_domain = identity_user_pool[1]
+
+                # Create APIG upstream for Identity.
+                veapig_identity_upstream_id = (
+                    self._veapig_service.check_domain_upstream_exist(
+                        domain=identity_user_pool_domain,
+                        port=443,
+                        gateway_id=veapig_gateway_id,
+                    )
+                )
+                if not veapig_identity_upstream_id:
+                    veapig_identity_upstream_id = (
+                        self._veapig_service.create_domain_upstream(
+                            domain=identity_user_pool_domain,
+                            port=443,
+                            is_https=True,
+                            gateway_id=veapig_gateway_id,
+                            upstream_name=f"id-{formatted_timestamp()}",
+                        )
+                    )
+
+                # Create plugin binding.
+                plugin_name = ""
+                plugin_config = {}
+                if use_adk_web:
+                    # Resolve the Identity client: reuse an existing one by UID
+                    # when given (frontend deploy passes --allowed-client-id),
+                    # else get-or-create by name.
+                    identity_client_id = ""
+                    identity_client_secret = ""
+                    if identity_client_uid:
+                        identity_client = self._veidentity_service.get_user_pool_client(
+                            user_pool_uid=identity_user_pool_id,
+                            client_uid=identity_client_uid,
+                        )
+                        if identity_client:
+                            identity_client_id = identity_client[0]
+                            identity_client_secret = identity_client[1]
+                        else:
+                            identity_client_id = identity_client_uid
+                        # GetUserPoolClient may not return the secret; fall back
+                        # to an explicitly provided one.
+                        if not identity_client_secret and client_secret:
+                            identity_client_secret = client_secret
+                    else:
+                        identity_client = self._veidentity_service.get_user_pool_client(
+                            user_pool_uid=identity_user_pool_id,
+                            name=identity_client_name,
+                        )
+                        if identity_client:
+                            identity_client_id = identity_client[0]
+                            identity_client_secret = identity_client[1]
+                        else:
+                            identity_client_id, identity_client_secret = (
+                                self._veidentity_service.create_user_pool_client(
+                                    user_pool_uid=identity_user_pool_id,
+                                    name=identity_client_name,
+                                    client_type="WEB_APPLICATION",
+                                )
+                            )
+
+                    self._veidentity_service.register_callback_for_user_pool_client(
+                        user_pool_uid=identity_user_pool_id,
+                        client_uid=identity_client_id,
+                        callback_url=f"{vefaas_application_url}/callback",
+                        web_origin=vefaas_application_url,
+                    )
+
+                    plugin_name = "wasm-oauth2-sso"
+                    plugin_config = {
+                        "AuthorizationUrl": f"https://{identity_user_pool_domain}/authorize",
+                        "UpstreamId": veapig_identity_upstream_id,
+                        "TokenUrl": f"https://{identity_user_pool_domain}/oauth/token",
+                        "RedirectPath": "/callback",
+                        "SignoutPath": "/signout",
+                        "ClientId": identity_client_id,
+                        "ClientSecret": identity_client_secret,
+                    }
+                else:
+                    plugin_name = "wasm-jwt-auth"
+                    plugin_config = {
+                        "RemoteJwks": {
+                            "UpstreamId": veapig_identity_upstream_id,
+                            "Url": f"https://{identity_user_pool_domain}/keys",
+                        },
+                        "Issuer": f"https://{identity_user_pool_domain}",
+                        "ValidateConsumer": False,
+                    }
+                self._vefaas_service.apig_client.create_plugin_binding(
+                    scope="ROUTE",
+                    target=veapig_route_id,
+                    plugin_name=plugin_name,
+                    plugin_config=json.dumps(plugin_config),
+                )
+
+            cloud_app = CloudApp(
                 vefaas_application_name=application_name,
                 vefaas_endpoint=vefaas_application_url,
                 vefaas_application_id=app_id,
             )
+            # Expose the function id so callers can do a post-deploy env update
+            # + re-release (e.g. injecting OAUTH2_REDIRECT_URI once the public
+            # URL is known).
+            cloud_app.vefaas_function_id = function_id
+            return cloud_app
         except Exception as e:
             raise ValueError(
                 f"Failed to deploy local agent project to Volcengine FaaS platform. Error: {e}"
             )
 
     def remove(self, app_name: str):
+        """Deletes a deployed cloud application after user confirmation.
+
+        Locates app by name, confirms, and issues delete via VeFaaS.
+
+        Args:
+            app_name (str): Name of the application to remove.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If application not found by name.
+
+        Note:
+            Interactive prompt required; cancels on non-'y' input.
+            Deletion is processed asynchronously by VeFaaS.
+
+        Examples:
+            ```python
+            engine.remove("my-agent")
+            ```
+        """
         confirm = input(f"Confirm delete cloud app {app_name}? (y/N): ")
         if confirm.lower() != "y":
             print("Delete cancelled.")
@@ -208,14 +502,28 @@ class CloudAgentEngine(BaseModel):
         application_name: str,
         path: str,
     ) -> CloudApp:
-        """Update existing agent project code while keeping the same URL.
+        """Updates the code in an existing VeFaaS application without changing endpoint.
+
+        Prepares new code from local path and updates function via VeFaaS.
 
         Args:
-            application_name (str): Existing application name to update.
-            path (str): Local agent project path.
+            application_name (str): Name of the existing application to update.
+            path (str): Local path containing updated project files.
 
         Returns:
-            CloudApp: Updated cloud app with same endpoint.
+            CloudApp: Updated application instance with same endpoint.
+
+        Raises:
+            ValueError: If update fails due to preparation or VeFaaS issues.
+
+        Note:
+            Preserves gateway and other resources; only function code is updated.
+            Path is resolved to absolute before processing.
+
+        Examples:
+            ```python
+            updated_app = engine.update_function_code("my-agent", "./updated-project")
+            ```
         """
         # convert `path` to absolute path
         path = str(Path(path).resolve())

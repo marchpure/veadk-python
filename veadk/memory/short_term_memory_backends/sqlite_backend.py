@@ -26,18 +26,24 @@ from typing_extensions import override
 from veadk.memory.short_term_memory_backends.base_backend import (
     BaseShortTermMemoryBackend,
 )
+from veadk.utils.adk_compat import should_use_async_db_drivers
 
 
 class SQLiteSTMBackend(BaseShortTermMemoryBackend):
     local_path: str
 
     def model_post_init(self, context: Any) -> None:
+        self.local_path = os.path.abspath(self.local_path)
         # if the DB file not exists, create it
         if not self._db_exists():
+            os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
             conn = sqlite3.connect(self.local_path)
             conn.close()
 
-        self._db_url = f"sqlite:///{self.local_path}"
+        if should_use_async_db_drivers():
+            self._db_url = f"sqlite+aiosqlite:///{self.local_path}"
+        else:
+            self._db_url = f"sqlite:///{self.local_path}"
 
     @cached_property
     @override

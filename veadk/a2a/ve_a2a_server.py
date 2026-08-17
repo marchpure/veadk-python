@@ -19,20 +19,33 @@ from fastapi import FastAPI
 
 from veadk import Agent
 from veadk.a2a.agent_card import get_agent_card
-from veadk.a2a.ve_agent_executor import VeAgentExecutor
+from veadk.runner import Runner
 from veadk.memory.short_term_memory import ShortTermMemory
+
+from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
+from google.adk.auth.credential_service.base_credential_service import (
+    BaseCredentialService,
+)
 
 
 class VeA2AServer:
     def __init__(
-        self, agent: Agent, url: str, app_name: str, short_term_memory: ShortTermMemory
+        self,
+        agent: Agent,
+        url: str,
+        app_name: str,
+        short_term_memory: ShortTermMemory,
+        credential_service: BaseCredentialService | None = None,
     ):
         self.agent_card = get_agent_card(agent, url)
 
-        self.agent_executor = VeAgentExecutor(
-            app_name=app_name,
-            agent=agent,
-            short_term_memory=short_term_memory,
+        self.agent_executor = A2aAgentExecutor(
+            runner=Runner(
+                agent=agent,
+                app_name=app_name,
+                short_term_memory=short_term_memory,
+                credential_service=credential_service,
+            )
         )
 
         self.task_store = InMemoryTaskStore()
@@ -52,7 +65,11 @@ class VeA2AServer:
 
 
 def init_app(
-    server_url: str, app_name: str, agent: Agent, short_term_memory: ShortTermMemory
+    server_url: str,
+    app_name: str,
+    agent: Agent,
+    short_term_memory: ShortTermMemory,
+    credential_service: BaseCredentialService | None = None,
 ) -> FastAPI:
     """Init the fastapi application in terms of VeADK agent.
 
@@ -71,5 +88,6 @@ def init_app(
         url=server_url,
         app_name=app_name,
         short_term_memory=short_term_memory,
+        credential_service=credential_service,
     )
     return server.build()

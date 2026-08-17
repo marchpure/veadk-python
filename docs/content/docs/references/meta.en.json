@@ -1,0 +1,6 @@
+{
+  "title": "Reference",
+  "icon": "BookMarked",
+  "root": true,
+  "pages": ["index", "api", "api-server", "configuration", "contributing", "license"]
+}

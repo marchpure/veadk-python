@@ -1,0 +1,268 @@
+# Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd. and/or its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for the same-origin managed-agent WebUI proxy."""
+
+from __future__ import annotations
+
+import httpx
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from typing_extensions import Self
+
+from veadk.cli.frontend_agent_proxy import (
+    _rewrite_body,
+    mount_agent_surface_proxy_routes,
+)
+from veadk.cli.frontend_sandbox_proxy import SandboxProxyTarget
+
+
+def test_agent_surface_rewrite_only_changes_the_agent_base_path() -> None:
+    prefix = "/web/hermes/sessions/session-1/surface/token-1"
+    body = (
+        b'<script>const slash = "/"; const api = "/api/status";'
+        b'window.__HERMES_BASE_PATH__ = "/hermes";</script>'
+        b'<script src="/hermes/assets/app.js"></script>'
+    )
+
+    rewritten = _rewrite_body(body, "text/html", prefix, "hermes").decode()
+
+    assert 'const slash = "/"' in rewritten
+    assert 'const api = "/api/status"' in rewritten
+    assert f'window.__HERMES_BASE_PATH__ = "{prefix}/hermes"' in rewritten
+    assert f'src="{prefix}/hermes/assets/app.js"' in rewritten
+
+
+def test_hermes_surface_rewrite_removes_private_gateway_query() -> None:
+    prefix = "/web/hermes/sessions/session-1/surface/token-1"
+    body = (
+        b'<script src="/hermes/assets/app.js?faasInstanceName=hermes-instance'
+        b'&amp;Authorization=hermes-secret&amp;theme=dark"></script>'
+        b'<link href="./assets/app.css?Authorization=hermes-secret" rel="stylesheet">'
+        b'<link href="./favicon.ico?faasInstanceName=hermes-instance" rel="icon">'
+    )
+
+    rewritten = _rewrite_body(body, "text/html", prefix, "hermes").decode()
+
+    assert f'src="{prefix}/hermes/assets/app.js?theme=dark"' in rewritten
+    assert 'href="./assets/app.css"' in rewritten
+    assert 'href="./favicon.ico"' in rewritten
+    assert "faasInstanceName" not in rewritten
+    assert "Authorization" not in rewritten
+    assert "hermes-instance" not in rewritten
+    assert "hermes-secret" not in rewritten
+
+
+def test_deepseek_harness_rewrite_routes_root_assets_and_api_through_surface() -> None:
+    prefix = "/web/deepseek-harness/sessions/session-1/surface/token-1"
+    body = (
+        b'<script src="/deepseek-harness-auth-query.js?Authorization=secret">'
+        b"</script>"
+        b'<script>const slash = "/"; const api = "/api/status";'
+        b'const ws = new WebSocket("/api/events");'
+        b'window.__DSH_BASE_PATH__ = "/deepseek-harness";</script>'
+        b'<script src="/assets/app.js"></script>'
+        b'<link href="/plugins/plugin-a/index.css" rel="stylesheet">'
+    )
+
+    rewritten = _rewrite_body(
+        body,
+        "text/html",
+        prefix,
+        "deepseek-harness",
+    ).decode()
+
+    assert 'const slash = "/"' in rewritten
+    assert f'src="{prefix}/deepseek-harness-auth-query.js"' in rewritten
+    assert f'const api = "{prefix}/api/status"' in rewritten
+    assert f'new WebSocket("{prefix}/api/events")' in rewritten
+    assert f'window.__DSH_BASE_PATH__ = "{prefix}/deepseek-harness"' in rewritten
+    assert f'src="{prefix}/assets/app.js"' in rewritten
+    assert f'href="{prefix}/plugins/plugin-a/index.css"' in rewritten
+    assert "Authorization" not in rewritten
+    assert "secret" not in rewritten
+
+
+def test_agent_surface_proxy_keeps_endpoint_auth_server_side(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested_urls: list[str] = []
+
+    class _Client:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def request(self, _method: str, url: str, **_: object) -> httpx.Response:
+            requested_urls.append(url)
+            return httpx.Response(
+                200,
+                content=(
+                    b'<script src="/openclaw/assets/app.js"></script>'
+                    b'<script>const base64 = "/"; const api = "/api/status";</script>'
+                ),
+                headers={"content-type": "text/html"},
+            )
+
+    monkeypatch.setattr("veadk.cli.frontend_agent_proxy.httpx.AsyncClient", _Client)
+    app = FastAPI()
+
+    def _target(kind: str, session_id: str, token: str) -> SandboxProxyTarget:
+        if (kind, session_id, token) != ("openclaw", "session-1", "token-1"):
+            raise KeyError(session_id)
+        return SandboxProxyTarget(
+            endpoint=(
+                "https://sandbox.example/?faasInstanceName=instance-1"
+                "&Authorization=server-secret"
+            )
+        )
+
+    mount_agent_surface_proxy_routes(
+        app,
+        _target,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/web/openclaw/sessions/session-1/surface/token-1/openclaw/"
+        )
+
+    assert response.status_code == 200
+    expected_url = (
+        "https://sandbox.example/openclaw/"
+        "?faasInstanceName=instance-1&Authorization=server-secret"
+    )
+    assert requested_urls == [expected_url]
+    assert (
+        'src="/web/openclaw/sessions/session-1/surface/token-1/openclaw/assets/app.js"'
+        in response.text
+    )
+    assert 'const base64 = "/"' in response.text
+    assert 'const api = "/api/status"' in response.text
+    assert "server-secret" not in response.text
+
+
+def test_deepseek_harness_proxy_keeps_endpoint_auth_server_side(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested_urls: list[str] = []
+
+    class _Client:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def request(self, _method: str, url: str, **_: object) -> httpx.Response:
+            requested_urls.append(url)
+            return httpx.Response(
+                200,
+                content=b'<script>fetch("/api/status")</script>',
+                headers={"content-type": "text/html"},
+            )
+
+    monkeypatch.setattr("veadk.cli.frontend_agent_proxy.httpx.AsyncClient", _Client)
+    app = FastAPI()
+
+    def _target(kind: str, session_id: str, token: str) -> SandboxProxyTarget:
+        if (kind, session_id, token) != (
+            "deepseek-harness",
+            "session-1",
+            "token-1",
+        ):
+            raise KeyError(session_id)
+        return SandboxProxyTarget(
+            endpoint=(
+                "https://sandbox.example/?faasInstanceName=instance-1"
+                "&Authorization=server-secret"
+            )
+        )
+
+    mount_agent_surface_proxy_routes(app, _target)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/web/deepseek-harness/sessions/session-1/surface/token-1/api/status"
+        )
+
+    assert response.status_code == 200
+    expected_url = (
+        "https://sandbox.example/api/status"
+        "?faasInstanceName=instance-1&Authorization=server-secret"
+    )
+    assert requested_urls == [expected_url]
+    expected_fetch = (
+        'fetch("/web/deepseek-harness/sessions/session-1/surface/token-1/api/status")'
+    )
+    assert expected_fetch in response.text
+    assert "server-secret" not in response.text
+
+
+def test_hermes_proxy_forwards_the_session_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    forwarded_headers: list[dict[str, str]] = []
+
+    class _Client:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *_: object) -> None:
+            return None
+
+        async def request(
+            self,
+            _method: str,
+            _url: str,
+            **kwargs: object,
+        ) -> httpx.Response:
+            forwarded_headers.append(dict(kwargs["headers"]))  # type: ignore[arg-type]
+            return httpx.Response(
+                200,
+                json={"authenticated": True},
+                headers={"content-type": "application/json"},
+            )
+
+    monkeypatch.setattr("veadk.cli.frontend_agent_proxy.httpx.AsyncClient", _Client)
+    app = FastAPI()
+
+    def _target(kind: str, session_id: str, token: str) -> SandboxProxyTarget:
+        assert (kind, session_id, token) == ("hermes", "session-1", "proxy-1")
+        return SandboxProxyTarget(
+            endpoint="https://sandbox.example/?Authorization=secret"
+        )
+
+    mount_agent_surface_proxy_routes(app, _target)
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/web/hermes/sessions/session-1/surface/proxy-1/hermes/api/auth/me",
+            headers={"X-Hermes-Session-Token": "hermes-session-token"},
+        )
+
+    assert response.status_code == 200
+    assert forwarded_headers[0]["x-hermes-session-token"] == "hermes-session-token"

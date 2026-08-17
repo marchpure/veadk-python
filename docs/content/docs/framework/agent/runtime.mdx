@@ -1,0 +1,77 @@
+---
+title: "运行时"
+status: new
+---
+
+运行时决定智能体「内层循环」如何执行——也就是每一轮怎样调用模型、解析意图、调用工具。默认运行时基于 Google ADK 的内置执行流程，开箱即用。你也可以切换到其他执行后端，或在执行流程上插入统一的处理逻辑（如鉴权、日志、重试），而无需改动智能体本身。
+
+## 基本使用
+
+默认即为 ADK 运行时，无需任何额外配置：
+
+```python title="agent.py"
+import asyncio
+from veadk import Agent, Runner
+
+agent = Agent(name="assistant")  # 默认使用 ADK 运行时
+print(asyncio.run(Runner(agent=agent).run("你好")))
+```
+
+## 切换执行后端
+
+通过 `runtime` 选择内层循环的执行后端：
+
+```python title="agent.py"
+agent = Agent(name="assistant", runtime="codex")
+```
+
+| 取值 | 说明 |
+| :--- | :--- |
+| `adk`（默认） | 使用 Google ADK 内置的执行流程，适用于绝大多数场景。 |
+| `codex` | 使用 OpenAI Codex SDK 驱动内层循环。 |
+
+使用 Codex runtime 前安装可选依赖：
+
+```bash
+pip install "veadk-python[codex]"
+```
+
+### Codex 安全配置
+
+Codex 默认使用独立 Session workspace、`workspace_write` 沙箱、禁用网络，并拒绝需要提权的操作。需要扩大权限时必须显式配置：
+
+```python title="agent.py"
+from veadk import Agent
+from veadk.runtime.codex import CodexRuntimeConfig
+
+agent = Agent(
+    name="assistant",
+    runtime="codex",
+    codex_runtime_config=CodexRuntimeConfig(
+        sandbox="workspace_write",
+        approval_mode="auto_review",
+        network_access=True,
+        # 若需在已有工程内工作，显式指定目录；默认使用 Session 隔离目录。
+        workspace_root="/workspace/codex",
+    ),
+)
+```
+
+`full_access` 和 `reuse_workspace=True` 会放宽不同调用之间的文件系统边界，只应在受信环境中开启。
+
+### Codex 可观测性
+
+Codex 原生生命周期和 ADK Function/MCP 工具调用都会转换为 ADK Event。运行日志使用稳定的 `codex_*` 事件名，并包含 `invocation_id`、`call_id`、`tool`、`status`、`duration_ms` 等可归因字段。日志不会记录工具参数、工具结果、API Token、凭证或后端地址；Token Usage 通过 `codex_event_type=token_usage` 事件及对应日志提供。
+
+## 请求处理
+
+在不侵入业务逻辑的前提下，可为每次执行插入统一的横切处理——鉴权、日志、重试、性能监控等。把处理器传入 `run_processor` 即可，例如接入身份认证做登录态校验：
+
+```python title="agent.py"
+from veadk import Agent
+from veadk.integrations.ve_identity import AuthRequestProcessor
+
+agent = Agent(name="assistant", run_processor=AuthRequestProcessor())
+```
+
+不设置时使用默认的空处理器，不改变任何行为。

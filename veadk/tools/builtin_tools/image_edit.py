@@ -12,24 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
-from google.adk.tools import ToolContext
-from volcenginesdkarkruntime import Ark
-from veadk.config import getenv
-from veadk.consts import DEFAULT_MODEL_AGENT_API_BASE, DEFAULT_IMAGE_EDIT_MODEL_NAME
 import base64
-from opentelemetry import trace
-import traceback
 import json
-from veadk.version import VERSION
+import traceback
+from typing import Dict
+
+from google.adk.tools import ToolContext
+from opentelemetry import trace
 from opentelemetry.trace import Span
+from volcenginesdkarkruntime import Ark
+
+from veadk.config import getenv, settings
+from veadk.consts import (
+    DEFAULT_IMAGE_EDIT_MODEL_API_BASE,
+    DEFAULT_IMAGE_EDIT_MODEL_NAME,
+)
 from veadk.utils.logger import get_logger
+from veadk.version import VERSION
 
 logger = get_logger(__name__)
 
 client = Ark(
-    api_key=getenv("MODEL_AGENT_API_KEY"),
-    base_url=DEFAULT_MODEL_AGENT_API_BASE,
+    api_key=getenv(
+        "MODEL_EDIT_API_KEY",
+        getenv("MODEL_AGENT_API_KEY", settings.model.api_key),
+    ),
+    base_url=getenv("MODEL_EDIT_API_BASE", DEFAULT_IMAGE_EDIT_MODEL_API_BASE),
 )
 
 
@@ -92,9 +100,14 @@ async def image_edit(
         - Provide the same `seed` for consistent outputs across runs.
         - A high `guidance_scale` enforces stricter adherence to text prompt.
     """
+    logger.debug(
+        f"Using model: {getenv('MODEL_EDIT_NAME', DEFAULT_IMAGE_EDIT_MODEL_NAME)}"
+    )
     success_list = []
     error_list = []
+    logger.debug(f"image_edit params: {params}")
     for idx, item in enumerate(params):
+        logger.debug(f"image_edit item {idx}: {item}")
         image_name = item.get("image_name", f"generated_image_{idx}")
         prompt = item.get("prompt")
         origin_image = item.get("origin_image")
@@ -123,10 +136,20 @@ async def image_edit(
                     "parts.1.image_url.url": origin_image,
                 }
                 response = client.images.generate(
-                    model=DEFAULT_IMAGE_EDIT_MODEL_NAME, **inputs
+                    model=getenv("MODEL_EDIT_NAME", DEFAULT_IMAGE_EDIT_MODEL_NAME),
+                    **inputs,
+                    extra_headers={
+                        "veadk-source": "veadk",
+                        "veadk-version": VERSION,
+                        "User-Agent": f"VeADK/{VERSION}",
+                        "X-Client-Request-Id": getenv(
+                            "MODEL_AGENT_CLIENT_REQ_ID", f"veadk/{VERSION}"
+                        ),
+                    },
                 )
                 output_part = None
                 if response.data and len(response.data) > 0:
+                    logger.debug(f"task {idx} Image edit response: {response}")
                     for item in response.data:
                         if response_format == "url":
                             image = item.url
@@ -142,7 +165,8 @@ async def image_edit(
                             image_bytes = base64.b64decode(image)
 
                             tos_url = _upload_image_to_tos(
-                                image_bytes=image_bytes, object_key=f"{image_name}.png"
+                                image_bytes=image_bytes,
+                                object_key=f"{image_name}.png",
                             )
                             if tos_url:
                                 tool_context.state[f"{image_name}_url"] = tos_url
@@ -161,7 +185,9 @@ async def image_edit(
                                 continue
 
                             logger.debug(f"Image saved as ADK artifact: {image_name}")
-
+                        logger.debug(
+                            f"Image {image_name} generated successfully: {image}"
+                        )
                         success_list.append({image_name: image})
                 else:
                     error_details = f"No images returned by Doubao model: {response}"
@@ -175,8 +201,12 @@ async def image_edit(
                     output_part=output_part,
                     output_tokens=response.usage.output_tokens,
                     total_tokens=response.usage.total_tokens,
-                    request_model=DEFAULT_IMAGE_EDIT_MODEL_NAME,
-                    response_model=DEFAULT_IMAGE_EDIT_MODEL_NAME,
+                    request_model=getenv(
+                        "MODEL_EDIT_NAME", DEFAULT_IMAGE_EDIT_MODEL_NAME
+                    ),
+                    response_model=getenv(
+                        "MODEL_EDIT_NAME", DEFAULT_IMAGE_EDIT_MODEL_NAME
+                    ),
                 )
 
         except Exception as e:
@@ -186,12 +216,18 @@ async def image_edit(
             error_list.append(image_name)
 
     if len(success_list) == 0:
+        logger.debug(
+            f"image_edit success_list: {success_list}\nerror_list: {error_list}"
+        )
         return {
             "status": "error",
             "success_list": success_list,
             "error_list": error_list,
         }
     else:
+        logger.debug(
+            f"image_edit success_list: {success_list}\nerror_list: {error_list}"
+        )
         return {
             "status": "success",
             "success_list": success_list,
@@ -230,7 +266,7 @@ def add_span_attributes(
         span.set_attribute("cozeloop.report.source", "veadk")
 
         # llm attributes
-        span.set_attribute("gen_ai.system", "openai")
+        span.set_attribute("gen_ai.system", "Ark")
         span.set_attribute("gen_ai.operation.name", "chat")
         if request_model:
             span.set_attribute("gen_ai.request.model", request_model)
@@ -253,9 +289,10 @@ def add_span_attributes(
 
 def _upload_image_to_tos(image_bytes: bytes, object_key: str) -> None:
     try:
-        from veadk.integrations.ve_tos.ve_tos import VeTOS
         import os
         from datetime import datetime
+
+        from veadk.integrations.ve_tos.ve_tos import VeTOS
 
         timestamp: str = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
         object_key = f"{timestamp}-{object_key}"

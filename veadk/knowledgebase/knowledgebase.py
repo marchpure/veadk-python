@@ -12,129 +12,259 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Literal
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from typing_extensions import Union
 
 from veadk.knowledgebase.backends.base_backend import BaseKnowledgebaseBackend
 from veadk.knowledgebase.entry import KnowledgebaseEntry
+from veadk.knowledgebase.types import KnowledgebaseProfile
 from veadk.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 def _get_backend_cls(backend: str) -> type[BaseKnowledgebaseBackend]:
-    match backend:
-        case "local":
-            from veadk.knowledgebase.backends.in_memory_backend import (
-                InMemoryKnowledgeBackend,
-            )
+    try:
+        match backend:
+            case "local":
+                from veadk.knowledgebase.backends.in_memory_backend import (
+                    InMemoryKnowledgeBackend,
+                )
 
-            return InMemoryKnowledgeBackend
-        case "opensearch":
-            from veadk.knowledgebase.backends.opensearch_backend import (
-                OpensearchKnowledgeBackend,
-            )
+                return InMemoryKnowledgeBackend
+            case "opensearch":
+                from veadk.knowledgebase.backends.opensearch_backend import (
+                    OpensearchKnowledgeBackend,
+                )
 
-            return OpensearchKnowledgeBackend
-        case "viking":
-            from veadk.knowledgebase.backends.vikingdb_knowledge_backend import (
-                VikingDBKnowledgeBackend,
-            )
+                return OpensearchKnowledgeBackend
+            case "redis":
+                from veadk.knowledgebase.backends.redis_backend import (
+                    RedisKnowledgeBackend,
+                )
 
-            return VikingDBKnowledgeBackend
-        case "redis":
-            from veadk.knowledgebase.backends.redis_backend import (
-                RedisKnowledgeBackend,
-            )
+                return RedisKnowledgeBackend
+            case "milvus":
+                from veadk.knowledgebase.backends.milvus_backend import (
+                    MilvusKnowledgeBackend,
+                )
 
-            return RedisKnowledgeBackend
+                return MilvusKnowledgeBackend
+            case "tos_vector":
+                from veadk.knowledgebase.backends.tos_vector_backend import (
+                    TosVectorKnowledgeBackend,
+                )
 
-    raise ValueError(f"Unsupported knowledgebase backend: {backend}")
+                return TosVectorKnowledgeBackend
+            case "viking":
+                from veadk.knowledgebase.backends.vikingdb_knowledge_backend import (
+                    VikingDBKnowledgeBackend,
+                )
 
+                return VikingDBKnowledgeBackend
+            case "context_search":
+                from veadk.knowledgebase.backends.context_search_backend import (
+                    ContextSearchBackend,
+                )
 
-def build_knowledgebase_index(app_name: str):
-    return f"veadk_kb_{app_name}"
+                return ContextSearchBackend
+            case "openviking":
+                from veadk.knowledgebase.backends.openviking_backend import (
+                    OpenVikingKnowledgeBackend,
+                )
+
+                return OpenVikingKnowledgeBackend
+            case _:
+                raise ValueError(f"Unsupported knowledgebase backend: {backend}")
+    except ImportError as e:
+        if "llama_index" in str(e) or "llama-index" in str(e):
+            raise ImportError(
+                "KnowledgeBase functionality requires 'veadk-python[extensions]'. "
+                "Please install it via `pip install veadk-python[extensions]`."
+            ) from e
+        raise
 
 
 class KnowledgeBase(BaseModel):
-    backend: Union[
-        Literal["local", "opensearch", "viking", "redis"], BaseKnowledgebaseBackend
-    ] = "local"
-    """Knowledgebase backend type. Supported backends are:
-    - local: In-memory knowledgebase, data will be lost when the program exits.
-    - opensearch: OpenSearch knowledgebase, requires an OpenSearch cluster.
-    - viking: Volcengine VikingDB knowledgebase, requires VikingDB service.
-    - redis: Redis knowledgebase, requires Redis with vector search capability.
-    Default is `local`."""
+    """A knowledge base for storing user-related information.
+
+    This class represents a knowledge base used to store and retrieve user-specific data.
+    It supports multiple backend options, including in-memory, OpenSearch, Redis,
+    Volcengine VikingDB, Context Search, and OpenViking resources. The knowledge
+    base allows document retrieval through the selected backend, with backend-
+    specific settings.
+
+    Attributes:
+        name (str): The name of the knowledge base. Default is "user_knowledgebase".
+        description (str): A description of the knowledge base. Default is "This knowledgebase stores some user-related information."
+        backend (Union[Literal["local", "opensearch", "viking", "redis", "milvus", "tos_vector", "context_search", "openviking"], BaseKnowledgebaseBackend]):
+            The type of backend to use for storing and querying the knowledge base. Supported options include:
+            - 'local' for in-memory storage (data is lost when the program exits).
+            - 'opensearch' for OpenSearch (requires OpenSearch cluster).
+            - 'viking' for Volcengine VikingDB (requires VikingDB service).
+            - 'redis' for Redis with vector search capability (requires Redis).
+            - 'milvus' for Milvus vector database (requires Milvus).
+            - 'tos_vector' for TOS-backed vector retrieval.
+            - 'context_search' for Volcengine Context Search.
+            - 'openviking' for OpenViking resources-based retrieval.
+            Default is 'local'.
+        backend_config (dict): Configuration dictionary for the selected backend.
+        top_k (int): The number of top similar documents to retrieve during a search. Default is 10.
+        app_name (str): The name of the application associated with the knowledge base. If index is not provided, this value will be set to `index`.
+        index (str): The name of the knowledge base index.
+
+    Notes:
+        Vector backends such as 'local', 'opensearch', and 'redis' require
+        embedding-related environment variables. Resource/search-service backends
+        such as 'openviking' and 'context_search' use their own service configs.
+    """
+
+    name: str = "user_knowledgebase"
+
+    description: str = "This knowledgebase stores some user-related information."
+
+    backend: (
+        Literal[
+            "local",
+            "opensearch",
+            "viking",
+            "redis",
+            "milvus",
+            "tos_vector",
+            "context_search",
+            "openviking",
+        ]
+        | BaseKnowledgebaseBackend
+    ) = "local"
 
     backend_config: dict = Field(default_factory=dict)
-    """Configuration for the backend"""
 
     top_k: int = 10
-    """Number of top similar documents to retrieve during search.
-
-    Default is 10."""
 
     app_name: str = ""
 
     index: str = ""
-    """The name of the knowledgebase index. If not provided, it will be generated based on the `app_name`."""
 
-    def model_post_init(self, __context: Any) -> None:
+    enable_profile: bool = False
+
+    query_with_user_profile: bool = False
+
+    def model_post_init(self, __context: Any, /) -> None:
         if isinstance(self.backend, BaseKnowledgebaseBackend):
             self._backend = self.backend
+            self.index = self._backend.index
             logger.info(
                 f"Initialized knowledgebase with provided backend instance {self._backend.__class__.__name__}"
             )
             return
 
-        # must provide at least one of them
-        if not self.app_name and not self.index:
-            raise ValueError(
-                "Either `app_name` or `index` must be provided one of them."
-            )
+        # Once user define backend config, use it directly
+        if self.backend_config:
+            self._backend = _get_backend_cls(self.backend)(**self.backend_config)
+            return
 
-        # priority use index
-        if self.app_name and self.index:
-            logger.warning(
-                "`app_name` and `index` are both provided, using `index` as the knowledgebase index name."
-            )
-
-        # generate index name if `index` not provided but `app_name` is provided
-        if self.app_name and not self.index:
-            self.index = build_knowledgebase_index(self.app_name)
-            logger.info(
-                f"Knowledgebase index is set to {self.index} (generated by the app_name: {self.app_name})."
-            )
+        self.index = self.index or self.app_name
+        if not self.index:
+            raise ValueError("Either `index` or `app_name` must be provided.")
 
         logger.info(
-            f"Initializing knowledgebase: backend={self.backend} top_k={self.top_k}"
+            f"Initializing knowledgebase: backend={self.backend} index={self.index} top_k={self.top_k}"
         )
-        self._backend = _get_backend_cls(self.backend)(
-            index=self.index, **self.backend_config if self.backend_config else {}
-        )
+        self._backend = _get_backend_cls(self.backend)(index=self.index)
         logger.info(
             f"Initialized knowledgebase with backend {self._backend.__class__.__name__}"
         )
 
+        if self.query_with_user_profile:
+            logger.info(
+                "Enable user profile querying for knowledgebase. You *must* use Viking Memory backend to enjoy this feature."
+            )
+
     def add_from_directory(self, directory: str, **kwargs) -> bool:
-        """Add knowledge from file path to knowledgebase"""
+        """Add knowledge from file path to knowledgebase.
+
+        Add the files in the directory to knowledgebase backend.
+
+        Args:
+            directory (str): The directory path that needs to store.
+
+        Returns:
+            bool: True if successfully store the knowledgebase, False otherwise.
+
+        Examples:
+            Store a directory to knowledgebase:
+
+            ```python
+            knowledgebase = Knowledgebase(backend="local")
+
+            if knowledgebase.add_from_directory("./knowledgebase"):
+                # add successfully
+                ...
+            else:
+                raise RuntimeError("Uploaded directory failed.")
+            ```
+        """
         return self._backend.add_from_directory(directory=directory, **kwargs)
 
     def add_from_files(self, files: list[str], **kwargs) -> bool:
-        """Add knowledge (e.g, documents, strings, ...) to knowledgebase"""
+        """Add knowledge files to knowledgebase.
+
+        Add a list of files to knowledgebase backend.
+
+        Args:
+            files (str): The list of files.
+
+        Returns:
+            bool: True if successfully store the knowledgebase, False otherwise.
+
+        Examples:
+            Store files to knowledgebase:
+
+            ```python
+            knowledgebase = Knowledgebase(backend="local")
+
+            if knowledgebase.add_from_files("./knowledgebase"):
+                # add successfully
+                ...
+            else:
+                raise RuntimeError("Uploaded files failed.")
+            ```
+        """
         return self._backend.add_from_files(files=files, **kwargs)
 
     def add_from_text(self, text: str | list[str], **kwargs) -> bool:
-        """Add knowledge from text to knowledgebase"""
+        """Add a piece of text or a list of text to knowledgebase.
+
+        The `text` can be a string or a list of string. The text will be embedded and stored by the corresponding backend.
+
+        Args:
+            text (str | list[str]): The text string or a list of text strings.
+
+        Returns:
+            bool: True if successfully store the knowledgebase, False otherwise.
+
+        Examples:
+            Store a string or a list of string to knowledgebase:
+
+            ```python
+            knowledgebase = Knowledgebase(backend="local")
+
+            if knowledgebase.add_from_text("./knowledgebase"):
+                # add successfully
+                ...
+            else:
+                raise RuntimeError("Uploaded text failed.")
+            ```
+        """
         return self._backend.add_from_text(text=text, **kwargs)
 
     def search(self, query: str, top_k: int = 0, **kwargs) -> list[KnowledgebaseEntry]:
         """Search knowledge from knowledgebase"""
-        if top_k == 0:
-            top_k = self.top_k
+        top_k = top_k if top_k != 0 else self.top_k
 
         _entries = self._backend.search(query=query, top_k=top_k, **kwargs)
 
@@ -151,9 +281,77 @@ class KnowledgeBase(BaseModel):
 
         return entries
 
+    def close(self) -> None:
+        """Release backend resources when the backend exposes a close hook."""
+        close = getattr(self._backend, "close", None)
+        if callable(close):
+            close()
+
     def __getattr__(self, name) -> Callable:
         """In case of knowledgebase have no backends' methods (`delete`, `list_chunks`, etc)
 
         For example, knowledgebase.delete(...) -> self._backend.delete(...)
         """
         return getattr(self._backend, name)
+
+    async def generate_profiles(self, files: list[str], profile_path: str = ""):
+        """Generate knowledgebase profiles.
+
+        Args:
+            files (list[str]): The list of files.
+            name (str): The name of the knowledgebase.
+            profile_path (str, optional): The path to store the generated profiles. If empty, the profiles will be stored in a default path.
+
+        Returns:
+            list[KnowledgebaseProfile]: A list of knowledgebase profiles.
+        """
+        import json
+        from pathlib import Path
+
+        from veadk import Agent, Runner
+        from veadk.utils.misc import write_string_to_file
+
+        file_contents = [Path(file).read_text() for file in files]
+
+        agent = Agent(
+            name="profile_generator",
+            model_name="deepseek-v3-2-251201",
+            # model_extra_config={
+            #     "extra_body": {"thinking": {"type": "disabled"}},
+            # },
+            description="A generator for generating knowledgebase profiles for the given files.",
+            instruction='Generate JSON-formatted profile for the given file content. The corresponding language should be consistent with the file content. Respond ONLY with a JSON object containing the capitalized fields. Format: {"name": "", "description": "", "tags": [], "keywords": []} (3-5 tags, 3-5 keywords)',
+            output_schema=KnowledgebaseProfile,
+        )
+        runner = Runner(agent=agent)
+
+        profiles = []
+        for idx, file_content in enumerate(file_contents):
+            response = await runner.run(
+                messages="file content: " + file_content,
+                session_id=f"profile_{idx}",
+            )
+            try:
+                profiles.append(KnowledgebaseProfile(**json.loads(response)))
+            except json.JSONDecodeError:
+                logger.error(
+                    f"Failed to parse JSON response for file {files[idx]}: {response}. Skip for this file."
+                )
+                continue
+
+        logger.debug(f"Generated {len(profiles)} profiles: {profiles}.")
+
+        for idx, profile in enumerate(profiles):
+            if not profile_path:
+                profile_path = f"./profiles/knowledgebase/profiles_{self.index}"
+            write_string_to_file(
+                profile_path + f"/profile_{profile.name}.json",
+                json.dumps(profile.model_dump(), indent=4, ensure_ascii=False),
+            )
+
+        profile_names = [profile.name for profile in profiles]
+
+        write_string_to_file(
+            profile_path + "/profile_list.json",
+            json.dumps(profile_names, indent=4, ensure_ascii=False),
+        )

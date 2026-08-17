@@ -12,100 +12,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+import logging
+from functools import wraps
 
 import click
 
-from veadk.memory.long_term_memory import LongTermMemory
-from veadk.memory.short_term_memory import ShortTermMemory
+from veadk.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
-def _get_stm_from_module(module) -> ShortTermMemory:
-    return module.agent_run_config.short_term_memory
+def _patch_adkwebserver_oauth2(
+    user_pool_name: str,
+    user_pool_client: str,
+    redirect_uri: str,
+) -> None:
+    """
+    Monkey patch AdkWebServer to enable OAuth2 authentication.
 
+    This function patches the AdkWebServer.get_fast_api_app method to add
+    OAuth2 authentication middleware using VeIdentity User Pool.
 
-def _get_stm_from_env() -> ShortTermMemory:
-    import os
+    Args:
+        user_pool_name: VeIdentity User Pool name.
+        user_pool_client: VeIdentity User Pool client name.
+        redirect_uri: OAuth2 redirect URI (e.g., http://127.0.0.1:8000/oauth2/callback).
+    """
+    import google.adk.cli.adk_web_server
 
-    from veadk.utils.logger import get_logger
+    from veadk.auth.middleware.oauth2_auth import OAuth2Config, setup_oauth2
 
-    logger = get_logger(__name__)
+    original_get_fast_api = google.adk.cli.adk_web_server.AdkWebServer.get_fast_api_app
 
-    short_term_memory_backend = os.getenv("SHORT_TERM_MEMORY_BACKEND")
-    if not short_term_memory_backend:  # prevent None or empty string
-        short_term_memory_backend = "local"
-    logger.info(f"Short term memory: backend={short_term_memory_backend}")
+    def wrapped_get_fast_api(self, *args, **kwargs):
+        app = original_get_fast_api(self, *args, **kwargs)
 
-    return ShortTermMemory(backend=short_term_memory_backend)  # type: ignore
-
-
-def _get_ltm_from_module(module) -> LongTermMemory | None:
-    agent = module.agent_run_config.agent
-
-    if not hasattr(agent, "long_term_memory"):
-        return None
-    else:
-        return agent.long_term_memory
-
-
-def _get_ltm_from_env() -> LongTermMemory | None:
-    import os
-
-    from veadk.utils.logger import get_logger
-
-    logger = get_logger(__name__)
-
-    long_term_memory_backend = os.getenv("LONG_TERM_MEMORY_BACKEND")
-
-    if long_term_memory_backend:
-        logger.info(f"Long term memory: backend={long_term_memory_backend}")
-        return LongTermMemory(backend=long_term_memory_backend)  # type: ignore
-    else:
-        logger.warning("No long term memory backend settings detected.")
-        return None
-
-
-def _get_memory(
-    module_path: str,
-) -> tuple[ShortTermMemory, LongTermMemory | None]:
-    from veadk.utils.logger import get_logger
-    from veadk.utils.misc import load_module_from_file
-
-    logger = get_logger(__name__)
-
-    # 1. load user module
-    try:
-        module_file_path = module_path
-        module = load_module_from_file(
-            module_name="agent_and_mem", file_path=f"{module_file_path}/agent.py"
+        # Setup OAuth2 with VeIdentity User Pool
+        oauth2_config = OAuth2Config.from_veidentity(
+            user_pool_name=user_pool_name,
+            client_name=user_pool_client,
+            redirect_uri=redirect_uri,
         )
-    except Exception as e:
-        logger.error(
-            f"Failed to get memory config from `agent.py`: {e}. Fallback to get memory from environment variables."
+        oauth2_config.cookie_secure = False
+
+        setup_oauth2(
+            app,
+            oauth2_config,
         )
-        return _get_stm_from_env(), _get_ltm_from_env()
+        logger.info("OAuth2 middleware installed")
 
-    if not hasattr(module, "agent_run_config"):
-        logger.error(
-            "You must export `agent_run_config` as a global variable in `agent.py`. Fallback to get memory from environment variables."
-        )
-        return _get_stm_from_env(), _get_ltm_from_env()
+        return app
 
-    # 2. try to get short term memory
-    # short term memory must exist in user code, as we use `default_factory` to init it
-    short_term_memory = _get_stm_from_module(module)
-
-    # 3. try to get long term memory
-    long_term_memory = _get_ltm_from_module(module)
-    if not long_term_memory:
-        long_term_memory = _get_ltm_from_env()
-
-    return short_term_memory, long_term_memory
+    google.adk.cli.adk_web_server.AdkWebServer.get_fast_api_app = wrapped_get_fast_api
 
 
 def patch_adkwebserver_disable_openapi():
     """
-    Monkey patch AdkWebServer.get_fast_api to remove openapi.json route.
+    Monkey patch AdkWebServer to disable OpenAPI documentation endpoints.
+
+    This function patches the AdkWebServer.get_fast_api_app method to remove
+    OpenAPI-related routes (/openapi.json, /docs, /redoc) from the FastAPI
+    application for security and simplicity purposes.
+
+    The patch is applied by replacing the original method with a wrapped version
+    that filters out the unwanted routes after the FastAPI app is created.
     """
     import google.adk.cli.adk_web_server
     from fastapi.routing import APIRoute
@@ -129,62 +99,148 @@ def patch_adkwebserver_disable_openapi():
     google.adk.cli.adk_web_server.AdkWebServer.get_fast_api_app = wrapped_get_fast_api
 
 
-@click.command()
-@click.option("--host", default="127.0.0.1", help="Host to run the web server on")
-def web(host: str) -> None:
-    """Launch web with long term and short term memory."""
-    import os
-    from typing import Any
+@click.command(
+    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True)
+)
+@click.option(
+    "--oauth2-user-pool",
+    type=str,
+    default=None,
+    help="VeIdentity User Pool name for OAuth2 authentication.",
+)
+@click.option(
+    "--oauth2-user-pool-client",
+    type=str,
+    default=None,
+    help="VeIdentity User Pool client name for OAuth2 authentication.",
+)
+@click.option(
+    "--oauth2-redirect-uri",
+    type=str,
+    default=None,
+    help="OAuth2 redirect URI. Defaults to http://{host}:{port}/oauth2/callback.",
+)
+@click.pass_context
+def web(
+    ctx,
+    oauth2_user_pool: str | None,
+    oauth2_user_pool_client: str | None,
+    oauth2_redirect_uri: str | None,
+    *args,
+    **kwargs,
+) -> None:
+    """
+    Launch a web server with VeADK agent support and memory integration.
 
-    from google.adk.cli.utils.shared_value import SharedValue
+    This command starts a web server that can serve VeADK agents with both
+    short-term and long-term memory capabilities. It automatically detects
+    the type of agent being loaded and configures the appropriate memory
+    services accordingly.
 
-    from veadk.utils.logger import get_logger
+    The function patches the ADK web server to integrate VeADK-specific
+    functionality, including memory service configuration and workflow
+    agent detection.
 
-    logger = get_logger(__name__)
+    Args:
+        ctx: Click context object containing command line arguments
 
-    def init_for_veadk(
-        self,
-        *,
-        agent_loader: Any,
-        session_service: Any,
-        memory_service: Any,
-        artifact_service: Any,
-        credential_service: Any,
-        eval_sets_manager: Any,
-        eval_set_results_manager: Any,
-        agents_dir: str,
-        extra_plugins: Optional[list[str]] = None,
-        **kwargs: Any,
-    ):
-        self.agent_loader = agent_loader
-        self.artifact_service = artifact_service
-        self.credential_service = credential_service
-        self.eval_sets_manager = eval_sets_manager
-        self.eval_set_results_manager = eval_set_results_manager
-        self.agents_dir = agents_dir
-        self.runners_to_clean = set()
-        self.current_app_name_ref = SharedValue(value="")
-        self.runner_dict = {}
-        self.extra_plugins = extra_plugins or []
+    Note:
+        For workflow agents (Sequential, Loop, Parallel), individual sub-agent
+        memory configurations are not utilized as warned in the logs.
+    """
+    from google.adk.cli import adk_web_server
+    from google.adk.runners import Runner as ADKRunner
 
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+    from veadk import Agent
+    from veadk.agents.loop_agent import LoopAgent
+    from veadk.agents.parallel_agent import ParallelAgent
+    from veadk.agents.sequential_agent import SequentialAgent
 
-        # parse VeADK memories
-        short_term_memory, long_term_memory = _get_memory(module_path=agents_dir)
-        self.session_service = short_term_memory.session_service
-        self.memory_service = long_term_memory
+    def before_get_runner_async(func):
+        logger.info("Hook before `get_runner_async`")
 
-    import google.adk.cli.adk_web_server
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> ADKRunner:
+            self: adk_web_server.AdkWebServer = args[0]
+            app_name: str = args[1]
+            """Returns the cached runner for the given app."""
+            agent_or_app = self.agent_loader.load_agent(app_name)
 
-    google.adk.cli.adk_web_server.AdkWebServer.__init__ = init_for_veadk
+            if isinstance(agent_or_app, (SequentialAgent, LoopAgent, ParallelAgent)):
+                logger.warning(
+                    "Detect VeADK workflow agent, the short-term memory and long-term memory of each sub agent are useless."
+                )
+
+            if isinstance(agent_or_app, Agent):
+                logger.info("Detect VeADK Agent.")
+
+                if agent_or_app.short_term_memory:
+                    self.session_service = (
+                        agent_or_app.short_term_memory.session_service
+                    )
+
+                if agent_or_app.long_term_memory:
+                    self.memory_service = agent_or_app.long_term_memory
+                    logger.info(
+                        f"Long term memory backend is {self.memory_service.backend}"
+                    )
+
+                logger.info(
+                    f"Current session_service={self.session_service.__class__.__name__}, memory_service={self.memory_service.__class__.__name__}"
+                )
+
+            runner = await func(*args, **kwargs)
+            return runner
+
+        return wrapper
+
+    adk_web_server.AdkWebServer.get_runner_async = before_get_runner_async(
+        adk_web_server.AdkWebServer.get_runner_async
+    )
+
     patch_adkwebserver_disable_openapi()
 
-    import google.adk.cli.cli_tools_click as cli_tools_click
+    from google.adk.cli.cli_tools_click import cli_web
 
-    agents_dir = os.getcwd()
-    logger.info(f"Load agents from {agents_dir}")
+    extra_args: list = ctx.args
 
-    cli_tools_click.cli_web.main(
-        args=[agents_dir, "--host", host, "--log_level", "ERROR"]
-    )
+    # Setup OAuth2 if configured
+    if oauth2_user_pool and oauth2_user_pool_client:
+        # Build redirect_uri from host/port if not provided
+        redirect_uri = oauth2_redirect_uri
+        if not redirect_uri:
+            # Parse host and port from extra_args
+            host = "127.0.0.1"
+            port = "8000"
+            if "--host" in extra_args:
+                host = extra_args[extra_args.index("--host") + 1]
+            if "--port" in extra_args:
+                port = extra_args[extra_args.index("--port") + 1]
+            redirect_uri = f"http://{host}:{port}/oauth2/callback"
+
+        _patch_adkwebserver_oauth2(
+            user_pool_name=oauth2_user_pool,
+            user_pool_client=oauth2_user_pool_client,
+            redirect_uri=redirect_uri,
+        )
+        logger.info(
+            f"OAuth2 enabled: user_pool={oauth2_user_pool}, "
+            f"client={oauth2_user_pool_client}, redirect_uri={redirect_uri}"
+        )
+    logger.debug(f"User args: {extra_args}")
+
+    # set a default log level to avoid unnecessary outputs
+    # from Google ADK and Litellm
+    if "--log_level" not in extra_args:
+        extra_args.extend(["--log_level", "ERROR"])
+        logging.basicConfig(level=logging.ERROR, force=True)
+
+    if "--log_level" in extra_args:
+        logging.basicConfig(
+            level=getattr(
+                logging, extra_args[extra_args.index("--log_level") + 1].upper()
+            ),
+            force=True,
+        )
+
+    cli_web.main(args=extra_args, standalone_mode=False)

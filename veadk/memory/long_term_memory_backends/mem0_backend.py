@@ -13,12 +13,12 @@
 # limitations under the License.
 
 from typing import Any
-from typing_extensions import override
+
 from pydantic import Field
+from typing_extensions import override
 
+from veadk.auth.veauth.viking_mem0_veauth import get_viking_mem0_token
 from veadk.configs.database_configs import Mem0Config
-
-
 from veadk.memory.long_term_memory_backends.base_backend import (
     BaseLongTermMemoryBackend,
 )
@@ -44,6 +44,16 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
     def model_post_init(self, __context: Any) -> None:
         """Initialize Mem0 client"""
 
+        if not self.mem0_config.api_key:
+            if not self.mem0_config.api_key_id and not self.mem0_config.project_id:
+                raise ValueError(
+                    "API Key not set, auto fetching api key needs `api_key_id` or `project_id`"
+                )
+            self.mem0_config.api_key = get_viking_mem0_token(
+                api_key_id=self.mem0_config.api_key_id,
+                memory_project_id=self.mem0_config.project_id,
+            )
+
         try:
             self._mem0_client = MemoryClient(
                 host=self.mem0_config.base_url,  # mem0 endpoint
@@ -66,7 +76,9 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
         pass
 
     @override
-    def save_memory(self, event_strings: list[str], **kwargs) -> bool:
+    def save_memory(
+        self, event_strings: list[str], user_id: str = "default_user", **kwargs
+    ) -> bool:
         """Save memory to Mem0
 
         Args:
@@ -76,8 +88,6 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
         Returns:
             bool: True if saved successfully, False otherwise
         """
-        user_id = kwargs.get("user_id", "default_user")
-
         try:
             logger.info(
                 f"Saving {len(event_strings)} events to Mem0 for user: {user_id}"
@@ -89,6 +99,7 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
                     [{"role": "user", "content": event_string}],
                     user_id=user_id,
                     output_format="v1.1",
+                    async_mode=True,
                 )
                 logger.debug(f"Saved memory result: {result}")
 
@@ -99,7 +110,9 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
             return False
 
     @override
-    def search_memory(self, query: str, top_k: int, **kwargs) -> list[str]:
+    def search_memory(
+        self, query: str, top_k: int, user_id: str = "default_user", **kwargs
+    ) -> list[str]:
         """Search memory from Mem0
 
         Args:
@@ -110,7 +123,6 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
         Returns:
             list[str]: List of memory strings
         """
-        user_id = kwargs.get("user_id", "default_user")
 
         try:
             logger.info(
@@ -121,7 +133,16 @@ class Mem0LTMBackend(BaseLongTermMemoryBackend):
                 query, user_id=user_id, output_format="v1.1", top_k=top_k
             )
 
+            logger.debug(f"return relevant memories: {memories}")
+
             memory_list = []
+            # 如果 memories 是列表，直接返回
+            if isinstance(memories, list):
+                for mem in memories:
+                    if "memory" in mem:
+                        memory_list.append(mem["memory"])
+                return memory_list
+
             if memories.get("results", []):
                 for mem in memories["results"]:
                     if "memory" in mem:
