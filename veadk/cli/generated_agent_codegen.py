@@ -338,6 +338,74 @@ def prepare_mcp_auth(draft: AgentDraft) -> AgentDraft:
     )
 
 
+def _data_asset_slug(asset: SelectedSkill) -> str:
+    fallback = f"datastudio-{asset.dataStudioAssetType}-{asset.dataStudioAssetId}"
+    return (asset.folder or fallback).strip() or fallback
+
+
+def _data_asset_mcp_tool(asset: SelectedSkill) -> McpTool | None:
+    if (
+        asset.source != "datastudio"
+        or asset.dataStudioAssetType not in {"dashboard", "semantic_model"}
+        or not asset.dataStudioAssetId.strip()
+    ):
+        return None
+    url = asset.dataStudioMcpUrl.strip()
+    if not url:
+        return None
+    return McpTool(
+        name=f"byaan-{_data_asset_slug(asset)}",
+        transport="http",
+        url=url,
+        authTokenEnv="BYAAN_MCP_API_KEY",
+    )
+
+
+def with_data_asset_mcp_tools(draft: AgentDraft) -> AgentDraft:
+    """Ensure every Data Studio asset has a paired Byaan MCP tool.
+
+    The frontend also performs this expansion for preview/export flows, but the
+    backend generator is the trust boundary for imported YAML and direct API
+    calls. Keeping the expansion here prevents a "skill materialized but no
+    runtime tool" project.
+    """
+
+    def visit(node: AgentDraft) -> AgentDraft:
+        mcp_tools = [tool.model_copy(deep=True) for tool in node.mcpTools]
+        existing = {
+            (
+                tool.name.strip(),
+                tool.transport,
+                tool.url.strip(),
+                tool.authTokenEnv.strip(),
+            )
+            for tool in mcp_tools
+        }
+        for asset in node.dataAssets:
+            tool = _data_asset_mcp_tool(asset)
+            if tool is None:
+                continue
+            key = (
+                tool.name.strip(),
+                tool.transport,
+                tool.url.strip(),
+                tool.authTokenEnv.strip(),
+            )
+            if key in existing:
+                continue
+            existing.add(key)
+            mcp_tools.append(tool)
+        return node.model_copy(
+            deep=True,
+            update={
+                "mcpTools": mcp_tools,
+                "subAgents": [visit(sub_agent) for sub_agent in node.subAgents],
+            },
+        )
+
+    return visit(draft)
+
+
 def _safe_draft_payload(draft: AgentDraft) -> dict[str, Any]:
     """Serialize editable metadata without deployment values or MCP secrets."""
     payload = draft.model_dump(mode="json", by_alias=True)
@@ -1372,7 +1440,7 @@ def _a2a_registry_env_values(draft: AgentDraft) -> dict[str, str]:
 
 def debug_runtime_env_from_draft(draft: AgentDraft) -> dict[str, str]:
     """Return runtime env values allowed by active components in a debug draft."""
-    draft = prepare_mcp_auth(draft)
+    draft = prepare_mcp_auth(with_data_asset_mcp_tools(draft))
     allowed_keys: set[str] = set()
     fixed_values: dict[str, str] = {}
     uses_ark_model = False
@@ -1496,7 +1564,7 @@ def generate_project_from_draft(draft: AgentDraft) -> GeneratedProject:
     if draft.agentType == "a2a":
         raise ValueError("Remote Agent cannot be the root Agent.")
 
-    draft = prepare_mcp_auth(draft)
+    draft = prepare_mcp_auth(with_data_asset_mcp_tools(draft))
     pkg = ident(draft.name, "my_agent")
     acc = _Acc(draft.cloudProvider)
     feishu_channel_enabled = bool(draft.deployment.feishuEnabled)

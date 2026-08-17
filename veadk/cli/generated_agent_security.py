@@ -27,7 +27,7 @@ from veadk.cli.generated_agent_catalog import (
     STM_BY_ID,
     TOOL_BY_ID,
 )
-from veadk.cli.generated_agent_codegen import AgentDraft
+from veadk.cli.generated_agent_codegen import AgentDraft, with_data_asset_mcp_tools
 from veadk.cli.studio_model_catalog import (
     SUPPORTED_CLOUD_PROVIDERS,
     is_provider_modelark_base_url,
@@ -65,6 +65,7 @@ _METADATA_IPS = {
 
 
 def validate_project_policy(draft: AgentDraft) -> None:
+    draft = with_data_asset_mcp_tools(draft)
     total = _validate_node(
         draft,
         depth=0,
@@ -81,6 +82,7 @@ def validate_debug_policy(
     allow_local_runtime_resources: bool = False,
     managed_cloud_provider: str | None = None,
 ) -> None:
+    draft = with_data_asset_mcp_tools(draft)
     trusted_debug_model_api_base(
         draft,
         managed_cloud_provider=managed_cloud_provider,
@@ -197,6 +199,9 @@ def _validate_node(
 
     if len(draft.selectedSkills) + len(draft.dataAssets) > MAX_SELECTED_SKILLS:
         raise DebugPolicyError("Too many selected skills")
+    for asset in draft.dataAssets:
+        if asset.source == "datastudio" and not asset.dataStudioMcpUrl.strip():
+            raise DebugPolicyError("Data Studio asset is missing MCP URL")
 
     total = 1
     for sub in draft.subAgents:

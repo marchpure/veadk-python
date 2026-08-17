@@ -9,8 +9,8 @@ function dataAssetMcpTool(
     return null;
   }
   const slug = asset.folder || `datastudio-${asset.dataStudioAssetType}-${asset.dataStudioAssetId}`;
-  const url = asset.dataStudioMcpUrl?.trim() ||
-    `/api/mcp/assets/${asset.dataStudioAssetType}/${asset.dataStudioAssetId}`;
+  const url = asset.dataStudioMcpUrl?.trim();
+  if (!url) return null;
   return {
     name: `byaan-${slug}`,
     transport: "http",

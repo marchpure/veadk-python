@@ -39,6 +39,7 @@ from veadk.cli.generated_agent_codegen import (
     AgentDraft,
     CustomTool,
     DeploymentConfig,
+    debug_runtime_env_from_draft,
     GeneratedAgentProjectRequest,
     GeneratedFile,
     GeneratedProject,
@@ -266,6 +267,57 @@ def test_datastudio_asset_generates_trusted_mcp_and_env_reference() -> None:
     assert 'os.getenv("BYAAN_MCP_API_KEY", "")' in agent_py
     assert "BYAAN_MCP_API_KEY=" in env_example
     assert "DATASTUDIO_API_KEY" not in json.dumps(files)
+
+
+def test_datastudio_asset_alone_generates_runtime_mcp_tool() -> None:
+    draft = AgentDraft(
+        name="datastudio-agent",
+        dataAssets=[
+            SelectedSkill(
+                source="datastudio",
+                folder="datastudio-dashboard-sales",
+                name="Sales Dashboard",
+                description="Daily sales KPIs",
+                dataStudioAssetType="dashboard",
+                dataStudioAssetId="sales-dashboard",
+                dataStudioMcpUrl="https://byaan.example/api/mcp/assets/dashboard/sales-dashboard",
+            )
+        ],
+        deployment=DeploymentConfig(envValues={"BYAAN_MCP_API_KEY": "live-byaan-secret"}),
+    )
+
+    project = generate_project_from_draft(draft)
+    files = _file_map(project)
+    agent_py = files["agents/datastudio_agent/agent.py"]
+
+    assert "from veadk.tools.mcp_tool.trusted_mcp_toolset import TrustedMcpToolset" in agent_py
+    assert "TrustedMcpToolset(connection_params=StreamableHTTPConnectionParams(" in agent_py
+    assert "https://byaan.example/api/mcp/assets/dashboard/sales-dashboard" in agent_py
+    assert 'os.getenv("BYAAN_MCP_API_KEY", "")' in agent_py
+    assert agent_py.count("TrustedMcpToolset(connection_params=StreamableHTTPConnectionParams(") == 1
+    assert "BYAAN_MCP_API_KEY=" in files[".env.example"]
+    assert "'authTokenEnv': 'BYAAN_MCP_API_KEY'" in agent_py
+    assert debug_runtime_env_from_draft(draft)["BYAAN_MCP_API_KEY"] == "live-byaan-secret"
+    assert "live-byaan-secret" not in json.dumps(files)
+    assert "DATASTUDIO_API_KEY" not in json.dumps(files)
+
+
+def test_datastudio_asset_requires_mcp_url_for_runtime() -> None:
+    draft = AgentDraft(
+        name="datastudio-agent",
+        dataAssets=[
+            SelectedSkill(
+                source="datastudio",
+                folder="datastudio-dashboard-sales",
+                name="Sales Dashboard",
+                dataStudioAssetType="dashboard",
+                dataStudioAssetId="sales-dashboard",
+            )
+        ],
+    )
+
+    with pytest.raises(DebugPolicyError, match="Data Studio asset is missing MCP URL"):
+        validate_project_policy(draft)
 
 
 def test_retired_a2ui_option_is_accepted_but_not_generated() -> None:

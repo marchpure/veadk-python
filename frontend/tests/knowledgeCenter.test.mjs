@@ -81,6 +81,14 @@ function loadFile(filePath) {
 const { dataStudioAssetToHit } = loadTypeScriptCommonJs(
   "../src/create/skills/datastudio.ts",
 );
+const {
+  dataStudioLoadStateFromResponse,
+  isKnowledgeCenterMessageFromTrustedOrigin,
+} = loadTypeScriptCommonJs("../src/knowledge-center/KnowledgeCenter.tsx");
+const {
+  dataStudioEmptyStateText,
+  toggleDataStudioSelection,
+} = loadTypeScriptCommonJs("../src/create/DataStudioAssetPicker.tsx");
 
 test("knowledge center is reachable from the Studio shell with active sidebar semantics", () => {
   assert.match(sidebarSource, /export type SidebarPage[\s\S]*?"knowledge-center"/);
@@ -106,13 +114,64 @@ test("knowledge center embeds Byaan through a locked Data Studio shell", () => {
   assert.match(knowledgeSource, /\/data-models/);
   assert.match(knowledgeSource, /\/dashboard/);
   assert.match(knowledgeSource, /\/evaluation/);
-  assert.match(knowledgeSource, /event\.origin !== trustedOrigin/);
+  assert.match(knowledgeSource, /eventOrigin !== trustedOrigin/);
+  assert.match(knowledgeSource, /isKnowledgeCenterMessageFromTrustedOrigin\(/);
   assert.match(knowledgeSource, /KnowledgeCenterMessage/);
   assert.match(knowledgeSource, /veadk\.knowledge-center\.asset-published/);
   assert.match(knowledgeSource, /未配置连接/);
   assert.match(knowledgeSource, /未登录/);
   assert.match(knowledgeSource, /Byaan 不可达/);
   assert.doesNotMatch(knowledgeSource, /DB_GPT|dbgpt|DataSourceWorkbench|KnowledgeWorkbench/);
+});
+
+test("KnowledgeCenterView classifies configuration, auth, and reachability states", () => {
+  assert.equal(
+    dataStudioLoadStateFromResponse({ status: 409, ok: false })?.kind,
+    "unconfigured",
+  );
+  assert.equal(
+    dataStudioLoadStateFromResponse({ status: 401, ok: false })?.kind,
+    "unauthenticated",
+  );
+  assert.equal(
+    dataStudioLoadStateFromResponse({ status: 502, ok: false })?.kind,
+    "unreachable",
+  );
+  assert.equal(dataStudioLoadStateFromResponse({ status: 200, ok: true }), null);
+});
+
+test("KnowledgeCenterView accepts only trusted postMessage payloads", () => {
+  const trusted = "https://byaan.example";
+  assert.equal(
+    isKnowledgeCenterMessageFromTrustedOrigin("https://evil.example", trusted, {
+      type: "veadk.knowledge-center.navigate",
+      step: "dashboard",
+    }),
+    false,
+  );
+  assert.equal(
+    isKnowledgeCenterMessageFromTrustedOrigin(trusted, trusted, {
+      type: "veadk.knowledge-center.navigate",
+      step: "unknown",
+    }),
+    false,
+  );
+  assert.equal(
+    isKnowledgeCenterMessageFromTrustedOrigin(trusted, trusted, {
+      type: "veadk.knowledge-center.asset-published",
+      assetType: "dashboard",
+      assetId: "sales",
+    }),
+    true,
+  );
+  assert.equal(
+    isKnowledgeCenterMessageFromTrustedOrigin(trusted, trusted, {
+      type: "veadk.knowledge-center.asset-published",
+      assetType: "skill",
+      assetId: "sales",
+    }),
+    false,
+  );
 });
 
 test("Data Studio server gateway keeps credentials server-side and exposes the required routes", () => {
@@ -162,6 +221,59 @@ test("Data Studio asset adapter preserves the shared contract fields for picker 
   assert.deepEqual(hit.dataStudioExampleQuestions, ["GMV by channel?"]);
   assert.equal(hit.dataStudioPermissionHint, "Aggregated only");
   assert.equal(hit.dataStudioMcpUrl, "https://byaan.example/api/mcp/assets/dashboard/sales");
+});
+
+test("Data Studio picker empty states and multi-select behavior are deterministic", () => {
+  assert.equal(
+    dataStudioEmptyStateText({ error: { status: 409, message: "" }, query: "" }),
+    "未配置连接：请在服务端配置 Data Studio 连接，或临时开启 mock。",
+  );
+  assert.equal(
+    dataStudioEmptyStateText({ error: { status: 401, message: "" }, query: "" }),
+    "未登录：请先登录 Studio。",
+  );
+  assert.equal(
+    dataStudioEmptyStateText({ error: null, query: "gmv" }),
+    "搜索无结果，换个关键词试试。",
+  );
+  assert.equal(
+    dataStudioEmptyStateText({ error: null, query: "" }),
+    "暂无已发布资产。",
+  );
+
+  const existingLocalSkill = {
+    source: "local",
+    folder: "local-skill",
+    name: "Local Skill",
+    description: "",
+    localFiles: [{ path: "skills/local-skill/SKILL.md", content: "---" }],
+  };
+  const hit = dataStudioAssetToHit({
+    asset_type: "semantic_model",
+    asset_id: "retention",
+    name: "Retention Model",
+    description: "Retention metrics",
+    status: "published",
+    publish_state: "published",
+    gate: { score: 88 },
+    version: "v2",
+    consumers: ["agent"],
+    capabilities: { metrics: ["DAU"] },
+    freshness: {},
+    provenance: {},
+    usage_policy: {},
+    sample_evidence: [],
+    mcp_url: "https://byaan.example/api/mcp/assets/semantic_model/retention",
+  });
+
+  const selected = toggleDataStudioSelection([existingLocalSkill], hit);
+  assert.equal(selected.length, 2);
+  assert.equal(selected[0], existingLocalSkill);
+  assert.equal(selected[1].source, "datastudio");
+  assert.equal(selected[1].dataStudioAssetId, "retention");
+
+  const removed = toggleDataStudioSelection(selected, hit);
+  assert.deepEqual(removed, [existingLocalSkill]);
 });
 
 test("knowledge center uses bounded iframe layout styles", () => {

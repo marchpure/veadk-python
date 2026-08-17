@@ -49,6 +49,73 @@ type LoadState =
   | { kind: "unauthenticated"; message: string }
   | { kind: "unreachable"; message: string };
 
+export function dataStudioLoadStateFromResponse(
+  response: Pick<Response, "ok" | "status">,
+): LoadState | null {
+  if (response.status === 409) {
+    return {
+      kind: "unconfigured",
+      message: "服务端未配置 Data Studio 连接。",
+    };
+  }
+  if (response.status === 401) {
+    return {
+      kind: "unauthenticated",
+      message: "当前 Studio 会话未登录，请登录后访问知识中心。",
+    };
+  }
+  if (!response.ok) {
+    return {
+      kind: "unreachable",
+      message: `Byaan Data Studio 不可达（HTTP ${response.status}）。`,
+    };
+  }
+  return null;
+}
+
+export function isKnowledgeCenterMessageFromTrustedOrigin(
+  eventOrigin: string,
+  trustedOrigin: string,
+  data: unknown,
+): data is KnowledgeCenterMessage {
+  if (!trustedOrigin || eventOrigin !== trustedOrigin) return false;
+  if (!data || typeof data !== "object") return false;
+  const message = data as {
+    type?: unknown;
+    step?: unknown;
+    assetType?: unknown;
+    assetId?: unknown;
+    theme?: unknown;
+    locale?: unknown;
+  };
+  const isStep = (value: unknown): value is KnowledgeCenterStep =>
+    value === "connectors" ||
+    value === "modeling" ||
+    value === "dashboard" ||
+    value === "evaluation";
+  if (message.type === "veadk.knowledge-center.navigate") {
+    return isStep(message.step);
+  }
+  if (message.type === "veadk.knowledge-center.asset-published") {
+    return (
+      (message.assetType === "dashboard" || message.assetType === "semantic_model") &&
+      typeof message.assetId === "string" &&
+      message.assetId.trim().length > 0
+    );
+  }
+  if (message.type === "veadk.knowledge-center.ready") {
+    return true;
+  }
+  if (message.type === "veadk.knowledge-center.sync") {
+    return (
+      isStep(message.step) &&
+      (message.theme === "light" || message.theme === "dark") &&
+      message.locale === "zh-CN"
+    );
+  }
+  return false;
+}
+
 const STEPS: Array<{
   id: KnowledgeCenterStep;
   label: string;
@@ -85,24 +152,8 @@ async function loadConfig(): Promise<LoadState> {
       message: "无法连接 VeADK Studio 服务端，请稍后重试。",
     };
   }
-  if (response.status === 409) {
-    return {
-      kind: "unconfigured",
-      message: "服务端未配置 Data Studio 连接。",
-    };
-  }
-  if (response.status === 401) {
-    return {
-      kind: "unauthenticated",
-      message: "当前 Studio 会话未登录，请登录后访问知识中心。",
-    };
-  }
-  if (!response.ok) {
-    return {
-      kind: "unreachable",
-      message: `Byaan Data Studio 不可达（HTTP ${response.status}）。`,
-    };
-  }
+  const errorState = dataStudioLoadStateFromResponse(response);
+  if (errorState) return errorState;
   const config = (await response.json()) as DataStudioConfig;
   if (!config.configured || !config.embedUrl) {
     return {
@@ -179,9 +230,16 @@ export function KnowledgeCenterView() {
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<KnowledgeCenterMessage>) => {
-      if (!trustedOrigin || event.origin !== trustedOrigin) return;
+      if (
+        !isKnowledgeCenterMessageFromTrustedOrigin(
+          event.origin,
+          trustedOrigin,
+          event.data,
+        )
+      ) {
+        return;
+      }
       const data = event.data;
-      if (!data || typeof data !== "object") return;
       if (data.type === "veadk.knowledge-center.navigate") {
         setStep(data.step);
       }

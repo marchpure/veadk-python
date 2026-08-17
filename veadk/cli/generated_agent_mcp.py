@@ -23,7 +23,12 @@ from google.adk.tools.mcp_tool.mcp_session_manager import (
 )
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 
-from veadk.cli.generated_agent_codegen import AgentDraft, McpTool, prepare_mcp_auth
+from veadk.cli.generated_agent_codegen import (
+    AgentDraft,
+    McpTool,
+    prepare_mcp_auth,
+    with_data_asset_mcp_tools,
+)
 
 
 class McpDebugConnectionError(ValueError):
@@ -81,6 +86,7 @@ async def resolve_debug_mcp_endpoints(
     """Resolve HTTP MCP endpoints recursively without mutating the input draft."""
     env_values = _env_values
     if env_values is None:
+        draft = with_data_asset_mcp_tools(draft)
         draft = prepare_mcp_auth(draft)
         env_values = draft.deployment.envValues
     tools: list[McpTool] = []
