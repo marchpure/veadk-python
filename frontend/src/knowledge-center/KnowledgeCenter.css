@@ -1,0 +1,46 @@
+.kc-root {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  color: #111827;
+  background: #f8fafc;
+}
+
+.kc-root header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.kc-root h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.kc-root nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kc-root button {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.kc-root button[aria-current="step"] {
+  border-color: #ea580c;
+  color: #9a3412;
+}
+
+.kc-frame {
+  width: 100%;
+  height: calc(100vh - 73px);
+  border: 0;
+}

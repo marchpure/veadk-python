@@ -78,7 +78,7 @@ dev = [
 
 
 [tool.setuptools.packages.find]
-include = ["veadk*"]
+include = ["veadk*", "frontend*"]
 exclude = ["assets*", "ide*", "tests*"]
 
 [tool.setuptools]
@@ -86,6 +86,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 "veadk" = ["**/*"]
+"frontend" = ["**/*"]
 
 [tool.ruff]
 exclude = [
