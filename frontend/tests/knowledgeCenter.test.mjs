@@ -17,7 +17,9 @@ const skillCenterSource = read("ui/SkillCenter.tsx");
 const searchSource = read("ui/Search.tsx");
 const clientSource = read("adk/client.ts");
 const serverSource = readRepo("veadk/cli/cli_frontend.py");
-const gatewaySource = readRepo("veadk/cli/datastudio_gateway.py");
+const gatewaySource = readRepo("frontend/server/datastudio/gateways.py");
+const dataStudioRoutesSource = readRepo("frontend/server/datastudio/routes.py");
+const dataStudioServiceSource = readRepo("frontend/server/datastudio/service.py");
 const knowledgeSource = read("knowledge-center/KnowledgeCenter.tsx");
 const knowledgeStyles = read("knowledge-center/KnowledgeCenter.css");
 const nativeRequire = createRequire(import.meta.url);
@@ -114,9 +116,10 @@ test("knowledge center embeds Byaan through a locked Data Studio shell", () => {
 });
 
 test("Data Studio server gateway keeps credentials server-side and exposes the required routes", () => {
-  assert.match(serverSource, /\/web\/datastudio\/config/);
-  assert.match(serverSource, /\/web\/datastudio\/assets/);
-  assert.match(serverSource, /\/web\/datastudio\/assets\/\{asset_type\}\/\{asset_id\}/);
+  assert.match(dataStudioRoutesSource, /\/web\/datastudio\/config/);
+  assert.match(dataStudioRoutesSource, /\/web\/datastudio\/assets/);
+  assert.match(dataStudioRoutesSource, /\/web\/datastudio\/assets\/\{asset_type\}\/\{asset_id\}/);
+  assert.match(serverSource, /mount_datastudio_routes\(app\)/);
   assert.match(gatewaySource, /DATASTUDIO_BASE_URL/);
   assert.match(gatewaySource, /DATASTUDIO_API_KEY/);
   assert.match(gatewaySource, /\/api\/external\/assets/);

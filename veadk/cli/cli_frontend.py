@@ -2179,31 +2179,9 @@ def _run_frontend_server(
             "telemetry": studio_telemetry_config(version, enabled=studio),
         }
 
-    from veadk.cli.datastudio_gateway import (
-        DataStudioAssetType,
-        config_payload as datastudio_config_payload,
-        configured_origin as datastudio_configured_origin,
-        proxy_external_asset as datastudio_proxy_external_asset,
-        proxy_external_assets as datastudio_proxy_external_assets,
-        require_configured as require_datastudio_configured,
-    )
+    from frontend.server.datastudio import mount_datastudio_routes
 
-    @app.get("/web/datastudio/config")
-    async def _web_datastudio_config():
-        config = datastudio_config_payload()
-        if not config.configured:
-            require_datastudio_configured()
-        payload = config.model_dump(mode="json")
-        payload["origin"] = datastudio_configured_origin(config)
-        return payload
-
-    @app.get("/web/datastudio/assets")
-    async def _web_datastudio_assets(request: Request):
-        return await datastudio_proxy_external_assets(request)
-
-    @app.get("/web/datastudio/assets/{asset_type}/{asset_id}")
-    async def _web_datastudio_asset(asset_type: DataStudioAssetType, asset_id: str):
-        return await datastudio_proxy_external_asset(asset_type, asset_id)
+    mount_datastudio_routes(app)
 
     @app.get("/web/system-info")
     async def _web_system_info(request: Request):

@@ -6,7 +6,8 @@ import pytest
 from fastapi import HTTPException
 from starlette.datastructures import QueryParams
 
-from veadk.cli import datastudio_gateway
+from frontend.server.datastudio import gateways as datastudio_gateways
+from frontend.server.datastudio import service as datastudio_gateway
 
 
 class _RequestStub:
@@ -128,7 +129,7 @@ async def test_datastudio_asset_proxy_sends_credentials_server_side_and_normaliz
             "page_size": 20,
         },
     )
-    monkeypatch.setattr(datastudio_gateway.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(datastudio_gateways.httpx, "AsyncClient", _FakeAsyncClient)
 
     payload = await datastudio_gateway.proxy_external_assets(_RequestStub("q=sales"))
 
@@ -157,7 +158,7 @@ async def test_datastudio_asset_proxy_maps_byaan_auth_failure(
     monkeypatch.setenv("DATASTUDIO_API_KEY", "server-only-secret")
     _FakeAsyncClient.calls = []
     _FakeAsyncClient.response = _FakeResponse(401, {"detail": "unauthorized"})
-    monkeypatch.setattr(datastudio_gateway.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(datastudio_gateways.httpx, "AsyncClient", _FakeAsyncClient)
 
     with pytest.raises(HTTPException) as exc_info:
         await datastudio_gateway.proxy_external_assets(_RequestStub())

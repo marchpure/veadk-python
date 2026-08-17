@@ -12,7 +12,12 @@ Implemented the VEADK side of the Knowledge Center/Data Studio integration. BYAA
 
 Key files:
 
-- `veadk/cli/datastudio_gateway.py`
+- `frontend/server/datastudio/models.py`
+- `frontend/server/datastudio/gateways.py`
+- `frontend/server/datastudio/service.py`
+- `frontend/server/datastudio/routes.py`
+- `frontend/server/datastudio/__init__.py`
+- `veadk/cli/datastudio_gateway.py` (compatibility exports)
 - `veadk/cli/cli_frontend.py`
 - `frontend/src/knowledge-center/KnowledgeCenter.tsx`
 - `frontend/src/knowledge-center/KnowledgeCenter.css`
@@ -45,7 +50,14 @@ The VEADK server exposes:
 - `GET /web/datastudio/assets`
 - `GET /web/datastudio/assets/{asset_type}/{asset_id}`
 
-Gateway implementation is centralized in `veadk/cli/datastudio_gateway.py`.
+Gateway implementation is split under `frontend/server/datastudio/` following the existing Studio backend module layout:
+
+- `models.py`: Data Studio contract models.
+- `gateways.py`: Byaan `/api/external/*` proxy, server-side credential handling, and mock assets.
+- `service.py`: config payloads, origin derivation, mock paging/search, and response normalization.
+- `routes.py`: `/web/datastudio/*` FastAPI route mounting.
+
+`veadk/cli/datastudio_gateway.py` remains a compatibility shim that re-exports the package API for older imports.
 
 Configuration:
 
@@ -58,7 +70,7 @@ Configuration:
 Mock switch and mock location:
 
 - Switch: `DATASTUDIO_MOCK`.
-- Mock file/location: `veadk/cli/datastudio_gateway.py`, `MOCK_ASSETS`.
+- Mock file/location: `frontend/server/datastudio/gateways.py`, `MOCK_ASSETS`.
 - Mock assets follow the shared asset contract and only use `dashboard` or `semantic_model` asset types plus the required publish states.
 - Mock assets can power the Agent creation picker without `DATASTUDIO_BASE_URL`; the Knowledge Center iframe still requires `DATASTUDIO_EMBED_URL` or `DATASTUDIO_BASE_URL`.
 
@@ -135,10 +147,11 @@ Passed:
 - `uv pip install -e .`
   - Result: passed.
 - `uv run pytest -n 16`
-  - Result: `2047 passed, 5 skipped, 40 warnings`.
+  - Result: `2046 passed, 6 skipped, 40 warnings`.
+  - Note: the extra skip is `test_publish_workflow_sends_release_request_to_server` because this push-safe branch is based on `marchpure/main`, where `.github/workflows/publish-studio-release.yaml` is absent.
 - `rg -n "DATASTUDIO_API_KEY" frontend/src veadk/webui`
   - Result: no matches.
-- `rg -n "plain-text-secret|another-secret|secret-token" frontend/src veadk/webui veadk/cli docs/knowledge-center`
+- placeholder-secret scan across `frontend/src`, `veadk/webui`, `veadk/cli`, and `docs/knowledge-center`
   - Result: no matches.
 
 Notes:
