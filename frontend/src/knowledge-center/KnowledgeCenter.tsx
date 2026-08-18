@@ -63,6 +63,7 @@ import {
   type KnowledgeCapabilityCardProps,
 } from "./capabilitySlots";
 import "./KnowledgeCenter.css";
+import { SemanticBuildPanel } from "./SemanticBuildPanel";
 
 type LoadState =
   | { status: "loading" }
@@ -348,6 +349,18 @@ function parseObjectJson(text: string, label: string): Record<string, unknown> {
     throw new Error(`${label} 必须是 JSON object。`);
   }
   return parsed as Record<string, unknown>;
+}
+
+function sourceCoverageLabel(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const record = value as Record<string, unknown>;
+  for (const key of ["name", "label", "title", "id", "source_id"]) {
+    if (typeof record[key] === "string" && record[key].trim()) {
+      return record[key].trim();
+    }
+  }
+  return "";
 }
 
 function latestJobForSource(
@@ -940,6 +953,11 @@ export function KnowledgeCenterView() {
               assetsByKind={assetsByKind}
               capabilityCards={capabilityCards}
               capabilityJobs={capabilityJobs}
+              spaceId={activeSpace?.id ?? ""}
+              sources={spaceSources}
+              assets={assets}
+              buildJobs={buildJobs}
+              onRefresh={() => refresh(activeSpaceIdRef.current)}
               onAddSource={() => openSourceFlow()}
             />
           ) : null}
@@ -1128,6 +1146,11 @@ function CapabilitiesTab({
   assetsByKind,
   capabilityCards,
   capabilityJobs,
+  spaceId,
+  sources,
+  assets,
+  buildJobs,
+  onRefresh,
   onAddSource,
 }: {
   query: string;
@@ -1135,6 +1158,11 @@ function CapabilitiesTab({
   assetsByKind: Record<"retrieval_binding" | "semantic_skill" | "dashboard_skill", KnowledgeAssetMetadata[]>;
   capabilityCards: KnowledgeCapabilityCardProps[];
   capabilityJobs: CapabilityBuildJobView[];
+  spaceId: string;
+  sources: KnowledgeAssetSource[];
+  assets: KnowledgeAssetMetadata[];
+  buildJobs: KnowledgeAssetBuildJob[];
+  onRefresh: () => void | Promise<void>;
   onAddSource: () => void;
 }) {
   return (
@@ -1158,14 +1186,13 @@ function CapabilitiesTab({
         kind="semantic_skill"
         capabilities={capabilityCards.filter((item) => item.kind === "semantic_skill")}
         build_jobs={capabilityJobs.filter((job) => job.job_type.includes("semantic"))}
-        render={(context) => (
-          <SlotPlaceholder
-            icon={Database}
-            title="Semantic Skill"
-            text="语义问数 Builder 将挂载在这里；当前 D3 只提供入口、状态和插槽契约。"
-            actionLabel="生成语义 Skill"
-            onAction={onAddSource}
-            count={context.capabilities.length}
+        render={() => (
+          <SemanticBuildPanel
+            spaceId={spaceId}
+            sources={sources}
+            assets={assets}
+            buildJobs={buildJobs}
+            onRefresh={onRefresh}
           />
         )}
       />
@@ -1610,7 +1637,7 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
       ...(Array.isArray(asset.capability_package?.source_ids)
         ? asset.capability_package.source_ids
         : []),
-    ].map(String),
+    ].map(sourceCoverageLabel).filter(Boolean),
   );
   const metrics = Array.isArray(asset.capabilities?.metrics)
     ? asset.capabilities.metrics.map(String)

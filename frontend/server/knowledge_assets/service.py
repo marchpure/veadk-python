@@ -534,6 +534,10 @@ class KnowledgeAssetStore:
         )
         return [_snapshot_payload(row) for row in rows]
 
+    async def get_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        row = await asyncio.to_thread(self._repository.get_snapshot, snapshot_id)
+        return _snapshot_payload(row)
+
     async def record_skill_package(
         self, body: RecordSkillPackageBody
     ) -> KnowledgeAssetMetadataEnvelope:

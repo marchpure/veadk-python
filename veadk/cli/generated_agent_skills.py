@@ -373,7 +373,22 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             "- Never infer SQL results from the prompt. Call the generated Data Studio REST function tool for every answer.",
         ]
     )
-    if capability_package:
+    if capability_package and asset_type == "semantic_model":
+        lines.extend(
+            [
+                "",
+                "## Packaged Artifact Layout",
+                "",
+                "- Manifest: `manifest.json`",
+                "- MDL files: `mdl/models.json`, `mdl/fields.json`, `mdl/relationships.json`, `mdl/metrics.json`, `mdl/dimensions.json`, `mdl/permissions.json`, `mdl/freshness.json`",
+                "- Runtime tool: `tools/query.py`",
+                "- Policies: `policies/access.json`, `policies/masking.json`, `policies/refusal.json`",
+                "- Evals: `evals/suite.json`",
+                "",
+                "MDL is bundled inside this Semantic Skill as structured files. Do not copy the full MDL into this document and do not treat it as a standalone selectable asset.",
+            ]
+        )
+    elif capability_package:
         lines.extend(
             [
                 "",
@@ -571,9 +586,12 @@ def _datastudio_semantic_tool_py(skill: SelectedSkill) -> str:
         skill.dataStudioQueryUrl
         or f"/api/external/assets/semantic_model/{skill.dataStudioAssetId}/query"
     )
-    metrics_hint = ", ".join(skill.dataStudioMetrics) or "declared in mdl/metrics.json"
-    dimensions_hint = (
-        ", ".join(skill.dataStudioDimensions) or "declared in mdl/dimensions.json"
+    asset_label = skill.name or skill.dataStudioAssetId
+    usage_hint = "\n".join(
+        [
+            f"Use exact metric ids/names from the packaged MDL: {', '.join(skill.dataStudioMetrics) or 'declared in mdl/metrics.json'}.",
+            f"Use exact dimension ids/names from the packaged MDL: {', '.join(skill.dataStudioDimensions) or 'declared in mdl/dimensions.json'}.",
+        ]
     )
     return f'''"""Typed REST-only tool for the packaged Byaan Semantic Skill.
 
@@ -592,6 +610,8 @@ import requests
 QUERY_URL = {query_url!r}
 METRICS = {skill.dataStudioMetrics!r}
 DIMENSIONS = {skill.dataStudioDimensions!r}
+ASSET_LABEL = {asset_label!r}
+USAGE_HINT = {usage_hint!r}
 
 
 def _datastudio_query_url(path_or_url: str) -> str:
@@ -628,11 +648,7 @@ def query_semantic_metric(
     time_range: dict[str, Any] | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """Query {skill.name or skill.dataStudioAssetId} through Data Studio REST.
-
-    Use exact metric ids/names from the packaged MDL: {metrics_hint}.
-    Use exact dimension ids/names from the packaged MDL: {dimensions_hint}.
-    """
+    """Query the packaged Semantic Skill through Data Studio REST."""
     payload = {{
         "metric": metric,
         "dimension": dimension,

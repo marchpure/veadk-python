@@ -345,7 +345,288 @@
 .kc-diagnostic-card strong {
   display: block;
   margin-top: 2px;
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.kc-native-status-tile.is-success strong {
+  color: hsl(148 45% 32%);
+}
+
+.kc-native-status-tile.is-warning strong {
+  color: hsl(35 75% 36%);
+}
+
+.kc-native-status-tile.is-danger strong {
+  color: hsl(var(--destructive));
+}
+
+.kc-semantic-build {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.kc-semantic-build__head,
+.kc-semantic-card header,
+.kc-semantic-policy,
+.kc-semantic-error,
+.kc-semantic-blocked,
+.kc-semantic-config {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kc-semantic-build__head {
+  justify-content: space-between;
+}
+
+.kc-semantic-build__head h2,
+.kc-semantic-card strong {
+  margin: 0;
   font-size: 14px;
+  font-weight: 620;
+}
+
+.kc-semantic-build__head p {
+  margin: 3px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.kc-semantic-build__head button,
+.kc-semantic-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 11px;
+  gap: 7px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--panel));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.kc-semantic-card button.is-primary {
+  border-color: hsl(var(--foreground));
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+}
+
+.kc-semantic-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.kc-semantic-build__grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(240px, 0.75fr) minmax(0, 1.1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.kc-semantic-card {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--panel));
+}
+
+.kc-semantic-card label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kc-semantic-card label > span,
+.kc-semantic-status dt,
+.kc-semantic-preview-list > strong {
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  font-weight: 560;
+}
+
+.kc-semantic-card input,
+.kc-semantic-card select,
+.kc-semantic-card textarea {
+  width: 100%;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  outline: none;
+  background: hsl(var(--panel));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.kc-semantic-card input,
+.kc-semantic-card select {
+  height: 34px;
+  padding: 0 10px;
+}
+
+.kc-semantic-card textarea {
+  min-height: 66px;
+  resize: vertical;
+  padding: 9px 10px;
+}
+
+.kc-semantic-policy {
+  align-items: flex-start;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.kc-semantic-error,
+.kc-semantic-blocked {
+  align-items: flex-start;
+  padding: 9px 10px;
+  border: 1px solid hsl(var(--destructive) / 0.24);
+  border-radius: 7px;
+  background: hsl(0 72% 97%);
+  color: hsl(var(--destructive));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.kc-semantic-config {
+  align-items: flex-start;
+  padding: 9px 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.kc-semantic-error div,
+.kc-semantic-blocked div,
+.kc-semantic-config div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.kc-semantic-error button,
+.kc-semantic-blocked button,
+.kc-semantic-config button {
+  justify-self: start;
+  min-height: 28px;
+  margin-top: 3px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+
+.kc-semantic-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kc-semantic-steps li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-semantic-steps span {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--panel));
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+}
+
+.kc-semantic-steps li.is-done {
+  color: hsl(var(--foreground));
+}
+
+.kc-semantic-steps li.is-done span {
+  border-color: hsl(142 45% 40% / 0.28);
+  background: hsl(142 45% 92%);
+  color: hsl(142 45% 30%);
+}
+
+.kc-semantic-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.kc-semantic-status dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-semantic-summary,
+.kc-semantic-preview-list div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kc-semantic-summary span,
+.kc-semantic-preview-list span {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.kc-semantic-preview-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kc-semantic-preview-list em {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  font-style: normal;
 }
 
 .kc-native-status-tile small {
@@ -844,14 +1125,22 @@
   .kc-native-source-grid,
   .kc-native-asset-grid,
   .kc-native-settings-grid,
+  .kc-semantic-build__grid,
   .kc-source-type-grid {
     grid-template-columns: 1fr;
   }
 
   .kc-native-source-card dl,
   .kc-native-asset-card dl,
+  .kc-semantic-status,
+  .kc-semantic-steps,
   .kc-flow-steps {
     grid-template-columns: 1fr;
+  }
+
+  .kc-semantic-build__head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .kc-native-drawer {

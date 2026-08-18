@@ -579,10 +579,9 @@ def _agent_name(acc: _Acc, draft: AgentDraft, fallback: str) -> str:
 
 
 def _py_str(value: str) -> str:
-    escaped = (
-        (value or "").replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-    )
-    return f'"{escaped}"'
+    import json
+
+    return json.dumps(value or "", ensure_ascii=False)
 
 
 def _py_triple(value: str) -> str:
@@ -688,17 +687,30 @@ def _datastudio_query_url_literal(asset: SelectedSkill) -> str:
     return _py_str(f"/api/external/assets/{asset_type}/{asset_id}/query")
 
 
+def _datastudio_hint_block(asset: SelectedSkill) -> str:
+    if asset.dataStudioAssetType == "semantic_model":
+        lines = [
+            f"Use exact metric ids/names from this asset: {', '.join(asset.dataStudioMetrics) or 'not declared'}.",
+            f"Use exact dimension ids/names from this asset: {', '.join(asset.dataStudioDimensions) or 'not declared'}.",
+            f"Time field: {asset.dataStudioTimeField or 'not declared'}.",
+        ]
+    else:
+        lines = [
+            f"Available metrics: {', '.join(asset.dataStudioMetrics) or 'not declared'}.",
+            f"Available dimensions: {', '.join(asset.dataStudioDimensions) or 'not declared'}.",
+        ]
+    return "\n".join(lines)
+
+
 def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
     function_name = _unique_ident(
         acc,
         f"query_{asset.folder or asset.name or asset.dataStudioAssetId}",
         "query_datastudio_asset",
     )
-    asset_label = asset.name or asset.dataStudioAssetId
     query_url = _datastudio_query_url_literal(asset)
-    metrics_hint = ", ".join(asset.dataStudioMetrics) or "not declared"
-    dimensions_hint = ", ".join(asset.dataStudioDimensions) or "not declared"
-    time_field_hint = asset.dataStudioTimeField or "not declared"
+    asset_label = _py_str(asset.name or asset.dataStudioAssetId)
+    hint_block = _py_str(_datastudio_hint_block(asset))
     _add_import(acc, "import os")
     _add_import(acc, "from urllib.parse import urljoin, urlparse")
     _add_import(acc, "import requests")
@@ -729,12 +741,7 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
             "limit: int = 100) -> dict:"
         )
         doc = (
-            f'    """Query the Byaan semantic model {asset_label} through the REST '
-            "external API.\n\n"
-            f"    Use exact metric ids/names from this asset: {metrics_hint}.\n"
-            f"    Use exact dimension ids/names from this asset: {dimensions_hint}.\n"
-            f"    Time field: {time_field_hint}.\n"
-            '    """'
+            '    """Query a governed semantic model through the REST external API."""'
         )
         payload = (
             '    payload = {"metric": metric, "dimension": dimension, '
@@ -749,11 +756,7 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
             'mode: str = "summary") -> dict:'
         )
         doc = (
-            f'    """Query the Byaan dashboard {asset_label} through the REST '
-            "external API.\n\n"
-            f"    Available metrics: {metrics_hint}.\n"
-            f"    Available dimensions: {dimensions_hint}.\n"
-            '    """'
+            '    """Query a governed dashboard through the REST external API."""'
         )
         payload = (
             '    payload = {"filters": filters or {}, "data_view_ids": data_view_ids or [], '
@@ -763,6 +766,8 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
         f'''
 {signature}
 {doc}
+    asset_label = {asset_label}
+    usage_hint = {hint_block}
     query_url = _datastudio_query_url({query_url})
     token = os.environ["BYAAN_MCP_API_KEY"]
 {payload}

@@ -98,6 +98,18 @@ export interface KnowledgeAssetBuildJob {
   updated_at?: string;
 }
 
+export interface KnowledgeAssetSnapshot {
+  id: string;
+  source_id?: string | null;
+  kind?: string | null;
+  artifact_uri?: string | null;
+  schema?: Record<string, unknown>;
+  profile?: Record<string, unknown>;
+  content_hash?: string | null;
+  metadata?: KnowledgeAssetMetadata;
+  created_at?: string;
+}
+
 export interface KnowledgeAssetSidecar {
   id: string;
   label: string;
@@ -365,6 +377,39 @@ export async function createKnowledgeAssetCapability(input: {
   );
 }
 
+export async function listKnowledgeAssetSnapshots(input: {
+  sourceId?: string;
+  assetId?: string;
+} = {}): Promise<KnowledgeAssetSnapshot[]> {
+  const params = new URLSearchParams();
+  if (input.sourceId) params.set("source_id", input.sourceId);
+  if (input.assetId) params.set("asset_id", input.assetId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<{ items?: KnowledgeAssetSnapshot[] }>(
+    `/api/knowledge-assets/snapshots${suffix}`,
+    undefined,
+    "读取 schema snapshot 失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function buildSemanticSkill(input: {
+  space_id?: string;
+  source_ids?: string[];
+  snapshot_ids?: string[];
+  name: string;
+  description?: string;
+  intent?: string;
+  target_domain?: string;
+  publish?: boolean;
+}): Promise<KnowledgeAssetBuildJob> {
+  return requestJson(
+    "/api/knowledge-assets/build/semantic-skill",
+    { method: "POST", body: JSON.stringify(input) },
+    "生成 Semantic Skill 失败",
+  );
+}
+
 export async function listKnowledgeAssetBuildJobs(
   spaceId?: string,
   filters: { sourceId?: string; assetId?: string } = {},
@@ -380,6 +425,16 @@ export async function listKnowledgeAssetBuildJobs(
     "读取构建任务失败",
   );
   return payload.items ?? [];
+}
+
+export async function getKnowledgeAssetBuildJob(
+  jobId: string,
+): Promise<KnowledgeAssetBuildJob> {
+  return requestJson(
+    `/api/knowledge-assets/build-jobs/${encodeURIComponent(jobId)}`,
+    undefined,
+    "读取构建任务失败",
+  );
 }
 
 export async function recordKnowledgeAssetBuildJob(input: {

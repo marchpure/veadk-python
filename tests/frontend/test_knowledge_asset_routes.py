@@ -39,10 +39,11 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
     assert "/api/knowledge-assets/sources" in paths
     assert "/api/knowledge-assets/sources/import" in paths
     assert "/api/knowledge-assets/sources/{source_id}/credential" in paths
+    assert "/api/knowledge-assets/build/semantic-skill" in paths
     assert "/api/knowledge-assets/build-jobs" in paths
     assert "/api/knowledge-assets/workbench/overview" in paths
     assert "/api/knowledge-assets/assets/{asset_type}/{asset_id}" in paths
-    assert "/api/knowledge-assets/build/semantic-skill" not in paths
+    assert "/api/external/assets/{asset_type}/{asset_id}/query" in paths
 
 
 def test_routes_create_store_and_never_echo_credentials(client: TestClient) -> None:
@@ -264,14 +265,15 @@ def test_schema_snapshot_import_route_registers_ready_source(
     assert snapshots["items"][0]["schema"]["models"][0]["name"] == "orders"
 
 
-def test_semantic_build_route_is_left_for_parallel_builder(
+def test_semantic_build_route_reports_missing_space_without_fake_success(
     client: TestClient,
 ) -> None:
     response = client.post(
         "/api/knowledge-assets/build/semantic-skill",
         json={"space_id": "space_missing", "name": "销售语义 Skill"},
     )
-    assert response.status_code == 404
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "KNOWLEDGE_ASSET_INVALID_REQUEST"
 
 
 def test_workbench_overview_is_real_aggregation(client: TestClient) -> None:

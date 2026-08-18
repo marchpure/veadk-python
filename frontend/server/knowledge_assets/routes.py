@@ -10,11 +10,12 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, status
 
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
 from .models import (
+    BuildSemanticSkillBody,
     CreateSourceBody,
     CreateSpaceBody,
     ImportSourceBody,
@@ -22,6 +23,7 @@ from .models import (
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     RecordSnapshotBody,
+    QueryExternalAssetBody,
     SaveCredentialBody,
     UpdateBuildJobBody,
     UpdateSourceStatusBody,
@@ -38,6 +40,12 @@ from .service import (
     KnowledgeAssetStore,
     redact_sensitive,
 )
+from .builders.semantic.service import (
+    SemanticBuildBlocked,
+    SemanticSkillBuildRequest,
+    SemanticSkillBuildService,
+)
+from .semantic_query import query_external_asset
 
 
 def mount_knowledge_asset_routes(
@@ -211,6 +219,54 @@ def mount_knowledge_asset_routes(
     async def record_build_job(body: RecordBuildJobBody) -> dict[str, Any]:
         return await invoke(lambda: store.record_build_job(body))
 
+    @app.post(
+        "/api/knowledge-assets/build/semantic-skill",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def build_semantic_skill(
+        body: BuildSemanticSkillBody,
+        background_tasks: BackgroundTasks,
+    ) -> dict[str, Any]:
+        builder = SemanticSkillBuildService(store)
+        request = SemanticSkillBuildRequest(
+            space_id=body.space_id,
+            source_ids=body.source_ids,
+            snapshot_ids=body.snapshot_ids,
+            name=body.name,
+            description=body.description,
+            intent=body.intent,
+            target_domain=body.target_domain,
+            publish=body.publish,
+        )
+        job = await invoke(lambda: builder.enqueue(request))
+        background_tasks.add_task(
+            _run_semantic_skill_build,
+            store,
+            job["id"],
+            request,
+        )
+        return job
+
+    async def _run_semantic_skill_build(
+        build_store: KnowledgeAssetStore,
+        job_id: str,
+        request: SemanticSkillBuildRequest,
+    ) -> None:
+        builder = SemanticSkillBuildService(build_store)
+        try:
+            await builder.run_job(job_id, request)
+        except Exception as error:
+            await build_store.update_build_job(
+                job_id,
+                UpdateBuildJobBody(
+                    status="failed",
+                    error={
+                        "code": "SEMANTIC_BUILD_FAILED",
+                        "message": redact_sensitive(str(error)),
+                    },
+                ),
+            )
+
     @app.get("/api/knowledge-assets/build-jobs")
     async def list_build_jobs(
         space_id: Annotated[
@@ -332,6 +388,21 @@ def mount_knowledge_asset_routes(
             lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
         )
 
+    @app.post("/api/external/assets/{asset_type}/{asset_id}/query")
+    async def query_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: QueryExternalAssetBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: query_external_asset(
+                store,
+                asset_type=asset_type,
+                asset_id=asset_id,
+                body=body,
+            )
+        )
+
 
 def _convert_error(error: Exception) -> HTTPException:
     if isinstance(error, HTTPException):
@@ -340,6 +411,8 @@ def _convert_error(error: Exception) -> HTTPException:
         return _api_error(404, error.code, str(error))
     if isinstance(error, KnowledgeAssetConflict):
         return _api_error(409, error.code, str(error))
+    if isinstance(error, SemanticBuildBlocked):
+        return _api_error(409, "SEMANTIC_BUILD_BLOCKED", str(error))
     if isinstance(error, (KnowledgeAssetServiceError, ValueError)):
         return _api_error(400, "KNOWLEDGE_ASSET_INVALID_REQUEST", str(error))
     if isinstance(error, (KnowledgeAssetCredentialError, CredentialCryptoError)):
