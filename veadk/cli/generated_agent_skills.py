@@ -31,6 +31,7 @@ from veadk.cli.generated_agent_codegen import (
     GeneratedFile,
     GeneratedProject,
     SelectedSkill,
+    datastudio_skill_folder,
 )
 from veadk.cli.generated_agent_security import DebugPolicyError
 
@@ -54,10 +55,10 @@ async def materialize_selected_skills(
 ) -> None:
     existing = {file.path for file in project.files}
     for skill in _collect_selected_skills(draft):
-        if skill.source == "datastudio":
-            continue
         original_folder = skill.folder
-        if skill.source == "skillhub":
+        if skill.source == "datastudio":
+            files = _materialize_datastudio_skill(skill)
+        elif skill.source == "skillhub":
             files = await _download_skillhub_skill(skill)
         elif skill.source == "skillspace":
             if resolve_skillspace_detail is None:
@@ -223,6 +224,98 @@ def _materialize_local_skill(skill: SelectedSkill) -> list[GeneratedFile]:
     if skill_md_content is None:
         raise DebugPolicyError(f"Local skill {folder} is missing SKILL.md")
     return out
+
+
+def _materialize_datastudio_skill(skill: SelectedSkill) -> list[GeneratedFile]:
+    asset_type = skill.dataStudioAssetType.strip()
+    asset_id = skill.dataStudioAssetId.strip()
+    if asset_type not in {"dashboard", "semantic_model"}:
+        raise DebugPolicyError("Data Studio asset is missing type")
+    if not asset_id:
+        raise DebugPolicyError("Data Studio asset is missing id")
+    folder = datastudio_skill_folder(skill)
+    skill.folder = folder
+    skill_md = _datastudio_skill_md(skill, folder)
+    return [GeneratedFile(path=f"skills/{folder}/SKILL.md", content=skill_md)]
+
+
+def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
+    asset_type = skill.dataStudioAssetType.strip()
+    asset_id = skill.dataStudioAssetId.strip()
+    metadata = {
+        "asset_type": asset_type,
+        "asset_id": asset_id,
+        "version": skill.dataStudioVersion or "",
+        "query_url": skill.dataStudioQueryUrl or "",
+    }
+    frontmatter = {
+        "name": folder,
+        "description": (
+            skill.description
+            or f"Byaan Data Studio {asset_type.replace('_', ' ')} asset {skill.name or asset_id}."
+        ),
+        "metadata": metadata,
+    }
+    header = yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).strip()
+    title = skill.name or asset_id
+    lines = [
+        "---",
+        header,
+        "---",
+        "",
+        f"# {title}",
+        "",
+        "Use this skill when answering questions that rely on this governed Byaan Data Studio asset.",
+        "",
+        "## Asset",
+        "",
+        f"- Type: `{asset_type}`",
+        f"- ID: `{asset_id}`",
+        f"- Version: `{skill.dataStudioVersion or 'unspecified'}`",
+    ]
+    if skill.dataStudioGateScore is not None:
+        lines.append(f"- Gate score: `{skill.dataStudioGateScore}`")
+    lines.extend(
+        [
+            "",
+            "## Metrics",
+            "",
+            *(_bullet_lines(skill.dataStudioMetrics) or ["- Not declared"]),
+            "",
+            "## Dimensions",
+            "",
+            *(_bullet_lines(skill.dataStudioDimensions) or ["- Not declared"]),
+            "",
+            "## Time Field",
+            "",
+            f"- `{skill.dataStudioTimeField or 'Not declared'}`",
+            "",
+            "## Permission Boundary",
+            "",
+            f"- {skill.dataStudioPermissionHint or 'Follow the asset usage policy returned by Byaan.'}",
+            "- Do not expose masked fields or raw row-level identifiers unless the asset policy explicitly allows it.",
+            "- Treat the REST response policyDecision and evidence fields as authoritative.",
+            "",
+            "## Example Questions",
+            "",
+            *(_bullet_lines(skill.dataStudioExampleQuestions) or ["- Not declared"]),
+            "",
+            "## Evidence Rules",
+            "",
+            "- Every answer must include the returned numeric value or table result.",
+            "- Every answer must cite SQL, metric definition, lineage, or sample evidence returned by Byaan.",
+            "- Every answer must mention the permission or policy boundary that allowed the response.",
+        ]
+    )
+    if skill.dataStudioEvidence:
+        lines.extend(["", "## Seed Evidence", ""])
+        lines.extend(_bullet_lines(skill.dataStudioEvidence))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _bullet_lines(values: list[str]) -> list[str]:
+    return [f"- {value}" for value in values if str(value).strip()]
 
 
 def _files_from_zip(content: bytes, folder: str, label: str) -> list[GeneratedFile]:

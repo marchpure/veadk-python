@@ -60,6 +60,7 @@ export function KnowledgeCenterView() {
   const iframeUrl = useMemo(() => {
     if (state.status !== "ready") return "";
     const url = new URL(state.config.embedUrl);
+    url.pathname = "/embedded/knowledge-center";
     url.searchParams.set("embedded", "veadk-studio");
     return url.toString();
   }, [state]);

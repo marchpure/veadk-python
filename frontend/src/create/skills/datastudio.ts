@@ -126,9 +126,25 @@ function stringArray(value: unknown): string[] {
 function evidenceText(asset: DataStudioAsset): string[] {
   return (asset.sample_evidence ?? [])
     .map((item) => {
-      const type = typeof item.type === "string" ? item.type : "evidence";
-      const content = typeof item.content === "string" ? item.content : "";
-      return content ? `${type}: ${content}` : "";
+      const type =
+        typeof item.kind === "string"
+          ? item.kind
+          : typeof item.type === "string"
+            ? item.type
+            : "evidence";
+      if (typeof item.content === "string" && item.content.trim()) {
+        return `${type}: ${item.content.trim()}`;
+      }
+      const parts: string[] = [];
+      for (const key of ["title", "metric", "definition", "formula"]) {
+        if (typeof item[key] === "string" && item[key].trim()) {
+          parts.push(`${key}=${item[key].trim()}`);
+        }
+      }
+      if (item.policy && typeof item.policy === "object") {
+        parts.push(`policy=${JSON.stringify(item.policy)}`);
+      }
+      return parts.length ? `${type}: ${parts.join("; ")}` : "";
     })
     .filter(Boolean);
 }

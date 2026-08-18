@@ -1,0 +1,3800 @@
+{
+  "ok": true,
+  "startedAt": "2026-08-18T02:27:18.922Z",
+  "env": {
+    "VEADK_STUDIO_URL": "http://127.0.0.1:18210",
+    "DATASTUDIO_EMBED_URL": "http://127.0.0.1:15183",
+    "DATASTUDIO_BASE_URL": "http://127.0.0.1:18100",
+    "DATASTUDIO_MOCK": "0",
+    "VITE_KNOWLEDGE_CENTER_MOCK": "0",
+    "BYAAN_MCP_API_KEY": "<redacted>",
+    "DATASTUDIO_API_KEY": "<redacted>",
+    "MASTER_USER_EMAIL": "<redacted>",
+    "MASTER_USER_PASSWORD": "<redacted>"
+  },
+  "seed": {
+    "ok": true,
+    "runId": "session-f-team-20260818100622",
+    "baseUrl": "http://127.0.0.1:18100",
+    "deployment": {
+      "mode": "self-hosted",
+      "appConfig": {
+        "features": {
+          "worker_features_enabled": false,
+          "external_sharing_enabled": false,
+          "notebook_import_enabled": false,
+          "public_registration_enabled": false,
+          "local_auth_enabled": true,
+          "invitation_only": true,
+          "google_oauth_enabled": false,
+          "team_sharing_enabled": true,
+          "enterprise_licensed": true
+        },
+        "org_name": "Knowledge Center Team Gate"
+      },
+      "featureFlags": {
+        "worker_features_enabled": false,
+        "external_sharing_enabled": false,
+        "notebook_import_enabled": false,
+        "public_registration_enabled": false,
+        "local_auth_enabled": true,
+        "invitation_only": true,
+        "google_oauth_enabled": false,
+        "team_sharing_enabled": true,
+        "enterprise_licensed": true
+      },
+      "auth": {
+        "mode": "self-hosted",
+        "tenantId": "e3b48c29-8f52-4938-a135-198941f6782f",
+        "tenantName": "Knowledge Center Team Gate",
+        "userId": "fbc08168-a635-46e6-a6cc-6badece97d52",
+        "email": "<redacted>",
+        "role": "owner",
+        "scopesCount": 51,
+        "dbIdentity": {
+          "tenantId": "e3b48c29-8f52-4938-a135-198941f6782f",
+          "tenantName": "Knowledge Center Team Gate",
+          "userId": "fbc08168-a635-46e6-a6cc-6badece97d52",
+          "role": "owner"
+        }
+      },
+      "communityBootstrapPresent": false,
+      "knowledgeProvider": {
+        "provider": "native",
+        "allowNativeLocalDiagnostics": true
+      }
+    },
+    "tenantId": "e3b48c29-8f52-4938-a135-198941f6782f",
+    "userId": "fbc08168-a635-46e6-a6cc-6badece97d52",
+    "source": {
+      "name": "KC Live Revenue session-f-team-20260818100622",
+      "resourceId": "f4f3b4f6-d7f8-4a0c-b98a-c491db166039",
+      "projectedDatasetId": "6ae51a4e-6a66-4ae8-9ede-fa7fa9c01eb0",
+      "csvSha256": "3ee94278651e03966eebd414746006e432f3a1e8fd440a4600c29f227c0fe3f6"
+    },
+    "model": {
+      "slug": "kc-live-revenue-session-f-team-20260818100622-76cc4a97",
+      "name": "KC Live Revenue session-f-team-20260818100622",
+      "externalAssetId": "6556a544-5164-4fba-8f79-a0ae47c073bd",
+      "publishedVersion": "v1"
+    },
+    "externalApi": {
+      "apiKeyEnv": "BYAAN_MCP_API_KEY",
+      "apiKey": "<redacted>",
+      "asset": {
+        "asset_type": "semantic_model",
+        "asset_id": "6556a544-5164-4fba-8f79-a0ae47c073bd",
+        "name": "KC Live Revenue session-f-team-20260818100622",
+        "description": "Draft initialized from verified projected dataset Source Understanding candidates.",
+        "status": "Published",
+        "publish_state": "published",
+        "gate": {
+          "score": 100,
+          "passed": 3,
+          "total": 3,
+          "blockers": []
+        },
+        "version": "v1",
+        "consumers": [
+          "agent",
+          "mcp"
+        ],
+        "capabilities": {
+          "execution_modes": [
+            "run_semantic_query"
+          ],
+          "slug": "kc-live-revenue-session-f-team-20260818100622-76cc4a97",
+          "domain": "Sales / Orders",
+          "published_version": "v1",
+          "readiness": 82,
+          "readiness_level": "warning",
+          "metrics": [
+            {
+              "id": "revenue_revenue",
+              "name": "revenue_revenue",
+              "businessName": "Revenue Revenue",
+              "definition": "Sum of revenue.revenue.",
+              "formula": "SUM(revenue.revenue)",
+              "unit": ""
+            }
+          ],
+          "dimensions": [
+            {
+              "id": "revenue_region",
+              "name": "Revenue Region",
+              "field": "region",
+              "description": "region from Revenue."
+            },
+            {
+              "id": "revenue_paid_at",
+              "name": "Revenue Paid At",
+              "field": "paid_at",
+              "description": "paid_at from Revenue."
+            }
+          ],
+          "time_field": "revenue.paid_at"
+        },
+        "query_url": "/api/external/assets/semantic_model/6556a544-5164-4fba-8f79-a0ae47c073bd/query",
+        "freshness": {
+          "status": "current",
+          "drift_alerts": 0,
+          "updated_at": "2026-08-18T02:14:46.308493"
+        },
+        "provenance": {
+          "semantic_model_id": "6556a544-5164-4fba-8f79-a0ae47c073bd",
+          "datasource_id": "6ae51a4e-6a66-4ae8-9ede-fa7fa9c01eb0",
+          "datasource_kind": "duckdb",
+          "draft_revision": "draft-source-1",
+          "published_version": "v1"
+        },
+        "usage_policy": {},
+        "sample_evidence": [
+          {
+            "kind": "metric_definition",
+            "title": "Revenue Revenue",
+            "metric": "revenue_revenue",
+            "definition": "Sum of revenue.revenue.",
+            "formula": "SUM(revenue.revenue)",
+            "filter": "",
+            "lineage": [
+              {
+                "candidate_id": "9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6",
+                "candidate_type": "data_truth",
+                "confidence": 0.78,
+                "evidence_ids": [
+                  "69f775d2-de50-48aa-917f-70f45503bfa0",
+                  "a9f20240-5b7f-4968-94ac-5734d9799b64",
+                  "405b54ca-964a-44c8-8bb6-7ce9189a7f80",
+                  "d7dc7f9a-434b-4884-a19e-4697186f1c1a",
+                  "9eef20ec-2739-4f5f-89ce-f3e822ee2b5b"
+                ],
+                "source_resource_id": "1f630b4a-cbef-4f86-9506-6bb9fcfe3d70",
+                "source_snapshot_id": "b7df1932-18b0-416b-bbd5-64410c7156c6",
+                "validation": {
+                  "reason": "Needs reviewer confirmation of business definition.",
+                  "status": "warning"
+                }
+              },
+              "revenue.revenue"
+            ]
+          },
+          {
+            "kind": "permission_policy",
+            "title": "Semantic model external query policy",
+            "policy": {
+              "allowedMetrics": [
+                "revenue_revenue"
+              ],
+              "allowedDimensions": [
+                "revenue_region",
+                "revenue_paid_at"
+              ]
+            }
+          }
+        ]
+      },
+      "listCount": 2,
+      "query": {
+        "resolvedMetric": "Revenue Revenue",
+        "metricDefinition": "Sum of revenue.revenue.",
+        "modelVersion": "v1",
+        "status": "completed",
+        "result": [
+          {
+            "revenue_region": "East",
+            "revenue_revenue": 150
+          },
+          {
+            "revenue_region": "West",
+            "revenue_revenue": 80
+          }
+        ],
+        "error": null,
+        "returnedCount": 2,
+        "totalCount": 2,
+        "limited": false,
+        "sql": "SELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\"",
+        "lineage": [
+          {
+            "candidate_id": "9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6",
+            "candidate_type": "data_truth",
+            "confidence": 0.78,
+            "evidence_ids": [
+              "69f775d2-de50-48aa-917f-70f45503bfa0",
+              "a9f20240-5b7f-4968-94ac-5734d9799b64",
+              "405b54ca-964a-44c8-8bb6-7ce9189a7f80",
+              "d7dc7f9a-434b-4884-a19e-4697186f1c1a",
+              "9eef20ec-2739-4f5f-89ce-f3e822ee2b5b"
+            ],
+            "source_resource_id": "1f630b4a-cbef-4f86-9506-6bb9fcfe3d70",
+            "source_snapshot_id": "b7df1932-18b0-416b-bbd5-64410c7156c6",
+            "validation": {
+              "reason": "Needs reviewer confirmation of business definition.",
+              "status": "warning"
+            }
+          },
+          "revenue.revenue"
+        ],
+        "evidence": [
+          {
+            "kind": "sql",
+            "title": "Compiled SQL for Revenue Revenue",
+            "content": "SELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\""
+          },
+          {
+            "kind": "metric_definition",
+            "title": "Revenue Revenue",
+            "metric": "revenue_revenue",
+            "definition": "Sum of revenue.revenue.",
+            "formula": "SUM(revenue.revenue)",
+            "lineage": [
+              {
+                "candidate_id": "9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6",
+                "candidate_type": "data_truth",
+                "confidence": 0.78,
+                "evidence_ids": [
+                  "69f775d2-de50-48aa-917f-70f45503bfa0",
+                  "a9f20240-5b7f-4968-94ac-5734d9799b64",
+                  "405b54ca-964a-44c8-8bb6-7ce9189a7f80",
+                  "d7dc7f9a-434b-4884-a19e-4697186f1c1a",
+                  "9eef20ec-2739-4f5f-89ce-f3e822ee2b5b"
+                ],
+                "source_resource_id": "1f630b4a-cbef-4f86-9506-6bb9fcfe3d70",
+                "source_snapshot_id": "b7df1932-18b0-416b-bbd5-64410c7156c6",
+                "validation": {
+                  "reason": "Needs reviewer confirmation of business definition.",
+                  "status": "warning"
+                }
+              },
+              "revenue.revenue"
+            ]
+          },
+          {
+            "kind": "permission_policy",
+            "title": "Semantic model external query policy",
+            "policy": {
+              "allowedMetrics": [
+                "revenue_revenue"
+              ],
+              "allowedDimensions": [
+                "revenue_region",
+                "revenue_paid_at"
+              ]
+            }
+          }
+        ],
+        "freshness": "2026-08-18T02:14:46.473865",
+        "policyDecision": "allowed",
+        "warnings": []
+      }
+    },
+    "secretEnvPath": "/tmp/session-f-team-20260818100622.byaan-live-env.sh"
+  },
+  "screenshots": [
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/team-full-datastudio.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/integrations-full-datastudio.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/desktop-1440-studio-knowledge-center.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/desktop-1440-iframe-sources.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/desktop-1440-iframe-data-models.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/desktop-1440-iframe-dashboard-assets.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/desktop-1440-iframe-evaluation.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/desktop-1440-iframe-folders.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/mobile-390-studio-knowledge-center.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/mobile-390-iframe-sources.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/mobile-390-iframe-data-models.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/mobile-390-iframe-dashboard-assets.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/mobile-390-iframe-evaluation.png",
+    "/Users/bytedance/worktrees/session-f-veadk-kc-partial-20260818/docs/knowledge-center/session-reports/live/screenshots/mobile-390-iframe-folders.png"
+  ],
+  "deployment": {
+    "mode": "self-hosted",
+    "appConfig": {
+      "org_name": "Knowledge Center Team Gate",
+      "hasLocalBootstrap": false,
+      "hasCommunityBootstrap": false,
+      "features": {
+        "worker_features_enabled": false,
+        "external_sharing_enabled": false,
+        "notebook_import_enabled": false,
+        "public_registration_enabled": false,
+        "local_auth_enabled": true,
+        "invitation_only": true,
+        "google_oauth_enabled": false,
+        "team_sharing_enabled": true,
+        "enterprise_licensed": true
+      }
+    },
+    "auth": {
+      "tenantId": "e3b48c29-8f52-4938-a135-198941f6782f",
+      "tenantName": "Knowledge Center Team Gate",
+      "role": "owner",
+      "scopesCount": 51,
+      "user": {
+        "id": "fbc08168-a635-46e6-a6cc-6badece97d52",
+        "email": "<redacted>",
+        "is_superuser": true
+      }
+    },
+    "feishu": {
+      "status": {
+        "admin_config": {
+          "configured": false,
+          "mode": "not_configured",
+          "status": "not_configured",
+          "secret_configured": false,
+          "can_configure_custom_app": true,
+          "redirect_uri": null,
+          "scopes": [],
+          "required_scopes": [
+            "space:document:retrieve",
+            "docx:document:readonly",
+            "wiki:wiki:readonly"
+          ],
+          "missing_scopes": [
+            "space:document:retrieve",
+            "docx:document:readonly",
+            "wiki:wiki:readonly"
+          ]
+        },
+        "connection": null,
+        "configured": false,
+        "connected": false,
+        "status": "not_configured",
+        "source_authorization": {
+          "status": "not_configured",
+          "purpose": "授权 Byaan 读取你选择的飞书文档、Wiki、表格和多维表格。",
+          "scopes": [
+            "space:document:retrieve",
+            "docx:document:readonly",
+            "wiki:wiki:readonly"
+          ],
+          "revoke_action": "Disconnect Feishu source connection"
+        },
+        "collaboration_bot": {
+          "status": "separate_installation_required",
+          "purpose": "将 Byaan bot 加入指定测试群，用于协作消息和通知。",
+          "scopes": [
+            "im:message",
+            "im:chat"
+          ],
+          "revoke_action": "Disconnect Feishu collaboration installation"
+        }
+      },
+      "adminConfig": {
+        "configured": false,
+        "mode": "not_configured",
+        "status": "not_configured",
+        "secret_configured": false,
+        "can_configure_custom_app": true,
+        "redirect_uri": "http://127.0.0.1:15183/api/source-connections/feishu/oauth/callback",
+        "scopes": [],
+        "required_scopes": [
+          "space:document:retrieve",
+          "docx:document:readonly",
+          "wiki:wiki:readonly"
+        ],
+        "missing_scopes": [
+          "space:document:retrieve",
+          "docx:document:readonly",
+          "wiki:wiki:readonly"
+        ],
+        "generated_redirect_uri": "http://127.0.0.1:15183/api/source-connections/feishu/oauth/callback"
+      },
+      "installation": {
+        "success": true,
+        "message": "Feishu not configured",
+        "data": null
+      }
+    }
+  },
+  "backend": {
+    "config": {
+      "configured": true,
+      "baseUrl": "http://127.0.0.1:18100",
+      "embedUrl": "http://127.0.0.1:15183",
+      "mock": false,
+      "origin": "http://127.0.0.1:15183"
+    },
+    "listedCount": 2,
+    "asset": {
+      "asset_type": "semantic_model",
+      "asset_id": "6556a544-5164-4fba-8f79-a0ae47c073bd",
+      "name": "KC Live Revenue session-f-team-20260818100622",
+      "description": "Draft initialized from verified projected dataset Source Understanding candidates.",
+      "status": "Published",
+      "publish_state": "published",
+      "gate": {
+        "score": 100,
+        "passed": 3,
+        "total": 3,
+        "blockers": []
+      },
+      "version": "v1",
+      "consumers": [
+        "agent",
+        "mcp"
+      ],
+      "capabilities": {
+        "execution_modes": [
+          "run_semantic_query"
+        ],
+        "slug": "kc-live-revenue-session-f-team-20260818100622-76cc4a97",
+        "domain": "Sales / Orders",
+        "published_version": "v1",
+        "readiness": 82,
+        "readiness_level": "warning",
+        "metrics": [
+          {
+            "id": "revenue_revenue",
+            "name": "revenue_revenue",
+            "businessName": "Revenue Revenue",
+            "definition": "Sum of revenue.revenue.",
+            "formula": "SUM(revenue.revenue)",
+            "unit": ""
+          }
+        ],
+        "dimensions": [
+          {
+            "id": "revenue_region",
+            "name": "Revenue Region",
+            "field": "region",
+            "description": "region from Revenue."
+          },
+          {
+            "id": "revenue_paid_at",
+            "name": "Revenue Paid At",
+            "field": "paid_at",
+            "description": "paid_at from Revenue."
+          }
+        ],
+        "time_field": "revenue.paid_at"
+      },
+      "query_url": "/api/external/assets/semantic_model/6556a544-5164-4fba-8f79-a0ae47c073bd/query",
+      "freshness": {
+        "status": "current",
+        "drift_alerts": 0,
+        "updated_at": "2026-08-18T02:26:53.427904"
+      },
+      "provenance": {
+        "semantic_model_id": "6556a544-5164-4fba-8f79-a0ae47c073bd",
+        "datasource_id": "6ae51a4e-6a66-4ae8-9ede-fa7fa9c01eb0",
+        "datasource_kind": "duckdb",
+        "draft_revision": "draft-source-1",
+        "published_version": "v1"
+      },
+      "usage_policy": {},
+      "sample_evidence": [
+        {
+          "kind": "metric_definition",
+          "title": "Revenue Revenue",
+          "metric": "revenue_revenue",
+          "definition": "Sum of revenue.revenue.",
+          "formula": "SUM(revenue.revenue)",
+          "filter": "",
+          "lineage": [
+            {
+              "candidate_id": "9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6",
+              "candidate_type": "data_truth",
+              "confidence": 0.78,
+              "evidence_ids": [
+                "69f775d2-de50-48aa-917f-70f45503bfa0",
+                "a9f20240-5b7f-4968-94ac-5734d9799b64",
+                "405b54ca-964a-44c8-8bb6-7ce9189a7f80",
+                "d7dc7f9a-434b-4884-a19e-4697186f1c1a",
+                "9eef20ec-2739-4f5f-89ce-f3e822ee2b5b"
+              ],
+              "source_resource_id": "1f630b4a-cbef-4f86-9506-6bb9fcfe3d70",
+              "source_snapshot_id": "b7df1932-18b0-416b-bbd5-64410c7156c6",
+              "validation": {
+                "reason": "Needs reviewer confirmation of business definition.",
+                "status": "warning"
+              }
+            },
+            "revenue.revenue"
+          ]
+        },
+        {
+          "kind": "permission_policy",
+          "title": "Semantic model external query policy",
+          "policy": {
+            "allowedMetrics": [
+              "revenue_revenue"
+            ],
+            "allowedDimensions": [
+              "revenue_region",
+              "revenue_paid_at"
+            ]
+          }
+        }
+      ]
+    },
+    "directQuery": {
+      "resolvedMetric": "Revenue Revenue",
+      "metricDefinition": "Sum of revenue.revenue.",
+      "modelVersion": "v1",
+      "status": "completed",
+      "result": [
+        {
+          "revenue_region": "West",
+          "revenue_revenue": 80
+        },
+        {
+          "revenue_region": "East",
+          "revenue_revenue": 150
+        }
+      ],
+      "error": null,
+      "returnedCount": 2,
+      "totalCount": 2,
+      "limited": false,
+      "sql": "SELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\"",
+      "lineage": [
+        {
+          "candidate_id": "9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6",
+          "candidate_type": "data_truth",
+          "confidence": 0.78,
+          "evidence_ids": [
+            "69f775d2-de50-48aa-917f-70f45503bfa0",
+            "a9f20240-5b7f-4968-94ac-5734d9799b64",
+            "405b54ca-964a-44c8-8bb6-7ce9189a7f80",
+            "d7dc7f9a-434b-4884-a19e-4697186f1c1a",
+            "9eef20ec-2739-4f5f-89ce-f3e822ee2b5b"
+          ],
+          "source_resource_id": "1f630b4a-cbef-4f86-9506-6bb9fcfe3d70",
+          "source_snapshot_id": "b7df1932-18b0-416b-bbd5-64410c7156c6",
+          "validation": {
+            "reason": "Needs reviewer confirmation of business definition.",
+            "status": "warning"
+          }
+        },
+        "revenue.revenue"
+      ],
+      "evidence": [
+        {
+          "kind": "sql",
+          "title": "Compiled SQL for Revenue Revenue",
+          "content": "SELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\""
+        },
+        {
+          "kind": "metric_definition",
+          "title": "Revenue Revenue",
+          "metric": "revenue_revenue",
+          "definition": "Sum of revenue.revenue.",
+          "formula": "SUM(revenue.revenue)",
+          "lineage": [
+            {
+              "candidate_id": "9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6",
+              "candidate_type": "data_truth",
+              "confidence": 0.78,
+              "evidence_ids": [
+                "69f775d2-de50-48aa-917f-70f45503bfa0",
+                "a9f20240-5b7f-4968-94ac-5734d9799b64",
+                "405b54ca-964a-44c8-8bb6-7ce9189a7f80",
+                "d7dc7f9a-434b-4884-a19e-4697186f1c1a",
+                "9eef20ec-2739-4f5f-89ce-f3e822ee2b5b"
+              ],
+              "source_resource_id": "1f630b4a-cbef-4f86-9506-6bb9fcfe3d70",
+              "source_snapshot_id": "b7df1932-18b0-416b-bbd5-64410c7156c6",
+              "validation": {
+                "reason": "Needs reviewer confirmation of business definition.",
+                "status": "warning"
+              }
+            },
+            "revenue.revenue"
+          ]
+        },
+        {
+          "kind": "permission_policy",
+          "title": "Semantic model external query policy",
+          "policy": {
+            "allowedMetrics": [
+              "revenue_revenue"
+            ],
+            "allowedDimensions": [
+              "revenue_region",
+              "revenue_paid_at"
+            ]
+          }
+        }
+      ],
+      "freshness": "2026-08-18T02:27:19.138732",
+      "policyDecision": "allowed",
+      "warnings": []
+    }
+  },
+  "teamDataStudio": {
+    "team": {
+      "url": "http://127.0.0.1:15183/team",
+      "hasGlobalSidebar": true,
+      "hasEmbeddedLayout": false,
+      "hasContextSidebar": true,
+      "hasTeamEntry": true,
+      "hasCollaborationEntry": false,
+      "hasFeishuSourceAuth": false,
+      "hasFeishuBot": false,
+      "hasFeishuAdminSettings": false,
+      "safeUnconfiguredState": false
+    },
+    "integrations": {
+      "url": "http://127.0.0.1:15183/integrations",
+      "hasGlobalSidebar": true,
+      "hasEmbeddedLayout": false,
+      "hasContextSidebar": true,
+      "hasTeamEntry": false,
+      "hasCollaborationEntry": true,
+      "hasFeishuSourceAuth": true,
+      "hasFeishuBot": true,
+      "hasFeishuAdminSettings": true,
+      "safeUnconfiguredState": true
+    },
+    "profileMenu": {
+      "hasTeam": true,
+      "hasIntegrations": true
+    },
+    "boundary": {
+      "fullDataStudioUrl": "http://127.0.0.1:15183",
+      "embeddedRoute": "http://127.0.0.1:15183/embedded/knowledge-center",
+      "fullDataStudioHasGlobalSidebar": true,
+      "iframeMustNotExposeGlobalSidebar": true
+    }
+  },
+  "iframe": [
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 900
+      },
+      "route": "/",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+      "shellHealth": {
+        "title": "AgentKit Studio",
+        "visibleTextLength": 139,
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "scrollWidth": 1440,
+        "scrollHeight": 900,
+        "clientWidth": 1440,
+        "clientHeight": 900,
+        "overflowing": [],
+        "scrollContainers": 0,
+        "hasBlankBody": false
+      },
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 1309,
+        "viewportWidth": 1182,
+        "viewportHeight": 783,
+        "scrollWidth": 1182,
+        "scrollHeight": 783,
+        "clientWidth": 1182,
+        "clientHeight": 783,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 900
+      },
+      "route": "/sources",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/sources",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 149,
+        "viewportWidth": 1182,
+        "viewportHeight": 783,
+        "scrollWidth": 1182,
+        "scrollHeight": 783,
+        "clientWidth": 1182,
+        "clientHeight": 783,
+        "overflowing": [],
+        "scrollContainers": 0,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/sources",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 900
+      },
+      "route": "/data-models",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 641,
+        "viewportWidth": 1182,
+        "viewportHeight": 783,
+        "scrollWidth": 1182,
+        "scrollHeight": 783,
+        "clientWidth": 1182,
+        "clientHeight": 783,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 900
+      },
+      "route": "/dashboard-assets",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/dashboard-assets",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 254,
+        "viewportWidth": 1182,
+        "viewportHeight": 783,
+        "scrollWidth": 1182,
+        "scrollHeight": 783,
+        "clientWidth": 1182,
+        "clientHeight": 783,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/dashboard-assets",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 900
+      },
+      "route": "/evaluation",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/evaluation",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 313,
+        "viewportWidth": 1182,
+        "viewportHeight": 783,
+        "scrollWidth": 1182,
+        "scrollHeight": 783,
+        "clientWidth": 1182,
+        "clientHeight": 783,
+        "overflowing": [],
+        "scrollContainers": 0,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/evaluation",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop-1440",
+        "width": 1440,
+        "height": 900
+      },
+      "route": "/folders",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/folders",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 185,
+        "viewportWidth": 1182,
+        "viewportHeight": 783,
+        "scrollWidth": 1182,
+        "scrollHeight": 783,
+        "clientWidth": 1182,
+        "clientHeight": 783,
+        "overflowing": [],
+        "scrollContainers": 0,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/folders",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "route": "/",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+      "shellHealth": {
+        "title": "AgentKit Studio",
+        "visibleTextLength": 66,
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "scrollWidth": 390,
+        "scrollHeight": 844,
+        "clientWidth": 390,
+        "clientHeight": 844,
+        "overflowing": [],
+        "scrollContainers": 0,
+        "hasBlankBody": false
+      },
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 1270,
+        "viewportWidth": 312,
+        "viewportHeight": 679,
+        "scrollWidth": 312,
+        "scrollHeight": 679,
+        "clientWidth": 312,
+        "clientHeight": 679,
+        "overflowing": [],
+        "scrollContainers": 3,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "route": "/sources",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/sources",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 110,
+        "viewportWidth": 312,
+        "viewportHeight": 679,
+        "scrollWidth": 312,
+        "scrollHeight": 679,
+        "clientWidth": 312,
+        "clientHeight": 679,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/sources",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "route": "/data-models",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 1270,
+        "viewportWidth": 312,
+        "viewportHeight": 679,
+        "scrollWidth": 312,
+        "scrollHeight": 679,
+        "clientWidth": 312,
+        "clientHeight": 679,
+        "overflowing": [],
+        "scrollContainers": 3,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/data-models",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "route": "/dashboard-assets",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/dashboard-assets",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 215,
+        "viewportWidth": 312,
+        "viewportHeight": 679,
+        "scrollWidth": 312,
+        "scrollHeight": 679,
+        "clientWidth": 312,
+        "clientHeight": 679,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/dashboard-assets",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "route": "/evaluation",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/evaluation",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 263,
+        "viewportWidth": 312,
+        "viewportHeight": 679,
+        "scrollWidth": 312,
+        "scrollHeight": 679,
+        "clientWidth": 312,
+        "clientHeight": 679,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/evaluation",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    },
+    {
+      "viewport": {
+        "name": "mobile-390",
+        "width": 390,
+        "height": 844
+      },
+      "route": "/folders",
+      "frameUrl": "http://127.0.0.1:15183/embedded/knowledge-center/folders",
+      "iframeHealth": {
+        "title": "Byaan",
+        "visibleTextLength": 146,
+        "viewportWidth": 312,
+        "viewportHeight": 679,
+        "scrollWidth": 312,
+        "scrollHeight": 679,
+        "clientWidth": 312,
+        "clientHeight": 679,
+        "overflowing": [],
+        "scrollContainers": 1,
+        "hasBlankBody": false
+      },
+      "iframeEmbeddedHealth": {
+        "url": "http://127.0.0.1:15183/embedded/knowledge-center/folders",
+        "hasEmbeddedLayout": true,
+        "hasByaanGlobalSidebar": false,
+        "hasContextSidebar": false,
+        "hasAccountMenu": false,
+        "hasBrandHomeLink": false,
+        "forbiddenText": [],
+        "tabLabels": [
+          "Sources",
+          "Data Models",
+          "Dashboards",
+          "Evaluation",
+          "Folders"
+        ]
+      }
+    }
+  ],
+  "responses": [
+    {
+      "url": "http://127.0.0.1:18100/api/external/assets/.../query",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-BskUIBYD.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-4QlgmFGk.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/oauth2/userinfo",
+      "status": 401
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/ui-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/runtime-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/auth-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-4QlgmFGk.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-BskUIBYD.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/oauth2/userinfo",
+      "status": 401
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/logo-DCsNZy-k.svg",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/ui-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/runtime-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/auth-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/sandbox/capabilities",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/deepseek-harness/capabilities",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/access",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/skill-workbench/capabilities",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/studio-update",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/datastudio/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/embedded/knowledge-center?embedded=veadk-studio",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/config.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/main.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/@vite/client",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/@react-refresh",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tanstack_react-query.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tanstack_react-query-devtools.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/posthog-js_react.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/posthog-js.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-YX2XZWS3.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-G3PMV62Z.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/queryClient.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/config.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/analyticsPreference.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-T7ATK2ZT.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/BackendGate.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/App.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-U25ISVQR.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-5YE6AWTO.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/index.css?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-router-dom.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-S7V4Q5L5.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/contexts/CommandPaletteContext.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-toastify.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/BackendLoadingScreen.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/tauri-api.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/Layout.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-I3XRBTSS.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-U7P2NEEE.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/pages/DataModelsHomePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/LLMConnections.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-dom_client.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/SourceDetailPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/ChatPreview.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/Databases.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/SkillReviewPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/pages/DataModelBuilderPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/HomePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/NotebooksPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/TeamMembers.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/evaluation/pages/EvaluationWorkspacePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/FoldersPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/SetupWorkspace.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/dashboard/pages/DashboardWorkspacePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/Integrations.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/index.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/AuthGuard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/FolderDetailPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/lucide-react.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/RoleGuard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/GitHubIntegrations.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ViewerRedirect.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DownloadNotification.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/UpdatePopup.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/WaitlistGate.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useAppUpdater.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useAppConfig.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/useStore.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/App.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/react-toastify/dist/ReactToastify.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CommandPalette.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_api_event.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_api_core.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_plugin-updater.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_plugin-process.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CollapsibleSidebar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/ContextSidebar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/EmbeddedLayout.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/contexts/EmbeddedModeContext.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useScopes.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/button.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/input.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/zustand.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/zustand_middleware.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/components/modelingUi.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-BR2ZYEQS.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/components/CreateModelPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/badge.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/card.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/dialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-slot.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/store/useDataModelingStore.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/class-variance-authority.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/label.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/select.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/types/llm.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useLLMConnections.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ModelInputList.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-23OWNGXS.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-XI6N6TZU.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-YKJGWAJL.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-OPC3UHQC.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-HFUNULZN.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ClaudeOAuthDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CodexOAuthDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useClaudeOAuthStatus.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useCodexOAuthStatus.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-label.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/chatSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useDBConnections.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-select.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/Message.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/LoadingIndicator.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ModelSelector.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ConfirmationModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/toast.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/connectionValidator.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-WAKAYYSK.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DashboardFilterSidebar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DashboardPreviewPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/FilterPreflightPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/TableMentionInput.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/api.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ActiveFiltersBar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/FullscreenPreviewModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DatabaseConnectionDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ShareDashboardToFolderModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useNotebooks.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ErrorLogModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ShareModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/iframeErrorCapture.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/dashboardHtml.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ShareNotebookToFolderModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/styles/chat-preview.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/dashboardEditing.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DatasourceFooterSelector.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-grab_primitives.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/ScheduleBanner.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/ScheduleConfigPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSchedules.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/dashboardFilters.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/filterDisplay.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/PlanDisplay.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/PlanModeToggle.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ResizableSplitPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/databricks/DatabricksOAuthSettings.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/switch.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/skillLoopSettings.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSkillSuggestions.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSkillLoopSettings.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/WelcomeSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/SemanticGraphWorkspace.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/profile/DataProfileWorkspace.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/SourceConnectorImportPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/SharedDashboardsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/SharedNotebooksSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/SetupPromptCard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/CreateFolderModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/MyNotebooksSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/qrcode.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useGitHubStatus.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/utils.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useMCPKeys.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/MCPKeysModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CreateNotebook.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/tabs.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useTeamManagement.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/evaluation.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/dashboard.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/collaboration/FeishuAdminSettings.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/clsx.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ImportNotebookModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useFeishuIntegration.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/collaboration/FeishuIntegrationModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/ForgotPassword.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/tailwind-merge.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/ResetPassword.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/Login.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/Register.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/CheckEmail.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/AcceptInvitation.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/SetPassword.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/FolderContentRow.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/MembersPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/ShareNotebookModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-dom.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/github.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/localRepos.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/styles/waitlist.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/github/GitHubOAuthSettings.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/notebookSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/github/GitHubOAuthDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/connectionSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/llmSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/uiSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/schemaSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/tableMentionSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/downloadSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/waitlistSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/authSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/tenantSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/folderSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/githubSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/contextSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/planSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/NotebookHistory.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/assets/byaan-logo-orange.png?import",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/concepts/ConceptA_TabbedInterface.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ProfileDropdown.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/constants/scopes.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/adapters/knowledgeCenterMockAdapter.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/runtime-config.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/LLMConfig.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/adapters/dataModelingAdapter.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/MarkdownRenderer.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/tooltip.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CodeHighlight.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/cn.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/NotebookQueryPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useTableMentions.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/tokenStore.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DashboardFilterBar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSlackConfig.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/skillSuggestions.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/ObjectTree.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/ModelInspector.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/MetricEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/components/SchemaProfilePanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/remark-gfm.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/GoogleSignInButton.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/AddMemberModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/InstructionsEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/LearningsViewer.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/StyleGuidelinesEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-markdown.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/SuggestionsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/prism-react-renderer.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/SchedulesPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/parseMessage.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/SkillsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/DatabaseUnderstandingSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-K42OHFSI.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ToolCallCard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/QueryEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/slack/SlackIntegrationModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/SaveQueryDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useQueries.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/QueryResults.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/ScheduleCard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_state.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_view.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_lang-sql.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_commands.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_language.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@lezer_highlight.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/WriteSkillModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_lang-javascript.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/slack/SlackSkillsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-JUHZDVLE.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-EDLVZ25J.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-5TPXRNJZ.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-PDUNXGBT.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSlackSkills.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/slack/SlackSkillModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-CNME2QCT.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/6ELMOJL2-BTYFENQV.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/app/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-VJWPAUGI.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/app/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/auth/refresh",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/users/me",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/settings/analytics-opt-out",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/scopes/all",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/notebooks",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/preferences/style_guidelines",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/preferences/instructions",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/app/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/connector-definitions",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/connections/databricks/auth/status",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/datasources",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/connections/databricks/auth/status",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/sources/overview",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/folders",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/folders",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-BskUIBYD.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-4QlgmFGk.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/oauth2/userinfo",
+      "status": 401
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/ui-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/runtime-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/auth-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/logo-DCsNZy-k.svg",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-4QlgmFGk.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/index-BskUIBYD.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/oauth2/userinfo",
+      "status": 401
+    },
+    {
+      "url": "http://127.0.0.1:18210/assets/logo-DCsNZy-k.svg",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/ui-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/runtime-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/auth-config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/sandbox/capabilities",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/deepseek-harness/capabilities",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/access",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/skill-workbench/capabilities",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/studio-update",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:18210/web/datastudio/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/embedded/knowledge-center?embedded=veadk-studio",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/config.js",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/main.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/@vite/client",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/@react-refresh",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tanstack_react-query.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tanstack_react-query-devtools.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/posthog-js_react.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/posthog-js.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-G3PMV62Z.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-YX2XZWS3.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/queryClient.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/config.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-T7ATK2ZT.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/analyticsPreference.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-5YE6AWTO.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/contexts/CommandPaletteContext.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-U25ISVQR.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/BackendGate.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/App.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/index.css?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-router-dom.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-S7V4Q5L5.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/vite/dist/client/env.mjs",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-dom_client.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-toastify.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CommandPalette.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/BackendLoadingScreen.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/tauri-api.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/Layout.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-I3XRBTSS.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/pages/DataModelsHomePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-U7P2NEEE.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/LLMConnections.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/NotebooksPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/pages/DataModelBuilderPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/HomePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/FoldersPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/Integrations.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/SkillReviewPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/index.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/TeamMembers.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/FolderDetailPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/SourceDetailPage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-23OWNGXS.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-XI6N6TZU.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-YKJGWAJL.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-OPC3UHQC.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-HFUNULZN.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/evaluation/pages/EvaluationWorkspacePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/SetupWorkspace.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/GitHubIntegrations.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/AuthGuard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/RoleGuard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ViewerRedirect.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DownloadNotification.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/UpdatePopup.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/ChatPreview.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/dashboard/pages/DashboardWorkspacePage.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/WaitlistGate.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useAppUpdater.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useAppConfig.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/useStore.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/App.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/react-toastify/dist/ReactToastify.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/dialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useNotebooks.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/dashboardHtml.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/Databases.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/ContextSidebar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_api_event.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_api_core.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/EmbeddedLayout.tsx?t=1787019929285",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_plugin-updater.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@tauri-apps_plugin-process.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/zustand_middleware.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/zustand.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/contexts/EmbeddedModeContext.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useScopes.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/button.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CollapsibleSidebar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/input.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/components/modelingUi.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/badge.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/card.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-BR2ZYEQS.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/components/CreateModelPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/store/useDataModelingStore.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-slot.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/class-variance-authority.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/label.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/types/llm.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useLLMConnections.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ModelInputList.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/select.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ClaudeOAuthDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CodexOAuthDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-label.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useClaudeOAuthStatus.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/api.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useCodexOAuthStatus.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CreateNotebook.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/WelcomeSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ShareNotebookToFolderModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/lucide-react.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ShareModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/SemanticGraphWorkspace.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-select.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/profile/DataProfileWorkspace.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/SharedNotebooksSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ImportNotebookModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/MyNotebooksSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/SetupPromptCard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/CreateFolderModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/home/SharedDashboardsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/utils.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useGitHubStatus.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/MCPKeysModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useDBConnections.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-WAKAYYSK.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useMCPKeys.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-dom.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/collaboration/FeishuAdminSettings.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useFeishuIntegration.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/switch.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/skillLoopSettings.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/collaboration/FeishuIntegrationModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/clsx.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSkillSuggestions.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSkillLoopSettings.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/ForgotPassword.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/ResetPassword.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/tailwind-merge.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/Login.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/Register.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/CheckEmail.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/AcceptInvitation.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/tabs.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/pages/auth/SetPassword.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useTeamManagement.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/toast.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/FolderContentRow.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/ShareNotebookModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/MembersPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/github.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/evaluation.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/localRepos.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/github/GitHubOAuthDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/github/GitHubOAuthSettings.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ModelSelector.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/chatSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/Message.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/LoadingIndicator.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ConfirmationModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/connectionValidator.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DashboardFilterSidebar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DashboardPreviewPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/FilterPreflightPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ActiveFiltersBar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/TableMentionInput.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DatabaseConnectionDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/FullscreenPreviewModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ErrorLogModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/iframeErrorCapture.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ShareDashboardToFolderModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/styles/chat-preview.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/dashboardEditing.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-grab_primitives.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DatasourceFooterSelector.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/ScheduleBanner.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSchedules.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/ScheduleConfigPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/dashboardFilters.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/filterDisplay.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/PlanDisplay.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/PlanModeToggle.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ResizableSplitPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/dashboard.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/styles/waitlist.css",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/notebookSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/connectionSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/llmSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/uiSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/schemaSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/tableMentionSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/downloadSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/waitlistSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/authSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/tenantSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/contextSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/folderSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/githubSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/stores/slices/planSlice.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/databricks/DatabricksOAuthSettings.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/concepts/ConceptA_TabbedInterface.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/constants/scopes.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/NotebookHistory.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ProfileDropdown.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/assets/byaan-logo-orange.png?import",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/SourceConnectorImportPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/adapters/knowledgeCenterMockAdapter.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/lib/runtime-config.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/tokenStore.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/ObjectTree.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/adapters/dataModelingAdapter.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/ModelInspector.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/model/MetricEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/features/data-modeling/components/SchemaProfilePanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/services/skillSuggestions.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/GoogleSignInButton.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/qrcode.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/folders/AddMemberModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/LLMConfig.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ui/tooltip.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/CodeHighlight.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/MarkdownRenderer.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/cn.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/NotebookQueryPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSlackConfig.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/DashboardFilterBar.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useTableMentions.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/InstructionsEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/LearningsViewer.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/StyleGuidelinesEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/SuggestionsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/SkillsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/remark-gfm.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/SchedulesPanel.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/utils/parseMessage.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/slack/SlackIntegrationModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/DatabaseUnderstandingSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/ToolCallCard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/prism-react-renderer.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useQueries.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/SaveQueryDialog.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/QueryEditor.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/react-markdown.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/QueryResults.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/context/WriteSkillModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/schedules/ScheduleCard.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-K42OHFSI.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/slack/SlackSkillsSection.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_state.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_view.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_lang-sql.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_language.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@lezer_highlight.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_commands.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/@codemirror_lang-javascript.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-5TPXRNJZ.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-PDUNXGBT.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/hooks/useSlackSkills.ts",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-JUHZDVLE.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-EDLVZ25J.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/src/components/slack/SlackSkillModal.tsx",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-CNME2QCT.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/6ELMOJL2-BTYFENQV.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/app/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/node_modules/.vite/deps/chunk-VJWPAUGI.js?v=f58073e8",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/app/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/auth/refresh",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/users/me",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/settings/analytics-opt-out",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/scopes/all",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/notebooks",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/preferences/instructions",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/preferences/style_guidelines",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/app/config",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/connector-definitions",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/connections/databricks/auth/status",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/datasources",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/connections/databricks/auth/status",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/sources/overview",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/semantic-models",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/folders",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/dashboard-assets",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/folders",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:15183/api/evaluation/suites?limit=100",
+      "status": 200
+    }
+  ],
+  "generatedAgent": {
+    "draft": "{\n  \"name\": \"KC Live Revenue Agent\",\n  \"cloudProvider\": \"volcengine\",\n  \"description\": \"Answers governed revenue questions from Byaan Data Studio.\",\n  \"instruction\": \"You answer revenue questions using the selected Byaan Data Studio semantic model. Always call the Data Studio REST tool before answering. Final answers must include the real numeric values, compiled SQL, metric definition, and permission policy evidence.\",\n  \"agentType\": \"llm\",\n  \"modelSource\": \"ark\",\n  \"modelName\": \"doubao-seed-1-6-250615\",\n  \"tools\": [],\n  \"skills\": [],\n  \"memory\": {\n    \"shortTerm\": false,\n    \"longTerm\": false\n  },\n  \"knowledgebase\": false,\n  \"tracing\": false,\n  \"subAgents\": [],\n  \"builtinTools\": [],\n  \"customTools\": [],\n  \"mcpTools\": [],\n  \"selectedSkills\": [\n    {\n      \"source\": \"datastudio\",\n      \"folder\": \"datastudio-semantic-model-6556a544-5164-4fba-8f79-a0ae47c073bd\",\n      \"name\": \"KC Live Revenue session-f-team-20260818100622\",\n      \"description\": \"Draft initialized from verified projected dataset Source Understanding candidates.\",\n      \"dataStudioAssetType\": \"semantic_model\",\n      \"dataStudioAssetId\": \"6556a544-5164-4fba-8f79-a0ae47c073bd\",\n      \"dataStudioVersion\": \"v1\",\n      \"dataStudioGateScore\": 100,\n      \"dataStudioMetrics\": [\n        \"revenue_revenue\"\n      ],\n      \"dataStudioExampleQuestions\": [],\n      \"dataStudioPermissionHint\": \"Use only governed aggregate data returned by Byaan.\",\n      \"dataStudioQueryUrl\": \"/api/external/assets/semantic_model/6556a544-5164-4fba-8f79-a0ae47c073bd/query\",\n      \"dataStudioTimeField\": \"revenue.paid_at\",\n      \"dataStudioDimensions\": [\n        \"revenue_region\",\n        \"revenue_paid_at\"\n      ],\n      \"dataStudioEvidence\": [\n        \"{\\\"kind\\\":\\\"metric_definition\\\",\\\"title\\\":\\\"Revenue Revenue\\\",\\\"metric\\\":\\\"revenue_revenue\\\",\\\"definition\\\":\\\"Sum of revenue.revenue.\\\",\\\"formula\\\":\\\"SUM(revenue.revenue)\\\",\\\"filter\\\":\\\"\\\",\\\"lineage\\\":[{\\\"candidate_id\\\":\\\"9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6\\\",\\\"candidate_type\\\":\\\"data_truth\\\",\\\"confidence\\\":0.78,\\\"evidence_ids\\\":[\\\"69f775d2-de50-48aa-917f-70f45503bfa0\\\",\\\"a9f20240-5b7f-4968-94ac-5734d9799b64\\\",\\\"405b54ca-964a-44c8-8bb6-7ce9189a7f80\\\",\\\"d7dc7f9a-434b-4884-a19e-4697186f1c1a\\\",\\\"9eef20ec-2739-4f5f-89ce-f3e822ee2b5b\\\"],\\\"source_resource_id\\\":\\\"1f630b4a-cbef-4f86-9506-6bb9fcfe3d70\\\",\\\"source_snapshot_id\\\":\\\"b7df1932-18b0-416b-bbd5-64410c7156c6\\\",\\\"validation\\\":{\\\"reason\\\":\\\"Needs reviewer confirmation of business definition.\\\",\\\"status\\\":\\\"warning\\\"}},\\\"revenue.revenue\\\"]}\",\n        \"{\\\"kind\\\":\\\"permission_policy\\\",\\\"title\\\":\\\"Semantic model external query policy\\\",\\\"policy\\\":{\\\"allowedMetrics\\\":[\\\"revenue_revenue\\\"],\\\"allowedDimensions\\\":[\\\"revenue_region\\\",\\\"revenue_paid_at\\\"]}}\"\n      ]\n    }\n  ],\n  \"deployment\": {\n    \"feishuEnabled\": false,\n    \"envValues\": {\n      \"DATASTUDIO_BASE_URL\": \"http://127.0.0.1:18100\",\n      \"BYAAN_MCP_API_KEY\": \"<redacted>\"\n    }\n  },\n  \"cloudEnvironment\": {\n    \"cliTools\": []\n  }\n}",
+    "project": {
+      "skillPath": "skills/datastudio-semantic-model-6556a544-5164-4fba-8f79-a0ae47c073bd/SKILL.md",
+      "agentPath": "agents/kc_live_revenue_agent/agent.py",
+      "skillExcerpt": "---\nname: datastudio-semantic-model-6556a544-5164-4fba-8f79-a0ae47c073bd\ndescription: Draft initialized from verified projected dataset Source Understanding\n  candidates.\nmetadata:\n  asset_type: semantic_model\n  asset_id: 6556a544-5164-4fba-8f79-a0ae47c073bd\n  version: v1\n  query_url: /api/external/assets/semantic_model/6556a544-5164-4fba-8f79-a0ae47c073bd/query\n---\n\n# KC Live Revenue session-f-team-20260818100622\n\nUse this skill when answering questions that rely on this governed Byaan Data Studio asset.\n\n## Asset\n\n- Type: `semantic_model`\n- ID: `6556a544-5164-4fba-8f79-a0ae47c073bd`\n- Version: `v1`\n- Gate score: `100.0`\n\n## Metrics\n\n- revenue_revenue\n\n## Dimensions\n\n- revenue_region\n- revenue_paid_at\n\n## Time Field\n\n- `revenue.paid_at`\n\n## Permission Boundary\n\n- Use only governed aggregate data returned by Byaan.\n- Do not expose masked fields or raw row-level identifiers unless the asset policy explicitly allows it.\n- Treat the REST response policyDecision and evidence fields as authoritative.\n\n## Example Questions\n\n- Not declared\n\n## Evidence Rules\n\n- Every answer must include the returned numeric value or table result.\n- Every answer must cite SQL, metric definition, lineage, or sample evidence returned by Byaan.\n- Every answer must mention the permission or policy boundary that allowed the response.\n\n## Seed Evidence\n\n- {\"kind\":\"metric_definition\",\"title\":\"Revenue Revenue\",\"metric\":\"revenue_revenue\",\"definition\":\"Sum of revenue.revenue.\",\"formula\":\"SUM(revenue.revenue)\",\"filter\":\"\",\"lineage\":[{\"candidate_id\":\"9f6a0bd0-41e8-4e87-98b6-9a1f3167aaa6\",\"candidate_type\":\"data_truth\",\"confidence\":0.78,\"evidence_ids\":[\"69f775d2-de50-48aa-917f-70f45503bfa0\",\"a9f20240-5b7f-4968-94ac-5734d9799b64\",\"405b54ca-964a-44c8-8bb6-7ce9189a7f80\",\"d7dc7f9a-434b-4884-a19e-4697186f1c1a\",\"9eef20ec-2739-4f5f-89ce-f3e822ee2b5b\"],\"source_resource_id\":\"1f630b4a-cbef-4f86-9506-6bb9fcfe3d70\",\"source_snapshot_id\":\"b7df1932-18b0-416b-bbd5-64410c7156c6\",\"validation\":{\"reason\":\"Needs reviewer confirmation of business definition.\",\"status\":\"warning\"}},\"revenue.revenue\"]}\n- {\"kind\":\"permission_policy\",\"title\":\"Semantic model external query policy\",\"policy\":{\"allowedMetrics\":[\"revenue_revenue\"],\"allowedDimensions\":[\"revenue_region\",\"revenue_paid_at\"]}}\n",
+      "agentToolExcerpt": "def query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd(metric: str, dimension: str | None = None, grain: str | None = None, filters: dict | None = None, time_range: dict | None = None, limit: int = 100) -> dict:\n    \"\"\"Query the Byaan semantic model KC Live Revenue session-f-team-20260818100622 through the REST external API.\n\n    Use exact metric ids/names from this asset: revenue_revenue.\n    Use exact dimension ids/names from this asset: revenue_region, revenue_paid_at.\n    Time field: revenue.paid_at.\n    \"\"\"\n    query_url = _datastudio_query_url(\"/api/external/assets/semantic_model/6556a544-5164-4fba-8f79-a0ae47c073bd/query\")\n    token = os.environ[\"BYAAN_MCP_API_KEY\"]\n    payload = {\"metric\": metric, \"dimension\": dimension, \"grain\": grain, \"filters\": filters or {}, \"time_range\": time_range or {}, \"limit\": limit}\n    payload = {key: value for key, value in payload.items() if value not in (None, \"\")}\n    response = requests.post(\n        query_url,\n        json=payload,\n        headers={\"Authorization\": f\"Bearer {token}\"},\n        timeout=30,\n    )\n    response.raise_for_status()\n    body = response.json()\n    return body.get(\"data\", body) if isinstance(body, dict) else {\"data\": body}\n\nskills_agent = SkillToolset(\n    skills=[\n        load_skill_from_dir(_Path(__file__).parent.parent.parent / \"skills\" / \"datastudio-semantic-model-6556a544-5164-4fba-8f79-a0ae47c073bd\"),\n    ],\n    code_executor=UnsafeLocalCodeExecutor(),\n)\n\nINSTRUCTION_AGENT = \"\"\"You answer revenue questions using the selected Byaan Data Studio semantic model. Always call the Data Studio REST tool before answering. Final answers must include the real numeric values, compiled SQL, metric definition, and permission policy evidence.\"\"\"\n\nagent = Agent(\n    name=\"kc_live_revenue_agent\",\n    description=\"Answers governed revenue questions from Byaan Data Studio.\",\n    instruction=INSTRUCTION_AGENT,\n    tools=[query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd, skills_agent],\n    model_name=\"doubao-seed-1-6-250615\",\n)\n\nAGENT_DISPLAY_NAMES = {'kc_live_revenue_agent': 'KC Live Revenue Agent'}\nAGENT_DRAFT = {'name': 'KC Live Revenue Agent', 'description': 'Answers governed revenue questions from Byaan Data Studio.', 'instruction': 'You answer revenue questions using the selected Byaan Data Studio semantic model. Always call the Data Studio REST tool before answering. Final answers must include the real numeric values, compiled SQL, metric definition, and permiss"
+    },
+    "run": {
+      "appName": "kc_live_revenue_agent",
+      "expiresAt": 1787021861
+    },
+    "sessionId": "35dbbf1a-c596-40b8-876d-6644e6db1ccd",
+    "answer": "我现在需要回答用户的问题：“revenue by region”，也就是按地区划分的收入。根据系统提示，我必须使用Byaan Data Studio的语义模型，并调用Data Studio REST工具来获取数据。同时，最终答案需要包括真实数值、编译的SQL、指标定义和权限政策证据。\n\n首先，我得确定应该调用哪个工具。用户的问题涉及到查询语义模型，所以应该使用query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd这个工具。根据工具描述，这个工具用于查询名为KC Live Revenue的语义模型，需要提供metric、dimension、grain、filters、time_range和limit参数。\n\n接下来，分析用户的问题。用户需要按地区（region）的收入（revenue），所以metric应该是revenue_revenue，dimension是revenue_region。时间范围（time_range）用户没有指定，可能需要默认值或者询问用户，但根据系统提示，如果没有明确说明，可能需要假设一个时间范围，或者留空让工具处理默认值。不过工具参数中time_range是可选的，所以可以不提供，或者可能需要确认是否有默认时间范围。不过根据工具描述，time field是revenue.paid_at，所以可能需要指定一个时间范围，但用户没有给出，可能需要进一步询问？不过系统提示中没有提到需要追问用户，所以可能应该留空，或者使用默认值。但为了准确，可能需要检查是否有必要指定时间范围。不过用户的问题没有时间限制，可能需要获取所有时间的数据？但通常这类查询可能需要一个默认的时间范围，比如最近一个月，或者所有时间。但根据工具参数，time_range是可选的，所以可以不填，或者可能需要明确指定。这里可能需要进一步判断，但根据问题描述，用户没有指定时间，所以可能应该留空，让工具返回所有数据？或者可能需要确认，但根据系统提示，必须直接调用工具，所以可能直接留空。\n\n然后，grain参数，用户没有提到时间粒度，所以可能不需要，留空。filters也没有提到，所以留空。limit默认是100，应该足够。\n\n所以参数应该是：\nmetric: \"revenue_revenue\"\ndimension: \"revenue_region\"\n其他参数留空或默认。\n\n接下来，构造工具调用。根据格式要求，使用<|FunctionCallBegin|>和<|FunctionCallEnd|>包裹，单工具调用。\n\n所以调用应该是：\n<|FunctionCallBegin|>[{\"name\":\"query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd\",\"parameters\":{\"metric\":\"revenue_revenue\",\"dimension\":\"revenue_region\"}}]<|FunctionCallEnd|>\n\n这样应该能获取按地区划分的收入数据。之后，根据返回的结果，整理出真实数值、SQL、指标定义和权限政策证据。但需要注意，工具返回的结果中是否包含这些信息？根据工具描述，可能返回的是查询结果，而SQL、指标定义和权限政策可能需要额外的步骤。但系统提示中说“Final answers must include the real numeric values, compiled SQL, metric definition, and permission policy evidence.”，所以可能需要从工具返回中提取这些信息，或者是否有其他工具可以获取这些？\n\n或者，可能query_datastudio_semantic_model工具在返回结果时会包含这些信息？比如，当调用该工具时，不仅返回数据，还会返回编译的SQL、指标定义和权限证据？需要看工具的具体实现，但根据提供的工具描述，该工具的功能是“Query the Byaan semantic model... through the REST external API”，可能返回的是查询结果数据，而SQL、指标定义等可能需要其他方式获取。\n\n这时候可能需要检查是否有相关的技能（skills）可以帮助获取这些信息。系统提示中提到，如果有相关的技能，必须使用load_skill来加载。比如，是否有技能可以生成SQL、解释指标定义或权限政策？\n\n但根据当前提供的工具列表，只有list_skills、load_skill等工具，而用户的问题中没有提到需要其他技能，所以可能query_datastudio_semantic_model工具本身会返回这些信息？或者可能需要进一步调用其他工具？\n\n或者，可能编译的SQL是根据metric和dimension参数自动生成的，比如根据语义模型的定义， revenue_revenue对应某个SQL表达式，而dimension revenue_region对应某个维度列。这时候可能需要知道语义模型的具体结构，但用户无法直接访问，只能通过工具查询。\n\n这时候可能需要假设，当调用query_datastudio_semantic_model工具时，返回的结果中包含compiled_sql、metric_definition和permission_policy_evidence这些字段。否则，如何获取这些信息？\n\n例如，工具返回的JSON可能包含：\n\n{\n  \"data\": [{\"region\": \"North\", \"revenue\": 1000}, ...],\n  \"compiled_sql\": \"SELECT region, SUM(revenue) FROM ...\",\n  \"metric_definition\": \"Revenue is defined as...\",\n  \"permission_policy_evidence\": \"User has access to revenue data...\"\n}\n\n如果是这样的话，那么调用工具后，就可以从返回结果中提取这些信息。否则，如果工具只返回数据，那么可能无法满足用户的要求，需要进一步处理。\n\n但根据系统提示，必须使用工具来回答，所以可能query_datastudio_semantic_model工具在调用后会返回所有需要的信息。因此，首先调用该工具，获取数据、SQL、指标定义和权限证据。\n\n因此，现在的步骤是调用该工具，参数为metric=revenue_revenue，dimension=revenue_region，其他参数默认。然后根据返回结果整理答案。\n\n所以，最终的工具调用应该是上述的单工具调用。接下来，等待工具返回结果，然后提取所需的信息。我现在需要回答用户的问题：“revenue by region”，也就是按地区划分的收入。根据系统提示，我必须使用Byaan Data Studio的语义模型，并调用Data Studio REST工具来获取数据。同时，最终答案需要包括真实数值、编译的SQL、指标定义和权限政策证据。\n\n首先，我得确定应该调用哪个工具。用户的问题涉及到查询语义模型，所以应该使用query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd这个工具。根据工具描述，这个工具用于查询名为KC Live Revenue的语义模型，需要提供metric、dimension、grain、filters、time_range和limit参数。\n\n接下来，分析用户的问题。用户需要按地区（region）的收入（revenue），所以metric应该是revenue_revenue，dimension是revenue_region。时间范围（time_range）用户没有指定，可能需要默认值或者询问用户，但根据系统提示，如果没有明确说明，可能需要假设一个时间范围，或者留空让工具处理默认值。不过工具参数中time_range是可选的，所以可以不提供，或者可能需要确认是否有默认时间范围。不过根据工具描述，time field是revenue.paid_at，所以可能需要指定一个时间范围，但用户没有给出，可能需要进一步询问？不过系统提示中没有提到需要追问用户，所以可能应该留空，或者使用默认值。但为了准确，可能需要检查是否有必要指定时间范围。不过用户的问题没有时间限制，可能需要获取所有时间的数据？但通常这类查询可能需要一个默认的时间范围，比如最近一个月，或者所有时间。但根据工具参数，time_range是可选的，所以可以不填，或者可能需要明确指定。这里可能需要进一步判断，但根据问题描述，用户没有指定时间，所以可能应该留空，让工具返回所有数据？或者可能需要确认，但根据系统提示，必须直接调用工具，所以可能直接留空。\n\n然后，grain参数，用户没有提到时间粒度，所以可能不需要，留空。filters也没有提到，所以留空。limit默认是100，应该足够。\n\n所以参数应该是：\nmetric: \"revenue_revenue\"\ndimension: \"revenue_region\"\n其他参数留空或默认。\n\n接下来，构造工具调用。根据格式要求，使用<|FunctionCallBegin|>和<|FunctionCallEnd|>包裹，单工具调用。\n\n所以调用应该是：\n<|FunctionCallBegin|>[{\"name\":\"query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd\",\"parameters\":{\"metric\":\"revenue_revenue\",\"dimension\":\"revenue_region\"}}]<|FunctionCallEnd|>\n\n这样应该能获取按地区划分的收入数据。之后，根据返回的结果，整理出真实数值、SQL、指标定义和权限政策证据。但需要注意，工具返回的结果中是否包含这些信息？根据工具描述，可能返回的是查询结果，而SQL、指标定义和权限政策可能需要额外的步骤。但系统提示中说“Final answers must include the real numeric values, compiled SQL, metric definition, and permission policy evidence.”，所以可能需要从工具返回中提取这些信息，或者是否有其他工具可以获取这些？\n\n或者，可能query_datastudio_semantic_model工具在返回结果时会包含这些信息？比如，当调用该工具时，不仅返回数据，还会返回编译的SQL、指标定义和权限证据？需要看工具的具体实现，但根据提供的工具描述，该工具的功能是“Query the Byaan semantic model... through the REST external API”，可能返回的是查询结果数据，而SQL、指标定义等可能需要其他方式获取。\n\n这时候可能需要检查是否有相关的技能（skills）可以帮助获取这些信息。系统提示中提到，如果有相关的技能，必须使用load_skill来加载。比如，是否有技能可以生成SQL、解释指标定义或权限政策？\n\n但根据当前提供的工具列表，只有list_skills、load_skill等工具，而用户的问题中没有提到需要其他技能，所以可能query_datastudio_semantic_model工具本身会返回这些信息？或者可能需要进一步调用其他工具？\n\n或者，可能编译的SQL是根据metric和dimension参数自动生成的，比如根据语义模型的定义， revenue_revenue对应某个SQL表达式，而dimension revenue_region对应某个维度列。这时候可能需要知道语义模型的具体结构，但用户无法直接访问，只能通过工具查询。\n\n这时候可能需要假设，当调用query_datastudio_semantic_model工具时，返回的结果中包含compiled_sql、metric_definition和permission_policy_evidence这些字段。否则，如何获取这些信息？\n\n例如，工具返回的JSON可能包含：\n\n{\n  \"data\": [{\"region\": \"North\", \"revenue\": 1000}, ...],\n  \"compiled_sql\": \"SELECT region, SUM(revenue) FROM ...\",\n  \"metric_definition\": \"Revenue is defined as...\",\n  \"permission_policy_evidence\": \"User has access to revenue data...\"\n}\n\n如果是这样的话，那么调用工具后，就可以从返回结果中提取这些信息。否则，如果工具只返回数据，那么可能无法满足用户的要求，需要进一步处理。\n\n但根据系统提示，必须使用工具来回答，所以可能query_datastudio_semantic_model工具在调用后会返回所有需要的信息。因此，首先调用该工具，获取数据、SQL、指标定义和权限证据。\n\n因此，现在的步骤是调用该工具，参数为metric=revenue_revenue，dimension=revenue_region，其他参数默认。然后根据返回结果整理答案。\n\n所以，最终的工具调用应该是上述的单工具调用。接下来，等待工具返回结果，然后提取所需的信息。I now need to answer the user's question about 'revenue by region' using the Byaan Data Studio semantic model. The user also requires real numerical values, compiled SQL, metric definitions, and permission policy evidence.\n\nFirst, I should review the previous conversation. The user has already called the query_datastudio_semantic_model tool with parameters metric=\"revenue_revenue\" and dimension=\"revenue_region\", and received a response. The response includes results, SQL, metric definitions, and evidence.\n\nNext, I need to check if the response contains all the required information. The result shows two regions: East with 150 and West with 80. The SQL is provided, the metric definition is \"Sum of revenue.revenue\", and the permission policy evidence lists allowed metrics and dimensions. It seems all necessary information is present.\n\nAccording to the system prompt, I must use the Data Studio REST tool before answering and include real values, SQL, metric definitions, and permission policy evidence. The previous tool call has already obtained this data, so no further tool calls are needed.\n\nNow, I should organize the information into a clear answer. The real values are East:150, West:80. The SQL is the compiled statement from the response. The metric definition is \"Sum of revenue.revenue\". The permission policy evidence includes allowed metrics and dimensions.\n\nI need to ensure the answer format meets the user's requirements, including all four elements. There are no missing parts, so I can proceed to construct the final answer.The revenue by region is as follows:\n\n**Real Numeric Values:**\n- East: 150\n- West: 80\n\n**Compiled SQL:**\n```sql\nSELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\"\n```\n\n**Metric Definition:**\n- Metric Name: Revenue Revenue (`revenue_revenue`)\n- Definition: Sum of revenue.revenue.\n- Formula: `SUM(revenue.revenue)`\n\n**Permission Policy Evidence:**\n- Allowed Metrics: `[\"revenue_revenue\"]`\n- Allowed Dimensions: `[\"revenue_region\", \"revenue_paid_at\"]`\n- Policy Decision: `allowed`\n\n*Source: Byaan Data Studio semantic model KC Live Revenue session-f-team-20260818100622 (Model Version: v1, Freshness: 2026-08-18T02:28:23.928322)*I now need to answer the user's question about 'revenue by region' using the Byaan Data Studio semantic model. The user also requires real numerical values, compiled SQL, metric definitions, and permission policy evidence.\n\nFirst, I should review the previous conversation. The user has already called the query_datastudio_semantic_model tool with parameters metric=\"revenue_revenue\" and dimension=\"revenue_region\", and received a response. The response includes results, SQL, metric definitions, and evidence.\n\nNext, I need to check if the response contains all the required information. The result shows two regions: East with 150 and West with 80. The SQL is provided, the metric definition is \"Sum of revenue.revenue\", and the permission policy evidence lists allowed metrics and dimensions. It seems all necessary information is present.\n\nAccording to the system prompt, I must use the Data Studio REST tool before answering and include real values, SQL, metric definitions, and permission policy evidence. The previous tool call has already obtained this data, so no further tool calls are needed.\n\nNow, I should organize the information into a clear answer. The real values are East:150, West:80. The SQL is the compiled statement from the response. The metric definition is \"Sum of revenue.revenue\". The permission policy evidence includes allowed metrics and dimensions.\n\nI need to ensure the answer format meets the user's requirements, including all four elements. There are no missing parts, so I can proceed to construct the final answer.The revenue by region is as follows:\n\n**Real Numeric Values:**\n- East: 150\n- West: 80\n\n**Compiled SQL:**\n```sql\nSELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\"\n```\n\n**Metric Definition:**\n- Metric Name: Revenue Revenue (`revenue_revenue`)\n- Definition: Sum of revenue.revenue.\n- Formula: `SUM(revenue.revenue)`\n\n**Permission Policy Evidence:**\n- Allowed Metrics: `[\"revenue_revenue\"]`\n- Allowed Dimensions: `[\"revenue_region\", \"revenue_paid_at\"]`\n- Policy Decision: `allowed`\n\n*Source: Byaan Data Studio semantic model KC Live Revenue session-f-team-20260818100622 (Model Version: v1, Freshness: 2026-08-18T02:28:23.928322)*",
+    "runtimeEvidence": {
+      "eventCount": 1872,
+      "functionCall": {
+        "name": "query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd",
+        "args": {
+          "metric": "revenue_revenue",
+          "dimension": "revenue_region"
+        }
+      },
+      "functionResponse": {
+        "name": "query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd",
+        "status": "completed",
+        "result": [
+          {
+            "revenue_region": "East",
+            "revenue_revenue": 150
+          },
+          {
+            "revenue_region": "West",
+            "revenue_revenue": 80
+          }
+        ],
+        "sql": "SELECT \"revenue\".\"region\" AS \"revenue_region\", SUM(revenue.revenue) AS \"revenue_revenue\" FROM \"revenue\" AS \"revenue\" GROUP BY \"revenue\".\"region\"",
+        "metricDefinition": "Sum of revenue.revenue.",
+        "policyDecision": "allowed",
+        "evidenceKinds": [
+          "sql",
+          "metric_definition",
+          "permission_policy"
+        ]
+      }
+    },
+    "traceSummary": {
+      "available": true,
+      "spanCount": 7,
+      "spanNames": [
+        "execute_tool query_datastudio_semantic_model_6556a544_5164_4fba_8f79_a0ae47c073bd",
+        "generate_content openai/doubao-seed-1-6-250615",
+        "call_llm",
+        "generate_content openai/doubao-seed-1-6-250615",
+        "call_llm",
+        "invoke_agent kc_live_revenue_agent",
+        "invocation"
+      ]
+    }
+  },
+  "completedAt": "2026-08-18T02:28:39.704Z"
+}

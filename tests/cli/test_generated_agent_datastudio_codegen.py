@@ -8,6 +8,7 @@ import pytest
 from veadk.cli.generated_agent_codegen import (
     AgentDraft,
     SelectedSkill,
+    debug_runtime_env_from_draft,
     generate_project_from_draft,
 )
 from veadk.cli.generated_agent_security import DebugPolicyError, validate_project_policy
@@ -40,15 +41,20 @@ def test_datastudio_selected_skill_generates_rest_query_tool() -> None:
 
     assert "requests.post(" in agent_py
     assert "_datastudio_query_url(" in agent_py
+    assert "filters: dict | None = None" in agent_py
+    assert "data_view_ids: list[str] | None = None" in agent_py
+    assert 'mode: str = "summary"' in agent_py
     assert 'os.environ["BYAAN_MCP_API_KEY"]' in agent_py
     assert "DATASTUDIO_BASE_URL" in files[".env.example"]
     assert "BYAAN_MCP_API_KEY" in files[".env.example"]
     assert "requests>=2.32.0" in files["requirements.txt"]
     assert "/api/mcp/assets" not in agent_py
+    assert "load_skill_from_dir(" in agent_py
+    assert '"skills" / "datastudio-dashboard-sales"' in agent_py
 
 
 @pytest.mark.asyncio
-async def test_datastudio_selected_skill_is_not_materialized_as_skill_folder() -> None:
+async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() -> None:
     draft = AgentDraft(
         name="datastudio-agent",
         instruction="Answer with governed assets.",
@@ -57,15 +63,118 @@ async def test_datastudio_selected_skill_is_not_materialized_as_skill_folder() -
                 source="datastudio",
                 folder="datastudio-dashboard-sales",
                 name="Sales Dashboard",
+                description="Revenue dashboard.",
                 dataStudioAssetType="dashboard",
                 dataStudioAssetId="sales-dashboard",
+                dataStudioVersion="v2026.08",
+                dataStudioGateScore=98,
+                dataStudioMetrics=["GMV", "orders"],
+                dataStudioDimensions=["region", "channel"],
+                dataStudioTimeField="pay_date",
+                dataStudioPermissionHint="Aggregate only; no buyer identifiers.",
+                dataStudioExampleQuestions=["What was GMV last week?"],
+                dataStudioEvidence=["sql: select sum(gmv) from sales"],
             )
         ],
     )
     project = generate_project_from_draft(draft)
     await materialize_selected_skills(draft, project)
+    files = _file_map(project)
 
-    assert all(not file.path.startswith("skills/") for file in project.files)
+    skill_md = files["skills/datastudio-dashboard-sales/SKILL.md"]
+    assert "name: datastudio-dashboard-sales" in skill_md
+    assert "asset_type: dashboard" in skill_md
+    assert "asset_id: sales-dashboard" in skill_md
+    assert "- Version: `v2026.08`" in skill_md
+    assert "- GMV" in skill_md
+    assert "- region" in skill_md
+    assert "- `pay_date`" in skill_md
+    assert "Aggregate only; no buyer identifiers." in skill_md
+    assert "Every answer must cite SQL" in skill_md
+    assert '"skills" / "datastudio-dashboard-sales"' in files["agents/datastudio_agent/agent.py"]
+
+
+@pytest.mark.asyncio
+async def test_datastudio_skill_folder_fallback_matches_agent_loader() -> None:
+    draft = AgentDraft(
+        name="semantic-agent",
+        selectedSkills=[
+            SelectedSkill(
+                source="datastudio",
+                folder="",
+                name="Sales Semantic Model",
+                dataStudioAssetType="semantic_model",
+                dataStudioAssetId="sales-semantic",
+            )
+        ],
+    )
+    project = generate_project_from_draft(draft)
+    await materialize_selected_skills(draft, project)
+    files = _file_map(project)
+
+    assert "skills/datastudio-semantic-model-sales-semantic/SKILL.md" in files
+    assert (
+        '"skills" / "datastudio-semantic-model-sales-semantic"'
+        in files["agents/semantic_agent/agent.py"]
+    )
+
+
+def test_datastudio_semantic_model_generates_typed_query_tool() -> None:
+    project = generate_project_from_draft(
+        AgentDraft(
+            name="semantic-agent",
+            selectedSkills=[
+                SelectedSkill(
+                    source="datastudio",
+                    folder="datastudio-semantic-sales",
+                    name="Sales Semantic Model",
+                    dataStudioAssetType="semantic_model",
+                    dataStudioAssetId="sales-semantic",
+                    dataStudioMetrics=["revenue_revenue"],
+                    dataStudioDimensions=["revenue_region"],
+                    dataStudioTimeField="revenue.paid_at",
+                )
+            ],
+        )
+    )
+    agent_py = _file_map(project)["agents/semantic_agent/agent.py"]
+
+    assert "metric: str" in agent_py
+    assert "dimension: str | None = None" in agent_py
+    assert "grain: str | None = None" in agent_py
+    assert "time_range: dict | None = None" in agent_py
+    assert '"metric": metric' in agent_py
+    assert '"time_range": time_range or {}' in agent_py
+    assert "Use exact metric ids/names from this asset: revenue_revenue." in agent_py
+    assert "Use exact dimension ids/names from this asset: revenue_region." in agent_py
+    assert "Time field: revenue.paid_at." in agent_py
+
+
+def test_datastudio_debug_runtime_env_allows_rest_credentials() -> None:
+    env = debug_runtime_env_from_draft(
+        AgentDraft(
+            name="semantic-agent",
+            selectedSkills=[
+                SelectedSkill(
+                    source="datastudio",
+                    folder="datastudio-semantic-sales",
+                    dataStudioAssetType="semantic_model",
+                    dataStudioAssetId="sales-semantic",
+                )
+            ],
+            deployment={
+                "envValues": {
+                    "DATASTUDIO_BASE_URL": "http://127.0.0.1:18000",
+                    "BYAAN_MCP_API_KEY": "byaan_live_gate_test",
+                    "DATASTUDIO_API_KEY": "must-not-enter-runner",
+                }
+            },
+        )
+    )
+
+    assert env["DATASTUDIO_BASE_URL"] == "http://127.0.0.1:18000"
+    assert env["BYAAN_MCP_API_KEY"] == "byaan_live_gate_test"
+    assert "DATASTUDIO_API_KEY" not in env
 
 
 def test_generated_datastudio_tool_rejects_cross_origin_query_url(
@@ -96,19 +205,51 @@ def test_generated_datastudio_tool_rejects_cross_origin_query_url(
         "        self.__dict__.update(kwargs)\n"
         "veadk.Agent = Agent\n"
         "sys.modules['veadk'] = veadk\n"
+        "google = types.ModuleType('google')\n"
+        "adk = types.ModuleType('google.adk')\n"
+        "code_executors = types.ModuleType('google.adk.code_executors')\n"
+        "skills = types.ModuleType('google.adk.skills')\n"
+        "skill_toolset = types.ModuleType('google.adk.tools.skill_toolset')\n"
+        "tools = types.ModuleType('google.adk.tools')\n"
+        "class UnsafeLocalCodeExecutor:\n"
+        "    pass\n"
+        "def load_skill_from_dir(path):\n"
+        "    return {'path': str(path)}\n"
+        "class SkillToolset:\n"
+        "    def __init__(self, **kwargs):\n"
+        "        self.__dict__.update(kwargs)\n"
+        "code_executors.UnsafeLocalCodeExecutor = UnsafeLocalCodeExecutor\n"
+        "skills.load_skill_from_dir = load_skill_from_dir\n"
+        "skill_toolset.SkillToolset = SkillToolset\n"
+        "sys.modules['google'] = google\n"
+        "sys.modules['google.adk'] = adk\n"
+        "sys.modules['google.adk.code_executors'] = code_executors\n"
+        "sys.modules['google.adk.skills'] = skills\n"
+        "sys.modules['google.adk.tools'] = tools\n"
+        "sys.modules['google.adk.tools.skill_toolset'] = skill_toolset\n"
         + agent_py,
         encoding="utf-8",
     )
     monkeypatch.setenv("DATASTUDIO_BASE_URL", "https://byaan.example")
     monkeypatch.delenv("BYAAN_MCP_API_KEY", raising=False)
-    original_veadk = sys.modules.get("veadk")
+    module_names = [
+        "veadk",
+        "google",
+        "google.adk",
+        "google.adk.code_executors",
+        "google.adk.skills",
+        "google.adk.tools",
+        "google.adk.tools.skill_toolset",
+    ]
+    originals = {name: sys.modules.get(name) for name in module_names}
     try:
         namespace = runpy.run_path(str(target))
     finally:
-        if original_veadk is None:
-            sys.modules.pop("veadk", None)
-        else:
-            sys.modules["veadk"] = original_veadk
+        for name, original in originals.items():
+            if original is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = original
 
     class _Requests:
         called = False

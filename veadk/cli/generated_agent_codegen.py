@@ -580,6 +580,19 @@ def _datastudio_assets(draft: AgentDraft) -> list[SelectedSkill]:
     ]
 
 
+def datastudio_skill_folder(asset: SelectedSkill) -> str:
+    asset_type = asset.dataStudioAssetType.strip()
+    asset_id = asset.dataStudioAssetId.strip()
+    fallback = f"datastudio-{asset_type.replace('_', '-')}-{asset_id}"
+    raw = (asset.folder or "").strip()
+    # AgentDraft's generic validator defaults folder to name. For Data Studio,
+    # prefer the governed asset identity unless a caller supplied a safe slug.
+    if not raw or raw == (asset.name or "").strip():
+        raw = fallback
+    sanitized = re.sub(r"[^A-Za-z0-9_-]+", "-", raw).strip("-")
+    return (sanitized or fallback)[:64]
+
+
 def _datastudio_query_url_literal(asset: SelectedSkill) -> str:
     explicit = (asset.dataStudioQueryUrl or "").strip()
     if explicit:
@@ -597,6 +610,9 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
     )
     asset_label = asset.name or asset.dataStudioAssetId
     query_url = _datastudio_query_url_literal(asset)
+    metrics_hint = ", ".join(asset.dataStudioMetrics) or "not declared"
+    dimensions_hint = ", ".join(asset.dataStudioDimensions) or "not declared"
+    time_field_hint = asset.dataStudioTimeField or "not declared"
     _add_import(acc, "import os")
     _add_import(acc, "from urllib.parse import urljoin, urlparse")
     _add_import(acc, "import requests")
@@ -619,13 +635,51 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
     )
     if _DATASTUDIO_URL_HELPERS not in acc.pre_lines:
         acc.pre_lines.append(_DATASTUDIO_URL_HELPERS)
+    if asset.dataStudioAssetType == "semantic_model":
+        signature = (
+            f"def {function_name}("
+            "metric: str, dimension: str | None = None, grain: str | None = None, "
+            "filters: dict | None = None, time_range: dict | None = None, "
+            "limit: int = 100) -> dict:"
+        )
+        doc = (
+            f'    """Query the Byaan semantic model {asset_label} through the REST '
+            "external API.\n\n"
+            f"    Use exact metric ids/names from this asset: {metrics_hint}.\n"
+            f"    Use exact dimension ids/names from this asset: {dimensions_hint}.\n"
+            f"    Time field: {time_field_hint}.\n"
+            '    """'
+        )
+        payload = (
+            '    payload = {"metric": metric, "dimension": dimension, '
+            '"grain": grain, "filters": filters or {}, '
+            '"time_range": time_range or {}, "limit": limit}\n'
+            '    payload = {key: value for key, value in payload.items() if value not in (None, "")}'
+        )
+    else:
+        signature = (
+            f"def {function_name}("
+            "filters: dict | None = None, data_view_ids: list[str] | None = None, "
+            'mode: str = "summary") -> dict:'
+        )
+        doc = (
+            f'    """Query the Byaan dashboard {asset_label} through the REST '
+            "external API.\n\n"
+            f"    Available metrics: {metrics_hint}.\n"
+            f"    Available dimensions: {dimensions_hint}.\n"
+            '    """'
+        )
+        payload = (
+            '    payload = {"filters": filters or {}, "data_view_ids": data_view_ids or [], '
+            '"mode": mode}'
+        )
     acc.pre_lines.append(
         f'''
-def {function_name}(query: str = "", filters: dict | None = None, limit: int = 100) -> dict:
-    """Query the Byaan Data Studio asset {asset_label} through the REST external API."""
+{signature}
+{doc}
     query_url = _datastudio_query_url({query_url})
     token = os.environ["BYAAN_MCP_API_KEY"]
-    payload = {{"query": query, "filters": filters or {{}}, "limit": limit}}
+{payload}
     response = requests.post(
         query_url,
         json=payload,
@@ -809,11 +863,15 @@ def _build_agent(acc: _Acc, draft: AgentDraft, var_name: str) -> str:
     for asset in _datastudio_assets(draft):
         tool_exprs.append(_emit_datastudio_tool(acc, asset))
 
-    skill_folders = [
-        skill.folder
-        for skill in draft.selectedSkills
-        if skill.source != "datastudio" and skill.folder.strip()
-    ]
+    skill_folders = []
+    for skill in draft.selectedSkills:
+        folder = (
+            datastudio_skill_folder(skill)
+            if skill.source == "datastudio"
+            else skill.folder
+        )
+        if folder.strip():
+            skill_folders.append(folder)
     if skill_folders:
         _add_import(acc, "from pathlib import Path as _Path")
         _add_import(
@@ -1602,6 +1660,8 @@ def debug_runtime_env_from_draft(draft: AgentDraft) -> dict[str, str]:
         for mcp_tool in node.mcpTools:
             if mcp_tool.authTokenEnv:
                 allowed_keys.add(mcp_tool.authTokenEnv)
+        if _datastudio_assets(node):
+            allowed_keys.update({"DATASTUDIO_BASE_URL", "BYAAN_MCP_API_KEY"})
         if node.a2aRegistry.enabled:
             registry = node.a2aRegistry
             fixed_values.update(

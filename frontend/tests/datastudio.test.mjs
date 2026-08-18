@@ -88,6 +88,35 @@ test("Data Studio asset adapter accepts live BYAAN capability objects", () => {
   assert.deepEqual(hit.dataStudioDimensions, ["order_status", "paid_at"]);
 });
 
+test("Data Studio asset adapter preserves structured BYAAN evidence", () => {
+  const hit = dataStudioAssetToHit({
+    asset_type: "semantic_model",
+    asset_id: "sales-model",
+    name: "Sales Model",
+    publish_state: "published",
+    sample_evidence: [
+      {
+        kind: "metric_definition",
+        metric: "revenue_revenue",
+        definition: "Sum of paid order revenue.",
+        formula: "sum(revenue)",
+      },
+      {
+        kind: "permission_policy",
+        policy: {
+          allowedMetrics: ["revenue_revenue"],
+          allowedDimensions: ["revenue_region"],
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(hit.dataStudioEvidence, [
+    "metric_definition: metric=revenue_revenue; definition=Sum of paid order revenue.; formula=sum(revenue)",
+    'permission_policy: policy={"allowedMetrics":["revenue_revenue"],"allowedDimensions":["revenue_region"]}',
+  ]);
+});
+
 test("Data Studio picker empty states and multi-select behavior are deterministic", () => {
   assert.equal(
     dataStudioEmptyStateText({ error: { status: 409, message: "" }, query: "" }),
