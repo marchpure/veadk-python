@@ -1761,6 +1761,10 @@ def _run_frontend_server(
 
     mount_datastudio_routes(app)
 
+    from frontend.server.knowledge_assets import mount_knowledge_asset_routes
+
+    mount_knowledge_asset_routes(app)
+
     from frontend.server.video.routes import (
         build_video_service,
         mount_video_routes,
