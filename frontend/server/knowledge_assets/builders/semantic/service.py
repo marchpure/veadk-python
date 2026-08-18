@@ -134,6 +134,16 @@ class SemanticSkillBuildService:
         )
         _apply_semantic_reference(mdl, profile)
         _apply_snapshot_results(mdl, profile)
+        document_contexts = _document_contexts(sources)
+        if document_contexts:
+            mdl.setdefault("evidence", []).append(
+                {
+                    "kind": "document_context",
+                    "source_count": len(document_contexts),
+                    "sources": document_contexts,
+                    "confidence": 0.55,
+                }
+            )
         configured = model_configured()
         deterministic_allowed = _deterministic_live_allowed()
         generation_mode = (
@@ -193,6 +203,7 @@ class SemanticSkillBuildService:
                     "source_ids": request.source_ids,
                     "snapshot_ids": snapshot_ids,
                     "target_domain": request.target_domain,
+                    "document_contexts": document_contexts,
                     "model_configured": configured,
                     "references": {
                         "wren": "wren-mdl schema fields/models/relationships concept",
@@ -326,6 +337,30 @@ def _datasource_kind(sources: list[dict[str, Any]]) -> str:
         if source_type:
             return source_type
     return "database"
+
+
+def _document_contexts(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    contexts: list[dict[str, Any]] = []
+    for source in sources:
+        source_type = str(source.get("source_type") or "").strip().lower()
+        if source_type in {"database", "schema_snapshot"}:
+            continue
+        contexts.append(
+            {
+                "source_id": str(source.get("id") or ""),
+                "source_type": source_type,
+                "provider": _safe_text(source.get("provider"), 80),
+                "name": _safe_text(source.get("name"), 160),
+                "description": _safe_text(source.get("description"), 500),
+                "status": _safe_text(source.get("status"), 80),
+            }
+        )
+    return contexts[:8]
+
+
+def _safe_text(value: Any, limit: int) -> str:
+    text = str(value or "").replace("\x00", "").strip()
+    return text[:limit]
 
 
 def _gate(

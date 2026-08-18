@@ -208,6 +208,69 @@ def test_semantic_skill_build_creates_published_capability(client: TestClient, m
     assert "customer_phone" in joined
 
 
+def test_semantic_skill_build_records_safe_document_context(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("VEADK_SEMANTIC_BUILDER_DETERMINISTIC", "1")
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "database",
+            "provider": "oracle",
+            "name": "Oracle sanitized",
+        },
+    ).json()
+    doc = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "web",
+            "provider": "manual",
+            "name": "Sales playbook",
+            "description": "Defines ticket count and store reporting.",
+            "uri": "https://docs.example.invalid/private?token=must-not-leak",
+            "locator": {"authorization": "Bearer must-not-leak-token"},
+        },
+    ).json()
+    snapshot = client.post(
+        "/api/knowledge-assets/snapshots",
+        json={
+            "space_id": space["id"],
+            "source_id": source["id"],
+            "asset_type": "knowledge_resource",
+            "asset_id": "oracle-schema",
+            "capability_kind": "retrieval_binding",
+            "name": "Oracle schema snapshot",
+            "kind": "schema_snapshot",
+            "schema": _schema(),
+            "profile": {"snapshot": {"id": "oracle-sanitized", "hash": "abc123"}},
+        },
+    ).json()
+
+    queued = client.post(
+        "/api/knowledge-assets/build/semantic-skill",
+        json={
+            "space_id": space["id"],
+            "source_ids": [source["id"], doc["id"]],
+            "snapshot_ids": [snapshot["id"]],
+            "name": "Sales Semantic Docs",
+            "publish": True,
+        },
+    ).json()
+    assert _job(client, queued["id"])["status"] == "succeeded"
+    asset = client.get(
+        "/api/knowledge-assets/assets?asset_type=semantic_model&capability_kind=semantic_skill"
+    ).json()["items"][0]
+    serialized = json.dumps(asset, ensure_ascii=False)
+    assert "Sales playbook" in serialized
+    assert "Defines ticket count" in serialized
+    assert "must-not-leak" not in serialized
+    assert "private?token" not in serialized
+
+
 def test_semantic_skill_build_prefers_sanitized_semantic_reference(
     client: TestClient,
     monkeypatch,
