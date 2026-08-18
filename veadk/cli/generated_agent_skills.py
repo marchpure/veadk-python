@@ -295,6 +295,7 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             f"- {skill.dataStudioPermissionHint or 'Follow the asset usage policy returned by Byaan.'}",
             "- Do not expose masked fields or raw row-level identifiers unless the asset policy explicitly allows it.",
             "- Treat the REST response policyDecision and evidence fields as authoritative.",
+            "- If the user asks for customer names, phone numbers, addresses, documents, or member-card identifiers, return the Byaan policy denial and do not issue a raw-data workaround.",
             "",
             "## Example Questions",
             "",
@@ -305,8 +306,15 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             "- Every answer must include the returned numeric value or table result.",
             "- Every answer must cite SQL, metric definition, lineage, or sample evidence returned by Byaan.",
             "- Every answer must mention the permission or policy boundary that allowed the response.",
+            "- Every answer must include snapshot freshness when Byaan returns snapshot, dataThrough, snapshotId, or snapshotHash fields.",
+            "- Never infer SQL results from the prompt. Call the generated Data Studio REST function tool for every answer.",
         ]
     )
+    if skill.dataStudioEvidence:
+        lines.extend(["", "## Snapshot Provenance", ""])
+        for value in skill.dataStudioEvidence:
+            if any(term in value.lower() for term in ("snapshot", "data_through", "data-through", "provenance", "hash")):
+                lines.append(f"- {value}")
     if skill.dataStudioEvidence:
         lines.extend(["", "## Seed Evidence", ""])
         lines.extend(_bullet_lines(skill.dataStudioEvidence))

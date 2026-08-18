@@ -73,7 +73,12 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
                 dataStudioTimeField="pay_date",
                 dataStudioPermissionHint="Aggregate only; no buyer identifiers.",
                 dataStudioExampleQuestions=["What was GMV last week?"],
-                dataStudioEvidence=["sql: select sum(gmv) from sales"],
+                dataStudioEvidence=[
+                    "sql: select sum(gmv) from sales",
+                    "snapshot: oracle-local-extract-sanitized/20260818-knowledge-center-4-arkclaw",
+                    "data_through: 2026-08-15",
+                    "hash: c67a52d9f8d2eaf92d6a7ca1b09aee321cf4da176499c618ef0e53214eb166eb",
+                ],
             )
         ],
     )
@@ -91,6 +96,10 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
     assert "- `pay_date`" in skill_md
     assert "Aggregate only; no buyer identifiers." in skill_md
     assert "Every answer must cite SQL" in skill_md
+    assert "Every answer must include snapshot freshness" in skill_md
+    assert "Call the generated Data Studio REST function tool for every answer" in skill_md
+    assert "customer names, phone numbers, addresses" in skill_md
+    assert "snapshot: oracle-local-extract-sanitized/20260818-knowledge-center-4-arkclaw" in skill_md
     assert '"skills" / "datastudio-dashboard-sales"' in files["agents/datastudio_agent/agent.py"]
 
 
