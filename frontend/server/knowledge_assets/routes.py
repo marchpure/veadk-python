@@ -10,13 +10,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, status
 
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
 from .models import (
     CreateSourceBody,
     CreateSpaceBody,
+    ImportSourceBody,
     RecordBuildJobBody,
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
@@ -42,6 +43,10 @@ from .service import (
 def mount_knowledge_asset_routes(
     app: FastAPI,
     service: KnowledgeAssetStore | None = None,
+    *,
+    knowledge_service: Any = None,
+    identity_resolver: Callable[[Request], Any] | None = None,
+    region_resolver: Callable[[str | None], str] | None = None,
 ) -> None:
     store = service or KnowledgeAssetStore()
 
@@ -124,6 +129,27 @@ def mount_knowledge_asset_routes(
     @app.post("/api/knowledge-assets/sources", status_code=status.HTTP_201_CREATED)
     async def create_source(body: CreateSourceBody) -> dict[str, Any]:
         return await invoke(lambda: store.create_source(body))
+
+    @app.post(
+        "/api/knowledge-assets/sources/import",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def import_source(
+        body: ImportSourceBody,
+        request: Request,
+    ) -> dict[str, Any]:
+        identity = identity_resolver(request) if identity_resolver else None
+        resolved_region = (
+            region_resolver(body.region) if region_resolver else (body.region or "")
+        )
+        return await invoke(
+            lambda: store.import_source(
+                body,
+                knowledge_service=knowledge_service,
+                identity=identity,
+                region=resolved_region,
+            )
+        )
 
     @app.get("/api/knowledge-assets/sources")
     async def list_sources(
@@ -218,6 +244,14 @@ def mount_knowledge_asset_routes(
         body: UpdateBuildJobBody,
     ) -> dict[str, Any]:
         return await invoke(lambda: store.update_build_job(job_id, body))
+
+    @app.get("/api/knowledge-assets/workbench/overview")
+    async def workbench_overview(
+        space_id: Annotated[
+            str | None, Query(min_length=1, max_length=128)
+        ] = None,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.overview(space_id=space_id))
 
     @app.post("/api/knowledge-assets/snapshots", status_code=status.HTTP_201_CREATED)
     async def record_snapshot(body: RecordSnapshotBody) -> dict[str, Any]:

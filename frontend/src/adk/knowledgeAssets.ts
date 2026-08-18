@@ -108,6 +108,22 @@ export interface KnowledgeAssetSidecar {
   mock?: boolean;
 }
 
+export interface KnowledgeAssetOverview {
+  space_id?: string;
+  spaces?: KnowledgeAssetSpace[];
+  source_counts?: Record<string, number>;
+  capability_counts?: Record<string, number>;
+  recent_jobs?: KnowledgeAssetBuildJob[];
+  next_actions?: Array<Record<string, string>>;
+  mock?: boolean;
+}
+
+export interface KnowledgeAssetImportResult {
+  source: KnowledgeAssetSource;
+  job: KnowledgeAssetBuildJob;
+  document?: Record<string, unknown> | null;
+}
+
 export class KnowledgeAssetError extends Error {
   readonly status: number;
   readonly code: string;
@@ -156,14 +172,23 @@ async function requestJson<T>(
   init?: RequestInit,
   fallback = "知识资产请求失败",
 ): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      accept: "application/json",
-      ...(init?.body ? { "content-type": "application/json" } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        accept: "application/json",
+        ...(init?.body ? { "content-type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    throw new KnowledgeAssetError(
+      0,
+      `无法连接后端服务，请确认工作台后端已启动。诊断端点：${url}`,
+      "NETWORK_UNREACHABLE",
+    );
+  }
   if (!res.ok) {
     const detail = await errorMessage(res, `${fallback}（HTTP ${res.status}）`);
     throw new KnowledgeAssetError(res.status, detail.message, detail.code);
@@ -216,6 +241,19 @@ export async function listKnowledgeAssetSources(
   return payload.items ?? [];
 }
 
+export async function getKnowledgeAssetOverview(
+  spaceId?: string,
+): Promise<KnowledgeAssetOverview> {
+  const params = new URLSearchParams();
+  if (spaceId) params.set("space_id", spaceId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return requestJson(
+    `/api/knowledge-assets/workbench/overview${suffix}`,
+    undefined,
+    "读取工作台概览失败",
+  );
+}
+
 export async function createKnowledgeAssetSource(input: {
   space_id: string;
   source_type: string;
@@ -233,6 +271,30 @@ export async function createKnowledgeAssetSource(input: {
     "/api/knowledge-assets/sources",
     { method: "POST", body: JSON.stringify(input) },
     "创建数据源失败",
+  );
+}
+
+export async function importKnowledgeAssetSource(input: {
+  space_id: string;
+  source_type: string;
+  name: string;
+  description?: string;
+  uri?: string;
+  target_knowledge_base_id?: string;
+  region?: string;
+  provider?: string;
+  content?: string;
+  content_format?: string;
+  file?: Record<string, unknown>;
+  schema?: Record<string, unknown>;
+  locator?: Record<string, unknown>;
+  credential_ref?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<KnowledgeAssetImportResult> {
+  return requestJson(
+    "/api/knowledge-assets/sources/import",
+    { method: "POST", body: JSON.stringify(input) },
+    "导入数据源失败",
   );
 }
 
@@ -305,9 +367,12 @@ export async function createKnowledgeAssetCapability(input: {
 
 export async function listKnowledgeAssetBuildJobs(
   spaceId?: string,
+  filters: { sourceId?: string; assetId?: string } = {},
 ): Promise<KnowledgeAssetBuildJob[]> {
   const params = new URLSearchParams();
   if (spaceId) params.set("space_id", spaceId);
+  if (filters.sourceId) params.set("source_id", filters.sourceId);
+  if (filters.assetId) params.set("asset_id", filters.assetId);
   const suffix = params.toString() ? `?${params.toString()}` : "";
   const payload = await requestJson<{ items?: KnowledgeAssetBuildJob[] }>(
     `/api/knowledge-assets/build-jobs${suffix}`,

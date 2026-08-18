@@ -1740,24 +1740,26 @@ def _run_frontend_server(
             region=region,
         )
 
+    knowledge_service = KnowledgeService(
+        SdkAgentKitKnowledgeGateway(_knowledge_client),
+        build_viking_document_gateway_factory(
+            provider=provider,
+            resolve_credentials=_resolve_ve_credentials,
+        ),
+        signing_key=_knowledge_signing_key(),
+        provisioner=VikingKnowledgeBaseProvisioner(
+            provider=provider,
+            resolve_credentials=_resolve_ve_credentials,
+        ),
+        upload_store=TosKnowledgeUploadStore(
+            provider=provider,
+            resolve_credentials=_resolve_ve_credentials,
+        ),
+    )
+
     mount_knowledge_routes(
         app,
-        service=KnowledgeService(
-            SdkAgentKitKnowledgeGateway(_knowledge_client),
-            build_viking_document_gateway_factory(
-                provider=provider,
-                resolve_credentials=_resolve_ve_credentials,
-            ),
-            signing_key=_knowledge_signing_key(),
-            provisioner=VikingKnowledgeBaseProvisioner(
-                provider=provider,
-                resolve_credentials=_resolve_ve_credentials,
-            ),
-            upload_store=TosKnowledgeUploadStore(
-                provider=provider,
-                resolve_credentials=_resolve_ve_credentials,
-            ),
-        ),
+        service=knowledge_service,
         identity_resolver=_knowledge_identity,
         region_resolver=_coerce_cloud_region,
         region_candidates_resolver=_knowledge_regions,
@@ -1769,7 +1771,13 @@ def _run_frontend_server(
 
     mount_datastudio_routes(app)
 
-    mount_knowledge_asset_routes(app, service=knowledge_asset_store)
+    mount_knowledge_asset_routes(
+        app,
+        service=knowledge_asset_store,
+        knowledge_service=knowledge_service,
+        identity_resolver=_knowledge_identity,
+        region_resolver=_coerce_cloud_region,
+    )
 
     from frontend.server.video.routes import (
         build_video_service,

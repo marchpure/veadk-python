@@ -37,9 +37,12 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
 
     assert "/api/knowledge-assets/spaces" in paths
     assert "/api/knowledge-assets/sources" in paths
+    assert "/api/knowledge-assets/sources/import" in paths
     assert "/api/knowledge-assets/sources/{source_id}/credential" in paths
     assert "/api/knowledge-assets/build-jobs" in paths
+    assert "/api/knowledge-assets/workbench/overview" in paths
     assert "/api/knowledge-assets/assets/{asset_type}/{asset_id}" in paths
+    assert "/api/knowledge-assets/build/semantic-skill" not in paths
 
 
 def test_routes_create_store_and_never_echo_credentials(client: TestClient) -> None:
@@ -188,6 +191,86 @@ def test_build_job_routes_record_state_without_echoing_secrets(
     ).json()
     assert listed["total"] == 1
     assert listed["items"][0]["id"] == job["id"]
+
+
+def test_import_route_records_metadata_only_database_without_fake_success(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    response = client.post(
+        "/api/knowledge-assets/sources/import",
+        json={
+            "space_id": space["id"],
+            "source_type": "database",
+            "name": "Oracle 销售库",
+            "metadata": {"password": "redact-me-db"},
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source"]["status"] == "needs_configuration"
+    assert payload["job"]["status"] == "blocked"
+    assert "redact-me-db" not in response.text
+
+
+def test_schema_snapshot_import_route_registers_ready_source(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    imported = client.post(
+        "/api/knowledge-assets/sources/import",
+        json={
+            "space_id": space["id"],
+            "source_type": "schema_snapshot",
+            "name": "销售 Schema",
+            "schema": {
+                "models": [{"name": "orders"}],
+                "fields": [{"model": "orders", "name": "gmv", "role": "measure"}],
+            },
+        },
+    )
+    assert imported.status_code == 201
+    payload = imported.json()
+    assert payload["source"]["status"] == "ready"
+    assert payload["job"]["status"] == "succeeded"
+    assert payload["document"]["kind"] == "schema_snapshot"
+
+    snapshots = client.get(
+        f"/api/knowledge-assets/snapshots?source_id={payload['source']['id']}"
+    ).json()
+    assert snapshots["total"] == 1
+    assert snapshots["items"][0]["schema"]["models"][0]["name"] == "orders"
+
+
+def test_semantic_build_route_is_left_for_parallel_builder(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/knowledge-assets/build/semantic-skill",
+        json={"space_id": "space_missing", "name": "销售语义 Skill"},
+    )
+    assert response.status_code == 404
+
+
+def test_workbench_overview_is_real_aggregation(client: TestClient) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    client.post(
+        "/api/knowledge-assets/sources/import",
+        json={
+            "space_id": space["id"],
+            "source_type": "database",
+            "name": "DB",
+        },
+    )
+    overview = client.get(
+        f"/api/knowledge-assets/workbench/overview?space_id={space['id']}"
+    )
+    assert overview.status_code == 200
+    payload = overview.json()
+    assert payload["mock"] is False
+    assert payload["source_counts"]["needs_configuration"] == 1
+    assert payload["recent_jobs"][0]["status"] == "blocked"
 
 
 def _package(state: str, asset_id: str) -> dict[str, object]:

@@ -237,10 +237,11 @@ test("Knowledge asset center is native and keeps BYAAN as an optional sidecar", 
   assert.match(sidebarSource, /aria-label="知识资产"/);
   assert.doesNotMatch(appSource, /features\.datastudio/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSpace/);
-  assert.match(knowledgeCenterSource, /createKnowledgeAssetSource/);
+  assert.match(knowledgeCenterSource, /importKnowledgeAssetSource/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetCapability/);
+  assert.match(knowledgeCenterSource, /CapabilityPanelSlot/);
   assert.match(knowledgeCenterSource, /BYAAN sidecar/);
-  assert.match(knowledgeCenterSource, /原生工作台仍可管理空间、来源和检索能力/);
+  assert.match(knowledgeCenterSource, /缺失时原生工作台仍可打开/);
   assert.doesNotMatch(knowledgeCenterSource, /<iframe/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_BASE_URL/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_API_KEY/);
