@@ -103,6 +103,41 @@ export interface KnowledgeWebPreview {
   sourceMarkdown: string;
 }
 
+export interface KnowledgeConnectorTarget {
+  id: string;
+  region: string;
+}
+
+export interface KnowledgeConnectorImportResult extends KnowledgeDocumentItem {
+  sourceMarkdown: string;
+  metadata: Record<string, unknown> & {
+    targetKnowledgeBase?: KnowledgeConnectorTarget;
+  };
+}
+
+export interface KnowledgeFeishuAuthStatus {
+  status: "configured" | "not_configured";
+  authorizationUrl: string;
+  scopes: string[];
+  message: string;
+}
+
+export interface ImportKnowledgeFeishuInput {
+  docUrl: string;
+  name?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ImportKnowledgeLocalWebInput {
+  sourceType: "local_web" | "intranet_web";
+  sourceUrl: string;
+  contentFormat: "markdown" | "html";
+  content: string;
+  accessMode?: "user_local";
+  name?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PreviewKnowledgeWebInput {
   url: string;
 }
@@ -700,6 +735,54 @@ export async function previewWebKnowledgeDocument(
     url: asString(preview.url),
     sourceMarkdown: asString(preview.sourceMarkdown),
   };
+}
+
+function normalizeConnectorImportResult(value: unknown): KnowledgeConnectorImportResult {
+  const record = asRecord(value);
+  return {
+    ...normalizeKnowledgeDocument(record),
+    sourceMarkdown: asString(record.sourceMarkdown),
+    metadata: asRecord(record.metadata) as Record<string, unknown> & {
+      targetKnowledgeBase?: KnowledgeConnectorTarget;
+    },
+  };
+}
+
+export async function getFeishuKnowledgeAuthStatus(): Promise<KnowledgeFeishuAuthStatus> {
+  const response = await knowledgeFetch<unknown>("/web/knowledge-connectors/feishu/authorize");
+  const record = asRecord(response);
+  return {
+    status: record.status === "configured" ? "configured" : "not_configured",
+    authorizationUrl: asString(record.authorizationUrl),
+    scopes: Array.isArray(record.scopes)
+      ? record.scopes.map(asString).filter(Boolean)
+      : [],
+    message: asString(record.message),
+  };
+}
+
+export function importFeishuKnowledgeDocument(
+  knowledgeId: string,
+  region: string,
+  input: ImportKnowledgeFeishuInput,
+): Promise<KnowledgeConnectorImportResult> {
+  return knowledgeFetch<unknown>(
+    `/web/knowledge-bases/${encodeURIComponent(knowledgeId)}/documents/feishu${regionQuery(region)}`,
+    { method: "POST", body: JSON.stringify(input) },
+    TRANSFER_REQUEST_TIMEOUT_MS,
+  ).then(normalizeConnectorImportResult);
+}
+
+export function importLocalWebKnowledgeDocument(
+  knowledgeId: string,
+  region: string,
+  input: ImportKnowledgeLocalWebInput,
+): Promise<KnowledgeConnectorImportResult> {
+  return knowledgeFetch<unknown>(
+    `/web/knowledge-bases/${encodeURIComponent(knowledgeId)}/documents/local-web${regionQuery(region)}`,
+    { method: "POST", body: JSON.stringify({ accessMode: "user_local", ...input }) },
+    TRANSFER_REQUEST_TIMEOUT_MS,
+  ).then(normalizeConnectorImportResult);
 }
 
 export function uploadKnowledgeDocument(

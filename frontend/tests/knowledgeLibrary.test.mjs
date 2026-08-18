@@ -394,10 +394,12 @@ test("covers base and document create edit delete flows", () => {
   assert.doesNotMatch(pageSource, /TOS 路径|tos:\/\//);
 });
 
-test("offers verified image document and web knowledge sources", () => {
+test("offers verified file web Feishu and local knowledge sources", () => {
   assert.match(pageSource, /"image", "图片"/);
   assert.match(pageSource, /"document", "文档文件"/);
   assert.match(pageSource, /"web", "在线网页"/);
+  assert.match(pageSource, /"feishu", "飞书文档"/);
+  assert.match(pageSource, /"local-web", "本地\/内网页面"/);
   assert.match(pageSource, /role="tablist"/);
   assert.match(pageSource, /role="tabpanel"/);
   assert.match(pageSource, /type="file"/);
@@ -410,8 +412,21 @@ test("offers verified image document and web knowledge sources", () => {
   assert.match(pageSource, /onDrop/);
   assert.match(pageSource, /formatFileSize\(file\.size\)/);
   assert.match(pageSource, /await uploadKnowledgeDocument/);
+  assert.match(pageSource, /await importFeishuKnowledgeDocument/);
+  assert.match(pageSource, /await importLocalWebKnowledgeDocument/);
+  assert.match(pageSource, /getFeishuKnowledgeAuthStatus/);
+  assert.match(pageSource, /KNOWLEDGE_FEISHU_AUTH_EXPIRED/);
+  assert.match(pageSource, /重新授权/);
+  assert.match(pageSource, /cookie、Authorization header 或浏览器 session token/);
+  assert.match(pageSource, /托管部署默认禁用 authenticated local capture/);
+  assert.match(pageSource, /content_hash/);
+  assert.match(pageSource, /captured_at/);
+  assert.match(stylesSource, /\.knowledge-connector-state/);
+  assert.match(stylesSource, /\.knowledge-import-summary/);
+  assert.match(stylesSource, /@media \(max-width: 560px\)[\s\S]*?\.knowledge-source-tabs\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(pageSource, /"上传中"/);
-  assert.match(pageSource, /sourceKind !== "web" \? \(\s*<div className="knowledge-dialog__fields">[\s\S]*?<span>名称（可选）<\/span>[\s\S]*?<span>类型（可选）<\/span>/);
+  assert.match(pageSource, /sourceKind !== "web" \? \(\s*<div className="knowledge-dialog__fields">[\s\S]*?<span>名称（可选）<\/span>/);
+  assert.match(pageSource, /sourceKind === "image" \|\| sourceKind === "document" \? \(/);
   assert.doesNotMatch(pageSource, /knowledge-dialog__fields\$\{sourceKind === "web"/);
   const webInputStart = pageSource.indexOf("const input: CreateKnowledgeDocumentInput = {");
   const webInputEnd = pageSource.indexOf("};", webInputStart);
@@ -428,6 +443,65 @@ test("offers verified image document and web knowledge sources", () => {
   assert.match(pageSource, />返回修改</);
   assert.match(pageSource, /sourceMarkdown: webPreview\.preview\.sourceMarkdown/);
   assert.doesNotMatch(pageSource, /if \(item\?\.sourceMarkdown\) setPreviewDocument/);
+});
+
+test("calls Feishu and local web connector routes with JSON bodies", async () => {
+  const client = await loadKnowledgeClient();
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (input, init = {}) => {
+    requests.push({
+      url: String(input),
+      method: init.method ?? "GET",
+      body: init.body ? JSON.parse(String(init.body)) : null,
+    });
+    if (String(input).includes("/knowledge-connectors/feishu/authorize")) {
+      return Response.json({
+        status: "configured",
+        authorizationUrl: "https://accounts.feishu.cn/oauth",
+        scopes: ["docs:doc:readonly", "wiki:wiki:readonly"],
+      });
+    }
+    return Response.json({
+      id: "doc-1",
+      name: "Imported",
+      metadata: {
+        source_url: "https://example.feishu.cn/wiki/abc",
+        content_hash: "sha256:abc",
+        captured_at: "2026-08-18T08:00:00+00:00",
+        targetKnowledgeBase: { id: "kb-1", region: "cn-beijing" },
+      },
+      sourceMarkdown: "# Imported",
+    });
+  };
+  try {
+    const status = await client.getFeishuKnowledgeAuthStatus();
+    assert.equal(status.status, "configured");
+    await client.importFeishuKnowledgeDocument("kb-1", "cn-beijing", {
+      docUrl: "https://example.feishu.cn/wiki/abc",
+      metadata: { team: "support" },
+    });
+    const local = await client.importLocalWebKnowledgeDocument("kb-1", "cn-beijing", {
+      sourceType: "intranet_web",
+      sourceUrl: "http://intranet.local/page",
+      contentFormat: "markdown",
+      content: "# Page",
+    });
+
+    assert.match(requests[0].url, /\/web\/knowledge-connectors\/feishu\/authorize$/);
+    assert.match(requests[1].url, /documents\/feishu\?region=cn-beijing$/);
+    assert.equal(requests[1].method, "POST");
+    assert.deepEqual(requests[1].body, {
+      docUrl: "https://example.feishu.cn/wiki/abc",
+      metadata: { team: "support" },
+    });
+    assert.match(requests[2].url, /documents\/local-web\?region=cn-beijing$/);
+    assert.equal(requests[2].body.accessMode, "user_local");
+    assert.equal(requests[2].body.sourceType, "intranet_web");
+    assert.equal(local.metadata.content_hash, "sha256:abc");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("renders document names with regular weight", () => {
