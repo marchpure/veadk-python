@@ -152,7 +152,13 @@ class SemanticSkillBuildService:
         )
         metrics = [str(metric.get("id")) for metric in mdl.get("metrics") or [] if isinstance(metric, dict)]
         dimensions = [str(dim.get("id")) for dim in mdl.get("dimensions") or [] if isinstance(dim, dict)]
-        gate = _gate(graph, candidates, configured=configured, deterministic_allowed=deterministic_allowed)
+        gate = _gate(
+            graph,
+            candidates,
+            mdl=mdl,
+            configured=configured,
+            deterministic_allowed=deterministic_allowed,
+        )
         publish_state = "published" if request.publish and not gate["blockers"] else "draft"
         status = "ready" if not gate["blockers"] else "blocked"
         skill = await self._store.record_skill_package(
@@ -322,14 +328,21 @@ def _datasource_kind(sources: list[dict[str, Any]]) -> str:
     return "database"
 
 
-def _gate(graph: SchemaGraph, candidates: CandidateSet, *, configured: bool, deterministic_allowed: bool) -> dict[str, Any]:
+def _gate(
+    graph: SchemaGraph,
+    candidates: CandidateSet,
+    *,
+    mdl: dict[str, Any],
+    configured: bool,
+    deterministic_allowed: bool,
+) -> dict[str, Any]:
     blockers: list[str] = []
     warnings: list[str] = list(candidates.warnings)
     if not configured and not deterministic_allowed:
         blockers.append("模型未配置：只能生成 deterministic_skeleton 草案，不能发布。")
     if not graph.tables:
         blockers.append("缺少 schema tables。")
-    if not candidates.metrics:
+    if not candidates.metrics and not _items(mdl.get("metrics")):
         blockers.append("缺少可用指标候选。")
     score = 100 - len(blockers) * 30 - len(warnings) * 5
     return {
@@ -339,6 +352,10 @@ def _gate(graph: SchemaGraph, candidates: CandidateSet, *, configured: bool, det
         "blockers": blockers,
         "warnings": warnings,
     }
+
+
+def _items(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
 
 
 def _first_time_field(mdl: dict[str, Any]) -> str:
@@ -356,6 +373,7 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
     if not isinstance(reference, dict):
         return
     base_entity = str((mdl.get("entities") or [{}])[0].get("id") or "")
+    alias_entity = _reference_alias_entities(mdl, reference)
     reference_dimensions = []
     for item in reference.get("dimensions") or []:
         if not isinstance(item, dict):
@@ -364,7 +382,7 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
         field = str(item.get("field") or "").strip()
         if not dim_id or not field:
             continue
-        entity, field_name = _split_reference_field(field, base_entity)
+        entity, field_name = _split_reference_field(field, base_entity, alias_entity)
         reference_dimensions.append(
             {
                 "id": slugify(dim_id),
@@ -416,7 +434,7 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
                 "id": slugify(metric_id),
                 "name": str(item.get("name") or metric_id),
                 "business_name": str(item.get("name") or metric_id).replace("_", " ").title(),
-                "entity": base_entity,
+                "entity": _metric_entity_from_formula(formula, base_entity, alias_entity),
                 "field": _metric_field_from_formula(formula),
                 "definition": str(item.get("definition") or ""),
                 "kind": "measure",
@@ -489,11 +507,31 @@ def _apply_snapshot_results(mdl: dict[str, Any], profile: dict[str, Any]) -> Non
         mdl["snapshot_results"] = results
 
 
-def _split_reference_field(value: str, fallback_entity: str) -> tuple[str, str]:
+def _split_reference_field(
+    value: str,
+    fallback_entity: str,
+    alias_entity: dict[str, str] | None = None,
+) -> tuple[str, str]:
     parts = [part for part in value.split(".") if part]
     if len(parts) >= 2:
-        return slugify(parts[-2]), parts[-1]
+        alias = slugify(parts[-2])
+        return (alias_entity or {}).get(alias, alias), parts[-1]
     return fallback_entity, value
+
+
+def _metric_entity_from_formula(
+    formula: str,
+    fallback_entity: str,
+    alias_entity: dict[str, str],
+) -> str:
+    cleaned = formula.replace("(", " ").replace(")", " ").replace(",", " ")
+    for token in cleaned.split():
+        if "." not in token:
+            continue
+        alias = slugify(token.split(".")[0])
+        if alias in alias_entity:
+            return alias_entity[alias]
+    return fallback_entity
 
 
 def _metric_field_from_formula(formula: str) -> str:
@@ -502,3 +540,47 @@ def _metric_field_from_formula(formula: str) -> str:
         if "." in token:
             return token.split(".")[-1]
     return ""
+
+
+def _reference_alias_entities(mdl: dict[str, Any], reference: dict[str, Any]) -> dict[str, str]:
+    entities = [item for item in mdl.get("entities") or [] if isinstance(item, dict)]
+    alias_fields: dict[str, set[str]] = {}
+    for item in reference.get("dimensions") or []:
+        if isinstance(item, dict):
+            _collect_alias_field(alias_fields, str(item.get("field") or ""))
+    for item in reference.get("metrics") or []:
+        if isinstance(item, dict):
+            formula = str(item.get("formula") or "")
+            for token in formula.replace("(", " ").replace(")", " ").replace(",", " ").split():
+                _collect_alias_field(alias_fields, token)
+
+    mapping: dict[str, str] = {}
+    for alias, fields in alias_fields.items():
+        best_entity = ""
+        best_score = 0
+        for entity in entities:
+            entity_fields = {
+                str(field.get("source_field") or field.get("name") or "").lower()
+                for field in entity.get("fields") or []
+                if isinstance(field, dict)
+            }
+            score = len({field.lower() for field in fields} & entity_fields)
+            table_name = str(entity.get("table") or entity.get("id") or "").lower()
+            if alias and alias in table_name:
+                score += 1
+            if score > best_score:
+                best_score = score
+                best_entity = str(entity.get("id") or "")
+        if best_entity:
+            mapping[alias] = best_entity
+    return mapping
+
+
+def _collect_alias_field(out: dict[str, set[str]], value: str) -> None:
+    parts = [part.strip() for part in value.split(".") if part.strip()]
+    if len(parts) < 2:
+        return
+    alias = slugify(parts[-2])
+    field = parts[-1]
+    if alias and field:
+        out.setdefault(alias, set()).add(field)

@@ -312,6 +312,7 @@ def test_semantic_skill_build_prefers_sanitized_semantic_reference(
     assert result["rows"][0] == {"store": "VNPTTE", "ticket_count": 56}
     assert result["execution_mode"] == "snapshot_evidence_plan"
     assert "SELECT" in result["sql"]
+    assert '"P_BL_SELL_HD"' in result["sql"]
     assert result["metricDefinition"]["id"] == "ticket_count"
     assert result["policyDecision"]["decision"] == "allow"
     assert result["freshness"]["data_through"] == "2026-08-15"

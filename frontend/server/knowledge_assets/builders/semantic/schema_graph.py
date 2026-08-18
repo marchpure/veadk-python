@@ -146,7 +146,7 @@ def slugify(value: str, *, fallback: str = "item") -> str:
 
 def _extract_tables(schema: dict[str, Any], profile: dict[str, Any]) -> list[TableNode]:
     raw_tables: list[dict[str, Any]] = []
-    if isinstance(schema.get("tables"), list):
+    if isinstance(schema.get("tables"), (list, dict)):
         raw_tables.extend(_dict_items(schema["tables"]))
     if isinstance(schema.get("schemas"), list):
         for namespace in _dict_items(schema["schemas"]):
@@ -210,11 +210,16 @@ def _extract_columns(raw_table: dict[str, Any], table_profile: dict[str, Any]) -
         or []
     )
     out: list[ColumnNode] = []
-    for raw in _dict_items(raw_columns):
+    for raw in _column_items(raw_columns):
         name = str(raw.get("name") or raw.get("column") or raw.get("field") or raw.get("source_field") or "").strip()
         if not name:
             continue
-        data_type = str(raw.get("type") or raw.get("data_type") or raw.get("dataType") or "unknown").strip() or "unknown"
+        data_type = str(
+            raw.get("type")
+            or raw.get("data_type")
+            or raw.get("dataType")
+            or _infer_type_from_name(name)
+        ).strip() or "unknown"
         column_profile = _profile_for_column(table_profile, name)
         fk = raw.get("foreign_key") or raw.get("foreignKey") or raw.get("references")
         out.append(
@@ -340,6 +345,47 @@ def _dict_items(value: Any) -> list[dict[str, Any]]:
     if isinstance(value, list):
         return [item for item in value if isinstance(item, dict)]
     return []
+
+
+def _column_items(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        out: list[dict[str, Any]] = []
+        for item in value:
+            if isinstance(item, dict):
+                out.append(item)
+            elif isinstance(item, str) and item.strip():
+                out.append({"name": item.strip()})
+        return out
+    return _dict_items(value)
+
+
+def _infer_type_from_name(name: str) -> str:
+    if is_time_type("", name):
+        return "timestamp"
+    lowered = name.lower()
+    if any(
+        token in lowered
+        for token in (
+            "amount",
+            "money",
+            "sales",
+            "price",
+            "qty",
+            "quantity",
+            "count",
+            "rate",
+            "discount",
+            "vat",
+            "net",
+            "point",
+            "weight",
+            "area",
+        )
+    ):
+        return "decimal"
+    if is_identifier_name(name):
+        return "varchar"
+    return "varchar"
 
 
 def _bool_or_none(value: Any) -> bool | None:
