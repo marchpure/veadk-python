@@ -8,9 +8,14 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import hashlib
 import re
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
+from pathlib import Path
+import tempfile
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 from uuid import uuid4
@@ -25,6 +30,7 @@ from .crypto import CredentialCipher, CredentialCryptoError
 from .models import (
     CreateSourceBody,
     CreateSpaceBody,
+    ImportSourceBody,
     RecordBuildJobBody,
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
@@ -53,6 +59,25 @@ _SENSITIVE_SUFFIXES = (
     "signature",
     "token",
 )
+_SOURCE_STATUSES = {
+    "registered",
+    "needs_configuration",
+    "auth_required",
+    "importing",
+    "indexed",
+    "ready",
+    "failed",
+    "credential_expired",
+}
+_BUILD_JOB_STATUSES = {
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "blocked",
+    "cancelled",
+}
+_SCHEMA_SOURCE_TYPES = {"schema_snapshot", "database", "oracle", "mysql", "postgres"}
 
 
 class KnowledgeAssetServiceError(RuntimeError):
@@ -115,6 +140,7 @@ class KnowledgeAssetStore:
         return _space_payload(row)
 
     async def create_source(self, body: CreateSourceBody) -> dict[str, Any]:
+        status = _normalize_source_status(body.status, body.source_type)
         row = {
             "id": _new_id("src"),
             "space_id": body.space_id,
@@ -124,7 +150,7 @@ class KnowledgeAssetStore:
             "description": _sanitize_text(body.description or "") or None,
             "uri": _sanitize_text(body.uri or "") or None,
             "locator": dumps_json(redact_sensitive(body.locator)),
-            "status": body.status.strip(),
+            "status": status,
             "status_reason": None,
             "default_index_policy": dumps_json(
                 redact_sensitive(body.default_index_policy)
@@ -135,6 +161,254 @@ class KnowledgeAssetStore:
         return _source_payload(
             await asyncio.to_thread(self._repository.create_source, row)
         )
+
+    async def import_source(
+        self,
+        body: ImportSourceBody,
+        *,
+        knowledge_service: Any = None,
+        identity: Any = None,
+        region: str = "",
+    ) -> dict[str, Any]:
+        space = await self.get_space(body.space_id)
+        source_type = body.source_type.strip()
+        target_kb = (
+            _sanitize_text(body.target_knowledge_base_id or "")
+            or space.get("default_knowledge_base_id")
+            or ""
+        )
+        source = await self.create_source(
+            CreateSourceBody(
+                space_id=body.space_id,
+                source_type=source_type,
+                provider=body.provider,
+                name=body.name,
+                description=body.description,
+                uri=body.uri,
+                locator={
+                    **body.locator,
+                    **({"uri": body.uri} if body.uri else {}),
+                },
+                status=_initial_import_status(source_type, target_kb),
+                default_index_policy={
+                    "target_knowledge_base_id": target_kb,
+                    "region": region or body.region or space.get("region") or "",
+                },
+                capabilities=_source_capabilities(source_type, body.schema_payload),
+                metadata={
+                    **body.metadata,
+                    "schema": body.schema_payload,
+                    "credential_ref": body.credential_ref or "",
+                    "content_format": body.content_format or "",
+                },
+            )
+        )
+        job = await self.record_build_job(
+            RecordBuildJobBody(
+                space_id=body.space_id,
+                source_id=source["id"],
+                job_type="source_import",
+                status="running",
+                input={
+                    "source_type": source_type,
+                    "target_knowledge_base_id": target_kb,
+                    "has_content": bool(body.content),
+                },
+            )
+        )
+        try:
+            result = await self._execute_source_import(
+                source,
+                body,
+                target_knowledge_base_id=target_kb,
+                knowledge_service=knowledge_service,
+                identity=identity,
+                region=region or body.region or space.get("region") or "",
+            )
+        except KnowledgeAssetServiceError as error:
+            failed_source = await self.update_source_status(
+                source["id"],
+                UpdateSourceStatusBody(
+                    status="failed",
+                    status_reason=str(error),
+                    metadata={"last_error_code": error.code},
+                ),
+            )
+            failed_job = await self.update_build_job(
+                job["id"],
+                UpdateBuildJobBody(
+                    status="failed",
+                    error={"code": error.code, "message": str(error)},
+                    output={"source_status": failed_source["status"]},
+                ),
+            )
+            return {"source": failed_source, "job": failed_job, "document": None}
+
+        if result["status"] in {"needs_configuration", "auth_required", "registered"}:
+            final_job_status = "blocked"
+        else:
+            final_job_status = "succeeded"
+        updated_source = await self.update_source_status(
+            source["id"],
+            UpdateSourceStatusBody(
+                status=result["status"],
+                status_reason=result.get("status_reason"),
+                metadata=result.get("source_metadata", {}),
+            ),
+        )
+        updated_job = await self.update_build_job(
+            job["id"],
+            UpdateBuildJobBody(
+                status=final_job_status,
+                output={
+                    "source_status": updated_source["status"],
+                    "document_id": result.get("document", {}).get("id", ""),
+                    "knowledge_base_id": target_kb,
+                    "next_action": result.get("next_action", ""),
+                },
+                error=result.get("error"),
+            ),
+        )
+        return {
+            "source": updated_source,
+            "job": updated_job,
+            "document": result.get("document"),
+        }
+
+    async def _execute_source_import(
+        self,
+        source: dict[str, Any],
+        body: ImportSourceBody,
+        *,
+        target_knowledge_base_id: str,
+        knowledge_service: Any,
+        identity: Any,
+        region: str,
+    ) -> dict[str, Any]:
+        source_type = source["source_type"]
+        if source_type in {"database", "oracle", "mysql", "postgres"}:
+            return {
+                "status": "needs_configuration",
+                "status_reason": "数据库来源已登记，等待凭据与 schema introspection。",
+                "next_action": "configure_credentials",
+                "source_metadata": {
+                    "connection_status": "needs_configuration",
+                    "schema_status": "waiting_introspection",
+                },
+            }
+        if source_type == "feishu_doc":
+            return {
+                "status": "needs_configuration",
+                "status_reason": "飞书连接器未在知识资产工作台中配置，需管理员启用 OAuth。",
+                "next_action": "configure_feishu",
+                "source_metadata": {"auth_status": "not_configured"},
+            }
+        if source_type == "schema_snapshot":
+            schema = _normalize_schema_payload(body.schema_payload)
+            if not schema["models"] and not schema["fields"]:
+                return {
+                    "status": "needs_configuration",
+                    "status_reason": "Schema Snapshot 需要表或字段定义。",
+                    "next_action": "provide_schema",
+                    "source_metadata": {"schema_status": "empty"},
+                }
+            content_hash = _content_hash(dumps_json(schema))
+            snapshot = await self.record_snapshot(
+                RecordSnapshotBody(
+                    source_id=source["id"],
+                    asset_type="semantic_model",
+                    asset_id=_slug(body.name),
+                    capability_kind="semantic_skill",
+                    name=f"{body.name} Schema Snapshot",
+                    description=body.description,
+                    status="ready",
+                    publish_state="draft",
+                    kind="schema_snapshot",
+                    schema=schema,
+                    content_hash=content_hash,
+                    metadata={"source_type": source_type},
+                )
+            )
+            return {
+                "status": "ready",
+                "status_reason": "Schema Snapshot 已登记，可用于生成语义 Skill。",
+                "next_action": "build_semantic_skill",
+                "document": {"id": snapshot["id"], "kind": "schema_snapshot"},
+                "source_metadata": {
+                    "schema_status": "ready",
+                    "schema_version": content_hash,
+                    "snapshot_id": snapshot["id"],
+                },
+            }
+        if not target_knowledge_base_id:
+            return {
+                "status": "needs_configuration",
+                "status_reason": "需要先配置目标 Viking 知识库。",
+                "next_action": "configure_viking",
+                "source_metadata": {"target_knowledge_base_id": ""},
+            }
+        if knowledge_service is None or identity is None:
+            return {
+                "status": "needs_configuration",
+                "status_reason": "Studio 知识库导入服务未接入，无法写入 Viking。",
+                "next_action": "configure_backend",
+                "source_metadata": {"target_knowledge_base_id": target_knowledge_base_id},
+            }
+        markdown, title, safe_url = await _source_markdown(body)
+        content_hash = _content_hash(markdown)
+        metadata = {
+            **redact_sensitive(body.metadata),
+            "space_id": source["space_id"],
+            "source_id": source["id"],
+            "source_type": source_type,
+            "content_hash": content_hash,
+            "captured_at": _utc_now(),
+            "_veadk_source_url": safe_url,
+            "_veadk_source_title": title,
+        }
+        try:
+            document = await _write_knowledge_document(
+                knowledge_service,
+                target_knowledge_base_id=target_knowledge_base_id,
+                identity=identity,
+                region=region,
+                source_type=source_type,
+                body=body,
+                title=title,
+                safe_url=safe_url,
+                markdown=markdown,
+                metadata=metadata,
+            )
+        except Exception as error:
+            raise KnowledgeAssetServiceError(
+                f"写入 Viking 知识库失败：{_sanitize_text(str(error))}"
+            ) from error
+        indexed = await self.record_indexed_document(
+            RecordIndexedDocumentBody(
+                source_id=source["id"],
+                content_hash=content_hash,
+                knowledge_base_id=target_knowledge_base_id,
+                provider_doc_id=str(document.get("id") or ""),
+                document_id=str(document.get("id") or ""),
+                title=title,
+                uri=safe_url,
+                status="indexed",
+                sync_status="indexed",
+                last_synced_at=_utc_now(),
+                metadata=metadata,
+            )
+        )
+        return {
+            "status": "indexed",
+            "status_reason": "内容已写入 Viking 并完成双写登记。",
+            "next_action": "create_retrieval_binding",
+            "document": {**indexed, "provider_result": redact_sensitive(document)},
+            "source_metadata": {
+                "target_knowledge_base_id": target_knowledge_base_id,
+                "content_hash": content_hash,
+                "last_synced_at": indexed["last_synced_at"],
+            },
+        }
 
     async def list_sources(self, *, space_id: str | None = None) -> list[dict[str, Any]]:
         rows = await asyncio.to_thread(self._repository.list_sources, space_id=space_id)
@@ -148,8 +422,9 @@ class KnowledgeAssetStore:
     async def update_source_status(
         self, source_id: str, body: UpdateSourceStatusBody
     ) -> dict[str, Any]:
+        status = _normalize_source_status(body.status, "", allow_pending=False)
         patch: dict[str, Any] = {
-            "status": body.status.strip(),
+            "status": status,
             "status_reason": _sanitize_text(body.status_reason or "") or None,
         }
         if body.metadata is not None:
@@ -362,7 +637,7 @@ class KnowledgeAssetStore:
             "asset_type": body.asset_type,
             "asset_id": _sanitize_text(body.asset_id or "") or None,
             "job_type": _sanitize_text(body.job_type),
-            "status": _sanitize_text(body.status),
+            "status": _normalize_build_job_status(body.status),
             "logs_ref": _sanitize_text(body.logs_ref or "") or None,
             "result_skill_id": _sanitize_text(body.result_skill_id or "") or None,
             "error_json": dumps_json(redact_sensitive(body.error))
@@ -379,7 +654,7 @@ class KnowledgeAssetStore:
         self, job_id: str, body: UpdateBuildJobBody
     ) -> dict[str, Any]:
         patch: dict[str, Any] = {
-            "status": _sanitize_text(body.status),
+            "status": _normalize_build_job_status(body.status),
             "logs_ref": _sanitize_text(body.logs_ref or "") or None,
             "result_skill_id": _sanitize_text(body.result_skill_id or "") or None,
             "error_json": dumps_json(redact_sensitive(body.error))
@@ -418,6 +693,38 @@ class KnowledgeAssetStore:
             await asyncio.to_thread(self._repository.get_build_job, job_id)
         )
 
+    async def overview(self, *, space_id: str | None = None) -> dict[str, Any]:
+        spaces = await self.list_spaces()
+        target_space_id = space_id or (spaces[0]["id"] if spaces else "")
+        sources = await self.list_sources(space_id=target_space_id or None)
+        packages = await self.list_skill_packages(space_id=target_space_id or None)
+        jobs = await self.list_build_jobs(space_id=target_space_id or None, limit=20)
+        source_counts: dict[str, int] = {}
+        for source in sources:
+            source_counts[source["status"]] = source_counts.get(source["status"], 0) + 1
+        capability_counts: dict[str, int] = {}
+        for item in packages["items"]:
+            kind = str(item.get("capability_kind") or "")
+            capability_counts[kind] = capability_counts.get(kind, 0) + 1
+        next_actions: list[dict[str, str]] = []
+        if not spaces:
+            next_actions.append({"kind": "space", "label": "创建资产空间"})
+        elif not sources:
+            next_actions.append({"kind": "source", "label": "添加数据源"})
+        if any(source["status"] in {"ready", "indexed"} for source in sources):
+            next_actions.append({"kind": "semantic_skill", "label": "生成语义 Skill"})
+        if any(source["status"] == "needs_configuration" for source in sources):
+            next_actions.append({"kind": "configuration", "label": "完成数据源配置"})
+        return {
+            "space_id": target_space_id,
+            "spaces": spaces,
+            "source_counts": source_counts,
+            "capability_counts": capability_counts,
+            "recent_jobs": jobs,
+            "next_actions": next_actions,
+            "mock": False,
+        }
+
 
 def redact_sensitive(value: Any, *, key: object = "", depth: int = 0) -> Any:
     if _is_sensitive_key(key):
@@ -436,7 +743,7 @@ def redact_sensitive(value: Any, *, key: object = "", depth: int = 0) -> Any:
                 depth=depth + 1,
             )
             for item_key, item_value in value.items()
-            if not str(item_key).startswith("_")
+            if not str(item_key).startswith("_") or str(item_key).startswith("_veadk_")
         }
     if isinstance(value, (list, tuple)):
         return [redact_sensitive(item, depth=depth + 1) for item in value]
@@ -568,6 +875,296 @@ def _metadata_envelope(row: dict[str, Any]) -> KnowledgeAssetMetadataEnvelope:
     }
 
 
+def _normalize_source_status(
+    status: str,
+    source_type: str,
+    *,
+    allow_pending: bool = True,
+) -> str:
+    candidate = (status or "").strip().casefold()
+    if candidate == "pending":
+        if not allow_pending:
+            raise KnowledgeAssetServiceError("数据源状态不能再写入 pending。")
+        return _initial_import_status(source_type, "")
+    if candidate in _SOURCE_STATUSES:
+        return candidate
+    raise KnowledgeAssetServiceError("数据源状态无效。")
+
+
+def _normalize_build_job_status(status: str) -> str:
+    candidate = (status or "").strip().casefold()
+    if candidate == "success":
+        return "succeeded"
+    if candidate in {"error", "errored"}:
+        return "failed"
+    if candidate in _BUILD_JOB_STATUSES:
+        return candidate
+    raise KnowledgeAssetServiceError("Build job 状态无效。")
+
+
+def _initial_import_status(source_type: str, target_knowledge_base_id: str) -> str:
+    normalized = source_type.strip().casefold()
+    if normalized in {"database", "oracle", "mysql", "postgres", "feishu_doc"}:
+        return "needs_configuration"
+    if normalized == "schema_snapshot":
+        return "registered"
+    return "importing" if target_knowledge_base_id else "needs_configuration"
+
+
+def _source_capabilities(source_type: str, schema: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = source_type.strip().casefold()
+    if normalized in _SCHEMA_SOURCE_TYPES:
+        return {
+            "can_build_semantic_skill": True,
+            "can_create_retrieval_binding": False,
+            "schema_fields": len(_normalize_schema_payload(schema)["fields"]),
+        }
+    return {
+        "can_build_semantic_skill": False,
+        "can_create_retrieval_binding": normalized not in {"database", "oracle", "mysql", "postgres"},
+    }
+
+
+async def _source_markdown(body: ImportSourceBody) -> tuple[str, str, str]:
+    source_type = body.source_type.strip().casefold()
+    if source_type in {"file", "pdf", "image"} and body.file:
+        file_info = _normalize_file_upload(body.file)
+        content = (body.content or "").strip()
+        if source_type == "file" and content:
+            _assert_no_browser_secrets(content)
+            return content, file_info["name"], f"upload://{file_info['name']}"
+        return (
+            f"Uploaded file: {file_info['name']}",
+            file_info["name"],
+            f"upload://{file_info['name']}",
+        )
+    if source_type == "web":
+        if not body.uri:
+            raise KnowledgeAssetServiceError("在线网页导入需要公开 URL。")
+        try:
+            from frontend.server.knowledge.web_import import import_web_page
+
+            imported = await import_web_page(body.uri)
+        except Exception as error:
+            raise KnowledgeAssetServiceError(
+                f"网页抓取失败：{_sanitize_text(str(error))}"
+            ) from error
+        markdown = imported.markdown.strip()
+        title = (body.name or imported.title or "网页资料").strip()
+        if not markdown:
+            raise KnowledgeAssetServiceError("网页没有可导入正文。")
+        return markdown, title[:256], imported.final_url
+    if source_type in {"local_web", "intranet_web", "file", "pdf", "image"}:
+        content = (body.content or "").strip()
+        if not content:
+            if source_type in {"file", "pdf", "image"}:
+                raise KnowledgeAssetServiceError("文件导入需要上传内容或接入文件上传链路。")
+            raise KnowledgeAssetServiceError("本地/内网页面导入需要粘贴已清洗内容。")
+        _assert_no_browser_secrets(content)
+        title = (body.name or "本地资料").strip()
+        safe_url = _sanitize_text(body.uri or f"local://{_slug(title)}")
+        return content, title[:256], safe_url
+    raise KnowledgeAssetServiceError(f"暂不支持导入的数据源类型：{source_type}")
+
+
+async def _write_knowledge_document(
+    knowledge_service: Any,
+    *,
+    target_knowledge_base_id: str,
+    identity: Any,
+    region: str,
+    source_type: str,
+    body: ImportSourceBody,
+    title: str,
+    safe_url: str,
+    markdown: str,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    file_info = _normalize_file_upload(body.file) if body.file else None
+    if source_type in {"file", "pdf", "image"} and file_info is not None:
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=Path(file_info["name"]).suffix,
+            ) as temp:
+                temp_path = Path(temp.name)
+                temp.write(file_info["bytes"])
+            return await asyncio.to_thread(
+                knowledge_service.upload_document,
+                target_knowledge_base_id,
+                identity=identity,
+                region=region,
+                source=temp_path,
+                file_name=file_info["name"],
+                mime_type=file_info["mime_type"],
+                name=title,
+                document_type=file_info["document_type"],
+                metadata={
+                    **metadata,
+                    "_veadk_upload_file_name": file_info["name"],
+                    "_veadk_upload_mime_type": file_info["mime_type"],
+                },
+            )
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+
+    from frontend.server.knowledge.models import CreateDocumentBody
+
+    return await asyncio.to_thread(
+        knowledge_service.create_document,
+        target_knowledge_base_id,
+        CreateDocumentBody(
+            source_type="url",
+            name=title,
+            document_type="html" if source_type == "web" else "txt",
+            url=safe_url,
+            source_title=title,
+            source_markdown=markdown,
+            metadata=metadata,
+        ),
+        identity=identity,
+        region=region,
+    )
+
+
+def _normalize_file_upload(value: Mapping[str, Any]) -> dict[str, Any]:
+    name = _sanitize_file_name(value.get("name"))
+    mime_type = _sanitize_text(str(value.get("mime_type") or value.get("type") or ""))
+    data = str(value.get("data") or "")
+    if "," in data and data.lstrip().startswith("data:"):
+        data = data.split(",", 1)[1]
+    if not data:
+        raise KnowledgeAssetServiceError("文件上传缺少内容。")
+    try:
+        decoded = base64.b64decode(data, validate=True)
+    except (binascii.Error, ValueError) as error:
+        raise KnowledgeAssetServiceError("文件上传内容不是有效的 base64。") from error
+    if not decoded:
+        raise KnowledgeAssetServiceError("不能上传空文件。")
+    if len(decoded) > 8 * 1024 * 1024:
+        raise KnowledgeAssetServiceError("知识资产工作台一次导入文件不能超过 8 MB。")
+    suffix = Path(name).suffix.casefold().lstrip(".")
+    document_type = _sanitize_text(str(value.get("document_type") or suffix or "txt"))
+    return {
+        "name": name,
+        "mime_type": mime_type or "application/octet-stream",
+        "document_type": document_type[:64],
+        "bytes": decoded,
+    }
+
+
+def _sanitize_file_name(value: object) -> str:
+    candidate = str(value or "").strip()
+    if (
+        not candidate
+        or len(candidate) > 255
+        or candidate in {".", ".."}
+        or "/" in candidate
+        or "\\" in candidate
+        or "\x00" in candidate
+        or any(ord(char) < 32 for char in candidate)
+    ):
+        raise KnowledgeAssetServiceError("文件名无效，请重新选择文件。")
+    return candidate
+
+
+def _assert_no_browser_secrets(text: str) -> None:
+    patterns = [
+        r"(?i)\bauthorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]+",
+        r"(?i)\b(?:set-)?cookie\s*:\s*[^\r\n]+",
+        r"(?i)\b(?:access|refresh|session)[_-]?token\s*[:=]\s*[A-Za-z0-9._~+/=-]+",
+        r"(?i)\bapi[_-]?key\s*[:=]\s*[A-Za-z0-9._~+/=-]+",
+        r"(?i)\b[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\b",
+    ]
+    if any(re.search(pattern, text) for pattern in patterns):
+        raise KnowledgeAssetServiceError(
+            "提交内容包含浏览器凭据或登录态信息，请移除 cookie、Authorization header 或 token 后重试。"
+        )
+
+
+def _normalize_schema_payload(value: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    models = _object_list(value.get("models") or value.get("tables"))
+    fields = _object_list(value.get("fields") or value.get("columns"))
+    relationships = _object_list(value.get("relationships") or value.get("relations"))
+    metrics = _object_list(value.get("metrics"))
+    normalized_models = [
+        {
+            "name": _safe_identifier(item.get("name") or item.get("table") or item.get("id")),
+            "label": _sanitize_text(str(item.get("label") or item.get("name") or "")),
+            "description": _sanitize_text(str(item.get("description") or "")),
+        }
+        for item in models
+        if _safe_identifier(item.get("name") or item.get("table") or item.get("id"))
+    ]
+    normalized_fields = []
+    for item in fields:
+        name = _safe_identifier(item.get("name") or item.get("field") or item.get("id"))
+        if not name:
+            continue
+        normalized_fields.append(
+            {
+                "name": name,
+                "model": _safe_identifier(item.get("model") or item.get("table")) or "",
+                "type": _sanitize_text(str(item.get("type") or item.get("data_type") or "string")),
+                "role": _sanitize_text(str(item.get("role") or "dimension")),
+                "description": _sanitize_text(str(item.get("description") or "")),
+            }
+        )
+    return {
+        "models": normalized_models,
+        "fields": normalized_fields,
+        "relationships": [
+            {
+                "from": _sanitize_text(str(item.get("from") or item.get("left") or "")),
+                "to": _sanitize_text(str(item.get("to") or item.get("right") or "")),
+                "type": _sanitize_text(str(item.get("type") or "many_to_one")),
+            }
+            for item in relationships
+        ],
+        "metrics": [
+            {
+                "name": _safe_identifier(item.get("name") or item.get("id")),
+                "formula": _sanitize_text(str(item.get("formula") or item.get("sql") or "")),
+                "description": _sanitize_text(str(item.get("description") or "")),
+            }
+            for item in metrics
+            if _safe_identifier(item.get("name") or item.get("id"))
+        ],
+    }
+
+
+def _object_list(value: Any) -> list[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, Mapping)]
+
+
+def _safe_identifier(value: object) -> str:
+    text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9_]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    if not text:
+        return ""
+    if not re.match(r"^[a-z_]", text):
+        text = f"f_{text}"
+    return text[:80]
+
+
+def _slug(value: str | None) -> str:
+    text = _safe_identifier(value or "")
+    return text.replace("_", "-") or f"asset-{hashlib.sha256(_utc_now().encode()).hexdigest()[:8]}"
+
+
+def _content_hash(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _asset_row(record_id: str, values: dict[str, Any]) -> dict[str, Any]:
     sanitized = redact_sensitive(values)
     return {
@@ -637,9 +1234,16 @@ def _safe_query_url(value: str | None) -> str | None:
         raise KnowledgeAssetServiceError(
             "Knowledge asset query URL must be a relative Studio path."
         )
-    if not query_url.startswith(("/api/", "/web/")):
+    allowed_prefixes = (
+        "/api/external/assets/",
+        "/api/knowledge-assets/assets/",
+        "/api/knowledge-assets/skill-packages/",
+        "/api/knowledge-assets/query/",
+        "/api/knowledge-assets/ask-data/",
+    )
+    if not query_url.startswith(allowed_prefixes):
         raise KnowledgeAssetServiceError(
-            "Knowledge asset query URL must use an /api/ or /web/ path."
+            "Knowledge asset query URL must target governed AgentKit query paths."
         )
     for key, query_value in parse_qsl(parsed.query, keep_blank_values=True):
         if _is_sensitive_key(key) or _sanitize_text(query_value) != query_value:

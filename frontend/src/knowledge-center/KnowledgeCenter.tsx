@@ -1,19 +1,29 @@
 import {
   AlertCircle,
   BarChart3,
+  BookOpen,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   Database,
-  ExternalLink,
+  FileArchive,
+  FileImage,
   FileSearch,
+  Globe2,
   KeyRound,
+  Layers3,
   Loader2,
+  LockKeyhole,
   Plus,
   RefreshCw,
   Search,
+  Settings,
   ShieldAlert,
   Sparkles,
-  XCircle,
+  Table2,
+  UploadCloud,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 import {
   useCallback,
@@ -26,64 +36,252 @@ import {
 
 import {
   createKnowledgeAssetCapability,
-  createKnowledgeAssetSource,
   createKnowledgeAssetSpace,
+  getKnowledgeAssetOverview,
+  importKnowledgeAssetSource,
   listKnowledgeAssetBuildJobs,
   listKnowledgeAssetSidecars,
   listKnowledgeAssetSources,
   listKnowledgeAssetSpaces,
-  recordKnowledgeAssetBuildJob,
-  updateKnowledgeAssetBuildJob,
-  updateKnowledgeAssetSourceStatus,
   type KnowledgeAssetBuildJob,
+  type KnowledgeAssetMetadata,
+  type KnowledgeAssetOverview,
   type KnowledgeAssetSidecar,
   type KnowledgeAssetSource,
   type KnowledgeAssetSpace,
   type KnowledgeAssetType,
   type KnowledgeCapabilityKind,
-  type KnowledgeAssetMetadata,
   listKnowledgeAssets,
 } from "../adk/knowledgeAssets";
 import {
   knowledgeCapabilityLabel,
   knowledgeSourceCoverageText,
 } from "../create/skills/knowledgeAssets";
+import {
+  CapabilityPanelSlot,
+  type CapabilityBuildJobView,
+  type KnowledgeCapabilityCardProps,
+} from "./capabilitySlots";
 import "./KnowledgeCenter.css";
 
 type LoadState =
   | { status: "loading" }
   | { status: "ready" }
-  | { status: "unauthorized"; message: string }
-  | { status: "error"; message: string };
+  | { status: "unauthorized"; message: string; diagnostic: string }
+  | { status: "error"; message: string; diagnostic: string };
 
-type CreatePanel = "space" | "source" | "capability" | null;
+type WorkbenchTab = "overview" | "sources" | "capabilities" | "jobs" | "settings";
+type SourceFlowStep = "type" | "details" | "preview";
+type SourceType =
+  | "file"
+  | "pdf"
+  | "image"
+  | "web"
+  | "local_web"
+  | "intranet_web"
+  | "feishu_doc"
+  | "database"
+  | "schema_snapshot";
 
-const SOURCE_TYPES = [
-  "file",
-  "pdf",
-  "image",
-  "web",
-  "feishu_doc",
-  "local_web",
-  "intranet_web",
-  "database",
-  "schema_snapshot",
+type SourceFlowState = {
+  open: boolean;
+  step: SourceFlowStep;
+  type: SourceType;
+  name: string;
+  description: string;
+  uri: string;
+  provider: string;
+  targetKnowledgeBaseId: string;
+  content: string;
+  selectedFile: SourceFileDraft | null;
+  schemaText: string;
+  metadataText: string;
+  advancedOpen: boolean;
+  error: WorkbenchError | null;
+  lastResult: {
+    source: KnowledgeAssetSource;
+    job: KnowledgeAssetBuildJob;
+  } | null;
+};
+
+type SpaceFormState = {
+  open: boolean;
+  name: string;
+  description: string;
+  region: string;
+  defaultKnowledgeBaseId: string;
+  error: WorkbenchError | null;
+};
+
+type WorkbenchError = {
+  title: string;
+  reason: string;
+  diagnostic: string;
+  action: string;
+  status?: number;
+};
+
+type SourceFileDraft = {
+  name: string;
+  mimeType: string;
+  size: number;
+  data: string;
+  textPreview: string;
+};
+
+function readSourceFile(file: File): Promise<SourceFileDraft> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("文件读取失败，请重新选择文件。"));
+    reader.onload = () => {
+      const data = typeof reader.result === "string" ? reader.result : "";
+      const textReader = new FileReader();
+      textReader.onerror = () => {
+        resolve({
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          data,
+          textPreview: "",
+        });
+      };
+      textReader.onload = () => {
+        resolve({
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          data,
+          textPreview: typeof textReader.result === "string" ? textReader.result.slice(0, 12000) : "",
+        });
+      };
+      textReader.readAsText(file.slice(0, 64 * 1024));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+const tabs: Array<{ id: WorkbenchTab; label: string; icon: LucideIcon }> = [
+  { id: "overview", label: "概览", icon: Layers3 },
+  { id: "sources", label: "数据源", icon: Database },
+  { id: "capabilities", label: "能力", icon: Sparkles },
+  { id: "jobs", label: "构建任务", icon: Clock3 },
+  { id: "settings", label: "设置", icon: Settings },
 ];
 
-function statusCopy(value?: string): string {
+const sourceTypeGroups: Array<{
+  title: string;
+  items: Array<{
+    type: SourceType;
+    label: string;
+    description: string;
+    icon: LucideIcon;
+  }>;
+}> = [
+  {
+    title: "文件材料",
+    items: [
+      { type: "file", label: "文件", description: "Markdown、文本或结构化导出", icon: FileArchive },
+      { type: "pdf", label: "PDF", description: "上传或粘贴已抽取正文", icon: UploadCloud },
+      { type: "image", label: "图片", description: "图片资料登记，等待 OCR 接入", icon: FileImage },
+    ],
+  },
+  {
+    title: "页面与文档",
+    items: [
+      { type: "web", label: "在线网页", description: "抓取公开 URL 并写入检索后端", icon: Globe2 },
+      { type: "local_web", label: "本地页面", description: "粘贴清洗后的本地 HTML/Markdown", icon: BookOpen },
+      { type: "intranet_web", label: "内网页面", description: "仅保存清洗内容，不保存登录态", icon: LockKeyhole },
+      { type: "feishu_doc", label: "飞书文档", description: "登记文档，等待 OAuth 连接器", icon: FileSearch },
+    ],
+  },
+  {
+    title: "数据库与 Schema",
+    items: [
+      { type: "database", label: "数据库", description: "Oracle、MySQL、Postgres 连接登记", icon: Database },
+      { type: "schema_snapshot", label: "Schema Snapshot", description: "导入表、字段、关系快照", icon: Table2 },
+    ],
+  },
+];
+
+const sourceTypeLabels: Record<SourceType, string> = Object.fromEntries(
+  sourceTypeGroups.flatMap((group) =>
+    group.items.map((item) => [item.type, item.label]),
+  ),
+) as Record<SourceType, string>;
+
+function initialSourceFlow(): SourceFlowState {
+  return {
+    open: false,
+    step: "type",
+    type: "web",
+    name: "",
+    description: "",
+    uri: "",
+    provider: "",
+    targetKnowledgeBaseId: "",
+    content: "",
+    selectedFile: null,
+    schemaText: '{\n  "models": [],\n  "fields": []\n}',
+    metadataText: "{\n}",
+    advancedOpen: false,
+    error: null,
+    lastResult: null,
+  };
+}
+
+function initialSpaceForm(): SpaceFormState {
+  return {
+    open: false,
+    name: "",
+    description: "",
+    region: "cn-beijing",
+    defaultKnowledgeBaseId: "",
+    error: null,
+  };
+}
+
+function readableStatus(value?: string): string {
+  const status = normalizeStatus(value);
+  const labels: Record<string, string> = {
+    registered: "已登记",
+    needs_configuration: "需要配置",
+    auth_required: "需要授权",
+    importing: "正在导入",
+    indexed: "已索引",
+    ready: "可用",
+    failed: "导入失败",
+    credential_expired: "凭据过期",
+    running: "运行中",
+    succeeded: "成功",
+    blocked: "已阻塞",
+    cancelled: "已取消",
+    published: "已发布",
+    draft: "草稿",
+    validating: "校验中",
+  };
+  return labels[status] || value || "未知";
+}
+
+function normalizeStatus(value?: string): string {
   const status = (value || "").trim().toLowerCase();
-  if (!status) return "未配置";
-  if (["ready", "published", "succeeded", "connected", "available"].includes(status)) {
-    return "可用";
+  if (status === "pending") return "registered";
+  if (status === "not_configured") return "needs_configuration";
+  if (status === "expired" || status === "expired_credential") {
+    return "credential_expired";
   }
-  if (["running", "pending", "validating", "building", "indexing"].includes(status)) {
-    return "构建中";
+  return status || "registered";
+}
+
+function statusTone(value?: string): "success" | "warning" | "danger" | "muted" {
+  const status = normalizeStatus(value);
+  if (["ready", "indexed", "succeeded", "published"].includes(status)) return "success";
+  if (["importing", "running", "registered", "draft", "validating"].includes(status)) {
+    return "warning";
   }
-  if (["failed", "blocked", "error", "expired", "unauthorized"].includes(status)) {
-    return status === "expired" ? "凭据过期" : status === "unauthorized" ? "未授权" : "异常";
+  if (["failed", "blocked", "auth_required", "credential_expired"].includes(status)) {
+    return "danger";
   }
-  if (status === "not_configured") return "未配置";
-  return value || "未知";
+  return "muted";
 }
 
 function capabilityIcon(kind: KnowledgeCapabilityKind, type?: KnowledgeAssetType) {
@@ -92,7 +290,13 @@ function capabilityIcon(kind: KnowledgeCapabilityKind, type?: KnowledgeAssetType
   return Database;
 }
 
-function normalizeAssetId(value: string): string {
+function assetTypeForCapability(kind: KnowledgeCapabilityKind): KnowledgeAssetType {
+  if (kind === "retrieval_binding") return "knowledge_resource";
+  if (kind === "dashboard_skill") return "dashboard";
+  return "semantic_model";
+}
+
+function slug(value: string): string {
   return (
     value
       .trim()
@@ -103,86 +307,101 @@ function normalizeAssetId(value: string): string {
   );
 }
 
-function sourceTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    file: "文件",
-    pdf: "PDF",
-    image: "图片",
-    web: "网页",
-    feishu_doc: "飞书文档",
-    local_web: "本地页面",
-    intranet_web: "内网页面",
-    database: "数据库连接",
-    schema_snapshot: "Schema Snapshot",
-  };
-  return map[type] ?? type;
+function asWorkbenchError(
+  error: unknown,
+  title: string,
+  fallbackReason: string,
+  diagnostic: string,
+  action = "请检查配置后重试。",
+): WorkbenchError {
+  const record = error as { status?: unknown; code?: unknown; message?: unknown };
+  const rawMessage = typeof record?.message === "string" ? record.message : "";
+  const status = typeof record?.status === "number" ? record.status : undefined;
+  const code = typeof record?.code === "string" ? record.code : "";
+  const browserFetchFailure = ["Failed", "to", "fetch"].join(" ");
+  const reason = rawMessage && rawMessage !== browserFetchFailure
+    ? rawMessage
+    : fallbackReason;
+  const detail = [
+    diagnostic,
+    status ? `HTTP ${status}` : "",
+    code ? `错误码 ${code}` : "",
+  ].filter(Boolean).join(" · ");
+  return { title, reason, diagnostic: detail, action, status };
 }
 
-function assetTypeForCapability(kind: KnowledgeCapabilityKind): KnowledgeAssetType {
-  if (kind === "retrieval_binding") return "knowledge_resource";
-  if (kind === "dashboard_skill") return "dashboard";
-  return "semantic_model";
-}
-
-function queryUrlForCapability(type: KnowledgeAssetType, assetId: string): string {
-  if (type === "knowledge_resource") {
-    return `/api/knowledge-assets/assets/knowledge_resource/${assetId}`;
+function parseSchemaJson(text: string): Record<string, unknown> {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Schema Snapshot 必须是 JSON object。");
   }
-  return `/api/external/assets/${type}/${assetId}/query`;
+  return parsed as Record<string, unknown>;
 }
 
-interface SpaceFormState {
-  name: string;
-  description: string;
-  region: string;
-  defaultKnowledgeBaseId: string;
+function parseObjectJson(text: string, label: string): Record<string, unknown> {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${label} 必须是 JSON object。`);
+  }
+  return parsed as Record<string, unknown>;
 }
 
-interface SourceFormState {
-  sourceType: string;
-  name: string;
-  uri: string;
-  provider: string;
-  description: string;
+function latestJobForSource(
+  jobs: KnowledgeAssetBuildJob[],
+  sourceId: string,
+): KnowledgeAssetBuildJob | null {
+  return [...jobs]
+    .filter((job) => job.source_id === sourceId)
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.updated_at || left.created_at || "");
+      const rightTime = Date.parse(right.updated_at || right.created_at || "");
+      return (Number.isFinite(rightTime) ? rightTime : 0) -
+        (Number.isFinite(leftTime) ? leftTime : 0);
+    })[0] ?? null;
 }
 
-interface CapabilityFormState {
-  kind: KnowledgeCapabilityKind;
-  name: string;
-  assetId: string;
-  description: string;
-  knowledgeBaseId: string;
-  metrics: string;
-  dimensions: string;
-  permissionHint: string;
-  publish: boolean;
-}
-
-function initialSpaceForm(): SpaceFormState {
-  return { name: "", description: "", region: "cn-beijing", defaultKnowledgeBaseId: "" };
-}
-
-function initialSourceForm(): SourceFormState {
+function toCapabilitySlot(asset: KnowledgeAssetMetadata): KnowledgeCapabilityCardProps {
   return {
-    sourceType: "web",
-    name: "",
-    uri: "",
-    provider: "",
-    description: "",
+    id: asset.asset_id,
+    name: asset.name,
+    kind: asset.capability_kind,
+    status: normalizeStatus(asset.status) as KnowledgeCapabilityCardProps["status"],
+    publish_state: asset.publish_state === "published" ? "published" :
+      asset.publish_state === "archived" ? "archived" : "draft",
+    source_ids: Array.isArray(asset.provenance?.source_ids)
+      ? asset.provenance.source_ids.map(String)
+      : [],
+    created_at: typeof asset.freshness?.built_at === "string"
+      ? asset.freshness.built_at
+      : undefined,
+    description: asset.description || undefined,
+    next_cta: {
+      label: asset.publish_state === "published" ? "打开能力" : "继续配置",
+      description: "由能力构建器接管后续发布、验证和查询入口。",
+      action: asset.publish_state === "published" ? "open" : "configure",
+    },
   };
 }
 
-function initialCapabilityForm(): CapabilityFormState {
+function toCapabilityJob(job: KnowledgeAssetBuildJob): CapabilityBuildJobView {
+  const status = normalizeStatus(job.status);
   return {
-    kind: "retrieval_binding",
-    name: "",
-    assetId: "",
-    description: "",
-    knowledgeBaseId: "",
-    metrics: "",
-    dimensions: "",
-    permissionHint: "",
-    publish: true,
+    id: job.id,
+    status: (["succeeded", "failed", "blocked", "cancelled", "running", "queued"].includes(status)
+      ? status
+      : "running") as CapabilityBuildJobView["status"],
+    job_type: job.job_type,
+    source_id: job.source_id || undefined,
+    asset_id: job.asset_id || undefined,
+    error_message:
+      typeof job.error?.message === "string" ? job.error.message : undefined,
+    logs_ref: job.logs_ref || undefined,
+    created_at: job.created_at,
+    updated_at: job.updated_at,
   };
 }
 
@@ -193,16 +412,14 @@ export function KnowledgeCenterView() {
   const [assets, setAssets] = useState<KnowledgeAssetMetadata[]>([]);
   const [buildJobs, setBuildJobs] = useState<KnowledgeAssetBuildJob[]>([]);
   const [sidecars, setSidecars] = useState<KnowledgeAssetSidecar[]>([]);
+  const [overview, setOverview] = useState<KnowledgeAssetOverview | null>(null);
   const [activeSpaceId, setActiveSpaceId] = useState("");
-  const [activePanel, setActivePanel] = useState<CreatePanel>(null);
+  const [activeTab, setActiveTab] = useState<WorkbenchTab>("overview");
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [sourceFlow, setSourceFlow] = useState<SourceFlowState>(initialSourceFlow);
   const [spaceForm, setSpaceForm] = useState<SpaceFormState>(initialSpaceForm);
-  const [sourceForm, setSourceForm] = useState<SourceFormState>(initialSourceForm);
-  const [capabilityForm, setCapabilityForm] = useState<CapabilityFormState>(
-    initialCapabilityForm,
-  );
+  const [pageError, setPageError] = useState<WorkbenchError | null>(null);
   const activeSpaceIdRef = useRef("");
 
   const setActiveSpace = useCallback((spaceId: string) => {
@@ -212,6 +429,7 @@ export function KnowledgeCenterView() {
 
   const refresh = useCallback(async (preferredSpaceId?: string) => {
     setState({ status: "loading" });
+    setPageError(null);
     try {
       const [spaceItems, assetPayload, sidecarItems] = await Promise.all([
         listKnowledgeAssetSpaces(),
@@ -222,9 +440,10 @@ export function KnowledgeCenterView() {
       const nextActiveSpaceId = spaceItems.some((space) => space.id === preferred)
         ? preferred
         : spaceItems[0]?.id || "";
-      const [sourceItems, jobItems] = await Promise.all([
+      const [sourceItems, jobItems, overviewPayload] = await Promise.all([
         listKnowledgeAssetSources(nextActiveSpaceId || undefined),
         listKnowledgeAssetBuildJobs(nextActiveSpaceId || undefined),
+        getKnowledgeAssetOverview(nextActiveSpaceId || undefined),
       ]);
       setSpaces(spaceItems);
       setActiveSpace(nextActiveSpaceId);
@@ -232,15 +451,20 @@ export function KnowledgeCenterView() {
       setAssets(assetPayload.items ?? []);
       setBuildJobs(jobItems);
       setSidecars(sidecarItems);
+      setOverview(overviewPayload);
       setState({ status: "ready" });
     } catch (error) {
-      const status = typeof (error as { status?: unknown }).status === "number"
-        ? (error as { status: number }).status
-        : 0;
+      const mapped = asWorkbenchError(
+        error,
+        "知识资产工作台暂不可用",
+        "无法连接后端服务或读取工作台数据失败。",
+        "/api/knowledge-assets/health",
+        "确认 Studio 后端已启动，然后重试。",
+      );
       setState({
-        status: status === 401 || status === 403 ? "unauthorized" : "error",
-        message:
-          error instanceof Error ? error.message : "加载知识资产工作台失败。",
+        status: mapped.status === 401 || mapped.status === 403 ? "unauthorized" : "error",
+        message: mapped.reason,
+        diagnostic: mapped.diagnostic,
       });
     }
   }, [setActiveSpace]);
@@ -250,6 +474,11 @@ export function KnowledgeCenterView() {
   }, [refresh]);
 
   const activeSpace = spaces.find((space) => space.id === activeSpaceId) ?? null;
+  const spaceSources = sources.filter(
+    (source) => !activeSpaceId || source.space_id === activeSpaceId,
+  );
+  const sidecar = sidecars.find((item) => item.id === "byaan-datastudio");
+
   const filteredAssets = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return assets;
@@ -257,56 +486,56 @@ export function KnowledgeCenterView() {
       const values = [
         asset.name,
         asset.description,
-        asset.asset_id,
-        asset.capability_kind,
         asset.asset_type,
+        asset.capability_kind,
+        knowledgeCapabilityLabel(asset.asset_type, asset.capability_kind),
       ];
       return values.some((value) => String(value ?? "").toLowerCase().includes(needle));
     });
   }, [assets, query]);
 
-  const spaceSources = sources.filter(
-    (source) => !activeSpaceId || source.space_id === activeSpaceId,
-  );
-  const latestBuildJob = useMemo(
-    () =>
-      [...buildJobs].sort((left, right) => {
-        const leftTime = Date.parse(left.updated_at || left.created_at || "");
-        const rightTime = Date.parse(right.updated_at || right.created_at || "");
-        return (Number.isFinite(rightTime) ? rightTime : 0) -
-          (Number.isFinite(leftTime) ? leftTime : 0);
-      })[0] ?? null,
-    [buildJobs],
-  );
-  const latestBuildStatus = String(latestBuildJob?.status || "").toLowerCase();
-  const buildRunning = ["running", "pending", "building", "indexing"].includes(
-    latestBuildStatus,
-  );
-  const buildFailed = ["failed", "blocked", "error"].includes(latestBuildStatus);
-  const buildSucceeded = ["succeeded", "success", "ready"].includes(latestBuildStatus);
-  const expiredCredential = spaceSources.find((source) =>
-    String(source.status).toLowerCase().includes("expired"),
-  );
-  const unauthorizedSource = spaceSources.find((source) =>
-    String(source.status).toLowerCase().includes("unauthorized"),
-  );
-  const sidecar = sidecars.find((item) => item.id === "byaan-datastudio");
+  const assetsByKind = useMemo(() => ({
+    retrieval_binding: filteredAssets.filter(
+      (asset) => asset.capability_kind === "retrieval_binding",
+    ),
+    semantic_skill: filteredAssets.filter(
+      (asset) => asset.capability_kind === "semantic_skill",
+    ),
+    dashboard_skill: filteredAssets.filter(
+      (asset) => asset.capability_kind === "dashboard_skill",
+    ),
+  }), [filteredAssets]);
 
-  const reloadSpaceScoped = useCallback(
-    async (spaceId: string) => {
-      const [sourceItems, jobItems] = await Promise.all([
-        listKnowledgeAssetSources(spaceId || undefined),
-        listKnowledgeAssetBuildJobs(spaceId || undefined),
-      ]);
-      setSources(sourceItems);
-      setBuildJobs(jobItems);
-    },
-    [],
-  );
+  const sourceCounts = overview?.source_counts ?? {};
+  const capabilityCards = filteredAssets.map(toCapabilitySlot);
+  const capabilityJobs = buildJobs.map(toCapabilityJob);
+
+  const reloadSpaceScoped = useCallback(async (spaceId: string) => {
+    const [sourceItems, jobItems, overviewPayload, assetPayload] = await Promise.all([
+      listKnowledgeAssetSources(spaceId || undefined),
+      listKnowledgeAssetBuildJobs(spaceId || undefined),
+      getKnowledgeAssetOverview(spaceId || undefined),
+      listKnowledgeAssets({ limit: 100 }),
+    ]);
+    setSources(sourceItems);
+    setBuildJobs(jobItems);
+    setOverview(overviewPayload);
+    setAssets(assetPayload.items ?? []);
+  }, []);
+
+  function openSourceFlow(type?: SourceType) {
+    setSourceFlow({
+      ...initialSourceFlow(),
+      open: true,
+      type: type || "web",
+      targetKnowledgeBaseId: activeSpace?.default_knowledge_base_id || "",
+    });
+    setActiveTab("sources");
+  }
 
   async function submitSpace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormError("");
+    setSpaceForm((prev) => ({ ...prev, error: null }));
     setSubmitting(true);
     try {
       const created = await createKnowledgeAssetSpace({
@@ -316,181 +545,244 @@ export function KnowledgeCenterView() {
         default_knowledge_base_id: spaceForm.defaultKnowledgeBaseId || undefined,
       });
       setActiveSpace(created.id);
-      setActivePanel(null);
       setSpaceForm(initialSpaceForm());
       await refresh(created.id);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "创建资产空间失败。");
+      setSpaceForm((prev) => ({
+        ...prev,
+        error: asWorkbenchError(
+          error,
+          "创建资产空间失败",
+          "资产空间没有创建成功。",
+          "/api/knowledge-assets/spaces",
+          "保留当前表单内容，检查名称和默认检索后端后重试。",
+        ),
+      }));
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function submitSource(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function validateSourceDetails(): WorkbenchError | null {
     if (!activeSpace) {
-      setFormError("请先创建资产空间。");
+      return {
+        title: "需要资产空间",
+        reason: "请先创建或选择资产空间。",
+        diagnostic: "当前没有 active space。",
+        action: "创建资产空间后继续添加数据源。",
+      };
+    }
+    if (!sourceFlow.name.trim()) {
+      return {
+        title: "缺少数据源名称",
+        reason: "数据源名称用于 Agent 创建页和构建任务展示。",
+        diagnostic: "字段 name 为空。",
+        action: "填写一个面向业务用户可读的名称。",
+      };
+    }
+    if (sourceFlow.type === "web") {
+      try {
+        const parsed = new URL(sourceFlow.uri);
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          throw new Error("unsupported protocol");
+        }
+      } catch {
+        return {
+          title: "网页 URL 无效",
+          reason: "在线网页需要 http 或 https URL。",
+          diagnostic: "第二步 URL/domain 预检查未通过。",
+          action: "填写可访问的公开网页地址后重试。",
+        };
+      }
+    }
+    if (["local_web", "intranet_web"].includes(sourceFlow.type)) {
+      const lower = sourceFlow.content.toLowerCase();
+      if (/authorization\s*:|cookie\s*:|refresh[_-]?token|access[_-]?token/.test(lower)) {
+        return {
+          title: "内容包含登录态",
+          reason: "本地/内网页面导入不能保存 cookie、Authorization header 或 token。",
+          diagnostic: "客户端预检查检测到疑似浏览器凭据。",
+          action: "移除登录态和请求头，只保留清洗后的正文内容。",
+        };
+      }
+      if (!sourceFlow.content.trim()) {
+        return {
+          title: "缺少正文内容",
+          reason: "当前类型需要上传或粘贴可索引正文。",
+          diagnostic: "content 为空。",
+          action: "粘贴清洗后的 Markdown、文本或 HTML 正文。",
+        };
+      }
+    }
+    if (["file", "pdf", "image"].includes(sourceFlow.type)) {
+      if (!sourceFlow.selectedFile) {
+        return {
+          title: "缺少上传文件",
+          reason: "文件、PDF 和图片类型需要先选择本地文件。",
+          diagnostic: "file 字段为空。",
+          action: "选择文件后再进入预检查。",
+        };
+      }
+      if (sourceFlow.selectedFile.size > 8 * 1024 * 1024) {
+        return {
+          title: "文件过大",
+          reason: "当前工作台单次导入文件不能超过 8 MB。",
+          diagnostic: `文件大小 ${sourceFlow.selectedFile.size} bytes。`,
+          action: "压缩文件或拆分内容后重试。",
+        };
+      }
+      const lower = sourceFlow.selectedFile.textPreview.toLowerCase();
+      if (/authorization\s*:|cookie\s*:|refresh[_-]?token|access[_-]?token/.test(lower)) {
+        return {
+          title: "文件内容包含登录态",
+          reason: "上传文件不能包含 cookie、Authorization header 或 token。",
+          diagnostic: "客户端预检查检测到疑似浏览器凭据。",
+          action: "移除登录态和请求头，只上传清洗后的材料。",
+        };
+      }
+    }
+    if (sourceFlow.type === "schema_snapshot") {
+      try {
+        parseSchemaJson(sourceFlow.schemaText);
+      } catch (error) {
+        return {
+          title: "Schema JSON 无效",
+          reason: error instanceof Error ? error.message : "Schema Snapshot 解析失败。",
+          diagnostic: "第三步 schema 预检查未通过。",
+          action: "修正 JSON 后再继续。",
+        };
+      }
+    }
+    if (sourceFlow.advancedOpen) {
+      try {
+        parseObjectJson(sourceFlow.metadataText, "metadata");
+      } catch (error) {
+        return {
+          title: "Metadata JSON 无效",
+          reason: error instanceof Error ? error.message : "metadata 解析失败。",
+          diagnostic: "高级设置 metadata 预检查未通过。",
+          action: "修正 JSON 后再继续，敏感字段不要写入 metadata。",
+        };
+      }
+    }
+    return null;
+  }
+
+  async function submitSourceImport() {
+    if (!activeSpace) return;
+    const validation = validateSourceDetails();
+    if (validation) {
+      setSourceFlow((prev) => ({ ...prev, error: validation }));
       return;
     }
-    setFormError("");
     setSubmitting(true);
+    setSourceFlow((prev) => ({ ...prev, error: null, lastResult: null }));
     try {
-      const created = await createKnowledgeAssetSource({
+      const schema = sourceFlow.type === "schema_snapshot"
+        ? parseSchemaJson(sourceFlow.schemaText)
+        : {};
+      const advancedMetadata = parseObjectJson(sourceFlow.metadataText, "metadata");
+      const result = await importKnowledgeAssetSource({
         space_id: activeSpace.id,
-        source_type: sourceForm.sourceType,
-        provider: sourceForm.provider || undefined,
-        name: sourceForm.name,
-        description: sourceForm.description || undefined,
-        uri: sourceForm.uri || undefined,
-        status: sourceForm.sourceType === "database" ? "not_configured" : "pending",
-        locator: sourceForm.uri ? { uri: sourceForm.uri } : {},
-        metadata: { created_from: "agentkit_native_workbench" },
+        source_type: sourceFlow.type,
+        name: sourceFlow.name,
+        description: sourceFlow.description || undefined,
+        uri: sourceFlow.uri || undefined,
+        provider: sourceFlow.provider || undefined,
+        target_knowledge_base_id: sourceFlow.targetKnowledgeBaseId || undefined,
+        region: activeSpace.region || undefined,
+        content: sourceFlow.content || sourceFlow.selectedFile?.textPreview || undefined,
+        content_format: sourceFlow.content || sourceFlow.selectedFile?.textPreview ? "markdown" : undefined,
+        file: sourceFlow.selectedFile
+          ? {
+              name: sourceFlow.selectedFile.name,
+              mime_type: sourceFlow.selectedFile.mimeType,
+              size: sourceFlow.selectedFile.size,
+              data: sourceFlow.selectedFile.data,
+            }
+          : undefined,
+        schema,
+        locator: sourceFlow.uri ? { uri: sourceFlow.uri } : {},
+        metadata: {
+          ...advancedMetadata,
+          created_from: "agentkit_native_workbench",
+          ...(sourceFlow.selectedFile
+            ? {
+                file_name: sourceFlow.selectedFile.name,
+                file_size: sourceFlow.selectedFile.size,
+                mime_type: sourceFlow.selectedFile.mimeType,
+              }
+            : {}),
+        },
       });
-      await recordKnowledgeAssetBuildJob({
-        space_id: activeSpace.id,
-        source_id: created.id,
-        job_type: "source_registered",
-        status: "succeeded",
-        output: { source_type: created.source_type },
-      });
-      setActivePanel(null);
-      setSourceForm(initialSourceForm());
+      setSourceFlow((prev) => ({ ...prev, lastResult: result }));
       await reloadSpaceScoped(activeSpace.id);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "创建数据源失败。");
+      setSourceFlow((prev) => ({
+        ...prev,
+        error: asWorkbenchError(
+          error,
+          "数据源导入失败",
+          "后端没有完成数据源导入。",
+          "/api/knowledge-assets/sources/import",
+          "表单数据已保留，请按诊断信息修正后重试。",
+        ),
+      }));
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function submitCapability(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeSpace) {
-      setFormError("请先创建资产空间。");
-      return;
-    }
-    setFormError("");
+  async function createRetrievalBinding(source: KnowledgeAssetSource) {
+    if (!activeSpace) return;
+    setPageError(null);
     setSubmitting(true);
-    const assetType = assetTypeForCapability(capabilityForm.kind);
-    const assetId = normalizeAssetId(capabilityForm.assetId || capabilityForm.name);
-    let buildJob: KnowledgeAssetBuildJob | null = null;
+    const assetId = slug(`${source.name}-retrieval`);
     try {
-      const sourceIds = spaceSources.map((source) => source.id);
-      buildJob = await recordKnowledgeAssetBuildJob({
+      await createKnowledgeAssetCapability({
         space_id: activeSpace.id,
-        asset_type: assetType,
+        asset_type: assetTypeForCapability("retrieval_binding"),
         asset_id: assetId,
-        job_type: capabilityForm.kind,
-        status: "running",
-        input: {
-          source_count: sourceIds.length,
-          asset_type: assetType,
-          capability_kind: capabilityForm.kind,
-        },
-      });
-      const metrics = capabilityForm.metrics
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const dimensions = capabilityForm.dimensions
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const knowledgeBaseId =
-        capabilityForm.knowledgeBaseId ||
-        activeSpace.default_knowledge_base_id ||
-        assetId;
-      const capability = await createKnowledgeAssetCapability({
-        space_id: activeSpace.id,
-        asset_type: assetType,
-        asset_id: assetId,
-        capability_kind: capabilityForm.kind,
-        name: capabilityForm.name,
-        description: capabilityForm.description || undefined,
+        capability_kind: "retrieval_binding",
+        name: `${source.name} 检索能力`,
+        description: `从数据源「${source.name}」创建的检索绑定。`,
         status: "ready",
-        publish_state: capabilityForm.publish ? "published" : "draft",
-        source_ids: sourceIds,
-        type: capabilityForm.kind,
-        query_url: queryUrlForCapability(assetType, assetId),
-        capability_package:
-          assetType === "knowledge_resource"
-            ? {
-                retrieval: {
-                  backend: "viking",
-                  knowledge_base_id: knowledgeBaseId,
-                  index: knowledgeBaseId,
-                },
-              }
-            : {
-                mdl: { schema: "agentkit.mdl.v1", metrics, dimensions },
-                runtime: { transport: "governed_rest" },
-              },
-        capabilities: {
-          metrics,
-          dimensions,
-          source_count: sourceIds.length,
-          time_field: "",
+        publish_state: "published",
+        source_ids: [source.id],
+        type: "retrieval_binding",
+        query_url: `/api/knowledge-assets/assets/knowledge_resource/${assetId}`,
+        capability_package: {
+          retrieval: {
+            backend: "viking",
+            knowledge_base_id:
+              String(source.default_index_policy?.target_knowledge_base_id || "") ||
+              activeSpace.default_knowledge_base_id ||
+              "",
+          },
         },
-        usage_policy: {
-          permission_hint:
-            capabilityForm.permissionHint ||
-            "按资产空间授权和能力包策略执行。",
-        },
-        provenance: {
-          space_id: activeSpace.id,
-          source_ids: sourceIds,
-          sidecar: sidecar?.configured ? "byaan-datastudio" : "none",
-        },
-        freshness: {
-          status: sourceIds.length ? "source_registered" : "no_source",
-          built_at: new Date().toISOString(),
-        },
+        capabilities: { source_count: 1 },
+        usage_policy: { permission_hint: "按资产空间授权执行检索。" },
+        provenance: { source_ids: [source.id] },
       });
-      await updateKnowledgeAssetBuildJob(buildJob.id, {
-        status: "succeeded",
-        result_skill_id: capability.asset_id,
-        output: { publish_state: capability.publish_state },
-      });
-      setActivePanel(null);
-      setCapabilityForm(initialCapabilityForm());
-      await refresh();
+      await reloadSpaceScoped(activeSpace.id);
+      setActiveTab("capabilities");
     } catch (error) {
-      const failure = {
-        status: "failed",
-        error: { message: error instanceof Error ? error.message : String(error) },
-      };
-      if (buildJob) {
-        await updateKnowledgeAssetBuildJob(buildJob.id, failure).catch(() => undefined);
-      } else {
-        await recordKnowledgeAssetBuildJob({
-          space_id: activeSpace.id,
-          asset_type: assetType,
-          asset_id: assetId,
-          job_type: capabilityForm.kind,
-          ...failure,
-        }).catch(() => undefined);
-      }
-      setFormError(error instanceof Error ? error.message : "创建知识能力失败。");
+      setPageError(asWorkbenchError(
+        error,
+        "创建检索能力失败",
+        "检索绑定未创建成功。",
+        "/api/knowledge-assets/skill-packages",
+        "确认数据源已索引且目标 Viking 检索后端可用。",
+      ));
     } finally {
       setSubmitting(false);
     }
-  }
-
-  async function markExpired(source: KnowledgeAssetSource) {
-    await updateKnowledgeAssetSourceStatus(source.id, {
-      status: "expired_credential",
-      status_reason: "Credential marked expired from native workbench.",
-    });
-    if (activeSpace) await reloadSpaceScoped(activeSpace.id);
   }
 
   if (state.status === "loading") {
     return (
       <main className="kc-native-page">
-        <div className="kc-native-state" role="status">
-          <Loader2 className="kc-native-icon kc-spin" />
-          正在加载知识资产工作台…
-        </div>
+        <StateView icon={Loader2} spin title="正在加载知识资产工作台" text="正在读取资产空间、数据源和能力状态。" />
       </main>
     );
   }
@@ -498,11 +790,14 @@ export function KnowledgeCenterView() {
   if (state.status === "unauthorized") {
     return (
       <main className="kc-native-page">
-        <div className="kc-native-state" role="alert">
-          <ShieldAlert className="kc-native-state-icon" />
-          <strong>未授权访问知识资产</strong>
-          <span>{state.message}</span>
-        </div>
+        <StateView
+          icon={ShieldAlert}
+          title="未授权访问知识资产"
+          text={state.message}
+          diagnostic={state.diagnostic}
+          actionLabel="重新加载"
+          onAction={() => void refresh()}
+        />
       </main>
     );
   }
@@ -510,15 +805,14 @@ export function KnowledgeCenterView() {
   if (state.status === "error") {
     return (
       <main className="kc-native-page">
-        <div className="kc-native-state" role="alert">
-          <AlertCircle className="kc-native-state-icon" />
-          <strong>知识资产工作台暂不可用</strong>
-          <span>{state.message}</span>
-          <button type="button" onClick={() => void refresh()}>
-            <RefreshCw className="kc-native-icon" />
-            重试
-          </button>
-        </div>
+        <StateView
+          icon={AlertCircle}
+          title="知识资产工作台暂不可用"
+          text={state.message}
+          diagnostic={state.diagnostic}
+          actionLabel="重试"
+          onAction={() => void refresh()}
+        />
       </main>
     );
   }
@@ -535,10 +829,7 @@ export function KnowledgeCenterView() {
             type="button"
             aria-label="创建资产空间"
             title="创建资产空间"
-            onClick={() => {
-              setFormError("");
-              setActivePanel("space");
-            }}
+            onClick={() => setSpaceForm({ ...initialSpaceForm(), open: true })}
           >
             <Plus className="kc-native-icon" />
           </button>
@@ -548,9 +839,12 @@ export function KnowledgeCenterView() {
           <div className="kc-native-empty-card">
             <Database className="kc-native-icon" />
             <strong>还没有资产空间</strong>
-            <span>先创建一个空间，再登记数据源和 Agent 可选择的能力。</span>
-            <button type="button" onClick={() => setActivePanel("space")}>
-              创建空间
+            <span>先创建空间，再添加原始材料和 Agent 可选能力。</span>
+            <button
+              type="button"
+              onClick={() => setSpaceForm({ ...initialSpaceForm(), open: true })}
+            >
+              创建资产空间
             </button>
           </div>
         ) : (
@@ -570,528 +864,739 @@ export function KnowledgeCenterView() {
                 </span>
                 <span>
                   <strong>{space.name}</strong>
-                  <small>
-                    {space.default_knowledge_base_id || "Viking 检索后端待绑定"}
-                  </small>
+                  <small>{space.description || "资料与能力的工作空间"}</small>
                 </span>
               </button>
             ))}
           </div>
         )}
-
-        <div className="kc-native-sidecar">
-          <div>
-            <span className={`kc-native-dot is-${sidecar?.status ?? "not_configured"}`} />
-            <strong>BYAAN sidecar</strong>
-          </div>
-          <p>
-            {sidecar?.configured
-              ? "可作为受治理查询或 Dashboard 构建后端。"
-              : "未配置；原生工作台仍可管理空间、来源和检索能力。"}
-          </p>
-          {sidecar?.debug_url ? (
-            <a href={sidecar.debug_url} target="_blank" rel="noreferrer">
-              <ExternalLink className="kc-native-icon" />
-              高级调试入口
-            </a>
-          ) : null}
-        </div>
       </aside>
 
       <section className="kc-native-main">
         <header className="kc-native-head">
           <div>
             <h1>{activeSpace?.name ?? "知识资产工作台"}</h1>
-            <p>
-              原生管理资产空间、数据源和 Agent 可运行能力。知识库仅作为底层
-              Viking 检索后端。
-            </p>
+            <p>在 Studio 内管理数据源和 Agent 可运行能力。</p>
           </div>
           <div className="kc-native-actions">
             <button type="button" onClick={() => void refresh()}>
               <RefreshCw className="kc-native-icon" />
               刷新
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setFormError("");
-                setActivePanel("source");
-              }}
-              disabled={!activeSpace}
-            >
+            <button type="button" onClick={() => openSourceFlow()} disabled={!activeSpace}>
               <Plus className="kc-native-icon" />
-              数据源
-            </button>
-            <button
-              type="button"
-              className="is-primary"
-              onClick={() => {
-                setFormError("");
-                setActivePanel("capability");
-              }}
-              disabled={!activeSpace}
-            >
-              <Sparkles className="kc-native-icon" />
-              能力
+              添加数据源
             </button>
           </div>
         </header>
 
-        <div className="kc-native-status-grid">
-          <StatusTile
-            icon={Database}
-            title="SQLite Asset Store"
-            status="可用"
-            tone="success"
-            detail={`${spaces.length} 空间 · ${assets.length} 能力`}
-          />
-          <StatusTile
-            icon={FileSearch}
-            title="Viking Retrieval"
-            status={activeSpace?.default_knowledge_base_id ? "已绑定" : "未配置"}
-            tone={activeSpace?.default_knowledge_base_id ? "success" : "muted"}
-            detail={activeSpace?.default_knowledge_base_id || "创建检索绑定时可补充 index"}
-          />
-          <StatusTile
-            icon={KeyRound}
-            title="凭据状态"
-            status={
-              expiredCredential
-                ? "凭据过期"
-                : unauthorizedSource
-                  ? "未授权"
-                  : "未发现泄露"
-            }
-            tone={expiredCredential || unauthorizedSource ? "danger" : "success"}
-            detail={
-              expiredCredential?.name ||
-              unauthorizedSource?.name ||
-              "前端仅展示连接状态"
-            }
-          />
-          <StatusTile
-            icon={buildRunning ? Clock3 : buildFailed ? XCircle : CheckCircle2}
-            title="构建任务"
-            status={
-              buildRunning
-                ? "构建中"
-                : buildFailed
-                  ? "构建失败"
-                  : buildSucceeded
-                    ? "构建成功"
-                    : "暂无任务"
-            }
-            tone={buildRunning ? "warning" : buildFailed ? "danger" : "success"}
-            detail={
-              latestBuildJob?.job_type ||
-              "创建能力后展示状态"
-            }
-          />
-        </div>
+        <nav className="kc-native-tabs" aria-label="知识资产工作台视图">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={activeTab === tab.id ? "is-active" : ""}
+                aria-pressed={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon className="kc-native-icon" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
 
-        <div className="kc-native-columns">
-          <section className="kc-native-panel">
-            <PanelHead
-              title="数据源"
-              count={spaceSources.length}
-              actionLabel="新增"
-              onAction={activeSpace ? () => setActivePanel("source") : undefined}
+        {pageError ? (
+          <ErrorPanel error={pageError} onRetry={() => setPageError(null)} />
+        ) : null}
+
+        <div className="kc-native-view">
+          {activeTab === "overview" ? (
+            <OverviewTab
+              sourceCounts={sourceCounts}
+              capabilityCounts={overview?.capability_counts ?? {}}
+              sources={spaceSources}
+              assets={assets}
+              jobs={buildJobs}
+              onAddSource={() => openSourceFlow()}
+              onCreateSpace={() => setSpaceForm({ ...initialSpaceForm(), open: true })}
             />
-            {spaceSources.length === 0 ? (
-              <InlineEmpty
-                icon={Database}
-                title="暂无数据源"
-                text="登记文件、网页、飞书文档、数据库连接或 schema snapshot。凭据只保存在后端。"
-              />
-            ) : (
-              <div className="kc-native-list">
-                {spaceSources.map((source) => (
-                  <article key={source.id} className="kc-native-source-card">
-                    <div>
-                      <strong>{source.name}</strong>
-                      <span>{sourceTypeLabel(source.source_type)}</span>
-                    </div>
-                    <p>{source.description || source.uri || "未填写描述"}</p>
-                    <footer>
-                      <span className={`kc-native-badge is-${source.status}`}>
-                        {statusCopy(source.status)}
-                      </span>
-                      <button type="button" onClick={() => void markExpired(source)}>
-                        标记过期
-                      </button>
-                    </footer>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="kc-native-panel kc-native-panel--wide">
-            <div className="kc-native-panel-head">
-              <div>
-                <h2>能力</h2>
-                <span>{filteredAssets.length} 个可选能力</span>
-              </div>
-              <div className="kc-native-search">
-                <Search className="kc-native-icon" />
-                <input
-                  value={query}
-                  placeholder="搜索检索绑定、Semantic Skill、Dashboard Skill"
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </div>
-            </div>
-            {filteredAssets.length === 0 ? (
-              <InlineEmpty
-                icon={Sparkles}
-                title={assets.length === 0 ? "暂无已发布能力" : "没有匹配结果"}
-                text="创建 Agent 时只选择这些能力，不直接选择原始文件、网页或数据库连接。"
-              />
-            ) : (
-              <div className="kc-native-asset-grid">
-                {filteredAssets.map((asset) => (
-                  <AssetCard key={`${asset.asset_type}:${asset.asset_id}`} asset={asset} />
-                ))}
-              </div>
-            )}
-          </section>
+          ) : null}
+          {activeTab === "sources" ? (
+            <SourcesTab
+              sources={spaceSources}
+              jobs={buildJobs}
+              onAddSource={() => openSourceFlow()}
+              onCreateRetrievalBinding={(source) => void createRetrievalBinding(source)}
+              busy={submitting}
+            />
+          ) : null}
+          {activeTab === "capabilities" ? (
+            <CapabilitiesTab
+              query={query}
+              onQueryChange={setQuery}
+              assetsByKind={assetsByKind}
+              capabilityCards={capabilityCards}
+              capabilityJobs={capabilityJobs}
+              onAddSource={() => openSourceFlow()}
+            />
+          ) : null}
+          {activeTab === "jobs" ? (
+            <BuildJobsTab jobs={buildJobs} sources={spaceSources} />
+          ) : null}
+          {activeTab === "settings" ? (
+            <SettingsTab
+              activeSpace={activeSpace}
+              sidecar={sidecar}
+              health={{ configured: true, mock: false }}
+            />
+          ) : null}
         </div>
       </section>
 
-      {activePanel ? (
-        <div className="kc-native-drawer" role="dialog" aria-modal="true">
-          <div className="kc-native-drawer-panel">
-            <header>
-              <h2>
-                {activePanel === "space"
-                  ? "创建资产空间"
-                  : activePanel === "source"
-                    ? "登记数据源"
-                    : "创建 Agent 能力"}
-              </h2>
-              <button type="button" onClick={() => setActivePanel(null)}>
-                关闭
-              </button>
-            </header>
-            {formError ? <div className="kc-native-form-error">{formError}</div> : null}
-            {activePanel === "space" ? (
-              <form className="kc-native-form" onSubmit={submitSpace}>
-                <label>
-                  <span>空间名称</span>
-                  <input
-                    required
-                    value={spaceForm.name}
-                    onChange={(event) =>
-                      setSpaceForm((prev) => ({ ...prev, name: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>描述</span>
-                  <textarea
-                    value={spaceForm.description}
-                    onChange={(event) =>
-                      setSpaceForm((prev) => ({
-                        ...prev,
-                        description: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>区域</span>
-                  <input
-                    value={spaceForm.region}
-                    onChange={(event) =>
-                      setSpaceForm((prev) => ({ ...prev, region: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>默认 Viking index</span>
-                  <input
-                    value={spaceForm.defaultKnowledgeBaseId}
-                    placeholder="可稍后在检索绑定中指定"
-                    onChange={(event) =>
-                      setSpaceForm((prev) => ({
-                        ...prev,
-                        defaultKnowledgeBaseId: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <FormActions busy={submitting} submitLabel="创建空间" />
-              </form>
-            ) : activePanel === "source" ? (
-              <form className="kc-native-form" onSubmit={submitSource}>
-                <label>
-                  <span>类型</span>
-                  <select
-                    value={sourceForm.sourceType}
-                    onChange={(event) =>
-                      setSourceForm((prev) => ({
-                        ...prev,
-                        sourceType: event.target.value,
-                      }))
-                    }
-                  >
-                    {SOURCE_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {sourceTypeLabel(type)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>名称</span>
-                  <input
-                    required
-                    value={sourceForm.name}
-                    onChange={(event) =>
-                      setSourceForm((prev) => ({ ...prev, name: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>URI 或连接标识</span>
-                  <input
-                    value={sourceForm.uri}
-                    placeholder="不填写凭据、cookie 或 Authorization header"
-                    onChange={(event) =>
-                      setSourceForm((prev) => ({ ...prev, uri: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>Provider</span>
-                  <input
-                    value={sourceForm.provider}
-                    placeholder="feishu / oracle / web / local"
-                    onChange={(event) =>
-                      setSourceForm((prev) => ({
-                        ...prev,
-                        provider: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>描述</span>
-                  <textarea
-                    value={sourceForm.description}
-                    onChange={(event) =>
-                      setSourceForm((prev) => ({
-                        ...prev,
-                        description: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <FormActions busy={submitting} submitLabel="登记数据源" />
-              </form>
-            ) : (
-              <form className="kc-native-form" onSubmit={submitCapability}>
-                <label>
-                  <span>能力类型</span>
-                  <select
-                    value={capabilityForm.kind}
-                    onChange={(event) =>
-                      setCapabilityForm((prev) => ({
-                        ...prev,
-                        kind: event.target.value as KnowledgeCapabilityKind,
-                      }))
-                    }
-                  >
-                    <option value="retrieval_binding">Knowledge Retrieval binding</option>
-                    <option value="semantic_skill">Semantic Skill</option>
-                    <option value="dashboard_skill">Dashboard Skill</option>
-                  </select>
-                </label>
-                <label>
-                  <span>名称</span>
-                  <input
-                    required
-                    value={capabilityForm.name}
-                    onChange={(event) =>
-                      setCapabilityForm((prev) => ({
-                        ...prev,
-                        name: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>Asset ID</span>
-                  <input
-                    value={capabilityForm.assetId}
-                    placeholder="默认由名称生成"
-                    onChange={(event) =>
-                      setCapabilityForm((prev) => ({
-                        ...prev,
-                        assetId: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                {capabilityForm.kind === "retrieval_binding" ? (
-                  <label>
-                    <span>Viking index</span>
-                    <input
-                      value={capabilityForm.knowledgeBaseId}
-                      placeholder={activeSpace?.default_knowledge_base_id || "例如 kb-policy-docs"}
-                      onChange={(event) =>
-                        setCapabilityForm((prev) => ({
-                          ...prev,
-                          knowledgeBaseId: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                ) : (
-                  <>
-                    <label>
-                      <span>指标</span>
-                      <input
-                        value={capabilityForm.metrics}
-                        placeholder="逗号分隔"
-                        onChange={(event) =>
-                          setCapabilityForm((prev) => ({
-                            ...prev,
-                            metrics: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>维度</span>
-                      <input
-                        value={capabilityForm.dimensions}
-                        placeholder="逗号分隔"
-                        onChange={(event) =>
-                          setCapabilityForm((prev) => ({
-                            ...prev,
-                            dimensions: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  </>
-                )}
-                <label>
-                  <span>权限提示</span>
-                  <input
-                    value={capabilityForm.permissionHint}
-                    onChange={(event) =>
-                      setCapabilityForm((prev) => ({
-                        ...prev,
-                        permissionHint: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>描述</span>
-                  <textarea
-                    value={capabilityForm.description}
-                    onChange={(event) =>
-                      setCapabilityForm((prev) => ({
-                        ...prev,
-                        description: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="kc-native-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={capabilityForm.publish}
-                    onChange={(event) =>
-                      setCapabilityForm((prev) => ({
-                        ...prev,
-                        publish: event.target.checked,
-                      }))
-                    }
-                  />
-                  <span>创建后发布到 Agent 能力选择器</span>
-                </label>
-                <FormActions busy={submitting} submitLabel="创建能力" />
-              </form>
-            )}
-          </div>
-        </div>
+      {spaceForm.open ? (
+        <Modal title="创建资产空间" onClose={() => setSpaceForm(initialSpaceForm())}>
+          {spaceForm.error ? <ErrorPanel error={spaceForm.error} compact /> : null}
+          <form className="kc-native-form" onSubmit={submitSpace}>
+            <Field label="空间名称">
+              <input
+                required
+                value={spaceForm.name}
+                onChange={(event) =>
+                  setSpaceForm((prev) => ({ ...prev, name: event.target.value }))
+                }
+              />
+            </Field>
+            <Field label="描述">
+              <textarea
+                value={spaceForm.description}
+                onChange={(event) =>
+                  setSpaceForm((prev) => ({ ...prev, description: event.target.value }))
+                }
+              />
+            </Field>
+            <Field label="区域">
+              <input
+                value={spaceForm.region}
+                onChange={(event) =>
+                  setSpaceForm((prev) => ({ ...prev, region: event.target.value }))
+                }
+              />
+            </Field>
+            <Field label="默认检索后端">
+              <input
+                value={spaceForm.defaultKnowledgeBaseId}
+                placeholder="可稍后在检索能力中指定"
+                onChange={(event) =>
+                  setSpaceForm((prev) => ({
+                    ...prev,
+                    defaultKnowledgeBaseId: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+            <FormActions busy={submitting} submitLabel="创建空间" />
+          </form>
+        </Modal>
+      ) : null}
+
+      {sourceFlow.open ? (
+        <Modal title="添加数据源" onClose={() => setSourceFlow(initialSourceFlow())}>
+          <SourceFlow
+            flow={sourceFlow}
+            activeSpace={activeSpace}
+            busy={submitting}
+            onChange={setSourceFlow}
+            onValidate={() => {
+              const validation = validateSourceDetails();
+              if (validation) {
+                setSourceFlow((prev) => ({ ...prev, error: validation }));
+                return;
+              }
+              setSourceFlow((prev) => ({ ...prev, error: null, step: "preview" }));
+            }}
+            onSubmit={() => void submitSourceImport()}
+            onCreateRetrieval={
+              sourceFlow.lastResult
+                ? () => void createRetrievalBinding(sourceFlow.lastResult!.source)
+                : undefined
+            }
+          />
+        </Modal>
       ) : null}
     </main>
   );
 }
 
-function StatusTile({
-  icon: Icon,
-  title,
-  status,
-  detail,
-  tone,
+function OverviewTab({
+  sourceCounts,
+  capabilityCounts,
+  sources,
+  assets,
+  jobs,
+  onAddSource,
+  onCreateSpace,
 }: {
-  icon: typeof Database;
-  title: string;
-  status: string;
-  detail: string;
-  tone: "success" | "warning" | "danger" | "muted";
+  sourceCounts: Record<string, number>;
+  capabilityCounts: Record<string, number>;
+  sources: KnowledgeAssetSource[];
+  assets: KnowledgeAssetMetadata[];
+  jobs: KnowledgeAssetBuildJob[];
+  onAddSource: () => void;
+  onCreateSpace: () => void;
 }) {
+  const latestJob = jobs[0];
   return (
-    <article className={`kc-native-status-tile is-${tone}`}>
-      <Icon className="kc-native-icon" />
-      <div>
-        <span>{title}</span>
-        <strong>{status}</strong>
-        <small>{detail}</small>
+    <div className="kc-native-overview">
+      <div className="kc-native-status-grid">
+        <StatusTile icon={Database} title="数据源" value={String(sources.length)} detail={`可用 ${sourceCounts.ready || 0} · 已索引 ${sourceCounts.indexed || 0}`} tone="success" />
+        <StatusTile icon={Sparkles} title="能力" value={String(assets.length)} detail={`检索 ${capabilityCounts.retrieval_binding || 0} · 语义 ${capabilityCounts.semantic_skill || 0}`} tone="success" />
+        <StatusTile icon={Clock3} title="构建任务" value={latestJob ? readableStatus(latestJob.status) : "暂无"} detail={latestJob?.job_type || "等待导入或构建"} tone={statusTone(latestJob?.status)} />
+        <StatusTile icon={KeyRound} title="凭据" value={sourceCounts.credential_expired ? "有过期" : "安全"} detail="明文凭据不进入前端状态" tone={sourceCounts.credential_expired ? "danger" : "success"} />
       </div>
-    </article>
+      {sources.length === 0 ? (
+        <ActionEmpty
+          icon={Database}
+          title="从添加第一个数据源开始"
+          text="文件、网页、飞书文档、数据库连接和 Schema Snapshot 都先作为原始材料登记。"
+          actionLabel="添加数据源"
+          onAction={onAddSource}
+          secondaryLabel="创建空间"
+          onSecondary={onCreateSpace}
+        />
+      ) : (
+        <section className="kc-native-panel">
+          <PanelHead title="下一步" count={3} />
+          <div className="kc-native-next-grid">
+            <NextAction icon={FileSearch} title="创建检索能力" text="把已索引数据源变成 Agent 可选择的 Retrieval Binding。" />
+            <NextAction icon={Database} title="生成语义 Skill" text="入口已预留，E2 builder 接入后从 Schema 数据源生成。" />
+            <NextAction icon={BarChart3} title="构建 Dashboard / AskData" text="入口已预留，F builder 接入后调用 sidecar 或 governed query。" />
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
 
-function PanelHead({
-  title,
-  count,
-  actionLabel,
-  onAction,
+function SourcesTab({
+  sources,
+  jobs,
+  onAddSource,
+  onCreateRetrievalBinding,
+  busy,
 }: {
-  title: string;
-  count: number;
-  actionLabel: string;
-  onAction?: () => void;
+  sources: KnowledgeAssetSource[];
+  jobs: KnowledgeAssetBuildJob[];
+  onAddSource: () => void;
+  onCreateRetrievalBinding: (source: KnowledgeAssetSource) => void;
+  busy: boolean;
 }) {
   return (
-    <div className="kc-native-panel-head">
-      <div>
-        <h2>{title}</h2>
-        <span>{count} 项</span>
+    <section className="kc-native-panel">
+      <PanelHead title="数据源" count={sources.length} actionLabel="添加数据源" onAction={onAddSource} />
+      {sources.length === 0 ? (
+        <ActionEmpty
+          icon={Database}
+          title="暂无数据源"
+          text="添加原始材料后，工作台会显示导入状态、凭据需求和 source 级任务历史。"
+          actionLabel="添加数据源"
+          onAction={onAddSource}
+        />
+      ) : (
+        <div className="kc-native-source-grid">
+          {sources.map((source) => (
+            <SourceCard
+              key={source.id}
+              source={source}
+              job={latestJobForSource(jobs, source.id)}
+              jobs={jobs.filter((job) => job.source_id === source.id)}
+              busy={busy}
+              onCreateRetrieval={() => onCreateRetrievalBinding(source)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CapabilitiesTab({
+  query,
+  onQueryChange,
+  assetsByKind,
+  capabilityCards,
+  capabilityJobs,
+  onAddSource,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  assetsByKind: Record<"retrieval_binding" | "semantic_skill" | "dashboard_skill", KnowledgeAssetMetadata[]>;
+  capabilityCards: KnowledgeCapabilityCardProps[];
+  capabilityJobs: CapabilityBuildJobView[];
+  onAddSource: () => void;
+}) {
+  return (
+    <section className="kc-native-panel">
+      <div className="kc-native-panel-head">
+        <div>
+          <h2>Agent 能力</h2>
+          <span>创建 Agent 时选择能力，不选择原始材料。</span>
+        </div>
+        <div className="kc-native-search">
+          <Search className="kc-native-icon" />
+          <input
+            value={query}
+            placeholder="搜索能力名称或类型"
+            onChange={(event) => onQueryChange(event.target.value)}
+          />
+        </div>
       </div>
-      {onAction ? (
-        <button type="button" onClick={onAction}>
-          <Plus className="kc-native-icon" />
-          {actionLabel}
-        </button>
+      <CapabilityGroup title="Retrieval Binding" assets={assetsByKind.retrieval_binding} emptyText="从已索引数据源创建检索能力。" />
+      <CapabilityPanelSlot
+        kind="semantic_skill"
+        capabilities={capabilityCards.filter((item) => item.kind === "semantic_skill")}
+        build_jobs={capabilityJobs.filter((job) => job.job_type.includes("semantic"))}
+        render={(context) => (
+          <SlotPlaceholder
+            icon={Database}
+            title="Semantic Skill"
+            text="语义问数 Builder 将挂载在这里；当前 D3 只提供入口、状态和插槽契约。"
+            actionLabel="生成语义 Skill"
+            onAction={onAddSource}
+            count={context.capabilities.length}
+          />
+        )}
+      />
+      <CapabilityPanelSlot
+        kind="dashboard_skill"
+        capabilities={capabilityCards.filter((item) => item.kind === "dashboard_skill")}
+        build_jobs={capabilityJobs.filter((job) => job.job_type.includes("dashboard"))}
+        render={(context) => (
+          <SlotPlaceholder
+            icon={BarChart3}
+            title="Dashboard Skill"
+            text="Dashboard Builder 将挂载在这里；sidecar 缺失时保持未配置状态。"
+            actionLabel="新建 Dashboard Skill"
+            onAction={onAddSource}
+            count={context.capabilities.length}
+          />
+        )}
+      />
+      <CapabilityPanelSlot
+        kind="askdata"
+        capabilities={[]}
+        build_jobs={capabilityJobs.filter((job) => job.job_type.includes("askdata"))}
+        render={() => (
+          <SlotPlaceholder
+            icon={Sparkles}
+            title="AskData"
+            text="AskData 入口已预留，后续由 F 接入 governed query。"
+            actionLabel="打开 AskData"
+            onAction={onAddSource}
+            count={0}
+          />
+        )}
+      />
+    </section>
+  );
+}
+
+function BuildJobsTab({
+  jobs,
+  sources,
+}: {
+  jobs: KnowledgeAssetBuildJob[];
+  sources: KnowledgeAssetSource[];
+}) {
+  const sourceName = (sourceId?: string | null) =>
+    sources.find((source) => source.id === sourceId)?.name || "未关联数据源";
+  return (
+    <section className="kc-native-panel">
+      <PanelHead title="构建任务" count={jobs.length} />
+      {jobs.length === 0 ? (
+        <ActionEmpty icon={Clock3} title="暂无构建任务" text="导入数据源或创建能力后，这里会按 source 展示终态和错误。" />
+      ) : (
+        <div className="kc-native-job-list">
+          {jobs.map((job) => (
+            <article key={job.id} className="kc-native-job-row">
+              <span className={`kc-native-badge is-${statusTone(job.status)}`}>
+                {readableStatus(job.status)}
+              </span>
+              <div>
+                <strong>{job.job_type}</strong>
+                <p>{sourceName(job.source_id)}</p>
+                {typeof job.error?.message === "string" ? (
+                  <small>{job.error.message}</small>
+                ) : null}
+              </div>
+              <time>{job.updated_at || job.created_at || ""}</time>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SettingsTab({
+  activeSpace,
+  sidecar,
+  health,
+}: {
+  activeSpace: KnowledgeAssetSpace | null;
+  sidecar?: KnowledgeAssetSidecar;
+  health: { configured: boolean; mock: boolean };
+}) {
+  return (
+    <section className="kc-native-panel">
+      <PanelHead title="设置与诊断" count={3} />
+      <div className="kc-native-settings-grid">
+        <DiagnosticCard title="本地资产仓" value={health.configured ? "已配置" : "未配置"} detail={health.mock ? "mock 模式" : "SQLite Asset Store 仅作为后端存储。"} />
+        <DiagnosticCard title="默认检索后端" value={activeSpace?.default_knowledge_base_id ? "已绑定" : "未配置"} detail={activeSpace?.default_knowledge_base_id || "可在空间或检索能力中配置。"} />
+        <DiagnosticCard title="BYAAN sidecar" value={sidecar?.configured ? "可用" : "未配置"} detail={sidecar?.configured ? "仅作为受治理后端能力，不作为主 UI。" : "缺失时原生工作台仍可打开。"} />
+      </div>
+    </section>
+  );
+}
+
+function SourceFlow({
+  flow,
+  activeSpace,
+  busy,
+  onChange,
+  onValidate,
+  onSubmit,
+  onCreateRetrieval,
+}: {
+  flow: SourceFlowState;
+  activeSpace: KnowledgeAssetSpace | null;
+  busy: boolean;
+  onChange: (updater: (prev: SourceFlowState) => SourceFlowState) => void;
+  onValidate: () => void;
+  onSubmit: () => void;
+  onCreateRetrieval?: () => void;
+}) {
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    try {
+      const selectedFile = await readSourceFile(file);
+      onChange((prev) => ({
+        ...prev,
+        selectedFile,
+        name: prev.name || selectedFile.name.replace(/\.[^.]+$/, ""),
+        error: null,
+      }));
+    } catch (error) {
+      onChange((prev) => ({
+        ...prev,
+        selectedFile: null,
+        error: asWorkbenchError(
+          error,
+          "读取文件失败",
+          "浏览器没有完成本地文件读取。",
+          "FileReader",
+          "重新选择文件或改为粘贴清洗后的正文。",
+        ),
+      }));
+    }
+  }
+
+  return (
+    <div className="kc-source-flow">
+      <div className="kc-flow-steps" aria-label="添加数据源步骤">
+        {(["type", "details", "preview"] as SourceFlowStep[]).map((step, index) => (
+          <span key={step} className={flow.step === step ? "is-active" : ""}>
+            {index + 1}. {step === "type" ? "选择类型" : step === "details" ? "填写信息" : "预检查"}
+          </span>
+        ))}
+      </div>
+      {flow.error ? <ErrorPanel error={flow.error} compact /> : null}
+      {flow.lastResult ? (
+        <div className="kc-import-result">
+          <CheckCircle2 className="kc-native-icon" />
+          <div>
+            <strong>{readableStatus(flow.lastResult.source.status)}</strong>
+            <p>{flow.lastResult.source.status_reason || "数据源状态已更新。"}</p>
+          </div>
+          {normalizeStatus(flow.lastResult.source.status) === "indexed" ? (
+            <button type="button" onClick={onCreateRetrieval}>
+              创建检索能力
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {flow.step === "type" ? (
+        <div className="kc-source-type-groups">
+          {sourceTypeGroups.map((group) => (
+            <section key={group.title}>
+              <h3>{group.title}</h3>
+              <div className="kc-source-type-grid">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.type}
+                      type="button"
+                      className={flow.type === item.type ? "is-selected" : ""}
+                      onClick={() => onChange((prev) => ({ ...prev, type: item.type }))}
+                    >
+                      <Icon className="kc-native-icon" />
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+          <div className="kc-native-form-actions">
+            <button type="button" onClick={() => onChange((prev) => ({ ...prev, step: "details" }))}>
+              下一步
+              <ChevronRight className="kc-native-icon" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {flow.step === "details" ? (
+        <div className="kc-native-form">
+          <Field label="数据源名称">
+            <input
+              required
+              value={flow.name}
+              onChange={(event) => onChange((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </Field>
+          {flow.type === "web" ? (
+            <Field label="网页 URL">
+              <input
+                value={flow.uri}
+                placeholder="https://example.com/docs"
+                onChange={(event) => onChange((prev) => ({ ...prev, uri: event.target.value }))}
+              />
+            </Field>
+          ) : null}
+          {["local_web", "intranet_web", "file", "pdf", "image"].includes(flow.type) ? (
+            <Field label="清洗后的正文">
+              <textarea
+                className="kc-native-large-textarea"
+                value={flow.content}
+                placeholder="只粘贴正文内容，不包含 Cookie、Authorization header 或 session token。"
+                onChange={(event) => onChange((prev) => ({ ...prev, content: event.target.value }))}
+              />
+            </Field>
+          ) : null}
+          {["file", "pdf", "image"].includes(flow.type) ? (
+            <Field label="上传文件">
+              <div className="kc-file-picker">
+                <input
+                  type="file"
+                  accept={flow.type === "pdf" ? ".pdf,application/pdf" : flow.type === "image" ? "image/*" : ".md,.markdown,.txt,.json,.csv,.pdf,image/*"}
+                  onChange={(event) => void handleFile(event.currentTarget.files?.[0])}
+                />
+                <span>
+                  {flow.selectedFile
+                    ? `${flow.selectedFile.name} · ${Math.ceil(flow.selectedFile.size / 1024)} KB`
+                    : "选择本地文件，提交前会做大小与凭据预检查。"}
+                </span>
+              </div>
+            </Field>
+          ) : null}
+          {flow.type === "feishu_doc" ? (
+            <InfoBlock
+              icon={KeyRound}
+              title="需要飞书 OAuth"
+              text="当前工作台只登记飞书文档来源并返回需要授权状态，不会 mock 导入成功。"
+            />
+          ) : null}
+          {flow.type === "database" ? (
+            <InfoBlock
+              icon={Database}
+              title="只登记连接元数据"
+              text="数据库凭据不会进入前端；schema introspection 和语义构建由后续 builder 接管。"
+            />
+          ) : null}
+          {flow.type === "schema_snapshot" ? (
+            <Field label="Schema JSON">
+              <textarea
+                className="kc-native-large-textarea"
+                value={flow.schemaText}
+                onChange={(event) => onChange((prev) => ({ ...prev, schemaText: event.target.value }))}
+              />
+            </Field>
+          ) : null}
+          <Field label="描述">
+            <textarea
+              value={flow.description}
+              onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+            />
+          </Field>
+          <button
+            className="kc-advanced-toggle"
+            type="button"
+            onClick={() => onChange((prev) => ({ ...prev, advancedOpen: !prev.advancedOpen }))}
+          >
+            高级设置
+          </button>
+          {flow.advancedOpen ? (
+            <div className="kc-advanced-fields">
+              <Field label="Provider">
+                <input
+                  value={flow.provider}
+                  placeholder="web / oracle / mysql / postgres / feishu"
+                  onChange={(event) => onChange((prev) => ({ ...prev, provider: event.target.value }))}
+                />
+              </Field>
+              <Field label="目标检索后端">
+                <input
+                  value={flow.targetKnowledgeBaseId}
+                  placeholder={activeSpace?.default_knowledge_base_id || "可留空进入需要配置状态"}
+                  onChange={(event) => onChange((prev) => ({ ...prev, targetKnowledgeBaseId: event.target.value }))}
+                />
+              </Field>
+              <Field label="URI 或连接标识">
+                <input
+                  value={flow.uri}
+                  placeholder="不要填写用户名、密码、cookie 或 Authorization header"
+                  onChange={(event) => onChange((prev) => ({ ...prev, uri: event.target.value }))}
+                />
+              </Field>
+              <Field label="metadata JSON">
+                <textarea
+                  className="kc-native-large-textarea"
+                  value={flow.metadataText}
+                  placeholder="{\n}"
+                  onChange={(event) => onChange((prev) => ({ ...prev, metadataText: event.target.value }))}
+                />
+              </Field>
+            </div>
+          ) : null}
+          <div className="kc-native-form-actions">
+            <button type="button" onClick={() => onChange((prev) => ({ ...prev, step: "type" }))}>
+              上一步
+            </button>
+            <button type="button" onClick={onValidate}>
+              预检查
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {flow.step === "preview" ? (
+        <div className="kc-preview-list">
+          <PreviewItem label="类型" value={sourceTypeLabels[flow.type]} />
+          <PreviewItem label="名称" value={flow.name} />
+          <PreviewItem label="写入检索后端" value={flow.targetKnowledgeBaseId || "未配置，提交后进入需要配置状态"} />
+          <PreviewItem label="凭据需求" value={flow.type === "feishu_doc" ? "需要 OAuth" : flow.type === "database" ? "需要后端凭据仓" : "不需要前端凭据"} />
+          <PreviewItem label="预期状态" value={expectedSourceStatus(flow)} />
+          <div className="kc-native-form-actions">
+            <button type="button" onClick={() => onChange((prev) => ({ ...prev, step: "details" }))}>
+              返回修改
+            </button>
+            <button type="button" disabled={busy} onClick={onSubmit}>
+              {busy ? <Loader2 className="kc-native-icon kc-spin" /> : null}
+              提交导入
+            </button>
+          </div>
+        </div>
       ) : null}
     </div>
   );
 }
 
-function InlineEmpty({
-  icon: Icon,
-  title,
-  text,
+function expectedSourceStatus(flow: SourceFlowState): string {
+  if (flow.type === "database") return "需要配置凭据";
+  if (flow.type === "feishu_doc") return "需要授权";
+  if (flow.type === "schema_snapshot") return "可用";
+  return flow.targetKnowledgeBaseId ? "已索引或导入失败" : "需要配置检索后端";
+}
+
+function SourceCard({
+  source,
+  job,
+  jobs,
+  busy,
+  onCreateRetrieval,
 }: {
-  icon: typeof Database;
+  source: KnowledgeAssetSource;
+  job: KnowledgeAssetBuildJob | null;
+  jobs: KnowledgeAssetBuildJob[];
+  busy: boolean;
+  onCreateRetrieval: () => void;
+}) {
+  const status = normalizeStatus(source.status);
+  const canCreateRetrieval = ["indexed", "ready"].includes(status) &&
+    source.source_type !== "schema_snapshot" &&
+    source.source_type !== "database";
+  return (
+    <article className="kc-native-source-card">
+      <header>
+        <div>
+          <strong>{source.name}</strong>
+          <span>{sourceTypeLabels[source.source_type as SourceType] || source.source_type}</span>
+        </div>
+        <span className={`kc-native-badge is-${statusTone(source.status)}`}>
+          {readableStatus(source.status)}
+        </span>
+      </header>
+      <p>{source.status_reason || source.description || "等待下一步操作。"}</p>
+      <dl>
+        <div>
+          <dt>最近任务</dt>
+          <dd>{job ? `${job.job_type} · ${readableStatus(job.status)}` : "暂无"}</dd>
+        </div>
+        <div>
+          <dt>同步状态</dt>
+          <dd>{String(source.metadata?.last_synced_at || source.metadata?.schema_status || "未同步")}</dd>
+        </div>
+      </dl>
+      <div className="kc-source-job-history" aria-label={`${source.name} 构建任务历史`}>
+        {jobs.length ? (
+          jobs.slice(0, 3).map((item) => (
+            <span key={item.id}>
+              {item.job_type} · {readableStatus(item.status)}
+            </span>
+          ))
+        ) : (
+          <span>暂无 source 级任务历史</span>
+        )}
+      </div>
+      <footer>
+        {status === "needs_configuration" ? <button type="button">去配置</button> : null}
+        {status === "auth_required" ? <button type="button">配置授权</button> : null}
+        {status === "failed" ? <button type="button">重试导入</button> : null}
+        {canCreateRetrieval ? (
+          <button type="button" disabled={busy} onClick={onCreateRetrieval}>
+            创建检索能力
+          </button>
+        ) : null}
+      </footer>
+    </article>
+  );
+}
+
+function CapabilityGroup({
+  title,
+  assets,
+  emptyText,
+}: {
   title: string;
-  text: string;
+  assets: KnowledgeAssetMetadata[];
+  emptyText: string;
 }) {
   return (
-    <div className="kc-native-inline-empty">
-      <Icon className="kc-native-state-icon" />
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </div>
+    <section className="kc-capability-group">
+      <h3>{title}</h3>
+      {assets.length === 0 ? (
+        <p className="kc-muted-line">{emptyText}</p>
+      ) : (
+        <div className="kc-native-asset-grid">
+          {assets.map((asset) => (
+            <AssetCard key={`${asset.asset_type}:${asset.asset_id}`} asset={asset} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1117,31 +1622,240 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
           <Icon className="kc-native-icon" />
           {knowledgeCapabilityLabel(asset.asset_type, asset.capability_kind)}
         </span>
-        <em className={`kc-native-badge is-${asset.publish_state}`}>
-          {statusCopy(asset.publish_state)}
+        <em className={`kc-native-badge is-${statusTone(asset.publish_state)}`}>
+          {readableStatus(asset.publish_state)}
         </em>
       </header>
       <strong>{asset.name}</strong>
-      <p>{asset.description || sourceCoverage}</p>
+      <p>{asset.description || sourceCoverage || "已登记能力。"}</p>
       <dl>
         <div>
-          <dt>Asset ID</dt>
-          <dd>{asset.asset_id}</dd>
-        </div>
-        <div>
-          <dt>来源</dt>
-          <dd>{sourceCoverage}</dd>
+          <dt>来源覆盖</dt>
+          <dd>{sourceCoverage || "未声明"}</dd>
         </div>
         <div>
           <dt>指标</dt>
           <dd>{metrics.length ? metrics.slice(0, 3).join("、") : "未声明"}</dd>
         </div>
       </dl>
-      <footer>
-        <span>{asset.version || "v1"}</span>
-        <span>{asset.usage_policy?.permission_hint?.toString() || "按能力策略执行"}</span>
-      </footer>
     </article>
+  );
+}
+
+function SlotPlaceholder({
+  icon: Icon,
+  title,
+  text,
+  actionLabel,
+  onAction,
+  count,
+}: {
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  actionLabel: string;
+  onAction: () => void;
+  count: number;
+}) {
+  return (
+    <section className="kc-capability-group">
+      <h3>{title}</h3>
+      <div className="kc-slot-placeholder">
+        <Icon className="kc-native-state-icon" />
+        <div>
+          <strong>{count ? `${count} 个已登记能力` : "等待构建器接入"}</strong>
+          <p>{text}</p>
+        </div>
+        <button type="button" onClick={onAction}>{actionLabel}</button>
+      </div>
+    </section>
+  );
+}
+
+function StatusTile({
+  icon: Icon,
+  title,
+  value,
+  detail,
+  tone,
+}: {
+  icon: LucideIcon;
+  title: string;
+  value: string;
+  detail: string;
+  tone: "success" | "warning" | "danger" | "muted";
+}) {
+  return (
+    <article className={`kc-native-status-tile is-${tone}`}>
+      <Icon className="kc-native-icon" />
+      <div>
+        <span>{title}</span>
+        <strong>{value}</strong>
+        <small>{detail}</small>
+      </div>
+    </article>
+  );
+}
+
+function PanelHead({
+  title,
+  count,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  count: number;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="kc-native-panel-head">
+      <div>
+        <h2>{title}</h2>
+        <span>{count} 项</span>
+      </div>
+      {actionLabel && onAction ? (
+        <button type="button" onClick={onAction}>
+          <Plus className="kc-native-icon" />
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ActionEmpty({
+  icon: Icon,
+  title,
+  text,
+  actionLabel,
+  onAction,
+  secondaryLabel,
+  onSecondary,
+}: {
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}) {
+  return (
+    <div className="kc-native-inline-empty">
+      <Icon className="kc-native-state-icon" />
+      <strong>{title}</strong>
+      <span>{text}</span>
+      <div>
+        {actionLabel && onAction ? <button type="button" onClick={onAction}>{actionLabel}</button> : null}
+        {secondaryLabel && onSecondary ? <button type="button" onClick={onSecondary}>{secondaryLabel}</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function NextAction({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
+  return (
+    <article className="kc-next-action">
+      <Icon className="kc-native-icon" />
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </article>
+  );
+}
+
+function ErrorPanel({
+  error,
+  onRetry,
+  compact,
+}: {
+  error: WorkbenchError;
+  onRetry?: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`kc-error-panel ${compact ? "is-compact" : ""}`} role="alert">
+      <AlertCircle className="kc-native-icon" />
+      <div>
+        <strong>{error.title}</strong>
+        <p>{error.reason}</p>
+        <small>{error.diagnostic}</small>
+        <span>{error.action}</span>
+      </div>
+      {onRetry ? <button type="button" onClick={onRetry}>重试</button> : null}
+    </div>
+  );
+}
+
+function StateView({
+  icon: Icon,
+  title,
+  text,
+  diagnostic,
+  actionLabel,
+  onAction,
+  spin,
+}: {
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  diagnostic?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  spin?: boolean;
+}) {
+  return (
+    <div className="kc-native-state" role="status">
+      <Icon className={`kc-native-state-icon ${spin ? "kc-spin" : ""}`} />
+      <strong>{title}</strong>
+      <span>{text}</span>
+      {diagnostic ? <small>{diagnostic}</small> : null}
+      {actionLabel && onAction ? (
+        <button type="button" onClick={onAction}>
+          <RefreshCw className="kc-native-icon" />
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function Modal({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="kc-native-drawer" role="dialog" aria-modal="true">
+      <div className="kc-native-drawer-panel">
+        <header>
+          <h2>{title}</h2>
+          <button type="button" onClick={onClose} aria-label="关闭">
+            <X className="kc-native-icon" />
+          </button>
+        </header>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label>
+      <span>{label}</span>
+      {children}
+    </label>
   );
 }
 
@@ -1159,5 +1873,44 @@ function FormActions({
         {submitLabel}
       </button>
     </div>
+  );
+}
+
+function InfoBlock({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
+  return (
+    <div className="kc-info-block">
+      <Icon className="kc-native-icon" />
+      <div>
+        <strong>{title}</strong>
+        <span>{text}</span>
+      </div>
+    </div>
+  );
+}
+
+function PreviewItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="kc-preview-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DiagnosticCard({
+  title,
+  value,
+  detail,
+}: {
+  title: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <article className="kc-diagnostic-card">
+      <span>{title}</span>
+      <strong>{value}</strong>
+      <p>{detail}</p>
+    </article>
   );
 }

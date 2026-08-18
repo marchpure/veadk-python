@@ -46,9 +46,27 @@ class CreateSourceBody(ApiModel):
     description: str | None = Field(default=None, max_length=2000)
     uri: str | None = Field(default=None, max_length=4096)
     locator: dict[str, Any] = Field(default_factory=dict)
-    status: str = Field(default="pending", min_length=1, max_length=80)
+    status: str = Field(default="registered", min_length=1, max_length=80)
     default_index_policy: dict[str, Any] = Field(default_factory=dict)
     capabilities: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ImportSourceBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    source_type: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=300)
+    description: str | None = Field(default=None, max_length=2000)
+    uri: str | None = Field(default=None, max_length=4096)
+    target_knowledge_base_id: str | None = Field(default=None, max_length=256)
+    region: str | None = Field(default=None, max_length=128)
+    provider: str | None = Field(default=None, max_length=120)
+    content: str | None = None
+    content_format: str | None = Field(default=None, max_length=40)
+    file: dict[str, Any] = Field(default_factory=dict)
+    schema_payload: dict[str, Any] = Field(default_factory=dict, alias="schema")
+    locator: dict[str, Any] = Field(default_factory=dict)
+    credential_ref: str | None = Field(default=None, max_length=256)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -145,6 +163,7 @@ class UpdateBuildJobBody(ApiModel):
 __all__ = [
     "CreateSourceBody",
     "CreateSpaceBody",
+    "ImportSourceBody",
     "RecordIndexedDocumentBody",
     "RecordBuildJobBody",
     "RecordSkillPackageBody",

@@ -16,13 +16,18 @@ from frontend.server.knowledge_assets.crypto import (
 from frontend.server.knowledge_assets.models import (
     CreateSourceBody,
     CreateSpaceBody,
+    ImportSourceBody,
     RecordBuildJobBody,
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     SaveCredentialBody,
     UpdateBuildJobBody,
+    UpdateSourceStatusBody,
 )
-from frontend.server.knowledge_assets.service import KnowledgeAssetCredentialError
+from frontend.server.knowledge_assets.service import (
+    KnowledgeAssetCredentialError,
+    KnowledgeAssetServiceError,
+)
 
 
 @pytest.fixture()
@@ -106,6 +111,164 @@ def test_store_records_assets_and_deduplicates_documents(store_env) -> None:
             asset_id="kb_docs",
         )
         assert loaded["name"] == "Docs Retrieval"
+
+    asyncio.run(scenario())
+
+
+def test_source_status_machine_rejects_pending_patch(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        source = await store.create_source(
+            CreateSourceBody(
+                space_id=space["id"],
+                source_type="web",
+                name="Docs",
+                status="pending",
+            )
+        )
+        assert source["status"] == "needs_configuration"
+        with pytest.raises(KnowledgeAssetServiceError, match="pending"):
+            await store.update_source_status(
+                source["id"],
+                UpdateSourceStatusBody(status="pending"),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_build_job_status_machine_rejects_unknown_state(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        with pytest.raises(KnowledgeAssetServiceError, match="状态无效"):
+            await store.record_build_job(RecordBuildJobBody(status="waiting_forever"))
+
+    asyncio.run(scenario())
+
+
+class _FakeKnowledgeService:
+    def __init__(self) -> None:
+        self.created: list[dict[str, object]] = []
+
+    def create_document(self, knowledge_id, body, *, identity, region):
+        self.created.append(
+            {
+                "knowledge_id": knowledge_id,
+                "body": body,
+                "identity": identity,
+                "region": region,
+            }
+        )
+        return {
+            "id": "doc_1",
+            "name": body.name,
+            "metadata": body.metadata,
+        }
+
+
+def test_import_source_writes_indexed_document_and_terminal_job(store_env) -> None:
+    store = KnowledgeAssetStore()
+    knowledge_service = _FakeKnowledgeService()
+
+    async def scenario() -> None:
+        space = await store.create_space(
+            CreateSpaceBody(name="KC", default_knowledge_base_id="kb-docs")
+        )
+        result = await store.import_source(
+            ImportSourceBody(
+                space_id=space["id"],
+                source_type="local_web",
+                name="政策页面",
+                uri="https://internal.example/policy",
+                content="# 政策页面\n\n可导入正文",
+                content_format="markdown",
+            ),
+            knowledge_service=knowledge_service,
+            identity=object(),
+            region="cn-beijing",
+        )
+
+        assert result["source"]["status"] == "indexed"
+        assert result["job"]["status"] == "succeeded"
+        docs = await store.list_indexed_documents(source_id=result["source"]["id"])
+        assert len(docs) == 1
+        assert docs[0]["knowledge_base_id"] == "kb-docs"
+        assert docs[0]["metadata"]["_veadk_source_url"] == "https://internal.example/policy"
+        assert docs[0]["metadata"]["_veadk_source_title"] == "政策页面"
+        assert knowledge_service.created[0]["knowledge_id"] == "kb-docs"
+
+    asyncio.run(scenario())
+
+
+def test_import_source_needs_configuration_without_target_kb(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        result = await store.import_source(
+            ImportSourceBody(
+                space_id=space["id"],
+                source_type="web",
+                name="Docs",
+                uri="https://example.com/docs",
+            )
+        )
+        assert result["source"]["status"] == "needs_configuration"
+        assert result["job"]["status"] == "blocked"
+        assert "Viking" in result["source"]["status_reason"]
+
+    asyncio.run(scenario())
+
+
+def test_feishu_import_needs_configuration_without_mock_success(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        result = await store.import_source(
+            ImportSourceBody(
+                space_id=space["id"],
+                source_type="feishu_doc",
+                name="飞书文档",
+                uri="https://example.feishu.cn/docx/doc_token",
+            )
+        )
+        assert result["source"]["status"] == "needs_configuration"
+        assert result["job"]["status"] == "blocked"
+        assert "OAuth" in result["source"]["status_reason"]
+
+    asyncio.run(scenario())
+
+
+def test_schema_snapshot_import_registers_ready_source_and_snapshot(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        imported = await store.import_source(
+            ImportSourceBody(
+                space_id=space["id"],
+                source_type="schema_snapshot",
+                name="销售 Schema",
+                schema={
+                    "models": [{"name": "orders"}],
+                    "fields": [
+                        {"model": "orders", "name": "order_id", "role": "dimension"},
+                        {"model": "orders", "name": "gmv", "role": "measure"},
+                    ],
+                    "metrics": [{"name": "total_gmv", "formula": "sum(gmv)"}],
+                },
+            )
+        )
+        assert imported["source"]["status"] == "ready"
+        assert imported["job"]["status"] == "succeeded"
+        assert imported["document"]["kind"] == "schema_snapshot"
+        snapshots = await store.list_snapshots(source_id=imported["source"]["id"])
+        assert len(snapshots) == 1
+        assert snapshots[0]["schema"]["models"][0]["name"] == "orders"
+        assert imported["source"]["metadata"]["schema_status"] == "ready"
 
     asyncio.run(scenario())
 
@@ -619,6 +782,24 @@ def test_query_url_rejects_cross_origin_paths(store_env) -> None:
                     capability_kind="dashboard_skill",
                     name="Sales",
                     query_url="https://evil.example/query",
+                )
+            )
+
+    asyncio.run(scenario())
+
+
+def test_query_url_rejects_ungoverned_web_paths(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        with pytest.raises(Exception, match="governed AgentKit query paths"):
+            await store.record_skill_package(
+                RecordSkillPackageBody(
+                    asset_type="dashboard",
+                    asset_id="sales",
+                    capability_kind="dashboard_skill",
+                    name="Sales",
+                    query_url="/web/datastudio/assets/dashboard/sales",
                 )
             )
 
