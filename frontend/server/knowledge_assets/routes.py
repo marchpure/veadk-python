@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, status
 
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
@@ -197,22 +197,49 @@ def mount_knowledge_asset_routes(
         "/api/knowledge-assets/build/semantic-skill",
         status_code=status.HTTP_201_CREATED,
     )
-    async def build_semantic_skill(body: BuildSemanticSkillBody) -> dict[str, Any]:
+    async def build_semantic_skill(
+        body: BuildSemanticSkillBody,
+        background_tasks: BackgroundTasks,
+    ) -> dict[str, Any]:
         builder = SemanticSkillBuildService(store)
-        return await invoke(
-            lambda: builder.build(
-                SemanticSkillBuildRequest(
-                    space_id=body.space_id,
-                    source_ids=body.source_ids,
-                    snapshot_ids=body.snapshot_ids,
-                    name=body.name,
-                    description=body.description,
-                    intent=body.intent,
-                    target_domain=body.target_domain,
-                    publish=body.publish,
-                )
-            )
+        request = SemanticSkillBuildRequest(
+            space_id=body.space_id,
+            source_ids=body.source_ids,
+            snapshot_ids=body.snapshot_ids,
+            name=body.name,
+            description=body.description,
+            intent=body.intent,
+            target_domain=body.target_domain,
+            publish=body.publish,
         )
+        job = await invoke(lambda: builder.enqueue(request))
+        background_tasks.add_task(
+            _run_semantic_skill_build,
+            store,
+            job["id"],
+            request,
+        )
+        return job
+
+    async def _run_semantic_skill_build(
+        build_store: KnowledgeAssetStore,
+        job_id: str,
+        request: SemanticSkillBuildRequest,
+    ) -> None:
+        builder = SemanticSkillBuildService(build_store)
+        try:
+            await builder.run_job(job_id, request)
+        except Exception as error:
+            await build_store.update_build_job(
+                job_id,
+                UpdateBuildJobBody(
+                    status="failed",
+                    error={
+                        "code": "SEMANTIC_BUILD_FAILED",
+                        "message": redact_sensitive(str(error)),
+                    },
+                ),
+            )
 
     @app.get("/api/knowledge-assets/build-jobs")
     async def list_build_jobs(

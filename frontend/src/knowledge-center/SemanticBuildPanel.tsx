@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
   buildSemanticSkill,
+  getKnowledgeAssetBuildJob,
   listKnowledgeAssetSnapshots,
   type KnowledgeAssetBuildJob,
   type KnowledgeAssetMetadata,
@@ -192,6 +193,7 @@ export function SemanticBuildPanel({
         publish: true,
       });
       setLastJob(job);
+      await pollBuildJob(job.id);
       await onRefresh();
     } catch (error) {
       setLastJob({
@@ -204,6 +206,17 @@ export function SemanticBuildPanel({
       });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function pollBuildJob(jobId: string) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 250 : 800));
+      const job = await getKnowledgeAssetBuildJob(jobId);
+      setLastJob(job);
+      if (!["queued", "running", "pending", "building"].includes(job.status)) {
+        return;
+      }
     }
   }
 

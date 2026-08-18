@@ -362,6 +362,16 @@ export async function listKnowledgeAssetBuildJobs(
   return payload.items ?? [];
 }
 
+export async function getKnowledgeAssetBuildJob(
+  jobId: string,
+): Promise<KnowledgeAssetBuildJob> {
+  return requestJson(
+    `/api/knowledge-assets/build-jobs/${encodeURIComponent(jobId)}`,
+    undefined,
+    "读取构建任务失败",
+  );
+}
+
 export async function recordKnowledgeAssetBuildJob(input: {
   space_id?: string;
   source_id?: string;

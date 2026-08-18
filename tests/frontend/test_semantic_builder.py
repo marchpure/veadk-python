@@ -43,6 +43,10 @@ def _schema() -> dict[str, object]:
     }
 
 
+def _job(client: TestClient, job_id: str) -> dict[str, object]:
+    return client.get(f"/api/knowledge-assets/build-jobs/{job_id}").json()
+
+
 def test_schema_graph_discovers_relationships_and_pii_policy() -> None:
     graph = build_schema_graph(_schema())
 
@@ -115,7 +119,9 @@ def test_semantic_skill_build_blocks_without_snapshot(client: TestClient) -> Non
     )
 
     assert response.status_code == 201
-    job = response.json()
+    queued = response.json()
+    assert queued["status"] == "queued"
+    job = _job(client, queued["id"])
     assert job["status"] == "blocked"
     assert "schema snapshot" in job["error"]["message"]
 
@@ -161,7 +167,9 @@ def test_semantic_skill_build_creates_published_capability(client: TestClient, m
     )
 
     assert response.status_code == 201
-    job = response.json()
+    queued = response.json()
+    assert queued["status"] == "queued"
+    job = _job(client, queued["id"])
     assert job["status"] == "succeeded"
     assert job["output"]["semantic_skill_asset_id"] == "sales_semantic"
     assets = client.get(
@@ -272,7 +280,7 @@ def test_semantic_skill_build_prefers_sanitized_semantic_reference(
         },
     ).json()
 
-    client.post(
+    queued = client.post(
         "/api/knowledge-assets/build/semantic-skill",
         json={
             "space_id": space["id"],
@@ -281,7 +289,8 @@ def test_semantic_skill_build_prefers_sanitized_semantic_reference(
             "name": "Oracle Sales Semantic",
             "publish": True,
         },
-    )
+    ).json()
+    assert _job(client, queued["id"])["status"] == "succeeded"
     asset = client.get(
         "/api/knowledge-assets/assets?asset_type=semantic_model&capability_kind=semantic_skill"
     ).json()["items"][0]

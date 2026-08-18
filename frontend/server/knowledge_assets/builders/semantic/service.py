@@ -32,18 +32,22 @@ class SemanticSkillBuildService:
         self._store = store
 
     async def build(self, request: SemanticSkillBuildRequest) -> dict[str, Any]:
+        job = await self.enqueue(request)
+        return await self.run_job(job["id"], request, raise_on_failed=True)
+
+    async def enqueue(self, request: SemanticSkillBuildRequest) -> dict[str, Any]:
         if not request.source_ids and not request.snapshot_ids:
             raise KnowledgeAssetServiceError("需要选择数据库 source 或 schema snapshot。")
         primary_source = request.source_ids[0] if request.source_ids else None
         asset_id = _asset_id(request.name, request.source_ids, request.snapshot_ids)
-        job = await self._store.record_build_job(
+        return await self._store.record_build_job(
             RecordBuildJobBody(
                 space_id=request.space_id,
                 source_id=primary_source,
                 asset_type="semantic_model",
                 asset_id=asset_id,
                 job_type="semantic_skill",
-                status="running",
+                status="queued",
                 input={
                     "source_ids": request.source_ids,
                     "snapshot_ids": request.snapshot_ids,
@@ -51,16 +55,41 @@ class SemanticSkillBuildService:
                     "target_domain": request.target_domain,
                     "publish_requested": request.publish,
                 },
+                output={
+                    "semantic_skill_asset_id": asset_id,
+                    "generation_mode": "queued",
+                    "model_status": "pending",
+                },
             )
         )
+
+    async def run_job(
+        self,
+        job_id: str,
+        request: SemanticSkillBuildRequest,
+        *,
+        raise_on_failed: bool = False,
+    ) -> dict[str, Any]:
+        asset_id = _asset_id(request.name, request.source_ids, request.snapshot_ids)
+        await self._store.update_build_job(
+            job_id,
+            UpdateBuildJobBody(
+                status="running",
+                output={
+                    "semantic_skill_asset_id": asset_id,
+                    "generation_mode": "running",
+                    "model_status": "pending",
+                },
+            ),
+        )
         try:
-            result = await self._run(job["id"], asset_id, request)
+            result = await self._run(job_id, asset_id, request)
             return result
         except Exception as error:
             blocked = isinstance(error, SemanticBuildBlocked)
             status = "blocked" if blocked else "failed"
             await self._store.update_build_job(
-                job["id"],
+                job_id,
                 UpdateBuildJobBody(
                     status=status,
                     error={
@@ -70,8 +99,8 @@ class SemanticSkillBuildService:
                     output={"asset_id": asset_id},
                 ),
             )
-            if blocked:
-                return await self._store.get_build_job(job["id"])
+            if blocked or not raise_on_failed:
+                return await self._store.get_build_job(job_id)
             raise
 
     async def _run(
