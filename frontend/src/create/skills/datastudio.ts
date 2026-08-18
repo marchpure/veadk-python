@@ -129,6 +129,99 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function compactLabels(values: unknown[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    const label = String(value ?? "").trim();
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push(label);
+  }
+  return out;
+}
+
+function collectSourceCoverage(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const labels: unknown[] = [];
+  for (const key of [
+    "source_label",
+    "source_name",
+    "source",
+    "datasource",
+    "datasource_kind",
+    "source_resource_type",
+    "provider",
+  ]) {
+    labels.push(record[key]);
+  }
+  for (const key of ["sources", "source_ids", "sourceIds", "lineage"]) {
+    const value = record[key];
+    if (!Array.isArray(value)) continue;
+    for (const item of value) {
+      if (typeof item === "string") {
+        labels.push(item);
+      } else if (item && typeof item === "object") {
+        const child = item as Record<string, unknown>;
+        labels.push(
+          child.name ??
+            child.label ??
+            child.title ??
+            child.id ??
+            child.source_id ??
+            child.sourceId,
+        );
+      }
+    }
+  }
+  return compactLabels(labels);
+}
+
+const SENSITIVE_PACKAGE_KEY_RE =
+  /(authorization|cookie|credential|secret|token|password|api[_-]?key|connection[_-]?obj|connection[_-]?string|session|dsn)/i;
+const SENSITIVE_PACKAGE_VALUE_RE =
+  /(bearer\s+[a-z0-9._~-]+|password\s*=|:\/\/[^/\s:@]+:[^@\s]+@|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
+
+function safeStructuredValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(safeStructuredValue);
+  if (typeof value === "string" && SENSITIVE_PACKAGE_VALUE_RE.test(value)) {
+    return "[REDACTED]";
+  }
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = SENSITIVE_PACKAGE_KEY_RE.test(key)
+      ? "[REDACTED]"
+      : safeStructuredValue(child);
+  }
+  return out;
+}
+
+function safeRecord(value: unknown): Record<string, unknown> | undefined {
+  const safe = safeStructuredValue(value);
+  return safe && typeof safe === "object" && !Array.isArray(safe)
+    ? (safe as Record<string, unknown>)
+    : undefined;
+}
+
+export function dataStudioCapabilityLabel(
+  type?: string,
+  kind?: string,
+): string {
+  if (kind === "retrieval_binding") return "资料检索";
+  if (kind === "dashboard_skill" || type === "dashboard") {
+    return "Dashboard 指标 Skill";
+  }
+  return "语义问数 Skill";
+}
+
+export function dataStudioSourceCoverageText(values?: string[]): string {
+  const labels = compactLabels(values ?? []);
+  if (!labels.length) return "覆盖来源待资产声明";
+  return labels.slice(0, 3).join(" + ");
+}
+
 function evidenceText(asset: DataStudioAsset): string[] {
   return (asset.sample_evidence ?? [])
     .map((item) => {
@@ -160,6 +253,11 @@ export function dataStudioAssetToHit(asset: DataStudioAsset): SkillHit {
   const metrics = labelArray(capabilities.metrics);
   const dimensions = labelArray(capabilities.dimensions);
   const examples = stringArray(capabilities.example_questions);
+  const sourceCoverage = compactLabels([
+    ...collectSourceCoverage(asset.capability_package),
+    ...collectSourceCoverage(asset.provenance),
+    ...collectSourceCoverage(asset.capabilities),
+  ]);
   const folder =
     `datastudio-${asset.asset_type.replace(/_/g, "-")}-${asset.asset_id}`
       .toLowerCase()
@@ -177,7 +275,7 @@ export function dataStudioAssetToHit(asset: DataStudioAsset): SkillHit {
     dataStudioCapabilityKind:
       asset.capability_kind ??
       (asset.asset_type === "dashboard" ? "dashboard_skill" : "semantic_skill"),
-    dataStudioCapabilityPackage: asset.capability_package,
+    dataStudioCapabilityPackage: safeRecord(asset.capability_package),
     dataStudioVersion: asset.version,
     dataStudioGateScore:
       typeof asset.gate?.score === "number" ? asset.gate.score : undefined,
@@ -189,5 +287,9 @@ export function dataStudioAssetToHit(asset: DataStudioAsset): SkillHit {
       typeof capabilities.time_field === "string" ? capabilities.time_field : undefined,
     dataStudioDimensions: dimensions,
     dataStudioEvidence: evidenceText(asset),
+    dataStudioSourceCoverage: sourceCoverage,
+    dataStudioFreshness: safeRecord(asset.freshness),
+    dataStudioProvenance: safeRecord(asset.provenance),
+    dataStudioUsagePolicy: safeRecord(asset.usage_policy),
   };
 }

@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import {
   DataStudioError,
+  dataStudioCapabilityLabel,
   dataStudioAssetToHit,
+  dataStudioSourceCoverageText,
   listDataStudioAssets,
 } from "./skills/datastudio";
 import type { SelectedSkill, SkillHit } from "./skills/types";
@@ -19,7 +21,7 @@ import { displayDescription } from "./displayText";
 const PAGE_SIZE = 6;
 
 function typeLabel(type?: string): string {
-  return type === "dashboard" ? "Dashboard Skill" : "Semantic Skill";
+  return dataStudioCapabilityLabel(type);
 }
 
 function toSelected(hit: SkillHit): SelectedSkill {
@@ -41,6 +43,10 @@ function toSelected(hit: SkillHit): SelectedSkill {
     dataStudioTimeField: hit.dataStudioTimeField,
     dataStudioDimensions: hit.dataStudioDimensions,
     dataStudioEvidence: hit.dataStudioEvidence,
+    dataStudioSourceCoverage: hit.dataStudioSourceCoverage,
+    dataStudioFreshness: hit.dataStudioFreshness,
+    dataStudioProvenance: hit.dataStudioProvenance,
+    dataStudioUsagePolicy: hit.dataStudioUsagePolicy,
   };
 }
 
@@ -64,7 +70,9 @@ export function dataStudioEmptyStateText({
     if (error.status === 401) return "未登录：请先登录 Studio。";
     return error.message || "Byaan Data Studio 不可达。";
   }
-  return query.trim() ? "搜索无结果，换个关键词试试。" : "暂无已发布资产。";
+  return query.trim()
+    ? "搜索无结果，换个能力、指标或来源关键词试试。"
+    : "暂无已发布能力。";
 }
 
 export function toggleDataStudioSelection(
@@ -146,13 +154,18 @@ export function DataStudioAssetPicker({
 
   return (
     <div className="cw-datastudio">
+      <div className="cw-datastudio-capability-strip" aria-label="可选能力类型">
+        <span>资料检索</span>
+        <span>语义问数 Skill</span>
+        <span>Dashboard 指标 Skill</span>
+      </div>
       <div className="cw-skill-searchrow">
         <div className="cw-skill-searchbox">
           <Search className="cw-i cw-skill-searchicon" aria-hidden />
           <input
             className="cw-input cw-skill-input"
             value={query}
-            placeholder="搜索已发布的 Dashboard 或语义模型"
+            placeholder="搜索已发布能力、指标或覆盖来源"
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
@@ -198,6 +211,9 @@ export function DataStudioAssetPicker({
                     </span>
                   </span>
                   <span className="cw-datastudio-name">{hit.name}</span>
+                  <span className="cw-datastudio-source">
+                    覆盖 {dataStudioSourceCoverageText(hit.dataStudioSourceCoverage)}
+                  </span>
                   {hit.description && (
                     <span className="cw-datastudio-desc">
                       {displayDescription(hit.description)}
@@ -215,7 +231,7 @@ export function DataStudioAssetPicker({
                   </span>
                   <span className="cw-datastudio-example">
                     {hit.dataStudioExampleQuestions?.[0] ??
-                      "可围绕该资产覆盖的指标和维度提问"}
+                      "选择后 Agent 将调用对应受治理能力作答"}
                   </span>
                   <span className="cw-datastudio-permission">
                     {hit.dataStudioPermissionHint || "按 Data Studio 权限策略查询"}

@@ -692,15 +692,15 @@ test("skill sources open in a fixed-height dialog above a six-row selected list"
   );
   assert.match(
     createSource,
-    /\{ id: "local", label: "本地文件"[\s\S]*?\{ id: "skillspace", label: "AgentKit Skills 中心"[\s\S]*?\{ id: "skillhub", label: "火山 Find Skill 技能广场"/,
+    /\{ id: "local", label: "本地文件"[\s\S]*?\{ id: "skillspace", label: "AgentKit Skills 中心"[\s\S]*?\{ id: "datastudio", label: "知识能力"[\s\S]*?\{ id: "skillhub", label: "火山 Find Skill 技能广场"/,
   );
   assert.match(createSource, /useState<SkillSource>\("local"\)/);
   assert.match(
     createSource,
-    /className="cw-skill-add"[\s\S]*?<span>添加 Skill<\/span>/,
+    /className="cw-skill-add"[\s\S]*?<span>添加能力<\/span>/,
   );
   assert.match(createSource, /role="dialog"[\s\S]*?aria-modal="true"/);
-  assert.match(createSource, /id="cw-skill-dialog-title">添加 Skill<\/h3>/);
+  assert.match(createSource, /id="cw-skill-dialog-title">添加 Agent 能力<\/h3>/);
   assert.match(
     createSource,
     /className="cw-skill-sourcetabs"[\s\S]*?role="tablist"/,

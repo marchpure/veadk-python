@@ -4221,7 +4221,7 @@
 .cw-skill-sourcetabs {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   height: 44px;
   padding: 4px;
@@ -4642,6 +4642,25 @@
   gap: 12px;
 }
 
+.cw-datastudio-capability-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cw-datastudio-capability-strip span {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--secondary) / 0.55);
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 .cw-datastudio-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4684,19 +4703,27 @@
 
 .cw-datastudio-name {
   font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 .cw-datastudio-desc,
 .cw-datastudio-meta,
 .cw-datastudio-example,
+.cw-datastudio-source,
 .cw-datastudio-permission {
   font-size: 12px;
   line-height: 1.45;
   color: hsl(var(--muted-foreground));
+  overflow-wrap: anywhere;
 }
 
 .cw-datastudio-example {
   color: hsl(var(--foreground));
+}
+
+.cw-datastudio-source {
+  color: hsl(var(--foreground));
+  font-weight: 600;
 }
 
 .cw-datastudio-pager {
@@ -4704,6 +4731,10 @@
 }
 
 @media (max-width: 700px) {
+  .cw-datastudio-capability-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .cw-datastudio-grid {
     grid-template-columns: minmax(0, 1fr);
   }

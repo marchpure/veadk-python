@@ -16,6 +16,14 @@ const sidebarSource = readFileSync(
   "utf8",
 );
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const customCreateSource = readFileSync(
+  new URL("../src/create/CustomCreate.tsx", import.meta.url),
+  "utf8",
+);
+const customCreateCss = readFileSync(
+  new URL("../src/create/CustomCreate.css", import.meta.url),
+  "utf8",
+);
 const knowledgeCenterSource = readFileSync(
   new URL("../src/knowledge-center/KnowledgeCenter.tsx", import.meta.url),
   "utf8",
@@ -39,7 +47,11 @@ async function loadTypeScriptModule(relativePath) {
   return require(outFile);
 }
 
-const { dataStudioAssetToHit } = await loadTypeScriptModule(
+const {
+  dataStudioAssetToHit,
+  dataStudioCapabilityLabel,
+  dataStudioSourceCoverageText,
+} = await loadTypeScriptModule(
   "../src/create/skills/datastudio.ts",
 );
 const {
@@ -84,6 +96,55 @@ test("Data Studio asset adapter preserves REST query_url for picker cards", () =
   assert.deepEqual(hit.dataStudioMetrics, ["GMV", "Orders"]);
   assert.equal(hit.dataStudioQueryUrl, "/api/external/assets/dashboard/sales/query");
   assert.equal(hit.dataStudioPermissionHint, "Aggregated only");
+});
+
+test("Data Studio adapter presents assets as Agent capabilities with source coverage", () => {
+  assert.equal(dataStudioCapabilityLabel("semantic_model"), "语义问数 Skill");
+  assert.equal(dataStudioCapabilityLabel("dashboard"), "Dashboard 指标 Skill");
+  assert.equal(
+    dataStudioCapabilityLabel("knowledge_resource", "retrieval_binding"),
+    "资料检索",
+  );
+
+  const hit = dataStudioAssetToHit({
+    asset_type: "semantic_model",
+    asset_id: "oracle-sales",
+    name: "Oracle Sales",
+    publish_state: "published",
+    capability_package: {
+      package_type: "semantic_skill",
+      source_ids: [
+        { kind: "database", id: "Oracle 销售库" },
+        { kind: "document", id: "飞书销售手册" },
+      ],
+      runtime: {
+        query_url: "/api/external/assets/semantic_model/oracle-sales/query",
+        api_key: "must-not-enter-state",
+      },
+    },
+    provenance: {
+      datasource_kind: "oracle",
+      connection_string: "redacted-connection-placeholder",
+    },
+    usage_policy: {
+      permission_hint: "Aggregates only",
+      Authorization: "redacted-authorization-placeholder",
+    },
+  });
+
+  assert.equal(hit.dataStudioCapabilityKind, "semantic_skill");
+  assert.deepEqual(hit.dataStudioSourceCoverage, [
+    "Oracle 销售库",
+    "飞书销售手册",
+    "oracle",
+  ]);
+  assert.equal(
+    dataStudioSourceCoverageText(hit.dataStudioSourceCoverage),
+    "Oracle 销售库 + 飞书销售手册 + oracle",
+  );
+  assert.equal(hit.dataStudioCapabilityPackage.runtime.api_key, "[REDACTED]");
+  assert.equal(hit.dataStudioProvenance.connection_string, "[REDACTED]");
+  assert.equal(hit.dataStudioUsagePolicy.Authorization, "[REDACTED]");
 });
 
 test("Data Studio asset adapter accepts live BYAAN capability objects", () => {
@@ -158,6 +219,16 @@ test("Data Studio picker empty states and multi-select behavior are deterministi
   assert.deepEqual(toggleDataStudioSelection(selected, hit), [local]);
 });
 
+test("Agent creation presents knowledge choices as runnable capabilities", () => {
+  assert.match(customCreateSource, /label: "能力"/);
+  assert.match(customCreateSource, /label: "检索绑定"/);
+  assert.match(customCreateSource, /title="资料检索 Binding"/);
+  assert.match(customCreateSource, /绑定一个明确的 VikingDB 知识库作为检索能力/);
+  assert.match(customCreateSource, /知识能力/);
+  assert.match(customCreateCss, /cw-datastudio-capability-strip/);
+  assert.match(customCreateCss, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+});
+
 test("Data Studio knowledge center stays visible and does not ask for user env setup", () => {
   assert.doesNotMatch(sidebarSource, /show\("datastudio"\)/);
   assert.match(sidebarSource, /aria-label="知识资产"/);
@@ -198,6 +269,10 @@ test("Data Studio selected skill round-trips through YAML", () => {
         dataStudioQueryUrl: "/api/external/assets/dashboard/sales-dashboard/query",
         dataStudioMetrics: ["GMV", "Orders"],
         dataStudioPermissionHint: "Aggregated metrics only",
+        dataStudioSourceCoverage: ["飞书销售手册", "Oracle 销售库"],
+        dataStudioFreshness: { status: "current" },
+        dataStudioProvenance: { datasource_kind: "oracle" },
+        dataStudioUsagePolicy: { permission_hint: "Aggregated metrics only" },
       },
     ],
   };
@@ -208,6 +283,8 @@ test("Data Studio selected skill round-trips through YAML", () => {
   assert.match(yaml, /dataStudioCapabilityKind: dashboard_skill/);
   assert.match(yaml, /package_type: dashboard_skill/);
   assert.match(yaml, /dataStudioQueryUrl:/);
+  assert.match(yaml, /dataStudioSourceCoverage:/);
+  assert.match(yaml, /Oracle 销售库/);
   assert.doesNotMatch(yaml, /BYAAN_MCP_API_KEY/);
   assert.doesNotMatch(yaml, /api\/mcp\/assets/);
 
@@ -220,4 +297,8 @@ test("Data Studio selected skill round-trips through YAML", () => {
     restored.selectedSkills[0].dataStudioCapabilityPackage.package_type,
     "dashboard_skill",
   );
+  assert.deepEqual(restored.selectedSkills[0].dataStudioSourceCoverage, [
+    "飞书销售手册",
+    "Oracle 销售库",
+  ]);
 });
