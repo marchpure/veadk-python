@@ -10,7 +10,7 @@ from ...models import ApiModel
 from ...service import KnowledgeAssetStore
 from .common import redacted
 from .semantic_query_adapter import (
-    GovernedSemanticQueryAdapter,
+    GovernedSemanticQueryService,
     SemanticQueryRequest,
 )
 
@@ -35,14 +35,14 @@ class AskDataQueryBody(ApiModel):
 class AskDataQueryService:
     def __init__(self, store: KnowledgeAssetStore) -> None:
         self._store = store
-        self._semantic_query = GovernedSemanticQueryAdapter()
+        self._semantic_query = GovernedSemanticQueryService(store)
 
     async def query(self, body: AskDataQueryBody) -> dict[str, Any]:
         asset = await self._store.get_asset(
             asset_type="semantic_model",
             asset_id=body.semantic_asset_id,
         )
-        semantic_result = await self._semantic_query.query(
+        semantic_result = await self._semantic_query.query_loaded_asset(
             asset,
             SemanticQueryRequest.from_body(body),
         )

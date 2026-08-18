@@ -54,12 +54,17 @@ def test_askdata_query_returns_required_evidence(tmp_path, monkeypatch) -> None:
     assert "secret" not in response.text.lower()
 
 
-def test_askdata_refuses_semantic_skill_without_governed_query_result(
+def test_askdata_uses_e2_schema_only_governed_query_without_fixture_result(
     tmp_path,
     monkeypatch,
 ) -> None:
     client = _client(tmp_path, monkeypatch)
-    _semantic_skill(client, asset_id="schema-only-sales", governed_result=False)
+    _semantic_skill(
+        client,
+        asset_id="schema-only-sales",
+        governed_result=False,
+        artifacts_mdl=True,
+    )
 
     response = client.post(
         "/api/knowledge-assets/askdata/query",
@@ -71,10 +76,88 @@ def test_askdata_refuses_semantic_skill_without_governed_query_result(
         },
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 200
     body = response.json()
-    assert body["detail"]["code"] == "KNOWLEDGE_ASSET_INVALID_REQUEST"
-    assert "受治理查询结果" in body["detail"]["message"]
+    assert body["status"] == "completed"
+    data = body["data"]
+    assert data["rows"] == []
+    assert data["returnedCount"] == 0
+    assert "SELECT" in data["sql"]
+    assert data["metricDefinition"] == "Count distinct tickets."
+    assert data["policyDecision"]["decision"] == "allow"
+    assert data["execution"]["mode"] == "schema_only"
+    assert data["execution"]["governed_rest"] is True
+    assert data["execution"]["direct_database_access"] is False
+    assert "COUNT(DISTINCT" in data["sql"]
+
+
+def test_askdata_accepts_current_e2_inline_mdl_package_without_fixture_result(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(
+        client,
+        asset_id="e2-inline-sales",
+        governed_result=False,
+        artifacts_mdl=False,
+    )
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/query",
+        json={
+            "semantic_asset_id": "e2-inline-sales",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+            "question": "按门店统计最近销售票数 Top 3",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["execution"]["mode"] == "schema_only"
+    assert data["rows"] == []
+    assert data["returnedCount"] == 0
+    assert data["sql"].startswith("SELECT")
+    assert "COUNT(DISTINCT" in data["sql"]
+    assert data["metricDefinition"] == "Count distinct tickets."
+    assert data["policyDecision"]["direct_database_access"] is False
+
+
+def test_schema_only_query_sanitizes_mdl_metadata_in_sql_evidence(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(
+        client,
+        asset_id="schema-only-sales",
+        governed_result=False,
+        artifacts_mdl=True,
+        malicious_metadata=True,
+    )
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/query",
+        json={
+            "semantic_asset_id": "schema-only-sales",
+            "metric": "ticket_count",
+            "dimension": "store",
+            "filters": {"region; DROP TABLE audit": "SG' OR '1'='1"},
+            "question": "按门店查看销售票数",
+        },
+    )
+
+    assert response.status_code == 200
+    sql = response.json()["data"]["sql"]
+    assert "DROP" not in sql
+    assert "--" not in sql
+    assert "COUNT(DISTINCT" in sql
+    assert '"sales_order_TABLE_users"' in sql
+    assert '"store_name_TABLE_users"' in sql
+    assert '"region_TABLE_audit"' in sql
+    assert "SG'' OR ''1''=''1" in sql
+    assert "ticket_id) FROM" not in sql
 
 
 def test_askdata_denies_customer_contact_questions(tmp_path, monkeypatch) -> None:
@@ -157,6 +240,41 @@ def test_dashboard_skill_build_records_skill_package_and_job(tmp_path, monkeypat
     assert view["freshness"]["status"] == "fresh"
 
 
+def test_dashboard_skill_build_accepts_e2_schema_only_semantic_package(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    space_id = _semantic_skill(
+        client,
+        asset_id="schema-only-sales",
+        governed_result=False,
+        artifacts_mdl=True,
+    )
+
+    response = client.post(
+        "/api/knowledge-assets/build/dashboard-skill",
+        json={
+            "space_id": space_id,
+            "semantic_asset_id": "schema-only-sales",
+            "name": "Schema Only Sales Dashboard",
+            "intent": "按门店查看销售票数",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+            "publish": True,
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "succeeded"
+    assert body["askdata"]["data"]["execution"]["mode"] == "schema_only"
+    views = body["preview"]["data_views"]
+    assert views[0]["rows"] == []
+    assert views[0]["sql"]
+    assert views[0]["policyDecision"]["decision"] == "allow"
+
+
 def test_semantic_asset_query_route_matches_e2_governed_contract(
     tmp_path,
     monkeypatch,
@@ -217,6 +335,7 @@ def _semantic_skill(
     governed_result: bool = True,
     artifacts_mdl: bool = False,
     byaan_shape: bool = False,
+    malicious_metadata: bool = False,
 ) -> str:
     space = client.post("/api/knowledge-assets/spaces", json={"name": "Oracle"}).json()
     mdl = {
@@ -244,6 +363,12 @@ def _semantic_skill(
         },
         "freshness": {"status": "fresh", "as_of": "2026-08-18T00:00:00Z"},
     }
+    if malicious_metadata:
+        mdl["entities"][0]["table"] = "sales_order; DROP TABLE users"
+        mdl["metrics"][0]["formula"] = "count(distinct ticket_id) FROM users --"
+        mdl["metrics"][0]["field"] = "ticket_id"
+        mdl["metrics"][0]["kind"] = "count_distinct"
+        mdl["dimensions"][0]["field"] = "store_name; DROP TABLE users"
     result = {
         "schema": "agentkit.semantic_query_result.v1",
         "data": {

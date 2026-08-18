@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urljoin, urlsplit
@@ -11,7 +12,7 @@ import httpx
 from pydantic import Field, field_validator
 
 from ...models import ApiModel
-from ...service import KnowledgeAssetServiceError, redact_sensitive
+from ...service import KnowledgeAssetServiceError, KnowledgeAssetStore, redact_sensitive
 from .common import (
     dimension_id,
     first_mapping,
@@ -143,6 +144,35 @@ class GovernedSemanticQueryAdapter:
             mdl=mdl,
         )
         return redact_sensitive(governed_result)
+
+
+class GovernedSemanticQueryService:
+    """Route-backed governed query service for published Semantic Skill assets."""
+
+    def __init__(self, store: KnowledgeAssetStore) -> None:
+        self._store = store
+        self._adapter = GovernedSemanticQueryAdapter()
+
+    async def query_asset(
+        self,
+        asset_id: str,
+        body: SemanticAssetQueryBody,
+    ) -> dict[str, Any]:
+        asset = await self._store.get_asset(
+            asset_type="semantic_model",
+            asset_id=asset_id,
+        )
+        return await self.query_loaded_asset(
+            asset,
+            SemanticQueryRequest.from_asset_body(asset_id, body),
+        )
+
+    async def query_loaded_asset(
+        self,
+        asset: dict[str, Any],
+        request: SemanticQueryRequest,
+    ) -> dict[str, Any]:
+        return await self._adapter.query(asset, request)
 
 
 def normalize_semantic_mdl(
@@ -371,9 +401,63 @@ async def _resolve_governed_result(
     if sidecar_result is not None:
         return sidecar_result
 
-    raise KnowledgeAssetServiceError(
-        "Semantic Skill 缺少可执行的受治理查询结果。请先发布带 governed query 输出的 Semantic Skill，"
-        "或在 E2 语义构建完成后通过 /api/knowledge-assets/assets/semantic_model/{asset_id}/query 查询。"
+    return _schema_only_governed_result(
+        asset=asset,
+        package=package,
+        request=request,
+        metric=metric,
+        dimensions=dimensions,
+        policies=policies,
+        mdl=mdl,
+    )
+
+
+def _schema_only_governed_result(
+    *,
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    policies: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any]:
+    sql = _compile_governed_schema_sql(mdl, metric, dimensions, request)
+    data = {
+        "rows": [],
+        "returnedCount": 0,
+        "metric": _metric_payload(metric),
+        "dimensions": [_dimension_payload(item) for item in dimensions],
+        "sql": sql,
+        "metricDefinition": metric_definition(metric),
+        "policyDecision": {
+            "decision": "allow",
+            "reason": policies.get("permission_hint")
+            or "通过 Semantic Skill 受治理查询路径返回；当前没有可执行快照结果。",
+            "raw_sql_fallback": False,
+            "direct_database_access": False,
+            "denied_fields": policies.get("denied_fields", []),
+            "masked_fields": policies.get("masked_fields", []),
+        },
+        "freshness": freshness_payload(asset, package, now_iso(), mdl=mdl),
+        "lineage": metric.get("lineage") or asset.get("sample_evidence") or package.get("evidence") or [],
+        "evidence": evidence_payload(asset, package, metric),
+        "execution": {
+            "mode": "schema_only",
+            "governed_rest": True,
+            "direct_database_access": False,
+            "raw_sql_fallback": False,
+            "result_source": "semantic_skill_mdl",
+        },
+    }
+    _require_complete_governed_result(data)
+    return _semantic_envelope(
+        {"schema": "agentkit.semantic_query_result.v1"},
+        asset,
+        data,
+        request,
+        metric,
+        dimensions,
     )
 
 
@@ -637,6 +721,141 @@ def _normalize_policy_decision(value: object) -> str:
     if decision in {"deny", "denied", "block", "blocked", "refuse", "refused"}:
         return "deny"
     return decision or "allow"
+
+
+def _compile_governed_schema_sql(
+    mdl: dict[str, Any],
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    request: SemanticQueryRequest,
+) -> str:
+    entities = mdl.get("entities") if isinstance(mdl.get("entities"), list) else []
+    entity_id = str(metric.get("entity") or metric.get("entityId") or "")
+    entity = {}
+    for item in entities:
+        if not isinstance(item, dict):
+            continue
+        if entity_id and entity_id in {str(item.get("id") or ""), str(item.get("name") or "")}:
+            entity = item
+            break
+    if not entity:
+        entity = next((item for item in entities if isinstance(item, dict)), {})
+    table = _sql_identifier(entity.get("table") or entity.get("id") or "semantic_model")
+    metric_expr = _safe_metric_expr(metric)
+    metric_alias = _sql_identifier(metric_id(metric))
+    dim_parts: list[str] = []
+    group_parts: list[str] = []
+    for dimension in dimensions:
+        field = _sql_identifier(dimension.get("field") or dimension_id(dimension))
+        alias = _sql_identifier(dimension_id(dimension))
+        dim_parts.append(f"{field} AS {alias}")
+        group_parts.append(field)
+    select_parts = [*dim_parts, f"{metric_expr} AS {metric_alias}"]
+    where_parts = _governed_where_parts(metric, request)
+    sql = f"SELECT {', '.join(select_parts)} FROM {table}"
+    if where_parts:
+        sql += " WHERE " + " AND ".join(where_parts)
+    if group_parts:
+        sql += " GROUP BY " + ", ".join(group_parts)
+    sql += f" LIMIT {max(1, min(int(request.limit or 100), 500))}"
+    return sql
+
+
+def _governed_where_parts(metric: dict[str, Any], request: SemanticQueryRequest) -> list[str]:
+    parts: list[str] = []
+    filters = request.filters if isinstance(request.filters, dict) else {}
+    for key, value in filters.items():
+        field = _sql_identifier(key)
+        if isinstance(value, list) and value:
+            values = ", ".join(_sql_literal(item) for item in value[:20])
+            parts.append(f"{field} IN ({values})")
+        elif value not in (None, ""):
+            parts.append(f"{field} = {_sql_literal(value)}")
+    time_range = request.time_range if isinstance(request.time_range, dict) else {}
+    time_field = metric.get("time_field") or metric.get("timeField") or ""
+    if time_field and (start := time_range.get("start") or time_range.get("from")):
+        parts.append(f"{_sql_identifier(time_field)} >= {_sql_literal(start)}")
+    if time_field and (end := time_range.get("end") or time_range.get("to")):
+        parts.append(f"{_sql_identifier(time_field)} < {_sql_literal(end)}")
+    return parts
+
+
+def _safe_metric_expr(metric: dict[str, Any]) -> str:
+    formula = str(metric.get("formula") or metric.get("expr") or "").strip()
+    if formula and (normalized := _normalize_metric_formula(formula)):
+        return normalized
+    kind = str(metric.get("kind") or "").casefold()
+    field = _sql_identifier(metric.get("field") or metric_id(metric))
+    if kind == "count":
+        return "COUNT(*)"
+    if kind == "count_distinct":
+        return f"COUNT(DISTINCT {field})"
+    if kind == "avg":
+        return f"AVG({field})"
+    return f"SUM({field})"
+
+
+def _normalize_metric_formula(value: str) -> str:
+    lowered = re.sub(r"\s+", " ", value.strip()).casefold()
+    if lowered in {"count(*)", "count(1)"}:
+        return "COUNT(*)"
+    count_distinct = re.fullmatch(
+        r"(?:count_distinct\s*\(|count\s*\(\s*distinct\s+)([A-Za-z_][A-Za-z0-9_.]*)\s*\)",
+        lowered,
+    )
+    if count_distinct:
+        return f"COUNT(DISTINCT {_sql_identifier(count_distinct.group(1))})"
+    aggregate = re.fullmatch(
+        r"(sum|avg|min|max)\s*\(\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\)",
+        lowered,
+    )
+    if not aggregate:
+        return ""
+    op, field = aggregate.groups()
+    sql_field = _sql_identifier(field)
+    return f"{op.upper()}({sql_field})"
+
+
+def _sql_identifier(value: object) -> str:
+    raw = str(value or "").strip()
+    parts = [part for part in raw.split(".") if part]
+    cleaned = [
+        _clean_identifier_part(part)
+        for part in parts
+    ]
+    if not cleaned:
+        cleaned = ["field"]
+    return ".".join(f'"{part[:128]}"' for part in cleaned)
+
+
+def _clean_identifier_part(value: str) -> str:
+    forbidden_tokens = {
+        "alter",
+        "attach",
+        "call",
+        "copy",
+        "create",
+        "delete",
+        "detach",
+        "drop",
+        "export",
+        "insert",
+        "install",
+        "load",
+        "pragma",
+        "update",
+    }
+    raw_tokens = re.sub(r"[^A-Za-z0-9_]", "_", value).strip("_").split("_")
+    tokens = [
+        token
+        for token in raw_tokens
+        if token and token.casefold() not in forbidden_tokens
+    ]
+    return "_".join(tokens) or "field"
+
+
+def _sql_literal(value: object) -> str:
+    return "'" + str(value).replace("'", "''")[:512] + "'"
 
 
 def _metric_payload(

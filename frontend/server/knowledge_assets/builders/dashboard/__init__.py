@@ -7,6 +7,7 @@ from .dashboard_skill_writer import (
 )
 from .semantic_query_adapter import (
     GovernedSemanticQueryAdapter,
+    GovernedSemanticQueryService,
     SemanticAssetQueryBody,
     SemanticQueryRequest,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "DashboardSkillBuildBody",
     "DashboardSkillWriter",
     "GovernedSemanticQueryAdapter",
+    "GovernedSemanticQueryService",
     "SemanticAssetQueryBody",
     "SemanticQueryRequest",
 ]
