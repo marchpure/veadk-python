@@ -1894,7 +1894,10 @@ function SelectedSkillRow({
     label = "AgentKit Skills 中心";
   } else if (s.source === "datastudio") {
     Icon = Database;
-    label = "Data Studio 资产";
+    label =
+      s.dataStudioCapabilityKind === "dashboard_skill"
+        ? "Data Studio Dashboard Skill"
+        : "Data Studio Semantic Skill";
   }
   return (
     <motion.div

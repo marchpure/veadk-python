@@ -59,6 +59,11 @@ test("Data Studio asset adapter preserves REST query_url for picker cards", () =
     publish_state: "published",
     gate: { score: 91 },
     version: "v1",
+    capability_kind: "dashboard_skill",
+    capability_package: {
+      package_type: "dashboard_skill",
+      governance: { allowed_metrics: ["GMV"] },
+    },
     capabilities: {
       metrics: ["GMV", "Orders"],
       dimensions: ["Channel"],
@@ -73,6 +78,8 @@ test("Data Studio asset adapter preserves REST query_url for picker cards", () =
   assert.equal(hit.source, "datastudio");
   assert.equal(hit.dataStudioAssetType, "dashboard");
   assert.equal(hit.dataStudioAssetId, "sales");
+  assert.equal(hit.dataStudioCapabilityKind, "dashboard_skill");
+  assert.equal(hit.dataStudioCapabilityPackage.package_type, "dashboard_skill");
   assert.equal(hit.dataStudioGateScore, 91);
   assert.deepEqual(hit.dataStudioMetrics, ["GMV", "Orders"]);
   assert.equal(hit.dataStudioQueryUrl, "/api/external/assets/dashboard/sales/query");
@@ -181,6 +188,11 @@ test("Data Studio selected skill round-trips through YAML", () => {
         description: "Daily sales KPIs",
         dataStudioAssetType: "dashboard",
         dataStudioAssetId: "sales-dashboard",
+        dataStudioCapabilityKind: "dashboard_skill",
+        dataStudioCapabilityPackage: {
+          package_type: "dashboard_skill",
+          governance: { allowed_metrics: ["GMV"] },
+        },
         dataStudioVersion: "v3",
         dataStudioGateScore: 94,
         dataStudioQueryUrl: "/api/external/assets/dashboard/sales-dashboard/query",
@@ -193,6 +205,8 @@ test("Data Studio selected skill round-trips through YAML", () => {
   const yaml = draftToYaml(source);
   assert.match(yaml, /selectedSkills:/);
   assert.match(yaml, /source: datastudio/);
+  assert.match(yaml, /dataStudioCapabilityKind: dashboard_skill/);
+  assert.match(yaml, /package_type: dashboard_skill/);
   assert.match(yaml, /dataStudioQueryUrl:/);
   assert.doesNotMatch(yaml, /BYAAN_MCP_API_KEY/);
   assert.doesNotMatch(yaml, /api\/mcp\/assets/);
@@ -201,5 +215,9 @@ test("Data Studio selected skill round-trips through YAML", () => {
   assert.equal(
     restored.selectedSkills[0].dataStudioQueryUrl,
     source.selectedSkills[0].dataStudioQueryUrl,
+  );
+  assert.equal(
+    restored.selectedSkills[0].dataStudioCapabilityPackage.package_type,
+    "dashboard_skill",
   );
 });

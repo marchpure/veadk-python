@@ -66,16 +66,15 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
                 description="Revenue dashboard.",
                 dataStudioAssetType="dashboard",
                 dataStudioAssetId="sales-dashboard",
-                dataStudioCapabilityKind="semantic_skill",
+                dataStudioCapabilityKind="dashboard_skill",
                 dataStudioCapabilityPackage={
-                    "package_type": "semantic_skill",
+                    "package_type": "dashboard_skill",
                     "runtime": {
                         "query_url": "/api/external/assets/dashboard/sales-dashboard/query",
                         "api_key": "must-not-enter-skill",
                     },
-                    "mdl": {
-                        "schema": "byaan.mdl.v1",
-                        "metrics": [{"id": "GMV"}],
+                    "dashboard": {
+                        "data_views": [{"id": "daily-gmv", "kind": "semantic_metric"}],
                     },
                     "governance": {
                         "allowed_metrics": ["GMV", "orders"],
@@ -106,11 +105,10 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
     assert "name: datastudio-dashboard-sales" in skill_md
     assert "asset_type: dashboard" in skill_md
     assert "asset_id: sales-dashboard" in skill_md
-    assert "capability_kind: semantic_skill" in skill_md
-    assert "- Capability: `semantic_skill`" in skill_md
+    assert "capability_kind: dashboard_skill" in skill_md
+    assert "- Capability: `dashboard_skill`" in skill_md
     assert "## Capability Package" in skill_md
-    assert "schema: byaan.mdl.v1" in skill_md
-    assert "## MDL Rules" in skill_md
+    assert "package_type: dashboard_skill" in skill_md
     assert "must-not-enter-skill" not in skill_md
     assert "ciphertext" not in skill_md
     assert "[REDACTED]" in skill_md
@@ -181,6 +179,61 @@ def test_datastudio_semantic_model_generates_typed_query_tool() -> None:
     assert "Use exact metric ids/names from this asset: revenue_revenue." in agent_py
     assert "Use exact dimension ids/names from this asset: revenue_region." in agent_py
     assert "Time field: revenue.paid_at." in agent_py
+
+
+@pytest.mark.asyncio
+async def test_datastudio_semantic_skill_packages_mdl_snapshot() -> None:
+    draft = AgentDraft(
+        name="semantic-agent",
+        selectedSkills=[
+            SelectedSkill(
+                source="datastudio",
+                folder="datastudio-semantic-sales",
+                name="Sales Semantic Model",
+                dataStudioAssetType="semantic_model",
+                dataStudioAssetId="sales-semantic",
+                dataStudioCapabilityKind="semantic_skill",
+                dataStudioCapabilityPackage={
+                    "package_type": "semantic_skill",
+                    "runtime": {
+                        "query_url": "/api/external/assets/semantic_model/sales-semantic/query"
+                    },
+                    "mdl": {
+                        "schema": "byaan.mdl.v1",
+                        "model": {"slug": "sales-semantic", "version": "v1"},
+                        "metrics": [{"id": "revenue_revenue", "formula": "sum(revenue)"}],
+                        "dimensions": [{"id": "revenue_region", "field": "region"}],
+                        "relationships": [
+                            {
+                                "id": "orders_to_region",
+                                "from": "orders",
+                                "to": "region",
+                                "cardinality": "many-to-one",
+                            }
+                        ],
+                    },
+                    "governance": {
+                        "allowed_metrics": ["revenue_revenue"],
+                        "allowed_dimensions": ["revenue_region"],
+                        "raw_sql_fallback": False,
+                    },
+                    "api_key": "must-not-ship",
+                },
+            )
+        ],
+    )
+    project = generate_project_from_draft(draft)
+    await materialize_selected_skills(draft, project)
+
+    skill_md = _file_map(project)["skills/datastudio-semantic-sales/SKILL.md"]
+    assert "capability_kind: semantic_skill" in skill_md
+    assert "- Capability: `semantic_skill`" in skill_md
+    assert "schema: byaan.mdl.v1" in skill_md
+    assert "revenue_revenue" in skill_md
+    assert "orders_to_region" in skill_md
+    assert "MDL is bundled inside this Semantic Skill" in skill_md
+    assert "must-not-ship" not in skill_md
+    assert "api_key: '[REDACTED]'" in skill_md
 
 
 def test_datastudio_debug_runtime_env_allows_rest_credentials() -> None:
