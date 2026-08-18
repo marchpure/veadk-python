@@ -169,7 +169,7 @@ function assertNoSecret(label, value) {
 function assertNoFailedResponses(responses) {
   const failures = responses.filter((item) => {
     if (item.status < 400) return false;
-    if (item.status === 401 && item.url.endsWith("/oauth2/userinfo")) {
+    if ((item.status === 401 || item.status === 404) && item.url.endsWith("/oauth2/userinfo")) {
       return false;
     }
     return true;
@@ -354,11 +354,53 @@ async function embeddedHealth(frame, label) {
 
 async function loginByaanInBrowser(page, teamAuth, route = "/") {
   await page.goto(`${byaanFrontendUrl}/login`, { waitUntil: "domcontentloaded" });
-  if (page.url().includes("/login")) {
-    const emailInput = page.locator("#email");
-    await emailInput.waitFor({ state: "visible", timeout: 20_000 });
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => null);
+  const loginState = async () =>
+    page.evaluate(() => ({
+      url: window.location.href,
+      path: window.location.pathname,
+      title: document.title,
+      bodyText: (document.body?.innerText || "").slice(0, 2000),
+      hasEmail:
+        Boolean(document.querySelector("#email")) ||
+        Boolean(document.querySelector('input[type="email"]')) ||
+        Boolean(document.querySelector('input[name="email"]')) ||
+        Boolean(document.querySelector('input[name="username"]')),
+      hasPassword:
+        Boolean(document.querySelector("#password")) ||
+        Boolean(document.querySelector('input[type="password"]')) ||
+        Boolean(document.querySelector('input[name="password"]')),
+      hasAuthenticatedChrome: Boolean(
+        document.querySelector(
+          '[data-testid="profile-menu-trigger"], [data-testid="byaan-global-sidebar"], [data-embedded-layout="knowledge-center"]',
+        ),
+      ),
+    }));
+  const current = await loginState();
+  if (current.path.startsWith("/login") && !current.hasAuthenticatedChrome) {
+    const emailInput = page
+      .locator('#email, input[type="email"], input[name="email"], input[name="username"]')
+      .first();
+    const passwordInput = page
+      .locator('#password, input[type="password"], input[name="password"]')
+      .first();
+    try {
+      await emailInput.waitFor({ state: "visible", timeout: 20_000 });
+      await passwordInput.waitFor({ state: "visible", timeout: 20_000 });
+    } catch (error) {
+      const diagnostic = await loginState().catch(() => current);
+      const shot = path.join(screenshotDir, `byaan-login-diagnostic-${Date.now()}.png`);
+      await page.screenshot({ path: shot, fullPage: true }).catch(() => null);
+      throw new Error(
+        `BYAAN login form was not visible: ${redact({
+          diagnostic,
+          screenshot: shot,
+          cause: error?.message || String(error),
+        })}`,
+      );
+    }
     await emailInput.fill(byaanTeamEmail);
-    await page.locator("#password").fill(byaanTeamPassword);
+    await passwordInput.fill(byaanTeamPassword);
     await Promise.all([
       page.waitForResponse(
         (response) =>
@@ -616,13 +658,15 @@ function selectedSkillFromAsset(asset) {
 function draftForAsset(asset, queryUrl, envValues) {
   const selectedSkill = selectedSkillFromAsset({ ...asset, query_url: queryUrl });
   return {
-    name: "KC Live Revenue Agent",
+    name: "Oracle Semantic Agent",
     cloudProvider: "volcengine",
-    description: "Answers governed revenue questions from Byaan Data Studio.",
+    description: "Answers governed Oracle sales questions from Byaan Data Studio.",
     instruction:
-      "You answer revenue questions using the selected Byaan Data Studio semantic model. " +
+      "You answer Oracle sales questions using the selected Byaan Data Studio semantic model. " +
       "Always call the Data Studio REST tool before answering. Final answers must include " +
-      "the real numeric values, compiled SQL, metric definition, and permission policy evidence.",
+      "the real numeric values, compiled SQL, metric definition, snapshot freshness, and permission policy evidence. " +
+      "Deny customer name, phone, contact, and document detail requests as policy denied. " +
+      "For cross-country sales amount, answer blocked_pending_currency_confirmation unless currency is confirmed.",
     agentType: "llm",
     modelSource: "ark",
     modelName: process.env.MODEL_AGENT_NAME || "doubao-seed-1-6-250615",
@@ -702,6 +746,33 @@ function assertGeneratedProject(project, assetId) {
   };
 }
 
+async function exportGeneratedProject(project, metadata) {
+  assertNoSecret("generated project export", project);
+  const outputDir = path.join(reportDir, "generated", project.name || "generated-agent");
+  for (const file of project.files || []) {
+    const parts = String(file.path || "").split(/[\\/]+/).filter(Boolean);
+    if (!parts.length || parts.includes("..")) {
+      throw new Error(`Generated project contains unsafe file path: ${file.path}`);
+    }
+    const target = path.join(outputDir, ...parts);
+    if (!target.startsWith(outputDir + path.sep)) {
+      throw new Error(`Generated project escaped export directory: ${file.path}`);
+    }
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, file.content || "", "utf8");
+  }
+  const manifest = {
+    name: project.name || "",
+    exportedFrom: "VEADK /web/generated-agent-projects",
+    assetId: metadata.assetId,
+    dashboardAssetId: metadata.dashboardAssetId,
+    files: (project.files || []).map((file) => file.path),
+    secretHandling: "Live secrets were supplied by environment variables only; generated files do not embed secret values.",
+  };
+  await writeJson(path.join(outputDir, "generated-project-manifest.json"), manifest);
+  return outputDir;
+}
+
 async function collectSseText(response) {
   const raw = await response.text();
   const events = [];
@@ -729,7 +800,20 @@ async function collectSseText(response) {
 
 function assertAgentAnswer(answer, events) {
   const joined = `${answer}\n${JSON.stringify(events)}`;
-  const required = [/East/i, /\b150\b/, /West/i, /\b80\b/, /SQL|select/i, /metric/i, /definition|口径/i, /permission|policy|权限/i];
+  const required = [
+    /VNPTTE/i,
+    /\b56\b/,
+    /SG - ANTA VIVO City/i,
+    /\b9\b/,
+    /HARAVAN_ANTA_VN/i,
+    /\b5\b/,
+    /\b86\b/,
+    /2026-08-15/,
+    /SQL|select/i,
+    /metric|口径/i,
+    /definition|口径/i,
+    /permission|policy|权限/i,
+  ];
   const missing = required.filter((pattern) => !pattern.test(joined)).map(String);
   if (missing.length) throw new Error(`Agent answer missing evidence: ${missing.join(", ")}\n${redact(joined.slice(-4000))}`);
 }
@@ -835,13 +919,26 @@ async function verifyStudioBackends(seed, responses) {
   if (!asset) {
     throw new Error(`Seeded semantic model ${seed.model.externalAssetId} was not listed by Studio gateway`);
   }
+  const dashboard = assets.find(
+    (item) =>
+      item.asset_type === "dashboard" &&
+      item.asset_id === seed.dashboard.assetId,
+  );
+  if (!dashboard) {
+    throw new Error(`Seeded Oracle dashboard ${seed.dashboard.assetId} was not listed by Studio gateway`);
+  }
   const detail = await api(
     studioBaseUrl,
     `/web/datastudio/assets/semantic_model/${encodeURIComponent(asset.asset_id)}`,
   );
+  const dashboardDetail = await api(
+    studioBaseUrl,
+    `/web/datastudio/assets/dashboard/${encodeURIComponent(dashboard.asset_id)}`,
+  );
   assertNoSecret("datastudio asset detail", detail);
+  assertNoSecret("datastudio dashboard detail", dashboardDetail);
 
-  const directQuery = normalizeExternalPayload(
+  const topStores = normalizeExternalPayload(
     await api(
       byaanApiUrl,
       `/api/external/assets/semantic_model/${encodeURIComponent(asset.asset_id)}/query`,
@@ -852,27 +949,95 @@ async function verifyStudioBackends(seed, responses) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          metric: "revenue_revenue",
-          dimension: "revenue_region",
-          limit: 10,
+          metric: "ticket_count",
+          dimension: "store",
+          limit: 3,
         }),
       },
     ),
   );
-  if (!["completed", "success"].includes(directQuery.status)) {
-    throw new Error(`Live query did not complete: ${redact(directQuery)}`);
+  if (!["completed", "success"].includes(topStores.status)) {
+    throw new Error(`Oracle top-store query did not complete: ${redact(topStores)}`);
   }
-  if (!Array.isArray(directQuery.result) || directQuery.result.length === 0) {
-    throw new Error(`Live query returned empty result: ${redact(directQuery)}`);
+  const expectedTopStores = [
+    { store: "VNPTTE", ticket_count: 56 },
+    { store: "SG - ANTA VIVO City", ticket_count: 9 },
+    { store: "HARAVAN_ANTA_VN", ticket_count: 5 },
+  ];
+  if (JSON.stringify(topStores.result) !== JSON.stringify(expectedTopStores)) {
+    throw new Error(`Oracle top-store gold check failed: ${redact(topStores.result)}`);
   }
-  if (!directQuery.evidence?.some((item) => item.kind === "sql")) {
+  if (!topStores.evidence?.some((item) => item.kind === "sql")) {
     throw new Error("Live query response missing SQL evidence");
   }
+  const ticketCount = normalizeExternalPayload(
+    await api(
+      byaanApiUrl,
+      `/api/external/assets/semantic_model/${encodeURIComponent(asset.asset_id)}/query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${byaanApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ metric: "ticket_count", limit: 10 }),
+      },
+    ),
+  );
+  if (ticketCount.result?.[0]?.ticket_count !== 86) {
+    throw new Error(`Oracle ticket count gold check failed: ${redact(ticketCount)}`);
+  }
+  const freshness = normalizeExternalPayload(
+    await api(
+      byaanApiUrl,
+      `/api/external/assets/semantic_model/${encodeURIComponent(asset.asset_id)}/query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${byaanApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ metric: "ticket_count", dimension: "sell_date", limit: 100 }),
+      },
+    ),
+  );
+  const maxSellDate = (freshness.result || []).map((row) => String(row.sell_date || "").slice(0, 10)).sort().at(-1);
+  if (maxSellDate !== "2026-08-15") {
+    throw new Error(`Oracle freshness gold check failed: ${redact(freshness)}`);
+  }
+  const denied = await fetch(
+    `${byaanApiUrl}/api/external/assets/semantic_model/${encodeURIComponent(asset.asset_id)}/query`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${byaanApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ metric: "ticket_count", query: "给我客户姓名/手机号/contact 明细。" }),
+    },
+  );
+  const deniedText = await denied.text();
+  assertNoSecret("policy denied response", deniedText);
+  if (denied.status !== 403 || !/Policy denied/i.test(deniedText)) {
+    throw new Error(`Oracle customer/contact request was not policy denied: ${denied.status} ${redact(deniedText)}`);
+  }
   responses.push({ url: `${byaanApiUrl}/api/external/assets/.../query`, status: 200 });
-  return { config, listedCount: assets.length, asset: detail, directQuery };
+  return {
+    config,
+    listedCount: assets.length,
+    asset: detail,
+    dashboard: dashboardDetail,
+    oracleGold: {
+      topStores,
+      ticketCount,
+      freshness,
+      customerContactDenied: { status: denied.status },
+      crossCountrySalesAmount: "blocked_pending_currency_confirmation",
+    },
+  };
 }
 
-async function verifyGeneratedAgent(asset, queryUrl) {
+async function verifyGeneratedAgent(asset, queryUrl, dashboardAssetId) {
   const envValues = {
     DATASTUDIO_BASE_URL: byaanApiUrl,
     BYAAN_MCP_API_KEY: byaanApiKey,
@@ -883,6 +1048,10 @@ async function verifyGeneratedAgent(asset, queryUrl) {
     body: JSON.stringify({ draft }),
   });
   const generatedProject = assertGeneratedProject(project, asset.asset_id);
+  generatedProject.projectPath = await exportGeneratedProject(project, {
+    assetId: asset.asset_id,
+    dashboardAssetId,
+  });
   const run = await api(studioBaseUrl, "/web/generated-agent-test-runs", {
     method: "POST",
     body: JSON.stringify({ draft }),
@@ -911,8 +1080,8 @@ async function verifyGeneratedAgent(asset, queryUrl) {
           parts: [
             {
               text:
-                "Use the Data Studio semantic model to answer: revenue by region. " +
-                "Return the real values, SQL, metric definition, and permission policy evidence.",
+                "截至 2026-08-15，门店 Top 3 是哪些？同时给出当前 ticket count、SQL、指标口径、" +
+                "snapshot freshness、权限策略证据。不要暴露客户姓名/手机号/contact 明细；跨国家销售金额如币种未确认请标记 blocked_pending_currency_confirmation。",
             },
           ],
         },
@@ -1002,6 +1171,7 @@ async function main() {
     result.generatedAgent = await verifyGeneratedAgent(
       backend.asset,
       backend.asset.query_url || seed.externalApi.asset.query_url,
+      seed.dashboard?.assetId || backend.dashboard?.asset_id || "",
     );
     result.ok = true;
     result.completedAt = new Date().toISOString();

@@ -19,7 +19,7 @@ import { displayDescription } from "./displayText";
 const PAGE_SIZE = 6;
 
 function typeLabel(type?: string): string {
-  return type === "dashboard" ? "Dashboard" : "语义模型";
+  return type === "dashboard" ? "Dashboard Skill" : "Semantic Skill";
 }
 
 function toSelected(hit: SkillHit): SelectedSkill {
@@ -30,6 +30,8 @@ function toSelected(hit: SkillHit): SelectedSkill {
     description: hit.description,
     dataStudioAssetType: hit.dataStudioAssetType,
     dataStudioAssetId: hit.dataStudioAssetId,
+    dataStudioCapabilityKind: hit.dataStudioCapabilityKind,
+    dataStudioCapabilityPackage: hit.dataStudioCapabilityPackage,
     dataStudioVersion: hit.dataStudioVersion,
     dataStudioGateScore: hit.dataStudioGateScore,
     dataStudioMetrics: hit.dataStudioMetrics,

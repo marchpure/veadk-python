@@ -175,6 +175,10 @@ class SelectedSkill(BaseModel):
     version: str = ""
     dataStudioAssetType: Literal["dashboard", "semantic_model"] | str = ""
     dataStudioAssetId: str = ""
+    dataStudioCapabilityKind: (
+        Literal["semantic_skill", "dashboard_skill", "retrieval_binding"] | str
+    ) = ""
+    dataStudioCapabilityPackage: dict[str, Any] = Field(default_factory=dict)
     dataStudioVersion: str = ""
     dataStudioGateScore: float | None = None
     dataStudioMetrics: list[str] = Field(default_factory=list)
@@ -416,6 +420,8 @@ def _safe_draft_payload(draft: AgentDraft) -> dict[str, Any]:
     datastudio_keys = {
         "dataStudioAssetType",
         "dataStudioAssetId",
+        "dataStudioCapabilityKind",
+        "dataStudioCapabilityPackage",
         "dataStudioVersion",
         "dataStudioGateScore",
         "dataStudioMetrics",

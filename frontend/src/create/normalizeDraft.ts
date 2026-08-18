@@ -70,6 +70,11 @@ function asStringRecord(v: unknown): Record<string, string> {
   );
 }
 
+function asObjectRecord(v: unknown): Record<string, unknown> | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  return v as Record<string, unknown>;
+}
+
 function asCustomTools(v: unknown): CustomTool[] {
   if (!Array.isArray(v)) return [];
   return v
@@ -228,6 +233,15 @@ function parseSelectedSkills(o: Record<string, unknown>): SelectedSkill[] {
         description,
         dataStudioAssetType: assetType,
         dataStudioAssetId: assetId,
+        dataStudioCapabilityKind:
+          so.dataStudioCapabilityKind === "semantic_skill" ||
+          so.dataStudioCapabilityKind === "dashboard_skill" ||
+          so.dataStudioCapabilityKind === "retrieval_binding"
+            ? so.dataStudioCapabilityKind
+            : undefined,
+        dataStudioCapabilityPackage: asObjectRecord(
+          so.dataStudioCapabilityPackage,
+        ),
         dataStudioVersion: asString(so.dataStudioVersion),
         dataStudioGateScore:
           typeof so.dataStudioGateScore === "number"

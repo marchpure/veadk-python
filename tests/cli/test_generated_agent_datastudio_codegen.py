@@ -66,6 +66,22 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
                 description="Revenue dashboard.",
                 dataStudioAssetType="dashboard",
                 dataStudioAssetId="sales-dashboard",
+                dataStudioCapabilityKind="semantic_skill",
+                dataStudioCapabilityPackage={
+                    "package_type": "semantic_skill",
+                    "runtime": {
+                        "query_url": "/api/external/assets/dashboard/sales-dashboard/query",
+                        "api_key": "must-not-enter-skill",
+                    },
+                    "mdl": {
+                        "schema": "byaan.mdl.v1",
+                        "metrics": [{"id": "GMV"}],
+                    },
+                    "governance": {
+                        "allowed_metrics": ["GMV", "orders"],
+                        "connection_obj_encrypted": "ciphertext",
+                    },
+                },
                 dataStudioVersion="v2026.08",
                 dataStudioGateScore=98,
                 dataStudioMetrics=["GMV", "orders"],
@@ -90,6 +106,14 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
     assert "name: datastudio-dashboard-sales" in skill_md
     assert "asset_type: dashboard" in skill_md
     assert "asset_id: sales-dashboard" in skill_md
+    assert "capability_kind: semantic_skill" in skill_md
+    assert "- Capability: `semantic_skill`" in skill_md
+    assert "## Capability Package" in skill_md
+    assert "schema: byaan.mdl.v1" in skill_md
+    assert "## MDL Rules" in skill_md
+    assert "must-not-enter-skill" not in skill_md
+    assert "ciphertext" not in skill_md
+    assert "[REDACTED]" in skill_md
     assert "- Version: `v2026.08`" in skill_md
     assert "- GMV" in skill_md
     assert "- region" in skill_md

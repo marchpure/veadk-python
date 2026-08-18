@@ -7,6 +7,10 @@ import type { ProjectFile } from "../project";
 export type SkillSource = "skillhub" | "local" | "skillspace" | "datastudio";
 
 export type DataStudioAssetType = "dashboard" | "semantic_model";
+export type DataStudioCapabilityKind =
+  | "semantic_skill"
+  | "dashboard_skill"
+  | "retrieval_binding";
 
 /** A selectable hit from any source. Pickers produce these before the user
  *  toggles them into SelectedSkill. */
@@ -35,6 +39,8 @@ export interface SkillHit {
   // Data Studio assets published by Byaan Knowledge Center.
   dataStudioAssetType?: DataStudioAssetType;
   dataStudioAssetId?: string;
+  dataStudioCapabilityKind?: DataStudioCapabilityKind;
+  dataStudioCapabilityPackage?: Record<string, unknown>;
   dataStudioVersion?: string;
   dataStudioGateScore?: number;
   dataStudioMetrics?: string[];
@@ -69,6 +75,8 @@ export interface SelectedSkill {
   // Data Studio asset identity and runtime hints.
   dataStudioAssetType?: DataStudioAssetType;
   dataStudioAssetId?: string;
+  dataStudioCapabilityKind?: DataStudioCapabilityKind;
+  dataStudioCapabilityPackage?: Record<string, unknown>;
   dataStudioVersion?: string;
   dataStudioGateScore?: number;
   dataStudioMetrics?: string[];

@@ -139,6 +139,15 @@ function toConfig(draft: AgentDraft): Record<string, unknown> {
       } else if (s.source === "datastudio") {
         base.dataStudioAssetType = s.dataStudioAssetType;
         base.dataStudioAssetId = s.dataStudioAssetId;
+        if (s.dataStudioCapabilityKind) {
+          base.dataStudioCapabilityKind = s.dataStudioCapabilityKind;
+        }
+        if (
+          s.dataStudioCapabilityPackage &&
+          Object.keys(s.dataStudioCapabilityPackage).length
+        ) {
+          base.dataStudioCapabilityPackage = s.dataStudioCapabilityPackage;
+        }
         if (s.dataStudioVersion) base.dataStudioVersion = s.dataStudioVersion;
         if (typeof s.dataStudioGateScore === "number") {
           base.dataStudioGateScore = s.dataStudioGateScore;

@@ -1,4 +1,8 @@
-import type { DataStudioAssetType, SkillHit } from "./types";
+import type {
+  DataStudioAssetType,
+  DataStudioCapabilityKind,
+  SkillHit,
+} from "./types";
 
 export interface DataStudioGate {
   score?: number;
@@ -15,6 +19,8 @@ export interface DataStudioAsset {
   gate?: DataStudioGate & Record<string, unknown>;
   version?: string;
   consumers?: string[];
+  capability_kind?: DataStudioCapabilityKind;
+  capability_package?: Record<string, unknown>;
   capabilities?: {
     metrics?: Array<string | Record<string, unknown>>;
     dimensions?: Array<string | Record<string, unknown>>;
@@ -168,6 +174,10 @@ export function dataStudioAssetToHit(asset: DataStudioAsset): SkillHit {
     description: asset.description ?? "",
     dataStudioAssetType: asset.asset_type,
     dataStudioAssetId: asset.asset_id,
+    dataStudioCapabilityKind:
+      asset.capability_kind ??
+      (asset.asset_type === "dashboard" ? "dashboard_skill" : "semantic_skill"),
+    dataStudioCapabilityPackage: asset.capability_package,
     dataStudioVersion: asset.version,
     dataStudioGateScore:
       typeof asset.gate?.score === "number" ? asset.gate.score : undefined,

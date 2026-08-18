@@ -43,3 +43,36 @@ def test_requests_accept_root_and_nested_a2a_registry() -> None:
 
         assert request.draft.a2aRegistry.registrySpaceId == "root-space"
         assert request.draft.subAgents[0].a2aRegistry.registrySpaceId == "child-space"
+
+
+def test_requests_accept_datastudio_capability_package_fields() -> None:
+    payload = {
+        "draft": {
+            "name": "datastudio-agent",
+            "selectedSkills": [
+                {
+                    "source": "datastudio",
+                    "folder": "datastudio-semantic-sales",
+                    "name": "Sales Semantic Model",
+                    "dataStudioAssetType": "semantic_model",
+                    "dataStudioAssetId": "sales-semantic",
+                    "dataStudioCapabilityKind": "semantic_skill",
+                    "dataStudioCapabilityPackage": {
+                        "package_type": "semantic_skill",
+                        "mdl": {"schema": "byaan.mdl.v1"},
+                    },
+                    "dataStudioQueryUrl": "/api/external/assets/semantic_model/sales-semantic/query",
+                }
+            ],
+        }
+    }
+
+    for request_model in (
+        GeneratedAgentProjectRequest,
+        GeneratedAgentTestRunRequest,
+    ):
+        request = request_model.model_validate(payload)
+        skill = request.draft.selectedSkills[0]
+
+        assert skill.dataStudioCapabilityKind == "semantic_skill"
+        assert skill.dataStudioCapabilityPackage["mdl"]["schema"] == "byaan.mdl.v1"

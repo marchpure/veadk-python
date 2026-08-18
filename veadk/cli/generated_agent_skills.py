@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import io
+import json
 import re
 import zipfile
 from collections.abc import Awaitable, Callable
@@ -242,9 +243,15 @@ def _materialize_datastudio_skill(skill: SelectedSkill) -> list[GeneratedFile]:
 def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
     asset_type = skill.dataStudioAssetType.strip()
     asset_id = skill.dataStudioAssetId.strip()
+    capability_kind = (
+        skill.dataStudioCapabilityKind
+        or ("dashboard_skill" if asset_type == "dashboard" else "semantic_skill")
+    )
+    capability_package = _safe_capability_package(skill.dataStudioCapabilityPackage)
     metadata = {
         "asset_type": asset_type,
         "asset_id": asset_id,
+        "capability_kind": capability_kind,
         "version": skill.dataStudioVersion or "",
         "query_url": skill.dataStudioQueryUrl or "",
     }
@@ -271,6 +278,7 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
         "",
         f"- Type: `{asset_type}`",
         f"- ID: `{asset_id}`",
+        f"- Capability: `{capability_kind}`",
         f"- Version: `{skill.dataStudioVersion or 'unspecified'}`",
     ]
     if skill.dataStudioGateScore is not None:
@@ -310,6 +318,36 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             "- Never infer SQL results from the prompt. Call the generated Data Studio REST function tool for every answer.",
         ]
     )
+    if capability_package:
+        lines.extend(
+            [
+                "",
+                "## Capability Package",
+                "",
+                "This is the governed capability snapshot packaged with the Skill. It is not a raw source connection and must not be treated as a place to find credentials.",
+                "",
+                "```yaml",
+                yaml.safe_dump(
+                    capability_package,
+                    allow_unicode=True,
+                    sort_keys=False,
+                    width=100,
+                ).strip(),
+                "```",
+            ]
+        )
+        mdl = capability_package.get("mdl")
+        if isinstance(mdl, dict):
+            lines.extend(
+                [
+                    "",
+                    "## MDL Rules",
+                    "",
+                    "- Use only metrics, dimensions, relationships, and time fields declared in the packaged MDL.",
+                    "- MDL is bundled inside this Semantic Skill and is not a standalone selectable asset.",
+                    "- Query execution must still go through the generated Data Studio REST function tool.",
+                ]
+            )
     if skill.dataStudioEvidence:
         lines.extend(["", "## Snapshot Provenance", ""])
         for value in skill.dataStudioEvidence:
@@ -320,6 +358,40 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
         lines.extend(_bullet_lines(skill.dataStudioEvidence))
     lines.append("")
     return "\n".join(lines)
+
+
+_SENSITIVE_PACKAGE_KEY_RE = re.compile(
+    r"(authorization|cookie|credential|secret|token|password|api[_-]?key|"
+    r"connection[_-]?obj|connection[_-]?string|session)",
+    re.IGNORECASE,
+)
+
+
+def _safe_capability_package(value: dict[str, object]) -> dict[str, object]:
+    if not isinstance(value, dict) or not value:
+        return {}
+    redacted = _redact_capability_value(value)
+    return redacted if isinstance(redacted, dict) else {}
+
+
+def _redact_capability_value(value: object) -> object:
+    if isinstance(value, dict):
+        out: dict[str, object] = {}
+        for key, child in value.items():
+            key_text = str(key)
+            if _SENSITIVE_PACKAGE_KEY_RE.search(key_text):
+                out[key_text] = "[REDACTED]"
+            else:
+                out[key_text] = _redact_capability_value(child)
+        return out
+    if isinstance(value, list):
+        return [_redact_capability_value(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    try:
+        return json.loads(json.dumps(value, default=str))
+    except TypeError:
+        return str(value)
 
 
 def _bullet_lines(values: list[str]) -> list[str]:
