@@ -1,17 +1,26 @@
 import type {
   KnowledgeAssetEvalCase,
   KnowledgeAssetEvalResult,
+  KnowledgeAssetEvalTargetKind,
 } from "../adk/knowledgeAssets";
+
+const targetLabels: Record<KnowledgeAssetEvalTargetKind, string> = {
+  semantic_skill: "Semantic Skill",
+  asktable: "AskTable Query",
+  dashboard_skill: "Dashboard Skill",
+};
 
 export function EvaluationCaseTable({
   cases,
   results,
+  targetKindFilter,
   statusFilter,
   tagFilter,
   scoreMin,
   scoreMax,
   keyword,
   selectedCaseId,
+  onTargetKindFilter,
   onStatusFilter,
   onTagFilter,
   onScoreMin,
@@ -21,12 +30,14 @@ export function EvaluationCaseTable({
 }: {
   cases: KnowledgeAssetEvalCase[];
   results: KnowledgeAssetEvalResult[];
+  targetKindFilter: KnowledgeAssetEvalTargetKind | "all";
   statusFilter: "all" | "passed" | "failed" | "blocked" | "not_run";
   tagFilter: string;
   scoreMin: string;
   scoreMax: string;
   keyword: string;
   selectedCaseId: string;
+  onTargetKindFilter: (value: KnowledgeAssetEvalTargetKind | "all") => void;
   onStatusFilter: (value: "all" | "passed" | "failed" | "blocked" | "not_run") => void;
   onTagFilter: (value: string) => void;
   onScoreMin: (value: string) => void;
@@ -41,6 +52,7 @@ export function EvaluationCaseTable({
   const filtered = cases.filter((item) => {
     const result = resultByCase.get(item.id);
     const status = result?.status ?? "not_run";
+    if (targetKindFilter !== "all" && item.targetKind !== targetKindFilter) return false;
     if (statusFilter !== "all" && status !== statusFilter) return false;
     if (tagFilter && !item.tags.includes(tagFilter)) return false;
     if (Number.isFinite(min) && result && result.score < min) return false;
@@ -54,6 +66,7 @@ export function EvaluationCaseTable({
       item.expectedMetric,
       item.expectedDimensions.join(" "),
       item.expectedSqlContains.join(" "),
+      targetLabels[item.targetKind],
       result?.reason,
       result?.actualSql,
     ].join(" ").toLowerCase();
@@ -63,6 +76,20 @@ export function EvaluationCaseTable({
   return (
     <section className="kc-eval-case-table">
       <div className="kc-eval-table-filters">
+        <label>
+          <span>对象</span>
+          <select
+            value={targetKindFilter}
+            onChange={(event) =>
+              onTargetKindFilter(event.target.value as KnowledgeAssetEvalTargetKind | "all")
+            }
+          >
+            <option value="all">全部对象</option>
+            <option value="semantic_skill">Semantic Skill</option>
+            <option value="asktable">AskTable Query</option>
+            <option value="dashboard_skill">Dashboard Skill</option>
+          </select>
+        </label>
         <label>
           <span>状态</span>
           <select
@@ -142,6 +169,7 @@ export function EvaluationCaseTable({
                   >
                     <td>
                       <strong>{item.question || item.intent || item.input}</strong>
+                      <small>{targetLabels[item.targetKind]}</small>
                       <small>{item.tags.join(" · ") || "no tags"}</small>
                     </td>
                     <td>

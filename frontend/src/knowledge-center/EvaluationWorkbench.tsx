@@ -45,6 +45,7 @@ export function EvaluationWorkbench({
   const [activeSuiteId, setActiveSuiteId] = useState("");
   const [targetFilter, setTargetFilter] = useState<KnowledgeAssetEvalTargetKind | "all">("all");
   const [suiteKeyword, setSuiteKeyword] = useState("");
+  const [caseTargetKind, setCaseTargetKind] = useState<KnowledgeAssetEvalTargetKind | "all">("all");
   const [caseStatus, setCaseStatus] = useState<StatusFilter>("all");
   const [caseTag, setCaseTag] = useState("");
   const [caseScoreMin, setCaseScoreMin] = useState("");
@@ -305,12 +306,14 @@ export function EvaluationWorkbench({
         <EvaluationCaseTable
           cases={cases}
           results={currentResults}
+          targetKindFilter={caseTargetKind}
           statusFilter={caseStatus}
           tagFilter={caseTag}
           scoreMin={caseScoreMin}
           scoreMax={caseScoreMax}
           keyword={caseKeyword}
           selectedCaseId={selectedCaseId}
+          onTargetKindFilter={setCaseTargetKind}
           onStatusFilter={setCaseStatus}
           onTagFilter={setCaseTag}
           onScoreMin={setCaseScoreMin}

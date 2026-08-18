@@ -1,29 +1,29 @@
 {
-  "generatedAt": "2026-08-18T22:29:12.685Z",
-  "studioUrl": "http://127.0.0.1:18330",
+  "generatedAt": "2026-08-18T22:40:37.255Z",
+  "studioUrl": "http://127.0.0.1:18331",
   "space": {
-    "id": "space_f29ac7d3a2b343bb8fd49c627e778de9",
+    "id": "space_29da6b70e7b445ebb86b852e452c402f",
     "name": "Session G Evaluation",
     "description": "Live E2E fixture for Knowledge Asset evaluation.",
     "default_knowledge_base_id": null,
     "region": null,
     "metadata": {},
-    "created_at": "2026-08-18T22:29:05.615Z",
-    "updated_at": "2026-08-18T22:29:05.615Z"
+    "created_at": "2026-08-18T22:40:28.209Z",
+    "updated_at": "2026-08-18T22:40:28.209Z"
   },
   "suite": {
-    "spaceId": "space_f29ac7d3a2b343bb8fd49c627e778de9",
+    "spaceId": "space_29da6b70e7b445ebb86b852e452c402f",
     "name": "Oracle Sales Semantic Eval",
     "description": "Live deterministic Semantic Skill evaluation.",
     "targetKind": "semantic_skill",
     "targetAssetId": "oracle-sales",
-    "id": "eval_suite_bfb06f46f11a43a0a7f99807fbada641",
+    "id": "eval_suite_7a96745c590c4f4989b8b8610d2e3f99",
     "caseCount": 1,
-    "createdAt": "2026-08-18T22:29:05.669Z",
-    "updatedAt": "2026-08-18T22:29:05.701Z"
+    "createdAt": "2026-08-18T22:40:28.249Z",
+    "updatedAt": "2026-08-18T22:40:28.266Z"
   },
   "caseCount": 1,
-  "runId": "eval_run_16f29d97f2504579aaeb8783ee05bf83",
+  "runId": "eval_run_e07dce50d70f41f3b5bf5c91332b7a2e",
   "score": 1,
   "failedCases": [],
   "judgeModelStatus": "not_configured",
@@ -32,9 +32,9 @@
   "targetAssetId": "oracle-sales",
   "results": [
     {
-      "id": "eval_result_3507fe8271a44628b85b26b2099e2653",
-      "runId": "eval_run_16f29d97f2504579aaeb8783ee05bf83",
-      "caseId": "eval_case_7659291ebcde48d482c44d88612e0494",
+      "id": "eval_result_8fbdf64bb3794c5ba501c361f9b2e679",
+      "runId": "eval_run_e07dce50d70f41f3b5bf5c91332b7a2e",
+      "caseId": "eval_case_48fd21fb24fd45c89358abf45204f7a5",
       "status": "passed",
       "score": 1,
       "reason": "All deterministic checks passed.",
@@ -381,7 +381,7 @@
         }
       ],
       "dashboardSpecDiff": {},
-      "createdAt": "2026-08-18T22:29:05.762Z"
+      "createdAt": "2026-08-18T22:40:28.305Z"
     }
   ],
   "mock": false,
@@ -392,7 +392,7 @@
   "observations": [
     {
       "viewport": "desktop-1440",
-      "url": "http://127.0.0.1:18330/",
+      "url": "http://127.0.0.1:18331/",
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 404 (Not Found)"
       ],
@@ -421,7 +421,7 @@
     },
     {
       "viewport": "mobile-390",
-      "url": "http://127.0.0.1:18330/",
+      "url": "http://127.0.0.1:18331/",
       "consoleErrors": [
         "Failed to load resource: the server responded with a status of 404 (Not Found)"
       ],
@@ -435,7 +435,7 @@
         "hasGrid": true,
         "mainRect": {
           "width": 284,
-          "height": 2478,
+          "height": 2539,
           "left": 81,
           "right": 365
         },

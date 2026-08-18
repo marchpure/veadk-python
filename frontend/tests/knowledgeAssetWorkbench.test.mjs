@@ -146,6 +146,8 @@ test("evaluation tab uses native suite table detail optimization components", ()
   assert.match(evaluationSuiteListSource, /Dashboard Skill/);
   assert.match(evaluationCaseTableSource, /expectedSqlContains/);
   assert.match(evaluationCaseTableSource, /scoreMin/);
+  assert.match(evaluationCaseTableSource, /targetKindFilter/);
+  assert.match(evaluationCaseTableSource, /全部对象/);
   assert.match(evaluationRunDetailSource, /policyDecision/);
   assert.match(evaluationRunDetailSource, /dashboardSpecDiff/);
   assert.match(evaluationOptimizationSource, /不会自动修改 MDL 或 dashboard_spec/);
