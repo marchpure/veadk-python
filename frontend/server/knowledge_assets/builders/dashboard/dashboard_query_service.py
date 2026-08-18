@@ -49,12 +49,13 @@ class DashboardQueryService:
         for view in selected_views:
             freshness = view.get("freshness") if isinstance(view.get("freshness"), dict) else {}
             policy = view.get("policyDecision") if isinstance(view.get("policyDecision"), dict) else {}
+            rows = view.get("rows") if isinstance(view.get("rows"), list) else []
             views.append(
                 {
                     "data_view_id": view.get("id"),
                     "status": "success",
-                    "result": _rows_for_view(view),
-                    "row_count": len(_rows_for_view(view)),
+                    "result": rows,
+                    "row_count": len(rows),
                     "cached": False,
                     "stale": False,
                     "as_of": freshness.get("as_of") or now,
@@ -83,14 +84,6 @@ class DashboardQueryService:
                 "mock": False,
             }
         )
-
-
-def _rows_for_view(view: dict[str, Any]) -> list[dict[str, Any]]:
-    metric = str(view.get("metric") or "metric")
-    dimensions = [str(item) for item in view.get("dimensions", []) if item]
-    if not dimensions:
-        return [{metric: 128}]
-    return [{dimensions[0]: "核心项", metric: 128}, {dimensions[0]: "增长项", metric: 87}]
 
 
 def _overall_freshness(views: list[dict[str, Any]]) -> str:

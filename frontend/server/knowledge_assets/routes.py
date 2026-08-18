@@ -42,6 +42,9 @@ from .builders.dashboard import (
     AskDataQueryService,
     DashboardSkillBuildBody,
     DashboardSkillWriter,
+    GovernedSemanticQueryAdapter,
+    SemanticAssetQueryBody,
+    SemanticQueryRequest,
 )
 from .builders.dashboard.dashboard_query_service import (
     DashboardQueryBody,
@@ -57,6 +60,7 @@ def mount_knowledge_asset_routes(
     askdata = AskDataQueryService(store)
     dashboard_writer = DashboardSkillWriter(store)
     dashboard_query = DashboardQueryService(store)
+    semantic_query = GovernedSemanticQueryAdapter()
 
     async def invoke(call: Callable[[], Awaitable[Any]]) -> Any:
         try:
@@ -322,6 +326,47 @@ def mount_knowledge_asset_routes(
         body: DashboardQueryBody,
     ) -> dict[str, Any]:
         return await invoke(lambda: dashboard_query.query(asset_id, body))
+
+    @app.post("/api/knowledge-assets/assets/{asset_type}/{asset_id}/query")
+    async def query_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: SemanticAssetQueryBody,
+    ) -> dict[str, Any]:
+        if asset_type == "dashboard":
+            return await invoke(
+                lambda: dashboard_query.query(
+                    asset_id,
+                    DashboardQueryBody(
+                        filters=body.filters,
+                        data_view_ids=body.data_view_ids,
+                        mode=body.mode,
+                    ),
+                )
+            )
+        if asset_type != "semantic_model":
+            raise _api_error(
+                400,
+                "KNOWLEDGE_ASSET_INVALID_REQUEST",
+                "Only semantic_model and dashboard assets are queryable.",
+            )
+        asset = await invoke(
+            lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
+        )
+        return await invoke(
+            lambda: semantic_query.query(
+                asset,
+                SemanticQueryRequest.from_asset_body(asset_id, body),
+            )
+        )
+
+    @app.post("/api/external/assets/{asset_type}/{asset_id}/query")
+    async def query_external_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: SemanticAssetQueryBody,
+    ) -> dict[str, Any]:
+        return await query_asset(asset_type, asset_id, body)
 
     @app.get("/api/knowledge-assets/assets/{asset_type}/{asset_id}")
     async def get_asset(asset_type: KnowledgeAssetType, asset_id: str) -> dict[str, Any]:

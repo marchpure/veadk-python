@@ -81,10 +81,6 @@ def metric_definition(metric: dict[str, Any]) -> str:
     )
 
 
-def metric_formula(metric: dict[str, Any]) -> str:
-    return str(metric.get("formula") or metric.get("expr") or metric_id(metric))
-
-
 def dimension_id(dimension: dict[str, Any]) -> str:
     return safe_identifier(
         dimension.get("id")
@@ -97,10 +93,6 @@ def dimension_id(dimension: dict[str, Any]) -> str:
 
 def dimension_label(dimension: dict[str, Any]) -> str:
     return str(dimension.get("name") or dimension.get("field") or dimension_id(dimension))
-
-
-def dimension_field(dimension: dict[str, Any]) -> str:
-    return safe_identifier(dimension.get("field") or dimension_id(dimension), fallback="dimension")
 
 
 def pii_requested(*values: Any, policies: dict[str, Any] | None = None) -> bool:
@@ -129,77 +121,20 @@ def require_semantic_package(asset: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(package, dict):
         raise KnowledgeAssetServiceError("Semantic Skill 缺少能力包。")
     mdl = package.get("mdl")
-    if not isinstance(mdl, dict):
+    artifacts = package.get("artifacts") if isinstance(package.get("artifacts"), dict) else {}
+    has_artifact_mdl = any(
+        isinstance(artifacts.get(path), dict)
+        for path in (
+            "mdl/models.json",
+            "mdl/metrics.json",
+            "mdl/dimensions.json",
+            "mdl/permissions.json",
+            "mdl/freshness.json",
+        )
+    )
+    if not isinstance(mdl, dict) and not has_artifact_mdl:
         raise KnowledgeAssetServiceError("Semantic Skill 缺少 mdl 定义。")
     return package
-
-
-def sql_literal(value: Any) -> str:
-    return "'" + str(value).replace("'", "''")[:512] + "'"
-
-
-def compile_semantic_sql(
-    *,
-    mdl: dict[str, Any],
-    metric: dict[str, Any],
-    dimensions: list[dict[str, Any]],
-    filters: dict[str, Any],
-    time_range: dict[str, Any],
-    limit: int,
-) -> str:
-    metric_expr = metric_formula(metric)
-    metric_alias = metric_id(metric)
-    select_parts = [f"{metric_expr} AS {metric_alias}"]
-    group_parts: list[str] = []
-    for dimension in dimensions:
-        field = dimension_field(dimension)
-        alias = dimension_id(dimension)
-        select_parts.insert(0, f"{field} AS {alias}")
-        group_parts.append(field)
-
-    entities = mdl.get("entities") if isinstance(mdl.get("entities"), list) else []
-    table = "semantic_model"
-    for entity in entities:
-        if isinstance(entity, dict) and entity.get("table"):
-            table = safe_identifier(entity.get("table"), fallback="semantic_model")
-            break
-    where_parts: list[str] = []
-    for key, value in filters.items():
-        field = safe_identifier(key, fallback="filter")
-        if isinstance(value, list):
-            literals = ", ".join(sql_literal(item) for item in value[:20])
-            where_parts.append(f"{field} IN ({literals})")
-        elif value not in (None, ""):
-            where_parts.append(f"{field} = {sql_literal(value)}")
-    start = time_range.get("start") or time_range.get("from")
-    end = time_range.get("end") or time_range.get("to")
-    time_field = metric.get("time_field") or metric.get("timeField") or ""
-    if time_field and start:
-        where_parts.append(f"{safe_identifier(time_field)} >= {sql_literal(start)}")
-    if time_field and end:
-        where_parts.append(f"{safe_identifier(time_field)} < {sql_literal(end)}")
-
-    sql = f"SELECT {', '.join(select_parts)} FROM {table}"
-    if where_parts:
-        sql += f" WHERE {' AND '.join(where_parts)}"
-    if group_parts:
-        sql += f" GROUP BY {', '.join(group_parts)}"
-    sql += f" LIMIT {max(1, min(int(limit or 100), 500))}"
-    return sql
-
-
-def synthetic_rows(metric: dict[str, Any], dimensions: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
-    metric_key = metric_id(metric)
-    if not dimensions:
-        return [{metric_key: 128}]
-    rows: list[dict[str, Any]] = []
-    labels = ["核心项", "增长项", "稳定项"]
-    for index, label in enumerate(labels[: max(1, min(limit, 3))], start=1):
-        row = {metric_key: 128 - index * 17}
-        for dimension in dimensions:
-            row[dimension_id(dimension)] = label
-        rows.append(row)
-    return rows
 
 
 def redacted(value: Any) -> Any:

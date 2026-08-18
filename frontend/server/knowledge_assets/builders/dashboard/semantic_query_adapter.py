@@ -1,0 +1,679 @@
+"""Governed Semantic Skill query adapter for AskData and Dashboard builders."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import urljoin, urlsplit
+
+import httpx
+
+from pydantic import Field, field_validator
+
+from ...models import ApiModel
+from ...service import KnowledgeAssetServiceError, redact_sensitive
+from .common import (
+    dimension_id,
+    first_mapping,
+    metric_definition,
+    metric_id,
+    metric_label,
+    now_iso,
+    pii_requested,
+    redacted,
+    require_semantic_package,
+)
+
+
+@dataclass(frozen=True)
+class SemanticQueryRequest:
+    semantic_asset_id: str
+    metric: str | None = None
+    dimension: str | None = None
+    dimensions: tuple[str, ...] = ()
+    filters: dict[str, Any] | None = None
+    time_range: dict[str, Any] | None = None
+    question: str | None = None
+    limit: int = 100
+    mode: str = "summary"
+
+    @classmethod
+    def from_body(cls, body: Any) -> "SemanticQueryRequest":
+        dimensions = getattr(body, "dimensions", []) or []
+        return cls(
+            semantic_asset_id=str(getattr(body, "semantic_asset_id", "") or ""),
+            metric=getattr(body, "metric", None),
+            dimension=getattr(body, "dimension", None),
+            dimensions=tuple(str(item) for item in dimensions if str(item).strip()),
+            filters=getattr(body, "filters", {}) or {},
+            time_range=getattr(body, "time_range", {}) or {},
+            question=getattr(body, "question", None),
+            limit=int(getattr(body, "limit", 100) or 100),
+            mode=str(getattr(body, "mode", "summary") or "summary"),
+        )
+
+    @classmethod
+    def from_asset_body(
+        cls,
+        asset_id: str,
+        body: Any,
+    ) -> "SemanticQueryRequest":
+        request = cls.from_body(body)
+        return cls(
+            semantic_asset_id=asset_id,
+            metric=request.metric,
+            dimension=request.dimension,
+            dimensions=request.dimensions,
+            filters=request.filters,
+            time_range=request.time_range,
+            question=request.question,
+            limit=request.limit,
+            mode=request.mode,
+        )
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "metric": self.metric,
+            "dimension": self.dimension,
+            "dimensions": list(self.dimensions),
+            "filters": self.filters or {},
+            "time_range": self.time_range or {},
+            "question": self.question,
+            "limit": self.limit,
+            "mode": self.mode,
+        }
+
+
+class SemanticAssetQueryBody(ApiModel):
+    metric: str | None = Field(default=None, max_length=200)
+    dimension: str | None = Field(default=None, max_length=200)
+    dimensions: list[str] = Field(default_factory=list, max_length=8)
+    grain: str | None = Field(default=None, max_length=80)
+    filters: dict[str, Any] = Field(default_factory=dict)
+    time_range: dict[str, Any] = Field(default_factory=dict)
+    limit: int = Field(default=100, ge=1, le=500)
+    question: str | None = Field(default=None, max_length=1000)
+    mode: str = Field(default="summary", max_length=80)
+    data_view_ids: list[str] = Field(default_factory=list, max_length=20)
+
+    @field_validator("dimensions", "data_view_ids")
+    @classmethod
+    def _trim_list(cls, value: list[str]) -> list[str]:
+        return [item.strip() for item in value if item.strip()]
+
+
+class GovernedSemanticQueryAdapter:
+    """Consume Semantic Skill governed query evidence without raw SQL fallback."""
+
+    async def query(
+        self,
+        asset: dict[str, Any],
+        request: SemanticQueryRequest,
+    ) -> dict[str, Any]:
+        package = require_semantic_package(asset)
+        mdl = normalize_semantic_mdl(asset, package)
+        policies = policy_payload(asset, package, mdl)
+        metric = select_metric(mdl.get("metrics", []), request.metric, request.question)
+        requested_dimensions = list(request.dimensions) or (
+            [request.dimension] if request.dimension else []
+        )
+        dimensions = select_dimensions(
+            mdl.get("dimensions", []),
+            requested_dimensions,
+            request.question,
+        )
+
+        if pii_requested(
+            request.question,
+            request.metric,
+            request.dimension,
+            list(request.dimensions),
+            request.filters or {},
+            policies=policies,
+        ):
+            return semantic_denied_response(asset, request, policies, metric, dimensions, mdl)
+
+        governed_result = await _resolve_governed_result(
+            asset=asset,
+            package=package,
+            request=request,
+            metric=metric,
+            dimensions=dimensions,
+            policies=policies,
+            mdl=mdl,
+        )
+        return redact_sensitive(governed_result)
+
+
+def normalize_semantic_mdl(
+    asset: dict[str, Any],
+    package: dict[str, Any],
+) -> dict[str, Any]:
+    inline = package.get("mdl") if isinstance(package.get("mdl"), dict) else {}
+    artifacts = package.get("artifacts") if isinstance(package.get("artifacts"), dict) else {}
+    models = _artifact_dict(artifacts, "mdl/models.json")
+    metrics = _artifact_dict(artifacts, "mdl/metrics.json")
+    dimensions = _artifact_dict(artifacts, "mdl/dimensions.json")
+    relationships = _artifact_dict(artifacts, "mdl/relationships.json")
+    permissions = _artifact_dict(artifacts, "mdl/permissions.json")
+    freshness = _artifact_dict(artifacts, "mdl/freshness.json")
+
+    model = _first_dict(inline.get("model"), models.get("model"))
+    entities = _first_list(inline.get("entities"), models.get("entities"))
+    out = {
+        "schema": inline.get("schema") or models.get("schema") or "agentkit.mdl.v1",
+        "model": {
+            "id": asset.get("asset_id"),
+            "slug": asset.get("asset_id"),
+            "version": asset.get("version") or "v1",
+            **model,
+        },
+        "entities": entities,
+        "relationships": _first_list(
+            inline.get("relationships"),
+            relationships.get("relationships"),
+        ),
+        "metrics": _first_list(inline.get("metrics"), metrics.get("metrics")),
+        "dimensions": _first_list(
+            inline.get("dimensions"),
+            dimensions.get("dimensions"),
+        ),
+        "permissions": _first_dict(
+            inline.get("permissions"),
+            permissions.get("permissions"),
+        ),
+        "freshness": _first_dict(
+            inline.get("freshness"),
+            freshness.get("freshness"),
+            asset.get("freshness"),
+        ),
+    }
+    if not out["metrics"]:
+        raise KnowledgeAssetServiceError("Semantic Skill 没有可查询指标。")
+    return out
+
+
+def policy_payload(
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any]:
+    governance = package.get("governance") if isinstance(package.get("governance"), dict) else {}
+    policy: dict[str, Any] = {}
+    for value in (
+        asset.get("usage_policy"),
+        governance.get("usage_policy"),
+        mdl.get("permissions"),
+    ):
+        if isinstance(value, dict):
+            policy.update(value)
+    return policy
+
+
+def select_metric(
+    metrics: list[dict[str, Any]],
+    requested: str | None,
+    question: str | None,
+) -> dict[str, Any]:
+    if not metrics:
+        raise KnowledgeAssetServiceError("Semantic Skill 没有可查询指标。")
+    if requested and (found := first_mapping(metrics, requested)):
+        return found
+    question_norm = (question or "").casefold()
+    for metric in metrics:
+        candidates = [metric_id(metric), metric_label(metric), metric_definition(metric)]
+        if any(candidate.casefold() in question_norm for candidate in candidates if candidate):
+            return metric
+    return metrics[0]
+
+
+def select_dimensions(
+    dimensions: list[dict[str, Any]],
+    requested: list[str | None],
+    question: str | None,
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for key in requested:
+        if key and (found := first_mapping(dimensions, key)):
+            out.append(found)
+    if out:
+        return out[:3]
+    question_norm = (question or "").casefold()
+    for dimension in dimensions:
+        candidates = [
+            dimension_id(dimension),
+            str(dimension.get("name") or ""),
+            str(dimension.get("field") or ""),
+        ]
+        if any(candidate.casefold() in question_norm for candidate in candidates if candidate):
+            out.append(dimension)
+    return out[:3]
+
+
+def semantic_denied_response(
+    asset: dict[str, Any],
+    request: SemanticQueryRequest,
+    policies: dict[str, Any],
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    mdl: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    now = now_iso()
+    freshness = freshness_payload(asset, {}, now, mdl=mdl)
+    freshness.update({"status": "blocked", "as_of": freshness.get("as_of") or now})
+    return redacted(
+        {
+            "schema": "agentkit.semantic_query_result.v1",
+            "asset": {
+                "type": "semantic_model",
+                "id": asset["asset_id"],
+                "version": asset.get("version") or "v1",
+            },
+            "data": {
+                "rows": [],
+                "returnedCount": 0,
+                "metric": _metric_payload(metric),
+                "dimensions": [_dimension_payload(item) for item in dimensions],
+                "sql": "-- policy denied by governed Semantic Skill; no raw SQL executed",
+                "metricDefinition": metric_definition(metric),
+                "policyDecision": {
+                    "decision": "deny",
+                    "reason": "问题包含客户、联系方式、证件或其他受限字段，只能返回聚合且脱敏后的指标。",
+                    "denied_fields": policies.get("denied_fields", []),
+                    "masked_fields": policies.get("masked_fields", []),
+                },
+                "freshness": freshness,
+                "lineage": [],
+                "evidence": [{"kind": "policy", "title": "PII policy guard"}],
+                "execution": {
+                    "mode": "policy_denied",
+                    "governed_rest": True,
+                    "direct_database_access": False,
+                    "raw_sql_fallback": False,
+                },
+            },
+            "mock": False,
+        }
+    )
+
+
+def freshness_payload(
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    now: str,
+    *,
+    mdl: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    freshness: dict[str, Any] = {}
+    if isinstance(mdl, dict) and isinstance(mdl.get("freshness"), dict):
+        freshness.update(mdl["freshness"])
+    package_mdl = package.get("mdl") if isinstance(package, dict) else {}
+    if isinstance(package_mdl, dict) and isinstance(package_mdl.get("freshness"), dict):
+        freshness.update(package_mdl["freshness"])
+    if isinstance(asset.get("freshness"), dict):
+        freshness.update(asset["freshness"])
+    freshness.setdefault("status", "fresh")
+    freshness.setdefault("as_of", now)
+    return freshness
+
+
+def evidence_payload(
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    metric: dict[str, Any],
+) -> list[dict[str, Any]]:
+    evidence: list[dict[str, Any]] = []
+    for item in metric.get("evidence") or []:
+        if isinstance(item, dict):
+            evidence.append(item)
+    for item in asset.get("sample_evidence") or package.get("evidence") or []:
+        if isinstance(item, dict):
+            evidence.append(item)
+    return evidence[:10]
+
+
+async def _resolve_governed_result(
+    *,
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    policies: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any]:
+    candidates = _governed_result_candidates(package)
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        result = _normalize_governed_result(
+            candidate,
+            asset=asset,
+            package=package,
+            request=request,
+            metric=metric,
+            dimensions=dimensions,
+            policies=policies,
+            mdl=mdl,
+        )
+        if result is not None:
+            return result
+
+    sidecar_result = await _query_governed_sidecar(
+        asset=asset,
+        package=package,
+        request=request,
+        metric=metric,
+        dimensions=dimensions,
+        policies=policies,
+        mdl=mdl,
+    )
+    if sidecar_result is not None:
+        return sidecar_result
+
+    raise KnowledgeAssetServiceError(
+        "Semantic Skill 缺少可执行的受治理查询结果。请先发布带 governed query 输出的 Semantic Skill，"
+        "或在 E2 语义构建完成后通过 /api/knowledge-assets/assets/semantic_model/{asset_id}/query 查询。"
+    )
+
+
+async def _query_governed_sidecar(
+    *,
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    policies: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any] | None:
+    runtime = package.get("runtime") if isinstance(package.get("runtime"), dict) else {}
+    query_url = str(asset.get("query_url") or runtime.get("query_url") or "").strip()
+    parsed = urlsplit(query_url)
+    if parsed.scheme or parsed.netloc or query_url.startswith("//"):
+        raise KnowledgeAssetServiceError("Semantic Skill query_url 必须是同源受治理路径。")
+    if not parsed.path.startswith("/api/external/assets/semantic_model/"):
+        return None
+
+    try:
+        from frontend.server.datastudio.gateways import (
+            datastudio_runtime_config,
+            gateway_headers,
+            mock_enabled,
+        )
+    except Exception:
+        return None
+    if mock_enabled():
+        return None
+    config = datastudio_runtime_config()
+    if not config.base_url or not config.api_key:
+        return None
+
+    payload = {
+        "metric": request.metric or metric_id(metric),
+        "dimension": request.dimension or (request.dimensions[0] if request.dimensions else None),
+        "filters": request.filters or {},
+        "time_range": request.time_range or {},
+        "limit": request.limit,
+        "mode": "live",
+    }
+    payload = {key: value for key, value in payload.items() if value not in (None, "")}
+    url = urljoin(f"{config.base_url.rstrip('/')}/", query_url.lstrip("/"))
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload, headers=gateway_headers())
+    if response.status_code >= 400:
+        raise KnowledgeAssetServiceError(
+            f"受治理 Semantic Skill 查询失败（HTTP {response.status_code}）。"
+        )
+    try:
+        body = response.json()
+    except ValueError as error:
+        raise KnowledgeAssetServiceError("受治理 Semantic Skill 查询返回了无效 JSON。") from error
+    candidate = body.get("data") if isinstance(body, dict) and isinstance(body.get("data"), dict) else body
+    if not isinstance(candidate, dict):
+        raise KnowledgeAssetServiceError("受治理 Semantic Skill 查询返回结构无效。")
+    return _normalize_governed_result(
+        candidate,
+        asset=asset,
+        package=package,
+        request=request,
+        metric=metric,
+        dimensions=dimensions,
+        policies=policies,
+        mdl=mdl,
+    )
+
+
+def _governed_result_candidates(package: dict[str, Any]) -> list[dict[str, Any]]:
+    runtime = package.get("runtime") if isinstance(package.get("runtime"), dict) else {}
+    artifacts = package.get("artifacts") if isinstance(package.get("artifacts"), dict) else {}
+    evals = package.get("evals") if isinstance(package.get("evals"), dict) else {}
+    raw_candidates = [
+        package.get("governed_query_result"),
+        package.get("semantic_query_result"),
+        runtime.get("governed_query_result"),
+        runtime.get("sample_result"),
+        artifacts.get("governed_query_result.json"),
+        artifacts.get("semantic_query_result.json"),
+        artifacts.get("evals/governed_query_result.json"),
+        evals.get("governed_query_result"),
+        evals.get("sample_result"),
+    ]
+    out: list[dict[str, Any]] = []
+    for item in raw_candidates:
+        if isinstance(item, dict):
+            out.append(item)
+    cases = evals.get("cases") if isinstance(evals.get("cases"), list) else []
+    for case in cases:
+        if not isinstance(case, dict):
+            continue
+        for key in ("governed_query_result", "semantic_query_result", "result"):
+            value = case.get(key)
+            if isinstance(value, dict):
+                out.append(value)
+    return out
+
+
+def _normalize_governed_result(
+    candidate: dict[str, Any],
+    *,
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    policies: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any] | None:
+    data = candidate.get("data") if isinstance(candidate.get("data"), dict) else candidate
+    policy = data.get("policyDecision") if isinstance(data, dict) else None
+    if isinstance(policy, dict) and str(policy.get("decision", "")).lower() == "deny":
+        data = {
+            **data,
+            "rows": data.get("rows") if isinstance(data.get("rows"), list) else [],
+            "returnedCount": int(data.get("returnedCount") or 0),
+            "sql": data.get("sql") or "-- policy denied by governed Semantic Skill; no raw SQL executed",
+            "metricDefinition": data.get("metricDefinition") or metric_definition(metric),
+            "policyDecision": {
+                "raw_sql_fallback": False,
+                **policy,
+                "decision": "deny",
+            },
+            "freshness": data.get("freshness")
+            if isinstance(data.get("freshness"), dict)
+            else freshness_payload(asset, package, now_iso(), mdl=mdl),
+            "execution": {
+                "mode": "policy_denied",
+                "governed_rest": True,
+                "direct_database_access": False,
+                "raw_sql_fallback": False,
+                **(
+                    data.get("execution")
+                    if isinstance(data.get("execution"), dict)
+                    else {}
+                ),
+            },
+        }
+        return _semantic_envelope(candidate, asset, data, request, metric, dimensions)
+
+    rows = data.get("rows") if isinstance(data, dict) else None
+    if not isinstance(rows, list) and isinstance(data.get("result"), list):
+        rows = data.get("result")
+    sql = data.get("sql") if isinstance(data, dict) else None
+    metric_def = (
+        data.get("metricDefinition")
+        or data.get("metric_definition")
+        or data.get("definition")
+    )
+    freshness = data.get("freshness") if isinstance(data, dict) else None
+    if not isinstance(rows, list) or not str(sql or "").strip():
+        return None
+    if not str(metric_def or "").strip():
+        metric_def = metric_definition(metric)
+    if isinstance(policy, str):
+        decision = _normalize_policy_decision(policy)
+        policy = {
+            "decision": decision,
+            "reason": "受治理语义查询返回的策略判定。",
+            "raw_sql_fallback": False,
+        }
+    if not isinstance(policy, dict):
+        policy = {
+            "decision": "allow",
+            "reason": policies.get("permission_hint")
+            or "仅通过受治理语义层返回聚合结果。",
+            "raw_sql_fallback": False,
+        }
+    elif policy.get("decision"):
+        policy = {**policy, "decision": _normalize_policy_decision(policy.get("decision"))}
+    if not isinstance(freshness, dict):
+        freshness = {
+            "status": "fresh",
+            "as_of": str(freshness),
+        } if freshness else freshness_payload(asset, package, now_iso(), mdl=mdl)
+    normalized_data = {
+        **data,
+        "rows": rows,
+        "returnedCount": int(data.get("returnedCount") or len(rows)),
+        "metric": data.get("metric")
+        if isinstance(data.get("metric"), dict)
+        else _metric_payload(metric, resolved_name=data.get("resolvedMetric")),
+        "dimensions": data.get("dimensions")
+        if isinstance(data.get("dimensions"), list)
+        else [_dimension_payload(item) for item in dimensions],
+        "sql": str(sql),
+        "metricDefinition": str(metric_def),
+        "policyDecision": {
+            "raw_sql_fallback": False,
+            **policy,
+        },
+        "freshness": freshness,
+        "lineage": data.get("lineage")
+        if isinstance(data.get("lineage"), list)
+        else metric.get("lineage") or asset.get("sample_evidence") or [],
+        "evidence": data.get("evidence")
+        if isinstance(data.get("evidence"), list)
+        else evidence_payload(asset, package, metric),
+        "execution": {
+            "mode": "governed_semantic_skill",
+            "governed_rest": True,
+            "direct_database_access": False,
+            "raw_sql_fallback": False,
+            **(
+                data.get("execution")
+                if isinstance(data.get("execution"), dict)
+                else {}
+            ),
+        },
+    }
+    _require_complete_governed_result(normalized_data)
+    return _semantic_envelope(candidate, asset, normalized_data, request, metric, dimensions)
+
+
+def _semantic_envelope(
+    candidate: dict[str, Any],
+    asset: dict[str, Any],
+    data: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not isinstance(data.get("metric"), dict):
+        data["metric"] = _metric_payload(metric)
+    if not isinstance(data.get("dimensions"), list):
+        data["dimensions"] = [_dimension_payload(item) for item in dimensions]
+    return redacted(
+        {
+            "schema": str(candidate.get("schema") or "agentkit.semantic_query_result.v1"),
+            "asset": {
+                "type": "semantic_model",
+                "id": asset["asset_id"],
+                "version": asset.get("version") or "v1",
+            },
+            "query": request.as_payload(),
+            "data": data,
+            "mock": False,
+        }
+    )
+
+
+def _require_complete_governed_result(data: dict[str, Any]) -> None:
+    missing = []
+    if not data.get("rows") and data.get("returnedCount", 0) != 0:
+        missing.append("rows")
+    for key in ("sql", "metricDefinition", "policyDecision", "freshness"):
+        if data.get(key) in (None, ""):
+            missing.append(key)
+    if missing:
+        raise KnowledgeAssetServiceError(
+            "受治理查询结果缺少必要证据：" + ", ".join(sorted(set(missing)))
+        )
+
+
+def _normalize_policy_decision(value: object) -> str:
+    decision = str(value or "").strip().casefold()
+    if decision in {"allow", "allowed", "pass", "passed"}:
+        return "allow"
+    if decision in {"deny", "denied", "block", "blocked", "refuse", "refused"}:
+        return "deny"
+    return decision or "allow"
+
+
+def _metric_payload(
+    metric: dict[str, Any],
+    *,
+    resolved_name: object = None,
+) -> dict[str, Any]:
+    return {
+        "id": metric_id(metric),
+        "name": str(resolved_name or metric_label(metric)),
+        "definition": metric_definition(metric),
+        "formula": metric.get("formula") or metric_id(metric),
+    }
+
+
+def _dimension_payload(dimension: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": dimension_id(dimension),
+        "name": dimension.get("name") or dimension_id(dimension),
+        "field": dimension.get("field") or dimension_id(dimension),
+    }
+
+
+def _artifact_dict(artifacts: dict[str, Any], path: str) -> dict[str, Any]:
+    value = artifacts.get(path)
+    return value if isinstance(value, dict) else {}
+
+
+def _first_dict(*values: Any) -> dict[str, Any]:
+    for value in values:
+        if isinstance(value, dict):
+            return dict(value)
+    return {}
+
+
+def _first_list(*values: Any) -> list[dict[str, Any]]:
+    for value in values:
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []

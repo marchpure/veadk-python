@@ -41,12 +41,40 @@ def test_askdata_query_returns_required_evidence(tmp_path, monkeypatch) -> None:
     body = response.json()
     assert body["status"] == "completed"
     data = body["data"]
-    assert data["rows"]
-    assert "SELECT" in data["sql"]
+    assert data["rows"] == [
+        {"store": "VNPTTE", "ticket_count": 56},
+        {"store": "SG - ANTA VIVO City", "ticket_count": 9},
+    ]
+    assert "SALES_ORDER" in data["sql"]
     assert data["metricDefinition"] == "Count distinct tickets."
     assert data["policyDecision"]["decision"] == "allow"
     assert data["freshness"]["status"] == "fresh"
+    assert data["execution"]["governed_rest"] is True
+    assert data["execution"]["direct_database_access"] is False
     assert "secret" not in response.text.lower()
+
+
+def test_askdata_refuses_semantic_skill_without_governed_query_result(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client, asset_id="schema-only-sales", governed_result=False)
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/query",
+        json={
+            "semantic_asset_id": "schema-only-sales",
+            "metric": "ticket_count",
+            "dimension": "store",
+            "question": "按门店查看销售票数",
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["detail"]["code"] == "KNOWLEDGE_ASSET_INVALID_REQUEST"
+    assert "受治理查询结果" in body["detail"]["message"]
 
 
 def test_askdata_denies_customer_contact_questions(tmp_path, monkeypatch) -> None:
@@ -65,6 +93,8 @@ def test_askdata_denies_customer_contact_questions(tmp_path, monkeypatch) -> Non
     body = response.json()
     assert body["status"] == "blocked"
     assert body["data"]["policyDecision"]["decision"] == "deny"
+    assert body["data"]["sql"].startswith("-- policy denied")
+    assert body["data"]["metricDefinition"] == "Count distinct tickets."
     assert body["data"]["freshness"]["status"] == "blocked"
 
 
@@ -118,63 +148,204 @@ def test_dashboard_skill_build_records_skill_package_and_job(tmp_path, monkeypat
     assert run_body["contract_version"] == "dashboard.run.v1"
     view = run_body["views"][0]
     assert view["policyDecision"]["decision"] == "allow"
+    assert view["result"] == [
+        {"store": "VNPTTE", "ticket_count": 56},
+        {"store": "SG - ANTA VIVO City", "ticket_count": 9},
+    ]
     assert view["sql"]
     assert view["metricDefinition"] == "Count distinct tickets."
     assert view["freshness"]["status"] == "fresh"
 
 
-def _semantic_skill(client: TestClient) -> str:
+def test_semantic_asset_query_route_matches_e2_governed_contract(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client, artifacts_mdl=True)
+
+    response = client.post(
+        "/api/external/assets/semantic_model/oracle-sales/query",
+        json={
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+            "question": "按门店查看销售票数",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema"] == "agentkit.semantic_query_result.v1"
+    data = body["data"]
+    assert data["rows"][0]["ticket_count"] == 56
+    assert data["policyDecision"]["decision"] == "allow"
+    assert data["freshness"]["as_of"] == "2026-08-18T00:00:00Z"
+
+
+def test_askdata_normalizes_byaan_external_query_result_shape(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client, asset_id="byaan-sales", byaan_shape=True)
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/query",
+        json={
+            "semantic_asset_id": "byaan-sales",
+            "metric": "ticket_count",
+            "dimension": "store",
+            "question": "按门店查看销售票数",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["rows"] == [{"store": "VNPTTE", "ticket_count": 56}]
+    assert data["metric"]["name"] == "Ticket Count"
+    assert data["policyDecision"]["decision"] == "allow"
+    assert data["freshness"] == {
+        "status": "fresh",
+        "as_of": "2026-08-18T06:55:06Z",
+    }
+
+
+def _semantic_skill(
+    client: TestClient,
+    *,
+    asset_id: str = "oracle-sales",
+    governed_result: bool = True,
+    artifacts_mdl: bool = False,
+    byaan_shape: bool = False,
+) -> str:
     space = client.post("/api/knowledge-assets/spaces", json={"name": "Oracle"}).json()
+    mdl = {
+        "schema": "agentkit.mdl.v1",
+        "model": {"id": asset_id, "slug": asset_id, "version": "v1"},
+        "entities": [{"id": "sales", "table": "sales_order"}],
+        "metrics": [
+            {
+                "id": "ticket_count",
+                "name": "Ticket Count",
+                "formula": "count_distinct(ticket_id)",
+                "definition": "Count distinct tickets.",
+                "time_field": "sell_date",
+                "evidence": [{"kind": "metric", "title": "ticket"}],
+            }
+        ],
+        "dimensions": [
+            {"id": "store", "name": "Store", "field": "store_name"},
+            {"id": "sell_date", "name": "Sell Date", "field": "sell_date", "kind": "time"},
+        ],
+        "permissions": {
+            "raw_sql_fallback": False,
+            "permission_hint": "Aggregates only.",
+            "denied_fields": [{"field": "customer_phone"}],
+        },
+        "freshness": {"status": "fresh", "as_of": "2026-08-18T00:00:00Z"},
+    }
+    result = {
+        "schema": "agentkit.semantic_query_result.v1",
+        "data": {
+            "rows": [
+                {"store": "VNPTTE", "ticket_count": 56},
+                {"store": "SG - ANTA VIVO City", "ticket_count": 9},
+            ],
+            "returnedCount": 2,
+            "metric": {
+                "id": "ticket_count",
+                "name": "Ticket Count",
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+            },
+            "dimensions": [{"id": "store", "name": "Store", "field": "store_name"}],
+            "sql": (
+                "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count "
+                "FROM SALES_ORDER GROUP BY store_name ORDER BY ticket_count DESC LIMIT 100"
+            ),
+            "metricDefinition": "Count distinct tickets.",
+            "policyDecision": {
+                "decision": "allow",
+                "reason": "Aggregates only.",
+                "raw_sql_fallback": False,
+                "denied_fields": [{"field": "customer_phone"}],
+            },
+            "freshness": {"status": "fresh", "as_of": "2026-08-18T00:00:00Z"},
+            "lineage": [{"kind": "snapshot", "title": "oracle sanitized"}],
+            "evidence": [{"kind": "metric", "title": "ticket"}],
+            "execution": {
+                "mode": "governed_semantic_skill_fixture",
+                "governed_rest": True,
+                "direct_database_access": False,
+                "raw_sql_fallback": False,
+            },
+        },
+        "mock": False,
+    }
+    if byaan_shape:
+        result = {
+            "status": "completed",
+            "resolvedMetric": "Ticket Count",
+            "result": [{"store": "VNPTTE", "ticket_count": 56}],
+            "returnedCount": 1,
+            "sql": (
+                "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count "
+                "FROM SALES_ORDER GROUP BY store_name ORDER BY ticket_count DESC LIMIT 100"
+            ),
+            "lineage": [{"kind": "snapshot", "title": "oracle sanitized"}],
+            "freshness": "2026-08-18T06:55:06Z",
+            "policyDecision": "allowed",
+        }
     package = {
         "package_type": "semantic_skill",
         "runtime": {
             "transport": "agentkit_governed_rest",
-            "query_url": "/api/knowledge-assets/assets/semantic_model/oracle-sales/query",
+            "query_url": f"/api/knowledge-assets/assets/semantic_model/{asset_id}/query",
             "direct_database_access": False,
             "raw_sql_fallback": False,
-        },
-        "mdl": {
-            "schema": "agentkit.mdl.v1",
-            "model": {"id": "oracle-sales", "slug": "oracle-sales", "version": "v1"},
-            "entities": [{"id": "sales", "table": "sales_order"}],
-            "metrics": [
-                {
-                    "id": "ticket_count",
-                    "name": "Ticket Count",
-                    "formula": "count_distinct(ticket_id)",
-                    "definition": "Count distinct tickets.",
-                    "time_field": "sell_date",
-                    "evidence": [{"kind": "metric", "title": "ticket"}],
-                }
-            ],
-            "dimensions": [
-                {"id": "store", "name": "Store", "field": "store_name"},
-                {"id": "sell_date", "name": "Sell Date", "field": "sell_date", "kind": "time"},
-            ],
-            "permissions": {
-                "raw_sql_fallback": False,
-                "permission_hint": "Aggregates only.",
-                "denied_fields": [{"field": "customer_phone"}],
-            },
-            "freshness": {"status": "fresh", "as_of": "2026-08-18T00:00:00Z"},
         },
         "governance": {
             "raw_sql_fallback": False,
             "usage_policy": {"permission_hint": "Aggregates only."},
         },
     }
+    if artifacts_mdl:
+        package["artifacts"] = {
+            "mdl/models.json": {
+                "schema": mdl["schema"],
+                "model": mdl["model"],
+                "entities": mdl["entities"],
+            },
+            "mdl/metrics.json": {"schema": "agentkit.mdl.metrics.v1", "metrics": mdl["metrics"]},
+            "mdl/dimensions.json": {
+                "schema": "agentkit.mdl.dimensions.v1",
+                "dimensions": mdl["dimensions"],
+            },
+            "mdl/permissions.json": {
+                "schema": "agentkit.mdl.permissions.v1",
+                "permissions": mdl["permissions"],
+            },
+            "mdl/freshness.json": {
+                "schema": "agentkit.mdl.freshness.v1",
+                "freshness": mdl["freshness"],
+            },
+        }
+    else:
+        package["mdl"] = mdl
+    if governed_result:
+        package["governed_query_result"] = result
     response = client.post(
         "/api/knowledge-assets/skill-packages",
         json={
             "space_id": space["id"],
             "asset_type": "semantic_model",
-            "asset_id": "oracle-sales",
+            "asset_id": asset_id,
             "capability_kind": "semantic_skill",
             "name": "Oracle Sales",
             "status": "ready",
             "publish_state": "published",
             "type": "semantic_skill",
-            "query_url": "/api/knowledge-assets/assets/semantic_model/oracle-sales/query",
+            "query_url": f"/api/knowledge-assets/assets/semantic_model/{asset_id}/query",
             "capability_package": package,
             "capabilities": {
                 "metrics": ["ticket_count"],
