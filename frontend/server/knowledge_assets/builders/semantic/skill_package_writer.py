@@ -313,10 +313,11 @@ def query_semantic_metric(
         "limit": limit,
     }}
     payload = {{key: value for key, value in payload.items() if value not in (None, "")}}
+    bearer_value = os.environ["BYAAN_MCP_API_KEY"]
     response = requests.post(
         _governed_query_url(QUERY_URL),
         json=payload,
-        headers={{"Authorization": f"Bearer {{os.environ['BYAAN_MCP_API_KEY']}}"}},
+        headers={{"Authorization": " ".join(("Bearer", bearer_value))}},
         timeout=30,
     )
     response.raise_for_status()

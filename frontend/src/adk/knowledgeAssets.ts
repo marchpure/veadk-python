@@ -151,7 +151,7 @@ export interface AskDataQueryResult {
     metric?: Record<string, unknown>;
     dimensions?: Array<Record<string, unknown>>;
     sql: string;
-    metricDefinition: string;
+    metricDefinition: string | Record<string, unknown>;
     policyDecision: Record<string, unknown>;
     freshness: Record<string, unknown>;
     evidence?: Array<Record<string, unknown>>;

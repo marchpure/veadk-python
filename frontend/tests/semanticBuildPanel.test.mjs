@@ -15,6 +15,10 @@ const panelSource = readFileSync(
   new URL("../src/knowledge-center/SemanticBuildPanel.tsx", import.meta.url),
   "utf8",
 );
+const askDataPanelSource = readFileSync(
+  new URL("../src/knowledge-center/AskDataPanel.tsx", import.meta.url),
+  "utf8",
+);
 const knowledgeCenterSource = readFileSync(
   new URL("../src/knowledge-center/KnowledgeCenter.tsx", import.meta.url),
   "utf8",
@@ -95,4 +99,22 @@ test("Semantic build CSS is responsive without product iframe shell", () => {
   assert.match(cssSource, /\.kc-semantic-build/);
   assert.match(cssSource, /grid-template-columns: minmax\(0, 1fr\)/);
   assert.doesNotMatch(cssSource, /iframe/);
+});
+
+test("AskData panel renders object metric definitions from governed query evidence", async () => {
+  assert.match(askDataPanelSource, /formatAskDataMetricDefinition/);
+  const { formatAskDataMetricDefinition } = await loadTypeScriptModule(
+    "../src/knowledge-center/AskDataPanel.tsx",
+  );
+  assert.equal(
+    formatAskDataMetricDefinition({
+      id: "ticket_count",
+      name: "Ticket Count",
+      definition: "Count distinct tickets.",
+      formula: "count(distinct ticket_id)",
+    }),
+    "Ticket Count；Count distinct tickets.；公式：count(distinct ticket_id)",
+  );
+  assert.equal(formatAskDataMetricDefinition("Count distinct tickets."), "Count distinct tickets.");
+  assert.equal(formatAskDataMetricDefinition(null), "未声明");
 });

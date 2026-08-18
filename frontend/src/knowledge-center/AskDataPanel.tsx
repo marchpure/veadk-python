@@ -144,7 +144,7 @@ function AskDataResult({ result }: { result: AskDataQueryResult }) {
       </details>
       <details>
         <summary>指标口径</summary>
-        <p>{data.metricDefinition || "未声明"}</p>
+        <p>{formatAskDataMetricDefinition(data.metricDefinition)}</p>
       </details>
     </div>
   );
@@ -176,6 +176,22 @@ function valuesFrom(asset: KnowledgeAssetMetadata | undefined, key: "metrics" | 
     }
   }
   return [];
+}
+
+export function formatAskDataMetricDefinition(value: unknown): string {
+  if (typeof value === "string") return value || "未声明";
+  if (!value || typeof value !== "object") return "未声明";
+  const record = value as Record<string, unknown>;
+  const title = [record.name, record.id].map((item) => String(item || "").trim()).find(Boolean);
+  const definition = String(record.definition || "").trim();
+  const formula = String(record.formula || "").trim();
+  const parts = [title, definition, formula ? `公式：${formula}` : ""].filter(Boolean);
+  if (parts.length > 0) return parts.join("；");
+  try {
+    return JSON.stringify(record);
+  } catch {
+    return "未声明";
+  }
 }
 
 function userFacingError(error: unknown, fallback: string): string {

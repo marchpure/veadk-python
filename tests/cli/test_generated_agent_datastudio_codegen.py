@@ -62,6 +62,8 @@ def test_datastudio_selected_skill_generates_rest_query_tool() -> None:
     assert "data_view_ids: list[str] | None = None" in agent_py
     assert 'mode: str = "summary"' in agent_py
     assert 'os.environ["BYAAN_MCP_API_KEY"]' in agent_py
+    assert '" ".join(("Bearer", bearer_value))' in agent_py
+    assert "Bearer [REDACTED]" not in agent_py
     assert "DATASTUDIO_BASE_URL" in files[".env.example"]
     assert "BYAAN_MCP_API_KEY" in files[".env.example"]
     assert "requests>=2.32.0" in files["requirements.txt"]
@@ -455,6 +457,8 @@ async def test_datastudio_semantic_skill_materializes_production_package() -> No
     }
     assert "requests.post(" in tool_py
     assert "BYAAN_MCP_API_KEY" in tool_py
+    assert '" ".join(("Bearer", bearer_value))' in tool_py
+    assert "Bearer [REDACTED]" not in tool_py
     assert "cx_Oracle" not in tool_py
     assert "oracledb" not in tool_py
     assert "direct_database_access" not in tool_py

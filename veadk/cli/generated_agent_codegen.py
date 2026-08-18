@@ -769,12 +769,12 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
     asset_label = {asset_label}
     usage_hint = {hint_block}
     query_url = _datastudio_query_url({query_url})
-    token = os.environ["BYAAN_MCP_API_KEY"]
+    bearer_value = os.environ["BYAAN_MCP_API_KEY"]
 {payload}
     response = requests.post(
         query_url,
         json=payload,
-        headers={{"Authorization": f"Bearer {{token}}"}},
+        headers={{"Authorization": " ".join(("Bearer", bearer_value))}},
         timeout=30,
     )
     response.raise_for_status()

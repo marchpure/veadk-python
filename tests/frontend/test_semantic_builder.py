@@ -200,9 +200,13 @@ def test_semantic_skill_build_creates_published_capability(client: TestClient, m
         "evals/evidence.json",
     }.issubset(package_files)
     assert "customer_phone" in json.dumps(package_files["policies/masking.json"])
-    assert "requests.post(" in package_files["tools/query.py"]
-    assert "oracledb" not in package_files["tools/query.py"]
-    assert "cx_Oracle" not in package_files["tools/query.py"]
+    tool = package_files["tools/query.py"]
+    assert "requests.post(" in tool
+    assert "BYAAN_MCP_API_KEY" in tool
+    assert "\" \".join((\"Bearer\", bearer_value))" in tool
+    assert "Bearer [REDACTED]" not in tool
+    assert "oracledb" not in tool
+    assert "cx_Oracle" not in tool
     joined = json.dumps(asset, ensure_ascii=False)
     assert "must-not-leak" not in joined
     assert "customer_phone" in joined
