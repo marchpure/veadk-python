@@ -142,6 +142,22 @@ class UpdateBuildJobBody(ApiModel):
     output: dict[str, Any] | None = None
 
 
+class BuildSemanticSkillBody(ApiModel):
+    space_id: str | None = Field(default=None, max_length=128)
+    source_ids: list[str] = Field(default_factory=list)
+    snapshot_ids: list[str] = Field(default_factory=list)
+    name: str = Field(default="Generated Semantic Skill", min_length=1, max_length=300)
+    description: str = Field(default="", max_length=2000)
+    intent: str = Field(default="", max_length=2000)
+    target_domain: str = Field(default="", max_length=200)
+    publish: bool = False
+
+    @field_validator("source_ids", "snapshot_ids")
+    @classmethod
+    def _clean_ids(cls, value: list[str]) -> list[str]:
+        return [item.strip() for item in value if item.strip()]
+
+
 __all__ = [
     "CreateSourceBody",
     "CreateSpaceBody",
@@ -150,6 +166,7 @@ __all__ = [
     "RecordSkillPackageBody",
     "RecordSnapshotBody",
     "SaveCredentialBody",
+    "BuildSemanticSkillBody",
     "UpdateBuildJobBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",

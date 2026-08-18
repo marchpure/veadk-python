@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query, status
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
 from .models import (
+    BuildSemanticSkillBody,
     CreateSourceBody,
     CreateSpaceBody,
     RecordBuildJobBody,
@@ -36,6 +37,11 @@ from .service import (
     KnowledgeAssetServiceError,
     KnowledgeAssetStore,
     redact_sensitive,
+)
+from .builders.semantic.service import (
+    SemanticBuildBlocked,
+    SemanticSkillBuildRequest,
+    SemanticSkillBuildService,
 )
 
 
@@ -185,6 +191,27 @@ def mount_knowledge_asset_routes(
     async def record_build_job(body: RecordBuildJobBody) -> dict[str, Any]:
         return await invoke(lambda: store.record_build_job(body))
 
+    @app.post(
+        "/api/knowledge-assets/build/semantic-skill",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def build_semantic_skill(body: BuildSemanticSkillBody) -> dict[str, Any]:
+        builder = SemanticSkillBuildService(store)
+        return await invoke(
+            lambda: builder.build(
+                SemanticSkillBuildRequest(
+                    space_id=body.space_id,
+                    source_ids=body.source_ids,
+                    snapshot_ids=body.snapshot_ids,
+                    name=body.name,
+                    description=body.description,
+                    intent=body.intent,
+                    target_domain=body.target_domain,
+                    publish=body.publish,
+                )
+            )
+        )
+
     @app.get("/api/knowledge-assets/build-jobs")
     async def list_build_jobs(
         space_id: Annotated[
@@ -306,6 +333,8 @@ def _convert_error(error: Exception) -> HTTPException:
         return _api_error(404, error.code, str(error))
     if isinstance(error, KnowledgeAssetConflict):
         return _api_error(409, error.code, str(error))
+    if isinstance(error, SemanticBuildBlocked):
+        return _api_error(409, "SEMANTIC_BUILD_BLOCKED", str(error))
     if isinstance(error, (KnowledgeAssetServiceError, ValueError)):
         return _api_error(400, "KNOWLEDGE_ASSET_INVALID_REQUEST", str(error))
     if isinstance(error, (KnowledgeAssetCredentialError, CredentialCryptoError)):

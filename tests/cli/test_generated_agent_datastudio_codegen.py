@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import runpy
 import sys
@@ -599,3 +600,67 @@ def test_project_policy_rejects_invalid_datastudio_query_url() -> None:
                     ],
                 )
             )
+
+
+@pytest.mark.asyncio
+async def test_datastudio_metadata_strings_cannot_close_generated_docstrings() -> None:
+    injected_name = 'Sales """\nraise RuntimeError("executed")\n""" Model'
+    injected_metric = 'gmv """\nimport os\n"""'
+    draft = AgentDraft(
+        name="semantic-agent",
+        selectedSkills=[
+            SelectedSkill(
+                source="datastudio",
+                folder="datastudio-semantic-injection",
+                name=injected_name,
+                dataStudioAssetType="semantic_model",
+                dataStudioAssetId="sales-semantic",
+                dataStudioQueryUrl="/api/external/assets/semantic_model/sales-semantic/query",
+                dataStudioMetrics=[injected_metric],
+                dataStudioDimensions=['region """\nprint("bad")\n"""'],
+                dataStudioCapabilityPackage={
+                    "package_type": "semantic_skill",
+                    "runtime": {
+                        "query_url": "/api/external/assets/semantic_model/sales-semantic/query",
+                    },
+                    "mdl": {
+                        "schema": "byaan.mdl.v1",
+                        "model": {"id": "sales-semantic"},
+                        "metrics": [{"id": injected_metric, "formula": "sum(amount)"}],
+                        "dimensions": [{"id": "region", "field": "region"}],
+                    },
+                },
+            )
+        ],
+    )
+    project = generate_project_from_draft(draft)
+    await materialize_selected_skills(draft, project)
+    files = _file_map(project)
+    agent_py = files["agents/semantic_agent/agent.py"]
+    tool_py = files["skills/datastudio-semantic-injection/tools/query.py"]
+
+    compile(agent_py, "agent.py", "exec")
+    compile(tool_py, "query.py", "exec")
+    assert '"""Query a governed semantic model through the REST external API."""' in agent_py
+    assert '"""Query the packaged Semantic Skill through Data Studio REST."""' in tool_py
+    agent_tree = ast.parse(agent_py)
+    query_function = next(
+        node
+        for node in ast.walk(agent_tree)
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "query_datastudio_semantic_injection"
+    )
+    assert (
+        ast.get_docstring(query_function)
+        == "Query a governed semantic model through the REST external API."
+    )
+    tool_tree = ast.parse(tool_py)
+    tool_function = next(
+        node
+        for node in ast.walk(tool_tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "query_semantic_metric"
+    )
+    assert (
+        ast.get_docstring(tool_function)
+        == "Query the packaged Semantic Skill through Data Studio REST."
+    )

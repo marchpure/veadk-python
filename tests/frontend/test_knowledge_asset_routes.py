@@ -38,6 +38,7 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
     assert "/api/knowledge-assets/spaces" in paths
     assert "/api/knowledge-assets/sources" in paths
     assert "/api/knowledge-assets/sources/{source_id}/credential" in paths
+    assert "/api/knowledge-assets/build/semantic-skill" in paths
     assert "/api/knowledge-assets/build-jobs" in paths
     assert "/api/knowledge-assets/assets/{asset_type}/{asset_id}" in paths
 

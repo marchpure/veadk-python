@@ -49,6 +49,7 @@ import {
   knowledgeSourceCoverageText,
 } from "../create/skills/knowledgeAssets";
 import "./KnowledgeCenter.css";
+import { SemanticBuildPanel } from "./SemanticBuildPanel";
 
 type LoadState =
   | { status: "loading" }
@@ -129,6 +130,18 @@ function queryUrlForCapability(type: KnowledgeAssetType, assetId: string): strin
     return `/api/knowledge-assets/assets/knowledge_resource/${assetId}`;
   }
   return `/api/external/assets/${type}/${assetId}/query`;
+}
+
+function sourceCoverageLabel(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const record = value as Record<string, unknown>;
+  for (const key of ["name", "label", "title", "id", "source_id"]) {
+    if (typeof record[key] === "string" && record[key].trim()) {
+      return record[key].trim();
+    }
+  }
+  return "";
 }
 
 interface SpaceFormState {
@@ -641,7 +654,7 @@ export function KnowledgeCenterView() {
         <div className="kc-native-status-grid">
           <StatusTile
             icon={Database}
-            title="SQLite Asset Store"
+            title="资产仓库"
             status="可用"
             tone="success"
             detail={`${spaces.length} 空间 · ${assets.length} 能力`}
@@ -691,6 +704,14 @@ export function KnowledgeCenterView() {
         </div>
 
         <div className="kc-native-columns">
+          <SemanticBuildPanel
+            spaceId={activeSpace?.id ?? ""}
+            sources={spaceSources}
+            assets={assets}
+            buildJobs={buildJobs}
+            onRefresh={() => refresh(activeSpaceIdRef.current)}
+          />
+
           <section className="kc-native-panel">
             <PanelHead
               title="数据源"
@@ -1105,7 +1126,7 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
       ...(Array.isArray(asset.capability_package?.source_ids)
         ? asset.capability_package.source_ids
         : []),
-    ].map(String),
+    ].map(sourceCoverageLabel).filter(Boolean),
   );
   const metrics = Array.isArray(asset.capabilities?.metrics)
     ? asset.capabilities.metrics.map(String)
@@ -1125,8 +1146,8 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
       <p>{asset.description || sourceCoverage}</p>
       <dl>
         <div>
-          <dt>Asset ID</dt>
-          <dd>{asset.asset_id}</dd>
+          <dt>类型</dt>
+          <dd>{knowledgeCapabilityLabel(asset.asset_type, asset.capability_kind)}</dd>
         </div>
         <div>
           <dt>来源</dt>
