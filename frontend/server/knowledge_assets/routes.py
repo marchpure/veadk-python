@@ -23,7 +23,6 @@ from .models import (
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     RecordSnapshotBody,
-    QueryExternalAssetBody,
     SaveCredentialBody,
     UpdateBuildJobBody,
     UpdateSourceStatusBody,
@@ -40,12 +39,23 @@ from .service import (
     KnowledgeAssetStore,
     redact_sensitive,
 )
+from .builders.dashboard import (
+    AskDataQueryBody,
+    AskDataQueryService,
+    DashboardSkillBuildBody,
+    DashboardSkillWriter,
+    GovernedSemanticQueryService,
+    SemanticAssetQueryBody,
+)
+from .builders.dashboard.dashboard_query_service import (
+    DashboardQueryBody,
+    DashboardQueryService,
+)
 from .builders.semantic.service import (
     SemanticBuildBlocked,
     SemanticSkillBuildRequest,
     SemanticSkillBuildService,
 )
-from .semantic_query import query_external_asset
 
 
 def mount_knowledge_asset_routes(
@@ -57,6 +67,10 @@ def mount_knowledge_asset_routes(
     region_resolver: Callable[[str | None], str] | None = None,
 ) -> None:
     store = service or KnowledgeAssetStore()
+    askdata = AskDataQueryService(store)
+    dashboard_writer = DashboardSkillWriter(store)
+    dashboard_query = DashboardQueryService(store)
+    semantic_query = GovernedSemanticQueryService(store)
 
     async def invoke(call: Callable[[], Awaitable[Any]]) -> Any:
         try:
@@ -309,6 +323,17 @@ def mount_knowledge_asset_routes(
     ) -> dict[str, Any]:
         return await invoke(lambda: store.overview(space_id=space_id))
 
+    @app.post("/api/knowledge-assets/askdata/query")
+    async def askdata_query(body: AskDataQueryBody) -> dict[str, Any]:
+        return await invoke(lambda: askdata.query(body))
+
+    @app.post(
+        "/api/knowledge-assets/build/dashboard-skill",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def build_dashboard_skill(body: DashboardSkillBuildBody) -> dict[str, Any]:
+        return await invoke(lambda: dashboard_writer.build(body))
+
     @app.post("/api/knowledge-assets/snapshots", status_code=status.HTTP_201_CREATED)
     async def record_snapshot(body: RecordSnapshotBody) -> dict[str, Any]:
         return await invoke(lambda: store.record_snapshot(body))
@@ -382,25 +407,50 @@ def mount_knowledge_asset_routes(
             )
         )
 
+    @app.post("/api/knowledge-assets/assets/dashboard/{asset_id}/query")
+    async def query_dashboard_asset(
+        asset_id: str,
+        body: DashboardQueryBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: dashboard_query.query(asset_id, body))
+
+    @app.post("/api/knowledge-assets/assets/{asset_type}/{asset_id}/query")
+    async def query_knowledge_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: SemanticAssetQueryBody,
+    ) -> dict[str, Any]:
+        if asset_type == "dashboard":
+            return await invoke(
+                lambda: dashboard_query.query(
+                    asset_id,
+                    DashboardQueryBody(
+                        filters=body.filters,
+                        data_view_ids=body.data_view_ids,
+                        mode=body.mode,
+                    ),
+                )
+            )
+        if asset_type != "semantic_model":
+            raise _api_error(
+                400,
+                "KNOWLEDGE_ASSET_INVALID_REQUEST",
+                "Only semantic_model and dashboard assets are queryable.",
+            )
+        return await invoke(lambda: semantic_query.query_asset(asset_id, body))
+
+    @app.post("/api/external/assets/{asset_type}/{asset_id}/query")
+    async def query_external_asset_route(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: SemanticAssetQueryBody,
+    ) -> dict[str, Any]:
+        return await query_knowledge_asset(asset_type, asset_id, body)
+
     @app.get("/api/knowledge-assets/assets/{asset_type}/{asset_id}")
     async def get_asset(asset_type: KnowledgeAssetType, asset_id: str) -> dict[str, Any]:
         return await invoke(
             lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
-        )
-
-    @app.post("/api/external/assets/{asset_type}/{asset_id}/query")
-    async def query_asset(
-        asset_type: KnowledgeAssetType,
-        asset_id: str,
-        body: QueryExternalAssetBody,
-    ) -> dict[str, Any]:
-        return await invoke(
-            lambda: query_external_asset(
-                store,
-                asset_type=asset_type,
-                asset_id=asset_id,
-                body=body,
-            )
         )
 
 

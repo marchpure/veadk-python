@@ -88,7 +88,7 @@ test("workbench uses import orchestration and source-level build jobs", () => {
   assert.match(workbenchSource, /latestJobForSource\(jobs, source\.id\)/);
   assert.match(workbenchSource, /kc-source-job-history/);
   assert.match(workbenchSource, /jobs\.filter\(\(job\) => job\.source_id === source\.id\)/);
-  assert.doesNotMatch(clientSource, /\/api\/knowledge-assets\/build\/semantic-skill/);
+  assert.doesNotMatch(workbenchSource, /\/api\/knowledge-assets\/build\/semantic-skill/);
   assert.doesNotMatch(workbenchSource, /buildKnowledgeAssetSemanticSkill/);
 });
 

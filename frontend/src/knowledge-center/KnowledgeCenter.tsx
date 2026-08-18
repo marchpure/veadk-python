@@ -57,11 +57,13 @@ import {
   knowledgeCapabilityLabel,
   knowledgeSourceCoverageText,
 } from "../create/skills/knowledgeAssets";
+import { AskDataPanel } from "./AskDataPanel";
 import {
   CapabilityPanelSlot,
   type CapabilityBuildJobView,
   type KnowledgeCapabilityCardProps,
 } from "./capabilitySlots";
+import { DashboardBuildPanel } from "./DashboardBuildPanel";
 import "./KnowledgeCenter.css";
 import { SemanticBuildPanel } from "./SemanticBuildPanel";
 
@@ -506,6 +508,16 @@ export function KnowledgeCenterView() {
       return values.some((value) => String(value ?? "").toLowerCase().includes(needle));
     });
   }, [assets, query]);
+  const semanticSkills = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          asset.asset_type === "semantic_model" &&
+          asset.capability_kind === "semantic_skill" &&
+          asset.publish_state === "published",
+      ),
+    [assets],
+  );
 
   const assetsByKind = useMemo(() => ({
     retrieval_binding: filteredAssets.filter(
@@ -957,8 +969,9 @@ export function KnowledgeCenterView() {
               sources={spaceSources}
               assets={assets}
               buildJobs={buildJobs}
+              activeSpace={activeSpace}
+              semanticSkills={semanticSkills}
               onRefresh={() => refresh(activeSpaceIdRef.current)}
-              onAddSource={() => openSourceFlow()}
             />
           ) : null}
           {activeTab === "jobs" ? (
@@ -1086,11 +1099,12 @@ function OverviewTab({
         />
       ) : (
         <section className="kc-native-panel">
-          <PanelHead title="下一步" count={3} />
+          <PanelHead title="下一步" count={4} />
           <div className="kc-native-next-grid">
             <NextAction icon={FileSearch} title="创建检索能力" text="把已索引数据源变成 Agent 可选择的 Retrieval Binding。" />
-            <NextAction icon={Database} title="生成语义 Skill" text="入口已预留，E2 builder 接入后从 Schema 数据源生成。" />
-            <NextAction icon={BarChart3} title="构建 Dashboard / AskData" text="入口已预留，F builder 接入后调用 sidecar 或 governed query。" />
+            <NextAction icon={Database} title="生成语义 Skill" text="从 Schema 数据源生成包含 MDL、策略、评测和受治理查询工具的 Skill。" />
+            <NextAction icon={BarChart3} title="新建 Dashboard Skill" text="基于已发布 Semantic Skill 生成可查询的 dashboard_spec 和同源工具。" />
+            <NextAction icon={Search} title="打开 AskData" text="通过已发布 Semantic Skill 的 governed query 获取指标、SQL 和证据。" />
           </div>
         </section>
       )}
@@ -1150,8 +1164,9 @@ function CapabilitiesTab({
   sources,
   assets,
   buildJobs,
+  activeSpace,
+  semanticSkills,
   onRefresh,
-  onAddSource,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
@@ -1162,8 +1177,9 @@ function CapabilitiesTab({
   sources: KnowledgeAssetSource[];
   assets: KnowledgeAssetMetadata[];
   buildJobs: KnowledgeAssetBuildJob[];
+  activeSpace: KnowledgeAssetSpace | null;
+  semanticSkills: KnowledgeAssetMetadata[];
   onRefresh: () => void | Promise<void>;
-  onAddSource: () => void;
 }) {
   return (
     <section className="kc-native-panel">
@@ -1200,31 +1216,19 @@ function CapabilitiesTab({
         kind="dashboard_skill"
         capabilities={capabilityCards.filter((item) => item.kind === "dashboard_skill")}
         build_jobs={capabilityJobs.filter((job) => job.job_type.includes("dashboard"))}
-        render={(context) => (
-          <SlotPlaceholder
-            icon={BarChart3}
-            title="Dashboard Skill"
-            text="Dashboard Builder 将挂载在这里；sidecar 缺失时保持未配置状态。"
-            actionLabel="新建 Dashboard Skill"
-            onAction={onAddSource}
-            count={context.capabilities.length}
+        render={() => (
+          <DashboardBuildPanel
+            activeSpace={activeSpace}
+            semanticSkills={semanticSkills}
+            onBuilt={onRefresh}
           />
         )}
       />
       <CapabilityPanelSlot
         kind="askdata"
-        capabilities={[]}
+        capabilities={semanticSkills.map(toCapabilitySlot)}
         build_jobs={capabilityJobs.filter((job) => job.job_type.includes("askdata"))}
-        render={() => (
-          <SlotPlaceholder
-            icon={Sparkles}
-            title="AskData"
-            text="AskData 入口已预留，后续由 F 接入 governed query。"
-            actionLabel="打开 AskData"
-            onAction={onAddSource}
-            count={0}
-          />
-        )}
+        render={() => <AskDataPanel semanticSkills={semanticSkills} />}
       />
     </section>
   );
@@ -1666,36 +1670,6 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
         </div>
       </dl>
     </article>
-  );
-}
-
-function SlotPlaceholder({
-  icon: Icon,
-  title,
-  text,
-  actionLabel,
-  onAction,
-  count,
-}: {
-  icon: LucideIcon;
-  title: string;
-  text: string;
-  actionLabel: string;
-  onAction: () => void;
-  count: number;
-}) {
-  return (
-    <section className="kc-capability-group">
-      <h3>{title}</h3>
-      <div className="kc-slot-placeholder">
-        <Icon className="kc-native-state-icon" />
-        <div>
-          <strong>{count ? `${count} 个已登记能力` : "等待构建器接入"}</strong>
-          <p>{text}</p>
-        </div>
-        <button type="button" onClick={onAction}>{actionLabel}</button>
-      </div>
-    </section>
   );
 }
 

@@ -136,6 +136,41 @@ export interface KnowledgeAssetImportResult {
   document?: Record<string, unknown> | null;
 }
 
+export interface AskDataQueryResult {
+  schema: "agentkit.askdata.result.v1";
+  status: "completed" | "blocked" | string;
+  asset: {
+    type: "semantic_model";
+    id: string;
+    name: string;
+    version?: string;
+  };
+  data: {
+    rows: Array<Record<string, unknown>>;
+    returnedCount?: number;
+    metric?: Record<string, unknown>;
+    dimensions?: Array<Record<string, unknown>>;
+    sql: string;
+    metricDefinition: string;
+    policyDecision: Record<string, unknown>;
+    freshness: Record<string, unknown>;
+    evidence?: Array<Record<string, unknown>>;
+    lineage?: Array<Record<string, unknown>>;
+  };
+  mock?: boolean;
+}
+
+export interface DashboardSkillBuildResult {
+  schema: "agentkit.dashboard_skill_build.v1";
+  job_id: string;
+  status: string;
+  dashboard_asset_id: string;
+  dashboard: KnowledgeAssetMetadata;
+  askdata?: AskDataQueryResult;
+  preview?: Record<string, unknown>;
+  mock?: boolean;
+}
+
 export class KnowledgeAssetError extends Error {
   readonly status: number;
   readonly code: string;
@@ -407,6 +442,42 @@ export async function buildSemanticSkill(input: {
     "/api/knowledge-assets/build/semantic-skill",
     { method: "POST", body: JSON.stringify(input) },
     "生成 Semantic Skill 失败",
+  );
+}
+
+export async function queryAskData(input: {
+  semantic_asset_id: string;
+  metric?: string;
+  dimension?: string;
+  dimensions?: string[];
+  filters?: Record<string, unknown>;
+  time_range?: Record<string, unknown>;
+  question?: string;
+  limit?: number;
+}): Promise<AskDataQueryResult> {
+  return requestJson(
+    "/api/knowledge-assets/askdata/query",
+    { method: "POST", body: JSON.stringify(input) },
+    "AskData 查询失败",
+  );
+}
+
+export async function buildDashboardSkill(input: {
+  space_id?: string;
+  semantic_asset_id: string;
+  name: string;
+  description?: string;
+  intent: string;
+  metric?: string;
+  dimensions?: string[];
+  filters?: Record<string, unknown>;
+  time_range?: Record<string, unknown>;
+  publish?: boolean;
+}): Promise<DashboardSkillBuildResult> {
+  return requestJson(
+    "/api/knowledge-assets/build/dashboard-skill",
+    { method: "POST", body: JSON.stringify(input) },
+    "生成 Dashboard Skill 失败",
   );
 }
 
