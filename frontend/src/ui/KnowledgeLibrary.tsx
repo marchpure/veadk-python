@@ -23,6 +23,9 @@ import {
   deleteKnowledgeBase,
   deleteKnowledgeDocument,
   formatKnowledgeError,
+  getFeishuKnowledgeAuthStatus,
+  importFeishuKnowledgeDocument,
+  importLocalWebKnowledgeDocument,
   listKnowledgeBasesAcrossRegions,
   listKnowledgeDocuments,
   KNOWLEDGE_PROVIDER_ASSOCIATION_INVALID,
@@ -204,7 +207,7 @@ function statusLabel(status: string): string {
   return status || "未知";
 }
 
-type KnowledgeSourceKind = "image" | "document" | "web";
+type KnowledgeSourceKind = "image" | "document" | "web" | "feishu" | "local-web";
 
 const IMAGE_ACCEPT = [".jpg", ".jpeg", ".png"].join(",");
 const IMAGE_EXTENSIONS = new Set(IMAGE_ACCEPT.split(","));
@@ -219,7 +222,7 @@ function fileExtension(name: string): string {
   return index < 0 ? "" : name.slice(index).toLocaleLowerCase();
 }
 
-function validateKnowledgeFile(file: File, kind: Exclude<KnowledgeSourceKind, "web">): string {
+function validateKnowledgeFile(file: File, kind: "image" | "document"): string {
   if (file.size > MAX_KNOWLEDGE_FILE_BYTES) return "单个文件不能超过 200 MB";
   if (kind === "image") {
     return IMAGE_EXTENSIONS.has(fileExtension(file.name))
@@ -346,14 +349,23 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
   const [name, setName] = useState("");
   const [documentType, setDocumentType] = useState("");
   const [source, setSource] = useState("");
+  const [content, setContent] = useState("");
+  const [contentFormat, setContentFormat] = useState<"markdown" | "html">("markdown");
+  const [localSourceType, setLocalSourceType] = useState<"local_web" | "intranet_web">("intranet_web");
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [metadata, setMetadata] = useState("{}");
-  const [busyAction, setBusyAction] = useState<"" | "preview" | "save" | "upload">("");
+  const [busyAction, setBusyAction] = useState<"" | "preview" | "save" | "upload" | "import">("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState<{ source: string; contentHash: string; capturedAt: string; target: string } | null>(null);
+  const [feishuStatus, setFeishuStatus] = useState<"idle" | "loading" | "configured" | "not_configured" | "expired" | "error">("idle");
+  const [feishuAuthUrl, setFeishuAuthUrl] = useState("");
+  const [feishuMessage, setFeishuMessage] = useState("");
   const [webPreview, setWebPreview] = useState<{ preview: KnowledgeWebPreview; metadata: Record<string, unknown> } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const webUrlRef = useRef<HTMLInputElement>(null);
+  const feishuUrlRef = useRef<HTMLInputElement>(null);
+  const localUrlRef = useRef<HTMLInputElement>(null);
   const webConfirmRef = useRef<HTMLButtonElement>(null);
   const dragDepth = useRef(0);
   const busy = Boolean(busyAction);
@@ -367,9 +379,13 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
     setSourceKind(kind);
     setFile(null);
     setSource("");
+    setContent("");
+    setContentFormat("markdown");
+    setLocalSourceType("intranet_web");
     setName("");
     setDocumentType("");
     setError("");
+    setSuccess(null);
     setWebPreview(null);
     setDragging(false);
     dragDepth.current = 0;
@@ -377,7 +393,7 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
   };
 
   const chooseFile = (candidate: File | null) => {
-    if (!candidate || sourceKind === "web") return;
+    if (!candidate || (sourceKind !== "image" && sourceKind !== "document")) return;
     const validationError = validateKnowledgeFile(candidate, sourceKind);
     if (validationError) {
       setFile(null);
@@ -392,9 +408,48 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
     setDocumentType(fileExtension(candidate.name).slice(1));
   };
 
+  const refreshFeishuStatus = useCallback(async () => {
+    setFeishuStatus("loading");
+    setFeishuMessage("");
+    try {
+      const status = await getFeishuKnowledgeAuthStatus();
+      setFeishuStatus(status.status);
+      setFeishuAuthUrl(status.authorizationUrl);
+      setFeishuMessage(
+        status.status === "configured"
+          ? "已配置飞书 OAuth；支持文档与 Wiki 文档，表格类资源后续扩展。"
+          : status.message || "飞书连接器未配置，请联系管理员启用。",
+      );
+    } catch (reason) {
+      setFeishuStatus("error");
+      setFeishuMessage(formatKnowledgeError(reason, "读取飞书连接状态失败"));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sourceKind === "feishu" && feishuStatus === "idle") {
+      void refreshFeishuStatus();
+    }
+  }, [feishuStatus, refreshFeishuStatus, sourceKind]);
+
+  const captureSuccess = (result: { metadata: Record<string, unknown>; url?: string; name?: string }) => {
+    const metadataRecord = result.metadata ?? {};
+    setSuccess({
+      source: String(metadataRecord.source_url || result.url || result.name || "-"),
+      contentHash: String(metadataRecord.content_hash || "-"),
+      capturedAt: String(metadataRecord.captured_at || "-"),
+      target: `${base.name} / ${base.region}`,
+    });
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (sourceKind === "web" ? !source.trim() : !file) return;
+    if (
+      sourceKind === "web" ? !source.trim()
+        : sourceKind === "feishu" ? !source.trim()
+          : sourceKind === "local-web" ? !source.trim() || !content.trim()
+            : !file
+    ) return;
     let parsedMetadata: Record<string, unknown>;
     try {
       parsedMetadata = parseMetadata(metadata);
@@ -402,8 +457,15 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
       setError(formatKnowledgeError(reason, "Metadata 格式错误"));
       return;
     }
-    setBusyAction(sourceKind === "web" ? (webPreview ? "save" : "preview") : "upload");
+    setBusyAction(
+      sourceKind === "web"
+        ? (webPreview ? "save" : "preview")
+        : sourceKind === "feishu" || sourceKind === "local-web"
+          ? "import"
+          : "upload",
+    );
     setError("");
+    setSuccess(null);
     try {
       if (sourceKind === "web") {
         if (!webPreview) {
@@ -425,6 +487,26 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
           await createKnowledgeDocument(base.id, base.region, input);
           onCreated();
         }
+      } else if (sourceKind === "feishu") {
+        const result = await importFeishuKnowledgeDocument(base.id, base.region, {
+          docUrl: source.trim(),
+          name: name.trim() || undefined,
+          metadata: parsedMetadata,
+        });
+        captureSuccess(result);
+        onCreated();
+      } else if (sourceKind === "local-web") {
+        const result = await importLocalWebKnowledgeDocument(base.id, base.region, {
+          sourceType: localSourceType,
+          sourceUrl: source.trim(),
+          contentFormat,
+          content,
+          accessMode: "user_local",
+          name: name.trim() || undefined,
+          metadata: parsedMetadata,
+        });
+        captureSuccess(result);
+        onCreated();
       } else if (file) {
         await uploadKnowledgeDocument(base.id, base.region, {
           file,
@@ -441,11 +523,21 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
       ) {
         onAssociationInvalid(reason);
       } else {
+        if (
+          reason instanceof KnowledgeRequestError
+          && reason.errorCode === "KNOWLEDGE_FEISHU_AUTH_EXPIRED"
+        ) {
+          setFeishuStatus("expired");
+        }
         setError(formatKnowledgeError(
           reason,
           sourceKind === "web"
             ? webPreview ? "添加网页失败" : "生成网页预览失败"
-            : "上传文件失败",
+            : sourceKind === "feishu"
+              ? "导入飞书文档失败"
+              : sourceKind === "local-web"
+                ? "导入本地或内网页面失败"
+                : "上传文件失败",
         ));
       }
     } finally {
@@ -459,6 +551,21 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
     setError("");
     requestAnimationFrame(() => webUrlRef.current?.focus());
   };
+
+  const sourceReady = sourceKind === "web"
+    ? Boolean(source.trim())
+    : sourceKind === "feishu"
+      ? Boolean(source.trim()) && feishuStatus === "configured"
+      : sourceKind === "local-web"
+        ? Boolean(source.trim() && content.trim())
+        : Boolean(file);
+  const submitLabel = busy
+    ? sourceKind === "web" ? "生成中"
+      : sourceKind === "feishu" || sourceKind === "local-web" ? "导入中"
+        : "上传中"
+    : sourceKind === "web" ? "生成预览"
+      : sourceKind === "feishu" || sourceKind === "local-web" ? "导入"
+        : "上传文件";
 
   return (
     <KnowledgeDialog
@@ -496,6 +603,8 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
                   ["image", "图片"],
                   ["document", "文档文件"],
                   ["web", "在线网页"],
+                  ["feishu", "飞书文档"],
+                  ["local-web", "本地/内网页面"],
                 ] as const).map(([kind, label]) => (
                   <button
                     key={kind}
@@ -509,7 +618,7 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
                     disabled={busy}
                     onClick={() => chooseSourceKind(kind)}
                     onKeyDown={(event) => {
-                      const kinds: KnowledgeSourceKind[] = ["image", "document", "web"];
+                      const kinds: KnowledgeSourceKind[] = ["image", "document", "web", "feishu", "local-web"];
                       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
                       event.preventDefault();
                       const current = kinds.indexOf(kind);
@@ -537,6 +646,36 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
                     <label><span>网页 URL</span><input ref={webUrlRef} autoFocus type="url" value={source} disabled={busy} onChange={(event) => { setSource(event.target.value); setError(""); }} placeholder="https://example.com/article" /></label>
                     <div className="knowledge-upload-status" role="status" aria-live="polite">
                       {busyAction === "preview" ? <TextShimmer>正在抓取网页并生成 Markdown 预览</TextShimmer> : null}
+                    </div>
+                  </>
+                ) : sourceKind === "feishu" ? (
+                  <>
+                    <div className={`knowledge-connector-state is-${feishuStatus}`} role={feishuStatus === "error" || feishuStatus === "expired" ? "alert" : "status"}>
+                      {feishuStatus === "loading" ? <TextShimmer>正在读取飞书连接状态</TextShimmer> : <span>{feishuMessage || "飞书文档导入需要管理员配置 OAuth 连接。"}</span>}
+                      {feishuStatus === "not_configured" || feishuStatus === "error" ? <button type="button" onClick={() => void refreshFeishuStatus()} disabled={busy}>重试</button> : null}
+                      {feishuStatus === "expired" && feishuAuthUrl ? <a href={feishuAuthUrl} target="_blank" rel="noopener noreferrer">重新授权</a> : null}
+                    </div>
+                    <label><span>飞书文档或 Wiki URL</span><input ref={feishuUrlRef} autoFocus type="url" value={source} disabled={busy || feishuStatus !== "configured"} onChange={(event) => { setSource(event.target.value); setError(""); }} placeholder="https://example.feishu.cn/wiki/..." /></label>
+                    <p className="knowledge-dialog__note">第一阶段支持飞书文档和 Wiki 文档；表格、多维表格等资源会在后续扩展。</p>
+                    <div className="knowledge-upload-status" role="status" aria-live="polite">
+                      {busyAction === "import" ? <TextShimmer>正在导出飞书文档并导入知识库</TextShimmer> : null}
+                    </div>
+                  </>
+                ) : sourceKind === "local-web" ? (
+                  <>
+                    <div className="knowledge-segmented" role="group" aria-label="页面来源类型">
+                      <button type="button" className={localSourceType === "intranet_web" ? "is-active" : ""} disabled={busy} onClick={() => setLocalSourceType("intranet_web")}>内网页面</button>
+                      <button type="button" className={localSourceType === "local_web" ? "is-active" : ""} disabled={busy} onClick={() => setLocalSourceType("local_web")}>本地页面</button>
+                    </div>
+                    <label><span>来源 URL</span><input ref={localUrlRef} autoFocus type="url" value={source} disabled={busy} onChange={(event) => { setSource(event.target.value); setError(""); }} placeholder="http://localhost:3000/page" /></label>
+                    <div className="knowledge-segmented" role="group" aria-label="内容格式">
+                      <button type="button" className={contentFormat === "markdown" ? "is-active" : ""} disabled={busy} onClick={() => setContentFormat("markdown")}>Markdown</button>
+                      <button type="button" className={contentFormat === "html" ? "is-active" : ""} disabled={busy} onClick={() => setContentFormat("html")}>HTML</button>
+                    </div>
+                    <label><span>已清洗内容</span><textarea className="knowledge-local-content" value={content} disabled={busy} onChange={(event) => { setContent(event.target.value); setError(""); }} spellCheck={false} placeholder={contentFormat === "markdown" ? "# 页面标题\n\n正文" : "<main><h1>页面标题</h1><p>正文</p></main>"} /></label>
+                    <p className="knowledge-dialog__note">需要登录态的页面请粘贴已清洗内容或由前端提交 sanitized content；不会保存 cookie、Authorization header 或浏览器 session token。托管部署默认禁用 authenticated local capture。</p>
+                    <div className="knowledge-upload-status" role="status" aria-live="polite">
+                      {busyAction === "import" ? <TextShimmer>正在清洗内容并导入知识库</TextShimmer> : null}
                     </div>
                   </>
                 ) : (
@@ -596,15 +735,25 @@ function CreateKnowledgeDocumentDialog({ base, onClose, onCreated, onAssociation
               {sourceKind !== "web" ? (
                 <div className="knowledge-dialog__fields">
                   <label><span>名称（可选）</span><input value={name} disabled={busy} maxLength={256} onChange={(event) => setName(event.target.value)} /></label>
-                  <label><span>类型（可选）</span><input value={documentType} disabled={busy} maxLength={64} onChange={(event) => setDocumentType(event.target.value)} placeholder="pdf、docx、png" /></label>
+                  {sourceKind === "image" || sourceKind === "document" ? (
+                    <label><span>类型（可选）</span><input value={documentType} disabled={busy} maxLength={64} onChange={(event) => setDocumentType(event.target.value)} placeholder="pdf、docx、png" /></label>
+                  ) : null}
                 </div>
               ) : null}
               <label><span>Metadata（JSON）</span><textarea className="is-code" value={metadata} disabled={busy} onChange={(event) => setMetadata(event.target.value)} spellCheck={false} /></label>
+              {success ? (
+                <dl className="knowledge-import-summary" role="status">
+                  <div><dt>Source</dt><dd title={success.source}>{success.source}</dd></div>
+                  <div><dt>content_hash</dt><dd title={success.contentHash}>{success.contentHash}</dd></div>
+                  <div><dt>captured_at</dt><dd>{success.capturedAt}</dd></div>
+                  <div><dt>目标 KB</dt><dd>{success.target}</dd></div>
+                </dl>
+              ) : null}
               <FormError message={error} />
             </div>
             <footer className="knowledge-dialog__actions">
               <button type="button" onClick={onClose} disabled={busy}>取消</button>
-              <button type="submit" className="is-primary" disabled={busy || (sourceKind === "web" ? !source.trim() : !file)}>{busy ? (sourceKind === "web" ? "生成中" : "上传中") : (sourceKind === "web" ? "生成预览" : "上传文件")}</button>
+              <button type="submit" className="is-primary" disabled={busy || !sourceReady}>{submitLabel}</button>
             </footer>
           </>
         )}

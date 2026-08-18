@@ -840,10 +840,11 @@ class _DocumentGateway:
         self.created: list[CreateDocumentBody] = []
         self.failure: Exception | None = None
         self.deleted: list[str] = []
+        self.items: list[dict[str, object]] = []
 
     def list(self, **kwargs):
         del kwargs
-        return [], False
+        return self.items, False
 
     def get(self, document_id: str):
         return {"id": document_id, "tosPath": "tos://bucket/object.pdf"}
@@ -1524,3 +1525,282 @@ def test_web_import_explains_javascript_only_pages() -> None:
     detail = response.json()["detail"]
     assert detail["errorCode"] == "KNOWLEDGE_WEB_CONTENT_INVALID"
     assert "JavaScript 动态渲染" in detail["message"]
+
+
+def test_local_web_paste_import_sanitizes_metadata_and_reuses_upload_path() -> None:
+    service, documents, uploads = _knowledge_service()
+    uploads.max_file_bytes = 4096
+
+    response = _web_import_client(service, _WebImporter()).post(
+        "/web/knowledge-bases/kb-1/documents/local-web",
+        json={
+            "sourceType": "intranet_web",
+            "sourceUrl": "http://intranet.local/wiki?token=secret#frag",
+            "contentFormat": "html",
+            "content": (
+                "<html><head><title>Runbook</title><script>secret()</script></head>"
+                "<body><nav>menu</nav><h1>Runbook</h1><p>Restart steps</p></body></html>"
+            ),
+            "accessMode": "user_local",
+            "metadata": {"team": "platform", "cookie": "must-not-persist"},
+        },
+    )
+
+    assert response.status_code == 201
+    assert uploads.contents == [b"# Runbook\n\nRestart steps"]
+    created = documents.created[0]
+    assert created.source_type == "tos"
+    assert created.document_type == "txt"
+    assert created.name == "Runbook"
+    assert created.metadata["team"] == "platform"
+    assert "cookie" not in created.metadata
+    assert created.metadata["source_type"] == "intranet_web"
+    assert created.metadata["source_url"] == "http://intranet.local/wiki"
+    assert created.metadata["access_mode"] == "user_local"
+    assert created.metadata["content_hash"].startswith("sha256:")
+    assert created.metadata["captured_at"]
+    assert created.metadata["_veadk_content_format"] == "markdown"
+    assert response.json()["metadata"]["targetKnowledgeBase"]["id"] == "kb-1"
+    assert "secret" not in response.text
+    assert "must-not-persist" not in response.text
+
+
+def test_local_web_import_rejects_browser_credentials() -> None:
+    service, documents, uploads = _knowledge_service()
+    uploads.max_file_bytes = 4096
+
+    response = _web_import_client(service, _WebImporter()).post(
+        "/web/knowledge-bases/kb-1/documents/local-web",
+        json={
+            "sourceType": "local_web",
+            "sourceUrl": "http://localhost:3000/private",
+            "contentFormat": "markdown",
+            "content": "# Private\n\nBearer <redacted>",
+        },
+    )
+
+    assert response.status_code == 422
+    assert uploads.puts == []
+    assert documents.created == []
+    detail = response.json()["detail"]
+    assert detail["errorCode"] == "KNOWLEDGE_CONNECTOR_BROWSER_SECRET"
+    assert "top-secret" not in response.text
+
+
+def test_local_web_import_dedupes_by_content_hash_before_upload() -> None:
+    service, documents, uploads = _knowledge_service()
+    uploads.max_file_bytes = 4096
+    content_hash = "sha256:" + hashlib.sha256(b"# Existing").hexdigest()
+    documents.items = [
+        {
+            "id": "doc-existing",
+            "name": "Existing",
+            "type": "txt",
+            "metadata": {"content_hash": content_hash},
+        }
+    ]
+
+    response = _web_import_client(service, _WebImporter()).post(
+        "/web/knowledge-bases/kb-1/documents/local-web",
+        json={
+            "sourceType": "local_web",
+            "sourceUrl": "http://localhost:3000/existing",
+            "contentFormat": "markdown",
+            "content": "# Existing",
+        },
+    )
+
+    assert response.status_code == 409
+    assert uploads.puts == []
+    assert documents.created == []
+    detail = response.json()["detail"]
+    assert detail["errorCode"] == "KNOWLEDGE_CONNECTOR_DUPLICATE_CONTENT"
+
+
+class _FeishuConnector:
+    def __init__(self) -> None:
+        self.authorize_called = False
+        self.imports: list[dict[str, str]] = []
+        self.expired = False
+
+    def authorization_url(self, *, owner_id: str) -> str:
+        self.authorize_called = True
+        return f"https://accounts.feishu.cn/oauth?scope=docs:doc:readonly&state={owner_id}"
+
+    async def exchange_code(self, *, code: str, redirect_uri: str) -> dict[str, object]:
+        del code, redirect_uri
+        return {
+            "access_token": "access-live-secret",
+            "refresh_token": "refresh-live-secret",
+            "expires_in": 3600,
+            "scope": "docs:doc:readonly wiki:wiki:readonly",
+        }
+
+    async def import_document(
+        self,
+        *,
+        doc_url: str,
+        owner_id: str,
+        refresh_token: str,
+    ):
+        self.imports.append(
+            {
+                "doc_url": doc_url,
+                "owner_id": owner_id,
+                "refresh_token": refresh_token,
+            }
+        )
+        if self.expired:
+            from frontend.server.knowledge.connectors import FeishuTokenExpiredError
+
+            raise FeishuTokenExpiredError("refresh token expired")
+        from frontend.server.knowledge.connectors import FeishuDocumentExport
+
+        return FeishuDocumentExport(
+            markdown="# Project Plan\n\nMilestone.",
+            title="Project Plan",
+            source_url="https://example.feishu.cn/wiki/AbCd",
+            space_id="space-1",
+            source_id="doc-1",
+            external_doc_token="doccn-secret-free",
+            revision="12",
+            permission_scope="docs:doc:readonly wiki:wiki:readonly",
+            captured_at="2026-08-18T08:00:00+00:00",
+        )
+
+
+class _CredentialRegistry:
+    def __init__(self) -> None:
+        self.saved: list[dict[str, object]] = []
+
+    async def save_credential(self, **kwargs):
+        self.saved.append(kwargs)
+        return {"credentialId": "cred-1"}
+
+
+def test_feishu_oauth_callback_saves_refresh_token_via_registry() -> None:
+    service, documents, uploads = _knowledge_service()
+    connector = _FeishuConnector()
+    registry = _CredentialRegistry()
+    app = FastAPI()
+    mount_knowledge_routes(
+        app,
+        service=service,
+        identity_resolver=lambda request: KnowledgeIdentity("user-1", "User"),
+        region_resolver=lambda value: value or "cn-beijing",
+        web_importer=_WebImporter(),
+        feishu_connector=connector,
+        asset_registry=registry,
+    )
+
+    response = TestClient(app).post(
+        "/web/knowledge-connectors/feishu/oauth/callback",
+        json={"code": "oauth-code", "redirectUri": "https://studio.example.com/callback"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "connected"
+    assert registry.saved[0]["owner_id"] == "user-1"
+    assert registry.saved[0]["provider"] == "feishu"
+    assert registry.saved[0]["credential"]["refresh_token"] == "refresh-live-secret"
+    assert "refresh-live-secret" not in response.text
+    assert "access-live-secret" not in response.text
+    assert uploads.puts == []
+    assert documents.created == []
+
+
+def test_feishu_import_uses_saved_token_and_writes_metadata_envelope() -> None:
+    service, documents, uploads = _knowledge_service()
+    uploads.max_file_bytes = 4096
+    connector = _FeishuConnector()
+    registry = _CredentialRegistry()
+    registry.saved.append(
+        {
+            "owner_id": "user-1",
+            "provider": "feishu",
+            "credential": {"refresh_token": "refresh-stored-secret"},
+        }
+    )
+    app = FastAPI()
+    mount_knowledge_routes(
+        app,
+        service=service,
+        identity_resolver=lambda request: KnowledgeIdentity("user-1", "User"),
+        region_resolver=lambda value: value or "cn-beijing",
+        web_importer=_WebImporter(),
+        feishu_connector=connector,
+        asset_registry=registry,
+    )
+
+    response = TestClient(app).post(
+        "/web/knowledge-bases/kb-1/documents/feishu",
+        json={"docUrl": "https://example.feishu.cn/wiki/AbCd"},
+    )
+
+    assert response.status_code == 201
+    assert connector.imports == [
+        {
+            "doc_url": "https://example.feishu.cn/wiki/AbCd",
+            "owner_id": "user-1",
+            "refresh_token": "refresh-stored-secret",
+        }
+    ]
+    assert uploads.contents == [b"# Project Plan\n\nMilestone."]
+    created = documents.created[0]
+    assert created.name == "Project Plan"
+    assert created.metadata["space_id"] == "space-1"
+    assert created.metadata["source_id"] == "doc-1"
+    assert created.metadata["source_type"] == "feishu_doc"
+    assert created.metadata["external_doc_token"] == "doccn-secret-free"
+    assert created.metadata["source_url"] == "https://example.feishu.cn/wiki/AbCd"
+    assert created.metadata["revision"] == "12"
+    assert created.metadata["permission_scope"] == "docs:doc:readonly wiki:wiki:readonly"
+    assert created.metadata["content_hash"].startswith("sha256:")
+    assert created.metadata["captured_at"] == "2026-08-18T08:00:00+00:00"
+    assert response.json()["metadata"]["targetKnowledgeBase"]["id"] == "kb-1"
+    assert "refresh-stored-secret" not in response.text
+
+
+def test_feishu_import_returns_expired_status_without_using_old_snapshot() -> None:
+    service, documents, uploads = _knowledge_service()
+    connector = _FeishuConnector()
+    connector.expired = True
+    registry = _CredentialRegistry()
+    registry.saved.append(
+        {
+            "owner_id": "user-1",
+            "provider": "feishu",
+            "credential": {"refresh_token": "refresh-stored-secret"},
+        }
+    )
+    app = FastAPI()
+    mount_knowledge_routes(
+        app,
+        service=service,
+        identity_resolver=lambda request: KnowledgeIdentity("user-1", "User"),
+        region_resolver=lambda value: value or "cn-beijing",
+        web_importer=_WebImporter(),
+        feishu_connector=connector,
+        asset_registry=registry,
+    )
+
+    response = TestClient(app).post(
+        "/web/knowledge-bases/kb-1/documents/feishu",
+        json={"docUrl": "https://example.feishu.cn/wiki/AbCd"},
+    )
+
+    assert response.status_code == 401
+    assert uploads.puts == []
+    assert documents.created == []
+    detail = response.json()["detail"]
+    assert detail["errorCode"] == "KNOWLEDGE_FEISHU_AUTH_EXPIRED"
+    assert "重新授权" in detail["message"]
+    assert "refresh-stored-secret" not in response.text
+
+
+def test_agent_search_does_not_supply_source_metadata_filter() -> None:
+    source = Path("veadk/agent_search.py").read_text(encoding="utf-8")
+    call_start = source.index("entries = await asyncio.to_thread(knowledgebase.search, query)")
+    call_end = source.index("results = []", call_start)
+
+    assert "metadata" not in source[call_start:call_end]

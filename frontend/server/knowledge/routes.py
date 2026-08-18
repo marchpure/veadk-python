@@ -41,6 +41,18 @@ from fastapi import (
 )
 from fastapi.concurrency import run_in_threadpool
 
+from frontend.server.knowledge_assets.contract import KnowledgeAssetRegistry
+
+from .connectors import (
+    FeishuConnector,
+    FeishuImportBody,
+    FeishuOAuthCallbackBody,
+    LocalWebImportBody,
+    feishu_authorization,
+    import_feishu_document,
+    import_local_web_document,
+    save_feishu_oauth_callback,
+)
 from .models import (
     CreateDocumentBody,
     CreateKnowledgeBaseBody,
@@ -429,6 +441,8 @@ def mount_knowledge_routes(
     region_candidates_resolver: Callable[[], tuple[str, ...]] | None = None,
     create_region_candidates_resolver: Callable[[], tuple[str, ...]] | None = None,
     web_importer: WebImportClient | None = None,
+    feishu_connector: FeishuConnector | None = None,
+    asset_registry: KnowledgeAssetRegistry | None = None,
 ) -> None:
     importer: WebImportClient = web_importer or WebImporter()
 
@@ -641,6 +655,94 @@ def mount_knowledge_routes(
             )
         )
         return await import_web_preview(body)
+
+    @app.get("/web/knowledge-connectors/feishu/authorize")
+    async def authorize_feishu(request: Request) -> Any:
+        identity = identity_resolver(request)
+        return feishu_authorization(
+            connector=feishu_connector,
+            identity=identity,
+        ).model_dump(by_alias=True)
+
+    @app.post("/web/knowledge-connectors/feishu/oauth/callback")
+    async def feishu_oauth_callback(
+        body: FeishuOAuthCallbackBody,
+        request: Request,
+    ) -> Any:
+        identity = identity_resolver(request)
+        try:
+            result = await save_feishu_oauth_callback(
+                connector=feishu_connector,
+                registry=asset_registry,
+                identity=identity,
+                body=body,
+            )
+            return result.model_dump(by_alias=True)
+        except KnowledgeAccessError as error:
+            status_code, detail = _error_detail(error)
+            raise HTTPException(status_code=status_code, detail=detail) from error
+
+    @app.post(
+        "/web/knowledge-bases/{knowledge_id}/documents/feishu",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_feishu_document(
+        knowledge_id: str,
+        body: FeishuImportBody,
+        request: Request,
+        region: str = "",
+    ) -> Any:
+        identity = identity_resolver(request)
+        resolved_region = region_resolver(region)
+        await invoke(
+            lambda: service.authorize_document_operation(
+                knowledge_id,
+                identity=identity,
+                region=resolved_region,
+            )
+        )
+        try:
+            return await import_feishu_document(
+                service,
+                connector=feishu_connector,
+                registry=asset_registry,
+                knowledge_id=knowledge_id,
+                identity=identity,
+                region=resolved_region,
+                body=body,
+            )
+        except KnowledgeAccessError as error:
+            status_code, detail = _error_detail(error)
+            raise HTTPException(status_code=status_code, detail=detail) from error
+
+    @app.post(
+        "/web/knowledge-bases/{knowledge_id}/documents/local-web",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_local_web_document(
+        knowledge_id: str,
+        body: LocalWebImportBody,
+        request: Request,
+        region: str = "",
+    ) -> Any:
+        identity = identity_resolver(request)
+        resolved_region = region_resolver(region)
+        await invoke(
+            lambda: service.authorize_document_operation(
+                knowledge_id,
+                identity=identity,
+                region=resolved_region,
+            )
+        )
+        return await invoke(
+            lambda: import_local_web_document(
+                service,
+                knowledge_id=knowledge_id,
+                identity=identity,
+                region=resolved_region,
+                body=body,
+            )
+        )
 
     @app.post(
         "/web/knowledge-bases/{knowledge_id}/documents",
