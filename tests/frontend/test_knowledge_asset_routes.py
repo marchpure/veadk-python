@@ -38,7 +38,11 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
     assert "/api/knowledge-assets/spaces" in paths
     assert "/api/knowledge-assets/sources" in paths
     assert "/api/knowledge-assets/sources/{source_id}/credential" in paths
+    assert "/api/knowledge-assets/capabilities" in paths
     assert "/api/knowledge-assets/build-jobs" in paths
+    assert "/api/knowledge-assets/skill-packages" in paths
+    assert "/api/knowledge-assets/semantic-build/jobs" in paths
+    assert "/api/knowledge-assets/semantic-build/jobs/{job_id}/run" in paths
     assert "/api/knowledge-assets/assets/{asset_type}/{asset_id}" in paths
 
 
@@ -134,7 +138,7 @@ def test_sidecar_status_is_safe_when_datastudio_is_unconfigured(
 
     assert response.status_code == 200
     item = response.json()["items"][0]
-    assert item["id"] == "byaan-datastudio"
+    assert item["id"] == "governed-query-backend"
     assert item["status"] == "not_configured"
     assert item["configured"] is False
     assert "DATASTUDIO_API_KEY" not in response.text
@@ -188,6 +192,116 @@ def test_build_job_routes_record_state_without_echoing_secrets(
     ).json()
     assert listed["total"] == 1
     assert listed["items"][0]["id"] == job["id"]
+
+
+def test_skill_package_route_creates_structured_semantic_package(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "schema_snapshot",
+            "name": "Sales schema",
+        },
+    ).json()
+
+    package = {
+        "package_type": "semantic_skill",
+        "runtime": {
+            "transport": "agentkit_governed_rest",
+            "query_url": "/api/knowledge-assets/assets/semantic_model/sales-semantic/query",
+            "direct_database_access": False,
+        },
+        "mdl": {
+            "schema": "agentkit.mdl.v1",
+            "model": {"slug": "sales-semantic", "version": "v1"},
+            "metrics": [{"id": "gmv", "formula": "sum(amount)"}],
+            "dimensions": [{"id": "region", "field": "region"}],
+        },
+        "evals": {"suite": {"contract_version": "evaluation.suite_version.v1"}},
+        "governance": {
+            "raw_sql_fallback": False,
+            "permission_hint": "Aggregate only.",
+        },
+    }
+    response = client.post(
+        "/api/knowledge-assets/skill-packages",
+        json={
+            "space_id": space["id"],
+            "source_ids": [source["id"]],
+            "asset_type": "semantic_model",
+            "asset_id": "sales-semantic",
+            "capability_kind": "semantic_skill",
+            "name": "Sales Semantic",
+            "status": "ready",
+            "publish_state": "draft",
+            "type": "semantic_skill",
+            "query_url": "/api/knowledge-assets/assets/semantic_model/sales-semantic/query",
+            "capability_package": package,
+            "metadata": {"token": "redact-me-capability"},
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["asset_type"] == "semantic_model"
+    assert body["query_url"] == "/api/knowledge-assets/assets/semantic_model/sales-semantic/query"
+    assert body["capability_package"]["package_type"] == "semantic_skill"
+    assert body["capability_package"]["runtime"]["transport"] == "agentkit_governed_rest"
+    assert body["capability_package"]["runtime"]["direct_database_access"] is False
+    assert body["capability_package"]["mdl"]["schema"] == "agentkit.mdl.v1"
+    assert body["capability_package"]["evals"]["suite"]["contract_version"] == "evaluation.suite_version.v1"
+    assert "redact-me-capability" not in response.text
+
+
+def test_capability_builder_route_creates_native_semantic_skill(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "schema_snapshot",
+            "name": "Sales schema",
+        },
+    ).json()
+
+    response = client.post(
+        "/api/knowledge-assets/capabilities",
+        json={
+            "space_id": space["id"],
+            "source_ids": [source["id"]],
+            "capability_kind": "semantic_skill",
+            "asset_id": "sales-semantic",
+            "name": "Sales Semantic",
+            "publish_state": "draft",
+            "metrics": ["GMV"],
+            "dimensions": ["region"],
+            "time_field": "paid_at",
+            "example_questions": ["最近 GMV 是多少？"],
+            "metadata": {"token": "redact-me-builder"},
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["asset_type"] == "semantic_model"
+    assert body["capability_kind"] == "semantic_skill"
+    assert body["query_url"] == "/api/knowledge-assets/assets/semantic_model/sales-semantic/query"
+    package = body["capability_package"]
+    assert package["package_type"] == "semantic_skill"
+    assert package["runtime"]["transport"] == "agentkit_governed_rest"
+    assert package["runtime"]["direct_database_access"] is False
+    assert package["runtime"]["raw_sql_fallback"] is False
+    assert package["mdl"]["schema"] == "agentkit.mdl.v1"
+    assert package["mdl"]["metrics"][0]["id"] == "GMV"
+    assert package["mdl"]["dimensions"][0]["id"] == "region"
+    assert package["evals"]["suite"]["contract_version"] == "evaluation.suite_version.v1"
+    assert body["capabilities"]["example_questions"] == ["最近 GMV 是多少？"]
+    assert "redact-me-builder" not in response.text
 
 
 def _package(state: str, asset_id: str) -> dict[str, object]:

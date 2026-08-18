@@ -237,6 +237,8 @@ def _materialize_datastudio_skill(skill: SelectedSkill) -> list[GeneratedFile]:
     folder = datastudio_skill_folder(skill)
     skill.folder = folder
     skill_md = _datastudio_skill_md(skill, folder)
+    if asset_type == "dashboard":
+        return _datastudio_dashboard_skill_package(skill, folder, skill_md)
     if asset_type != "semantic_model":
         return [GeneratedFile(path=f"skills/{folder}/SKILL.md", content=skill_md)]
     return _datastudio_semantic_skill_package(skill, folder, skill_md)
@@ -282,7 +284,7 @@ def _datastudio_semantic_skill_package(
     )
     evidence_file = GeneratedFile(
         path=f"skills/{folder}/evals/evidence.json",
-        content=_json_pretty({"schema": "byaan.skill.evidence.v1", "items": evidence}),
+        content=_json_pretty({"schema": "agentkit.skill.evidence.v1", "items": evidence}),
     )
     return [
         manifest_file,
@@ -292,6 +294,58 @@ def _datastudio_semantic_skill_package(
         *policy_files,
         *eval_files,
         evidence_file,
+    ]
+
+
+def _datastudio_dashboard_skill_package(
+    skill: SelectedSkill,
+    folder: str,
+    skill_md: str,
+) -> list[GeneratedFile]:
+    package = _safe_capability_package(skill.dataStudioCapabilityPackage)
+    dashboard = _as_dict(package.get("dashboard"))
+    runtime = _as_dict(package.get("runtime"))
+    governance = _as_dict(package.get("governance"))
+    manifest = {
+        "schema": "agentkit.dashboard_skill.manifest.v1",
+        "name": folder,
+        "display_name": skill.name or skill.dataStudioAssetId,
+        "description": skill.description or "",
+        "asset": {
+            "type": "dashboard",
+            "id": skill.dataStudioAssetId,
+            "version": skill.dataStudioVersion or "",
+            "capability_kind": skill.dataStudioCapabilityKind or "dashboard_skill",
+        },
+        "runtime": {
+            "query_url": runtime.get("query_url")
+            or skill.dataStudioQueryUrl
+            or f"/api/knowledge-assets/assets/dashboard/{skill.dataStudioAssetId}/query",
+            "tool": "tools/query.py",
+            "transport": "agentkit_governed_rest",
+            "direct_database_access": False,
+            "raw_sql_fallback": False,
+        },
+        "dashboard": dashboard,
+        "policies": [
+            "policies/access.json",
+            "policies/masking.json",
+            "policies/refusal.json",
+        ],
+        "evals": ["evals/suite.json"],
+        "freshness": _safe_mapping(skill.dataStudioFreshness),
+        "provenance": _safe_mapping(skill.dataStudioProvenance),
+    }
+    return [
+        GeneratedFile(path=f"skills/{folder}/manifest.json", content=_json_pretty(manifest)),
+        GeneratedFile(path=f"skills/{folder}/SKILL.md", content=skill_md),
+        GeneratedFile(path=f"skills/{folder}/dashboard/manifest.json", content=_json_pretty(dashboard)),
+        GeneratedFile(path=f"skills/{folder}/tools/query.py", content=_datastudio_dashboard_tool_py(skill)),
+        *_datastudio_policy_files(folder=folder, skill=skill, governance=governance),
+        GeneratedFile(
+            path=f"skills/{folder}/evals/suite.json",
+            content=_json_pretty(_datastudio_dashboard_eval_suite(folder, skill, dashboard)),
+        ),
     ]
 
 
@@ -358,7 +412,7 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             f"- {skill.dataStudioPermissionHint or 'Follow the asset usage policy returned by the governed asset endpoint.'}",
             "- Do not expose masked fields or raw row-level identifiers unless the asset policy explicitly allows it.",
             "- Treat policyDecision and evidence fields returned by governed services as authoritative.",
-            "- If the user asks for customer names, phone numbers, addresses, documents, or member-card identifiers, return the Byaan policy denial and do not issue a raw-data workaround.",
+            "- If the user asks for customer names, phone numbers, addresses, documents, or member-card identifiers, return the governed policy denial and do not issue a raw-data workaround.",
             "",
             "## Example Questions",
             "",
@@ -367,28 +421,49 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             "## Evidence Rules",
             "",
             "- Every answer must include the returned numeric value or table result.",
-            "- Every answer must cite SQL, metric definition, lineage, or sample evidence returned by Byaan.",
+            "- Every answer must cite SQL, metric definition, lineage, or sample evidence returned by the governed asset endpoint.",
             "- Every answer must mention the permission or policy boundary that allowed the response.",
-            "- Every answer must include snapshot freshness when Byaan returns snapshot, dataThrough, snapshotId, or snapshotHash fields.",
+            "- Every answer must include snapshot freshness when the governed endpoint returns snapshot, dataThrough, snapshotId, or snapshotHash fields.",
             "- Never infer SQL results from the prompt. Call the generated Data Studio REST function tool for every answer.",
         ]
     )
     if capability_package:
+        structured_files = ["manifest.json"]
+        if asset_type == "semantic_model":
+            structured_files.extend(
+                [
+                    "mdl/models.json",
+                    "mdl/fields.json",
+                    "mdl/relationships.json",
+                    "mdl/metrics.json",
+                    "mdl/dimensions.json",
+                    "mdl/permissions.json",
+                    "mdl/freshness.json",
+                    "policies/access.json",
+                    "policies/masking.json",
+                    "policies/refusal.json",
+                    "evals/suite.json",
+                    "evals/evidence.json",
+                ]
+            )
+        elif asset_type == "dashboard":
+            structured_files.extend(
+                [
+                    "dashboard/manifest.json",
+                    "policies/access.json",
+                    "policies/masking.json",
+                    "policies/refusal.json",
+                    "evals/suite.json",
+                ]
+            )
         lines.extend(
             [
                 "",
-                "## Capability Package",
+                "## Packaged Artifacts",
                 "",
-                "This is the governed capability snapshot packaged with the Skill. It is not a raw source connection and must not be treated as a place to find credentials.",
+                "Structured capability files are bundled beside this SKILL.md. Treat them as the source of truth for metrics, dimensions, runtime policy, and eval metadata.",
                 "",
-                "```yaml",
-                yaml.safe_dump(
-                    capability_package,
-                    allow_unicode=True,
-                    sort_keys=False,
-                    width=100,
-                ).strip(),
-                "```",
+                *[f"- `{path}`" for path in structured_files],
             ]
         )
         mdl = capability_package.get("mdl")
@@ -400,7 +475,7 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
                     "",
                     "- Use only metrics, dimensions, relationships, and time fields declared in the packaged MDL.",
                     "- MDL is bundled inside this Semantic Skill and is not a standalone selectable asset.",
-                    "- Query execution must still go through the generated Data Studio REST function tool.",
+                    "- Query execution must still go through the generated governed REST function tool.",
                 ]
             )
     if skill.dataStudioEvidence:
@@ -457,13 +532,13 @@ def _datastudio_semantic_manifest(
         "runtime": {
             "query_url": runtime.get("query_url")
             or skill.dataStudioQueryUrl
-            or f"/api/external/assets/semantic_model/{skill.dataStudioAssetId}/query",
+            or f"/api/knowledge-assets/assets/semantic_model/{skill.dataStudioAssetId}/query",
             "tool": "tools/query.py",
-            "transport": "datastudio_external_rest",
+            "transport": runtime.get("transport") or "agentkit_governed_rest",
             "direct_database_access": False,
         },
         "mdl": {
-            "schema": mdl.get("schema") or "byaan.mdl.v1",
+            "schema": mdl.get("schema") or "agentkit.mdl.v1",
             "files": [
                 "mdl/models.json",
                 "mdl/fields.json",
@@ -505,12 +580,12 @@ def _datastudio_mdl_files(folder: str, mdl: object) -> list[GeneratedFile]:
                 continue
             fields.append({"entity": entity_id, **field})
     freshness = {
-        "schema": "byaan.mdl.freshness.v1",
+        "schema": "agentkit.mdl.freshness.v1",
         "model": _as_dict(mdl_dict.get("model")),
         "freshness": _as_dict(mdl_dict.get("freshness")),
     }
     permissions = {
-        "schema": "byaan.mdl.permissions.v1",
+        "schema": "agentkit.mdl.permissions.v1",
         "permissions": _as_dict(mdl_dict.get("permissions")),
     }
     return [
@@ -518,7 +593,7 @@ def _datastudio_mdl_files(folder: str, mdl: object) -> list[GeneratedFile]:
             path=f"skills/{folder}/mdl/models.json",
             content=_json_pretty(
                 {
-                    "schema": mdl_dict.get("schema") or "byaan.mdl.v1",
+                    "schema": mdl_dict.get("schema") or "agentkit.mdl.v1",
                     "model": _as_dict(mdl_dict.get("model")),
                     "entities": entities,
                 }
@@ -526,13 +601,13 @@ def _datastudio_mdl_files(folder: str, mdl: object) -> list[GeneratedFile]:
         ),
         GeneratedFile(
             path=f"skills/{folder}/mdl/fields.json",
-            content=_json_pretty({"schema": "byaan.mdl.fields.v1", "fields": fields}),
+            content=_json_pretty({"schema": "agentkit.mdl.fields.v1", "fields": fields}),
         ),
         GeneratedFile(
             path=f"skills/{folder}/mdl/relationships.json",
             content=_json_pretty(
                 {
-                    "schema": "byaan.mdl.relationships.v1",
+                    "schema": "agentkit.mdl.relationships.v1",
                     "relationships": _as_list(mdl_dict.get("relationships")),
                 }
             ),
@@ -541,7 +616,7 @@ def _datastudio_mdl_files(folder: str, mdl: object) -> list[GeneratedFile]:
             path=f"skills/{folder}/mdl/metrics.json",
             content=_json_pretty(
                 {
-                    "schema": "byaan.mdl.metrics.v1",
+                    "schema": "agentkit.mdl.metrics.v1",
                     "metrics": _as_list(mdl_dict.get("metrics")),
                 }
             ),
@@ -550,7 +625,7 @@ def _datastudio_mdl_files(folder: str, mdl: object) -> list[GeneratedFile]:
             path=f"skills/{folder}/mdl/dimensions.json",
             content=_json_pretty(
                 {
-                    "schema": "byaan.mdl.dimensions.v1",
+                    "schema": "agentkit.mdl.dimensions.v1",
                     "dimensions": _as_list(mdl_dict.get("dimensions")),
                 }
             ),
@@ -569,13 +644,11 @@ def _datastudio_mdl_files(folder: str, mdl: object) -> list[GeneratedFile]:
 def _datastudio_semantic_tool_py(skill: SelectedSkill) -> str:
     query_url = (
         skill.dataStudioQueryUrl
-        or f"/api/external/assets/semantic_model/{skill.dataStudioAssetId}/query"
+        or f"/api/knowledge-assets/assets/semantic_model/{skill.dataStudioAssetId}/query"
     )
-    metrics_hint = ", ".join(skill.dataStudioMetrics) or "declared in mdl/metrics.json"
-    dimensions_hint = (
-        ", ".join(skill.dataStudioDimensions) or "declared in mdl/dimensions.json"
-    )
-    return f'''"""Typed REST-only tool for the packaged Byaan Semantic Skill.
+    base_env = "STUDIO_BASE_URL"
+    token_env = "STUDIO_GOVERNED_QUERY_TOKEN"
+    return f'''"""Typed REST-only tool for the packaged AgentKit Semantic Skill.
 
 This helper intentionally has no database driver or credential fields. Runtime
 secrets are supplied through environment variables by the generated Agent.
@@ -590,33 +663,36 @@ from urllib.parse import urljoin, urlparse
 import requests
 
 QUERY_URL = {query_url!r}
+BASE_ENV = {base_env!r}
+TOKEN_ENV = {token_env!r}
+ASSET_NAME = {(skill.name or skill.dataStudioAssetId)!r}
 METRICS = {skill.dataStudioMetrics!r}
 DIMENSIONS = {skill.dataStudioDimensions!r}
 
 
 def _datastudio_query_url(path_or_url: str) -> str:
-    base = os.environ["DATASTUDIO_BASE_URL"].rstrip("/")
+    base = os.environ[BASE_ENV].rstrip("/")
     parsed_base = urlparse(base)
     if parsed_base.scheme not in {{"http", "https"}} or not parsed_base.netloc:
-        raise ValueError("DATASTUDIO_BASE_URL must be an http(s) URL")
+        raise ValueError(f"{{BASE_ENV}} must be an http(s) URL")
     candidate = (path_or_url or "").strip()
     if candidate.startswith("/"):
         parsed_candidate = urlparse(candidate)
         if parsed_candidate.scheme or parsed_candidate.netloc:
-            raise ValueError("Data Studio query URL must not be protocol-relative")
+            raise ValueError("Governed asset query URL must not be protocol-relative")
         url = urljoin(f"{{base}}/", candidate.lstrip("/"))
     else:
         parsed_candidate = urlparse(candidate)
         if parsed_candidate.scheme not in {{"http", "https"}} or not parsed_candidate.netloc:
-            raise ValueError("Data Studio query URL must be relative or http(s)")
+            raise ValueError("Governed asset query URL must be relative or http(s)")
         if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:
-            raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
+            raise ValueError(f"Governed asset query URL origin does not match {{BASE_ENV}}")
         url = candidate
     parsed_url = urlparse(url)
     if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:
-        raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
-    if not parsed_url.path.startswith("/api/external/assets/"):
-        raise ValueError("Data Studio query URL must target /api/external/assets")
+        raise ValueError(f"Governed asset query URL origin does not match {{BASE_ENV}}")
+    if not (parsed_url.path.startswith("/api/external/assets/") or parsed_url.path.startswith("/api/knowledge-assets/assets/")):
+        raise ValueError("Governed asset query URL must target a governed asset path")
     return url
 
 
@@ -628,11 +704,7 @@ def query_semantic_metric(
     time_range: dict[str, Any] | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """Query {skill.name or skill.dataStudioAssetId} through Data Studio REST.
-
-    Use exact metric ids/names from the packaged MDL: {metrics_hint}.
-    Use exact dimension ids/names from the packaged MDL: {dimensions_hint}.
-    """
+    """Query a packaged governed semantic metric through REST."""
     payload = {{
         "metric": metric,
         "dimension": dimension,
@@ -645,13 +717,154 @@ def query_semantic_metric(
     response = requests.post(
         _datastudio_query_url(QUERY_URL),
         json=payload,
-        headers={{"Authorization": f"Bearer {{os.environ['BYAAN_MCP_API_KEY']}}"}},
+        headers={{"Authorization": f"Bearer {{os.environ[TOKEN_ENV]}}"}},
         timeout=30,
     )
     response.raise_for_status()
     body = response.json()
     return body.get("data", body) if isinstance(body, dict) else {{"data": body}}
 '''
+
+
+def _datastudio_dashboard_tool_py(skill: SelectedSkill) -> str:
+    query_url = (
+        skill.dataStudioQueryUrl
+        or f"/api/knowledge-assets/assets/dashboard/{skill.dataStudioAssetId}/query"
+    )
+    base_env = "STUDIO_BASE_URL"
+    token_env = "STUDIO_GOVERNED_QUERY_TOKEN"
+    return f'''"""REST-only tool for the packaged AgentKit Dashboard Skill.
+
+This helper intentionally has no database driver or credential fields.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+from urllib.parse import urljoin, urlparse
+
+import requests
+
+QUERY_URL = {query_url!r}
+BASE_ENV = {base_env!r}
+TOKEN_ENV = {token_env!r}
+ASSET_NAME = {(skill.name or skill.dataStudioAssetId)!r}
+
+
+def _datastudio_query_url(path_or_url: str) -> str:
+    base = os.environ[BASE_ENV].rstrip("/")
+    parsed_base = urlparse(base)
+    if parsed_base.scheme not in {{"http", "https"}} or not parsed_base.netloc:
+        raise ValueError(f"{{BASE_ENV}} must be an http(s) URL")
+    candidate = (path_or_url or "").strip()
+    if candidate.startswith("/"):
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme or parsed_candidate.netloc:
+            raise ValueError("Governed asset query URL must not be protocol-relative")
+        url = urljoin(f"{{base}}/", candidate.lstrip("/"))
+    else:
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme not in {{"http", "https"}} or not parsed_candidate.netloc:
+            raise ValueError("Governed asset query URL must be relative or http(s)")
+        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:
+            raise ValueError(f"Governed asset query URL origin does not match {{BASE_ENV}}")
+        url = candidate
+    parsed_url = urlparse(url)
+    if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:
+        raise ValueError(f"Governed asset query URL origin does not match {{BASE_ENV}}")
+    if not (parsed_url.path.startswith("/api/external/assets/") or parsed_url.path.startswith("/api/knowledge-assets/assets/")):
+        raise ValueError("Governed asset query URL must target a governed asset path")
+    return url
+
+
+def query_dashboard(
+    filters: dict[str, Any] | None = None,
+    data_view_ids: list[str] | None = None,
+    mode: str = "summary",
+) -> dict[str, Any]:
+    """Query a packaged governed dashboard through REST."""
+    response = requests.post(
+        _datastudio_query_url(QUERY_URL),
+        json={{"filters": filters or {{}}, "data_view_ids": data_view_ids or [], "mode": mode}},
+        headers={{"Authorization": f"Bearer {{os.environ[TOKEN_ENV]}}"}},
+        timeout=30,
+    )
+    response.raise_for_status()
+    body = response.json()
+    return body.get("data", body) if isinstance(body, dict) else {{"data": body}}
+'''
+
+
+def _datastudio_dashboard_eval_suite(
+    folder: str,
+    skill: SelectedSkill,
+    dashboard: dict[str, object],
+) -> dict[str, object]:
+    view_ids = [
+        str(view.get("id"))
+        for view in _as_list(dashboard.get("data_views"))
+        if isinstance(view, dict) and view.get("id")
+    ]
+    return {
+        "contract_version": "evaluation.suite_version.v1",
+        "suite_id": f"{folder}-dashboard-skill",
+        "version": 1,
+        "description": "EvaluationSuite-compatible smoke cases for this packaged Dashboard Skill.",
+        "owner": "agentkit",
+        "gate_policy": {
+            "version": "gate-policy.v1",
+            "security_hard_fail": True,
+            "min_overall_pass_rate": 1.0,
+            "max_new_regressions": 0,
+            "require_manual_review_for": [],
+        },
+        "cases": [
+            {
+                "contract_version": "evaluation.case.v1",
+                "case_id": "dashboard-renders-governed-views",
+                "title": "Dashboard query uses governed data views",
+                "target_kinds": ["dashboard", "policy"],
+                "operation": "query_dashboard",
+                "question": f"Render {skill.name or skill.dataStudioAssetId} and include policy and freshness evidence.",
+                "expected": {
+                    "semantic_intent": {
+                        "metric": None,
+                        "dimensions": [],
+                        "grain": None,
+                        "timezone": "UTC",
+                        "description": "Governed dashboard query through AgentKit REST.",
+                    },
+                    "ground_truth_sql": None,
+                    "expected_schema": [],
+                    "normalized_result": {"mode": "invariants_only", "rows": [], "invariants": {}},
+                    "tolerance": {"absolute": None, "relative": None, "per_field": {}},
+                    "answer": {
+                        "must_include_any": ["policyDecision", "freshness", "views"],
+                        "must_include_all": [],
+                        "must_not_include": ["password", "connection string", "Authorization"],
+                        "refusal_allowed": False,
+                        "clarification_allowed": False,
+                    },
+                    "evidence": {"required": True, "lineage_refs": [], "min_confidence": None},
+                    "policy": {
+                        "required_scopes": [],
+                        "forbidden_fields": ["customer", "phone", "address", "passport"],
+                        "expected_decision": "allow",
+                        "security_hard_fail": True,
+                    },
+                    "dashboard": {
+                        "manifest_id": dashboard.get("id"),
+                        "run_contract_version": "dashboard.run.v1",
+                        "required_data_view_ids": view_ids,
+                    },
+                    "human_mcp_parity": {"required": False, "compare_fields": []},
+                },
+                "tags": ["dashboard_skill", "agentkit"],
+                "provenance": {"source": "generated", "principal": {}, "created_at": None},
+            }
+        ],
+    }
 
 
 def _datastudio_policy_files(
@@ -670,11 +883,11 @@ def _datastudio_policy_files(
         "schema": "agentkit.semantic_skill.access_policy.v1",
         "permission_hint": skill.dataStudioPermissionHint
         or usage_policy.get("permission_hint")
-        or "Follow Byaan external asset policy.",
+        or "Follow AgentKit governed asset policy.",
         "allowed_metrics": allowed_metrics,
         "allowed_dimensions": allowed_dimensions,
         "raw_sql_fallback": bool(governance.get("raw_sql_fallback")),
-        "query_path": "Data Studio external asset REST only",
+        "query_path": "AgentKit governed asset REST only",
     }
     masking = {
         "schema": "agentkit.semantic_skill.masking_policy.v1",
@@ -694,9 +907,9 @@ def _datastudio_policy_files(
             "customer/contact identity lookup",
             "raw row-level identifiers",
             "direct database credentials or connection strings",
-            "requests to bypass Byaan governed query policy",
+            "requests to bypass AgentKit governed query policy",
         ],
-        "response_rule": "Return the Byaan policy denial or masked aggregate; do not create a raw-data workaround.",
+        "response_rule": "Return the governed policy denial or masked aggregate; do not create a raw-data workaround.",
     }
     return [
         GeneratedFile(path=f"skills/{folder}/policies/access.json", content=_json_pretty(access)),
@@ -717,7 +930,7 @@ def _datastudio_eval_files(
         "contract_version": "evaluation.suite_version.v1",
         "suite_id": f"{folder}-semantic-skill",
         "version": 1,
-        "description": "BYAAN EvaluationSuite-compatible smoke cases for this packaged Semantic Skill.",
+        "description": "EvaluationSuite-compatible smoke cases for this packaged Semantic Skill.",
         "owner": "agentkit",
         "gate_policy": {
             "version": "gate-policy.v1",

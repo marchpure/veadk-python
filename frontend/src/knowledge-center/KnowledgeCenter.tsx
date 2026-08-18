@@ -28,11 +28,14 @@ import {
   createKnowledgeAssetCapability,
   createKnowledgeAssetSource,
   createKnowledgeAssetSpace,
+  createSemanticDashboardBuildJob,
   listKnowledgeAssetBuildJobs,
   listKnowledgeAssetSidecars,
   listKnowledgeAssetSources,
   listKnowledgeAssetSpaces,
+  publishSemanticDashboardBuildJob,
   recordKnowledgeAssetBuildJob,
+  runSemanticDashboardBuildJob,
   updateKnowledgeAssetBuildJob,
   updateKnowledgeAssetSourceStatus,
   type KnowledgeAssetBuildJob,
@@ -56,7 +59,7 @@ type LoadState =
   | { status: "unauthorized"; message: string }
   | { status: "error"; message: string };
 
-type CreatePanel = "space" | "source" | "capability" | null;
+type CreatePanel = "space" | "source" | "capability" | "semanticBuild" | null;
 
 const SOURCE_TYPES = [
   "file",
@@ -124,13 +127,6 @@ function assetTypeForCapability(kind: KnowledgeCapabilityKind): KnowledgeAssetTy
   return "semantic_model";
 }
 
-function queryUrlForCapability(type: KnowledgeAssetType, assetId: string): string {
-  if (type === "knowledge_resource") {
-    return `/api/knowledge-assets/assets/knowledge_resource/${assetId}`;
-  }
-  return `/api/external/assets/${type}/${assetId}/query`;
-}
-
 interface SpaceFormState {
   name: string;
   description: string;
@@ -154,7 +150,19 @@ interface CapabilityFormState {
   knowledgeBaseId: string;
   metrics: string;
   dimensions: string;
+  timeField: string;
+  exampleQuestions: string;
+  dashboardViews: string;
   permissionHint: string;
+  publish: boolean;
+}
+
+interface SemanticBuildFormState {
+  sourceIds: string[];
+  mode: "schema_only" | "sampled_rows" | "hybrid";
+  targetDomain: string;
+  dashboardGoal: string;
+  maxRowsPerTable: number;
   publish: boolean;
 }
 
@@ -181,9 +189,31 @@ function initialCapabilityForm(): CapabilityFormState {
     knowledgeBaseId: "",
     metrics: "",
     dimensions: "",
+    timeField: "",
+    exampleQuestions: "",
+    dashboardViews: "",
     permissionHint: "",
     publish: true,
   };
+}
+
+function initialSemanticBuildForm(): SemanticBuildFormState {
+  return {
+    sourceIds: [],
+    mode: "schema_only",
+    targetDomain: "sales",
+    dashboardGoal: "sales overview",
+    maxRowsPerTable: 200,
+    publish: true,
+  };
+}
+
+function userFacingError(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : "";
+  if (!message || /failed to fetch/i.test(message)) {
+    return `${fallback}。请确认 Studio 后端可用后重试。`;
+  }
+  return message;
 }
 
 export function KnowledgeCenterView() {
@@ -202,6 +232,9 @@ export function KnowledgeCenterView() {
   const [sourceForm, setSourceForm] = useState<SourceFormState>(initialSourceForm);
   const [capabilityForm, setCapabilityForm] = useState<CapabilityFormState>(
     initialCapabilityForm,
+  );
+  const [semanticBuildForm, setSemanticBuildForm] = useState<SemanticBuildFormState>(
+    initialSemanticBuildForm,
   );
   const activeSpaceIdRef = useRef("");
 
@@ -240,7 +273,7 @@ export function KnowledgeCenterView() {
       setState({
         status: status === 401 || status === 403 ? "unauthorized" : "error",
         message:
-          error instanceof Error ? error.message : "加载知识资产工作台失败。",
+          userFacingError(error, "加载知识资产工作台失败"),
       });
     }
   }, [setActiveSpace]);
@@ -290,7 +323,10 @@ export function KnowledgeCenterView() {
   const unauthorizedSource = spaceSources.find((source) =>
     String(source.status).toLowerCase().includes("unauthorized"),
   );
-  const sidecar = sidecars.find((item) => item.id === "byaan-datastudio");
+  const sidecar = sidecars.find((item) => item.id === "governed-query-backend");
+  const buildableSources = spaceSources.filter((source) =>
+    ["database", "schema_snapshot"].includes(source.source_type),
+  );
 
   const reloadSpaceScoped = useCallback(
     async (spaceId: string) => {
@@ -320,7 +356,7 @@ export function KnowledgeCenterView() {
       setSpaceForm(initialSpaceForm());
       await refresh(created.id);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "创建资产空间失败。");
+      setFormError(userFacingError(error, "创建资产空间失败"));
     } finally {
       setSubmitting(false);
     }
@@ -357,7 +393,7 @@ export function KnowledgeCenterView() {
       setSourceForm(initialSourceForm());
       await reloadSpaceScoped(activeSpace.id);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "创建数据源失败。");
+      setFormError(userFacingError(error, "创建数据源失败"));
     } finally {
       setSubmitting(false);
     }
@@ -396,54 +432,41 @@ export function KnowledgeCenterView() {
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean);
-      const knowledgeBaseId =
-        capabilityForm.knowledgeBaseId ||
-        activeSpace.default_knowledge_base_id ||
-        assetId;
+      const exampleQuestions = capabilityForm.exampleQuestions
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const dashboardViews = capabilityForm.dashboardViews
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((title, index) => ({
+          id: `view_${index + 1}`,
+          title,
+          kind: "metric_summary",
+        }));
       const capability = await createKnowledgeAssetCapability({
         space_id: activeSpace.id,
-        asset_type: assetType,
         asset_id: assetId,
         capability_kind: capabilityForm.kind,
         name: capabilityForm.name,
         description: capabilityForm.description || undefined,
-        status: "ready",
         publish_state: capabilityForm.publish ? "published" : "draft",
         source_ids: sourceIds,
-        type: capabilityForm.kind,
-        query_url: queryUrlForCapability(assetType, assetId),
-        capability_package:
-          assetType === "knowledge_resource"
-            ? {
-                retrieval: {
-                  backend: "viking",
-                  knowledge_base_id: knowledgeBaseId,
-                  index: knowledgeBaseId,
-                },
-              }
-            : {
-                mdl: { schema: "agentkit.mdl.v1", metrics, dimensions },
-                runtime: { transport: "governed_rest" },
-              },
-        capabilities: {
-          metrics,
-          dimensions,
-          source_count: sourceIds.length,
-          time_field: "",
-        },
-        usage_policy: {
-          permission_hint:
-            capabilityForm.permissionHint ||
-            "按资产空间授权和能力包策略执行。",
-        },
-        provenance: {
-          space_id: activeSpace.id,
-          source_ids: sourceIds,
-          sidecar: sidecar?.configured ? "byaan-datastudio" : "none",
-        },
-        freshness: {
-          status: sourceIds.length ? "source_registered" : "no_source",
-          built_at: new Date().toISOString(),
+        knowledge_base_id:
+          capabilityForm.knowledgeBaseId ||
+          activeSpace.default_knowledge_base_id ||
+          assetId,
+        metrics,
+        dimensions,
+        time_field: capabilityForm.timeField || undefined,
+        permission_hint:
+          capabilityForm.permissionHint ||
+          "按资产空间授权和能力包策略执行。",
+        example_questions: exampleQuestions,
+        dashboard_views: dashboardViews,
+        metadata: {
+          query_backend: sidecar?.configured ? "advanced" : "native",
         },
       });
       await updateKnowledgeAssetBuildJob(buildJob.id, {
@@ -470,7 +493,58 @@ export function KnowledgeCenterView() {
           ...failure,
         }).catch(() => undefined);
       }
-      setFormError(error instanceof Error ? error.message : "创建知识能力失败。");
+      setFormError(userFacingError(error, "创建知识能力失败"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitSemanticBuild(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeSpace) {
+      setFormError("请先创建资产空间。");
+      return;
+    }
+    const sourceIds =
+      semanticBuildForm.sourceIds.length > 0
+        ? semanticBuildForm.sourceIds
+        : buildableSources.slice(0, 1).map((source) => source.id);
+    if (!sourceIds.length) {
+      setFormError("请先登记包含 schema snapshot 的数据库数据源。");
+      return;
+    }
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const created = await createSemanticDashboardBuildJob({
+        space_id: activeSpace.id,
+        source_ids: sourceIds,
+        mode: semanticBuildForm.mode,
+        target_domain: semanticBuildForm.targetDomain,
+        dashboard_goal: semanticBuildForm.dashboardGoal,
+        sample_policy: {
+          max_rows_per_table: semanticBuildForm.maxRowsPerTable,
+          pii_scan: true,
+          mask_customer_contact: true,
+        },
+        publish: false,
+      });
+      const ready = await runSemanticDashboardBuildJob(created.job_id, {
+        publish: false,
+      });
+      if (ready.blocked_reasons?.length) {
+        setFormError(`语义构建被拦截：${ready.blocked_reasons.join("；")}`);
+        await reloadSpaceScoped(activeSpace.id);
+        return;
+      }
+      if (semanticBuildForm.publish) {
+        await publishSemanticDashboardBuildJob(created.job_id);
+      }
+      setActivePanel(null);
+      setSemanticBuildForm(initialSemanticBuildForm());
+      await refresh(activeSpace.id);
+    } catch (error) {
+      setFormError(userFacingError(error, "生成语义模型和 Dashboard 失败"));
     } finally {
       setSubmitting(false);
     }
@@ -571,7 +645,7 @@ export function KnowledgeCenterView() {
                 <span>
                   <strong>{space.name}</strong>
                   <small>
-                    {space.default_knowledge_base_id || "Viking 检索后端待绑定"}
+                    {space.default_knowledge_base_id ? "已绑定检索索引" : "检索索引待绑定"}
                   </small>
                 </span>
               </button>
@@ -582,17 +656,17 @@ export function KnowledgeCenterView() {
         <div className="kc-native-sidecar">
           <div>
             <span className={`kc-native-dot is-${sidecar?.status ?? "not_configured"}`} />
-            <strong>BYAAN sidecar</strong>
+            <strong>治理查询后端</strong>
           </div>
           <p>
             {sidecar?.configured
-              ? "可作为受治理查询或 Dashboard 构建后端。"
-              : "未配置；原生工作台仍可管理空间、来源和检索能力。"}
+              ? "已配置高级受治理查询通道。"
+              : "未配置高级通道；原生构建仍可基于 schema snapshot 工作。"}
           </p>
           {sidecar?.debug_url ? (
             <a href={sidecar.debug_url} target="_blank" rel="noreferrer">
               <ExternalLink className="kc-native-icon" />
-              高级调试入口
+              诊断入口
             </a>
           ) : null}
         </div>
@@ -603,8 +677,8 @@ export function KnowledgeCenterView() {
           <div>
             <h1>{activeSpace?.name ?? "知识资产工作台"}</h1>
             <p>
-              原生管理资产空间、数据源和 Agent 可运行能力。知识库仅作为底层
-              Viking 检索后端。
+              原生管理资产空间、数据源和 Agent 可运行能力。创建 Agent 时选择能力，
+              不直接选择原始数据源。
             </p>
           </div>
           <div className="kc-native-actions">
@@ -628,12 +702,16 @@ export function KnowledgeCenterView() {
               className="is-primary"
               onClick={() => {
                 setFormError("");
-                setActivePanel("capability");
+                setSemanticBuildForm((prev) => ({
+                  ...prev,
+                  sourceIds: buildableSources.slice(0, 1).map((source) => source.id),
+                }));
+                setActivePanel("semanticBuild");
               }}
               disabled={!activeSpace}
             >
               <Sparkles className="kc-native-icon" />
-              能力
+              生成
             </button>
           </div>
         </header>
@@ -641,17 +719,17 @@ export function KnowledgeCenterView() {
         <div className="kc-native-status-grid">
           <StatusTile
             icon={Database}
-            title="SQLite Asset Store"
+            title="资产仓库"
             status="可用"
             tone="success"
             detail={`${spaces.length} 空间 · ${assets.length} 能力`}
           />
           <StatusTile
             icon={FileSearch}
-            title="Viking Retrieval"
+            title="资料检索"
             status={activeSpace?.default_knowledge_base_id ? "已绑定" : "未配置"}
             tone={activeSpace?.default_knowledge_base_id ? "success" : "muted"}
-            detail={activeSpace?.default_knowledge_base_id || "创建检索绑定时可补充 index"}
+            detail={activeSpace?.default_knowledge_base_id ? "默认索引可用" : "创建检索绑定时可补充索引"}
           />
           <StatusTile
             icon={KeyRound}
@@ -737,7 +815,7 @@ export function KnowledgeCenterView() {
                 <Search className="kc-native-icon" />
                 <input
                   value={query}
-                  placeholder="搜索检索绑定、Semantic Skill、Dashboard Skill"
+                  placeholder="搜索资料检索、语义问数、看板问数"
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </div>
@@ -768,7 +846,9 @@ export function KnowledgeCenterView() {
                   ? "创建资产空间"
                   : activePanel === "source"
                     ? "登记数据源"
-                    : "创建 Agent 能力"}
+                    : activePanel === "semanticBuild"
+                      ? "生成语义模型和 Dashboard"
+                      : "创建 Agent 能力"}
               </h2>
               <button type="button" onClick={() => setActivePanel(null)}>
                 关闭
@@ -809,7 +889,7 @@ export function KnowledgeCenterView() {
                   />
                 </label>
                 <label>
-                  <span>默认 Viking index</span>
+                  <span>默认检索索引</span>
                   <input
                     value={spaceForm.defaultKnowledgeBaseId}
                     placeholder="可稍后在检索绑定中指定"
@@ -890,6 +970,106 @@ export function KnowledgeCenterView() {
                 </label>
                 <FormActions busy={submitting} submitLabel="登记数据源" />
               </form>
+            ) : activePanel === "semanticBuild" ? (
+              <form className="kc-native-form" onSubmit={submitSemanticBuild}>
+                <label>
+                  <span>数据库数据源</span>
+                  <select
+                    multiple
+                    value={semanticBuildForm.sourceIds}
+                    onChange={(event) =>
+                      setSemanticBuildForm((prev) => ({
+                        ...prev,
+                        sourceIds: Array.from(event.currentTarget.selectedOptions).map(
+                          (option) => option.value,
+                        ),
+                      }))
+                    }
+                  >
+                    {buildableSources.map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {buildableSources.length === 0 ? (
+                  <div className="kc-native-form-hint">
+                    当前空间还没有数据库或 schema snapshot 数据源。
+                  </div>
+                ) : null}
+                <label>
+                  <span>构建模式</span>
+                  <select
+                    value={semanticBuildForm.mode}
+                    onChange={(event) =>
+                      setSemanticBuildForm((prev) => ({
+                        ...prev,
+                        mode: event.target.value as SemanticBuildFormState["mode"],
+                      }))
+                    }
+                  >
+                    <option value="schema_only">Schema-only</option>
+                    <option value="hybrid">Hybrid redacted sample</option>
+                    <option value="sampled_rows">Sampled rows</option>
+                  </select>
+                </label>
+                <label>
+                  <span>业务域</span>
+                  <input
+                    required
+                    value={semanticBuildForm.targetDomain}
+                    onChange={(event) =>
+                      setSemanticBuildForm((prev) => ({
+                        ...prev,
+                        targetDomain: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  <span>Dashboard 目标</span>
+                  <input
+                    required
+                    value={semanticBuildForm.dashboardGoal}
+                    onChange={(event) =>
+                      setSemanticBuildForm((prev) => ({
+                        ...prev,
+                        dashboardGoal: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  <span>采样上限</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1000}
+                    value={semanticBuildForm.maxRowsPerTable}
+                    onChange={(event) =>
+                      setSemanticBuildForm((prev) => ({
+                        ...prev,
+                        maxRowsPerTable: Number(event.target.value) || 0,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="kc-native-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={semanticBuildForm.publish}
+                    onChange={(event) =>
+                      setSemanticBuildForm((prev) => ({
+                        ...prev,
+                        publish: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>验证通过后发布到 Agent 能力选择器</span>
+                </label>
+                <FormActions busy={submitting} submitLabel="生成语义和 Dashboard" />
+              </form>
             ) : (
               <form className="kc-native-form" onSubmit={submitCapability}>
                 <label>
@@ -903,9 +1083,9 @@ export function KnowledgeCenterView() {
                       }))
                     }
                   >
-                    <option value="retrieval_binding">Knowledge Retrieval binding</option>
-                    <option value="semantic_skill">Semantic Skill</option>
-                    <option value="dashboard_skill">Dashboard Skill</option>
+                    <option value="retrieval_binding">资料检索</option>
+                    <option value="semantic_skill">语义问数</option>
+                    <option value="dashboard_skill">看板问数</option>
                   </select>
                 </label>
                 <label>
@@ -922,7 +1102,7 @@ export function KnowledgeCenterView() {
                   />
                 </label>
                 <label>
-                  <span>Asset ID</span>
+                  <span>能力标识</span>
                   <input
                     value={capabilityForm.assetId}
                     placeholder="默认由名称生成"
@@ -936,10 +1116,10 @@ export function KnowledgeCenterView() {
                 </label>
                 {capabilityForm.kind === "retrieval_binding" ? (
                   <label>
-                    <span>Viking index</span>
+                    <span>检索索引</span>
                     <input
                       value={capabilityForm.knowledgeBaseId}
-                      placeholder={activeSpace?.default_knowledge_base_id || "例如 kb-policy-docs"}
+                      placeholder={activeSpace?.default_knowledge_base_id || "例如 policy-docs"}
                       onChange={(event) =>
                         setCapabilityForm((prev) => ({
                           ...prev,
@@ -976,6 +1156,47 @@ export function KnowledgeCenterView() {
                         }
                       />
                     </label>
+                    <label>
+                      <span>时间字段</span>
+                      <input
+                        value={capabilityForm.timeField}
+                        placeholder="例如 paid_at / sell_date"
+                        onChange={(event) =>
+                          setCapabilityForm((prev) => ({
+                            ...prev,
+                            timeField: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>示例问题</span>
+                      <textarea
+                        value={capabilityForm.exampleQuestions}
+                        placeholder="每行一个问题"
+                        onChange={(event) =>
+                          setCapabilityForm((prev) => ({
+                            ...prev,
+                            exampleQuestions: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    {capabilityForm.kind === "dashboard_skill" ? (
+                      <label>
+                        <span>看板视图</span>
+                        <textarea
+                          value={capabilityForm.dashboardViews}
+                          placeholder="每行一个视图标题"
+                          onChange={(event) =>
+                            setCapabilityForm((prev) => ({
+                              ...prev,
+                              dashboardViews: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    ) : null}
                   </>
                 )}
                 <label>
@@ -1125,8 +1346,8 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
       <p>{asset.description || sourceCoverage}</p>
       <dl>
         <div>
-          <dt>Asset ID</dt>
-          <dd>{asset.asset_id}</dd>
+          <dt>类型</dt>
+          <dd>{knowledgeCapabilityLabel(asset.asset_type, asset.capability_kind)}</dd>
         </div>
         <div>
           <dt>来源</dt>

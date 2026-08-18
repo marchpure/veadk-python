@@ -675,10 +675,26 @@
   padding: 0 10px;
 }
 
+.kc-native-form select[multiple] {
+  height: auto;
+  min-height: 92px;
+  padding: 6px;
+}
+
 .kc-native-form textarea {
   min-height: 82px;
   resize: vertical;
   padding: 9px 10px;
+}
+
+.kc-native-form-hint {
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .kc-native-checkbox {

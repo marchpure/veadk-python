@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query, status
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
 from .models import (
+    BuildCapabilityBody,
     CreateSourceBody,
     CreateSpaceBody,
     RecordBuildJobBody,
@@ -37,6 +38,12 @@ from .service import (
     KnowledgeAssetStore,
     redact_sensitive,
 )
+from .semantic_build import (
+    CreateSemanticBuildJobBody,
+    SemanticBuildRunBody,
+    SemanticBuildService,
+    SemanticQueryBody,
+)
 
 
 def mount_knowledge_asset_routes(
@@ -44,6 +51,7 @@ def mount_knowledge_asset_routes(
     service: KnowledgeAssetStore | None = None,
 ) -> None:
     store = service or KnowledgeAssetStore()
+    semantic_builder = SemanticBuildService(store)
 
     async def invoke(call: Callable[[], Awaitable[Any]]) -> Any:
         try:
@@ -90,8 +98,8 @@ def mount_knowledge_asset_routes(
         return {
             "items": [
                 {
-                    "id": "byaan-datastudio",
-                    "label": "BYAAN Data Studio sidecar",
+                    "id": "governed-query-backend",
+                    "label": "Governed query backend",
                     "role": "governed_query_and_dashboard_builder",
                     "configured": bool(datastudio.get("configured")),
                     "status": "available"
@@ -181,6 +189,13 @@ def mount_knowledge_asset_routes(
         items = await invoke(lambda: store.list_indexed_documents(source_id=source_id))
         return {"items": items, "total": len(items), "mock": False}
 
+    @app.post(
+        "/api/knowledge-assets/capabilities",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def build_capability(body: BuildCapabilityBody) -> dict[str, Any]:
+        return await invoke(lambda: store.build_capability(body))
+
     @app.post("/api/knowledge-assets/build-jobs", status_code=status.HTTP_201_CREATED)
     async def record_build_job(body: RecordBuildJobBody) -> dict[str, Any]:
         return await invoke(lambda: store.record_build_job(body))
@@ -218,6 +233,34 @@ def mount_knowledge_asset_routes(
         body: UpdateBuildJobBody,
     ) -> dict[str, Any]:
         return await invoke(lambda: store.update_build_job(job_id, body))
+
+    @app.post(
+        "/api/knowledge-assets/semantic-build/jobs",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_semantic_build_job(
+        body: CreateSemanticBuildJobBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: semantic_builder.create_job(body))
+
+    @app.get("/api/knowledge-assets/semantic-build/jobs/{job_id}")
+    async def get_semantic_build_job(job_id: str) -> dict[str, Any]:
+        return await invoke(lambda: semantic_builder.get_job(job_id))
+
+    @app.post("/api/knowledge-assets/semantic-build/jobs/{job_id}/run")
+    async def run_semantic_build_job(
+        job_id: str,
+        body: SemanticBuildRunBody | None = None,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: semantic_builder.run_job(job_id, body))
+
+    @app.post("/api/knowledge-assets/semantic-build/jobs/{job_id}/publish")
+    async def publish_semantic_build_job(job_id: str) -> dict[str, Any]:
+        return await invoke(lambda: semantic_builder.publish_job(job_id))
+
+    @app.get("/api/knowledge-assets/semantic-build/jobs/{job_id}/artifacts")
+    async def semantic_build_artifacts(job_id: str) -> dict[str, Any]:
+        return await invoke(lambda: semantic_builder.artifacts(job_id))
 
     @app.post("/api/knowledge-assets/snapshots", status_code=status.HTTP_201_CREATED)
     async def record_snapshot(body: RecordSnapshotBody) -> dict[str, Any]:
@@ -290,6 +333,63 @@ def mount_knowledge_asset_routes(
                 cursor=cursor,
                 limit=limit,
             )
+        )
+
+    @app.get("/api/external/assets")
+    async def list_external_assets(
+        q: Annotated[str, Query(max_length=200)] = "",
+        types: Annotated[str, Query(max_length=200)] = "",
+        cursor: Annotated[str | None, Query(max_length=64)] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        requested_types = [
+            item.strip()
+            for item in types.split(",")
+            if item.strip() in {"semantic_model", "dashboard"}
+        ]
+        payload = await invoke(
+            lambda: store.list_assets(
+                query=q,
+                asset_types=requested_types or ("semantic_model", "dashboard"),
+                capability_kinds=("semantic_skill", "dashboard_skill"),
+                cursor=cursor,
+                limit=limit,
+            )
+        )
+        return {
+            "items": payload["items"],
+            "total": payload["total"],
+            "next_cursor": payload["next_cursor"],
+            "mock": False,
+        }
+
+    @app.post("/api/external/assets/{asset_type}/{asset_id}/query")
+    async def query_external_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: SemanticQueryBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: semantic_builder.query_asset(asset_type, asset_id, body)
+        )
+
+    @app.get("/api/external/assets/{asset_type}/{asset_id}")
+    async def get_external_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
+        )
+
+    @app.post("/api/knowledge-assets/assets/{asset_type}/{asset_id}/query")
+    async def query_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: SemanticQueryBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: semantic_builder.query_asset(asset_type, asset_id, body)
         )
 
     @app.get("/api/knowledge-assets/assets/{asset_type}/{asset_id}")

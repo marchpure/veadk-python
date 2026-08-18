@@ -20,6 +20,12 @@ def _file_map(project) -> dict[str, str]:
     return {file.path: file.content for file in project.files}
 
 
+def _assert_python_files_compile(files: dict[str, str]) -> None:
+    for path, content in files.items():
+        if path.endswith(".py"):
+            compile(content, path, "exec")
+
+
 def _assert_no_secret_leaks(files: dict[str, str]) -> None:
     joined = "\n".join(files.values())
     forbidden = [
@@ -60,9 +66,11 @@ def test_datastudio_selected_skill_generates_rest_query_tool() -> None:
     assert "filters: dict | None = None" in agent_py
     assert "data_view_ids: list[str] | None = None" in agent_py
     assert 'mode: str = "summary"' in agent_py
-    assert 'os.environ["BYAAN_MCP_API_KEY"]' in agent_py
-    assert "DATASTUDIO_BASE_URL" in files[".env.example"]
-    assert "BYAAN_MCP_API_KEY" in files[".env.example"]
+    assert 'os.environ["STUDIO_GOVERNED_QUERY_TOKEN"]' in agent_py
+    assert "STUDIO_BASE_URL" in files[".env.example"]
+    assert "STUDIO_GOVERNED_QUERY_TOKEN" in files[".env.example"]
+    assert "DATASTUDIO_BASE_URL" not in files[".env.example"]
+    assert "BYAAN_MCP_API_KEY" not in files[".env.example"]
     assert "requests>=2.32.0" in files["requirements.txt"]
     assert "/api/mcp/assets" not in agent_py
     assert "load_skill_from_dir(" in agent_py
@@ -118,16 +126,20 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
     files = _file_map(project)
 
     skill_md = files["skills/datastudio-dashboard-sales/SKILL.md"]
+    assert "skills/datastudio-dashboard-sales/manifest.json" in files
+    assert "skills/datastudio-dashboard-sales/dashboard/manifest.json" in files
+    assert "skills/datastudio-dashboard-sales/tools/query.py" in files
+    assert "skills/datastudio-dashboard-sales/evals/suite.json" in files
     assert "name: datastudio-dashboard-sales" in skill_md
     assert "asset_type: dashboard" in skill_md
     assert "asset_id: sales-dashboard" in skill_md
     assert "capability_kind: dashboard_skill" in skill_md
     assert "- Capability: `dashboard_skill`" in skill_md
-    assert "## Capability Package" in skill_md
-    assert "package_type: dashboard_skill" in skill_md
+    assert "## Packaged Artifacts" in skill_md
+    assert "dashboard/manifest.json" in skill_md
+    assert "package_type: dashboard_skill" not in skill_md
     assert "must-not-enter-skill" not in skill_md
     assert "ciphertext" not in skill_md
-    assert "[REDACTED]" in skill_md
     assert "- Version: `v2026.08`" in skill_md
     assert "- GMV" in skill_md
     assert "- region" in skill_md
@@ -139,6 +151,14 @@ async def test_datastudio_selected_skill_materializes_skill_md_and_loads_it() ->
     assert "customer names, phone numbers, addresses" in skill_md
     assert "snapshot: oracle-local-extract-sanitized/20260818-knowledge-center-4-arkclaw" in skill_md
     assert '"skills" / "datastudio-dashboard-sales"' in files["agents/datastudio_agent/agent.py"]
+
+    manifest = json.loads(files["skills/datastudio-dashboard-sales/manifest.json"])
+    assert manifest["schema"] == "agentkit.dashboard_skill.manifest.v1"
+    assert manifest["runtime"]["direct_database_access"] is False
+    assert manifest["runtime"]["raw_sql_fallback"] is False
+    tool_py = files["skills/datastudio-dashboard-sales/tools/query.py"]
+    assert "requests.post(" in tool_py
+    assert "oracledb" not in tool_py
 
 
 @pytest.mark.asyncio
@@ -197,6 +217,33 @@ def test_datastudio_semantic_model_generates_typed_query_tool() -> None:
     assert "Time field: revenue.paid_at." in agent_py
 
 
+def test_native_knowledge_asset_query_tool_uses_studio_governed_env() -> None:
+    project = generate_project_from_draft(
+        AgentDraft(
+            name="semantic-agent",
+            selectedSkills=[
+                SelectedSkill(
+                    source="datastudio",
+                    folder="knowledge-semantic-sales",
+                    name="Sales Semantic Model",
+                    dataStudioAssetType="semantic_model",
+                    dataStudioAssetId="sales-semantic",
+                    dataStudioMetrics=["revenue"],
+                )
+            ],
+        )
+    )
+    files = _file_map(project)
+    agent_py = files["agents/semantic_agent/agent.py"]
+
+    assert 'base_env="STUDIO_BASE_URL"' in agent_py
+    assert 'os.environ["STUDIO_GOVERNED_QUERY_TOKEN"]' in agent_py
+    assert "STUDIO_BASE_URL" in files[".env.example"]
+    assert "STUDIO_GOVERNED_QUERY_TOKEN" in files[".env.example"]
+    assert "DATASTUDIO_BASE_URL" not in files[".env.example"]
+    assert "BYAAN_MCP_API_KEY" not in files[".env.example"]
+
+
 @pytest.mark.asyncio
 async def test_datastudio_semantic_skill_packages_mdl_snapshot() -> None:
     draft = AgentDraft(
@@ -245,12 +292,12 @@ async def test_datastudio_semantic_skill_packages_mdl_snapshot() -> None:
     skill_md = files["skills/datastudio-semantic-sales/SKILL.md"]
     assert "capability_kind: semantic_skill" in skill_md
     assert "- Capability: `semantic_skill`" in skill_md
-    assert "schema: byaan.mdl.v1" in skill_md
-    assert "revenue_revenue" in skill_md
-    assert "orders_to_region" in skill_md
+    assert "mdl/metrics.json" in skill_md
+    assert "mdl/relationships.json" in skill_md
+    assert "schema: byaan.mdl.v1" not in skill_md
     assert "MDL is bundled inside this Semantic Skill" in skill_md
     assert "must-not-ship" not in skill_md
-    assert "api_key: '[REDACTED]'" in skill_md
+    assert "api_key" not in skill_md
 
 
 @pytest.mark.asyncio
@@ -274,7 +321,7 @@ async def test_datastudio_semantic_skill_materializes_production_package() -> No
                         {"kind": "document", "id": "feishu-sales-handbook"},
                     ],
                     "runtime": {
-                        "query_url": "/api/external/assets/semantic_model/oracle-sales/query",
+                        "query_url": "/api/knowledge-assets/assets/semantic_model/oracle-sales/query",
                         "api_key": "must-not-enter-skill",
                     },
                     "mdl": {
@@ -372,7 +419,7 @@ async def test_datastudio_semantic_skill_materializes_production_package() -> No
                 dataStudioDimensions=["store", "SELL_DATE"],
                 dataStudioTimeField="SELL_DATE",
                 dataStudioPermissionHint="Aggregates only; customer/contact fields denied.",
-                dataStudioQueryUrl="/api/external/assets/semantic_model/oracle-sales/query",
+                dataStudioQueryUrl="/api/knowledge-assets/assets/semantic_model/oracle-sales/query",
                 dataStudioSourceCoverage=[
                     "飞书销售手册",
                     "Oracle 销售库",
@@ -420,7 +467,7 @@ async def test_datastudio_semantic_skill_materializes_production_package() -> No
     manifest = json.loads(files["skills/datastudio-semantic-oracle-sales/manifest.json"])
     assert manifest["schema"] == "agentkit.semantic_skill.manifest.v1"
     assert manifest["asset"]["capability_kind"] == "semantic_skill"
-    assert manifest["runtime"]["transport"] == "datastudio_external_rest"
+    assert manifest["runtime"]["transport"] == "agentkit_governed_rest"
     assert manifest["runtime"]["direct_database_access"] is False
     assert manifest["source_ids"] == [
         {"id": "oracle-sales-sanitized", "kind": "database"},
@@ -438,21 +485,27 @@ async def test_datastudio_semantic_skill_materializes_production_package() -> No
         files["skills/datastudio-semantic-oracle-sales/policies/masking.json"]
     )
     eval_suite = json.loads(files["skills/datastudio-semantic-oracle-sales/evals/suite.json"])
+    evidence_file = json.loads(
+        files["skills/datastudio-semantic-oracle-sales/evals/evidence.json"]
+    )
     tool_py = files["skills/datastudio-semantic-oracle-sales/tools/query.py"]
     agent_py = files["agents/oracle_semantic_agent/agent.py"]
 
     assert metrics["metrics"][0]["id"] == "ticket_count"
     assert relationships["relationships"][0]["id"] == "sales_order_to_store"
-    assert access_policy["query_path"] == "Data Studio external asset REST only"
+    assert access_policy["query_path"] == "AgentKit governed asset REST only"
     assert access_policy["raw_sql_fallback"] is False
     assert "CUST_TEL" in masking_policy["masked_fields"]
     assert eval_suite["contract_version"] == "evaluation.suite_version.v1"
+    assert evidence_file["schema"] == "agentkit.skill.evidence.v1"
     assert {case["case_id"] for case in eval_suite["cases"]} == {
         "metric-sql-policy-freshness",
         "customer-contact-policy-denial",
     }
     assert "requests.post(" in tool_py
-    assert "BYAAN_MCP_API_KEY" in tool_py
+    assert "TOKEN_ENV = 'STUDIO_GOVERNED_QUERY_TOKEN'" in tool_py
+    assert "os.environ[TOKEN_ENV]" in tool_py
+    assert "BYAAN_MCP_API_KEY" not in tool_py
     assert "cx_Oracle" not in tool_py
     assert "oracledb" not in tool_py
     assert "direct_database_access" not in tool_py
@@ -460,6 +513,50 @@ async def test_datastudio_semantic_skill_materializes_production_package() -> No
     assert "'dataStudioCapabilityPackage':" in agent_py
     assert "[REDACTED]" in agent_py
     _assert_no_secret_leaks(files)
+
+
+@pytest.mark.asyncio
+async def test_datastudio_codegen_escapes_metadata_strings_before_python_docstrings() -> None:
+    draft = AgentDraft(
+        name="semantic-injection-agent",
+        selectedSkills=[
+            SelectedSkill(
+                source="datastudio",
+                folder="semantic-injection",
+                name='Revenue """; import os; os.environ["PWN"]="1"; """',
+                dataStudioAssetType="semantic_model",
+                dataStudioAssetId="semantic-injection",
+                dataStudioCapabilityKind="semantic_skill",
+                dataStudioMetrics=['gmv """; raise RuntimeError("boom"); """'],
+                dataStudioDimensions=['region """'],
+                dataStudioCapabilityPackage={
+                    "package_type": "semantic_skill",
+                    "runtime": {
+                        "query_url": "/api/knowledge-assets/assets/semantic_model/semantic-injection/query",
+                    },
+                    "mdl": {
+                        "schema": "agentkit.mdl.v1",
+                        "metrics": [
+                            {
+                                "id": 'gmv """',
+                                "formula": "sum(gmv)",
+                            }
+                        ],
+                        "dimensions": [{"id": 'region """', "field": "region"}],
+                    },
+                },
+            )
+        ],
+    )
+    project = generate_project_from_draft(draft)
+    await materialize_selected_skills(draft, project)
+    files = _file_map(project)
+
+    _assert_python_files_compile(files)
+    skill_md = files["skills/semantic-injection/SKILL.md"]
+    assert "## Packaged Artifacts" in skill_md
+    assert "capability_package" not in skill_md
+    assert '"""Query Revenue' not in files["skills/semantic-injection/tools/query.py"]
 
 
 def test_datastudio_debug_runtime_env_allows_rest_credentials() -> None:
@@ -476,16 +573,16 @@ def test_datastudio_debug_runtime_env_allows_rest_credentials() -> None:
             ],
             deployment={
                 "envValues": {
-                    "DATASTUDIO_BASE_URL": "http://127.0.0.1:18000",
-                    "BYAAN_MCP_API_KEY": "byaan_live_gate_test",
+                    "STUDIO_BASE_URL": "http://127.0.0.1:18000",
+                    "STUDIO_GOVERNED_QUERY_TOKEN": "studio_live_gate_test",
                     "DATASTUDIO_API_KEY": "must-not-enter-runner",
                 }
             },
         )
     )
 
-    assert env["DATASTUDIO_BASE_URL"] == "http://127.0.0.1:18000"
-    assert env["BYAAN_MCP_API_KEY"] == "byaan_live_gate_test"
+    assert env["STUDIO_BASE_URL"] == "http://127.0.0.1:18000"
+    assert env["STUDIO_GOVERNED_QUERY_TOKEN"] == "studio_live_gate_test"
     assert "DATASTUDIO_API_KEY" not in env
 
 
@@ -542,8 +639,8 @@ def test_generated_datastudio_tool_rejects_cross_origin_query_url(
         + agent_py,
         encoding="utf-8",
     )
-    monkeypatch.setenv("DATASTUDIO_BASE_URL", "https://byaan.example")
-    monkeypatch.delenv("BYAAN_MCP_API_KEY", raising=False)
+    monkeypatch.setenv("STUDIO_BASE_URL", "https://studio.example")
+    monkeypatch.delenv("STUDIO_GOVERNED_QUERY_TOKEN", raising=False)
     module_names = [
         "veadk",
         "google",

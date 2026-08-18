@@ -108,6 +108,18 @@ export interface KnowledgeAssetSidecar {
   mock?: boolean;
 }
 
+export interface SemanticBuildJobResponse {
+  job_id: string;
+  id?: string;
+  semantic_model_slug?: string | null;
+  dashboard_asset_id?: string | null;
+  status: string;
+  evidence?: Array<Record<string, unknown>>;
+  warnings?: string[];
+  blocked_reasons?: string[];
+  job?: KnowledgeAssetBuildJob;
+}
+
 export class KnowledgeAssetError extends Error {
   readonly status: number;
   readonly code: string;
@@ -277,6 +289,31 @@ export async function listKnowledgeAssets({
 }
 
 export async function createKnowledgeAssetCapability(input: {
+  space_id: string;
+  capability_kind: KnowledgeCapabilityKind;
+  name: string;
+  asset_id?: string;
+  description?: string;
+  publish_state?: KnowledgePublishState;
+  source_ids?: string[];
+  knowledge_base_id?: string;
+  metrics?: Array<string | Record<string, unknown>>;
+  dimensions?: Array<string | Record<string, unknown>>;
+  time_field?: string;
+  permission_hint?: string;
+  example_questions?: string[];
+  dashboard_views?: Array<Record<string, unknown>>;
+  dashboard_filters?: Array<Record<string, unknown>>;
+  metadata?: Record<string, unknown>;
+}): Promise<KnowledgeAssetMetadata> {
+  return requestJson(
+    "/api/knowledge-assets/capabilities",
+    { method: "POST", body: JSON.stringify(input) },
+    "创建知识能力失败",
+  );
+}
+
+export async function recordKnowledgeAssetSkillPackage(input: {
   space_id?: string;
   asset_type: KnowledgeAssetType;
   asset_id?: string;
@@ -350,6 +387,47 @@ export async function updateKnowledgeAssetBuildJob(
     `/api/knowledge-assets/build-jobs/${encodeURIComponent(jobId)}`,
     { method: "PATCH", body: JSON.stringify(input) },
     "更新构建任务失败",
+  );
+}
+
+export async function createSemanticDashboardBuildJob(input: {
+  space_id?: string;
+  source_ids: string[];
+  mode?: "schema_only" | "sampled_rows" | "hybrid";
+  target_domain: string;
+  sample_policy?: {
+    max_rows_per_table?: number;
+    pii_scan?: boolean;
+    mask_customer_contact?: boolean;
+  };
+  dashboard_goal: string;
+  publish?: boolean;
+}): Promise<SemanticBuildJobResponse> {
+  return requestJson(
+    "/api/knowledge-assets/semantic-build/jobs",
+    { method: "POST", body: JSON.stringify(input) },
+    "创建语义构建任务失败",
+  );
+}
+
+export async function runSemanticDashboardBuildJob(
+  jobId: string,
+  input: { publish?: boolean } = {},
+): Promise<SemanticBuildJobResponse> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-build/jobs/${encodeURIComponent(jobId)}/run`,
+    { method: "POST", body: JSON.stringify(input) },
+    "运行语义构建任务失败",
+  );
+}
+
+export async function publishSemanticDashboardBuildJob(
+  jobId: string,
+): Promise<SemanticBuildJobResponse> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-build/jobs/${encodeURIComponent(jobId)}/publish`,
+    { method: "POST", body: JSON.stringify({}) },
+    "发布语义构建产物失败",
   );
 }
 

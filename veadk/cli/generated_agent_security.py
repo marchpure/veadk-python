@@ -228,13 +228,13 @@ def _validate_datastudio_query_url(value: str) -> None:
     if query_url.startswith("/"):
         if parsed.scheme or parsed.netloc:
             raise DebugPolicyError("Data Studio query URL must not be protocol-relative")
-        if not parsed.path.startswith("/api/external/assets/"):
-            raise DebugPolicyError("Data Studio query URL must target /api/external/assets")
+        if not _is_governed_datastudio_query_path(parsed.path):
+            raise DebugPolicyError("Data Studio query URL must target a governed asset path")
         return
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise DebugPolicyError("Data Studio query URL must be relative or http(s)")
-    if not parsed.path.startswith("/api/external/assets/"):
-        raise DebugPolicyError("Data Studio query URL must target /api/external/assets")
+    if not _is_governed_datastudio_query_path(parsed.path):
+        raise DebugPolicyError("Data Studio query URL must target a governed asset path")
 
 
 def _validate_knowledge_asset_query_url(value: str) -> None:
@@ -246,6 +246,12 @@ def _validate_knowledge_asset_query_url(value: str) -> None:
         raise DebugPolicyError("Knowledge asset query URL must be a relative Studio path")
     if not parsed.path.startswith("/api/knowledge-assets/"):
         raise DebugPolicyError("Knowledge asset query URL must target /api/knowledge-assets")
+
+
+def _is_governed_datastudio_query_path(path: str) -> bool:
+    return path.startswith("/api/external/assets/") or path.startswith(
+        "/api/knowledge-assets/assets/"
+    )
 
 
 def validate_url_not_private(

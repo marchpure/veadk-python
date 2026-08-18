@@ -58,9 +58,11 @@ const {
   dataStudioEmptyStateText,
   toggleDataStudioSelection,
 } = await loadTypeScriptModule("../src/create/DataStudioAssetPicker.tsx");
-const { updateKnowledgeAssetBuildJob } = await loadTypeScriptModule(
-  "../src/adk/knowledgeAssets.ts",
-);
+const {
+  createKnowledgeAssetCapability,
+  recordKnowledgeAssetSkillPackage,
+  updateKnowledgeAssetBuildJob,
+} = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
 const { draftToYaml, yamlToDraft } = await loadTypeScriptModule(
   "../src/create/configYaml.ts",
 );
@@ -150,7 +152,7 @@ test("Data Studio adapter presents assets as Agent capabilities with source cove
   assert.equal(hit.dataStudioUsagePolicy.Authorization, "[REDACTED]");
 });
 
-test("Data Studio asset adapter accepts live BYAAN capability objects", () => {
+test("Data Studio asset adapter accepts governed capability objects", () => {
   const hit = dataStudioAssetToHit({
     asset_type: "dashboard",
     asset_id: "live",
@@ -169,7 +171,7 @@ test("Data Studio asset adapter accepts live BYAAN capability objects", () => {
   assert.deepEqual(hit.dataStudioDimensions, ["order_status", "paid_at"]);
 });
 
-test("Data Studio asset adapter preserves structured BYAAN evidence", () => {
+test("Data Studio asset adapter preserves structured capability evidence", () => {
   const hit = dataStudioAssetToHit({
     asset_type: "semantic_model",
     asset_id: "sales-model",
@@ -232,15 +234,18 @@ test("Agent creation presents knowledge choices as runnable capabilities", () =>
   assert.match(customCreateCss, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
 });
 
-test("Knowledge asset center is native and keeps BYAAN as an optional sidecar", () => {
+test("Knowledge asset center stays native and exposes semantic dashboard generation", () => {
   assert.doesNotMatch(sidebarSource, /show\("datastudio"\)/);
   assert.match(sidebarSource, /aria-label="知识资产"/);
   assert.doesNotMatch(appSource, /features\.datastudio/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSpace/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSource/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetCapability/);
-  assert.match(knowledgeCenterSource, /BYAAN sidecar/);
-  assert.match(knowledgeCenterSource, /原生工作台仍可管理空间、来源和检索能力/);
+  assert.match(knowledgeCenterSource, /createSemanticDashboardBuildJob/);
+  assert.match(knowledgeCenterSource, /生成语义模型和 Dashboard/);
+  assert.match(knowledgeCenterSource, /治理查询后端/);
+  assert.doesNotMatch(knowledgeCenterSource, /BYAAN sidecar/);
+  assert.doesNotMatch(knowledgeCenterSource, /SQLite Asset Store/);
   assert.doesNotMatch(knowledgeCenterSource, /<iframe/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_BASE_URL/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_API_KEY/);
@@ -281,6 +286,98 @@ test("Knowledge asset build job completion updates the running job in place", as
     result_skill_id: "kb_docs",
     output: { publish_state: "published" },
   });
+});
+
+test("Knowledge asset capability client uses the native builder endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method ?? "GET", body: init.body });
+    return new Response(
+      JSON.stringify({
+        schema_version: "knowledge_asset.metadata.v1",
+        asset_type: "semantic_model",
+        asset_id: "sales-semantic",
+        capability_kind: "semantic_skill",
+        name: "Sales Semantic",
+        status: "ready",
+        publish_state: "published",
+      }),
+      {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+  try {
+    await createKnowledgeAssetCapability({
+      space_id: "space_1",
+      asset_id: "sales-semantic",
+      capability_kind: "semantic_skill",
+      name: "Sales Semantic",
+      publish_state: "draft",
+      metrics: ["GMV"],
+      dimensions: ["region"],
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].url, "/api/knowledge-assets/capabilities");
+  assert.deepEqual(JSON.parse(calls[0].body), {
+    space_id: "space_1",
+    asset_id: "sales-semantic",
+    capability_kind: "semantic_skill",
+    name: "Sales Semantic",
+    publish_state: "draft",
+    metrics: ["GMV"],
+    dimensions: ["region"],
+  });
+});
+
+test("Low-level knowledge asset package client still records skill packages", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method ?? "GET", body: init.body });
+    return new Response(
+      JSON.stringify({
+        schema_version: "knowledge_asset.metadata.v1",
+        asset_type: "semantic_model",
+        asset_id: "sales-semantic",
+        capability_kind: "semantic_skill",
+        name: "Sales Semantic",
+        status: "ready",
+        publish_state: "published",
+      }),
+      {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+  try {
+    await recordKnowledgeAssetSkillPackage({
+      space_id: "space_1",
+      asset_type: "semantic_model",
+      asset_id: "sales-semantic",
+      capability_kind: "semantic_skill",
+      name: "Sales Semantic",
+      status: "ready",
+      publish_state: "draft",
+      type: "semantic_skill",
+      query_url: "/api/knowledge-assets/assets/semantic_model/sales-semantic/query",
+      capabilities: { metrics: ["GMV"], dimensions: ["region"] },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].url, "/api/knowledge-assets/skill-packages");
 });
 
 test("Data Studio selected skill round-trips through YAML", () => {

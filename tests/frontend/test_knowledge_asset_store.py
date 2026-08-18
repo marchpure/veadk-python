@@ -14,6 +14,7 @@ from frontend.server.knowledge_assets.crypto import (
     default_key_path,
 )
 from frontend.server.knowledge_assets.models import (
+    BuildCapabilityBody,
     CreateSourceBody,
     CreateSpaceBody,
     RecordBuildJobBody,
@@ -348,6 +349,110 @@ def test_build_jobs_are_persisted_and_redacted(store_env) -> None:
         loaded = await store.get_build_job(job["id"])
         assert loaded["id"] == job["id"]
         assert "redact-me-job" not in json.dumps(loaded)
+
+    asyncio.run(scenario())
+
+
+def test_record_skill_package_creates_dashboard_package(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        source = await store.create_source(
+            CreateSourceBody(
+                space_id=space["id"],
+                source_type="schema_snapshot",
+                name="Sales schema",
+            )
+        )
+        package = {
+            "package_type": "dashboard_skill",
+            "runtime": {
+                "transport": "agentkit_governed_rest",
+                "query_url": "/api/knowledge-assets/assets/dashboard/sales-dashboard/query",
+                "direct_database_access": False,
+            },
+            "dashboard": {
+                "schema": "agentkit.dashboard_skill.v1",
+                "views": [{"id": "gmv_by_region", "title": "GMV by region"}],
+            },
+            "evals": {"suite": {"contract_version": "evaluation.suite_version.v1"}},
+        }
+        dashboard = await store.record_skill_package(
+            RecordSkillPackageBody(
+                space_id=space["id"],
+                source_ids=[source["id"]],
+                asset_type="dashboard",
+                asset_id="sales-dashboard",
+                capability_kind="dashboard_skill",
+                name="Sales Dashboard",
+                status="ready",
+                publish_state="draft",
+                type="dashboard_skill",
+                query_url="/api/knowledge-assets/assets/dashboard/sales-dashboard/query",
+                capability_package=package,
+                metadata={"password": "redact-me-dashboard-builder"},
+            )
+        )
+
+        stored_package = dashboard["capability_package"]
+        assert dashboard["asset_type"] == "dashboard"
+        assert dashboard["query_url"] == "/api/knowledge-assets/assets/dashboard/sales-dashboard/query"
+        assert stored_package["runtime"]["transport"] == "agentkit_governed_rest"
+        assert stored_package["runtime"]["direct_database_access"] is False
+        assert stored_package["dashboard"]["schema"] == "agentkit.dashboard_skill.v1"
+        assert stored_package["dashboard"]["views"][0]["id"] == "gmv_by_region"
+        assert stored_package["evals"]["suite"]["contract_version"] == "evaluation.suite_version.v1"
+        assert "redact-me-dashboard-builder" not in json.dumps(dashboard)
+
+    asyncio.run(scenario())
+
+
+def test_build_capability_creates_dashboard_package(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        source = await store.create_source(
+            CreateSourceBody(
+                space_id=space["id"],
+                source_type="schema_snapshot",
+                name="Sales schema",
+            )
+        )
+        dashboard = await store.build_capability(
+            BuildCapabilityBody(
+                space_id=space["id"],
+                source_ids=[source["id"]],
+                capability_kind="dashboard_skill",
+                asset_id="sales-dashboard",
+                name="Sales Dashboard",
+                publish_state="draft",
+                metrics=["gmv"],
+                dimensions=["region"],
+                dashboard_views=[
+                    {
+                        "id": "gmv_by_region",
+                        "title": "GMV by region",
+                        "kind": "top_dimensions",
+                    }
+                ],
+                metadata={"password": "redact-me-dashboard-capability"},
+            )
+        )
+
+        stored_package = dashboard["capability_package"]
+        assert dashboard["asset_type"] == "dashboard"
+        assert dashboard["capability_kind"] == "dashboard_skill"
+        assert dashboard["query_url"] == "/api/knowledge-assets/assets/dashboard/sales-dashboard/query"
+        assert stored_package["runtime"]["transport"] == "agentkit_governed_rest"
+        assert stored_package["runtime"]["direct_database_access"] is False
+        assert stored_package["runtime"]["raw_sql_fallback"] is False
+        assert stored_package["dashboard"]["schema"] == "agentkit.dashboard.manifest.v1"
+        assert stored_package["dashboard"]["data_views"][0]["id"] == "gmv_by_region"
+        assert stored_package["evals"]["suite"]["contract_version"] == "evaluation.suite_version.v1"
+        assert dashboard["capabilities"]["data_views"] == ["gmv_by_region"]
+        assert "redact-me-dashboard-capability" not in json.dumps(dashboard)
 
     asyncio.run(scenario())
 

@@ -23,6 +23,7 @@ from .contract import (
 )
 from .crypto import CredentialCipher, CredentialCryptoError
 from .models import (
+    BuildCapabilityBody,
     CreateSourceBody,
     CreateSpaceBody,
     RecordBuildJobBody,
@@ -273,6 +274,48 @@ class KnowledgeAssetStore:
         stored = await asyncio.to_thread(self._repository.record_skill_package, row)
         return _metadata_envelope(stored)
 
+    async def build_capability(
+        self,
+        body: BuildCapabilityBody,
+    ) -> KnowledgeAssetMetadataEnvelope:
+        asset_type = _asset_type_for_capability(body.capability_kind)
+        asset_id = _normalize_asset_id(body.asset_id or body.name)
+        package = _capability_package(asset_type, asset_id, body)
+        capability = _capability_summary(asset_type, asset_id, body, package)
+        return await self.record_skill_package(
+            RecordSkillPackageBody(
+                space_id=body.space_id,
+                asset_type=asset_type,
+                asset_id=asset_id,
+                capability_kind=body.capability_kind,
+                name=body.name,
+                description=body.description,
+                status="ready",
+                publish_state=body.publish_state,
+                version="v1",
+                source_ids=body.source_ids,
+                type=body.capability_kind,
+                query_url=_capability_query_url(asset_type, asset_id),
+                capability_package=package,
+                capabilities=capability,
+                freshness={
+                    "status": "source_registered" if body.source_ids else "no_source",
+                },
+                provenance={
+                    "builder": "agentkit_native_capability_builder",
+                    "space_id": body.space_id,
+                    "source_ids": body.source_ids,
+                },
+                usage_policy={
+                    "permission_hint": body.permission_hint
+                    or "按资产空间授权和能力包策略执行。",
+                    "raw_sql_fallback": False,
+                },
+                sample_evidence=[],
+                metadata=body.metadata,
+            )
+        )
+
     async def list_skill_packages(
         self,
         *,
@@ -309,6 +352,24 @@ class KnowledgeAssetStore:
             package_id,
         )
         return _metadata_envelope(row)
+
+    async def get_skill_package_by_asset_internal(
+        self,
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+    ) -> dict[str, Any]:
+        """Internal full package accessor for build orchestration.
+
+        This returns only skill package metadata/artifacts. It does not read or
+        decrypt source credentials.
+        """
+
+        row = await asyncio.to_thread(
+            self._repository.get_skill_package_by_asset,
+            asset_type,
+            asset_id,
+        )
+        return _skill_package_payload(row)
 
     async def list_assets(
         self,
@@ -568,6 +629,309 @@ def _metadata_envelope(row: dict[str, Any]) -> KnowledgeAssetMetadataEnvelope:
     }
 
 
+def _skill_package_payload(row: dict[str, Any]) -> dict[str, Any]:
+    envelope = _metadata_envelope(row)
+    return {
+        **envelope,
+        "id": row["id"],
+        "space_id": row.get("space_id"),
+        "type": row.get("type"),
+        "source_ids": loads_json(row.get("source_ids"), []),
+        "snapshot_ids": loads_json(row.get("snapshot_ids"), []),
+        "artifact_uri": row.get("artifact_uri"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _asset_type_for_capability(
+    capability_kind: KnowledgeCapabilityKind,
+) -> KnowledgeAssetType:
+    if capability_kind == "semantic_skill":
+        return "semantic_model"
+    if capability_kind == "dashboard_skill":
+        return "dashboard"
+    return "knowledge_resource"
+
+
+def _normalize_asset_id(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9._-]+", "-", value.strip().casefold())
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-._")
+    return normalized[:96] or _new_id("asset")
+
+
+def _capability_query_url(asset_type: KnowledgeAssetType, asset_id: str) -> str:
+    if asset_type == "knowledge_resource":
+        return f"/api/knowledge-assets/assets/knowledge_resource/{asset_id}"
+    return f"/api/knowledge-assets/assets/{asset_type}/{asset_id}/query"
+
+
+def _capability_package(
+    asset_type: KnowledgeAssetType,
+    asset_id: str,
+    body: BuildCapabilityBody,
+) -> dict[str, Any]:
+    evals = _evaluation_suite(body.capability_kind, asset_id)
+    if asset_type == "knowledge_resource":
+        knowledge_base_id = (
+            _sanitize_text(body.knowledge_base_id or body.asset_id or asset_id) or asset_id
+        )
+        return {
+            "package_type": "retrieval_binding",
+            "runtime": {
+                "transport": "agentkit_retrieval",
+                "direct_database_access": False,
+                "raw_sql_fallback": False,
+            },
+            "retrieval": {
+                "backend": "viking",
+                "knowledge_base_id": knowledge_base_id,
+                "index": knowledge_base_id,
+            },
+            "evals": evals,
+            "governance": {
+                "raw_sql_fallback": False,
+                "usage_policy": {
+                    "permission_hint": body.permission_hint
+                    or "按资产空间授权和能力包策略执行。",
+                },
+            },
+        }
+
+    if asset_type == "dashboard":
+        views = [
+            _dashboard_view_payload(item, index)
+            for index, item in enumerate(body.dashboard_views)
+        ] or [
+            {
+                "id": "overview",
+                "title": body.name,
+                "kind": "metric_summary",
+                "metrics": [_metric_id(item) for item in body.metrics],
+                "dimensions": [_dimension_id(item) for item in body.dimensions],
+            }
+        ]
+        manifest = {
+            "schema": "agentkit.dashboard.manifest.v1",
+            "id": asset_id,
+            "title": body.name,
+            "description": body.description or "",
+            "semantic_bindings": [
+                {
+                    "metric": _metric_id(metric),
+                    "dimensions": [_dimension_id(item) for item in body.dimensions],
+                }
+                for metric in body.metrics
+                if _metric_id(metric)
+            ],
+            "data_views": views,
+            "filters": body.dashboard_filters,
+            "tiles": [
+                {
+                    "id": f"tile_{view['id']}",
+                    "type": view.get("kind") or "metric_summary",
+                    "title": view.get("title") or view["id"],
+                    "data_view_id": view["id"],
+                }
+                for view in views
+            ],
+            "layout": [
+                {
+                    "tile_id": f"tile_{view['id']}",
+                    "x": (index % 3) * 4,
+                    "y": (index // 3) * 3,
+                    "w": 4,
+                    "h": 3,
+                }
+                for index, view in enumerate(views)
+            ],
+            "policies": {
+                "raw_sql_fallback": False,
+                "uses_only_defined_metrics_and_dimensions": True,
+            },
+        }
+        return {
+            "package_type": "dashboard_skill",
+            "runtime": {
+                "transport": "agentkit_governed_rest",
+                "query_url": _capability_query_url(asset_type, asset_id),
+                "direct_database_access": False,
+                "raw_sql_fallback": False,
+            },
+            "dashboard": manifest,
+            "evals": evals,
+            "governance": {
+                "raw_sql_fallback": False,
+                "usage_policy": {
+                    "permission_hint": body.permission_hint
+                    or "按资产空间授权和能力包策略执行。",
+                },
+            },
+        }
+
+    metrics = [_metric_payload(item) for item in body.metrics]
+    dimensions = [_dimension_payload(item) for item in body.dimensions]
+    return {
+        "package_type": "semantic_skill",
+        "runtime": {
+            "transport": "agentkit_governed_rest",
+            "query_url": _capability_query_url(asset_type, asset_id),
+            "direct_database_access": False,
+            "raw_sql_fallback": False,
+        },
+        "mdl": {
+            "schema": "agentkit.mdl.v1",
+            "model": {
+                "id": asset_id,
+                "slug": asset_id,
+                "name": body.name,
+                "version": "v1",
+            },
+            "entities": [],
+            "relationships": [],
+            "metrics": metrics,
+            "dimensions": dimensions,
+            "permissions": {
+                "raw_sql_fallback": False,
+                "permission_hint": body.permission_hint
+                or "按资产空间授权和能力包策略执行。",
+            },
+            "freshness": {
+                "status": "source_registered" if body.source_ids else "no_source",
+            },
+        },
+        "evals": evals,
+        "governance": {
+            "allowed_metrics": [item["id"] for item in metrics if item.get("id")],
+            "allowed_dimensions": [
+                item["id"] for item in dimensions if item.get("id")
+            ],
+            "raw_sql_fallback": False,
+            "usage_policy": {
+                "permission_hint": body.permission_hint
+                or "按资产空间授权和能力包策略执行。",
+            },
+        },
+    }
+
+
+def _capability_summary(
+    asset_type: KnowledgeAssetType,
+    asset_id: str,
+    body: BuildCapabilityBody,
+    package: dict[str, Any],
+) -> dict[str, Any]:
+    del asset_id
+    metrics = [_metric_id(item) for item in body.metrics]
+    dimensions = [_dimension_id(item) for item in body.dimensions]
+    summary: dict[str, Any] = {
+        "metrics": [item for item in metrics if item],
+        "dimensions": [item for item in dimensions if item],
+        "source_count": len(body.source_ids),
+        "time_field": body.time_field or "",
+        "example_questions": body.example_questions,
+    }
+    if asset_type == "knowledge_resource":
+        summary["knowledge_base_id"] = (
+            package.get("retrieval", {}).get("knowledge_base_id") or ""
+        )
+    if asset_type == "dashboard":
+        dashboard = package.get("dashboard") if isinstance(package, dict) else {}
+        if isinstance(dashboard, dict):
+            summary["data_views"] = [
+                item.get("id")
+                for item in dashboard.get("data_views", [])
+                if isinstance(item, dict) and item.get("id")
+            ]
+    return summary
+
+
+def _metric_payload(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        metric_id = _metric_id(value)
+        return {
+            "id": metric_id,
+            "name": _sanitize_text(str(value.get("name") or metric_id)),
+            "formula": _sanitize_text(str(value.get("formula") or metric_id)),
+            "definition": _sanitize_text(str(value.get("definition") or "")),
+            "time_field": _sanitize_text(str(value.get("time_field") or "")) or None,
+        }
+    metric_id = _metric_id(value)
+    return {"id": metric_id, "name": metric_id, "formula": metric_id}
+
+
+def _dimension_payload(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        dimension_id = _dimension_id(value)
+        return {
+            "id": dimension_id,
+            "name": _sanitize_text(str(value.get("name") or dimension_id)),
+            "field": _sanitize_text(str(value.get("field") or dimension_id)),
+            "kind": _sanitize_text(str(value.get("kind") or "category")),
+        }
+    dimension_id = _dimension_id(value)
+    return {"id": dimension_id, "name": dimension_id, "field": dimension_id}
+
+
+def _metric_id(value: Any) -> str:
+    if isinstance(value, Mapping):
+        raw = value.get("id") or value.get("name") or value.get("field") or ""
+    else:
+        raw = value
+    return _normalize_identifier(raw)
+
+
+def _dimension_id(value: Any) -> str:
+    if isinstance(value, Mapping):
+        raw = value.get("id") or value.get("field") or value.get("name") or ""
+    else:
+        raw = value
+    return _normalize_identifier(raw)
+
+
+def _normalize_identifier(value: Any) -> str:
+    return re.sub(r"[^a-zA-Z0-9_.-]+", "_", str(value).strip())[:128]
+
+
+def _dashboard_view_payload(value: Mapping[str, Any], index: int) -> dict[str, Any]:
+    view_id = _normalize_identifier(value.get("id") or f"view_{index + 1}") or f"view_{index + 1}"
+    return {
+        "id": view_id,
+        "title": _sanitize_text(str(value.get("title") or view_id)),
+        "kind": _sanitize_text(str(value.get("kind") or "metric_summary")),
+        "metrics": [
+            _metric_id(item)
+            for item in value.get("metrics", [])
+            if _metric_id(item)
+        ]
+        if isinstance(value.get("metrics"), list)
+        else [],
+        "dimensions": [
+            _dimension_id(item)
+            for item in value.get("dimensions", [])
+            if _dimension_id(item)
+        ]
+        if isinstance(value.get("dimensions"), list)
+        else [],
+        "filters": value.get("filters") if isinstance(value.get("filters"), list) else [],
+    }
+
+
+def _evaluation_suite(
+    capability_kind: KnowledgeCapabilityKind,
+    asset_id: str,
+) -> dict[str, Any]:
+    return {
+        "suite": {
+            "contract_version": "evaluation.suite_version.v1",
+            "id": f"{asset_id}_evals",
+            "capability_kind": capability_kind,
+            "cases": [],
+        },
+        "README.md": "EvaluationSuite placeholder for future AgentKit evaluation runs.",
+    }
+
+
 def _asset_row(record_id: str, values: dict[str, Any]) -> dict[str, Any]:
     sanitized = redact_sensitive(values)
     return {
@@ -637,9 +1001,11 @@ def _safe_query_url(value: str | None) -> str | None:
         raise KnowledgeAssetServiceError(
             "Knowledge asset query URL must be a relative Studio path."
         )
-    if not query_url.startswith(("/api/", "/web/")):
+    if not query_url.startswith(
+        ("/api/external/assets/", "/api/knowledge-assets/assets/")
+    ):
         raise KnowledgeAssetServiceError(
-            "Knowledge asset query URL must use an /api/ or /web/ path."
+            "Knowledge asset query URL must target a governed asset path."
         )
     for key, query_value in parse_qsl(parsed.query, keep_blank_values=True):
         if _is_sensitive_key(key) or _sanitize_text(query_value) != query_value:

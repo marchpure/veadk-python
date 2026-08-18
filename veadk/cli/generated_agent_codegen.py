@@ -50,32 +50,35 @@ _PYTHON_LICENSE_HEADER = """# Copyright (c) 2025 Beijing Volcano Engine Technolo
 """
 
 _DATASTUDIO_URL_HELPERS = '''
-def _datastudio_query_url(path_or_url: str) -> str:
-    """Resolve and validate a Data Studio query URL before reading BYAAN_MCP_API_KEY."""
-    base = os.environ["DATASTUDIO_BASE_URL"].rstrip("/")
+def _datastudio_query_url(path_or_url: str, base_env: str = "STUDIO_BASE_URL") -> str:
+    """Resolve and validate a governed asset query URL before reading the REST token."""
+    base = os.environ[base_env].rstrip("/")
     parsed_base = urlparse(base)
     if parsed_base.scheme not in {"http", "https"} or not parsed_base.netloc:
-        raise ValueError("DATASTUDIO_BASE_URL must be an http(s) URL")
+        raise ValueError(f"{base_env} must be an http(s) URL")
 
     candidate = (path_or_url or "").strip()
     if candidate.startswith("/"):
         parsed_candidate = urlparse(candidate)
         if parsed_candidate.scheme or parsed_candidate.netloc:
-            raise ValueError("Data Studio query URL must not be protocol-relative")
+            raise ValueError("Governed asset query URL must not be protocol-relative")
         url = urljoin(f"{base}/", candidate.lstrip("/"))
     else:
         parsed_candidate = urlparse(candidate)
         if parsed_candidate.scheme not in {"http", "https"} or not parsed_candidate.netloc:
             raise ValueError("Data Studio query URL must be relative or http(s)")
         if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:
-            raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
+            raise ValueError(f"Governed asset query URL origin does not match {base_env}")
         url = candidate
 
     parsed_url = urlparse(url)
     if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:
-        raise ValueError("Data Studio query URL origin does not match DATASTUDIO_BASE_URL")
-    if not parsed_url.path.startswith("/api/external/assets/"):
-        raise ValueError("Data Studio query URL must target /api/external/assets")
+        raise ValueError(f"Governed asset query URL origin does not match {base_env}")
+    if not (
+        parsed_url.path.startswith("/api/external/assets/")
+        or parsed_url.path.startswith("/api/knowledge-assets/assets/")
+    ):
+        raise ValueError("Governed asset query URL must target a governed asset path")
     return url
 '''.strip()
 
@@ -685,7 +688,7 @@ def _datastudio_query_url_literal(asset: SelectedSkill) -> str:
         return _py_str(explicit)
     asset_type = asset.dataStudioAssetType.strip()
     asset_id = asset.dataStudioAssetId.strip()
-    return _py_str(f"/api/external/assets/{asset_type}/{asset_id}/query")
+    return _py_str(f"/api/knowledge-assets/assets/{asset_type}/{asset_id}/query")
 
 
 def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
@@ -703,20 +706,22 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
     _add_import(acc, "from urllib.parse import urljoin, urlparse")
     _add_import(acc, "import requests")
     acc.packages.add("requests>=2.32.0")
+    base_env = "STUDIO_BASE_URL"
+    token_env = "STUDIO_GOVERNED_QUERY_TOKEN"
     acc.env.append(
         EnvVar(
-            "DATASTUDIO_BASE_URL",
+            base_env,
             True,
-            "https://byaan.example",
-            "Byaan Data Studio base URL",
+            "https://studio.example",
+            "AgentKit governed asset REST base URL",
         )
     )
     acc.env.append(
         EnvVar(
-            "BYAAN_MCP_API_KEY",
+            token_env,
             True,
-            "replace-with-your-byaan-api-key",
-            "Byaan Data Studio REST API Key",
+            "replace-with-your-governed-rest-token",
+            "AgentKit governed asset REST token",
         )
     )
     if _DATASTUDIO_URL_HELPERS not in acc.pre_lines:
@@ -728,13 +733,11 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
             "filters: dict | None = None, time_range: dict | None = None, "
             "limit: int = 100) -> dict:"
         )
-        doc = (
-            f'    """Query the Byaan semantic model {asset_label} through the REST '
-            "external API.\n\n"
+        doc = _py_triple(
+            f"Query the governed semantic model {asset_label} through REST.\n\n"
             f"    Use exact metric ids/names from this asset: {metrics_hint}.\n"
             f"    Use exact dimension ids/names from this asset: {dimensions_hint}.\n"
             f"    Time field: {time_field_hint}.\n"
-            '    """'
         )
         payload = (
             '    payload = {"metric": metric, "dimension": dimension, '
@@ -748,12 +751,10 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
             "filters: dict | None = None, data_view_ids: list[str] | None = None, "
             'mode: str = "summary") -> dict:'
         )
-        doc = (
-            f'    """Query the Byaan dashboard {asset_label} through the REST '
-            "external API.\n\n"
+        doc = _py_triple(
+            f"Query the governed dashboard {asset_label} through REST.\n\n"
             f"    Available metrics: {metrics_hint}.\n"
             f"    Available dimensions: {dimensions_hint}.\n"
-            '    """'
         )
         payload = (
             '    payload = {"filters": filters or {}, "data_view_ids": data_view_ids or [], '
@@ -762,9 +763,9 @@ def _emit_datastudio_tool(acc: _Acc, asset: SelectedSkill) -> str:
     acc.pre_lines.append(
         f'''
 {signature}
-{doc}
-    query_url = _datastudio_query_url({query_url})
-    token = os.environ["BYAAN_MCP_API_KEY"]
+    {doc}
+    query_url = _datastudio_query_url({query_url}, base_env={_py_str(base_env)})
+    token = os.environ[{_py_str(token_env)}]
 {payload}
     response = requests.post(
         query_url,
@@ -1755,7 +1756,12 @@ def debug_runtime_env_from_draft(draft: AgentDraft) -> dict[str, str]:
             if mcp_tool.authTokenEnv:
                 allowed_keys.add(mcp_tool.authTokenEnv)
         if _datastudio_assets(node):
-            allowed_keys.update({"DATASTUDIO_BASE_URL", "BYAAN_MCP_API_KEY"})
+            allowed_keys.update(
+                {
+                    "STUDIO_BASE_URL",
+                    "STUDIO_GOVERNED_QUERY_TOKEN",
+                }
+            )
         if node.a2aRegistry.enabled:
             registry = node.a2aRegistry
             fixed_values.update(
