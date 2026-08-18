@@ -656,6 +656,34 @@
   padding: 13px;
 }
 
+.kc-native-page .kc-next-action {
+  display: grid;
+  align-items: start;
+  justify-items: start;
+  min-height: 124px;
+  text-align: left;
+  white-space: normal;
+}
+
+.kc-native-page .kc-next-action:hover {
+  border-color: hsl(211 45% 60% / 0.45);
+  background: hsl(211 70% 97%);
+}
+
+.kc-native-page .kc-next-action strong,
+.kc-native-page .kc-next-action p {
+  overflow-wrap: anywhere;
+}
+
+.kc-capability-target {
+  min-width: 0;
+  scroll-margin-top: 12px;
+}
+
+.kc-capability-target:focus {
+  outline: 0;
+}
+
 .kc-native-source-card,
 .kc-native-asset-card {
   display: grid;

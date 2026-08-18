@@ -92,10 +92,19 @@ test("workbench uses import orchestration and source-level build jobs", () => {
   assert.doesNotMatch(workbenchSource, /buildKnowledgeAssetSemanticSkill/);
 });
 
-test("capability placeholders expose semantic dashboard and askdata entry labels", () => {
+test("overview next actions route to real capability panels", () => {
   assert.match(workbenchSource, /生成语义 Skill/);
   assert.match(workbenchSource, /新建 Dashboard Skill/);
   assert.match(workbenchSource, /打开 AskData/);
+  assert.match(workbenchSource, /function openWorkbenchTarget/);
+  assert.match(workbenchSource, /pendingCapabilityFocusRef/);
+  assert.match(workbenchSource, /onOpenCapability=\{\(target\) => openWorkbenchTarget\("capabilities", target\)\}/);
+  assert.match(workbenchSource, /<button type="button" className="kc-next-action" onClick=\{onClick\}>/);
+  assert.match(workbenchSource, /data-capability-target="semantic_skill"/);
+  assert.match(workbenchSource, /data-capability-target="dashboard_skill"/);
+  assert.match(workbenchSource, /data-capability-target="askdata"/);
+  assert.doesNotMatch(workbenchSource, /function NextAction[\s\S]*?<article className="kc-next-action"/);
+  assert.doesNotMatch(workbenchSource, /等待构建器接入|Builder 将挂载|AskData 入口已预留/);
 });
 
 test("capability slot contract supports E2 and F panel mounting", async () => {
