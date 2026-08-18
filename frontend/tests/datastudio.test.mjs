@@ -28,6 +28,14 @@ const knowledgeCenterSource = readFileSync(
   new URL("../src/knowledge-center/KnowledgeCenter.tsx", import.meta.url),
   "utf8",
 );
+const askDataPanelSource = readFileSync(
+  new URL("../src/knowledge-center/AskDataPanel.tsx", import.meta.url),
+  "utf8",
+);
+const dashboardBuildPanelSource = readFileSync(
+  new URL("../src/knowledge-center/DashboardBuildPanel.tsx", import.meta.url),
+  "utf8",
+);
 
 async function loadTypeScriptModule(relativePath) {
   const result = await build({
@@ -58,9 +66,11 @@ const {
   dataStudioEmptyStateText,
   toggleDataStudioSelection,
 } = await loadTypeScriptModule("../src/create/DataStudioAssetPicker.tsx");
-const { updateKnowledgeAssetBuildJob } = await loadTypeScriptModule(
-  "../src/adk/knowledgeAssets.ts",
-);
+const {
+  buildDashboardSkill,
+  queryAskData,
+  updateKnowledgeAssetBuildJob,
+} = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
 const { draftToYaml, yamlToDraft } = await loadTypeScriptModule(
   "../src/create/configYaml.ts",
 );
@@ -239,11 +249,25 @@ test("Knowledge asset center is native and keeps BYAAN as an optional sidecar", 
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSpace/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSource/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetCapability/);
-  assert.match(knowledgeCenterSource, /BYAAN sidecar/);
+  assert.match(knowledgeCenterSource, /治理查询后端/);
   assert.match(knowledgeCenterSource, /原生工作台仍可管理空间、来源和检索能力/);
   assert.doesNotMatch(knowledgeCenterSource, /<iframe/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_BASE_URL/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_API_KEY/);
+});
+
+test("Knowledge asset center mounts AskData and Dashboard builder slots", () => {
+  assert.match(knowledgeCenterSource, /CapabilityPanelSlot/);
+  assert.match(knowledgeCenterSource, /kind="askdata"/);
+  assert.match(knowledgeCenterSource, /kind="dashboard_skill"/);
+  assert.match(askDataPanelSource, /需要先构建语义 Skill/);
+  assert.match(askDataPanelSource, /metricDefinition/);
+  assert.match(askDataPanelSource, /policyDecision/);
+  assert.match(askDataPanelSource, /freshness/);
+  assert.match(askDataPanelSource, /sql/);
+  assert.match(dashboardBuildPanelSource, /buildDashboardSkill/);
+  assert.match(dashboardBuildPanelSource, /Agent 创建页现在可以选择这个 Dashboard Skill/);
+  assert.doesNotMatch(askDataPanelSource + dashboardBuildPanelSource, /<iframe/);
 });
 
 test("Knowledge asset build job completion updates the running job in place", async () => {
@@ -280,6 +304,64 @@ test("Knowledge asset build job completion updates the running job in place", as
     status: "succeeded",
     result_skill_id: "kb_docs",
     output: { publish_state: "published" },
+  });
+});
+
+test("AskData and Dashboard clients call native endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method ?? "GET", body: init.body });
+    const body =
+      String(url).includes("/askdata/query")
+        ? {
+            schema: "agentkit.askdata.result.v1",
+            status: "completed",
+            asset: { type: "semantic_model", id: "oracle-sales", name: "Oracle Sales" },
+            data: {
+              rows: [{ ticket_count: 1 }],
+              sql: "SELECT 1",
+              metricDefinition: "Count tickets",
+              policyDecision: { decision: "allow" },
+              freshness: { status: "fresh" },
+            },
+          }
+        : {
+            schema: "agentkit.dashboard_skill_build.v1",
+            job_id: "job_1",
+            status: "succeeded",
+            dashboard_asset_id: "oracle-dashboard",
+            dashboard: {
+              schema_version: "knowledge_asset.metadata.v1",
+              asset_type: "dashboard",
+              asset_id: "oracle-dashboard",
+              capability_kind: "dashboard_skill",
+              name: "Oracle Dashboard",
+              status: "ready",
+              publish_state: "published",
+            },
+          };
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    await queryAskData({ semantic_asset_id: "oracle-sales", metric: "ticket_count" });
+    await buildDashboardSkill({
+      semantic_asset_id: "oracle-sales",
+      name: "Oracle Dashboard",
+      intent: "按门店查看销售票数",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls[0].url, "/api/knowledge-assets/askdata/query");
+  assert.equal(calls[1].url, "/api/knowledge-assets/build/dashboard-skill");
+  assert.deepEqual(JSON.parse(calls[0].body), {
+    semantic_asset_id: "oracle-sales",
+    metric: "ticket_count",
   });
 });
 

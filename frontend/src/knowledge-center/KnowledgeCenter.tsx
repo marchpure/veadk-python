@@ -48,6 +48,9 @@ import {
   knowledgeCapabilityLabel,
   knowledgeSourceCoverageText,
 } from "../create/skills/knowledgeAssets";
+import { AskDataPanel } from "./AskDataPanel";
+import { CapabilityPanelSlot, type CapabilityBuildJobStatus } from "./capabilitySlots";
+import { DashboardBuildPanel } from "./DashboardBuildPanel";
 import "./KnowledgeCenter.css";
 
 type LoadState =
@@ -210,8 +213,13 @@ export function KnowledgeCenterView() {
     setActiveSpaceId(spaceId);
   }, []);
 
-  const refresh = useCallback(async (preferredSpaceId?: string) => {
-    setState({ status: "loading" });
+  const refresh = useCallback(async (
+    preferredSpaceId?: string,
+    options: { silent?: boolean } = {},
+  ) => {
+    if (!options.silent) {
+      setState({ status: "loading" });
+    }
     try {
       const [spaceItems, assetPayload, sidecarItems] = await Promise.all([
         listKnowledgeAssetSpaces(),
@@ -264,6 +272,16 @@ export function KnowledgeCenterView() {
       return values.some((value) => String(value ?? "").toLowerCase().includes(needle));
     });
   }, [assets, query]);
+  const semanticSkills = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          asset.asset_type === "semantic_model" &&
+          asset.capability_kind === "semantic_skill" &&
+          asset.publish_state === "published",
+      ),
+    [assets],
+  );
 
   const spaceSources = sources.filter(
     (source) => !activeSpaceId || source.space_id === activeSpaceId,
@@ -582,7 +600,7 @@ export function KnowledgeCenterView() {
         <div className="kc-native-sidecar">
           <div>
             <span className={`kc-native-dot is-${sidecar?.status ?? "not_configured"}`} />
-            <strong>BYAAN sidecar</strong>
+            <strong>治理查询后端</strong>
           </div>
           <p>
             {sidecar?.configured
@@ -641,7 +659,7 @@ export function KnowledgeCenterView() {
         <div className="kc-native-status-grid">
           <StatusTile
             icon={Database}
-            title="SQLite Asset Store"
+            title="资产注册中心"
             status="可用"
             tone="success"
             detail={`${spaces.length} 空间 · ${assets.length} 能力`}
@@ -756,6 +774,27 @@ export function KnowledgeCenterView() {
               </div>
             )}
           </section>
+        </div>
+
+        <div className="kc-native-capability-slots">
+          <CapabilityPanelSlot
+            kind="askdata"
+            capabilities={semanticSkills.map(capabilityCard)}
+            build_jobs={buildJobs.map(buildJobView)}
+            render={() => <AskDataPanel semanticSkills={semanticSkills} />}
+          />
+          <CapabilityPanelSlot
+            kind="dashboard_skill"
+            capabilities={semanticSkills.map(capabilityCard)}
+            build_jobs={buildJobs.map(buildJobView)}
+            render={() => (
+              <DashboardBuildPanel
+                activeSpace={activeSpace}
+                semanticSkills={semanticSkills}
+                onBuilt={() => refresh(activeSpace?.id, { silent: true })}
+              />
+            )}
+          />
         </div>
       </section>
 
@@ -922,7 +961,7 @@ export function KnowledgeCenterView() {
                   />
                 </label>
                 <label>
-                  <span>Asset ID</span>
+                  <span>能力标识（可选）</span>
                   <input
                     value={capabilityForm.assetId}
                     placeholder="默认由名称生成"
@@ -939,7 +978,7 @@ export function KnowledgeCenterView() {
                     <span>Viking index</span>
                     <input
                       value={capabilityForm.knowledgeBaseId}
-                      placeholder={activeSpace?.default_knowledge_base_id || "例如 kb-policy-docs"}
+                      placeholder={activeSpace?.default_knowledge_base_id || "填写已授权的检索索引"}
                       onChange={(event) =>
                         setCapabilityForm((prev) => ({
                           ...prev,
@@ -1125,10 +1164,6 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
       <p>{asset.description || sourceCoverage}</p>
       <dl>
         <div>
-          <dt>Asset ID</dt>
-          <dd>{asset.asset_id}</dd>
-        </div>
-        <div>
           <dt>来源</dt>
           <dd>{sourceCoverage}</dd>
         </div>
@@ -1143,6 +1178,48 @@ function AssetCard({ asset }: { asset: KnowledgeAssetMetadata }) {
       </footer>
     </article>
   );
+}
+
+function capabilityCard(asset: KnowledgeAssetMetadata) {
+  return {
+    id: `${asset.asset_type}:${asset.asset_id}`,
+    name: asset.name,
+    kind: asset.capability_kind,
+    status: asset.status as "ready",
+    publish_state: asset.publish_state === "published" ? "published" as const : "draft" as const,
+    source_ids: [
+      ...(Array.isArray(asset.provenance?.source_ids)
+        ? asset.provenance.source_ids
+        : []),
+    ].map(String),
+    description: asset.description || undefined,
+  };
+}
+
+function buildJobView(job: KnowledgeAssetBuildJob) {
+  const knownStatuses: CapabilityBuildJobStatus[] = [
+    "succeeded",
+    "failed",
+    "blocked",
+    "cancelled",
+    "running",
+    "queued",
+  ];
+  const status: CapabilityBuildJobStatus = knownStatuses.includes(job.status as CapabilityBuildJobStatus)
+    ? (job.status as CapabilityBuildJobStatus)
+    : "running";
+  return {
+    id: job.id,
+    status,
+    job_type: job.job_type,
+    source_id: job.source_id || undefined,
+    asset_id: job.asset_id || undefined,
+    error_message:
+      typeof job.error?.message === "string" ? job.error.message : undefined,
+    logs_ref: job.logs_ref || undefined,
+    created_at: job.created_at,
+    updated_at: job.updated_at,
+  };
 }
 
 function FormActions({

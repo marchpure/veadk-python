@@ -37,6 +37,16 @@ from .service import (
     KnowledgeAssetStore,
     redact_sensitive,
 )
+from .builders.dashboard import (
+    AskDataQueryBody,
+    AskDataQueryService,
+    DashboardSkillBuildBody,
+    DashboardSkillWriter,
+)
+from .builders.dashboard.dashboard_query_service import (
+    DashboardQueryBody,
+    DashboardQueryService,
+)
 
 
 def mount_knowledge_asset_routes(
@@ -44,6 +54,9 @@ def mount_knowledge_asset_routes(
     service: KnowledgeAssetStore | None = None,
 ) -> None:
     store = service or KnowledgeAssetStore()
+    askdata = AskDataQueryService(store)
+    dashboard_writer = DashboardSkillWriter(store)
+    dashboard_query = DashboardQueryService(store)
 
     async def invoke(call: Callable[[], Awaitable[Any]]) -> Any:
         try:
@@ -219,6 +232,17 @@ def mount_knowledge_asset_routes(
     ) -> dict[str, Any]:
         return await invoke(lambda: store.update_build_job(job_id, body))
 
+    @app.post("/api/knowledge-assets/askdata/query")
+    async def askdata_query(body: AskDataQueryBody) -> dict[str, Any]:
+        return await invoke(lambda: askdata.query(body))
+
+    @app.post(
+        "/api/knowledge-assets/build/dashboard-skill",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def build_dashboard_skill(body: DashboardSkillBuildBody) -> dict[str, Any]:
+        return await invoke(lambda: dashboard_writer.build(body))
+
     @app.post("/api/knowledge-assets/snapshots", status_code=status.HTTP_201_CREATED)
     async def record_snapshot(body: RecordSnapshotBody) -> dict[str, Any]:
         return await invoke(lambda: store.record_snapshot(body))
@@ -291,6 +315,13 @@ def mount_knowledge_asset_routes(
                 limit=limit,
             )
         )
+
+    @app.post("/api/knowledge-assets/assets/dashboard/{asset_id}/query")
+    async def query_dashboard_asset(
+        asset_id: str,
+        body: DashboardQueryBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: dashboard_query.query(asset_id, body))
 
     @app.get("/api/knowledge-assets/assets/{asset_type}/{asset_id}")
     async def get_asset(asset_type: KnowledgeAssetType, asset_id: str) -> dict[str, Any]:
