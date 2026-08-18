@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 
 class KnowledgeAssetRepositoryError(RuntimeError):
@@ -56,8 +56,14 @@ class KnowledgeAssetRepository:
             try:
                 conn.execute(
                     """
-                    INSERT INTO spaces (id, name, description, metadata_json)
-                    VALUES (:id, :name, :description, :metadata_json)
+                    INSERT INTO spaces (
+                        id, name, description, default_knowledge_base_id, region,
+                        metadata_json
+                    )
+                    VALUES (
+                        :id, :name, :description, :default_knowledge_base_id,
+                        :region, :metadata_json
+                    )
                     """,
                     row,
                 )
@@ -112,11 +118,13 @@ class KnowledgeAssetRepository:
                     """
                     INSERT INTO sources (
                         id, space_id, source_type, provider, name, description, uri,
-                        status, status_reason, capabilities_json, metadata_json
+                        locator, status, status_reason, default_index_policy,
+                        capabilities_json, metadata_json
                     )
                     VALUES (
                         :id, :space_id, :source_type, :provider, :name, :description,
-                        :uri, :status, :status_reason, :capabilities_json, :metadata_json
+                        :uri, :locator, :status, :status_reason,
+                        :default_index_policy, :capabilities_json, :metadata_json
                     )
                     """,
                     row,
@@ -176,14 +184,20 @@ class KnowledgeAssetRepository:
             conn.execute(
                 """
                 INSERT INTO credentials (
-                    source_id, envelope_json, key_id, algorithm, version, status,
-                    expires_at
+                    id, source_id, space_id, provider, auth_mode,
+                    encrypted_credentials, envelope_json, key_id, algorithm, version,
+                    status, expires_at
                 )
                 VALUES (
-                    :source_id, :envelope_json, :key_id, :algorithm, :version,
-                    :status, :expires_at
+                    :id, :source_id, :space_id, :provider, :auth_mode,
+                    :encrypted_credentials, :envelope_json, :key_id, :algorithm,
+                    :version, :status, :expires_at
                 )
                 ON CONFLICT(source_id) DO UPDATE SET
+                    space_id = excluded.space_id,
+                    provider = excluded.provider,
+                    auth_mode = excluded.auth_mode,
+                    encrypted_credentials = excluded.encrypted_credentials,
                     envelope_json = excluded.envelope_json,
                     key_id = excluded.key_id,
                     algorithm = excluded.algorithm,
@@ -221,6 +235,9 @@ class KnowledgeAssetRepository:
             key: row[key]
             for key in (
                 "source_id",
+                "space_id",
+                "provider",
+                "auth_mode",
                 "key_id",
                 "algorithm",
                 "version",
@@ -248,18 +265,24 @@ class KnowledgeAssetRepository:
             conn.execute(
                 """
                 INSERT INTO indexed_documents (
-                    id, source_id, document_id, title, uri, content_hash, status,
+                    id, source_id, knowledge_base_id, provider_doc_id, document_id,
+                    title, uri, content_hash, sync_status, status, last_synced_at,
                     metadata_json
                 )
                 VALUES (
-                    :id, :source_id, :document_id, :title, :uri, :content_hash,
-                    :status, :metadata_json
+                    :id, :source_id, :knowledge_base_id, :provider_doc_id,
+                    :document_id, :title, :uri, :content_hash, :sync_status,
+                    :status, :last_synced_at, :metadata_json
                 )
                 ON CONFLICT(source_id, content_hash) DO UPDATE SET
+                    knowledge_base_id = excluded.knowledge_base_id,
+                    provider_doc_id = excluded.provider_doc_id,
                     document_id = excluded.document_id,
                     title = excluded.title,
                     uri = excluded.uri,
+                    sync_status = excluded.sync_status,
                     status = excluded.status,
+                    last_synced_at = excluded.last_synced_at,
                     metadata_json = excluded.metadata_json,
                     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
                 """,
@@ -312,15 +335,18 @@ class KnowledgeAssetRepository:
             conn.execute(
                 """
                 INSERT INTO snapshots (
-                    id, source_id, asset_type, asset_id, capability_kind, name,
+                    id, source_id, kind, artifact_uri, schema_json, profile_json,
+                    content_hash, asset_type, asset_id, capability_kind, name,
                     description, status, publish_state, version, gate_json,
                     consumers_json, capabilities_json, capability_package_json,
                     query_url, freshness_json, provenance_json, usage_policy_json,
                     sample_evidence_json, metadata_json
                 )
                 VALUES (
-                    :id, :source_id, :asset_type, :asset_id, :capability_kind,
-                    :name, :description, :status, :publish_state, :version,
+                    :id, :source_id, :kind, :artifact_uri, :schema_json,
+                    :profile_json, :content_hash, :asset_type, :asset_id,
+                    :capability_kind, :name, :description, :status,
+                    :publish_state, :version,
                     :gate_json, :consumers_json, :capabilities_json,
                     :capability_package_json, :query_url, :freshness_json,
                     :provenance_json, :usage_policy_json, :sample_evidence_json,
@@ -374,14 +400,16 @@ class KnowledgeAssetRepository:
             conn.execute(
                 """
                 INSERT INTO skill_packages (
-                    id, space_id, asset_type, asset_id, capability_kind, name,
-                    description, status, publish_state, version, gate_json,
-                    consumers_json, capabilities_json, capability_package_json,
-                    query_url, freshness_json, provenance_json, usage_policy_json,
+                    id, space_id, type, source_ids, snapshot_ids, artifact_uri,
+                    asset_type, asset_id, capability_kind, name, description, status,
+                    publish_state, version, gate_json, consumers_json,
+                    capabilities_json, capability_package_json, query_url,
+                    freshness_json, provenance_json, usage_policy_json,
                     sample_evidence_json, metadata_json
                 )
                 VALUES (
-                    :id, :space_id, :asset_type, :asset_id, :capability_kind,
+                    :id, :space_id, :type, :source_ids, :snapshot_ids,
+                    :artifact_uri, :asset_type, :asset_id, :capability_kind,
                     :name, :description, :status, :publish_state, :version,
                     :gate_json, :consumers_json, :capabilities_json,
                     :capability_package_json, :query_url, :freshness_json,
@@ -390,6 +418,10 @@ class KnowledgeAssetRepository:
                 )
                 ON CONFLICT(asset_type, asset_id) DO UPDATE SET
                     space_id = excluded.space_id,
+                    type = excluded.type,
+                    source_ids = excluded.source_ids,
+                    snapshot_ids = excluded.snapshot_ids,
+                    artifact_uri = excluded.artifact_uri,
                     capability_kind = excluded.capability_kind,
                     name = excluded.name,
                     description = excluded.description,
@@ -549,6 +581,7 @@ class KnowledgeAssetRepository:
                 conn.execute("PRAGMA foreign_keys = ON")
                 conn.execute("PRAGMA busy_timeout = 5000")
                 _create_schema(conn)
+                _migrate_schema(conn)
                 conn.execute(
                     """
                     INSERT INTO schema_meta (key, value)
@@ -575,6 +608,8 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT,
+            default_knowledge_base_id TEXT,
+            region TEXT,
             metadata_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -589,8 +624,10 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             name TEXT NOT NULL,
             description TEXT,
             uri TEXT,
+            locator TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL,
             status_reason TEXT,
+            default_index_policy TEXT NOT NULL DEFAULT '{}',
             capabilities_json TEXT NOT NULL DEFAULT '{}',
             metadata_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -601,7 +638,12 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_sources_status ON sources(status);
 
         CREATE TABLE IF NOT EXISTS credentials (
+            id TEXT,
             source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
+            space_id TEXT REFERENCES spaces(id) ON DELETE CASCADE,
+            provider TEXT,
+            auth_mode TEXT NOT NULL DEFAULT 'none',
+            encrypted_credentials TEXT,
             envelope_json TEXT NOT NULL,
             key_id TEXT NOT NULL,
             algorithm TEXT NOT NULL,
@@ -616,11 +658,15 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS indexed_documents (
             id TEXT PRIMARY KEY,
             source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+            knowledge_base_id TEXT,
+            provider_doc_id TEXT,
             document_id TEXT,
             title TEXT,
             uri TEXT,
             content_hash TEXT NOT NULL,
+            sync_status TEXT,
             status TEXT NOT NULL,
+            last_synced_at TEXT,
             metadata_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -632,6 +678,11 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS snapshots (
             id TEXT PRIMARY KEY,
             source_id TEXT REFERENCES sources(id) ON DELETE SET NULL,
+            kind TEXT NOT NULL DEFAULT 'knowledge_asset',
+            artifact_uri TEXT,
+            schema_json TEXT NOT NULL DEFAULT '{}',
+            profile_json TEXT NOT NULL DEFAULT '{}',
+            content_hash TEXT,
             asset_type TEXT NOT NULL,
             asset_id TEXT NOT NULL,
             capability_kind TEXT NOT NULL,
@@ -660,6 +711,10 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS skill_packages (
             id TEXT PRIMARY KEY,
             space_id TEXT REFERENCES spaces(id) ON DELETE SET NULL,
+            type TEXT NOT NULL DEFAULT 'retrieval_binding',
+            source_ids TEXT NOT NULL DEFAULT '[]',
+            snapshot_ids TEXT NOT NULL DEFAULT '[]',
+            artifact_uri TEXT,
             asset_type TEXT NOT NULL,
             asset_id TEXT NOT NULL,
             capability_kind TEXT NOT NULL,
@@ -695,6 +750,8 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             asset_id TEXT,
             job_type TEXT NOT NULL,
             status TEXT NOT NULL,
+            logs_ref TEXT,
+            result_skill_id TEXT,
             error_json TEXT,
             input_json TEXT NOT NULL DEFAULT '{}',
             output_json TEXT NOT NULL DEFAULT '{}',
@@ -705,6 +762,110 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             ON build_jobs(status, updated_at);
         """
     )
+
+
+def _migrate_schema(conn: sqlite3.Connection) -> None:
+    _ensure_columns(
+        conn,
+        "spaces",
+        {
+            "default_knowledge_base_id": "TEXT",
+            "region": "TEXT",
+        },
+    )
+    _ensure_columns(
+        conn,
+        "sources",
+        {
+            "locator": "TEXT NOT NULL DEFAULT '{}'",
+            "default_index_policy": "TEXT NOT NULL DEFAULT '{}'",
+        },
+    )
+    _ensure_columns(
+        conn,
+        "credentials",
+        {
+            "id": "TEXT",
+            "space_id": "TEXT REFERENCES spaces(id) ON DELETE CASCADE",
+            "provider": "TEXT",
+            "auth_mode": "TEXT NOT NULL DEFAULT 'none'",
+            "encrypted_credentials": "TEXT",
+        },
+    )
+    conn.execute(
+        "UPDATE credentials SET id = COALESCE(id, 'cred_' || lower(hex(randomblob(16)))) "
+        "WHERE id IS NULL OR id = ''"
+    )
+    conn.execute(
+        "UPDATE credentials SET encrypted_credentials = envelope_json "
+        "WHERE encrypted_credentials IS NULL OR encrypted_credentials = ''"
+    )
+    conn.execute(
+        """
+        UPDATE credentials
+        SET space_id = (
+            SELECT sources.space_id FROM sources WHERE sources.id = credentials.source_id
+        )
+        WHERE space_id IS NULL OR space_id = ''
+        """
+    )
+    _ensure_columns(
+        conn,
+        "indexed_documents",
+        {
+            "knowledge_base_id": "TEXT",
+            "provider_doc_id": "TEXT",
+            "sync_status": "TEXT",
+            "last_synced_at": "TEXT",
+        },
+    )
+    conn.execute(
+        "UPDATE indexed_documents SET sync_status = status "
+        "WHERE sync_status IS NULL OR sync_status = ''"
+    )
+    _ensure_columns(
+        conn,
+        "snapshots",
+        {
+            "kind": "TEXT NOT NULL DEFAULT 'knowledge_asset'",
+            "artifact_uri": "TEXT",
+            "schema_json": "TEXT NOT NULL DEFAULT '{}'",
+            "profile_json": "TEXT NOT NULL DEFAULT '{}'",
+            "content_hash": "TEXT",
+        },
+    )
+    _ensure_columns(
+        conn,
+        "skill_packages",
+        {
+            "type": "TEXT NOT NULL DEFAULT 'retrieval_binding'",
+            "source_ids": "TEXT NOT NULL DEFAULT '[]'",
+            "snapshot_ids": "TEXT NOT NULL DEFAULT '[]'",
+            "artifact_uri": "TEXT",
+        },
+    )
+    _ensure_columns(
+        conn,
+        "build_jobs",
+        {
+            "logs_ref": "TEXT",
+            "result_skill_id": "TEXT",
+        },
+    )
+
+
+def _ensure_columns(
+    conn: sqlite3.Connection,
+    table: str,
+    columns: dict[str, str],
+) -> None:
+    existing = {
+        str(row["name"])
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    for name, definition in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
 
 def dumps_json(value: Any) -> str:

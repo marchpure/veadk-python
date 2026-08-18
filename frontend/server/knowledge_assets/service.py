@@ -77,6 +77,11 @@ class KnowledgeAssetStore:
             "id": _new_id("space"),
             "name": body.name.strip(),
             "description": body.description,
+            "default_knowledge_base_id": _sanitize_text(
+                body.default_knowledge_base_id or ""
+            )
+            or None,
+            "region": _sanitize_text(body.region or "") or None,
             "metadata_json": dumps_json(redact_sensitive(body.metadata)),
         }
         return _space_payload(await asyncio.to_thread(self._repository.create_space, row))
@@ -96,6 +101,12 @@ class KnowledgeAssetStore:
             patch["name"] = body.name.strip()
         if body.description is not None:
             patch["description"] = body.description
+        if body.default_knowledge_base_id is not None:
+            patch["default_knowledge_base_id"] = _sanitize_text(
+                body.default_knowledge_base_id
+            )
+        if body.region is not None:
+            patch["region"] = _sanitize_text(body.region)
         if body.metadata is not None:
             patch["metadata_json"] = dumps_json(redact_sensitive(body.metadata))
         row = await asyncio.to_thread(self._repository.update_space, space_id, patch)
@@ -110,8 +121,12 @@ class KnowledgeAssetStore:
             "name": _sanitize_text(body.name.strip()),
             "description": _sanitize_text(body.description or "") or None,
             "uri": _sanitize_text(body.uri or "") or None,
+            "locator": dumps_json(redact_sensitive(body.locator)),
             "status": body.status.strip(),
             "status_reason": None,
+            "default_index_policy": dumps_json(
+                redact_sensitive(body.default_index_policy)
+            ),
             "capabilities_json": dumps_json(redact_sensitive(body.capabilities)),
             "metadata_json": dumps_json(redact_sensitive(body.metadata)),
         }
@@ -150,10 +165,18 @@ class KnowledgeAssetStore:
     async def save_credential(
         self, source_id: str, body: SaveCredentialBody
     ) -> dict[str, Any]:
+        source = await asyncio.to_thread(self._repository.get_source, source_id)
         envelope = self._cipher.encrypt(body.credentials)
+        encrypted = dumps_json(envelope)
         row = {
+            "id": _new_id("cred"),
             "source_id": source_id,
-            "envelope_json": dumps_json(envelope),
+            "space_id": source["space_id"],
+            "provider": _sanitize_text(body.provider or source.get("provider") or "")
+            or None,
+            "auth_mode": _sanitize_text(body.auth_mode),
+            "encrypted_credentials": encrypted,
+            "envelope_json": encrypted,
             "key_id": envelope["key_id"],
             "algorithm": envelope["algorithm"],
             "version": envelope["version"],
@@ -191,11 +214,18 @@ class KnowledgeAssetStore:
         row = {
             "id": _new_id("doc"),
             "source_id": body.source_id,
+            "knowledge_base_id": _sanitize_text(body.knowledge_base_id or "") or None,
+            "provider_doc_id": _sanitize_text(
+                body.provider_doc_id or body.document_id or ""
+            )
+            or None,
             "document_id": body.document_id,
             "title": body.title,
             "uri": body.uri,
             "content_hash": body.content_hash,
+            "sync_status": body.sync_status or body.status,
             "status": body.status,
+            "last_synced_at": body.last_synced_at,
             "metadata_json": dumps_json(redact_sensitive(body.metadata)),
         }
         return _indexed_document_payload(
@@ -212,7 +242,7 @@ class KnowledgeAssetStore:
         return [_indexed_document_payload(row) for row in rows]
 
     async def record_snapshot(self, body: RecordSnapshotBody) -> dict[str, Any]:
-        row = _asset_row(_new_id("snap"), body.model_dump())
+        row = _asset_row(_new_id("snap"), body.model_dump(by_alias=True))
         return _snapshot_payload(
             await asyncio.to_thread(self._repository.record_snapshot, row)
         )
@@ -230,9 +260,11 @@ class KnowledgeAssetStore:
     async def record_skill_package(
         self, body: RecordSkillPackageBody
     ) -> KnowledgeAssetMetadataEnvelope:
-        values = body.model_dump()
+        values = body.model_dump(by_alias=True)
+        asset_id = values.get("asset_id") or values.get("package_id") or _new_id("asset")
+        values["asset_id"] = asset_id
         package_id = values.pop("package_id") or _stable_package_id(
-            values["asset_type"], values["asset_id"]
+            values["asset_type"], asset_id
         )
         row = _asset_row(package_id, values)
         row["space_id"] = body.space_id
@@ -350,6 +382,8 @@ def _space_payload(row: dict[str, Any]) -> dict[str, Any]:
         "id": row["id"],
         "name": row["name"],
         "description": row.get("description"),
+        "default_knowledge_base_id": row.get("default_knowledge_base_id"),
+        "region": row.get("region"),
         "metadata": loads_json(row.get("metadata_json"), {}),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
@@ -365,8 +399,10 @@ def _source_payload(row: dict[str, Any]) -> dict[str, Any]:
         "name": row["name"],
         "description": row.get("description"),
         "uri": row.get("uri"),
+        "locator": loads_json(row.get("locator"), {}),
         "status": row["status"],
         "status_reason": row.get("status_reason"),
+        "default_index_policy": loads_json(row.get("default_index_policy"), {}),
         "capabilities": loads_json(row.get("capabilities_json"), {}),
         "metadata": loads_json(row.get("metadata_json"), {}),
         "created_at": row.get("created_at"),
@@ -377,6 +413,9 @@ def _source_payload(row: dict[str, Any]) -> dict[str, Any]:
 def _credential_status_payload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "source_id": row["source_id"],
+        "space_id": row.get("space_id"),
+        "provider": row.get("provider"),
+        "auth_mode": row.get("auth_mode"),
         "configured": True,
         "status": row["status"],
         "expires_at": row.get("expires_at"),
@@ -392,11 +431,15 @@ def _indexed_document_payload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
         "source_id": row["source_id"],
+        "knowledge_base_id": row.get("knowledge_base_id"),
+        "provider_doc_id": row.get("provider_doc_id"),
         "document_id": row.get("document_id"),
         "title": row.get("title"),
         "uri": row.get("uri"),
         "content_hash": row["content_hash"],
+        "sync_status": row.get("sync_status") or row["status"],
         "status": row["status"],
+        "last_synced_at": row.get("last_synced_at"),
         "metadata": loads_json(row.get("metadata_json"), {}),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
@@ -407,6 +450,11 @@ def _snapshot_payload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
         "source_id": row.get("source_id"),
+        "kind": row.get("kind"),
+        "artifact_uri": row.get("artifact_uri"),
+        "schema": loads_json(row.get("schema_json"), {}),
+        "profile": loads_json(row.get("profile_json"), {}),
+        "content_hash": row.get("content_hash"),
         "metadata": _metadata_envelope(row),
         "created_at": row.get("created_at"),
     }
@@ -441,6 +489,16 @@ def _asset_row(record_id: str, values: dict[str, Any]) -> dict[str, Any]:
         "id": record_id,
         "source_id": values.get("source_id"),
         "space_id": values.get("space_id"),
+        "kind": _sanitize_text(values.get("kind") or "knowledge_asset"),
+        "artifact_uri": _sanitize_text(values.get("artifact_uri") or "") or None,
+        "schema_json": dumps_json(sanitized.get("schema", {})),
+        "profile_json": dumps_json(sanitized.get("profile", {})),
+        "content_hash": _sanitize_text(values.get("content_hash") or "") or None,
+        "type": _sanitize_text(
+            values.get("type") or values.get("capability_kind") or "retrieval_binding"
+        ),
+        "source_ids": dumps_json(sanitized.get("source_ids", [])),
+        "snapshot_ids": dumps_json(sanitized.get("snapshot_ids", [])),
         "asset_type": values["asset_type"],
         "asset_id": values["asset_id"],
         "capability_kind": values["capability_kind"],

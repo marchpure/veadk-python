@@ -108,6 +108,205 @@ def test_store_records_assets_and_deduplicates_documents(store_env) -> None:
     asyncio.run(scenario())
 
 
+def test_schema_contains_target_knowledge_asset_columns(store_env) -> None:
+    asyncio.run(KnowledgeAssetStore().list_spaces())
+    with sqlite3.connect(store_env / "knowledge-assets.db") as conn:
+        conn.execute("SELECT 1 FROM spaces LIMIT 0")
+        columns = {
+            table: {
+                row[1]
+                for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            for table in (
+                "spaces",
+                "sources",
+                "credentials",
+                "indexed_documents",
+                "snapshots",
+                "skill_packages",
+                "build_jobs",
+            )
+        }
+
+    assert {
+        "id",
+        "name",
+        "description",
+        "default_knowledge_base_id",
+        "region",
+        "created_at",
+        "updated_at",
+    }.issubset(columns["spaces"])
+    assert {
+        "id",
+        "space_id",
+        "source_type",
+        "name",
+        "locator",
+        "status",
+        "default_index_policy",
+        "created_at",
+        "updated_at",
+    }.issubset(columns["sources"])
+    assert {
+        "id",
+        "space_id",
+        "provider",
+        "auth_mode",
+        "encrypted_credentials",
+        "key_id",
+        "algorithm",
+        "status",
+        "created_at",
+        "updated_at",
+    }.issubset(columns["credentials"])
+    assert {
+        "id",
+        "source_id",
+        "knowledge_base_id",
+        "provider_doc_id",
+        "metadata_json",
+        "content_hash",
+        "sync_status",
+        "last_synced_at",
+    }.issubset(columns["indexed_documents"])
+    assert {
+        "id",
+        "source_id",
+        "kind",
+        "artifact_uri",
+        "schema_json",
+        "profile_json",
+        "content_hash",
+        "created_at",
+    }.issubset(columns["snapshots"])
+    assert {
+        "id",
+        "space_id",
+        "type",
+        "name",
+        "version",
+        "source_ids",
+        "snapshot_ids",
+        "artifact_uri",
+        "created_at",
+    }.issubset(columns["skill_packages"])
+    assert {
+        "id",
+        "job_type",
+        "input_json",
+        "status",
+        "logs_ref",
+        "result_skill_id",
+        "created_at",
+        "updated_at",
+    }.issubset(columns["build_jobs"])
+
+
+def test_target_storage_fields_are_persisted_and_returned(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(
+            CreateSpaceBody(
+                name="KC",
+                default_knowledge_base_id="kb-default",
+                region="cn-beijing",
+            )
+        )
+        assert space["default_knowledge_base_id"] == "kb-default"
+        assert space["region"] == "cn-beijing"
+
+        source = await store.create_source(
+            CreateSourceBody(
+                space_id=space["id"],
+                source_type="pdf",
+                name="Policy PDF",
+                locator={"uri": "tos://bucket/key.pdf"},
+                default_index_policy={"chunk_size": 800},
+            )
+        )
+        assert source["locator"] == {"uri": "tos://bucket/key.pdf"}
+        assert source["default_index_policy"] == {"chunk_size": 800}
+
+        await store.save_credential(
+            source["id"],
+            SaveCredentialBody(
+                provider="feishu",
+                auth_mode="oauth",
+                credentials={"access_token": "redact-me-delta"},
+            ),
+        )
+        credential_status = await store.credential_status(source["id"])
+        assert credential_status["space_id"] == space["id"]
+        assert credential_status["provider"] == "feishu"
+        assert credential_status["auth_mode"] == "oauth"
+        assert "redact-me-delta" not in json.dumps(credential_status)
+
+        document = await store.record_indexed_document(
+            RecordIndexedDocumentBody(
+                source_id=source["id"],
+                knowledge_base_id="kb-default",
+                provider_doc_id="provider-doc-1",
+                content_hash="sha256:doc",
+                sync_status="ready",
+                last_synced_at="2026-08-18T12:00:00Z",
+            )
+        )
+        assert document["knowledge_base_id"] == "kb-default"
+        assert document["provider_doc_id"] == "provider-doc-1"
+        assert document["sync_status"] == "ready"
+
+        snapshot = await store.record_snapshot(
+            RecordSkillPackageBody(
+                space_id=space["id"],
+                source_id=source["id"],
+                asset_type="knowledge_resource",
+                asset_id="asset-doc",
+                capability_kind="retrieval_binding",
+                name="Doc Skill",
+                kind="source_snapshot",
+                artifact_uri="tos://bucket/snapshot.json",
+                schema={"fields": ["title"]},
+                profile={"rows": 1},
+                content_hash="sha256:snapshot",
+            )
+        )
+        assert snapshot["kind"] == "source_snapshot"
+        assert snapshot["artifact_uri"] == "tos://bucket/snapshot.json"
+        assert snapshot["schema"] == {"fields": ["title"]}
+
+        skill = await store.record_skill_package(
+            RecordSkillPackageBody(
+                space_id=space["id"],
+                asset_type="knowledge_resource",
+                asset_id="asset-doc",
+                capability_kind="retrieval_binding",
+                name="Doc Skill",
+                type="retrieval_binding",
+                source_ids=[source["id"]],
+                snapshot_ids=[snapshot["id"]],
+                artifact_uri="tos://bucket/skill.zip",
+                publish_state="published",
+            )
+        )
+        assert skill["asset_id"] == "asset-doc"
+
+        with sqlite3.connect(store_env / "knowledge-assets.db") as conn:
+            conn.row_factory = sqlite3.Row
+            stored = conn.execute(
+                "SELECT type, source_ids, snapshot_ids, artifact_uri "
+                "FROM skill_packages WHERE asset_id = ?",
+                ("asset-doc",),
+            ).fetchone()
+        assert stored["type"] == "retrieval_binding"
+        assert json.loads(stored["source_ids"]) == [source["id"]]
+        assert json.loads(stored["snapshot_ids"]) == [snapshot["id"]]
+        assert stored["artifact_uri"] == "tos://bucket/skill.zip"
+
+    asyncio.run(scenario())
+
+
 def test_credentials_are_encrypted_and_key_file_is_private(store_env) -> None:
     store = KnowledgeAssetStore()
 
@@ -152,6 +351,176 @@ def test_credentials_are_encrypted_and_key_file_is_private(store_env) -> None:
     assert envelope["version"] == "knowledge_asset.credential.v1"
     assert envelope["key_id"].startswith("file:")
     assert envelope["nonce"]
+
+
+def test_key_path_permission_problem_surfaces_cleanly(store_env, monkeypatch) -> None:
+    from frontend.server.knowledge_assets import crypto as asset_crypto
+
+    def deny_open(*_args: object, **_kwargs: object) -> int:
+        raise PermissionError("asset store key is not writable")
+
+    monkeypatch.setattr(asset_crypto.os, "open", deny_open)
+    with pytest.raises(PermissionError, match="not writable"):
+        CredentialCipher().encrypt({"access_token": "redact-me-key-path"})
+
+
+def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
+    db_path = store_env / "knowledge-assets.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO schema_meta (key, value) VALUES ('schema_version', '1');
+            CREATE TABLE spaces (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT
+            );
+            CREATE TABLE sources (
+                id TEXT PRIMARY KEY,
+                space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+                source_type TEXT NOT NULL,
+                provider TEXT,
+                name TEXT NOT NULL,
+                description TEXT,
+                uri TEXT,
+                status TEXT NOT NULL,
+                status_reason TEXT,
+                capabilities_json TEXT NOT NULL DEFAULT '{}',
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT
+            );
+            CREATE TABLE credentials (
+                source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
+                envelope_json TEXT NOT NULL,
+                key_id TEXT NOT NULL,
+                algorithm TEXT NOT NULL,
+                version TEXT NOT NULL,
+                status TEXT NOT NULL,
+                expires_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT
+            );
+            CREATE TABLE indexed_documents (
+                id TEXT PRIMARY KEY,
+                source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+                document_id TEXT,
+                title TEXT,
+                uri TEXT,
+                content_hash TEXT NOT NULL,
+                status TEXT NOT NULL,
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(source_id, content_hash)
+            );
+            CREATE TABLE snapshots (
+                id TEXT PRIMARY KEY,
+                source_id TEXT REFERENCES sources(id) ON DELETE SET NULL,
+                asset_type TEXT NOT NULL,
+                asset_id TEXT NOT NULL,
+                capability_kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL,
+                publish_state TEXT NOT NULL,
+                version TEXT,
+                gate_json TEXT,
+                consumers_json TEXT NOT NULL DEFAULT '[]',
+                capabilities_json TEXT NOT NULL DEFAULT '{}',
+                capability_package_json TEXT NOT NULL DEFAULT '{}',
+                query_url TEXT,
+                freshness_json TEXT NOT NULL DEFAULT '{}',
+                provenance_json TEXT NOT NULL DEFAULT '{}',
+                usage_policy_json TEXT NOT NULL DEFAULT '{}',
+                sample_evidence_json TEXT NOT NULL DEFAULT '[]',
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE skill_packages (
+                id TEXT PRIMARY KEY,
+                space_id TEXT REFERENCES spaces(id) ON DELETE SET NULL,
+                asset_type TEXT NOT NULL,
+                asset_id TEXT NOT NULL,
+                capability_kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL,
+                publish_state TEXT NOT NULL,
+                version TEXT,
+                gate_json TEXT,
+                consumers_json TEXT NOT NULL DEFAULT '[]',
+                capabilities_json TEXT NOT NULL DEFAULT '{}',
+                capability_package_json TEXT NOT NULL DEFAULT '{}',
+                query_url TEXT,
+                freshness_json TEXT NOT NULL DEFAULT '{}',
+                provenance_json TEXT NOT NULL DEFAULT '{}',
+                usage_policy_json TEXT NOT NULL DEFAULT '{}',
+                sample_evidence_json TEXT NOT NULL DEFAULT '[]',
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(asset_type, asset_id)
+            );
+            CREATE TABLE build_jobs (
+                id TEXT PRIMARY KEY,
+                space_id TEXT REFERENCES spaces(id) ON DELETE SET NULL,
+                source_id TEXT REFERENCES sources(id) ON DELETE SET NULL,
+                asset_type TEXT,
+                asset_id TEXT,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                error_json TEXT,
+                input_json TEXT NOT NULL DEFAULT '{}',
+                output_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO spaces (
+                id, name, description, metadata_json, created_at, updated_at
+            ) VALUES ('space_legacy', 'Legacy', NULL, '{}', 'now', 'now');
+            INSERT INTO sources (
+                id, space_id, source_type, provider, name, description, uri, status,
+                status_reason, capabilities_json, metadata_json, created_at, updated_at
+            ) VALUES (
+                'src_legacy', 'space_legacy', 'web', 'web', 'Legacy Source', NULL,
+                NULL, 'ready', NULL, '{}', '{}', 'now', 'now'
+            );
+            INSERT INTO credentials (
+                source_id, envelope_json, key_id, algorithm, version, status,
+                created_at, updated_at
+            ) VALUES (
+                'src_legacy', '{"version":"knowledge_asset.credential.v1"}',
+                'file:legacy', 'AES-256-GCM', 'knowledge_asset.credential.v1',
+                'connected', 'now', 'now'
+            );
+            """
+        )
+
+    store = KnowledgeAssetStore()
+    spaces = asyncio.run(store.list_spaces())
+    assert spaces[0]["id"] == "space_legacy"
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        credential = conn.execute(
+            "SELECT id, space_id, auth_mode, encrypted_credentials "
+            "FROM credentials WHERE source_id = 'src_legacy'"
+        ).fetchone()
+        schema_version = conn.execute(
+            "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+        ).fetchone()[0]
+    assert credential["id"].startswith("cred_")
+    assert credential["space_id"] == "space_legacy"
+    assert credential["auth_mode"] == "none"
+    assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
+    assert schema_version == "2"
 
 
 def test_wrong_key_and_corrupt_ciphertext_fail_cleanly(store_env, monkeypatch) -> None:
