@@ -39,11 +39,14 @@ from .service import (
     KnowledgeAssetStore,
     redact_sensitive,
 )
+from .agents import (
+    AskTableDashboardAgent,
+    InternalAgentRunner,
+    SemanticBuilderAgent,
+)
 from .builders.dashboard import (
     AskDataQueryBody,
-    AskDataQueryService,
     DashboardSkillBuildBody,
-    DashboardSkillWriter,
     GovernedSemanticQueryService,
     SemanticAssetQueryBody,
 )
@@ -54,7 +57,6 @@ from .builders.dashboard.dashboard_query_service import (
 from .builders.semantic.service import (
     SemanticBuildBlocked,
     SemanticSkillBuildRequest,
-    SemanticSkillBuildService,
 )
 
 
@@ -65,10 +67,11 @@ def mount_knowledge_asset_routes(
     knowledge_service: Any = None,
     identity_resolver: Callable[[Request], Any] | None = None,
     region_resolver: Callable[[str | None], str] | None = None,
+    internal_agent_runner: InternalAgentRunner | None = None,
 ) -> None:
     store = service or KnowledgeAssetStore()
-    askdata = AskDataQueryService(store)
-    dashboard_writer = DashboardSkillWriter(store)
+    semantic_agent = SemanticBuilderAgent(store, runner=internal_agent_runner)
+    ask_dashboard_agent = AskTableDashboardAgent(store, runner=internal_agent_runner)
     dashboard_query = DashboardQueryService(store)
     semantic_query = GovernedSemanticQueryService(store)
 
@@ -80,10 +83,16 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/health")
     async def health() -> dict[str, Any]:
+        semantic_status = semantic_agent.health()
+        ask_dashboard_status = ask_dashboard_agent.health()
         return {
             "configured": True,
             "mock": False,
             "store": "sqlite",
+            "agents": {
+                "semantic_builder": semantic_status,
+                "asktable_dashboard": ask_dashboard_status,
+            },
             "capabilities": [
                 "spaces",
                 "sources",
@@ -241,7 +250,6 @@ def mount_knowledge_asset_routes(
         body: BuildSemanticSkillBody,
         background_tasks: BackgroundTasks,
     ) -> dict[str, Any]:
-        builder = SemanticSkillBuildService(store)
         request = SemanticSkillBuildRequest(
             space_id=body.space_id,
             source_ids=body.source_ids,
@@ -252,25 +260,24 @@ def mount_knowledge_asset_routes(
             target_domain=body.target_domain,
             publish=body.publish,
         )
-        job = await invoke(lambda: builder.enqueue(request))
+        job = await invoke(lambda: semantic_agent.enqueue(request))
         background_tasks.add_task(
             _run_semantic_skill_build,
-            store,
+            semantic_agent,
             job["id"],
             request,
         )
         return job
 
     async def _run_semantic_skill_build(
-        build_store: KnowledgeAssetStore,
+        builder: SemanticBuilderAgent,
         job_id: str,
         request: SemanticSkillBuildRequest,
     ) -> None:
-        builder = SemanticSkillBuildService(build_store)
         try:
             await builder.run_job(job_id, request)
         except Exception as error:
-            await build_store.update_build_job(
+            await store.update_build_job(
                 job_id,
                 UpdateBuildJobBody(
                     status="failed",
@@ -325,14 +332,14 @@ def mount_knowledge_asset_routes(
 
     @app.post("/api/knowledge-assets/askdata/query")
     async def askdata_query(body: AskDataQueryBody) -> dict[str, Any]:
-        return await invoke(lambda: askdata.query(body))
+        return await invoke(lambda: ask_dashboard_agent.query(body))
 
     @app.post(
         "/api/knowledge-assets/build/dashboard-skill",
         status_code=status.HTTP_201_CREATED,
     )
     async def build_dashboard_skill(body: DashboardSkillBuildBody) -> dict[str, Any]:
-        return await invoke(lambda: dashboard_writer.build(body))
+        return await invoke(lambda: ask_dashboard_agent.build_dashboard(body))
 
     @app.post("/api/knowledge-assets/snapshots", status_code=status.HTTP_201_CREATED)
     async def record_snapshot(body: RecordSnapshotBody) -> dict[str, Any]:

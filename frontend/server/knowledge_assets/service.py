@@ -1264,6 +1264,11 @@ def _is_sensitive_key(value: object) -> bool:
 
 def _sanitize_text(value: str) -> str:
     text = value[:8192]
+    text = re.sub(
+        r"(?i)\b([a-z][a-z0-9+.-]*://)[^\s/@:]+:[^\s/@]+@[^\s]+",
+        lambda match: f"{match.group(1)}{_REDACTED}",
+        text,
+    )
     text = re.sub(r"(?i)\bbearer\s+[^\s,;]+", "Bearer [REDACTED]", text)
     text = re.sub(
         r"(?i)\b(cookie|authorization|token|password|secret|signature|ak|sk)"

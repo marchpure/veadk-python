@@ -12,11 +12,11 @@ import { build } from "esbuild";
 
 const require = createRequire(import.meta.url);
 const panelSource = readFileSync(
-  new URL("../src/knowledge-center/SemanticBuildPanel.tsx", import.meta.url),
+  new URL("../src/knowledge-center/SemanticModelingWorkbench.tsx", import.meta.url),
   "utf8",
 );
-const askDataPanelSource = readFileSync(
-  new URL("../src/knowledge-center/AskDataPanel.tsx", import.meta.url),
+const askDashboardSource = readFileSync(
+  new URL("../src/knowledge-center/AskDashboardWorkbench.tsx", import.meta.url),
   "utf8",
 );
 const knowledgeCenterSource = readFileSync(
@@ -46,21 +46,22 @@ async function loadTypeScriptModule(relativePath) {
   return require(outFile);
 }
 
-test("SemanticBuildPanel uses D3 slot and native build API", () => {
-  assert.match(panelSource, /CapabilityPanelSlot/);
-  assert.match(panelSource, /kind="semantic_skill"/);
+test("SemanticModelingWorkbench uses React Flow canvas and native build API", () => {
+  assert.match(panelSource, /ReactFlow/);
+  assert.match(panelSource, /MiniMap/);
+  assert.match(panelSource, /Controls/);
+  assert.match(panelSource, /Background/);
+  assert.match(panelSource, /dagre/);
   assert.match(panelSource, /buildSemanticSkill/);
-  assert.match(panelSource, /Schema snapshot/);
-  assert.match(panelSource, /业务文档上下文/);
-  assert.match(panelSource, /not_configured/);
-  assert.match(panelSource, /agentkit:open-settings/);
-  assert.match(panelSource, /BuildSteps/);
-  assert.match(panelSource, /Eval cases/);
-  assert.match(panelSource, /策略/);
-  assert.match(panelSource, /受治理 REST 查询工具/);
+  assert.match(panelSource, /SemanticModelTree/);
+  assert.match(panelSource, /SemanticGraphCanvas/);
+  assert.match(panelSource, /SemanticMetadataDrawer/);
+  assert.match(panelSource, /查看 MDL/);
+  assert.match(panelSource, /查看评测/);
+  assert.match(panelSource, /agent_status/);
   assert.doesNotMatch(panelSource, /<iframe/);
   assert.doesNotMatch(panelSource, /DATASTUDIO_API_KEY/);
-  assert.match(knowledgeCenterSource, /<SemanticBuildPanel/);
+  assert.match(knowledgeCenterSource, /<SemanticModelingWorkbench/);
 });
 
 test("knowledgeAssets client exposes semantic-skill build endpoint", async () => {
@@ -96,25 +97,23 @@ test("knowledgeAssets client exposes semantic-skill build endpoint", async () =>
 });
 
 test("Semantic build CSS is responsive without product iframe shell", () => {
-  assert.match(cssSource, /\.kc-semantic-build/);
-  assert.match(cssSource, /grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(cssSource, /\.kc-semantic-workbench/);
+  assert.match(cssSource, /\.kc-semantic-canvas/);
+  assert.match(cssSource, /\.kc-semantic-layout/);
+  assert.match(cssSource, /@media \(max-width: 980px\)/);
   assert.doesNotMatch(cssSource, /iframe/);
 });
 
-test("AskData panel renders object metric definitions from governed query evidence", async () => {
-  assert.match(askDataPanelSource, /formatAskDataMetricDefinition/);
-  const { formatAskDataMetricDefinition } = await loadTypeScriptModule(
-    "../src/knowledge-center/AskDataPanel.tsx",
-  );
-  assert.equal(
-    formatAskDataMetricDefinition({
-      id: "ticket_count",
-      name: "Ticket Count",
-      definition: "Count distinct tickets.",
-      formula: "count(distinct ticket_id)",
-    }),
-    "Ticket Count；Count distinct tickets.；公式：count(distinct ticket_id)",
-  );
-  assert.equal(formatAskDataMetricDefinition("Count distinct tickets."), "Count distinct tickets.");
-  assert.equal(formatAskDataMetricDefinition(null), "未声明");
+test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence tabs", () => {
+  assert.match(askDashboardSource, /AskTablePanel/);
+  assert.match(askDashboardSource, /DashboardPreviewWorkspace/);
+  assert.match(askDashboardSource, /DashboardQueryEvidencePanel/);
+  assert.match(askDashboardSource, /Preview/);
+  assert.match(askDashboardSource, /Code/);
+  assert.match(askDashboardSource, /Queries/);
+  assert.match(askDashboardSource, /policyDecision/);
+  assert.match(askDashboardSource, /freshness/);
+  assert.match(askDashboardSource, /metricDefinition/);
+  assert.match(askDashboardSource, /title="后端导出能力尚未启用"/);
+  assert.match(knowledgeCenterSource, /<AskDashboardWorkbench/);
 });

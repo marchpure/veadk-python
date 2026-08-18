@@ -47,7 +47,7 @@ async function loadTypeScriptModule(relativePath) {
 }
 
 test("native workbench uses first-level tabs and type-card source flow", () => {
-  for (const label of ["概览", "数据源", "能力", "构建任务", "设置"]) {
+  for (const label of ["概览", "数据源", "语义构建", "AskTable / Dashboard", "能力", "构建任务", "设置"]) {
     assert.match(workbenchSource, new RegExp(`label: "${label}"`));
   }
   assert.match(workbenchSource, /SourceFlow/);
@@ -92,19 +92,32 @@ test("workbench uses import orchestration and source-level build jobs", () => {
   assert.doesNotMatch(workbenchSource, /buildKnowledgeAssetSemanticSkill/);
 });
 
-test("overview next actions route to real capability panels", () => {
+test("overview next actions route to real first-level workbench tabs", () => {
   assert.match(workbenchSource, /生成语义 Skill/);
   assert.match(workbenchSource, /新建 Dashboard Skill/);
   assert.match(workbenchSource, /打开 AskData/);
   assert.match(workbenchSource, /function openWorkbenchTarget/);
   assert.match(workbenchSource, /pendingCapabilityFocusRef/);
-  assert.match(workbenchSource, /onOpenCapability=\{\(target\) => openWorkbenchTarget\("capabilities", target\)\}/);
+  assert.match(workbenchSource, /openWorkbenchTarget\("semantic", target\)/);
+  assert.match(workbenchSource, /openWorkbenchTarget\("askdashboard", target\)/);
   assert.match(workbenchSource, /<button type="button" className="kc-next-action" onClick=\{onClick\}>/);
+  assert.match(workbenchSource, /data-workbench-target="semantic_skill"/);
+  assert.match(workbenchSource, /data-workbench-target="askdata"/);
   assert.match(workbenchSource, /data-capability-target="semantic_skill"/);
   assert.match(workbenchSource, /data-capability-target="dashboard_skill"/);
-  assert.match(workbenchSource, /data-capability-target="askdata"/);
   assert.doesNotMatch(workbenchSource, /function NextAction[\s\S]*?<article className="kc-next-action"/);
   assert.doesNotMatch(workbenchSource, /等待构建器接入|Builder 将挂载|AskData 入口已预留/);
+});
+
+test("capability tab only renders selectable capability lists", () => {
+  const capabilitySection = workbenchSource.slice(
+    workbenchSource.indexOf("function CapabilitiesTab"),
+    workbenchSource.indexOf("function CapabilitySelectorList"),
+  );
+  assert.match(capabilitySection, /CapabilitySelectorList/);
+  assert.match(capabilitySection, /Retrieval Binding/);
+  assert.match(capabilitySection, /AskTable 语义能力/);
+  assert.doesNotMatch(capabilitySection, /<SemanticBuildPanel|<DashboardBuildPanel|<AskDataPanel/);
 });
 
 test("capability slot contract supports E2 and F panel mounting", async () => {

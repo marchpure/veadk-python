@@ -1,0 +1,155 @@
+{
+  "base_url": "http://127.0.0.1:18347",
+  "viewports": [
+    {
+      "label": "desktop-1440",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "label": "mobile-390",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "checks": [
+    {
+      "name": "desktop-1440 semantic canvas has dimensions",
+      "ok": true,
+      "detail": "{'x': 769, 'y': 346.5, 'width': 420, 'height': 1635.5}"
+    },
+    {
+      "name": "desktop-1440 semantic minimap present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1440 semantic controls present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1440 capability tab excludes semantic builder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1440 capability tab excludes dashboard builder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1440 capability tab excludes askdata form",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1440 dashboard evidence includes governed SQL",
+      "ok": true,
+      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+    },
+    {
+      "name": "desktop-1440 dashboard evidence includes policy and freshness",
+      "ok": true,
+      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+    },
+    {
+      "name": "desktop-1440 document has no significant horizontal overflow",
+      "ok": true,
+      "detail": "{\"bodyScrollWidth\": 1440, \"docScrollWidth\": 1440, \"innerWidth\": 1440, \"bodyScrollHeight\": 900, \"innerHeight\": 900, \"workbenchRect\": {\"left\": 549, \"right\": 1407, \"width\": 858, \"top\": 170, \"bottom\": 1471.25}, \"viewportOverflowNodes\": []}"
+    },
+    {
+      "name": "desktop-1440 workbench surfaces stay within viewport width",
+      "ok": true,
+      "detail": "{\"bodyScrollWidth\": 1440, \"docScrollWidth\": 1440, \"innerWidth\": 1440, \"bodyScrollHeight\": 900, \"innerHeight\": 900, \"workbenchRect\": {\"left\": 549, \"right\": 1407, \"width\": 858, \"top\": 170, \"bottom\": 1471.25}, \"viewportOverflowNodes\": []}"
+    },
+    {
+      "name": "mobile-390 semantic canvas has dimensions",
+      "ok": true,
+      "detail": "{'x': 81, 'y': 1239.890625, 'width': 284, 'height': 460}"
+    },
+    {
+      "name": "mobile-390 semantic minimap present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 semantic controls present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 capability tab excludes semantic builder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 capability tab excludes dashboard builder",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 capability tab excludes askdata form",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 dashboard evidence includes governed SQL",
+      "ok": true,
+      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+    },
+    {
+      "name": "mobile-390 dashboard evidence includes policy and freshness",
+      "ok": true,
+      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+    },
+    {
+      "name": "mobile-390 document has no significant horizontal overflow",
+      "ok": true,
+      "detail": "{\"bodyScrollWidth\": 390, \"docScrollWidth\": 390, \"innerWidth\": 390, \"bodyScrollHeight\": 844, \"innerHeight\": 844, \"workbenchRect\": {\"left\": 81, \"right\": 365, \"width\": 284, \"top\": -496.109375, \"bottom\": 2280.140625}, \"viewportOverflowNodes\": []}"
+    },
+    {
+      "name": "mobile-390 workbench surfaces stay within viewport width",
+      "ok": true,
+      "detail": "{\"bodyScrollWidth\": 390, \"docScrollWidth\": 390, \"innerWidth\": 390, \"bodyScrollHeight\": 844, \"innerHeight\": 844, \"workbenchRect\": {\"left\": 81, \"right\": 365, \"width\": 284, \"top\": -496.109375, \"bottom\": 2280.140625}, \"viewportOverflowNodes\": []}"
+    }
+  ],
+  "screenshots": [
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-semantic-workbench.png",
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-capabilities-selector.png",
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-askdashboard-queries.png",
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-semantic-workbench.png",
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-capabilities-selector.png",
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-askdashboard-queries.png"
+  ],
+  "desktop-1440_layout_metrics": {
+    "bodyScrollWidth": 1440,
+    "docScrollWidth": 1440,
+    "innerWidth": 1440,
+    "bodyScrollHeight": 900,
+    "innerHeight": 900,
+    "workbenchRect": {
+      "left": 549,
+      "right": 1407,
+      "width": 858,
+      "top": 170,
+      "bottom": 1471.25
+    },
+    "viewportOverflowNodes": []
+  },
+  "mobile-390_layout_metrics": {
+    "bodyScrollWidth": 390,
+    "docScrollWidth": 390,
+    "innerWidth": 390,
+    "bodyScrollHeight": 844,
+    "innerHeight": 844,
+    "workbenchRect": {
+      "left": 81,
+      "right": 365,
+      "width": 284,
+      "top": -496.109375,
+      "bottom": 2280.140625
+    },
+    "viewportOverflowNodes": []
+  }
+}

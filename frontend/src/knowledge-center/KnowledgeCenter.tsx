@@ -9,6 +9,7 @@ import {
   FileArchive,
   FileImage,
   FileSearch,
+  GitBranch,
   Globe2,
   KeyRound,
   Layers3,
@@ -57,15 +58,14 @@ import {
   knowledgeCapabilityLabel,
   knowledgeSourceCoverageText,
 } from "../create/skills/knowledgeAssets";
-import { AskDataPanel } from "./AskDataPanel";
+import { AskDashboardWorkbench } from "./AskDashboardWorkbench";
 import {
   CapabilityPanelSlot,
   type CapabilityBuildJobView,
   type KnowledgeCapabilityCardProps,
 } from "./capabilitySlots";
-import { DashboardBuildPanel } from "./DashboardBuildPanel";
 import "./KnowledgeCenter.css";
-import { SemanticBuildPanel } from "./SemanticBuildPanel";
+import { SemanticModelingWorkbench } from "./SemanticModelingWorkbench";
 
 type LoadState =
   | { status: "loading" }
@@ -73,7 +73,14 @@ type LoadState =
   | { status: "unauthorized"; message: string; diagnostic: string }
   | { status: "error"; message: string; diagnostic: string };
 
-type WorkbenchTab = "overview" | "sources" | "capabilities" | "jobs" | "settings";
+type WorkbenchTab =
+  | "overview"
+  | "sources"
+  | "semantic"
+  | "askdashboard"
+  | "capabilities"
+  | "jobs"
+  | "settings";
 type CapabilityFocusTarget = "semantic_skill" | "dashboard_skill" | "askdata";
 type SourceFlowStep = "type" | "details" | "preview";
 type SourceType =
@@ -167,6 +174,8 @@ function readSourceFile(file: File): Promise<SourceFileDraft> {
 const tabs: Array<{ id: WorkbenchTab; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "概览", icon: Layers3 },
   { id: "sources", label: "数据源", icon: Database },
+  { id: "semantic", label: "语义构建", icon: GitBranch },
+  { id: "askdashboard", label: "AskTable / Dashboard", icon: BarChart3 },
   { id: "capabilities", label: "能力", icon: Sparkles },
   { id: "jobs", label: "构建任务", icon: Clock3 },
   { id: "settings", label: "设置", icon: Settings },
@@ -520,6 +529,16 @@ export function KnowledgeCenterView() {
       ),
     [assets],
   );
+  const dashboardSkills = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          asset.asset_type === "dashboard" &&
+          asset.capability_kind === "dashboard_skill" &&
+          asset.publish_state === "published",
+      ),
+    [assets],
+  );
 
   const assetsByKind = useMemo(() => ({
     retrieval_binding: filteredAssets.filter(
@@ -566,12 +585,12 @@ export function KnowledgeCenterView() {
   }
 
   useEffect(() => {
-    if (activeTab !== "capabilities" || !pendingCapabilityFocusRef.current) return;
+    if (!["capabilities", "semantic", "askdashboard"].includes(activeTab) || !pendingCapabilityFocusRef.current) return;
     const focusTarget = pendingCapabilityFocusRef.current;
     pendingCapabilityFocusRef.current = null;
     window.requestAnimationFrame(() => {
       const target = document.querySelector<HTMLElement>(
-        `[data-capability-target="${focusTarget}"]`,
+        `[data-workbench-target="${focusTarget}"], [data-capability-target="${focusTarget}"]`,
       );
       target?.scrollIntoView({ block: "start", behavior: "smooth" });
       target?.focus({ preventScroll: true });
@@ -968,7 +987,10 @@ export function KnowledgeCenterView() {
               onAddSource={() => openSourceFlow()}
               onCreateSpace={() => setSpaceForm({ ...initialSpaceForm(), open: true })}
               onOpenSources={() => openWorkbenchTarget("sources")}
-              onOpenCapability={(target) => openWorkbenchTarget("capabilities", target)}
+              onOpenCapability={(target) => {
+                if (target === "semantic_skill") openWorkbenchTarget("semantic", target);
+                else openWorkbenchTarget("askdashboard", target);
+              }}
             />
           ) : null}
           {activeTab === "sources" ? (
@@ -980,6 +1002,27 @@ export function KnowledgeCenterView() {
               busy={submitting}
             />
           ) : null}
+          {activeTab === "semantic" ? (
+            <div data-workbench-target="semantic_skill" tabIndex={-1}>
+              <SemanticModelingWorkbench
+                spaceId={activeSpace?.id ?? ""}
+                sources={spaceSources}
+                assets={assets}
+                buildJobs={buildJobs}
+                onRefresh={() => refresh(activeSpaceIdRef.current)}
+              />
+            </div>
+          ) : null}
+          {activeTab === "askdashboard" ? (
+            <div data-workbench-target="askdata" tabIndex={-1}>
+              <AskDashboardWorkbench
+                activeSpace={activeSpace}
+                semanticSkills={semanticSkills}
+                dashboardSkills={dashboardSkills}
+                onRefresh={() => refresh(activeSpaceIdRef.current)}
+              />
+            </div>
+          ) : null}
           {activeTab === "capabilities" ? (
             <CapabilitiesTab
               query={query}
@@ -987,13 +1030,7 @@ export function KnowledgeCenterView() {
               assetsByKind={assetsByKind}
               capabilityCards={capabilityCards}
               capabilityJobs={capabilityJobs}
-              spaceId={activeSpace?.id ?? ""}
-              sources={spaceSources}
-              assets={assets}
-              buildJobs={buildJobs}
-              activeSpace={activeSpace}
               semanticSkills={semanticSkills}
-              onRefresh={() => refresh(activeSpaceIdRef.current)}
             />
           ) : null}
           {activeTab === "jobs" ? (
@@ -1206,26 +1243,14 @@ function CapabilitiesTab({
   assetsByKind,
   capabilityCards,
   capabilityJobs,
-  spaceId,
-  sources,
-  assets,
-  buildJobs,
-  activeSpace,
   semanticSkills,
-  onRefresh,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
   assetsByKind: Record<"retrieval_binding" | "semantic_skill" | "dashboard_skill", KnowledgeAssetMetadata[]>;
   capabilityCards: KnowledgeCapabilityCardProps[];
   capabilityJobs: CapabilityBuildJobView[];
-  spaceId: string;
-  sources: KnowledgeAssetSource[];
-  assets: KnowledgeAssetMetadata[];
-  buildJobs: KnowledgeAssetBuildJob[];
-  activeSpace: KnowledgeAssetSpace | null;
   semanticSkills: KnowledgeAssetMetadata[];
-  onRefresh: () => void | Promise<void>;
 }) {
   return (
     <section className="kc-native-panel">
@@ -1249,13 +1274,10 @@ function CapabilitiesTab({
           kind="semantic_skill"
           capabilities={capabilityCards.filter((item) => item.kind === "semantic_skill")}
           build_jobs={capabilityJobs.filter((job) => job.job_type.includes("semantic"))}
-          render={() => (
-            <SemanticBuildPanel
-              spaceId={spaceId}
-              sources={sources}
-              assets={assets}
-              buildJobs={buildJobs}
-              onRefresh={onRefresh}
+          render={({ capabilities }) => (
+            <CapabilitySelectorList
+              capabilities={capabilities}
+              emptyText="到语义构建页发布 Semantic Skill 后，这里会出现在创建 Agent 的能力选择列表。"
             />
           )}
         />
@@ -1265,24 +1287,55 @@ function CapabilitiesTab({
           kind="dashboard_skill"
           capabilities={capabilityCards.filter((item) => item.kind === "dashboard_skill")}
           build_jobs={capabilityJobs.filter((job) => job.job_type.includes("dashboard"))}
-          render={() => (
-            <DashboardBuildPanel
-              activeSpace={activeSpace}
-              semanticSkills={semanticSkills}
-              onBuilt={onRefresh}
+          render={({ capabilities }) => (
+            <CapabilitySelectorList
+              capabilities={capabilities}
+              emptyText="到 AskTable / Dashboard 页生成 Dashboard Skill 后，这里会出现可选看板能力。"
             />
           )}
         />
       </section>
-      <section className="kc-capability-target" data-capability-target="askdata" tabIndex={-1}>
-        <CapabilityPanelSlot
-          kind="askdata"
-          capabilities={semanticSkills.map(toCapabilitySlot)}
-          build_jobs={capabilityJobs.filter((job) => job.job_type.includes("askdata"))}
-          render={() => <AskDataPanel semanticSkills={semanticSkills} />}
-        />
-      </section>
+      <CapabilityGroup title="AskTable 语义能力" assets={semanticSkills} emptyText="AskTable 使用已发布 Semantic Skill，不作为单独构建器挂载。" />
     </section>
+  );
+}
+
+function CapabilitySelectorList({
+  capabilities,
+  emptyText,
+}: {
+  capabilities: KnowledgeCapabilityCardProps[];
+  emptyText: string;
+}) {
+  if (capabilities.length === 0) {
+    return <div className="kc-native-inline-empty"><span>{emptyText}</span></div>;
+  }
+  return (
+    <div className="kc-capability-selector-list">
+      {capabilities.map((capability) => (
+        <article key={capability.id} className="kc-native-asset-card">
+          <header>
+            <span>
+              <strong>{capability.name}</strong>
+              <p>{capability.description || "Agent 创建时可选择的已发布能力。"}</p>
+            </span>
+            <span className={`kc-native-badge is-${statusTone(capability.status)}`}>
+              {readableStatus(capability.status)}
+            </span>
+          </header>
+          <dl>
+            <div>
+              <dt>类型</dt>
+              <dd>{capability.kind}</dd>
+            </div>
+            <div>
+              <dt>发布态</dt>
+              <dd>{capability.publish_state}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+    </div>
   );
 }
 
