@@ -534,6 +534,90 @@ class KnowledgeAssetRepository:
                 params.extend([limit, offset])
             return _rows(conn.execute(sql, tuple(params))), total
 
+    def record_build_job(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            if row.get("space_id"):
+                self.get_space(row["space_id"], conn=conn)
+            if row.get("source_id"):
+                self.get_source(row["source_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO build_jobs (
+                    id, space_id, source_id, asset_type, asset_id, job_type,
+                    status, logs_ref, result_skill_id, error_json, input_json,
+                    output_json
+                )
+                VALUES (
+                    :id, :space_id, :source_id, :asset_type, :asset_id,
+                    :job_type, :status, :logs_ref, :result_skill_id,
+                    :error_json, :input_json, :output_json
+                )
+                """,
+                row,
+            )
+            return self.get_build_job(row["id"], conn=conn)
+
+    def update_build_job(self, job_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+        if not patch:
+            return self.get_build_job(job_id)
+        fields = ", ".join(f"{key} = :{key}" for key in patch)
+        params = {**patch, "id": job_id}
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE build_jobs SET {fields}, updated_at = {utc_now_sql()} "
+                "WHERE id = :id",
+                params,
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Knowledge asset build job not found.")
+            return self.get_build_job(job_id, conn=conn)
+
+    def get_build_job(
+        self, job_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM build_jobs WHERE id = ?",
+                (job_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Knowledge asset build job not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_build_jobs(
+        self,
+        *,
+        space_id: str | None = None,
+        source_id: str | None = None,
+        asset_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if space_id:
+            clauses.append("space_id = ?")
+            params.append(space_id)
+        if source_id:
+            clauses.append("source_id = ?")
+            params.append(source_id)
+        if asset_id:
+            clauses.append("asset_id = ?")
+            params.append(asset_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        bounded = max(1, min(int(limit), 100))
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    f"SELECT * FROM build_jobs {where} "
+                    "ORDER BY updated_at DESC, id LIMIT ?",
+                    tuple([*params, bounded]),
+                )
+            )
+
     @contextmanager
     def _read(self):
         conn = self._connect()

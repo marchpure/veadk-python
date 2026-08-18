@@ -38,6 +38,7 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
     assert "/api/knowledge-assets/spaces" in paths
     assert "/api/knowledge-assets/sources" in paths
     assert "/api/knowledge-assets/sources/{source_id}/credential" in paths
+    assert "/api/knowledge-assets/build-jobs" in paths
     assert "/api/knowledge-assets/assets/{asset_type}/{asset_id}" in paths
 
 
@@ -118,6 +119,75 @@ def test_route_errors_are_structured_and_redacted(client: TestClient) -> None:
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "KNOWLEDGE_ASSET_INVALID_REQUEST"
     assert "redact-me-query" not in response.text
+
+
+def test_sidecar_status_is_safe_when_datastudio_is_unconfigured(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATASTUDIO_API_KEY", raising=False)
+    monkeypatch.delenv("DATASTUDIO_BASE_URL", raising=False)
+    monkeypatch.delenv("DATASTUDIO_EMBED_URL", raising=False)
+    monkeypatch.setenv("DATASTUDIO_AUTO_DISCOVER", "0")
+
+    response = client.get("/api/knowledge-assets/sidecars")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["id"] == "byaan-datastudio"
+    assert item["status"] == "not_configured"
+    assert item["configured"] is False
+    assert "DATASTUDIO_API_KEY" not in response.text
+
+
+def test_build_job_routes_record_state_without_echoing_secrets(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "web",
+            "name": "Docs",
+        },
+    ).json()
+
+    created = client.post(
+        "/api/knowledge-assets/build-jobs",
+        json={
+            "space_id": space["id"],
+            "source_id": source["id"],
+            "asset_type": "knowledge_resource",
+            "asset_id": "docs-retrieval",
+            "job_type": "retrieval_binding",
+            "status": "running",
+            "input": {"Authorization": "Bearer redact-me-build"},
+        },
+    )
+
+    assert created.status_code == 201
+    job = created.json()
+    assert job["status"] == "running"
+    assert job["input"]["Authorization"] == "[REDACTED]"
+    assert "redact-me-build" not in created.text
+
+    updated = client.patch(
+        f"/api/knowledge-assets/build-jobs/{job['id']}",
+        json={
+            "status": "failed",
+            "error": {"message": "token=redact-me-failed"},
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["status"] == "failed"
+    assert "redact-me-failed" not in updated.text
+
+    listed = client.get(
+        f"/api/knowledge-assets/build-jobs?space_id={space['id']}"
+    ).json()
+    assert listed["total"] == 1
+    assert listed["items"][0]["id"] == job["id"]
 
 
 def _package(state: str, asset_id: str) -> dict[str, object]:

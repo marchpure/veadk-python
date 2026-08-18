@@ -633,6 +633,39 @@ def _datastudio_assets(draft: AgentDraft) -> list[SelectedSkill]:
     ]
 
 
+def _knowledge_resource_assets(draft: AgentDraft) -> list[SelectedSkill]:
+    return [
+        skill
+        for skill in draft.selectedSkills
+        if skill.source == "datastudio"
+        and skill.dataStudioAssetType == "knowledge_resource"
+        and (
+            not skill.dataStudioCapabilityKind
+            or skill.dataStudioCapabilityKind == "retrieval_binding"
+        )
+        and skill.dataStudioAssetId.strip()
+    ]
+
+
+def _knowledge_resource_binding(asset: SelectedSkill) -> tuple[str, str]:
+    package = asset.dataStudioCapabilityPackage
+    retrieval = (
+        package.get("retrieval")
+        if isinstance(package.get("retrieval"), dict)
+        else {}
+    )
+    backend = str(retrieval.get("backend") or package.get("backend") or "viking")
+    index = str(
+        retrieval.get("index")
+        or retrieval.get("knowledge_base_id")
+        or retrieval.get("knowledgeBaseId")
+        or package.get("knowledge_base_id")
+        or package.get("index")
+        or asset.dataStudioAssetId
+    ).strip()
+    return backend, index or asset.dataStudioAssetId.strip()
+
+
 def datastudio_skill_folder(asset: SelectedSkill) -> str:
     asset_type = asset.dataStudioAssetType.strip()
     asset_id = asset.dataStudioAssetId.strip()
@@ -1053,13 +1086,21 @@ def _build_agent(acc: _Acc, draft: AgentDraft, var_name: str) -> str:
             if backend.pip_extra:
                 acc.extras.add(backend.pip_extra)
 
-    if draft.knowledgebase:
-        backend = KB_BY_ID.get(draft.knowledgebaseBackend or "viking")
+    retrieval_assets = _knowledge_resource_assets(draft)
+    retrieval_binding = retrieval_assets[0] if retrieval_assets else None
+    if draft.knowledgebase or retrieval_binding is not None:
+        backend_id = draft.knowledgebaseBackend or "viking"
+        idx = ""
+        if retrieval_binding is not None and not draft.knowledgebase:
+            backend_id, idx = _knowledge_resource_binding(retrieval_binding)
+        backend = KB_BY_ID.get(backend_id)
         if backend:
             _add_import(acc, "from veadk.knowledgebase import KnowledgeBase")
-            idx = draft.knowledgebaseIndex.strip() or ident(
-                f"{draft.name}_kb", f"{var_name}_kb"
-            )
+            idx = (
+                draft.knowledgebaseIndex.strip()
+                if draft.knowledgebase
+                else idx.strip()
+            ) or ident(f"{draft.name}_kb", f"{var_name}_kb")
             v = f"kb_{var_name}"
             acc.pre_lines.append(
                 f"{v} = KnowledgeBase(backend={_py_str(backend.id)}, "

@@ -17,10 +17,12 @@ from .crypto import CredentialCryptoError
 from .models import (
     CreateSourceBody,
     CreateSpaceBody,
+    RecordBuildJobBody,
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    UpdateBuildJobBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
 )
@@ -51,7 +53,56 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/health")
     async def health() -> dict[str, Any]:
-        return {"configured": True, "mock": False}
+        return {
+            "configured": True,
+            "mock": False,
+            "store": "sqlite",
+            "capabilities": [
+                "spaces",
+                "sources",
+                "retrieval_binding",
+                "semantic_skill",
+                "dashboard_skill",
+            ],
+        }
+
+    @app.get("/api/knowledge-assets/sidecars")
+    async def sidecars() -> dict[str, Any]:
+        try:
+            from frontend.server.datastudio.service import (
+                config_payload,
+                configured_origin,
+            )
+
+            config = config_payload()
+            datastudio = {
+                **config.model_dump(mode="json"),
+                "origin": configured_origin(config),
+            }
+        except Exception:
+            datastudio = {
+                "configured": False,
+                "baseUrl": "",
+                "embedUrl": "",
+                "origin": "",
+                "mock": False,
+            }
+        return {
+            "items": [
+                {
+                    "id": "byaan-datastudio",
+                    "label": "BYAAN Data Studio sidecar",
+                    "role": "governed_query_and_dashboard_builder",
+                    "configured": bool(datastudio.get("configured")),
+                    "status": "available"
+                    if datastudio.get("configured")
+                    else "not_configured",
+                    "debug_url": datastudio.get("embedUrl") or "",
+                    "mock": bool(datastudio.get("mock")),
+                }
+            ],
+            "mock": False,
+        }
 
     @app.post("/api/knowledge-assets/spaces", status_code=status.HTTP_201_CREATED)
     async def create_space(body: CreateSpaceBody) -> dict[str, Any]:
@@ -129,6 +180,44 @@ def mount_knowledge_asset_routes(
     ) -> dict[str, Any]:
         items = await invoke(lambda: store.list_indexed_documents(source_id=source_id))
         return {"items": items, "total": len(items), "mock": False}
+
+    @app.post("/api/knowledge-assets/build-jobs", status_code=status.HTTP_201_CREATED)
+    async def record_build_job(body: RecordBuildJobBody) -> dict[str, Any]:
+        return await invoke(lambda: store.record_build_job(body))
+
+    @app.get("/api/knowledge-assets/build-jobs")
+    async def list_build_jobs(
+        space_id: Annotated[
+            str | None, Query(min_length=1, max_length=128)
+        ] = None,
+        source_id: Annotated[
+            str | None, Query(min_length=1, max_length=128)
+        ] = None,
+        asset_id: Annotated[
+            str | None, Query(min_length=1, max_length=256)
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_build_jobs(
+                space_id=space_id,
+                source_id=source_id,
+                asset_id=asset_id,
+                limit=limit,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.get("/api/knowledge-assets/build-jobs/{job_id}")
+    async def get_build_job(job_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.get_build_job(job_id))
+
+    @app.patch("/api/knowledge-assets/build-jobs/{job_id}")
+    async def update_build_job(
+        job_id: str,
+        body: UpdateBuildJobBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.update_build_job(job_id, body))
 
     @app.post("/api/knowledge-assets/snapshots", status_code=status.HTTP_201_CREATED)
     async def record_snapshot(body: RecordSnapshotBody) -> dict[str, Any]:

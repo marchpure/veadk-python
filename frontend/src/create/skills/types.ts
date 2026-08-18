@@ -6,7 +6,10 @@ import type { ProjectFile } from "../project";
 /** Discriminator for where a selected skill came from. */
 export type SkillSource = "skillhub" | "local" | "skillspace" | "datastudio";
 
-export type DataStudioAssetType = "dashboard" | "semantic_model";
+export type DataStudioAssetType =
+  | "dashboard"
+  | "semantic_model"
+  | "knowledge_resource";
 export type DataStudioCapabilityKind =
   | "semantic_skill"
   | "dashboard_skill"

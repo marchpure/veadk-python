@@ -16,9 +16,11 @@ from frontend.server.knowledge_assets.crypto import (
 from frontend.server.knowledge_assets.models import (
     CreateSourceBody,
     CreateSpaceBody,
+    RecordBuildJobBody,
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     SaveCredentialBody,
+    UpdateBuildJobBody,
 )
 from frontend.server.knowledge_assets.service import KnowledgeAssetCredentialError
 
@@ -303,6 +305,49 @@ def test_target_storage_fields_are_persisted_and_returned(store_env) -> None:
         assert json.loads(stored["source_ids"]) == [source["id"]]
         assert json.loads(stored["snapshot_ids"]) == [snapshot["id"]]
         assert stored["artifact_uri"] == "tos://bucket/skill.zip"
+
+    asyncio.run(scenario())
+
+
+def test_build_jobs_are_persisted_and_redacted(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        source = await store.create_source(
+            CreateSourceBody(space_id=space["id"], source_type="web", name="Docs")
+        )
+        job = await store.record_build_job(
+            RecordBuildJobBody(
+                space_id=space["id"],
+                source_id=source["id"],
+                asset_type="knowledge_resource",
+                asset_id="docs",
+                job_type="retrieval_binding",
+                status="running",
+                input={"cookie": "redact-me-job-cookie"},
+            )
+        )
+        assert job["status"] == "running"
+        assert job["input"]["cookie"] == "[REDACTED]"
+
+        updated = await store.update_build_job(
+            job["id"],
+            UpdateBuildJobBody(
+                status="succeeded",
+                result_skill_id="pkg_docs",
+                output={"Authorization": "Bearer redact-me-job-token"},
+            ),
+        )
+        assert updated["status"] == "succeeded"
+        assert updated["result_skill_id"] == "pkg_docs"
+        assert updated["output"]["Authorization"] == "[REDACTED]"
+
+        listed = await store.list_build_jobs(space_id=space["id"])
+        assert [item["id"] for item in listed] == [job["id"]]
+        loaded = await store.get_build_job(job["id"])
+        assert loaded["id"] == job["id"]
+        assert "redact-me-job" not in json.dumps(loaded)
 
     asyncio.run(scenario())
 

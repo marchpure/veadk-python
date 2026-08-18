@@ -3,6 +3,7 @@ import {
   BarChart3,
   Check,
   Database,
+  FileSearch,
   Info,
   Loader2,
   Plus,
@@ -65,10 +66,10 @@ export function dataStudioEmptyStateText({
 }): string {
   if (error) {
     if (error.status === 409) {
-      return "未配置连接：请在服务端配置 Data Studio 连接，或临时开启 mock。";
+      return "知识能力 registry 暂不可用，请稍后重试。";
     }
     if (error.status === 401) return "未登录：请先登录 Studio。";
-    return error.message || "Byaan Data Studio 不可达。";
+    return error.message || "知识能力暂不可达。";
   }
   return query.trim()
     ? "搜索无结果，换个能力、指标或来源关键词试试。"
@@ -129,7 +130,7 @@ export function DataStudioAssetPicker({
         const status = err instanceof DataStudioError ? err.status : 0;
         setError({
           status,
-          message: err instanceof Error ? err.message : "加载 Data Studio 资产失败",
+          message: err instanceof Error ? err.message : "加载知识能力失败",
         });
         setHits([]);
         setTotal(0);
@@ -188,7 +189,11 @@ export function DataStudioAssetPicker({
                 `${hit.dataStudioAssetType}:${hit.dataStudioAssetId}`,
               );
               const Icon =
-                hit.dataStudioAssetType === "dashboard" ? BarChart3 : Database;
+                hit.dataStudioAssetType === "dashboard"
+                  ? BarChart3
+                  : hit.dataStudioAssetType === "knowledge_resource"
+                    ? FileSearch
+                    : Database;
               return (
                 <button
                   key={hit.id}

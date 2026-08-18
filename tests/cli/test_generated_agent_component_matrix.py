@@ -37,6 +37,7 @@ from veadk.cli.generated_agent_codegen import (
     GeneratedProject,
     McpTool,
     MemoryConfig,
+    SelectedSkill,
     debug_runtime_env_from_draft,
     generate_project_from_draft,
 )
@@ -450,6 +451,37 @@ def test_viking_knowledgebase_uses_selected_index() -> None:
     agent_py = _files(project)["agents/kb_viking/agent.py"]
 
     assert 'KnowledgeBase(backend="viking", index="existing_kb"' in agent_py
+    _assert_python_files_compile(project)
+
+
+def test_knowledge_asset_retrieval_binding_generates_viking_knowledgebase() -> None:
+    project = generate_project_from_draft(
+        AgentDraft(
+            name="asset-retrieval",
+            selectedSkills=[
+                SelectedSkill(
+                    source="datastudio",
+                    folder="knowledge-resource-policy-docs",
+                    name="Policy Docs Retrieval",
+                    dataStudioAssetType="knowledge_resource",
+                    dataStudioAssetId="policy-docs",
+                    dataStudioCapabilityKind="retrieval_binding",
+                    dataStudioCapabilityPackage={
+                        "retrieval": {
+                            "backend": "viking",
+                            "knowledge_base_id": "kb-policy-docs",
+                        }
+                    },
+                )
+            ],
+        )
+    )
+    files = _files(project)
+    agent_py = files["agents/asset_retrieval/agent.py"]
+
+    assert 'KnowledgeBase(backend="viking", index="kb-policy-docs"' in agent_py
+    assert "_datastudio_query_url" not in agent_py
+    assert "DATASTUDIO_BASE_URL" not in files[".env.example"]
     _assert_python_files_compile(project)
 
 

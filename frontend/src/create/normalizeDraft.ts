@@ -223,15 +223,22 @@ function parseSelectedSkills(o: Record<string, unknown>): SelectedSkill[] {
     if (source === "datastudio") {
       const assetType = asString(so.dataStudioAssetType);
       const assetId = asString(so.dataStudioAssetId).trim();
-      if (!assetId || (assetType !== "dashboard" && assetType !== "semantic_model")) {
+      if (
+        !assetId ||
+        !["dashboard", "semantic_model", "knowledge_resource"].includes(assetType)
+      ) {
         continue;
       }
+      const dataStudioAssetType = assetType as
+        | "dashboard"
+        | "semantic_model"
+        | "knowledge_resource";
       out.push({
         source,
         folder,
         name,
         description,
-        dataStudioAssetType: assetType,
+        dataStudioAssetType,
         dataStudioAssetId: assetId,
         dataStudioCapabilityKind:
           so.dataStudioCapabilityKind === "semantic_skill" ||

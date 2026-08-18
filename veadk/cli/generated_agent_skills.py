@@ -230,7 +230,7 @@ def _materialize_local_skill(skill: SelectedSkill) -> list[GeneratedFile]:
 def _materialize_datastudio_skill(skill: SelectedSkill) -> list[GeneratedFile]:
     asset_type = skill.dataStudioAssetType.strip()
     asset_id = skill.dataStudioAssetId.strip()
-    if asset_type not in {"dashboard", "semantic_model"}:
+    if asset_type not in {"dashboard", "semantic_model", "knowledge_resource"}:
         raise DebugPolicyError("Data Studio asset is missing type")
     if not asset_id:
         raise DebugPolicyError("Data Studio asset is missing id")
@@ -314,7 +314,7 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
         "name": folder,
         "description": (
             skill.description
-            or f"Byaan Data Studio {asset_type.replace('_', ' ')} asset {skill.name or asset_id}."
+            or f"AgentKit knowledge asset {asset_type.replace('_', ' ')} {skill.name or asset_id}."
         ),
         "metadata": metadata,
     }
@@ -327,7 +327,7 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
         "",
         f"# {title}",
         "",
-        "Use this skill when answering questions that rely on this governed Byaan Data Studio asset.",
+        "Use this skill when answering questions that rely on this governed AgentKit knowledge asset.",
         "",
         "## Asset",
         "",
@@ -355,9 +355,9 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             "",
             "## Permission Boundary",
             "",
-            f"- {skill.dataStudioPermissionHint or 'Follow the asset usage policy returned by Byaan.'}",
+            f"- {skill.dataStudioPermissionHint or 'Follow the asset usage policy returned by the governed asset endpoint.'}",
             "- Do not expose masked fields or raw row-level identifiers unless the asset policy explicitly allows it.",
-            "- Treat the REST response policyDecision and evidence fields as authoritative.",
+            "- Treat policyDecision and evidence fields returned by governed services as authoritative.",
             "- If the user asks for customer names, phone numbers, addresses, documents, or member-card identifiers, return the Byaan policy denial and do not issue a raw-data workaround.",
             "",
             "## Example Questions",

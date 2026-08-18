@@ -176,10 +176,17 @@ def _validate_node(
     for skill in draft.selectedSkills:
         if skill.source != "datastudio":
             continue
-        if skill.dataStudioAssetType not in {"dashboard", "semantic_model"}:
+        if skill.dataStudioAssetType not in {
+            "dashboard",
+            "semantic_model",
+            "knowledge_resource",
+        }:
             raise DebugPolicyError("Data Studio asset is missing type")
         if not skill.dataStudioAssetId.strip():
             raise DebugPolicyError("Data Studio asset is missing id")
+        if skill.dataStudioAssetType == "knowledge_resource":
+            _validate_knowledge_asset_query_url(skill.dataStudioQueryUrl)
+            continue
         _validate_datastudio_query_url(skill.dataStudioQueryUrl)
 
     if len(draft.customTools) > MAX_CUSTOM_TOOLS:
@@ -228,6 +235,17 @@ def _validate_datastudio_query_url(value: str) -> None:
         raise DebugPolicyError("Data Studio query URL must be relative or http(s)")
     if not parsed.path.startswith("/api/external/assets/"):
         raise DebugPolicyError("Data Studio query URL must target /api/external/assets")
+
+
+def _validate_knowledge_asset_query_url(value: str) -> None:
+    query_url = value.strip()
+    if not query_url:
+        return
+    parsed = urlparse(query_url)
+    if not query_url.startswith("/") or parsed.scheme or parsed.netloc:
+        raise DebugPolicyError("Knowledge asset query URL must be a relative Studio path")
+    if not parsed.path.startswith("/api/knowledge-assets/"):
+        raise DebugPolicyError("Knowledge asset query URL must target /api/knowledge-assets")
 
 
 def validate_url_not_private(

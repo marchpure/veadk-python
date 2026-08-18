@@ -25,10 +25,12 @@ from .crypto import CredentialCipher, CredentialCryptoError
 from .models import (
     CreateSourceBody,
     CreateSpaceBody,
+    RecordBuildJobBody,
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    UpdateBuildJobBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
 )
@@ -352,6 +354,70 @@ class KnowledgeAssetStore:
             raise KnowledgeAssetNotFound("Knowledge asset is not published.")
         return _metadata_envelope(row)
 
+    async def record_build_job(self, body: RecordBuildJobBody) -> dict[str, Any]:
+        row = {
+            "id": _new_id("job"),
+            "space_id": body.space_id,
+            "source_id": body.source_id,
+            "asset_type": body.asset_type,
+            "asset_id": _sanitize_text(body.asset_id or "") or None,
+            "job_type": _sanitize_text(body.job_type),
+            "status": _sanitize_text(body.status),
+            "logs_ref": _sanitize_text(body.logs_ref or "") or None,
+            "result_skill_id": _sanitize_text(body.result_skill_id or "") or None,
+            "error_json": dumps_json(redact_sensitive(body.error))
+            if body.error
+            else None,
+            "input_json": dumps_json(redact_sensitive(body.input)),
+            "output_json": dumps_json(redact_sensitive(body.output)),
+        }
+        return _build_job_payload(
+            await asyncio.to_thread(self._repository.record_build_job, row)
+        )
+
+    async def update_build_job(
+        self, job_id: str, body: UpdateBuildJobBody
+    ) -> dict[str, Any]:
+        patch: dict[str, Any] = {
+            "status": _sanitize_text(body.status),
+            "logs_ref": _sanitize_text(body.logs_ref or "") or None,
+            "result_skill_id": _sanitize_text(body.result_skill_id or "") or None,
+            "error_json": dumps_json(redact_sensitive(body.error))
+            if body.error
+            else None,
+        }
+        if body.output is not None:
+            patch["output_json"] = dumps_json(redact_sensitive(body.output))
+        return _build_job_payload(
+            await asyncio.to_thread(
+                self._repository.update_build_job,
+                job_id,
+                patch,
+            )
+        )
+
+    async def list_build_jobs(
+        self,
+        *,
+        space_id: str | None = None,
+        source_id: str | None = None,
+        asset_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_build_jobs,
+            space_id=space_id,
+            source_id=source_id,
+            asset_id=asset_id,
+            limit=limit,
+        )
+        return [_build_job_payload(row) for row in rows]
+
+    async def get_build_job(self, job_id: str) -> dict[str, Any]:
+        return _build_job_payload(
+            await asyncio.to_thread(self._repository.get_build_job, job_id)
+        )
+
 
 def redact_sensitive(value: Any, *, key: object = "", depth: int = 0) -> Any:
     if _is_sensitive_key(key):
@@ -441,6 +507,25 @@ def _indexed_document_payload(row: dict[str, Any]) -> dict[str, Any]:
         "status": row["status"],
         "last_synced_at": row.get("last_synced_at"),
         "metadata": loads_json(row.get("metadata_json"), {}),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _build_job_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "space_id": row.get("space_id"),
+        "source_id": row.get("source_id"),
+        "asset_type": row.get("asset_type"),
+        "asset_id": row.get("asset_id"),
+        "job_type": row["job_type"],
+        "status": row["status"],
+        "logs_ref": row.get("logs_ref"),
+        "result_skill_id": row.get("result_skill_id"),
+        "error": loads_json(row.get("error_json"), None),
+        "input": loads_json(row.get("input_json"), {}),
+        "output": loads_json(row.get("output_json"), {}),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
     }

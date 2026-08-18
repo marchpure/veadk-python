@@ -58,6 +58,9 @@ const {
   dataStudioEmptyStateText,
   toggleDataStudioSelection,
 } = await loadTypeScriptModule("../src/create/DataStudioAssetPicker.tsx");
+const { updateKnowledgeAssetBuildJob } = await loadTypeScriptModule(
+  "../src/adk/knowledgeAssets.ts",
+);
 const { draftToYaml, yamlToDraft } = await loadTypeScriptModule(
   "../src/create/configYaml.ts",
 );
@@ -198,7 +201,7 @@ test("Data Studio asset adapter preserves structured BYAAN evidence", () => {
 test("Data Studio picker empty states and multi-select behavior are deterministic", () => {
   assert.equal(
     dataStudioEmptyStateText({ error: { status: 409, message: "" }, query: "" }),
-    "未配置连接：请在服务端配置 Data Studio 连接，或临时开启 mock。",
+    "知识能力 registry 暂不可用，请稍后重试。",
   );
   assert.equal(
     dataStudioEmptyStateText({ error: { status: 401, message: "" }, query: "" }),
@@ -226,18 +229,58 @@ test("Agent creation presents knowledge choices as runnable capabilities", () =>
   assert.match(customCreateSource, /绑定一个明确的 VikingDB 知识库作为检索能力/);
   assert.match(customCreateSource, /知识能力/);
   assert.match(customCreateCss, /cw-datastudio-capability-strip/);
-  assert.match(customCreateCss, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(customCreateCss, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
 });
 
-test("Data Studio knowledge center stays visible and does not ask for user env setup", () => {
+test("Knowledge asset center is native and keeps BYAAN as an optional sidecar", () => {
   assert.doesNotMatch(sidebarSource, /show\("datastudio"\)/);
   assert.match(sidebarSource, /aria-label="知识资产"/);
   assert.doesNotMatch(appSource, /features\.datastudio/);
-  assert.match(knowledgeCenterSource, /!state\.config\.configured/);
-  assert.match(knowledgeCenterSource, /未发现本机 Data Studio/);
-  assert.match(knowledgeCenterSource, /自动连接当前机器上运行的 BYAAN Data Studio/);
+  assert.match(knowledgeCenterSource, /createKnowledgeAssetSpace/);
+  assert.match(knowledgeCenterSource, /createKnowledgeAssetSource/);
+  assert.match(knowledgeCenterSource, /createKnowledgeAssetCapability/);
+  assert.match(knowledgeCenterSource, /BYAAN sidecar/);
+  assert.match(knowledgeCenterSource, /原生工作台仍可管理空间、来源和检索能力/);
+  assert.doesNotMatch(knowledgeCenterSource, /<iframe/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_BASE_URL/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_API_KEY/);
+});
+
+test("Knowledge asset build job completion updates the running job in place", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method ?? "GET", body: init.body });
+    return new Response(
+      JSON.stringify({
+        id: "job_1",
+        job_type: "retrieval_binding",
+        status: "succeeded",
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+  };
+  try {
+    await updateKnowledgeAssetBuildJob("job_1", {
+      status: "succeeded",
+      result_skill_id: "kb_docs",
+      output: { publish_state: "published" },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "PATCH");
+  assert.equal(calls[0].url, "/api/knowledge-assets/build-jobs/job_1");
+  assert.deepEqual(JSON.parse(calls[0].body), {
+    status: "succeeded",
+    result_skill_id: "kb_docs",
+    output: { publish_state: "published" },
+  });
 });
 
 test("Data Studio selected skill round-trips through YAML", () => {

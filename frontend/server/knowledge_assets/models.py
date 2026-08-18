@@ -120,13 +120,37 @@ class RecordSkillPackageBody(RecordSnapshotBody):
     snapshot_ids: list[str] = Field(default_factory=list)
 
 
+class RecordBuildJobBody(ApiModel):
+    space_id: str | None = Field(default=None, max_length=128)
+    source_id: str | None = Field(default=None, max_length=128)
+    asset_type: KnowledgeAssetType | None = None
+    asset_id: str | None = Field(default=None, max_length=256)
+    job_type: str = Field(default="build_capability", min_length=1, max_length=80)
+    status: str = Field(default="running", min_length=1, max_length=80)
+    logs_ref: str | None = Field(default=None, max_length=4096)
+    result_skill_id: str | None = Field(default=None, max_length=256)
+    error: dict[str, Any] | None = None
+    input: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] = Field(default_factory=dict)
+
+
+class UpdateBuildJobBody(ApiModel):
+    status: str = Field(min_length=1, max_length=80)
+    logs_ref: str | None = Field(default=None, max_length=4096)
+    result_skill_id: str | None = Field(default=None, max_length=256)
+    error: dict[str, Any] | None = None
+    output: dict[str, Any] | None = None
+
+
 __all__ = [
     "CreateSourceBody",
     "CreateSpaceBody",
     "RecordIndexedDocumentBody",
+    "RecordBuildJobBody",
     "RecordSkillPackageBody",
     "RecordSnapshotBody",
     "SaveCredentialBody",
+    "UpdateBuildJobBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",
 ]
