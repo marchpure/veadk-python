@@ -158,6 +158,16 @@ class BuildSemanticSkillBody(ApiModel):
         return [item.strip() for item in value if item.strip()]
 
 
+class QueryExternalAssetBody(ApiModel):
+    metric: str = Field(default="", max_length=256)
+    dimension: str | None = Field(default=None, max_length=256)
+    grain: str | None = Field(default=None, max_length=128)
+    filters: dict[str, Any] = Field(default_factory=dict)
+    time_range: dict[str, Any] = Field(default_factory=dict)
+    limit: int = Field(default=100, ge=1, le=1000)
+    question: str = Field(default="", max_length=2000)
+
+
 __all__ = [
     "CreateSourceBody",
     "CreateSpaceBody",
@@ -167,6 +177,7 @@ __all__ = [
     "RecordSnapshotBody",
     "SaveCredentialBody",
     "BuildSemanticSkillBody",
+    "QueryExternalAssetBody",
     "UpdateBuildJobBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",

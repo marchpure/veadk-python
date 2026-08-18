@@ -22,6 +22,7 @@ from .models import (
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     RecordSnapshotBody,
+    QueryExternalAssetBody,
     SaveCredentialBody,
     UpdateBuildJobBody,
     UpdateSourceStatusBody,
@@ -43,6 +44,7 @@ from .builders.semantic.service import (
     SemanticSkillBuildRequest,
     SemanticSkillBuildService,
 )
+from .semantic_query import query_external_asset
 
 
 def mount_knowledge_asset_routes(
@@ -323,6 +325,21 @@ def mount_knowledge_asset_routes(
     async def get_asset(asset_type: KnowledgeAssetType, asset_id: str) -> dict[str, Any]:
         return await invoke(
             lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
+        )
+
+    @app.post("/api/external/assets/{asset_type}/{asset_id}/query")
+    async def query_asset(
+        asset_type: KnowledgeAssetType,
+        asset_id: str,
+        body: QueryExternalAssetBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: query_external_asset(
+                store,
+                asset_type=asset_type,
+                asset_id=asset_id,
+                body=body,
+            )
         )
 
 

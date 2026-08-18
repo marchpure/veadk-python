@@ -41,6 +41,7 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
     assert "/api/knowledge-assets/build/semantic-skill" in paths
     assert "/api/knowledge-assets/build-jobs" in paths
     assert "/api/knowledge-assets/assets/{asset_type}/{asset_id}" in paths
+    assert "/api/external/assets/{asset_type}/{asset_id}/query" in paths
 
 
 def test_routes_create_store_and_never_echo_credentials(client: TestClient) -> None:

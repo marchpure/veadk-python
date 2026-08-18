@@ -241,6 +241,13 @@ def test_semantic_skill_build_prefers_sanitized_semantic_reference(
             },
             "profile": {
                 "snapshot": {"id": "oracle-sanitized", "hash": "abc123"},
+                "golden_results": {
+                    "ticket_count_last_30_snapshot_days": 86,
+                    "top_3_stores_by_ticket_count": [
+                        {"store": "VNPTTE", "ticket_count": 56},
+                        {"store": "SG - ANTA VIVO City", "ticket_count": 9},
+                    ],
+                },
                 "semantic_reference": {
                     "metrics": [
                         {
@@ -286,3 +293,25 @@ def test_semantic_skill_build_prefers_sanitized_semantic_reference(
         item["field"] == "direct_customer_identifiers"
         for item in asset["usage_policy"]["denied_fields"]
     )
+
+    query = client.post(
+        "/api/external/assets/semantic_model/oracle_sales_semantic/query",
+        json={"metric": "ticket_count", "dimension": "store", "limit": 3},
+    )
+    assert query.status_code == 200
+    result = query.json()["data"]
+    assert result["rows"][0] == {"store": "VNPTTE", "ticket_count": 56}
+    assert result["execution_mode"] == "snapshot_evidence_plan"
+    assert "SELECT" in result["sql"]
+    assert result["metricDefinition"]["id"] == "ticket_count"
+    assert result["policyDecision"]["decision"] == "allow"
+    assert result["freshness"]["data_through"] == "2026-08-15"
+
+    pii_query = client.post(
+        "/api/external/assets/semantic_model/oracle_sales_semantic/query",
+        json={"metric": "ticket_count", "question": "show customer phone contacts"},
+    )
+    assert pii_query.status_code == 200
+    pii_result = pii_query.json()["data"]
+    assert pii_result["policyDecision"]["decision"] == "deny"
+    assert pii_result["rows"] == []

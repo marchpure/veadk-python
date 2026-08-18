@@ -104,6 +104,7 @@ class SemanticSkillBuildService:
             datasource_kind=_datasource_kind(sources),
         )
         _apply_semantic_reference(mdl, profile)
+        _apply_snapshot_results(mdl, profile)
         configured = model_configured()
         deterministic_allowed = _deterministic_live_allowed()
         generation_mode = (
@@ -440,6 +441,23 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
         ):
             if provenance.get(source_key):
                 freshness[target_key] = provenance[source_key]
+
+
+def _apply_snapshot_results(mdl: dict[str, Any], profile: dict[str, Any]) -> None:
+    results: dict[str, Any] = {}
+    for key in ("snapshot_results", "golden_results"):
+        value = profile.get(key)
+        if isinstance(value, dict):
+            results.setdefault("golden_results", {}).update(value)
+    validation = profile.get("validation_report")
+    if isinstance(validation, dict):
+        golden_queries = validation.get("golden_queries")
+        if isinstance(golden_queries, dict):
+            results.setdefault("golden_results", {}).update(golden_queries)
+        if validation.get("relative_time_anchor"):
+            results["relative_time_anchor"] = validation["relative_time_anchor"]
+    if results:
+        mdl["snapshot_results"] = results
 
 
 def _split_reference_field(value: str, fallback_entity: str) -> tuple[str, str]:
