@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -17,6 +16,7 @@ from .gateways import (
     DataStudioGateway,
     datastudio_api_key,
     datastudio_base_url,
+    datastudio_embed_url,
     mock_enabled,
     require_configured,
 )
@@ -26,7 +26,7 @@ from .models import DataStudioAsset, DataStudioAssetType, DataStudioConfig
 def config_payload() -> DataStudioConfig:
     base_url = datastudio_base_url()
     mock = mock_enabled()
-    embed_url = os.getenv("DATASTUDIO_EMBED_URL", "").strip().rstrip("/") or base_url
+    embed_url = datastudio_embed_url()
     configured = bool(embed_url and (mock or (base_url and datastudio_api_key())))
     return DataStudioConfig(
         configured=configured,

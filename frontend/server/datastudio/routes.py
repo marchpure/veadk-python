@@ -14,7 +14,6 @@ from .service import (
     configured_origin,
     proxy_external_asset,
     proxy_external_assets,
-    require_configured,
 )
 
 
@@ -22,8 +21,6 @@ def mount_datastudio_routes(app: FastAPI) -> None:
     @app.get("/web/datastudio/config")
     async def _web_datastudio_config():
         config = config_payload()
-        if not config.configured:
-            require_configured()
         payload = config.model_dump(mode="json")
         payload["origin"] = configured_origin(config)
         return payload

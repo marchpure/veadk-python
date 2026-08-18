@@ -1,36 +1,11 @@
 .kc-page {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   background: hsl(var(--background));
-}
-
-.kc-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 24px;
-  border-bottom: 1px solid hsl(var(--border));
-}
-
-.kc-header h1 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.kc-header p {
-  margin: 4px 0 0;
-  color: hsl(var(--muted-foreground));
-}
-
-.kc-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: hsl(var(--primary));
-  text-decoration: none;
+  overflow: hidden;
 }
 
 .kc-icon {
@@ -48,14 +23,92 @@
   justify-content: center;
   gap: 8px;
   flex: 1;
+  min-height: 0;
   color: hsl(var(--muted-foreground));
+}
+
+.kc-state--empty {
+  align-items: flex-start;
+  padding: 96px 24px 24px;
+}
+
+.kc-empty-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+  line-height: 1.6;
+}
+
+.kc-empty-copy strong {
+  color: hsl(var(--foreground));
+  font-size: 16px;
+}
+
+.kc-empty-copy code {
+  align-self: flex-start;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.45);
+}
+
+.kc-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.kc-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: 6px;
+  padding: 0 10px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background) / 0.86);
+  box-shadow: 0 8px 24px hsl(var(--background) / 0.42);
+  text-decoration: none;
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.kc-open:hover {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--primary) / 0.48);
 }
 
 .kc-frame {
   flex: 1;
   width: 100%;
+  height: 100%;
   min-height: 0;
   border: 0;
+  background: hsl(var(--background));
+}
+
+@media (max-width: 640px) {
+  .kc-toolbar {
+    top: 8px;
+    right: 8px;
+  }
+
+  .kc-open {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .kc-open {
+    font-size: 0;
+  }
 }
 
 @keyframes kc-spin {

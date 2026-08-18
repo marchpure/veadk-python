@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
@@ -10,6 +11,15 @@ import test from "node:test";
 import { build } from "esbuild";
 
 const require = createRequire(import.meta.url);
+const sidebarSource = readFileSync(
+  new URL("../src/ui/Sidebar.tsx", import.meta.url),
+  "utf8",
+);
+const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const knowledgeCenterSource = readFileSync(
+  new URL("../src/knowledge-center/KnowledgeCenter.tsx", import.meta.url),
+  "utf8",
+);
 
 async function loadTypeScriptModule(relativePath) {
   const result = await build({
@@ -139,6 +149,17 @@ test("Data Studio picker empty states and multi-select behavior are deterministi
   assert.equal(selected.length, 2);
   assert.equal(selected[1].dataStudioQueryUrl, "/api/external/assets/semantic_model/retention/query");
   assert.deepEqual(toggleDataStudioSelection(selected, hit), [local]);
+});
+
+test("Data Studio knowledge center stays visible and does not ask for user env setup", () => {
+  assert.doesNotMatch(sidebarSource, /show\("datastudio"\)/);
+  assert.match(sidebarSource, /aria-label="知识资产"/);
+  assert.doesNotMatch(appSource, /features\.datastudio/);
+  assert.match(knowledgeCenterSource, /!state\.config\.configured/);
+  assert.match(knowledgeCenterSource, /未发现本机 Data Studio/);
+  assert.match(knowledgeCenterSource, /自动连接当前机器上运行的 BYAAN Data Studio/);
+  assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_BASE_URL/);
+  assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_API_KEY/);
 });
 
 test("Data Studio selected skill round-trips through YAML", () => {

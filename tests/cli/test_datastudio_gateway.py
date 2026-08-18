@@ -4,6 +4,7 @@ import json
 
 import pytest
 from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from starlette.datastructures import QueryParams
 
 from frontend.server.datastudio import gateways as datastudio_gateways
@@ -57,8 +58,15 @@ def clear_datastudio_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "DATASTUDIO_BASE_URL",
         "DATASTUDIO_EMBED_URL",
         "DATASTUDIO_MOCK",
+        "BYAAN_BASE_URL",
+        "BYAAN_BACKEND_URL",
+        "BYAAN_MCP_API_KEY",
+        "BYAAN_FRONTEND_URL",
+        "FRONTEND_URL",
+        "PUBLIC_BASE_URL",
     ]:
         monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("DATASTUDIO_AUTO_DISCOVER", "0")
 
 
 def test_datastudio_routes_mount_on_fastapi_app() -> None:
@@ -69,6 +77,79 @@ def test_datastudio_routes_mount_on_fastapi_app() -> None:
     assert "/web/datastudio/config" in paths
     assert "/web/datastudio/assets" in paths
     assert "/web/datastudio/assets/{asset_type}/{asset_id}" in paths
+
+
+def test_datastudio_config_reports_unconfigured_without_failing() -> None:
+    config = datastudio_service.config_payload()
+
+    assert config.configured is False
+    assert config.baseUrl == ""
+    assert config.embedUrl == ""
+
+    app = FastAPI()
+    mount_datastudio_routes(app)
+    with TestClient(app) as client:
+        response = client.get("/web/datastudio/config")
+
+    assert response.status_code == 200
+    assert response.json()["configured"] is False
+
+
+def test_datastudio_config_can_use_byaan_runtime_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BYAAN_BASE_URL", "http://127.0.0.1:18100")
+    monkeypatch.setenv("BYAAN_MCP_API_KEY", "byaan-local-secret")
+    monkeypatch.setenv("BYAAN_FRONTEND_URL", "http://127.0.0.1:15183")
+
+    config = datastudio_service.config_payload()
+
+    assert config.configured is True
+    assert config.baseUrl == "http://127.0.0.1:18100"
+    assert config.embedUrl == "http://127.0.0.1:15183"
+
+
+def test_datastudio_config_auto_discovers_local_byaan_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATASTUDIO_AUTO_DISCOVER", "1")
+    monkeypatch.setattr(
+        datastudio_gateways,
+        "_process_command_lines",
+        lambda: [
+            "python -m server.main BYAAN_BASE_URL=http://127.0.0.1:18100 "
+            "BYAAN_MCP_API_KEY=byaan-local-secret "
+            "BYAAN_FRONTEND_URL=http://127.0.0.1:15183",
+        ],
+    )
+
+    config = datastudio_service.config_payload()
+
+    assert config.configured is True
+    assert config.baseUrl == "http://127.0.0.1:18100"
+    assert config.embedUrl == "http://127.0.0.1:15183"
+
+
+def test_datastudio_config_auto_discovery_survives_incomplete_explicit_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATASTUDIO_AUTO_DISCOVER", "1")
+    monkeypatch.setenv("DATASTUDIO_BASE_URL", "https://stale.example")
+    monkeypatch.setattr(
+        datastudio_gateways,
+        "_process_command_lines",
+        lambda: [
+            "uvicorn server.main:app BYAAN_BASE_URL=http://127.0.0.1:18100 "
+            "BYAAN_MCP_API_KEY=byaan-local-secret "
+            "BYAAN_FRONTEND_URL=http://127.0.0.1:15183",
+        ],
+    )
+
+    config = datastudio_service.config_payload()
+
+    assert config.configured is True
+    assert config.baseUrl == "http://127.0.0.1:18100"
+    assert config.embedUrl == "http://127.0.0.1:15183"
 
 
 @pytest.mark.asyncio

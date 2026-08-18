@@ -219,6 +219,35 @@ def test_auth_config_uses_cloud_specific_identity_label(
     ]
 
 
+def test_no_sso_uses_local_login_mode_and_does_not_fallback_oauth_routes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    app = _create_studio_app(monkeypatch, tmp_path)
+
+    with TestClient(app) as client:
+        auth_config = client.get("/web/auth-config")
+        userinfo = client.get("/oauth2/userinfo")
+        login = client.get(
+            "/oauth2/login?redirect=%2Fcreate%3Fstep%3Ddebug",
+            follow_redirects=False,
+        )
+        callback = client.get("/oauth2/callback?code=stale", follow_redirects=False)
+        logout = client.get("/oauth2/logout", follow_redirects=False)
+
+    assert auth_config.status_code == 200
+    assert auth_config.json() == {"providers": []}
+    assert userinfo.status_code == 404
+    assert userinfo.headers["content-type"].startswith("application/json")
+    assert userinfo.json() == {"status": "not_configured"}
+    assert login.status_code == 303
+    assert login.headers["location"] == "/create?step=debug"
+    assert callback.status_code == 303
+    assert callback.headers["location"] == "/"
+    assert logout.status_code == 303
+    assert logout.headers["location"] == "/"
+
+
 def test_project_handoff_pairing_authorizes_only_terminal_session_routes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

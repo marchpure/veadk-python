@@ -58,7 +58,7 @@ export function KnowledgeCenterView() {
   }, []);
 
   const iframeUrl = useMemo(() => {
-    if (state.status !== "ready") return "";
+    if (state.status !== "ready" || !state.config.configured) return "";
     const url = new URL(state.config.embedUrl);
     url.pathname = "/embedded/knowledge-center";
     url.searchParams.set("embedded", "veadk-studio");
@@ -66,7 +66,7 @@ export function KnowledgeCenterView() {
   }, [state]);
 
   useEffect(() => {
-    if (state.status !== "ready") return;
+    if (state.status !== "ready" || !state.config.configured) return;
 
     const allowedOrigin = state.config.origin;
     const handleMessage = (event: MessageEvent<DataStudioFrameMessage>) => {
@@ -81,24 +81,6 @@ export function KnowledgeCenterView() {
 
   return (
     <main className="kc-page">
-      <header className="kc-header">
-        <div>
-          <h1>知识资产</h1>
-          <p>来自 Byaan Data Studio 的已发布 Dashboard 与语义模型。</p>
-        </div>
-        {state.status === "ready" && (
-          <a
-            className="kc-open"
-            href={state.config.embedUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <ExternalLink className="kc-icon" />
-            打开 Data Studio
-          </a>
-        )}
-      </header>
-
       {state.status === "loading" ? (
         <div className="kc-state" role="status">
           <Loader2 className="kc-icon kc-spin" />
@@ -109,14 +91,36 @@ export function KnowledgeCenterView() {
           <Database className="kc-icon" />
           <span>{state.message}</span>
         </div>
+      ) : !state.config.configured ? (
+        <div className="kc-state kc-state--empty" role="status">
+          <Database className="kc-icon" />
+          <div className="kc-empty-copy">
+            <strong>未发现本机 Data Studio</strong>
+            <span>知识资产中心会自动连接当前机器上运行的 BYAAN Data Studio。</span>
+            <span>请确认 BYAAN backend 和 frontend 已启动，然后刷新本页。</span>
+          </div>
+        </div>
       ) : (
-        <iframe
-          className="kc-frame"
-          title="Byaan Data Studio Knowledge Center"
-          src={iframeUrl}
-          sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
-          referrerPolicy="no-referrer"
-        />
+        <>
+          <div className="kc-toolbar">
+            <a
+              className="kc-open"
+              href={state.config.embedUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink className="kc-icon" />
+              打开 Data Studio
+            </a>
+          </div>
+          <iframe
+            className="kc-frame"
+            title="Byaan Data Studio Knowledge Center"
+            src={iframeUrl}
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+            referrerPolicy="no-referrer"
+          />
+        </>
       )}
     </main>
   );

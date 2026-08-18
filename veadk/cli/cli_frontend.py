@@ -6066,13 +6066,36 @@ def _run_frontend_server(
                 f"OAuth2 SSO enabled (provider={provider_id}, redirect_uri={redirect_uri})"
             )
         else:
-            from fastapi.responses import JSONResponse
+            from fastapi.responses import JSONResponse, RedirectResponse
 
             @app.get("/oauth2/userinfo")
             async def _userinfo_no_sso():
-                # No SSO configured: report unauthenticated (401) so the SPA's auth
-                # check resolves cleanly instead of parsing the HTML shell as JSON.
-                return JSONResponse({"status": "unauthenticated"}, status_code=401)
+                # No SSO configured: report a JSON 404 so the SPA enters its
+                # local-username mode instead of treating this as an expired
+                # OAuth session.
+                return JSONResponse({"status": "not_configured"}, status_code=404)
+
+            def _local_login_redirect(request: Request) -> str:
+                redirect = str(request.query_params.get("redirect") or "/")
+                if not redirect.startswith("/") or redirect.startswith("//"):
+                    return "/"
+                return redirect
+
+            @app.get("/oauth2/login")
+            async def _login_no_sso(request: Request):
+                # Without SSO this path is invalid, but it can be reached from
+                # stale browser state or an old popup. Send users back to the
+                # app so they see the local username login instead of the SPA
+                # fallback masquerading as an OAuth page.
+                return RedirectResponse(_local_login_redirect(request), status_code=303)
+
+            @app.get("/oauth2/callback")
+            async def _callback_no_sso():
+                return RedirectResponse("/", status_code=303)
+
+            @app.get("/oauth2/logout")
+            async def _logout_no_sso():
+                return RedirectResponse("/", status_code=303)
 
         @app.get("/web/auth-config")
         async def _web_auth_config():
