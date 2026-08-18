@@ -9,8 +9,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import re
+import shutil
+import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import Field, field_validator
@@ -308,13 +312,29 @@ class SemanticBuildService:
         asset = await self._store.get_asset(asset_type=asset_type, asset_id=asset_id)  # type: ignore[arg-type]
         package = asset.get("capability_package") or {}
         if asset_type == "semantic_model":
-            return _query_semantic(asset, package, body)
+            sources = await self._sources_for_asset(asset)
+            return await asyncio.to_thread(_query_semantic, asset, package, body, sources)
         if asset_type == "dashboard":
-            return _query_dashboard(asset, package, body)
+            sources = await self._sources_for_asset(asset)
+            return await asyncio.to_thread(_query_dashboard, asset, package, body, sources)
         raise KnowledgeAssetServiceError("Only semantic_model and dashboard assets are queryable.")
 
     async def _primary_source(self, source_ids: list[str]) -> dict[str, Any]:
         return await self._store.get_source(source_ids[0])
+
+    async def _sources_for_asset(self, asset: dict[str, Any]) -> list[dict[str, Any]]:
+        source_ids = _safe_list(
+            asset.get("provenance", {}).get("source_ids")
+            or asset.get("capability_package", {}).get("source_ids")
+            or asset.get("capabilities", {}).get("source_ids")
+        )
+        sources: list[dict[str, Any]] = []
+        for source_id in source_ids:
+            try:
+                sources.append(await self._store.get_source_internal(source_id))
+            except Exception:
+                continue
+        return sources
 
 
 def _merge_source_context(
@@ -525,6 +545,7 @@ def _query_semantic(
     asset: dict[str, Any],
     package: dict[str, Any],
     body: SemanticQueryBody,
+    sources: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     mdl = package.get("mdl") if isinstance(package, dict) else {}
     metrics = [item for item in mdl.get("metrics", []) if isinstance(item, dict)]
@@ -535,7 +556,34 @@ def _query_semantic(
     if _asks_for_pii(body.question, body.filters):
         return _policy_denial(asset, package, body)
     sql = _compile_sql(mdl, metric, selected_dimensions, body)
-    rows = _synthetic_rows(metric, selected_dimensions, body)
+    execution_mode = "schema_only"
+    execution_error_code = ""
+    rows: list[dict[str, Any]]
+    snapshot_context = _resolve_snapshot_query_context(sources or [], asset, package)
+    if snapshot_context:
+        metric = _select_snapshot_metric(snapshot_context, metric, body.metric, body.question)
+        selected_dimensions = _select_snapshot_dimensions(
+            snapshot_context,
+            selected_dimensions,
+            requested_dimensions,
+            body.question,
+        )
+        sql = _compile_sql(
+            mdl,
+            metric,
+            selected_dimensions,
+            body,
+            snapshot_context=snapshot_context,
+        )
+        executed = _execute_duckdb_snapshot_query(snapshot_context, sql)
+        if executed["ok"]:
+            rows = executed["rows"]
+            execution_mode = "local_sanitized_snapshot"
+        else:
+            rows = _synthetic_rows(metric, selected_dimensions, body)
+            execution_error_code = str(executed.get("code") or "snapshot_query_failed")
+    else:
+        rows = _synthetic_rows(metric, selected_dimensions, body)
     return {
         "schema": "agentkit.semantic_query_result.v1",
         "asset": {"type": "semantic_model", "id": asset["asset_id"], "version": asset.get("version")},
@@ -551,6 +599,12 @@ def _query_semantic(
             },
             "freshness": asset.get("freshness") or {},
             "lineage": metric.get("lineage") or asset.get("sample_evidence") or [],
+            "execution": {
+                "mode": execution_mode,
+                "governed_rest": True,
+                "direct_database_access": False,
+                **({"fallback_reason": execution_error_code} if execution_error_code else {}),
+            },
         },
         "mock": False,
     }
@@ -560,6 +614,7 @@ def _query_dashboard(
     asset: dict[str, Any],
     package: dict[str, Any],
     body: SemanticQueryBody,
+    sources: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     manifest = package.get("dashboard") if isinstance(package, dict) else {}
     if not isinstance(manifest, dict):
@@ -570,19 +625,14 @@ def _query_dashboard(
         if isinstance(view, dict)
         and (not body.data_view_ids or str(view.get("id")) in body.data_view_ids)
     ]
+    snapshot_context = _resolve_snapshot_query_context(sources or [], asset, package)
     return {
         "schema": "agentkit.dashboard_query_result.v1",
         "asset": {"type": "dashboard", "id": asset["asset_id"], "version": asset.get("version")},
         "data": {
             "manifest": manifest,
             "views": [
-                {
-                    "id": view.get("id"),
-                    "metric": view.get("metric"),
-                    "dimensions": view.get("dimensions", []),
-                    "rows": [{"label": "draft", "value": 1}],
-                    "sql": f"-- Governed semantic data view {view.get('id')}; raw SQL fallback disabled",
-                }
+                _dashboard_view_query_result(view, snapshot_context)
                 for view in views
             ],
             "policyDecision": {
@@ -593,6 +643,150 @@ def _query_dashboard(
         },
         "mock": False,
     }
+
+
+def _dashboard_view_query_result(
+    view: dict[str, Any],
+    snapshot_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not snapshot_context:
+        return {
+            "id": view.get("id"),
+            "metric": view.get("metric"),
+            "dimensions": view.get("dimensions", []),
+            "rows": [{"label": "draft", "value": 1}],
+            "sql": f"-- Governed semantic data view {view.get('id')}; raw SQL fallback disabled",
+            "execution": {"mode": "schema_only", "governed_rest": True},
+        }
+    metric = _metric_from_snapshot_context(snapshot_context, view.get("metric"))
+    dimensions = [
+        _dimension_from_snapshot_context(snapshot_context, value)
+        for value in view.get("dimensions", [])
+    ]
+    dimensions = [item for item in dimensions if item]
+    body = SemanticQueryBody(limit=int(view.get("limit") or 20))
+    sql = _compile_sql(
+        {"entities": snapshot_context.get("entities", [])},
+        metric,
+        dimensions,
+        body,
+        snapshot_context=snapshot_context,
+    )
+    executed = _execute_duckdb_snapshot_query(snapshot_context, sql)
+    return {
+        "id": view.get("id"),
+        "metric": view.get("metric"),
+        "dimensions": view.get("dimensions", []),
+        "rows": executed["rows"] if executed["ok"] else [{"label": "draft", "value": 1}],
+        "sql": sql,
+        "execution": {
+            "mode": "local_sanitized_snapshot" if executed["ok"] else "schema_only",
+            "governed_rest": True,
+            **({"fallback_reason": str(executed.get("code") or "snapshot_query_failed")} if not executed["ok"] else {}),
+        },
+    }
+
+
+def _metric_from_snapshot_context(
+    snapshot_context: dict[str, Any],
+    metric_id: object,
+) -> dict[str, Any]:
+    requested = _slug(metric_id or "")
+    for metric in snapshot_context.get("semantic_model", {}).get("metrics", []):
+        if isinstance(metric, dict) and requested in {
+            _slug(metric.get("id")),
+            _slug(metric.get("name")),
+        }:
+            return _snapshot_metric_payload(metric)
+    metrics = snapshot_context.get("semantic_model", {}).get("metrics", [])
+    if metrics and isinstance(metrics[0], dict):
+        return _snapshot_metric_payload(metrics[0])
+    return {
+        "id": "ticket_count",
+        "name": "Ticket Count",
+        "entity": "P_BL_SELL_HD",
+        "field": "BILLID",
+        "kind": "count_distinct",
+        "formula": "count(distinct hd.BILLID)",
+        "definition": "Count of distinct sales bill IDs.",
+    }
+
+
+def _select_snapshot_metric(
+    snapshot_context: dict[str, Any],
+    fallback: dict[str, Any],
+    requested: str | None,
+    question: str | None,
+) -> dict[str, Any]:
+    raw_metrics = snapshot_context.get("semantic_model", {}).get("metrics", [])
+    metrics = [
+        _snapshot_metric_payload(metric)
+        for metric in raw_metrics
+        if isinstance(metric, dict)
+    ]
+    if not metrics:
+        return fallback
+    requested_norm = _slug(requested or "")
+    question_norm = _slug(question or "")
+    for metric in metrics:
+        if requested_norm and requested_norm in {_slug(metric.get("id")), _slug(metric.get("name"))}:
+            return metric
+    for metric in metrics:
+        keys = {_slug(metric.get("id")), _slug(metric.get("name"))}
+        if any(key and key in question_norm for key in keys):
+            return metric
+    if re.search(r"票|ticket|bill|单", question or "", re.IGNORECASE):
+        for metric in metrics:
+            if re.search(r"ticket|bill|count", str(metric.get("id") or metric.get("name")), re.IGNORECASE):
+                return metric
+    return metrics[0]
+
+
+def _select_snapshot_dimensions(
+    snapshot_context: dict[str, Any],
+    fallback: list[dict[str, Any]],
+    requested: list[str | None],
+    question: str | None,
+) -> list[dict[str, Any]]:
+    raw_dimensions = snapshot_context.get("semantic_model", {}).get("dimensions", [])
+    dimensions = [
+        _snapshot_dimension_payload(dimension)
+        for dimension in raw_dimensions
+        if isinstance(dimension, dict)
+    ]
+    if not dimensions:
+        return fallback
+    requested_norm = {_slug(value or "") for value in requested if value}
+    question_norm = _slug(question or "")
+    selected: list[dict[str, Any]] = []
+    for dimension in dimensions:
+        keys = {_slug(dimension.get("id")), _slug(dimension.get("name")), _slug(dimension.get("field"))}
+        if requested_norm & keys or any(key and key in question_norm for key in keys):
+            selected.append(dimension)
+    if not selected and re.search(r"门店|store|shop", question or "", re.IGNORECASE):
+        selected = [
+            dimension
+            for dimension in dimensions
+            if re.search(r"store|shop", str(dimension.get("id") or dimension.get("field")), re.IGNORECASE)
+        ]
+    if not selected:
+        selected = [dimension for dimension in dimensions if dimension.get("kind") != "time"][:1]
+    return selected[:4]
+
+
+def _dimension_from_snapshot_context(
+    snapshot_context: dict[str, Any],
+    dimension_id: object,
+) -> dict[str, Any] | None:
+    requested = _slug(dimension_id or "")
+    for dimension in snapshot_context.get("semantic_model", {}).get("dimensions", []):
+        if isinstance(dimension, dict) and requested in {
+            _slug(dimension.get("id")),
+            _slug(dimension.get("name")),
+            _slug(dimension.get("field")),
+        }:
+            return _snapshot_dimension_payload(dimension)
+    return None
 
 
 def _select_metric(
@@ -658,12 +852,135 @@ def _policy_denial(
     }
 
 
+def _resolve_snapshot_query_context(
+    sources: list[dict[str, Any]],
+    asset: dict[str, Any],
+    package: dict[str, Any],
+) -> dict[str, Any] | None:
+    for source in sources:
+        metadata = source.get("metadata") if isinstance(source.get("metadata"), dict) else {}
+        locator = source.get("locator") if isinstance(source.get("locator"), dict) else {}
+        capabilities = source.get("capabilities") if isinstance(source.get("capabilities"), dict) else {}
+        raw_context = (
+            metadata.get("query_context")
+            or locator.get("query_context")
+            or capabilities.get("query_context")
+            or {}
+        )
+        context = dict(raw_context) if isinstance(raw_context, dict) else {}
+        duckdb_path = (
+            context.get("duckdb_path")
+            or metadata.get("duckdb_path")
+            or locator.get("duckdb_path")
+            or _duckdb_path_from_manifest(metadata.get("manifest_path") or locator.get("manifest_path"))
+        )
+        if not duckdb_path:
+            continue
+        path = Path(str(duckdb_path)).expanduser()
+        if not _is_safe_local_duckdb_path(path):
+            continue
+        context["duckdb_path"] = str(path)
+        schema_name = context.get("schema") or metadata.get("schema_name")
+        if not schema_name:
+            schema_payload = metadata.get("schema") if isinstance(metadata.get("schema"), dict) else {}
+            schema_name = schema_payload.get("schema")
+        context["schema"] = _safe_identifier(str(schema_name or "main"))
+        semantic_model = (
+            context.get("semantic_model")
+            or metadata.get("semantic_model")
+            or package.get("semantic_model")
+            or {}
+        )
+        if not isinstance(semantic_model, dict):
+            semantic_model = {}
+        context["semantic_model"] = semantic_model
+        if not context.get("base_table"):
+            context["base_table"] = _infer_base_table(package, semantic_model)
+        if not context.get("base_alias"):
+            context["base_alias"] = _infer_base_alias(context["base_table"])
+        context["asset_freshness"] = asset.get("freshness") or {}
+        return context
+    return None
+
+
+def _duckdb_path_from_manifest(value: object) -> str:
+    if not value:
+        return ""
+    manifest_path = Path(str(value)).expanduser()
+    if not manifest_path.exists() or not manifest_path.is_file():
+        return ""
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    raw = manifest.get("uncompressed_duckdb", {}).get("path") or ""
+    if not raw:
+        return ""
+    candidate = Path(str(raw))
+    if not candidate.is_absolute():
+        candidate = manifest_path.parent / candidate
+    return str(candidate)
+
+
+def _is_safe_local_duckdb_path(path: Path) -> bool:
+    try:
+        resolved = path.resolve(strict=False)
+    except Exception:
+        return False
+    if resolved.suffix != ".duckdb":
+        return False
+    if not resolved.exists() or not resolved.is_file():
+        return False
+    return "sanitized" in str(resolved).lower()
+
+
+def _infer_base_table(package: dict[str, Any], semantic_model: dict[str, Any]) -> str:
+    metrics = semantic_model.get("metrics") if isinstance(semantic_model.get("metrics"), list) else []
+    for metric in metrics:
+        if isinstance(metric, dict):
+            table = _table_from_formula(str(metric.get("formula") or ""))
+            if table:
+                return table
+    mdl = package.get("mdl") if isinstance(package, dict) else {}
+    entities = mdl.get("entities") if isinstance(mdl, dict) else []
+    if isinstance(entities, list) and entities:
+        first = entities[0]
+        if isinstance(first, dict) and first.get("table"):
+            return str(first["table"])
+    return "P_BL_SELL_HD"
+
+
+def _infer_base_alias(table: object) -> str:
+    name = str(table or "").upper()
+    if name.endswith("P_BL_SELL_HD") or name.endswith("SELL_HD"):
+        return "hd"
+    return _slug(name)[:8] or "base"
+
+
+def _table_from_formula(formula: str) -> str:
+    match = re.search(r"\b([A-Za-z_][A-Za-z0-9_]*)\.", formula)
+    if not match:
+        return ""
+    alias = match.group(1).lower()
+    if alias == "hd":
+        return "P_BL_SELL_HD"
+    if alias == "dt":
+        return "P_BL_SELL_DT"
+    if alias == "store":
+        return "P_ARC_STORE"
+    return ""
+
+
 def _compile_sql(
     mdl: dict[str, Any],
     metric: dict[str, Any],
     dimensions: list[dict[str, Any]],
     body: SemanticQueryBody,
+    *,
+    snapshot_context: dict[str, Any] | None = None,
 ) -> str:
+    if snapshot_context:
+        return _compile_snapshot_sql(snapshot_context, metric, dimensions, body)
     entity_id = str(metric.get("entity") or "")
     entity = next(
         (item for item in mdl.get("entities", []) if isinstance(item, dict) and item.get("id") == entity_id),
@@ -686,6 +1003,200 @@ def _compile_sql(
         sql += f" /* grain: {body.grain} */"
     sql += f" LIMIT {body.limit}"
     return sql
+
+
+def _compile_snapshot_sql(
+    snapshot_context: dict[str, Any],
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    body: SemanticQueryBody,
+) -> str:
+    schema_name = _safe_identifier(str(snapshot_context.get("schema") or "main"))
+    base_table = _safe_identifier(str(snapshot_context.get("base_table") or "P_BL_SELL_HD"))
+    base_alias = _safe_identifier(str(snapshot_context.get("base_alias") or "hd"))
+    if _question_asks_latest_date(body.question):
+        return _compile_latest_date_snapshot_sql(
+            snapshot_context,
+            dimensions,
+            schema_name,
+            base_table,
+            base_alias,
+        )
+    monthly_trend = _question_asks_monthly_trend(body.question) or body.grain == "month"
+    joins: dict[str, str] = {}
+    dim_exprs: list[str] = []
+    group_exprs: list[str] = []
+    for dimension in dimensions:
+        expr, alias, join_sql = _snapshot_dimension_sql(dimension, schema_name, base_alias)
+        if join_sql:
+            joins[join_sql] = join_sql
+        if monthly_trend and dimension.get("kind") == "time":
+            expr = f"DATE_TRUNC('month', {expr})"
+            alias = f"{alias}_month" if not alias.endswith("_month") else alias
+        dim_exprs.append(f"{expr} AS {_quote_identifier(alias)}")
+        group_exprs.append(expr)
+    metric_expr = _snapshot_metric_sql(metric, base_alias)
+    metric_alias = _quote_identifier(str(metric.get("id") or "metric_value"))
+    select_parts = [*dim_exprs, f"{metric_expr} AS {metric_alias}"]
+    sql = (
+        f"SELECT {', '.join(select_parts)} "
+        f"FROM {_qualified_table(schema_name, base_table)} {base_alias}"
+    )
+    if joins:
+        sql += " " + " ".join(joins.values())
+    where = _snapshot_where_clauses(snapshot_context, body, base_alias)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    if group_exprs:
+        sql += f" GROUP BY {', '.join(group_exprs)}"
+    if monthly_trend and group_exprs:
+        sql += f" ORDER BY {group_exprs[0]} ASC"
+    else:
+        sql += f" ORDER BY {metric_alias} DESC"
+    sql += f" LIMIT {max(1, min(int(body.limit), 500))}"
+    return sql
+
+
+def _compile_latest_date_snapshot_sql(
+    snapshot_context: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    schema_name: str,
+    base_table: str,
+    base_alias: str,
+) -> str:
+    time_dimension = next(
+        (
+            dimension
+            for dimension in dimensions
+            if dimension.get("kind") == "time"
+            or re.search(r"date|time", str(dimension.get("field") or dimension.get("id")), re.IGNORECASE)
+        ),
+        None,
+    )
+    if time_dimension is None:
+        for dimension in snapshot_context.get("semantic_model", {}).get("dimensions", []):
+            if isinstance(dimension, dict) and re.search(
+                r"date|time",
+                str(dimension.get("field") or dimension.get("id")),
+                re.IGNORECASE,
+            ):
+                time_dimension = _snapshot_dimension_payload(dimension)
+                break
+    if time_dimension is None:
+        time_dimension = {"id": "sell_date", "field": "hd.SELLDATE", "kind": "time"}
+    expr, alias, join_sql = _snapshot_dimension_sql(time_dimension, schema_name, base_alias)
+    sql = (
+        f"SELECT MAX({expr}) AS {_quote_identifier(f'latest_{alias}')}"
+        f" FROM {_qualified_table(schema_name, base_table)} {base_alias}"
+    )
+    if join_sql:
+        sql += f" {join_sql}"
+    sql += " LIMIT 1"
+    return sql
+
+
+def _snapshot_dimension_sql(
+    dimension: dict[str, Any],
+    schema_name: str,
+    base_alias: str,
+) -> tuple[str, str, str]:
+    raw_field = str(dimension.get("field") or dimension.get("id") or "")
+    alias = str(dimension.get("id") or raw_field.split(".")[-1] or "dimension")
+    parts = [part for part in raw_field.split(".") if part]
+    if len(parts) == 2:
+        prefix, field = parts
+        if prefix.lower() == "store":
+            join_sql = (
+                f"LEFT JOIN {_qualified_table(schema_name, 'P_ARC_STORE')} store "
+                f"ON store.STOREID = {base_alias}.STOREID"
+            )
+            return f"store.{_quote_identifier(field)}", alias, join_sql
+        if prefix.lower() in {"hd", base_alias.lower()}:
+            return f"{base_alias}.{_quote_identifier(field)}", alias, ""
+        if prefix.lower() == "dt":
+            join_sql = (
+                f"LEFT JOIN {_qualified_table(schema_name, 'P_BL_SELL_DT')} dt "
+                f"ON dt.BILLID = {base_alias}.BILLID"
+            )
+            return f"dt.{_quote_identifier(field)}", alias, join_sql
+    field = parts[-1] if parts else raw_field
+    return f"{base_alias}.{_quote_identifier(field)}", alias, ""
+
+
+def _snapshot_metric_sql(metric: dict[str, Any], base_alias: str) -> str:
+    formula = str(metric.get("formula") or "")
+    formula = formula.replace("count(distinct ", "COUNT(DISTINCT ")
+    formula = formula.replace("sum(", "SUM(").replace("avg(", "AVG(")
+    formula = re.sub(r"\bhd\.", f"{base_alias}.", formula, flags=re.IGNORECASE)
+    if _is_safe_metric_expression(formula):
+        return formula
+    return _metric_sql_expr(metric).replace('"', f"{base_alias}.\"")
+
+
+def _is_safe_metric_expression(value: str) -> bool:
+    if not value or ";" in value or "--" in value or "/*" in value:
+        return False
+    return bool(
+        re.fullmatch(
+            r"[A-Za-z0-9_().,\s*\"']+",
+            value,
+        )
+    )
+
+
+def _snapshot_where_clauses(
+    snapshot_context: dict[str, Any],
+    body: SemanticQueryBody,
+    base_alias: str,
+) -> list[str]:
+    clauses: list[str] = []
+    time_range = body.time_range if isinstance(body.time_range, dict) else {}
+    start = _date_literal(time_range.get("start") or time_range.get("from"))
+    end = _date_literal(time_range.get("end") or time_range.get("to"))
+    if not start and _question_asks_recent(body.question):
+        anchor = _date_literal(
+            snapshot_context.get("asset_freshness", {}).get("data_through")
+            or snapshot_context.get("semantic_model", {}).get("provenance", {}).get("data_through")
+            or snapshot_context.get("semantic_model", {}).get("policy", {}).get("relative_time_anchor")
+        )
+        if anchor:
+            start = f"{anchor} - INTERVAL 30 DAY"
+            end = anchor
+    if start:
+        clauses.append(f"{base_alias}.SELLDATE >= {start}")
+    if end:
+        clauses.append(f"{base_alias}.SELLDATE <= {end}")
+    return clauses
+
+
+def _question_asks_recent(question: str | None) -> bool:
+    return bool(re.search(r"recent|last|latest|最近|近[0-9一二三四五六七八九十]*|最新", question or "", re.IGNORECASE))
+
+
+def _question_asks_latest_date(question: str | None) -> bool:
+    text = question or ""
+    return bool(
+        re.search(r"最近.*(日期|date)|最新.*(日期|date)|latest.*date|max.*date", text, re.IGNORECASE)
+    )
+
+
+def _question_asks_monthly_trend(question: str | None) -> bool:
+    text = question or ""
+    return bool(re.search(r"按月|月趋势|monthly|month.*trend|trend", text, re.IGNORECASE))
+
+
+def _date_literal(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    match = re.search(r"(\d{4}-\d{2}-\d{2})", text)
+    if not match:
+        return ""
+    return f"DATE '{match.group(1)}'"
+
+
+def _qualified_table(schema_name: str, table_name: str) -> str:
+    return f"{_quote_identifier(schema_name)}.{_quote_identifier(table_name)}"
 
 
 def _metric_sql_expr(metric: dict[str, Any]) -> str:
@@ -713,6 +1224,96 @@ def _synthetic_rows(
     return [{label_field: f"sample_{idx + 1}", metric_id: idx + 1} for idx in range(limit)]
 
 
+def _execute_duckdb_snapshot_query(
+    snapshot_context: dict[str, Any],
+    sql: str,
+) -> dict[str, Any]:
+    if not _is_safe_select_sql(sql):
+        return {"ok": False, "rows": [], "code": "unsafe_compiled_sql"}
+    binary = shutil.which("duckdb")
+    if not binary:
+        return {"ok": False, "rows": [], "code": "duckdb_unavailable"}
+    path = Path(str(snapshot_context.get("duckdb_path") or ""))
+    if not _is_safe_local_duckdb_path(path):
+        return {"ok": False, "rows": [], "code": "snapshot_path_rejected"}
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "HOME": os.environ.get("HOME", ""),
+    }
+    try:
+        completed = subprocess.run(
+            [binary, str(path), "-json", "-c", sql],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+    except Exception as error:
+        return {"ok": False, "rows": [], "code": "snapshot_query_exception"}
+    if completed.returncode != 0:
+        return {"ok": False, "rows": [], "code": "snapshot_query_failed"}
+    try:
+        rows = json.loads(completed.stdout or "[]")
+    except json.JSONDecodeError as error:
+        return {"ok": False, "rows": [], "code": "invalid_snapshot_query_json"}
+    if not isinstance(rows, list):
+        return {"ok": False, "rows": [], "code": "invalid_snapshot_query_shape"}
+    return {"ok": True, "rows": [row for row in rows if isinstance(row, dict)], "code": ""}
+
+
+def _is_safe_select_sql(sql: str) -> bool:
+    stripped = sql.strip()
+    if not re.match(r"(?is)^select\b", stripped):
+        return False
+    forbidden = r"\b(insert|update|delete|drop|alter|create|copy|attach|detach|install|load|pragma|call|export)\b"
+    if re.search(forbidden, stripped, re.IGNORECASE):
+        return False
+    return stripped.count(";") <= 1 and not re.search(r";\s*\S", stripped)
+
+
+def _snapshot_metric_payload(metric: dict[str, Any]) -> dict[str, Any]:
+    formula = str(metric.get("formula") or "")
+    return {
+        "id": str(metric.get("id") or "metric"),
+        "name": str(metric.get("name") or metric.get("id") or "Metric"),
+        "entity": _table_from_formula(formula) or "P_BL_SELL_HD",
+        "field": _field_from_formula(formula) or "BILLID",
+        "kind": _metric_kind_from_formula(formula),
+        "formula": formula,
+        "definition": str(metric.get("definition") or formula),
+        "time_field": "SELLDATE",
+        "lineage": [{"kind": "snapshot_semantic_model", "content": formula}],
+    }
+
+
+def _snapshot_dimension_payload(dimension: dict[str, Any]) -> dict[str, Any]:
+    field = str(dimension.get("field") or dimension.get("id") or "")
+    return {
+        "id": str(dimension.get("id") or _slug(field)),
+        "name": str(dimension.get("name") or dimension.get("id") or field),
+        "entity": _table_from_formula(field) or "",
+        "field": field,
+        "kind": "time" if re.search(r"date|time", field, re.IGNORECASE) else "category",
+    }
+
+
+def _field_from_formula(formula: str) -> str:
+    match = re.search(r"\.([A-Za-z_][A-Za-z0-9_]*)", formula)
+    return match.group(1) if match else ""
+
+
+def _metric_kind_from_formula(formula: str) -> str:
+    lowered = formula.lower()
+    if "count(distinct" in lowered:
+        return "count_distinct"
+    if "count(" in lowered:
+        return "count"
+    if "avg(" in lowered:
+        return "avg"
+    return "sum"
+
+
 def _safe_dump(seed: SemanticSeed) -> dict[str, Any]:
     return redact_sensitive(seed.model_dump(mode="json"))
 
@@ -728,6 +1329,11 @@ def _quote_identifier(value: str) -> str:
     if not cleaned:
         cleaned = "field"
     return ".".join(f'"{part}"' for part in cleaned.split(".") if part)
+
+
+def _safe_identifier(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_]+", "", value or "")
+    return cleaned or "main"
 
 
 def _slug(value: object) -> str:

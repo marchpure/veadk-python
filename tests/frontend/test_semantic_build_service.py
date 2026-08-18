@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -112,5 +114,116 @@ def test_semantic_build_service_creates_drafts_publishes_and_queries(store: Know
             SemanticQueryBody(question="显示客户电话和联系方式"),
         )
         assert denial["data"]["policyDecision"]["decision"] == "deny"
+
+    asyncio.run(scenario())
+
+
+def test_semantic_query_uses_governed_sanitized_duckdb_snapshot(
+    store: KnowledgeAssetStore,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    duckdb_path = tmp_path / "oracle_sanitized_snapshot.duckdb"
+    duckdb_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        "frontend.server.knowledge_assets.semantic_build.shutil.which",
+        lambda name: "/usr/local/bin/duckdb" if name == "duckdb" else None,
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(args, **_kwargs):
+        calls.append(list(args))
+        return SimpleNamespace(
+            returncode=0,
+            stdout='[{"store":"VNPTTE","ticket_count":56}]',
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        "frontend.server.knowledge_assets.semantic_build.subprocess.run",
+        fake_run,
+    )
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="Sales"))
+        source = await store.create_source(
+            CreateSourceBody(
+                space_id=space["id"],
+                source_type="database",
+                provider="oracle",
+                name="Oracle sanitized snapshot",
+                metadata={
+                    "schema": _schema(),
+                    "duckdb_path": str(duckdb_path),
+                    "schema_name": "dnyxlstest",
+                    "semantic_model": {
+                        "dimensions": [
+                            {"id": "store", "field": "store.STORENAME"},
+                            {"id": "sell_date", "field": "hd.SELLDATE"},
+                        ],
+                        "metrics": [
+                            {
+                                "id": "ticket_count",
+                                "name": "Ticket Count",
+                                "formula": "count(distinct hd.BILLID)",
+                                "definition": "Count of distinct sales bill IDs.",
+                            }
+                        ],
+                    },
+                },
+            )
+        )
+        service = SemanticBuildService(store)
+        job = await service.create_job(
+            CreateSemanticBuildJobBody(
+                space_id=space["id"],
+                source_ids=[source["id"]],
+                mode="schema_only",
+                target_domain="sales",
+                dashboard_goal="sales overview",
+            )
+        )
+        ready = await service.run_job(job["job_id"], SemanticBuildRunBody(publish=True))
+        result = await service.query_asset(
+            "semantic_model",
+            ready["semantic_model_slug"],
+            SemanticQueryBody(
+                metric="ticket_count",
+                dimension="store",
+                question="按门店统计最近销售票数 Top 3",
+                limit=3,
+            ),
+        )
+        assert result["data"]["rows"] == [{"store": "VNPTTE", "ticket_count": 56}]
+        assert result["data"]["execution"]["mode"] == "local_sanitized_snapshot"
+        assert "LEFT JOIN" in result["data"]["sql"]
+        assert "SELLDATE >=" in result["data"]["sql"]
+        assert calls
+        assert calls[0][0] == "/usr/local/bin/duckdb"
+        assert str(duckdb_path) in calls[0]
+
+        latest = await service.query_asset(
+            "semantic_model",
+            ready["semantic_model_slug"],
+            SemanticQueryBody(
+                metric="ticket_count",
+                dimensions=["sell_date"],
+                question="最近销售日期是什么？",
+                limit=1,
+            ),
+        )
+        assert "MAX(" in latest["data"]["sql"]
+
+        trend = await service.query_asset(
+            "semantic_model",
+            ready["semantic_model_slug"],
+            SemanticQueryBody(
+                metric="ticket_count",
+                dimensions=["sell_date"],
+                question="按月趋势看销售额/票数",
+                limit=3,
+            ),
+        )
+        assert "DATE_TRUNC('month'" in trend["data"]["sql"]
 
     asyncio.run(scenario())

@@ -25,7 +25,6 @@ import {
 } from "react";
 
 import {
-  createKnowledgeAssetCapability,
   createKnowledgeAssetSource,
   createKnowledgeAssetSpace,
   createSemanticDashboardBuildJob,
@@ -34,6 +33,7 @@ import {
   listKnowledgeAssetSources,
   listKnowledgeAssetSpaces,
   publishSemanticDashboardBuildJob,
+  recordKnowledgeAssetSkillPackage,
   recordKnowledgeAssetBuildJob,
   runSemanticDashboardBuildJob,
   updateKnowledgeAssetBuildJob,
@@ -125,6 +125,205 @@ function assetTypeForCapability(kind: KnowledgeCapabilityKind): KnowledgeAssetTy
   if (kind === "retrieval_binding") return "knowledge_resource";
   if (kind === "dashboard_skill") return "dashboard";
   return "semantic_model";
+}
+
+function queryUrlForAsset(type: KnowledgeAssetType, assetId: string): string {
+  if (type === "knowledge_resource") {
+    return `/api/knowledge-assets/assets/knowledge_resource/${assetId}`;
+  }
+  return `/api/knowledge-assets/assets/${type}/${assetId}/query`;
+}
+
+function capabilityIdentifier(value: string): string {
+  return (
+    value
+      .trim()
+      .replace(/[^a-zA-Z0-9_.-]+/g, "_")
+      .slice(0, 128) || "field"
+  );
+}
+
+function evaluationSuite(kind: KnowledgeCapabilityKind, assetId: string) {
+  return {
+    suite: {
+      contract_version: "evaluation.suite_version.v1",
+      id: `${assetId}_evals`,
+      capability_kind: kind,
+      cases: [],
+    },
+    "README.md": "EvaluationSuite placeholder for future AgentKit evaluation runs.",
+  };
+}
+
+function buildManualCapabilityPackage({
+  kind,
+  assetType,
+  assetId,
+  name,
+  description,
+  sourceIds,
+  knowledgeBaseId,
+  metrics,
+  dimensions,
+  timeField,
+  permissionHint,
+  dashboardViews,
+}: {
+  kind: KnowledgeCapabilityKind;
+  assetType: KnowledgeAssetType;
+  assetId: string;
+  name: string;
+  description?: string;
+  sourceIds: string[];
+  knowledgeBaseId?: string;
+  metrics: string[];
+  dimensions: string[];
+  timeField?: string;
+  permissionHint: string;
+  dashboardViews: Array<Record<string, unknown>>;
+}): Record<string, unknown> {
+  const evals = evaluationSuite(kind, assetId);
+  if (kind === "retrieval_binding") {
+    const kbId = knowledgeBaseId || assetId;
+    return {
+      package_type: "retrieval_binding",
+      source_ids: sourceIds,
+      runtime: {
+        transport: "agentkit_retrieval",
+        direct_database_access: false,
+        raw_sql_fallback: false,
+      },
+      retrieval: {
+        backend: "viking",
+        knowledge_base_id: kbId,
+        index: kbId,
+      },
+      evals,
+      governance: {
+        raw_sql_fallback: false,
+        usage_policy: { permission_hint: permissionHint },
+      },
+    };
+  }
+
+  const metricPayloads = metrics.map((metric) => {
+    const id = capabilityIdentifier(metric);
+    return {
+      id,
+      name: metric,
+      formula: id,
+      definition: `Metric ${metric}.`,
+      time_field: timeField || undefined,
+    };
+  });
+  const dimensionPayloads = dimensions.map((dimension) => {
+    const id = capabilityIdentifier(dimension);
+    return {
+      id,
+      name: dimension,
+      field: id,
+      kind: timeField && dimension === timeField ? "time" : "category",
+    };
+  });
+
+  if (kind === "dashboard_skill") {
+    const views = dashboardViews.length
+      ? dashboardViews
+      : [
+          {
+            id: "overview",
+            title: name,
+            kind: "metric_summary",
+            metric: metricPayloads[0]?.id,
+            dimensions: dimensionPayloads.map((dimension) => dimension.id),
+          },
+        ];
+    const manifest = {
+      schema: "agentkit.dashboard.manifest.v1",
+      id: assetId,
+      title: name,
+      description: description || "",
+      semantic_bindings: metricPayloads.map((metric) => ({
+        metric: metric.id,
+        dimensions: dimensionPayloads.map((dimension) => dimension.id),
+      })),
+      data_views: views,
+      filters: timeField
+        ? [{ id: "time_range", type: "time_range", dimension: capabilityIdentifier(timeField) }]
+        : [],
+      tiles: views.map((view, index) => ({
+        id: `tile_${String(view.id || `view_${index + 1}`)}`,
+        type: String(view.kind || "metric_summary"),
+        title: String(view.title || view.id || `View ${index + 1}`),
+        data_view_id: String(view.id || `view_${index + 1}`),
+      })),
+      layout: views.map((view, index) => ({
+        tile_id: `tile_${String(view.id || `view_${index + 1}`)}`,
+        x: (index % 3) * 4,
+        y: Math.floor(index / 3) * 3,
+        w: 4,
+        h: 3,
+      })),
+      policies: {
+        raw_sql_fallback: false,
+        uses_only_defined_metrics_and_dimensions: true,
+      },
+    };
+    return {
+      package_type: "dashboard_skill",
+      source_ids: sourceIds,
+      runtime: {
+        transport: "agentkit_governed_rest",
+        query_url: queryUrlForAsset(assetType, assetId),
+        direct_database_access: false,
+        raw_sql_fallback: false,
+      },
+      dashboard: manifest,
+      evals,
+      governance: {
+        raw_sql_fallback: false,
+        usage_policy: { permission_hint: permissionHint },
+      },
+    };
+  }
+
+  return {
+    package_type: "semantic_skill",
+    source_ids: sourceIds,
+    runtime: {
+      transport: "agentkit_governed_rest",
+      query_url: queryUrlForAsset(assetType, assetId),
+      direct_database_access: false,
+      raw_sql_fallback: false,
+    },
+    mdl: {
+      schema: "agentkit.mdl.v1",
+      model: {
+        id: assetId,
+        slug: assetId,
+        name,
+        version: "v1",
+      },
+      entities: [],
+      relationships: [],
+      metrics: metricPayloads,
+      dimensions: dimensionPayloads,
+      permissions: {
+        raw_sql_fallback: false,
+        permission_hint: permissionHint,
+      },
+      freshness: {
+        status: sourceIds.length ? "source_registered" : "no_source",
+      },
+    },
+    evals,
+    governance: {
+      allowed_metrics: metricPayloads.map((metric) => metric.id),
+      allowed_dimensions: dimensionPayloads.map((dimension) => dimension.id),
+      raw_sql_fallback: false,
+      usage_policy: { permission_hint: permissionHint },
+    },
+  };
 }
 
 interface SpaceFormState {
@@ -445,26 +644,65 @@ export function KnowledgeCenterView() {
           title,
           kind: "metric_summary",
         }));
-      const capability = await createKnowledgeAssetCapability({
+      const permissionHint =
+        capabilityForm.permissionHint ||
+        "按资产空间授权和能力包策略执行。";
+      const knowledgeBaseId =
+        capabilityForm.knowledgeBaseId ||
+        activeSpace.default_knowledge_base_id ||
+        assetId;
+      const capabilityPackage = buildManualCapabilityPackage({
+        kind: capabilityForm.kind,
+        assetType,
+        assetId,
+        name: capabilityForm.name,
+        description: capabilityForm.description || undefined,
+        sourceIds,
+        knowledgeBaseId,
+        metrics,
+        dimensions,
+        timeField: capabilityForm.timeField || undefined,
+        permissionHint,
+        dashboardViews,
+      });
+      const capability = await recordKnowledgeAssetSkillPackage({
         space_id: activeSpace.id,
+        asset_type: assetType,
         asset_id: assetId,
         capability_kind: capabilityForm.kind,
         name: capabilityForm.name,
         description: capabilityForm.description || undefined,
+        status: "ready",
         publish_state: capabilityForm.publish ? "published" : "draft",
         source_ids: sourceIds,
-        knowledge_base_id:
-          capabilityForm.knowledgeBaseId ||
-          activeSpace.default_knowledge_base_id ||
-          assetId,
-        metrics,
-        dimensions,
-        time_field: capabilityForm.timeField || undefined,
-        permission_hint:
-          capabilityForm.permissionHint ||
-          "按资产空间授权和能力包策略执行。",
-        example_questions: exampleQuestions,
-        dashboard_views: dashboardViews,
+        type: capabilityForm.kind,
+        query_url: queryUrlForAsset(assetType, assetId),
+        capability_package: capabilityPackage,
+        capabilities: {
+          metrics,
+          dimensions,
+          time_field: capabilityForm.timeField || "",
+          example_questions: exampleQuestions,
+          source_count: sourceIds.length,
+          ...(assetType === "knowledge_resource"
+            ? { knowledge_base_id: knowledgeBaseId }
+            : {}),
+          ...(assetType === "dashboard"
+            ? { data_views: dashboardViews.map((view) => String(view.id || "")) }
+            : {}),
+        },
+        freshness: {
+          status: sourceIds.length ? "source_registered" : "no_source",
+        },
+        provenance: {
+          builder: "agentkit_native_manual_capability_recorder",
+          source_ids: sourceIds,
+        },
+        usage_policy: {
+          permission_hint: permissionHint,
+          raw_sql_fallback: false,
+        },
+        sample_evidence: [],
         metadata: {
           query_backend: sidecar?.configured ? "advanced" : "native",
         },

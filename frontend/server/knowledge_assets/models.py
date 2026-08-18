@@ -66,30 +66,6 @@ class SaveCredentialBody(ApiModel):
     expires_at: str | None = Field(default=None, max_length=128)
 
 
-class BuildCapabilityBody(ApiModel):
-    space_id: str = Field(min_length=1, max_length=128)
-    capability_kind: KnowledgeCapabilityKind = "retrieval_binding"
-    name: str = Field(min_length=1, max_length=300)
-    asset_id: str | None = Field(default=None, max_length=256)
-    description: str | None = Field(default=None, max_length=2000)
-    publish_state: KnowledgeAssetPublishState = "published"
-    source_ids: list[str] = Field(default_factory=list)
-    knowledge_base_id: str | None = Field(default=None, max_length=256)
-    metrics: list[Any] = Field(default_factory=list)
-    dimensions: list[Any] = Field(default_factory=list)
-    time_field: str | None = Field(default=None, max_length=256)
-    permission_hint: str | None = Field(default=None, max_length=1000)
-    example_questions: list[str] = Field(default_factory=list)
-    dashboard_views: list[dict[str, Any]] = Field(default_factory=list)
-    dashboard_filters: list[dict[str, Any]] = Field(default_factory=list)
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("source_ids", "example_questions")
-    @classmethod
-    def _trim_string_list(cls, value: list[str]) -> list[str]:
-        return [item.strip() for item in value if item.strip()]
-
-
 class RecordIndexedDocumentBody(ApiModel):
     source_id: str = Field(min_length=1, max_length=128)
     content_hash: str = Field(min_length=1, max_length=256)
@@ -149,7 +125,7 @@ class RecordBuildJobBody(ApiModel):
     source_id: str | None = Field(default=None, max_length=128)
     asset_type: KnowledgeAssetType | None = None
     asset_id: str | None = Field(default=None, max_length=256)
-    job_type: str = Field(default="build_capability", min_length=1, max_length=80)
+    job_type: str = Field(default="build_skill_package", min_length=1, max_length=80)
     status: str = Field(default="running", min_length=1, max_length=80)
     logs_ref: str | None = Field(default=None, max_length=4096)
     result_skill_id: str | None = Field(default=None, max_length=256)
@@ -167,7 +143,6 @@ class UpdateBuildJobBody(ApiModel):
 
 
 __all__ = [
-    "BuildCapabilityBody",
     "CreateSourceBody",
     "CreateSpaceBody",
     "RecordIndexedDocumentBody",

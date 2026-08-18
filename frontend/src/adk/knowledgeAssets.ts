@@ -288,31 +288,6 @@ export async function listKnowledgeAssets({
   );
 }
 
-export async function createKnowledgeAssetCapability(input: {
-  space_id: string;
-  capability_kind: KnowledgeCapabilityKind;
-  name: string;
-  asset_id?: string;
-  description?: string;
-  publish_state?: KnowledgePublishState;
-  source_ids?: string[];
-  knowledge_base_id?: string;
-  metrics?: Array<string | Record<string, unknown>>;
-  dimensions?: Array<string | Record<string, unknown>>;
-  time_field?: string;
-  permission_hint?: string;
-  example_questions?: string[];
-  dashboard_views?: Array<Record<string, unknown>>;
-  dashboard_filters?: Array<Record<string, unknown>>;
-  metadata?: Record<string, unknown>;
-}): Promise<KnowledgeAssetMetadata> {
-  return requestJson(
-    "/api/knowledge-assets/capabilities",
-    { method: "POST", body: JSON.stringify(input) },
-    "创建知识能力失败",
-  );
-}
-
 export async function recordKnowledgeAssetSkillPackage(input: {
   space_id?: string;
   asset_type: KnowledgeAssetType;

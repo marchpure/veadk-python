@@ -15,7 +15,6 @@ from fastapi import FastAPI, HTTPException, Query, status
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
 from .models import (
-    BuildCapabilityBody,
     CreateSourceBody,
     CreateSpaceBody,
     RecordBuildJobBody,
@@ -188,13 +187,6 @@ def mount_knowledge_asset_routes(
     ) -> dict[str, Any]:
         items = await invoke(lambda: store.list_indexed_documents(source_id=source_id))
         return {"items": items, "total": len(items), "mock": False}
-
-    @app.post(
-        "/api/knowledge-assets/capabilities",
-        status_code=status.HTTP_201_CREATED,
-    )
-    async def build_capability(body: BuildCapabilityBody) -> dict[str, Any]:
-        return await invoke(lambda: store.build_capability(body))
 
     @app.post("/api/knowledge-assets/build-jobs", status_code=status.HTTP_201_CREATED)
     async def record_build_job(body: RecordBuildJobBody) -> dict[str, Any]:

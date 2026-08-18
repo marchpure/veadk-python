@@ -59,7 +59,6 @@ const {
   toggleDataStudioSelection,
 } = await loadTypeScriptModule("../src/create/DataStudioAssetPicker.tsx");
 const {
-  createKnowledgeAssetCapability,
   recordKnowledgeAssetSkillPackage,
   updateKnowledgeAssetBuildJob,
 } = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
@@ -240,7 +239,7 @@ test("Knowledge asset center stays native and exposes semantic dashboard generat
   assert.doesNotMatch(appSource, /features\.datastudio/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSpace/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetSource/);
-  assert.match(knowledgeCenterSource, /createKnowledgeAssetCapability/);
+  assert.match(knowledgeCenterSource, /recordKnowledgeAssetSkillPackage/);
   assert.match(knowledgeCenterSource, /createSemanticDashboardBuildJob/);
   assert.match(knowledgeCenterSource, /生成语义模型和 Dashboard/);
   assert.match(knowledgeCenterSource, /治理查询后端/);
@@ -288,7 +287,7 @@ test("Knowledge asset build job completion updates the running job in place", as
   });
 });
 
-test("Knowledge asset capability client uses the native builder endpoint", async () => {
+test("Knowledge asset package client uses the skill packages endpoint", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, init = {}) => {
@@ -310,14 +309,17 @@ test("Knowledge asset capability client uses the native builder endpoint", async
     );
   };
   try {
-    await createKnowledgeAssetCapability({
+    await recordKnowledgeAssetSkillPackage({
       space_id: "space_1",
+      asset_type: "semantic_model",
       asset_id: "sales-semantic",
       capability_kind: "semantic_skill",
       name: "Sales Semantic",
+      status: "ready",
       publish_state: "draft",
-      metrics: ["GMV"],
-      dimensions: ["region"],
+      type: "semantic_skill",
+      query_url: "/api/knowledge-assets/assets/semantic_model/sales-semantic/query",
+      capabilities: { metrics: ["GMV"], dimensions: ["region"] },
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -325,15 +327,18 @@ test("Knowledge asset capability client uses the native builder endpoint", async
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].method, "POST");
-  assert.equal(calls[0].url, "/api/knowledge-assets/capabilities");
+  assert.equal(calls[0].url, "/api/knowledge-assets/skill-packages");
   assert.deepEqual(JSON.parse(calls[0].body), {
     space_id: "space_1",
+    asset_type: "semantic_model",
     asset_id: "sales-semantic",
     capability_kind: "semantic_skill",
     name: "Sales Semantic",
+    status: "ready",
     publish_state: "draft",
-    metrics: ["GMV"],
-    dimensions: ["region"],
+    type: "semantic_skill",
+    query_url: "/api/knowledge-assets/assets/semantic_model/sales-semantic/query",
+    capabilities: { metrics: ["GMV"], dimensions: ["region"] },
   });
 });
 
