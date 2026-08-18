@@ -1,0 +1,8 @@
+{
+  "allowed_dimensions": [],
+  "allowed_metrics": [],
+  "permission_hint": "Use only governed aggregate data returned by Byaan.",
+  "query_path": "Data Studio external asset REST only",
+  "raw_sql_fallback": false,
+  "schema": "agentkit.semantic_skill.access_policy.v1"
+}

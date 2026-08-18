@@ -44,6 +44,7 @@ from fastapi.concurrency import run_in_threadpool
 from frontend.server.knowledge_assets.contract import KnowledgeAssetRegistry
 
 from .connectors import (
+    CredentialRegistry,
     FeishuConnector,
     FeishuImportBody,
     FeishuOAuthCallbackBody,
@@ -442,7 +443,7 @@ def mount_knowledge_routes(
     create_region_candidates_resolver: Callable[[], tuple[str, ...]] | None = None,
     web_importer: WebImportClient | None = None,
     feishu_connector: FeishuConnector | None = None,
-    asset_registry: KnowledgeAssetRegistry | None = None,
+    asset_registry: CredentialRegistry | KnowledgeAssetRegistry | None = None,
 ) -> None:
     importer: WebImportClient = web_importer or WebImporter()
 

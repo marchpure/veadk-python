@@ -24,6 +24,7 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
+from frontend.server.knowledge.connectors import KnowledgeAssetCredentialRegistry
 from frontend.server.knowledge.gateways import _document
 from frontend.server.knowledge.models import CreateDocumentBody, UpdateDocumentBody
 from frontend.server.knowledge.routes import mount_knowledge_routes
@@ -46,6 +47,8 @@ from frontend.server.knowledge.web_import import (
     WebImportFetchError,
     WebImportResult,
 )
+from frontend.server.knowledge_assets.repository import KnowledgeAssetRepository
+from frontend.server.knowledge_assets.service import KnowledgeAssetStore
 from frontend.server.storage import StudioProvider
 
 SIGNING_KEY = b"knowledge-upload-test-signing-key"
@@ -1796,6 +1799,61 @@ def test_feishu_import_returns_expired_status_without_using_old_snapshot() -> No
     assert detail["errorCode"] == "KNOWLEDGE_FEISHU_AUTH_EXPIRED"
     assert "重新授权" in detail["message"]
     assert "refresh-stored-secret" not in response.text
+
+
+def test_feishu_oauth_round_trip_uses_encrypted_asset_store(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "connector local key material")
+    service, documents, uploads = _knowledge_service()
+    uploads.max_file_bytes = 4096
+    connector = _FeishuConnector()
+    store = KnowledgeAssetStore(
+        repository=KnowledgeAssetRepository(tmp_path / "knowledge-assets.db")
+    )
+    registry = KnowledgeAssetCredentialRegistry(store)
+    app = FastAPI()
+    mount_knowledge_routes(
+        app,
+        service=service,
+        identity_resolver=lambda request: KnowledgeIdentity("user-1", "User"),
+        region_resolver=lambda value: value or "cn-beijing",
+        web_importer=_WebImporter(),
+        feishu_connector=connector,
+        asset_registry=registry,
+    )
+    client = TestClient(app)
+
+    callback = client.post(
+        "/web/knowledge-connectors/feishu/oauth/callback",
+        json={
+            "code": "oauth-code",
+            "redirectUri": "https://studio.example.com/callback",
+        },
+    )
+    response = client.post(
+        "/web/knowledge-bases/kb-1/documents/feishu",
+        json={"docUrl": "https://example.feishu.cn/wiki/AbCd"},
+    )
+
+    assert callback.status_code == 200
+    assert response.status_code == 201
+    assert connector.imports[0]["refresh_token"] == "refresh-live-secret"
+    assert uploads.contents == [b"# Project Plan\n\nMilestone."]
+    assert "refresh-live-secret" not in callback.text
+    assert "refresh-live-secret" not in response.text
+    assert b"refresh-live-secret" not in (tmp_path / "knowledge-assets.db").read_bytes()
+    assert uploads.puts
+    assert documents.created
+
+
+def test_studio_mount_shares_knowledge_asset_store_for_connector_registry() -> None:
+    source = Path("veadk/cli/cli_frontend.py").read_text(encoding="utf-8")
+    assert "knowledge_asset_store = KnowledgeAssetStore()" in source
+    assert "asset_registry=KnowledgeAssetCredentialRegistry(knowledge_asset_store)" in source
+    assert "mount_knowledge_asset_routes(app, service=knowledge_asset_store)" in source
 
 
 def test_agent_search_does_not_supply_source_metadata_filter() -> None:

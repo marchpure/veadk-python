@@ -1677,6 +1677,7 @@ def _run_frontend_server(
         return ("ap-southeast-1",) if provider == "byteplus" else ("cn-beijing",)
 
     from frontend.server.knowledge import (
+        KnowledgeAssetCredentialRegistry,
         KnowledgeIdentity,
         KnowledgeService,
         SdkAgentKitKnowledgeGateway,
@@ -1685,6 +1686,12 @@ def _run_frontend_server(
         build_viking_document_gateway_factory,
         mount_knowledge_routes,
     )
+    from frontend.server.knowledge_assets import (
+        KnowledgeAssetStore,
+        mount_knowledge_asset_routes,
+    )
+
+    knowledge_asset_store = KnowledgeAssetStore()
 
     def _knowledge_identity(request: Request) -> KnowledgeIdentity:
         principal = _current_principal(request)
@@ -1755,15 +1762,14 @@ def _run_frontend_server(
         region_resolver=_coerce_cloud_region,
         region_candidates_resolver=_knowledge_regions,
         create_region_candidates_resolver=_knowledge_create_regions,
+        asset_registry=KnowledgeAssetCredentialRegistry(knowledge_asset_store),
     )
 
     from frontend.server.datastudio import mount_datastudio_routes
 
     mount_datastudio_routes(app)
 
-    from frontend.server.knowledge_assets import mount_knowledge_asset_routes
-
-    mount_knowledge_asset_routes(app)
+    mount_knowledge_asset_routes(app, service=knowledge_asset_store)
 
     from frontend.server.video.routes import (
         build_video_service,

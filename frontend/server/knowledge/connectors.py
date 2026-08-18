@@ -29,6 +29,13 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from frontend.server.knowledge_assets.contract import KnowledgeAssetRegistry
+from frontend.server.knowledge_assets.models import (
+    CreateSourceBody,
+    CreateSpaceBody,
+    SaveCredentialBody,
+)
+from frontend.server.knowledge_assets.repository import KnowledgeAssetNotFound
+from frontend.server.knowledge_assets.service import KnowledgeAssetStore
 
 from .service import KnowledgeAccessError, KnowledgeIdentity, KnowledgeService
 from .web_import import MAX_MARKDOWN_BYTES, _extract_visible_body_markdown
@@ -157,6 +164,147 @@ class CredentialRegistry(Protocol):
         metadata: Mapping[str, Any],
     ) -> Mapping[str, Any]:
         ...
+
+    async def get_credential(
+        self,
+        *,
+        owner_id: str,
+        provider: str,
+    ) -> Mapping[str, Any]:
+        ...
+
+
+class KnowledgeAssetCredentialRegistry:
+    """Persist connector credentials in the encrypted Knowledge Asset store."""
+
+    _SPACE_MARKER = "knowledge-connectors"
+
+    def __init__(self, store: KnowledgeAssetStore) -> None:
+        self._store = store
+
+    async def save_credential(
+        self,
+        *,
+        owner_id: str,
+        provider: str,
+        credential: Mapping[str, Any],
+        metadata: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        source_id = await self._ensure_source(
+            owner_id=owner_id,
+            provider=provider,
+            metadata=metadata,
+        )
+        status = await self._store.save_credential(
+            source_id,
+            SaveCredentialBody(
+                provider=provider,
+                auth_mode="oauth",
+                credentials=dict(credential),
+                status="connected",
+            ),
+        )
+        return {
+            "credentialId": status.get("source_id") or source_id,
+            "credential_id": status.get("source_id") or source_id,
+            **status,
+        }
+
+    async def get_credential(
+        self,
+        *,
+        owner_id: str,
+        provider: str,
+    ) -> Mapping[str, Any]:
+        source_id = await self._find_source_id(owner_id=owner_id, provider=provider)
+        if not source_id:
+            raise KnowledgeAssetNotFound("Connector credential source not found.")
+        return await self._store.get_credential(source_id)
+
+    async def _ensure_source(
+        self,
+        *,
+        owner_id: str,
+        provider: str,
+        metadata: Mapping[str, Any],
+    ) -> str:
+        space_id = await self._ensure_space()
+        source_id = await self._find_source_id(
+            owner_id=owner_id,
+            provider=provider,
+            space_id=space_id,
+        )
+        if source_id:
+            return source_id
+        source = await self._store.create_source(
+            CreateSourceBody(
+                space_id=space_id,
+                source_type=f"{provider}_oauth",
+                provider=provider,
+                name=f"{provider} connector for {owner_id}",
+                status="active",
+                locator={"owner_id": owner_id, "provider": provider},
+                capabilities={"scopes": list(_metadata_scopes(metadata))},
+                metadata={
+                    "owner_id": owner_id,
+                    "provider": provider,
+                    **dict(metadata),
+                },
+            )
+        )
+        return str(source["id"])
+
+    async def _ensure_space(self) -> str:
+        for space in await self._store.list_spaces():
+            metadata = space.get("metadata")
+            if (
+                isinstance(metadata, Mapping)
+                and metadata.get("system") == self._SPACE_MARKER
+            ):
+                return str(space.get("id") or "")
+        space = await self._store.create_space(
+            CreateSpaceBody(
+                name="Knowledge Connectors",
+                description="Studio connector credentials and metadata.",
+                metadata={"system": self._SPACE_MARKER},
+            )
+        )
+        return str(space["id"])
+
+    async def _find_source_id(
+        self,
+        *,
+        owner_id: str,
+        provider: str,
+        space_id: str | None = None,
+    ) -> str:
+        if space_id is None:
+            for space in await self._store.list_spaces():
+                metadata = space.get("metadata")
+                if (
+                    isinstance(metadata, Mapping)
+                    and metadata.get("system") == self._SPACE_MARKER
+                ):
+                    space_id = str(space.get("id") or "")
+                    break
+        if not space_id:
+            return ""
+        sources = await self._store.list_sources(space_id=space_id)
+        for source in sources:
+            metadata = source.get("metadata")
+            if not isinstance(metadata, Mapping):
+                continue
+            if (
+                metadata.get("owner_id") == owner_id
+                and metadata.get("provider") == provider
+            ):
+                return str(source.get("id") or "")
+        return ""
+
+
+def _metadata_scopes(metadata: Mapping[str, Any]) -> list[str]:
+    scope = str(metadata.get("scope") or metadata.get("permission_scope") or "").strip()
+    return scope.split() if scope else []
 
 
 def _normalized_key(value: object) -> str:
@@ -452,11 +600,21 @@ async def save_feishu_oauth_callback(
     )
 
 
-def _saved_feishu_refresh_token(
+async def _saved_feishu_refresh_token(
     registry: CredentialRegistry | KnowledgeAssetRegistry | None,
     *,
     owner_id: str,
 ) -> str:
+    get_credential = getattr(registry, "get_credential", None)
+    if callable(get_credential):
+        try:
+            credential = await get_credential(owner_id=owner_id, provider="feishu")
+        except KnowledgeAssetNotFound:
+            return ""
+        if isinstance(credential, Mapping):
+            token = str(credential.get("refresh_token") or "").strip()
+            if token:
+                return token
     saved = getattr(registry, "saved", None)
     if isinstance(saved, list):
         for item in reversed(saved):
@@ -488,7 +646,7 @@ async def import_feishu_document(
             status_code=503,
             error_code="KNOWLEDGE_FEISHU_NOT_CONFIGURED",
         )
-    refresh_token = _saved_feishu_refresh_token(registry, owner_id=identity.owner_id)
+    refresh_token = await _saved_feishu_refresh_token(registry, owner_id=identity.owner_id)
     if not refresh_token:
         raise KnowledgeAccessError(
             "飞书授权已过期或尚未连接，请重新授权。",

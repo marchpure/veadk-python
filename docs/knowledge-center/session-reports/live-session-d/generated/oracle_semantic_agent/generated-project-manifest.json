@@ -1,0 +1,32 @@
+{
+  "name": "oracle_semantic_agent",
+  "exportedFrom": "VEADK /web/generated-agent-projects",
+  "assetId": "9172f615-8b39-4280-81a6-9ca14cfc0be5",
+  "dashboardAssetId": "b7197c70-5c18-433c-aded-8461cdd4e5a9",
+  "files": [
+    "app.py",
+    "agents/__init__.py",
+    "agents/oracle_semantic_agent/agent.py",
+    "agents/oracle_semantic_agent/__init__.py",
+    "agents/oracle_semantic_agent/dynamic_a2a.py",
+    ".env.example",
+    "requirements.txt",
+    "README.md",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/manifest.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/SKILL.md",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/models.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/fields.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/relationships.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/metrics.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/dimensions.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/permissions.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/mdl/freshness.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/tools/query.py",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/policies/access.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/policies/masking.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/policies/refusal.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/evals/suite.json",
+    "skills/datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5/evals/evidence.json"
+  ],
+  "secretHandling": "Live secrets were supplied by environment variables only; generated files do not embed secret values."
+}

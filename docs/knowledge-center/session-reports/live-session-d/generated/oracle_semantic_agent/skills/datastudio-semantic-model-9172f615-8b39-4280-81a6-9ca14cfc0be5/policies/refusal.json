@@ -1,0 +1,10 @@
+{
+  "must_refuse_or_mask": [
+    "customer/contact identity lookup",
+    "raw row-level identifiers",
+    "direct database credentials or connection strings",
+    "requests to bypass Byaan governed query policy"
+  ],
+  "response_rule": "Return the Byaan policy denial or masked aggregate; do not create a raw-data workaround.",
+  "schema": "agentkit.semantic_skill.refusal_policy.v1"
+}

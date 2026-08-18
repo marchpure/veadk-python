@@ -1,0 +1,47 @@
+{
+  "asset": {
+    "capability_kind": "semantic_skill",
+    "id": "9172f615-8b39-4280-81a6-9ca14cfc0be5",
+    "type": "semantic_model",
+    "version": "v1"
+  },
+  "description": "Governed Oracle semantic model over sanitized DuckDB snapshot.",
+  "display_name": "Oracle Sales Semantic Model session-h-oracle-20260818145458",
+  "evals": [
+    "evals/suite.json"
+  ],
+  "freshness": {},
+  "mdl": {
+    "files": [
+      "mdl/models.json",
+      "mdl/fields.json",
+      "mdl/relationships.json",
+      "mdl/metrics.json",
+      "mdl/dimensions.json",
+      "mdl/permissions.json",
+      "mdl/freshness.json"
+    ],
+    "schema": "byaan.mdl.v1"
+  },
+  "name": "datastudio-semantic-model-9172f615-8b39-4280-81a6-9ca14cfc0be5",
+  "policies": [
+    "policies/access.json",
+    "policies/masking.json",
+    "policies/refusal.json"
+  ],
+  "provenance": {},
+  "runtime": {
+    "direct_database_access": false,
+    "query_url": "/api/external/assets/semantic_model/9172f615-8b39-4280-81a6-9ca14cfc0be5/query",
+    "tool": "tools/query.py",
+    "transport": "datastudio_external_rest"
+  },
+  "schema": "agentkit.semantic_skill.manifest.v1",
+  "source_ids": [
+    {
+      "asset_id": "9172f615-8b39-4280-81a6-9ca14cfc0be5",
+      "asset_type": "semantic_model",
+      "kind": "datastudio_asset"
+    }
+  ]
+}

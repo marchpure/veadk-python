@@ -1,0 +1,12 @@
+{
+  "deny_patterns": [
+    "customer names",
+    "phone numbers",
+    "addresses",
+    "passport",
+    "boarding pass",
+    "member card identifiers"
+  ],
+  "masked_fields": [],
+  "schema": "agentkit.semantic_skill.masking_policy.v1"
+}

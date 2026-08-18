@@ -14,7 +14,12 @@
 
 """Studio AgentKit knowledge-library backend."""
 
-from .connectors import FeishuConnector, FeishuDocumentExport, FeishuTokenExpiredError
+from .connectors import (
+    FeishuConnector,
+    FeishuDocumentExport,
+    FeishuTokenExpiredError,
+    KnowledgeAssetCredentialRegistry,
+)
 from .gateways import (
     SdkAgentKitKnowledgeGateway,
     VikingKnowledgeBaseProvisioner,
@@ -28,6 +33,7 @@ __all__ = [
     "FeishuConnector",
     "FeishuDocumentExport",
     "FeishuTokenExpiredError",
+    "KnowledgeAssetCredentialRegistry",
     "KnowledgeIdentity",
     "KnowledgeService",
     "SdkAgentKitKnowledgeGateway",
