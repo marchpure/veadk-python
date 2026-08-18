@@ -1,0 +1,4873 @@
+{
+  "schema": "agentkit.knowledge_center.live_agent_run.v1",
+  "base_url": "http://127.0.0.1:18348",
+  "generated_at": "2026-08-18T23:38:00.317Z",
+  "health": {
+    "configured": true,
+    "mock": false,
+    "store": "sqlite",
+    "agents": {
+      "semantic_builder": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      },
+      "asktable_dashboard": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    "capabilities": [
+      "spaces",
+      "sources",
+      "retrieval_binding",
+      "semantic_skill",
+      "dashboard_skill"
+    ]
+  },
+  "refreshed_health": {
+    "configured": true,
+    "mock": false,
+    "store": "sqlite",
+    "agents": {
+      "semantic_builder": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      },
+      "asktable_dashboard": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    "capabilities": [
+      "spaces",
+      "sources",
+      "retrieval_binding",
+      "semantic_skill",
+      "dashboard_skill"
+    ]
+  },
+  "space": {
+    "id": "space_7346f21610d44295a4b05caf957bba5f",
+    "name": "Session H Refresh Space",
+    "description": "Fresh live E2E space for Session H evidence.",
+    "default_knowledge_base_id": null,
+    "region": null,
+    "metadata": {},
+    "created_at": "2026-08-18T23:36:21.126Z",
+    "updated_at": "2026-08-18T23:36:21.126Z"
+  },
+  "source": {
+    "id": "src_53fc771c291c4452b003d998ea8287d1",
+    "space_id": "space_7346f21610d44295a4b05caf957bba5f",
+    "source_type": "database",
+    "provider": "oracle",
+    "name": "Session H Oracle Snapshot",
+    "description": "Sanitized schema snapshot for semantic and dashboard E2E.",
+    "uri": null,
+    "locator": {},
+    "status": "ready",
+    "status_reason": null,
+    "default_index_policy": {},
+    "capabilities": {
+      "schema_snapshot": true
+    },
+    "metadata": {
+      "document_context": "Sales analytics only; customer contact details are not available."
+    },
+    "created_at": "2026-08-18T23:36:21.145Z",
+    "updated_at": "2026-08-18T23:36:21.145Z"
+  },
+  "snapshot": {
+    "id": "snap_788703af2c674941a539aa5f25a1bc84",
+    "source_id": "src_53fc771c291c4452b003d998ea8287d1",
+    "kind": "schema_snapshot",
+    "artifact_uri": null,
+    "schema": {
+      "tables": [
+        {
+          "columns": [
+            {
+              "name": "ticket_id",
+              "primary_key": true,
+              "type": "number"
+            },
+            {
+              "foreign_key": {
+                "column": "store_id",
+                "table": "store"
+              },
+              "name": "store_id",
+              "type": "number"
+            },
+            {
+              "name": "sell_date",
+              "type": "date"
+            },
+            {
+              "name": "amount",
+              "type": "decimal"
+            },
+            {
+              "name": "status",
+              "type": "varchar"
+            }
+          ],
+          "name": "sales_order",
+          "primary_key": [
+            "ticket_id"
+          ]
+        },
+        {
+          "columns": [
+            {
+              "name": "store_id",
+              "primary_key": true,
+              "type": "number"
+            },
+            {
+              "name": "store_name",
+              "type": "varchar"
+            },
+            {
+              "name": "region",
+              "type": "varchar"
+            }
+          ],
+          "name": "store",
+          "primary_key": [
+            "store_id"
+          ]
+        }
+      ]
+    },
+    "profile": {
+      "freshness": {
+        "data_through": "2026-08-15",
+        "snapshot_id": "session-h-refresh-snapshot",
+        "status": "snapshot"
+      },
+      "row_counts": {
+        "sales_order": 12,
+        "store": 4
+      },
+      "sample_rows": {
+        "sales_order": [
+          {
+            "amount": 120.5,
+            "sell_date": "2026-08-15",
+            "status": "posted",
+            "store_id": 10,
+            "ticket_id": 1
+          },
+          {
+            "amount": 64,
+            "sell_date": "2026-08-15",
+            "status": "posted",
+            "store_id": 10,
+            "ticket_id": 2
+          },
+          {
+            "amount": 42,
+            "sell_date": "2026-08-14",
+            "status": "posted",
+            "store_id": 20,
+            "ticket_id": 3
+          }
+        ],
+        "store": [
+          {
+            "region": "East",
+            "store_id": 10,
+            "store_name": "Shanghai Central"
+          },
+          {
+            "region": "North",
+            "store_id": 20,
+            "store_name": "Beijing North"
+          }
+        ]
+      },
+      "semantic_reference": {
+        "dimensions": [
+          {
+            "description": "Store display name.",
+            "entity": "store",
+            "field": "store_name",
+            "id": "store"
+          },
+          {
+            "description": "Sale date.",
+            "entity": "sales_order",
+            "field": "sell_date",
+            "id": "sell_date"
+          }
+        ],
+        "metrics": [
+          {
+            "definition": "Count distinct tickets.",
+            "entity": "sales_order",
+            "formula": "count_distinct(ticket_id)",
+            "id": "ticket_count"
+          }
+        ],
+        "policies": {
+          "allowedDimensions": [
+            "store",
+            "sell_date"
+          ],
+          "allowedMetrics": [
+            "ticket_count"
+          ],
+          "direct_database_access": false,
+          "raw_sql_fallback": false
+        }
+      },
+      "snapshot_results": {
+        "ticket_count_by_store": [
+          {
+            "store": "Shanghai Central",
+            "ticket_count": 2
+          },
+          {
+            "store": "Beijing North",
+            "ticket_count": 1
+          }
+        ]
+      }
+    },
+    "content_hash": null,
+    "metadata": {
+      "schema_version": "knowledge_asset.metadata.v1",
+      "asset_type": "knowledge_resource",
+      "asset_id": "session-h-refresh-schema",
+      "capability_kind": "retrieval_binding",
+      "name": "Session H Sales Schema Snapshot",
+      "description": null,
+      "status": "ready",
+      "publish_state": "published",
+      "gate": null,
+      "version": null,
+      "consumers": [],
+      "capabilities": {},
+      "capability_package": {},
+      "query_url": null,
+      "freshness": {},
+      "provenance": {},
+      "usage_policy": {},
+      "sample_evidence": []
+    },
+    "created_at": "2026-08-18T23:36:21.163Z"
+  },
+  "semantic_job": {
+    "id": "job_90cddc809191414c9b799f62dfa5cb0b",
+    "space_id": "space_7346f21610d44295a4b05caf957bba5f",
+    "source_id": "src_53fc771c291c4452b003d998ea8287d1",
+    "asset_type": "semantic_model",
+    "asset_id": "session_h_sales_semantic",
+    "job_type": "semantic_skill",
+    "status": "succeeded",
+    "logs_ref": null,
+    "result_skill_id": "session_h_sales_semantic",
+    "error": null,
+    "input": {
+      "agent_name": "studio_semantic_builder_agent",
+      "intent": "按门店查看销售票数",
+      "publish_requested": true,
+      "snapshot_ids": [
+        "snap_788703af2c674941a539aa5f25a1bc84"
+      ],
+      "source_ids": [
+        "src_53fc771c291c4452b003d998ea8287d1"
+      ],
+      "target_domain": "sales"
+    },
+    "output": {
+      "agent_invocation_id": "studio_semantic_builder_agent-78b9bc7a39dc414db967851bb9e838e7",
+      "agent_name": "studio_semantic_builder_agent",
+      "agent_status": "completed",
+      "artifact_uri": "knowledge-assets://semantic-skills/session_h_sales_semantic",
+      "dimensions": [
+        "store",
+        "sell_date",
+        "sales_order_sell_date",
+        "sales_order_status",
+        "store_store_name",
+        "store_region"
+      ],
+      "gate": {
+        "blockers": [],
+        "passed": 4,
+        "score": 100,
+        "total": 4,
+        "warnings": []
+      },
+      "generation_mode": "agent",
+      "metrics": [
+        "ticket_count",
+        "sales_order_count",
+        "sales_order_amount_sum"
+      ],
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "publish_state": "published",
+      "runner_backend": "veadk.Agent+Runner",
+      "semantic_skill_asset_id": "session_h_sales_semantic",
+      "status": "ready",
+      "tool_calls": [
+        {
+          "name": "schema_graph",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "candidate_generator",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "mdl_writer",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "skill_package_writer",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "deterministic_validator",
+          "status": "available_to_agent"
+        }
+      ],
+      "validation_result": {
+        "blockers": [],
+        "reason": "",
+        "valid": true
+      },
+      "warnings": []
+    },
+    "created_at": "2026-08-18T23:36:21.184Z",
+    "updated_at": "2026-08-18T23:37:50.718Z"
+  },
+  "askdata_query": {
+    "schema": "agentkit.askdata.result.v1",
+    "status": "completed",
+    "asset": {
+      "type": "semantic_model",
+      "id": "session_h_sales_semantic",
+      "name": "Session H Sales Semantic",
+      "version": "v1"
+    },
+    "query": {
+      "semantic_asset_id": "session_h_sales_semantic",
+      "metric": "ticket_count",
+      "dimension": null,
+      "dimensions": [
+        "store"
+      ],
+      "filters": {},
+      "time_range": {},
+      "question": "按门店查看销售票数",
+      "limit": 100,
+      "mode": "summary"
+    },
+    "data": {
+      "rows": [
+        {
+          "store": "Shanghai Central",
+          "ticket_count": 2
+        },
+        {
+          "store": "Beijing North",
+          "ticket_count": 1
+        }
+      ],
+      "returnedCount": 2,
+      "metric": {
+        "id": "ticket_count",
+        "name": "Ticket Count",
+        "definition": "Count distinct tickets.",
+        "formula": "count_distinct(ticket_id)"
+      },
+      "dimensions": [
+        {
+          "id": "store",
+          "name": "Store",
+          "field": "store_name"
+        }
+      ],
+      "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100",
+      "metricDefinition": {
+        "id": "ticket_count",
+        "name": "Ticket Count",
+        "definition": "Count distinct tickets.",
+        "formula": "count_distinct(ticket_id)"
+      },
+      "policyDecision": {
+        "decision": "allow",
+        "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+        "raw_sql_fallback": false,
+        "direct_database_access": false,
+        "denied_fields": [],
+        "masked_fields": []
+      },
+      "freshness": {
+        "data_through": "",
+        "snapshot_hash": "",
+        "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+        "snapshot_ids": [
+          "snap_788703af2c674941a539aa5f25a1bc84"
+        ],
+        "status": "snapshot",
+        "as_of": "2026-08-18T23:37:55.930845Z"
+      },
+      "lineage": [
+        {
+          "approved": false,
+          "confidence": 0.75,
+          "kind": "semantic_reference_metric",
+          "version": null
+        }
+      ],
+      "evidence": [
+        {
+          "confidence": 0.8,
+          "kind": "schema_graph",
+          "relationships": 1,
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "source_ids": [
+            "src_53fc771c291c4452b003d998ea8287d1"
+          ],
+          "tables": 2
+        },
+        {
+          "confidence": 0.82,
+          "field": "ticket_id",
+          "formula": "count_distinct(ticket_id)",
+          "kind": "primary_key_metric",
+          "table": "sales_order"
+        },
+        {
+          "confidence": 0.72,
+          "field": "amount",
+          "formula": "sum(amount)",
+          "kind": "numeric_field_metric",
+          "table": "sales_order",
+          "type": "decimal"
+        }
+      ],
+      "execution": {
+        "mode": "schema_only",
+        "governed_rest": true,
+        "direct_database_access": false,
+        "raw_sql_fallback": false,
+        "result_source": "semantic_skill_snapshot"
+      },
+      "execution_mode": "snapshot_evidence_plan"
+    },
+    "mock": false,
+    "agent": {
+      "agent_name": "studio_asktable_dashboard_agent",
+      "agent_invocation_id": "studio_asktable_dashboard_agent-2511930cc4804d9b8e957c4cea8fb8ed",
+      "runner_backend": "veadk.Agent+Runner",
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "tool_calls": [
+        {
+          "name": "governed_semantic_query",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "dashboard_spec_writer",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "policy_freshness_evidence_validator",
+          "status": "available_to_agent"
+        }
+      ],
+      "generation_mode": "agent",
+      "agent_status": "completed",
+      "validation_result": {
+        "valid": true,
+        "blockers": [],
+        "reason": ""
+      }
+    },
+    "generation_mode": "agent",
+    "agent_status": "completed"
+  },
+  "dashboard_build": {
+    "schema": "agentkit.dashboard_skill_build.v1",
+    "job_id": "job_0d6b49ab67dd448989984d07636821c0",
+    "status": "succeeded",
+    "dashboard_asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+    "dashboard": {
+      "schema_version": "knowledge_asset.metadata.v1",
+      "asset_type": "dashboard",
+      "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+      "capability_kind": "dashboard_skill",
+      "name": "Session H Sales Dashboard",
+      "description": null,
+      "status": "ready",
+      "publish_state": "published",
+      "gate": {
+        "blockers": [],
+        "passed": 4,
+        "score": 100,
+        "total": 4
+      },
+      "version": "v1",
+      "consumers": [],
+      "capabilities": {
+        "agent_status": "completed",
+        "data_views": [
+          "primary_metric",
+          "breakdown_table"
+        ],
+        "dimensions": [
+          "store"
+        ],
+        "filters": [
+          "filter_store"
+        ],
+        "generation_mode": "agent",
+        "metrics": [
+          "ticket_count"
+        ]
+      },
+      "capability_package": {
+        "artifacts": {
+          "SKILL.md": "---\nname: session_h_sales_semantic-session-h-sales-dashboard-dashboard\ndescription: AgentKit governed Dashboard Skill.\n---\n\n# Dashboard Skill\n\nUse the packaged dashboard artifacts and the governed REST query tool.\nDo not use direct database credentials, raw SQL fallback, or customer/contact fields.\n\n## Packaged Artifacts\n- `manifest.json`\n- `dashboard_spec.json`\n- `tools/query_dashboard_metric.py`\n- `policies/dashboard_policy.json`\n- `evals/dashboard_cases.json`",
+          "dashboard_spec.json": {
+            "data_views": [
+              {
+                "dimensions": [
+                  "store"
+                ],
+                "evidence": [
+                  {
+                    "confidence": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "relationships": "<max-depth>",
+                    "snapshot_ids": "<max-depth>",
+                    "source_ids": "<max-depth>",
+                    "tables": "<max-depth>"
+                  },
+                  {
+                    "confidence": "<max-depth>",
+                    "field": "<max-depth>",
+                    "formula": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "table": "<max-depth>"
+                  },
+                  {
+                    "confidence": "<max-depth>",
+                    "field": "<max-depth>",
+                    "formula": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "table": "<max-depth>",
+                    "type": "<max-depth>"
+                  }
+                ],
+                "filters": [],
+                "freshness": {
+                  "as_of": "2026-08-18T23:38:00.257447Z",
+                  "data_through": "",
+                  "snapshot_hash": "",
+                  "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                  "snapshot_ids": [
+                    "<max-depth>"
+                  ],
+                  "status": "snapshot"
+                },
+                "id": "primary_metric",
+                "kind": "semantic_metric",
+                "lineage": [
+                  {
+                    "approved": "<max-depth>",
+                    "confidence": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "version": "<max-depth>"
+                  }
+                ],
+                "metric": "ticket_count",
+                "metricDefinition": {
+                  "definition": "Count distinct tickets.",
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "ticket_count",
+                  "name": "Ticket Count"
+                },
+                "policyDecision": {
+                  "decision": "allow",
+                  "denied_fields": [],
+                  "direct_database_access": false,
+                  "masked_fields": [],
+                  "raw_sql_fallback": false,
+                  "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+                },
+                "question": "按门店查看销售票数",
+                "returnedCount": 2,
+                "rows": [
+                  {
+                    "store": "<max-depth>",
+                    "ticket_count": "<max-depth>"
+                  },
+                  {
+                    "store": "<max-depth>",
+                    "ticket_count": "<max-depth>"
+                  }
+                ],
+                "semantic_model": "session_h_sales_semantic",
+                "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+              },
+              {
+                "dimensions": [
+                  "store"
+                ],
+                "evidence": [
+                  {
+                    "confidence": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "relationships": "<max-depth>",
+                    "snapshot_ids": "<max-depth>",
+                    "source_ids": "<max-depth>",
+                    "tables": "<max-depth>"
+                  },
+                  {
+                    "confidence": "<max-depth>",
+                    "field": "<max-depth>",
+                    "formula": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "table": "<max-depth>"
+                  },
+                  {
+                    "confidence": "<max-depth>",
+                    "field": "<max-depth>",
+                    "formula": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "table": "<max-depth>",
+                    "type": "<max-depth>"
+                  }
+                ],
+                "filters": [],
+                "freshness": {
+                  "as_of": "2026-08-18T23:38:00.257447Z",
+                  "data_through": "",
+                  "snapshot_hash": "",
+                  "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                  "snapshot_ids": [
+                    "<max-depth>"
+                  ],
+                  "status": "snapshot"
+                },
+                "id": "breakdown_table",
+                "kind": "semantic_metric",
+                "limit": 50,
+                "lineage": [
+                  {
+                    "approved": "<max-depth>",
+                    "confidence": "<max-depth>",
+                    "kind": "<max-depth>",
+                    "version": "<max-depth>"
+                  }
+                ],
+                "metric": "ticket_count",
+                "metricDefinition": {
+                  "definition": "Count distinct tickets.",
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "ticket_count",
+                  "name": "Ticket Count"
+                },
+                "policyDecision": {
+                  "decision": "allow",
+                  "denied_fields": [],
+                  "direct_database_access": false,
+                  "masked_fields": [],
+                  "raw_sql_fallback": false,
+                  "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+                },
+                "question": "按 store 拆解 ticket_count",
+                "returnedCount": 2,
+                "rows": [
+                  {
+                    "store": "<max-depth>",
+                    "ticket_count": "<max-depth>"
+                  },
+                  {
+                    "store": "<max-depth>",
+                    "ticket_count": "<max-depth>"
+                  }
+                ],
+                "semantic_model": "session_h_sales_semantic",
+                "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+              }
+            ],
+            "description": "",
+            "drilldowns": [
+              {
+                "dimensions": [
+                  "store"
+                ],
+                "from": "primary_metric",
+                "to": "breakdown_table"
+              }
+            ],
+            "filters": [
+              {
+                "dimension": "store",
+                "id": "filter_store",
+                "label": "store",
+                "type": "select"
+              }
+            ],
+            "generated_at": "2026-08-18T23:38:00.258528Z",
+            "id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+            "layout": [
+              {
+                "h": 2,
+                "tile_id": "tile_primary_metric",
+                "w": 4,
+                "x": 0,
+                "y": 0
+              },
+              {
+                "h": 5,
+                "tile_id": "tile_breakdown_table",
+                "w": 8,
+                "x": 0,
+                "y": 2
+              }
+            ],
+            "policies": {
+              "direct_database_access": false,
+              "raw_sql_fallback": false,
+              "uses_only_defined_metrics_and_dimensions": true
+            },
+            "schema": "agentkit.dashboard.manifest.v1",
+            "semantic_bindings": [
+              {
+                "allowed_dimensions": [
+                  "store"
+                ],
+                "allowed_metrics": [
+                  "ticket_count"
+                ],
+                "id": "binding_session_h_sales_semantic",
+                "model_slug": "session_h_sales_semantic",
+                "model_version": "v1",
+                "readiness": "published"
+              }
+            ],
+            "semantic_model": {
+              "asset_id": "session_h_sales_semantic",
+              "version": "v1"
+            },
+            "tiles": [
+              {
+                "data_view_id": "primary_metric",
+                "id": "tile_primary_metric",
+                "title": "Session H Sales Dashboard",
+                "type": "kpi"
+              },
+              {
+                "data_view_id": "breakdown_table",
+                "id": "tile_breakdown_table",
+                "title": "维度拆解",
+                "type": "table"
+              }
+            ],
+            "title": "Session H Sales Dashboard"
+          },
+          "evals/dashboard_cases.json": {
+            "cases": [
+              {
+                "id": "askdata_seed",
+                "intent": "按门店查看销售票数",
+                "must_include": [
+                  "sql",
+                  "policyDecision",
+                  "freshness",
+                  "metricDefinition"
+                ]
+              }
+            ],
+            "schema": "agentkit.dashboard.evals.v1"
+          },
+          "manifest.json": {
+            "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+            "name": "Session H Sales Dashboard",
+            "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+            "schema": "agentkit.dashboard_skill.manifest.v1"
+          },
+          "policies/dashboard_policy.json": {
+            "direct_database_access": false,
+            "policyDecision": {
+              "decision": "allow",
+              "denied_fields": [],
+              "direct_database_access": false,
+              "masked_fields": [],
+              "raw_sql_fallback": false,
+              "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+            },
+            "raw_sql_fallback": false
+          },
+          "tools/query_dashboard_metric.py": "\"\"\"Typed governed REST tool for an AgentKit Dashboard Skill.\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any\nfrom urllib.parse import urljoin, urlparse\n\nimport requests\n\nQUERY_URL = '/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query'\n\n\ndef _query_url(path_or_url: str) -> str:\n    base = os.environ[\"STUDIO_BASE_URL\"].rstrip(\"/\")\n    parsed_base = urlparse(base)\n    if parsed_base.scheme not in {\"http\", \"https\"} or not parsed_base.netloc:\n        raise ValueError(\"STUDIO_BASE_URL must be an http(s) URL\")\n    candidate = (path_or_url or \"\").strip()\n    if candidate.startswith(\"//\"):\n        raise ValueError(\"Governed dashboard URL must not be protocol-relative\")\n    if candidate.startswith(\"/\"):\n        url = urljoin(f\"{base}/\", candidate.lstrip(\"/\"))\n    else:\n        parsed_candidate = urlparse(candidate)\n        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:\n            raise ValueError(\"Governed dashboard URL must stay on Studio origin\")\n        url = candidate\n    parsed_url = urlparse(url)\n    if parsed_url.path.startswith(\"/api/knowledge-assets/assets/dashboard/\") or parsed_url.path.startswith(\"/api/external/assets/dashboard/\"):\n        return url\n    raise ValueError(\"Governed dashboard URL must target a dashboard asset query path\")\n\n\ndef query_dashboard_metric(filters: dict[str, Any] | None = None, data_view_ids: list[str] | None = None) -> dict[str, Any]:\n    bearer_value = os.environ[\"STUDIO_GOVERNED_QUERY_TOKEN\"]\n    response = requests.post(\n        _query_url(QUERY_URL),\n        json={\"filters\": filters or {}, \"data_view_ids\": data_view_ids or []},\n        headers={\"Authorization\": \" \".join((\"Bearer\", bearer_value))},\n        timeout=30,\n    )\n    response.raise_for_status()\n    return response.json()\n"
+        },
+        "askdata_seed": {
+          "agent": {
+            "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+            "agent_name": "studio_asktable_dashboard_agent",
+            "agent_status": "completed",
+            "generation_mode": "agent",
+            "model_name": "doubao-seed-2-0-lite-260428",
+            "runner_backend": "veadk.Agent+Runner",
+            "tool_calls": [
+              {
+                "name": "governed_semantic_query",
+                "status": "available_to_agent"
+              },
+              {
+                "name": "dashboard_spec_writer",
+                "status": "available_to_agent"
+              },
+              {
+                "name": "policy_freshness_evidence_validator",
+                "status": "available_to_agent"
+              }
+            ],
+            "validation_result": {
+              "blockers": [],
+              "reason": "",
+              "valid": true
+            }
+          },
+          "agent_status": "completed",
+          "asset": {
+            "id": "session_h_sales_semantic",
+            "name": "Session H Sales Semantic",
+            "type": "semantic_model",
+            "version": "v1"
+          },
+          "data": {
+            "dimensions": [
+              {
+                "field": "store_name",
+                "id": "store",
+                "name": "Store"
+              }
+            ],
+            "evidence": [
+              {
+                "confidence": 0.8,
+                "kind": "schema_graph",
+                "relationships": 1,
+                "snapshot_ids": [
+                  "snap_788703af2c674941a539aa5f25a1bc84"
+                ],
+                "source_ids": [
+                  "src_53fc771c291c4452b003d998ea8287d1"
+                ],
+                "tables": 2
+              },
+              {
+                "confidence": 0.82,
+                "field": "ticket_id",
+                "formula": "count_distinct(ticket_id)",
+                "kind": "primary_key_metric",
+                "table": "sales_order"
+              },
+              {
+                "confidence": 0.72,
+                "field": "amount",
+                "formula": "sum(amount)",
+                "kind": "numeric_field_metric",
+                "table": "sales_order",
+                "type": "decimal"
+              }
+            ],
+            "execution": {
+              "direct_database_access": false,
+              "governed_rest": true,
+              "mode": "schema_only",
+              "raw_sql_fallback": false,
+              "result_source": "semantic_skill_snapshot"
+            },
+            "execution_mode": "snapshot_evidence_plan",
+            "freshness": {
+              "as_of": "2026-08-18T23:38:00.257447Z",
+              "data_through": "",
+              "snapshot_hash": "",
+              "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "status": "snapshot"
+            },
+            "lineage": [
+              {
+                "approved": false,
+                "confidence": 0.75,
+                "kind": "semantic_reference_metric",
+                "version": null
+              }
+            ],
+            "metric": {
+              "definition": "Count distinct tickets.",
+              "formula": "count_distinct(ticket_id)",
+              "id": "ticket_count",
+              "name": "Ticket Count"
+            },
+            "metricDefinition": {
+              "definition": "Count distinct tickets.",
+              "formula": "count_distinct(ticket_id)",
+              "id": "ticket_count",
+              "name": "Ticket Count"
+            },
+            "policyDecision": {
+              "decision": "allow",
+              "denied_fields": [],
+              "direct_database_access": false,
+              "masked_fields": [],
+              "raw_sql_fallback": false,
+              "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+            },
+            "returnedCount": 2,
+            "rows": [
+              {
+                "store": "Shanghai Central",
+                "ticket_count": 2
+              },
+              {
+                "store": "Beijing North",
+                "ticket_count": 1
+              }
+            ],
+            "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+          },
+          "generation_mode": "agent",
+          "mock": false,
+          "query": {
+            "dimension": null,
+            "dimensions": [
+              "store"
+            ],
+            "filters": {},
+            "limit": 100,
+            "metric": "ticket_count",
+            "mode": "summary",
+            "question": "按门店查看销售票数",
+            "semantic_asset_id": "session_h_sales_semantic",
+            "time_range": {}
+          },
+          "schema": "agentkit.askdata.result.v1",
+          "status": "completed"
+        },
+        "dashboard": {
+          "data_views": [
+            {
+              "dimensions": [
+                "store"
+              ],
+              "evidence": [
+                {
+                  "confidence": 0.8,
+                  "kind": "schema_graph",
+                  "relationships": 1,
+                  "snapshot_ids": [
+                    "<max-depth>"
+                  ],
+                  "source_ids": [
+                    "<max-depth>"
+                  ],
+                  "tables": 2
+                },
+                {
+                  "confidence": 0.82,
+                  "field": "ticket_id",
+                  "formula": "count_distinct(ticket_id)",
+                  "kind": "primary_key_metric",
+                  "table": "sales_order"
+                },
+                {
+                  "confidence": 0.72,
+                  "field": "amount",
+                  "formula": "sum(amount)",
+                  "kind": "numeric_field_metric",
+                  "table": "sales_order",
+                  "type": "decimal"
+                }
+              ],
+              "filters": [],
+              "freshness": {
+                "as_of": "2026-08-18T23:38:00.257447Z",
+                "data_through": "",
+                "snapshot_hash": "",
+                "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                "snapshot_ids": [
+                  "snap_788703af2c674941a539aa5f25a1bc84"
+                ],
+                "status": "snapshot"
+              },
+              "id": "primary_metric",
+              "kind": "semantic_metric",
+              "lineage": [
+                {
+                  "approved": false,
+                  "confidence": 0.75,
+                  "kind": "semantic_reference_metric",
+                  "version": null
+                }
+              ],
+              "metric": "ticket_count",
+              "metricDefinition": {
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "name": "Ticket Count"
+              },
+              "policyDecision": {
+                "decision": "allow",
+                "denied_fields": [],
+                "direct_database_access": false,
+                "masked_fields": [],
+                "raw_sql_fallback": false,
+                "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+              },
+              "question": "按门店查看销售票数",
+              "returnedCount": 2,
+              "rows": [
+                {
+                  "store": "Shanghai Central",
+                  "ticket_count": 2
+                },
+                {
+                  "store": "Beijing North",
+                  "ticket_count": 1
+                }
+              ],
+              "semantic_model": "session_h_sales_semantic",
+              "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+            },
+            {
+              "dimensions": [
+                "store"
+              ],
+              "evidence": [
+                {
+                  "confidence": 0.8,
+                  "kind": "schema_graph",
+                  "relationships": 1,
+                  "snapshot_ids": [
+                    "<max-depth>"
+                  ],
+                  "source_ids": [
+                    "<max-depth>"
+                  ],
+                  "tables": 2
+                },
+                {
+                  "confidence": 0.82,
+                  "field": "ticket_id",
+                  "formula": "count_distinct(ticket_id)",
+                  "kind": "primary_key_metric",
+                  "table": "sales_order"
+                },
+                {
+                  "confidence": 0.72,
+                  "field": "amount",
+                  "formula": "sum(amount)",
+                  "kind": "numeric_field_metric",
+                  "table": "sales_order",
+                  "type": "decimal"
+                }
+              ],
+              "filters": [],
+              "freshness": {
+                "as_of": "2026-08-18T23:38:00.257447Z",
+                "data_through": "",
+                "snapshot_hash": "",
+                "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                "snapshot_ids": [
+                  "snap_788703af2c674941a539aa5f25a1bc84"
+                ],
+                "status": "snapshot"
+              },
+              "id": "breakdown_table",
+              "kind": "semantic_metric",
+              "limit": 50,
+              "lineage": [
+                {
+                  "approved": false,
+                  "confidence": 0.75,
+                  "kind": "semantic_reference_metric",
+                  "version": null
+                }
+              ],
+              "metric": "ticket_count",
+              "metricDefinition": {
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "name": "Ticket Count"
+              },
+              "policyDecision": {
+                "decision": "allow",
+                "denied_fields": [],
+                "direct_database_access": false,
+                "masked_fields": [],
+                "raw_sql_fallback": false,
+                "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+              },
+              "question": "按 store 拆解 ticket_count",
+              "returnedCount": 2,
+              "rows": [
+                {
+                  "store": "Shanghai Central",
+                  "ticket_count": 2
+                },
+                {
+                  "store": "Beijing North",
+                  "ticket_count": 1
+                }
+              ],
+              "semantic_model": "session_h_sales_semantic",
+              "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+            }
+          ],
+          "description": "",
+          "drilldowns": [
+            {
+              "dimensions": [
+                "store"
+              ],
+              "from": "primary_metric",
+              "to": "breakdown_table"
+            }
+          ],
+          "filters": [
+            {
+              "dimension": "store",
+              "id": "filter_store",
+              "label": "store",
+              "type": "select"
+            }
+          ],
+          "generated_at": "2026-08-18T23:38:00.258528Z",
+          "id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+          "layout": [
+            {
+              "h": 2,
+              "tile_id": "tile_primary_metric",
+              "w": 4,
+              "x": 0,
+              "y": 0
+            },
+            {
+              "h": 5,
+              "tile_id": "tile_breakdown_table",
+              "w": 8,
+              "x": 0,
+              "y": 2
+            }
+          ],
+          "policies": {
+            "direct_database_access": false,
+            "raw_sql_fallback": false,
+            "uses_only_defined_metrics_and_dimensions": true
+          },
+          "schema": "agentkit.dashboard.manifest.v1",
+          "semantic_bindings": [
+            {
+              "allowed_dimensions": [
+                "store"
+              ],
+              "allowed_metrics": [
+                "ticket_count"
+              ],
+              "id": "binding_session_h_sales_semantic",
+              "model_slug": "session_h_sales_semantic",
+              "model_version": "v1",
+              "readiness": "published"
+            }
+          ],
+          "semantic_model": {
+            "asset_id": "session_h_sales_semantic",
+            "version": "v1"
+          },
+          "tiles": [
+            {
+              "data_view_id": "primary_metric",
+              "id": "tile_primary_metric",
+              "title": "Session H Sales Dashboard",
+              "type": "kpi"
+            },
+            {
+              "data_view_id": "breakdown_table",
+              "id": "tile_breakdown_table",
+              "title": "维度拆解",
+              "type": "table"
+            }
+          ],
+          "title": "Session H Sales Dashboard"
+        },
+        "evals": {
+          "suite": {
+            "cases": [],
+            "contract_version": "evaluation.suite_version.v1"
+          }
+        },
+        "manifest": {
+          "artifacts": [
+            "manifest.json",
+            "dashboard_spec.json",
+            "tools/query_dashboard_metric.py",
+            "policies/dashboard_policy.json",
+            "evals/dashboard_cases.json"
+          ],
+          "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+          "capability_kind": "dashboard_skill",
+          "name": "Session H Sales Dashboard",
+          "schema": "agentkit.skill.manifest.v1",
+          "semantic_model_asset_id": "session_h_sales_semantic"
+        },
+        "package_type": "dashboard_skill",
+        "runtime": {
+          "direct_database_access": false,
+          "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+          "raw_sql_fallback": false,
+          "transport": "agentkit_governed_rest"
+        },
+        "semantic_model": {
+          "asset_id": "session_h_sales_semantic",
+          "version": "v1"
+        }
+      },
+      "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+      "freshness": {
+        "as_of": "2026-08-18T23:38:00.257447Z",
+        "data_through": "",
+        "snapshot_hash": "",
+        "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+        "snapshot_ids": [
+          "snap_788703af2c674941a539aa5f25a1bc84"
+        ],
+        "status": "snapshot"
+      },
+      "provenance": {
+        "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+        "agent_name": "studio_asktable_dashboard_agent",
+        "agent_status": "completed",
+        "askdata_query_status": "completed",
+        "builder": "agentkit.asktable_dashboard_agent.v1",
+        "generation_mode": "agent",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "runner_backend": "veadk.Agent+Runner",
+        "semantic_model_asset_id": "session_h_sales_semantic",
+        "tool_calls": [
+          {
+            "name": "governed_semantic_query",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "dashboard_spec_writer",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "policy_freshness_evidence_validator",
+            "status": "available_to_agent"
+          }
+        ],
+        "validation_result": {
+          "blockers": [],
+          "reason": "",
+          "valid": true
+        }
+      },
+      "usage_policy": {
+        "direct_database_access": false,
+        "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+        "raw_sql_fallback": false
+      },
+      "sample_evidence": [
+        {
+          "confidence": 0.8,
+          "kind": "schema_graph",
+          "relationships": 1,
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "source_ids": [
+            "src_53fc771c291c4452b003d998ea8287d1"
+          ],
+          "tables": 2
+        },
+        {
+          "confidence": 0.82,
+          "field": "ticket_id",
+          "formula": "count_distinct(ticket_id)",
+          "kind": "primary_key_metric",
+          "table": "sales_order"
+        },
+        {
+          "confidence": 0.72,
+          "field": "amount",
+          "formula": "sum(amount)",
+          "kind": "numeric_field_metric",
+          "table": "sales_order",
+          "type": "decimal"
+        }
+      ]
+    },
+    "askdata": {
+      "schema": "agentkit.askdata.result.v1",
+      "status": "completed",
+      "asset": {
+        "type": "semantic_model",
+        "id": "session_h_sales_semantic",
+        "name": "Session H Sales Semantic",
+        "version": "v1"
+      },
+      "query": {
+        "semantic_asset_id": "session_h_sales_semantic",
+        "metric": "ticket_count",
+        "dimension": null,
+        "dimensions": [
+          "store"
+        ],
+        "filters": {},
+        "time_range": {},
+        "question": "按门店查看销售票数",
+        "limit": 100,
+        "mode": "summary"
+      },
+      "data": {
+        "rows": [
+          {
+            "store": "Shanghai Central",
+            "ticket_count": 2
+          },
+          {
+            "store": "Beijing North",
+            "ticket_count": 1
+          }
+        ],
+        "returnedCount": 2,
+        "metric": {
+          "id": "ticket_count",
+          "name": "Ticket Count",
+          "definition": "Count distinct tickets.",
+          "formula": "count_distinct(ticket_id)"
+        },
+        "dimensions": [
+          {
+            "id": "store",
+            "name": "Store",
+            "field": "store_name"
+          }
+        ],
+        "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100",
+        "metricDefinition": {
+          "id": "ticket_count",
+          "name": "Ticket Count",
+          "definition": "Count distinct tickets.",
+          "formula": "count_distinct(ticket_id)"
+        },
+        "policyDecision": {
+          "decision": "allow",
+          "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+          "raw_sql_fallback": false,
+          "direct_database_access": false,
+          "denied_fields": [],
+          "masked_fields": []
+        },
+        "freshness": {
+          "data_through": "",
+          "snapshot_hash": "",
+          "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "status": "snapshot",
+          "as_of": "2026-08-18T23:38:00.257447Z"
+        },
+        "lineage": [
+          {
+            "approved": false,
+            "confidence": 0.75,
+            "kind": "semantic_reference_metric",
+            "version": null
+          }
+        ],
+        "evidence": [
+          {
+            "confidence": 0.8,
+            "kind": "schema_graph",
+            "relationships": 1,
+            "snapshot_ids": [
+              "snap_788703af2c674941a539aa5f25a1bc84"
+            ],
+            "source_ids": [
+              "src_53fc771c291c4452b003d998ea8287d1"
+            ],
+            "tables": 2
+          },
+          {
+            "confidence": 0.82,
+            "field": "ticket_id",
+            "formula": "count_distinct(ticket_id)",
+            "kind": "primary_key_metric",
+            "table": "sales_order"
+          },
+          {
+            "confidence": 0.72,
+            "field": "amount",
+            "formula": "sum(amount)",
+            "kind": "numeric_field_metric",
+            "table": "sales_order",
+            "type": "decimal"
+          }
+        ],
+        "execution": {
+          "mode": "schema_only",
+          "governed_rest": true,
+          "direct_database_access": false,
+          "raw_sql_fallback": false,
+          "result_source": "semantic_skill_snapshot"
+        },
+        "execution_mode": "snapshot_evidence_plan"
+      },
+      "mock": false,
+      "agent": {
+        "agent_name": "studio_asktable_dashboard_agent",
+        "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "tool_calls": [
+          {
+            "name": "governed_semantic_query",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "dashboard_spec_writer",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "policy_freshness_evidence_validator",
+            "status": "available_to_agent"
+          }
+        ],
+        "generation_mode": "agent",
+        "agent_status": "completed",
+        "validation_result": {
+          "valid": true,
+          "blockers": [],
+          "reason": ""
+        }
+      },
+      "generation_mode": "agent",
+      "agent_status": "completed"
+    },
+    "preview": {
+      "data_views": [
+        {
+          "dimensions": [
+            "store"
+          ],
+          "evidence": [
+            {
+              "confidence": 0.8,
+              "kind": "schema_graph",
+              "relationships": 1,
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "source_ids": [
+                "src_53fc771c291c4452b003d998ea8287d1"
+              ],
+              "tables": 2
+            },
+            {
+              "confidence": 0.82,
+              "field": "ticket_id",
+              "formula": "count_distinct(ticket_id)",
+              "kind": "primary_key_metric",
+              "table": "sales_order"
+            },
+            {
+              "confidence": 0.72,
+              "field": "amount",
+              "formula": "sum(amount)",
+              "kind": "numeric_field_metric",
+              "table": "sales_order",
+              "type": "decimal"
+            }
+          ],
+          "filters": [],
+          "freshness": {
+            "as_of": "2026-08-18T23:38:00.257447Z",
+            "data_through": "",
+            "snapshot_hash": "",
+            "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+            "snapshot_ids": [
+              "snap_788703af2c674941a539aa5f25a1bc84"
+            ],
+            "status": "snapshot"
+          },
+          "id": "primary_metric",
+          "kind": "semantic_metric",
+          "lineage": [
+            {
+              "approved": false,
+              "confidence": 0.75,
+              "kind": "semantic_reference_metric",
+              "version": null
+            }
+          ],
+          "metric": "ticket_count",
+          "metricDefinition": {
+            "definition": "Count distinct tickets.",
+            "formula": "count_distinct(ticket_id)",
+            "id": "ticket_count",
+            "name": "Ticket Count"
+          },
+          "policyDecision": {
+            "decision": "allow",
+            "denied_fields": [],
+            "direct_database_access": false,
+            "masked_fields": [],
+            "raw_sql_fallback": false,
+            "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+          },
+          "question": "按门店查看销售票数",
+          "returnedCount": 2,
+          "rows": [
+            {
+              "store": "Shanghai Central",
+              "ticket_count": 2
+            },
+            {
+              "store": "Beijing North",
+              "ticket_count": 1
+            }
+          ],
+          "semantic_model": "session_h_sales_semantic",
+          "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+        },
+        {
+          "dimensions": [
+            "store"
+          ],
+          "evidence": [
+            {
+              "confidence": 0.8,
+              "kind": "schema_graph",
+              "relationships": 1,
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "source_ids": [
+                "src_53fc771c291c4452b003d998ea8287d1"
+              ],
+              "tables": 2
+            },
+            {
+              "confidence": 0.82,
+              "field": "ticket_id",
+              "formula": "count_distinct(ticket_id)",
+              "kind": "primary_key_metric",
+              "table": "sales_order"
+            },
+            {
+              "confidence": 0.72,
+              "field": "amount",
+              "formula": "sum(amount)",
+              "kind": "numeric_field_metric",
+              "table": "sales_order",
+              "type": "decimal"
+            }
+          ],
+          "filters": [],
+          "freshness": {
+            "as_of": "2026-08-18T23:38:00.257447Z",
+            "data_through": "",
+            "snapshot_hash": "",
+            "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+            "snapshot_ids": [
+              "snap_788703af2c674941a539aa5f25a1bc84"
+            ],
+            "status": "snapshot"
+          },
+          "id": "breakdown_table",
+          "kind": "semantic_metric",
+          "limit": 50,
+          "lineage": [
+            {
+              "approved": false,
+              "confidence": 0.75,
+              "kind": "semantic_reference_metric",
+              "version": null
+            }
+          ],
+          "metric": "ticket_count",
+          "metricDefinition": {
+            "definition": "Count distinct tickets.",
+            "formula": "count_distinct(ticket_id)",
+            "id": "ticket_count",
+            "name": "Ticket Count"
+          },
+          "policyDecision": {
+            "decision": "allow",
+            "denied_fields": [],
+            "direct_database_access": false,
+            "masked_fields": [],
+            "raw_sql_fallback": false,
+            "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+          },
+          "question": "按 store 拆解 ticket_count",
+          "returnedCount": 2,
+          "rows": [
+            {
+              "store": "Shanghai Central",
+              "ticket_count": 2
+            },
+            {
+              "store": "Beijing North",
+              "ticket_count": 1
+            }
+          ],
+          "semantic_model": "session_h_sales_semantic",
+          "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+        }
+      ],
+      "filters": [
+        {
+          "dimension": "store",
+          "id": "filter_store",
+          "label": "store",
+          "type": "select"
+        }
+      ],
+      "tiles": [
+        {
+          "data_view_id": "primary_metric",
+          "id": "tile_primary_metric",
+          "title": "Session H Sales Dashboard",
+          "type": "kpi"
+        },
+        {
+          "data_view_id": "breakdown_table",
+          "id": "tile_breakdown_table",
+          "title": "维度拆解",
+          "type": "table"
+        }
+      ]
+    },
+    "agent": {
+      "agent_name": "studio_asktable_dashboard_agent",
+      "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+      "runner_backend": "veadk.Agent+Runner",
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "tool_calls": [
+        {
+          "name": "governed_semantic_query",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "dashboard_spec_writer",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "policy_freshness_evidence_validator",
+          "status": "available_to_agent"
+        }
+      ],
+      "generation_mode": "agent",
+      "agent_status": "completed",
+      "validation_result": {
+        "valid": true,
+        "blockers": [],
+        "reason": ""
+      }
+    },
+    "mock": false
+  },
+  "dashboard_asset": {
+    "schema_version": "knowledge_asset.metadata.v1",
+    "asset_type": "dashboard",
+    "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+    "capability_kind": "dashboard_skill",
+    "name": "Session H Sales Dashboard",
+    "description": null,
+    "status": "ready",
+    "publish_state": "published",
+    "gate": {
+      "blockers": [],
+      "passed": 4,
+      "score": 100,
+      "total": 4
+    },
+    "version": "v1",
+    "consumers": [],
+    "capabilities": {
+      "agent_status": "completed",
+      "data_views": [
+        "primary_metric",
+        "breakdown_table"
+      ],
+      "dimensions": [
+        "store"
+      ],
+      "filters": [
+        "filter_store"
+      ],
+      "generation_mode": "agent",
+      "metrics": [
+        "ticket_count"
+      ]
+    },
+    "capability_package": {
+      "artifacts": {
+        "SKILL.md": "---\nname: session_h_sales_semantic-session-h-sales-dashboard-dashboard\ndescription: AgentKit governed Dashboard Skill.\n---\n\n# Dashboard Skill\n\nUse the packaged dashboard artifacts and the governed REST query tool.\nDo not use direct database credentials, raw SQL fallback, or customer/contact fields.\n\n## Packaged Artifacts\n- `manifest.json`\n- `dashboard_spec.json`\n- `tools/query_dashboard_metric.py`\n- `policies/dashboard_policy.json`\n- `evals/dashboard_cases.json`",
+        "dashboard_spec.json": {
+          "data_views": [
+            {
+              "dimensions": [
+                "store"
+              ],
+              "evidence": [
+                {
+                  "confidence": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "relationships": "<max-depth>",
+                  "snapshot_ids": "<max-depth>",
+                  "source_ids": "<max-depth>",
+                  "tables": "<max-depth>"
+                },
+                {
+                  "confidence": "<max-depth>",
+                  "field": "<max-depth>",
+                  "formula": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "table": "<max-depth>"
+                },
+                {
+                  "confidence": "<max-depth>",
+                  "field": "<max-depth>",
+                  "formula": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "table": "<max-depth>",
+                  "type": "<max-depth>"
+                }
+              ],
+              "filters": [],
+              "freshness": {
+                "as_of": "2026-08-18T23:38:00.257447Z",
+                "data_through": "",
+                "snapshot_hash": "",
+                "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                "snapshot_ids": [
+                  "<max-depth>"
+                ],
+                "status": "snapshot"
+              },
+              "id": "primary_metric",
+              "kind": "semantic_metric",
+              "lineage": [
+                {
+                  "approved": "<max-depth>",
+                  "confidence": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "version": "<max-depth>"
+                }
+              ],
+              "metric": "ticket_count",
+              "metricDefinition": {
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "name": "Ticket Count"
+              },
+              "policyDecision": {
+                "decision": "allow",
+                "denied_fields": [],
+                "direct_database_access": false,
+                "masked_fields": [],
+                "raw_sql_fallback": false,
+                "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+              },
+              "question": "按门店查看销售票数",
+              "returnedCount": 2,
+              "rows": [
+                {
+                  "store": "<max-depth>",
+                  "ticket_count": "<max-depth>"
+                },
+                {
+                  "store": "<max-depth>",
+                  "ticket_count": "<max-depth>"
+                }
+              ],
+              "semantic_model": "session_h_sales_semantic",
+              "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+            },
+            {
+              "dimensions": [
+                "store"
+              ],
+              "evidence": [
+                {
+                  "confidence": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "relationships": "<max-depth>",
+                  "snapshot_ids": "<max-depth>",
+                  "source_ids": "<max-depth>",
+                  "tables": "<max-depth>"
+                },
+                {
+                  "confidence": "<max-depth>",
+                  "field": "<max-depth>",
+                  "formula": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "table": "<max-depth>"
+                },
+                {
+                  "confidence": "<max-depth>",
+                  "field": "<max-depth>",
+                  "formula": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "table": "<max-depth>",
+                  "type": "<max-depth>"
+                }
+              ],
+              "filters": [],
+              "freshness": {
+                "as_of": "2026-08-18T23:38:00.257447Z",
+                "data_through": "",
+                "snapshot_hash": "",
+                "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                "snapshot_ids": [
+                  "<max-depth>"
+                ],
+                "status": "snapshot"
+              },
+              "id": "breakdown_table",
+              "kind": "semantic_metric",
+              "limit": 50,
+              "lineage": [
+                {
+                  "approved": "<max-depth>",
+                  "confidence": "<max-depth>",
+                  "kind": "<max-depth>",
+                  "version": "<max-depth>"
+                }
+              ],
+              "metric": "ticket_count",
+              "metricDefinition": {
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "name": "Ticket Count"
+              },
+              "policyDecision": {
+                "decision": "allow",
+                "denied_fields": [],
+                "direct_database_access": false,
+                "masked_fields": [],
+                "raw_sql_fallback": false,
+                "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+              },
+              "question": "按 store 拆解 ticket_count",
+              "returnedCount": 2,
+              "rows": [
+                {
+                  "store": "<max-depth>",
+                  "ticket_count": "<max-depth>"
+                },
+                {
+                  "store": "<max-depth>",
+                  "ticket_count": "<max-depth>"
+                }
+              ],
+              "semantic_model": "session_h_sales_semantic",
+              "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+            }
+          ],
+          "description": "",
+          "drilldowns": [
+            {
+              "dimensions": [
+                "store"
+              ],
+              "from": "primary_metric",
+              "to": "breakdown_table"
+            }
+          ],
+          "filters": [
+            {
+              "dimension": "store",
+              "id": "filter_store",
+              "label": "store",
+              "type": "select"
+            }
+          ],
+          "generated_at": "2026-08-18T23:38:00.258528Z",
+          "id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+          "layout": [
+            {
+              "h": 2,
+              "tile_id": "tile_primary_metric",
+              "w": 4,
+              "x": 0,
+              "y": 0
+            },
+            {
+              "h": 5,
+              "tile_id": "tile_breakdown_table",
+              "w": 8,
+              "x": 0,
+              "y": 2
+            }
+          ],
+          "policies": {
+            "direct_database_access": false,
+            "raw_sql_fallback": false,
+            "uses_only_defined_metrics_and_dimensions": true
+          },
+          "schema": "agentkit.dashboard.manifest.v1",
+          "semantic_bindings": [
+            {
+              "allowed_dimensions": [
+                "store"
+              ],
+              "allowed_metrics": [
+                "ticket_count"
+              ],
+              "id": "binding_session_h_sales_semantic",
+              "model_slug": "session_h_sales_semantic",
+              "model_version": "v1",
+              "readiness": "published"
+            }
+          ],
+          "semantic_model": {
+            "asset_id": "session_h_sales_semantic",
+            "version": "v1"
+          },
+          "tiles": [
+            {
+              "data_view_id": "primary_metric",
+              "id": "tile_primary_metric",
+              "title": "Session H Sales Dashboard",
+              "type": "kpi"
+            },
+            {
+              "data_view_id": "breakdown_table",
+              "id": "tile_breakdown_table",
+              "title": "维度拆解",
+              "type": "table"
+            }
+          ],
+          "title": "Session H Sales Dashboard"
+        },
+        "evals/dashboard_cases.json": {
+          "cases": [
+            {
+              "id": "askdata_seed",
+              "intent": "按门店查看销售票数",
+              "must_include": [
+                "sql",
+                "policyDecision",
+                "freshness",
+                "metricDefinition"
+              ]
+            }
+          ],
+          "schema": "agentkit.dashboard.evals.v1"
+        },
+        "manifest.json": {
+          "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+          "name": "Session H Sales Dashboard",
+          "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+          "schema": "agentkit.dashboard_skill.manifest.v1"
+        },
+        "policies/dashboard_policy.json": {
+          "direct_database_access": false,
+          "policyDecision": {
+            "decision": "allow",
+            "denied_fields": [],
+            "direct_database_access": false,
+            "masked_fields": [],
+            "raw_sql_fallback": false,
+            "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+          },
+          "raw_sql_fallback": false
+        },
+        "tools/query_dashboard_metric.py": "\"\"\"Typed governed REST tool for an AgentKit Dashboard Skill.\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any\nfrom urllib.parse import urljoin, urlparse\n\nimport requests\n\nQUERY_URL = '/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query'\n\n\ndef _query_url(path_or_url: str) -> str:\n    base = os.environ[\"STUDIO_BASE_URL\"].rstrip(\"/\")\n    parsed_base = urlparse(base)\n    if parsed_base.scheme not in {\"http\", \"https\"} or not parsed_base.netloc:\n        raise ValueError(\"STUDIO_BASE_URL must be an http(s) URL\")\n    candidate = (path_or_url or \"\").strip()\n    if candidate.startswith(\"//\"):\n        raise ValueError(\"Governed dashboard URL must not be protocol-relative\")\n    if candidate.startswith(\"/\"):\n        url = urljoin(f\"{base}/\", candidate.lstrip(\"/\"))\n    else:\n        parsed_candidate = urlparse(candidate)\n        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:\n            raise ValueError(\"Governed dashboard URL must stay on Studio origin\")\n        url = candidate\n    parsed_url = urlparse(url)\n    if parsed_url.path.startswith(\"/api/knowledge-assets/assets/dashboard/\") or parsed_url.path.startswith(\"/api/external/assets/dashboard/\"):\n        return url\n    raise ValueError(\"Governed dashboard URL must target a dashboard asset query path\")\n\n\ndef query_dashboard_metric(filters: dict[str, Any] | None = None, data_view_ids: list[str] | None = None) -> dict[str, Any]:\n    bearer_value = os.environ[\"STUDIO_GOVERNED_QUERY_TOKEN\"]\n    response = requests.post(\n        _query_url(QUERY_URL),\n        json={\"filters\": filters or {}, \"data_view_ids\": data_view_ids or []},\n        headers={\"Authorization\": \" \".join((\"Bearer\", bearer_value))},\n        timeout=30,\n    )\n    response.raise_for_status()\n    return response.json()\n"
+      },
+      "askdata_seed": {
+        "agent": {
+          "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+          "agent_name": "studio_asktable_dashboard_agent",
+          "agent_status": "completed",
+          "generation_mode": "agent",
+          "model_name": "doubao-seed-2-0-lite-260428",
+          "runner_backend": "veadk.Agent+Runner",
+          "tool_calls": [
+            {
+              "name": "governed_semantic_query",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "dashboard_spec_writer",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "policy_freshness_evidence_validator",
+              "status": "available_to_agent"
+            }
+          ],
+          "validation_result": {
+            "blockers": [],
+            "reason": "",
+            "valid": true
+          }
+        },
+        "agent_status": "completed",
+        "asset": {
+          "id": "session_h_sales_semantic",
+          "name": "Session H Sales Semantic",
+          "type": "semantic_model",
+          "version": "v1"
+        },
+        "data": {
+          "dimensions": [
+            {
+              "field": "store_name",
+              "id": "store",
+              "name": "Store"
+            }
+          ],
+          "evidence": [
+            {
+              "confidence": 0.8,
+              "kind": "schema_graph",
+              "relationships": 1,
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "source_ids": [
+                "src_53fc771c291c4452b003d998ea8287d1"
+              ],
+              "tables": 2
+            },
+            {
+              "confidence": 0.82,
+              "field": "ticket_id",
+              "formula": "count_distinct(ticket_id)",
+              "kind": "primary_key_metric",
+              "table": "sales_order"
+            },
+            {
+              "confidence": 0.72,
+              "field": "amount",
+              "formula": "sum(amount)",
+              "kind": "numeric_field_metric",
+              "table": "sales_order",
+              "type": "decimal"
+            }
+          ],
+          "execution": {
+            "direct_database_access": false,
+            "governed_rest": true,
+            "mode": "schema_only",
+            "raw_sql_fallback": false,
+            "result_source": "semantic_skill_snapshot"
+          },
+          "execution_mode": "snapshot_evidence_plan",
+          "freshness": {
+            "as_of": "2026-08-18T23:38:00.257447Z",
+            "data_through": "",
+            "snapshot_hash": "",
+            "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+            "snapshot_ids": [
+              "snap_788703af2c674941a539aa5f25a1bc84"
+            ],
+            "status": "snapshot"
+          },
+          "lineage": [
+            {
+              "approved": false,
+              "confidence": 0.75,
+              "kind": "semantic_reference_metric",
+              "version": null
+            }
+          ],
+          "metric": {
+            "definition": "Count distinct tickets.",
+            "formula": "count_distinct(ticket_id)",
+            "id": "ticket_count",
+            "name": "Ticket Count"
+          },
+          "metricDefinition": {
+            "definition": "Count distinct tickets.",
+            "formula": "count_distinct(ticket_id)",
+            "id": "ticket_count",
+            "name": "Ticket Count"
+          },
+          "policyDecision": {
+            "decision": "allow",
+            "denied_fields": [],
+            "direct_database_access": false,
+            "masked_fields": [],
+            "raw_sql_fallback": false,
+            "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+          },
+          "returnedCount": 2,
+          "rows": [
+            {
+              "store": "Shanghai Central",
+              "ticket_count": 2
+            },
+            {
+              "store": "Beijing North",
+              "ticket_count": 1
+            }
+          ],
+          "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+        },
+        "generation_mode": "agent",
+        "mock": false,
+        "query": {
+          "dimension": null,
+          "dimensions": [
+            "store"
+          ],
+          "filters": {},
+          "limit": 100,
+          "metric": "ticket_count",
+          "mode": "summary",
+          "question": "按门店查看销售票数",
+          "semantic_asset_id": "session_h_sales_semantic",
+          "time_range": {}
+        },
+        "schema": "agentkit.askdata.result.v1",
+        "status": "completed"
+      },
+      "dashboard": {
+        "data_views": [
+          {
+            "dimensions": [
+              "store"
+            ],
+            "evidence": [
+              {
+                "confidence": 0.8,
+                "kind": "schema_graph",
+                "relationships": 1,
+                "snapshot_ids": [
+                  "<max-depth>"
+                ],
+                "source_ids": [
+                  "<max-depth>"
+                ],
+                "tables": 2
+              },
+              {
+                "confidence": 0.82,
+                "field": "ticket_id",
+                "formula": "count_distinct(ticket_id)",
+                "kind": "primary_key_metric",
+                "table": "sales_order"
+              },
+              {
+                "confidence": 0.72,
+                "field": "amount",
+                "formula": "sum(amount)",
+                "kind": "numeric_field_metric",
+                "table": "sales_order",
+                "type": "decimal"
+              }
+            ],
+            "filters": [],
+            "freshness": {
+              "as_of": "2026-08-18T23:38:00.257447Z",
+              "data_through": "",
+              "snapshot_hash": "",
+              "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "status": "snapshot"
+            },
+            "id": "primary_metric",
+            "kind": "semantic_metric",
+            "lineage": [
+              {
+                "approved": false,
+                "confidence": 0.75,
+                "kind": "semantic_reference_metric",
+                "version": null
+              }
+            ],
+            "metric": "ticket_count",
+            "metricDefinition": {
+              "definition": "Count distinct tickets.",
+              "formula": "count_distinct(ticket_id)",
+              "id": "ticket_count",
+              "name": "Ticket Count"
+            },
+            "policyDecision": {
+              "decision": "allow",
+              "denied_fields": [],
+              "direct_database_access": false,
+              "masked_fields": [],
+              "raw_sql_fallback": false,
+              "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+            },
+            "question": "按门店查看销售票数",
+            "returnedCount": 2,
+            "rows": [
+              {
+                "store": "Shanghai Central",
+                "ticket_count": 2
+              },
+              {
+                "store": "Beijing North",
+                "ticket_count": 1
+              }
+            ],
+            "semantic_model": "session_h_sales_semantic",
+            "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+          },
+          {
+            "dimensions": [
+              "store"
+            ],
+            "evidence": [
+              {
+                "confidence": 0.8,
+                "kind": "schema_graph",
+                "relationships": 1,
+                "snapshot_ids": [
+                  "<max-depth>"
+                ],
+                "source_ids": [
+                  "<max-depth>"
+                ],
+                "tables": 2
+              },
+              {
+                "confidence": 0.82,
+                "field": "ticket_id",
+                "formula": "count_distinct(ticket_id)",
+                "kind": "primary_key_metric",
+                "table": "sales_order"
+              },
+              {
+                "confidence": 0.72,
+                "field": "amount",
+                "formula": "sum(amount)",
+                "kind": "numeric_field_metric",
+                "table": "sales_order",
+                "type": "decimal"
+              }
+            ],
+            "filters": [],
+            "freshness": {
+              "as_of": "2026-08-18T23:38:00.257447Z",
+              "data_through": "",
+              "snapshot_hash": "",
+              "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "status": "snapshot"
+            },
+            "id": "breakdown_table",
+            "kind": "semantic_metric",
+            "limit": 50,
+            "lineage": [
+              {
+                "approved": false,
+                "confidence": 0.75,
+                "kind": "semantic_reference_metric",
+                "version": null
+              }
+            ],
+            "metric": "ticket_count",
+            "metricDefinition": {
+              "definition": "Count distinct tickets.",
+              "formula": "count_distinct(ticket_id)",
+              "id": "ticket_count",
+              "name": "Ticket Count"
+            },
+            "policyDecision": {
+              "decision": "allow",
+              "denied_fields": [],
+              "direct_database_access": false,
+              "masked_fields": [],
+              "raw_sql_fallback": false,
+              "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+            },
+            "question": "按 store 拆解 ticket_count",
+            "returnedCount": 2,
+            "rows": [
+              {
+                "store": "Shanghai Central",
+                "ticket_count": 2
+              },
+              {
+                "store": "Beijing North",
+                "ticket_count": 1
+              }
+            ],
+            "semantic_model": "session_h_sales_semantic",
+            "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+          }
+        ],
+        "description": "",
+        "drilldowns": [
+          {
+            "dimensions": [
+              "store"
+            ],
+            "from": "primary_metric",
+            "to": "breakdown_table"
+          }
+        ],
+        "filters": [
+          {
+            "dimension": "store",
+            "id": "filter_store",
+            "label": "store",
+            "type": "select"
+          }
+        ],
+        "generated_at": "2026-08-18T23:38:00.258528Z",
+        "id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+        "layout": [
+          {
+            "h": 2,
+            "tile_id": "tile_primary_metric",
+            "w": 4,
+            "x": 0,
+            "y": 0
+          },
+          {
+            "h": 5,
+            "tile_id": "tile_breakdown_table",
+            "w": 8,
+            "x": 0,
+            "y": 2
+          }
+        ],
+        "policies": {
+          "direct_database_access": false,
+          "raw_sql_fallback": false,
+          "uses_only_defined_metrics_and_dimensions": true
+        },
+        "schema": "agentkit.dashboard.manifest.v1",
+        "semantic_bindings": [
+          {
+            "allowed_dimensions": [
+              "store"
+            ],
+            "allowed_metrics": [
+              "ticket_count"
+            ],
+            "id": "binding_session_h_sales_semantic",
+            "model_slug": "session_h_sales_semantic",
+            "model_version": "v1",
+            "readiness": "published"
+          }
+        ],
+        "semantic_model": {
+          "asset_id": "session_h_sales_semantic",
+          "version": "v1"
+        },
+        "tiles": [
+          {
+            "data_view_id": "primary_metric",
+            "id": "tile_primary_metric",
+            "title": "Session H Sales Dashboard",
+            "type": "kpi"
+          },
+          {
+            "data_view_id": "breakdown_table",
+            "id": "tile_breakdown_table",
+            "title": "维度拆解",
+            "type": "table"
+          }
+        ],
+        "title": "Session H Sales Dashboard"
+      },
+      "evals": {
+        "suite": {
+          "cases": [],
+          "contract_version": "evaluation.suite_version.v1"
+        }
+      },
+      "manifest": {
+        "artifacts": [
+          "manifest.json",
+          "dashboard_spec.json",
+          "tools/query_dashboard_metric.py",
+          "policies/dashboard_policy.json",
+          "evals/dashboard_cases.json"
+        ],
+        "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+        "capability_kind": "dashboard_skill",
+        "name": "Session H Sales Dashboard",
+        "schema": "agentkit.skill.manifest.v1",
+        "semantic_model_asset_id": "session_h_sales_semantic"
+      },
+      "package_type": "dashboard_skill",
+      "runtime": {
+        "direct_database_access": false,
+        "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+        "raw_sql_fallback": false,
+        "transport": "agentkit_governed_rest"
+      },
+      "semantic_model": {
+        "asset_id": "session_h_sales_semantic",
+        "version": "v1"
+      }
+    },
+    "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+    "freshness": {
+      "as_of": "2026-08-18T23:38:00.257447Z",
+      "data_through": "",
+      "snapshot_hash": "",
+      "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+      "snapshot_ids": [
+        "snap_788703af2c674941a539aa5f25a1bc84"
+      ],
+      "status": "snapshot"
+    },
+    "provenance": {
+      "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+      "agent_name": "studio_asktable_dashboard_agent",
+      "agent_status": "completed",
+      "askdata_query_status": "completed",
+      "builder": "agentkit.asktable_dashboard_agent.v1",
+      "generation_mode": "agent",
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "runner_backend": "veadk.Agent+Runner",
+      "semantic_model_asset_id": "session_h_sales_semantic",
+      "tool_calls": [
+        {
+          "name": "governed_semantic_query",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "dashboard_spec_writer",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "policy_freshness_evidence_validator",
+          "status": "available_to_agent"
+        }
+      ],
+      "validation_result": {
+        "blockers": [],
+        "reason": "",
+        "valid": true
+      }
+    },
+    "usage_policy": {
+      "direct_database_access": false,
+      "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+      "raw_sql_fallback": false
+    },
+    "sample_evidence": [
+      {
+        "confidence": 0.8,
+        "kind": "schema_graph",
+        "relationships": 1,
+        "snapshot_ids": [
+          "snap_788703af2c674941a539aa5f25a1bc84"
+        ],
+        "source_ids": [
+          "src_53fc771c291c4452b003d998ea8287d1"
+        ],
+        "tables": 2
+      },
+      {
+        "confidence": 0.82,
+        "field": "ticket_id",
+        "formula": "count_distinct(ticket_id)",
+        "kind": "primary_key_metric",
+        "table": "sales_order"
+      },
+      {
+        "confidence": 0.72,
+        "field": "amount",
+        "formula": "sum(amount)",
+        "kind": "numeric_field_metric",
+        "table": "sales_order",
+        "type": "decimal"
+      }
+    ]
+  },
+  "assets": {
+    "schema_version": "knowledge_asset.list.v1",
+    "items": [
+      {
+        "schema_version": "knowledge_asset.metadata.v1",
+        "asset_type": "dashboard",
+        "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+        "capability_kind": "dashboard_skill",
+        "name": "Session H Sales Dashboard",
+        "description": null,
+        "status": "ready",
+        "publish_state": "published",
+        "gate": {
+          "blockers": [],
+          "passed": 4,
+          "score": 100,
+          "total": 4
+        },
+        "version": "v1",
+        "consumers": [],
+        "capabilities": {
+          "agent_status": "completed",
+          "data_views": [
+            "primary_metric",
+            "breakdown_table"
+          ],
+          "dimensions": [
+            "store"
+          ],
+          "filters": [
+            "filter_store"
+          ],
+          "generation_mode": "agent",
+          "metrics": [
+            "ticket_count"
+          ]
+        },
+        "capability_package": {
+          "artifacts": {
+            "SKILL.md": "---\nname: session_h_sales_semantic-session-h-sales-dashboard-dashboard\ndescription: AgentKit governed Dashboard Skill.\n---\n\n# Dashboard Skill\n\nUse the packaged dashboard artifacts and the governed REST query tool.\nDo not use direct database credentials, raw SQL fallback, or customer/contact fields.\n\n## Packaged Artifacts\n- `manifest.json`\n- `dashboard_spec.json`\n- `tools/query_dashboard_metric.py`\n- `policies/dashboard_policy.json`\n- `evals/dashboard_cases.json`",
+            "dashboard_spec.json": {
+              "data_views": [
+                {
+                  "dimensions": [
+                    "store"
+                  ],
+                  "evidence": [
+                    {
+                      "confidence": 0.8,
+                      "kind": "schema_graph",
+                      "relationships": 1,
+                      "snapshot_ids": [
+                        "<max-depth>"
+                      ],
+                      "source_ids": [
+                        "<max-depth>"
+                      ],
+                      "tables": 2
+                    },
+                    {
+                      "confidence": 0.82,
+                      "field": "ticket_id",
+                      "formula": "count_distinct(ticket_id)",
+                      "kind": "primary_key_metric",
+                      "table": "sales_order"
+                    },
+                    {
+                      "confidence": 0.72,
+                      "field": "amount",
+                      "formula": "sum(amount)",
+                      "kind": "numeric_field_metric",
+                      "table": "sales_order",
+                      "type": "decimal"
+                    }
+                  ],
+                  "filters": [],
+                  "freshness": {
+                    "as_of": "2026-08-18T23:38:00.257447Z",
+                    "data_through": "",
+                    "snapshot_hash": "",
+                    "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                    "snapshot_ids": [
+                      "snap_788703af2c674941a539aa5f25a1bc84"
+                    ],
+                    "status": "snapshot"
+                  },
+                  "id": "primary_metric",
+                  "kind": "semantic_metric",
+                  "lineage": [
+                    {
+                      "approved": false,
+                      "confidence": 0.75,
+                      "kind": "semantic_reference_metric",
+                      "version": null
+                    }
+                  ],
+                  "metric": "ticket_count",
+                  "metricDefinition": {
+                    "definition": "Count distinct tickets.",
+                    "formula": "count_distinct(ticket_id)",
+                    "id": "ticket_count",
+                    "name": "Ticket Count"
+                  },
+                  "policyDecision": {
+                    "decision": "allow",
+                    "denied_fields": [],
+                    "direct_database_access": false,
+                    "masked_fields": [],
+                    "raw_sql_fallback": false,
+                    "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+                  },
+                  "question": "按门店查看销售票数",
+                  "returnedCount": 2,
+                  "rows": [
+                    {
+                      "store": "Shanghai Central",
+                      "ticket_count": 2
+                    },
+                    {
+                      "store": "Beijing North",
+                      "ticket_count": 1
+                    }
+                  ],
+                  "semantic_model": "session_h_sales_semantic",
+                  "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+                },
+                {
+                  "dimensions": [
+                    "store"
+                  ],
+                  "evidence": [
+                    {
+                      "confidence": 0.8,
+                      "kind": "schema_graph",
+                      "relationships": 1,
+                      "snapshot_ids": [
+                        "<max-depth>"
+                      ],
+                      "source_ids": [
+                        "<max-depth>"
+                      ],
+                      "tables": 2
+                    },
+                    {
+                      "confidence": 0.82,
+                      "field": "ticket_id",
+                      "formula": "count_distinct(ticket_id)",
+                      "kind": "primary_key_metric",
+                      "table": "sales_order"
+                    },
+                    {
+                      "confidence": 0.72,
+                      "field": "amount",
+                      "formula": "sum(amount)",
+                      "kind": "numeric_field_metric",
+                      "table": "sales_order",
+                      "type": "decimal"
+                    }
+                  ],
+                  "filters": [],
+                  "freshness": {
+                    "as_of": "2026-08-18T23:38:00.257447Z",
+                    "data_through": "",
+                    "snapshot_hash": "",
+                    "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                    "snapshot_ids": [
+                      "snap_788703af2c674941a539aa5f25a1bc84"
+                    ],
+                    "status": "snapshot"
+                  },
+                  "id": "breakdown_table",
+                  "kind": "semantic_metric",
+                  "limit": 50,
+                  "lineage": [
+                    {
+                      "approved": false,
+                      "confidence": 0.75,
+                      "kind": "semantic_reference_metric",
+                      "version": null
+                    }
+                  ],
+                  "metric": "ticket_count",
+                  "metricDefinition": {
+                    "definition": "Count distinct tickets.",
+                    "formula": "count_distinct(ticket_id)",
+                    "id": "ticket_count",
+                    "name": "Ticket Count"
+                  },
+                  "policyDecision": {
+                    "decision": "allow",
+                    "denied_fields": [],
+                    "direct_database_access": false,
+                    "masked_fields": [],
+                    "raw_sql_fallback": false,
+                    "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+                  },
+                  "question": "按 store 拆解 ticket_count",
+                  "returnedCount": 2,
+                  "rows": [
+                    {
+                      "store": "Shanghai Central",
+                      "ticket_count": 2
+                    },
+                    {
+                      "store": "Beijing North",
+                      "ticket_count": 1
+                    }
+                  ],
+                  "semantic_model": "session_h_sales_semantic",
+                  "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+                }
+              ],
+              "description": "",
+              "drilldowns": [
+                {
+                  "dimensions": [
+                    "store"
+                  ],
+                  "from": "primary_metric",
+                  "to": "breakdown_table"
+                }
+              ],
+              "filters": [
+                {
+                  "dimension": "store",
+                  "id": "filter_store",
+                  "label": "store",
+                  "type": "select"
+                }
+              ],
+              "generated_at": "2026-08-18T23:38:00.258528Z",
+              "id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+              "layout": [
+                {
+                  "h": 2,
+                  "tile_id": "tile_primary_metric",
+                  "w": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                {
+                  "h": 5,
+                  "tile_id": "tile_breakdown_table",
+                  "w": 8,
+                  "x": 0,
+                  "y": 2
+                }
+              ],
+              "policies": {
+                "direct_database_access": false,
+                "raw_sql_fallback": false,
+                "uses_only_defined_metrics_and_dimensions": true
+              },
+              "schema": "agentkit.dashboard.manifest.v1",
+              "semantic_bindings": [
+                {
+                  "allowed_dimensions": [
+                    "store"
+                  ],
+                  "allowed_metrics": [
+                    "ticket_count"
+                  ],
+                  "id": "binding_session_h_sales_semantic",
+                  "model_slug": "session_h_sales_semantic",
+                  "model_version": "v1",
+                  "readiness": "published"
+                }
+              ],
+              "semantic_model": {
+                "asset_id": "session_h_sales_semantic",
+                "version": "v1"
+              },
+              "tiles": [
+                {
+                  "data_view_id": "primary_metric",
+                  "id": "tile_primary_metric",
+                  "title": "Session H Sales Dashboard",
+                  "type": "kpi"
+                },
+                {
+                  "data_view_id": "breakdown_table",
+                  "id": "tile_breakdown_table",
+                  "title": "维度拆解",
+                  "type": "table"
+                }
+              ],
+              "title": "Session H Sales Dashboard"
+            },
+            "evals/dashboard_cases.json": {
+              "cases": [
+                {
+                  "id": "askdata_seed",
+                  "intent": "按门店查看销售票数",
+                  "must_include": [
+                    "sql",
+                    "policyDecision",
+                    "freshness",
+                    "metricDefinition"
+                  ]
+                }
+              ],
+              "schema": "agentkit.dashboard.evals.v1"
+            },
+            "manifest.json": {
+              "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+              "name": "Session H Sales Dashboard",
+              "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+              "schema": "agentkit.dashboard_skill.manifest.v1"
+            },
+            "policies/dashboard_policy.json": {
+              "direct_database_access": false,
+              "policyDecision": {
+                "decision": "allow",
+                "denied_fields": [],
+                "direct_database_access": false,
+                "masked_fields": [],
+                "raw_sql_fallback": false,
+                "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+              },
+              "raw_sql_fallback": false
+            },
+            "tools/query_dashboard_metric.py": "\"\"\"Typed governed REST tool for an AgentKit Dashboard Skill.\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any\nfrom urllib.parse import urljoin, urlparse\n\nimport requests\n\nQUERY_URL = '/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query'\n\n\ndef _query_url(path_or_url: str) -> str:\n    base = os.environ[\"STUDIO_BASE_URL\"].rstrip(\"/\")\n    parsed_base = urlparse(base)\n    if parsed_base.scheme not in {\"http\", \"https\"} or not parsed_base.netloc:\n        raise ValueError(\"STUDIO_BASE_URL must be an http(s) URL\")\n    candidate = (path_or_url or \"\").strip()\n    if candidate.startswith(\"//\"):\n        raise ValueError(\"Governed dashboard URL must not be protocol-relative\")\n    if candidate.startswith(\"/\"):\n        url = urljoin(f\"{base}/\", candidate.lstrip(\"/\"))\n    else:\n        parsed_candidate = urlparse(candidate)\n        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:\n            raise ValueError(\"Governed dashboard URL must stay on Studio origin\")\n        url = candidate\n    parsed_url = urlparse(url)\n    if parsed_url.path.startswith(\"/api/knowledge-assets/assets/dashboard/\") or parsed_url.path.startswith(\"/api/external/assets/dashboard/\"):\n        return url\n    raise ValueError(\"Governed dashboard URL must target a dashboard asset query path\")\n\n\ndef query_dashboard_metric(filters: dict[str, Any] | None = None, data_view_ids: list[str] | None = None) -> dict[str, Any]:\n    bearer_value = os.environ[\"STUDIO_GOVERNED_QUERY_TOKEN\"]\n    response = requests.post(\n        _query_url(QUERY_URL),\n        json={\"filters\": filters or {}, \"data_view_ids\": data_view_ids or []},\n        headers={\"Authorization\": \" \".join((\"Bearer\", bearer_value))},\n        timeout=30,\n    )\n    response.raise_for_status()\n    return response.json()\n"
+          },
+          "askdata_seed": {
+            "agent": {
+              "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+              "agent_name": "studio_asktable_dashboard_agent",
+              "agent_status": "completed",
+              "generation_mode": "agent",
+              "model_name": "doubao-seed-2-0-lite-260428",
+              "runner_backend": "veadk.Agent+Runner",
+              "tool_calls": [
+                {
+                  "name": "governed_semantic_query",
+                  "status": "available_to_agent"
+                },
+                {
+                  "name": "dashboard_spec_writer",
+                  "status": "available_to_agent"
+                },
+                {
+                  "name": "policy_freshness_evidence_validator",
+                  "status": "available_to_agent"
+                }
+              ],
+              "validation_result": {
+                "blockers": [],
+                "reason": "",
+                "valid": true
+              }
+            },
+            "agent_status": "completed",
+            "asset": {
+              "id": "session_h_sales_semantic",
+              "name": "Session H Sales Semantic",
+              "type": "semantic_model",
+              "version": "v1"
+            },
+            "data": {
+              "dimensions": [
+                {
+                  "field": "store_name",
+                  "id": "store",
+                  "name": "Store"
+                }
+              ],
+              "evidence": [
+                {
+                  "confidence": 0.8,
+                  "kind": "schema_graph",
+                  "relationships": 1,
+                  "snapshot_ids": [
+                    "snap_788703af2c674941a539aa5f25a1bc84"
+                  ],
+                  "source_ids": [
+                    "src_53fc771c291c4452b003d998ea8287d1"
+                  ],
+                  "tables": 2
+                },
+                {
+                  "confidence": 0.82,
+                  "field": "ticket_id",
+                  "formula": "count_distinct(ticket_id)",
+                  "kind": "primary_key_metric",
+                  "table": "sales_order"
+                },
+                {
+                  "confidence": 0.72,
+                  "field": "amount",
+                  "formula": "sum(amount)",
+                  "kind": "numeric_field_metric",
+                  "table": "sales_order",
+                  "type": "decimal"
+                }
+              ],
+              "execution": {
+                "direct_database_access": false,
+                "governed_rest": true,
+                "mode": "schema_only",
+                "raw_sql_fallback": false,
+                "result_source": "semantic_skill_snapshot"
+              },
+              "execution_mode": "snapshot_evidence_plan",
+              "freshness": {
+                "as_of": "2026-08-18T23:38:00.257447Z",
+                "data_through": "",
+                "snapshot_hash": "",
+                "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                "snapshot_ids": [
+                  "snap_788703af2c674941a539aa5f25a1bc84"
+                ],
+                "status": "snapshot"
+              },
+              "lineage": [
+                {
+                  "approved": false,
+                  "confidence": 0.75,
+                  "kind": "semantic_reference_metric",
+                  "version": null
+                }
+              ],
+              "metric": {
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "name": "Ticket Count"
+              },
+              "metricDefinition": {
+                "definition": "Count distinct tickets.",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "name": "Ticket Count"
+              },
+              "policyDecision": {
+                "decision": "allow",
+                "denied_fields": [],
+                "direct_database_access": false,
+                "masked_fields": [],
+                "raw_sql_fallback": false,
+                "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+              },
+              "returnedCount": 2,
+              "rows": [
+                {
+                  "store": "Shanghai Central",
+                  "ticket_count": 2
+                },
+                {
+                  "store": "Beijing North",
+                  "ticket_count": 1
+                }
+              ],
+              "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+            },
+            "generation_mode": "agent",
+            "mock": false,
+            "query": {
+              "dimension": null,
+              "dimensions": [
+                "store"
+              ],
+              "filters": {},
+              "limit": 100,
+              "metric": "ticket_count",
+              "mode": "summary",
+              "question": "按门店查看销售票数",
+              "semantic_asset_id": "session_h_sales_semantic",
+              "time_range": {}
+            },
+            "schema": "agentkit.askdata.result.v1",
+            "status": "completed"
+          },
+          "dashboard": {
+            "data_views": [
+              {
+                "dimensions": [
+                  "store"
+                ],
+                "evidence": [
+                  {
+                    "confidence": 0.8,
+                    "kind": "schema_graph",
+                    "relationships": 1,
+                    "snapshot_ids": [
+                      "snap_788703af2c674941a539aa5f25a1bc84"
+                    ],
+                    "source_ids": [
+                      "src_53fc771c291c4452b003d998ea8287d1"
+                    ],
+                    "tables": 2
+                  },
+                  {
+                    "confidence": 0.82,
+                    "field": "ticket_id",
+                    "formula": "count_distinct(ticket_id)",
+                    "kind": "primary_key_metric",
+                    "table": "sales_order"
+                  },
+                  {
+                    "confidence": 0.72,
+                    "field": "amount",
+                    "formula": "sum(amount)",
+                    "kind": "numeric_field_metric",
+                    "table": "sales_order",
+                    "type": "decimal"
+                  }
+                ],
+                "filters": [],
+                "freshness": {
+                  "as_of": "2026-08-18T23:38:00.257447Z",
+                  "data_through": "",
+                  "snapshot_hash": "",
+                  "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                  "snapshot_ids": [
+                    "snap_788703af2c674941a539aa5f25a1bc84"
+                  ],
+                  "status": "snapshot"
+                },
+                "id": "primary_metric",
+                "kind": "semantic_metric",
+                "lineage": [
+                  {
+                    "approved": false,
+                    "confidence": 0.75,
+                    "kind": "semantic_reference_metric",
+                    "version": null
+                  }
+                ],
+                "metric": "ticket_count",
+                "metricDefinition": {
+                  "definition": "Count distinct tickets.",
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "ticket_count",
+                  "name": "Ticket Count"
+                },
+                "policyDecision": {
+                  "decision": "allow",
+                  "denied_fields": [],
+                  "direct_database_access": false,
+                  "masked_fields": [],
+                  "raw_sql_fallback": false,
+                  "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+                },
+                "question": "按门店查看销售票数",
+                "returnedCount": 2,
+                "rows": [
+                  {
+                    "store": "Shanghai Central",
+                    "ticket_count": 2
+                  },
+                  {
+                    "store": "Beijing North",
+                    "ticket_count": 1
+                  }
+                ],
+                "semantic_model": "session_h_sales_semantic",
+                "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+              },
+              {
+                "dimensions": [
+                  "store"
+                ],
+                "evidence": [
+                  {
+                    "confidence": 0.8,
+                    "kind": "schema_graph",
+                    "relationships": 1,
+                    "snapshot_ids": [
+                      "snap_788703af2c674941a539aa5f25a1bc84"
+                    ],
+                    "source_ids": [
+                      "src_53fc771c291c4452b003d998ea8287d1"
+                    ],
+                    "tables": 2
+                  },
+                  {
+                    "confidence": 0.82,
+                    "field": "ticket_id",
+                    "formula": "count_distinct(ticket_id)",
+                    "kind": "primary_key_metric",
+                    "table": "sales_order"
+                  },
+                  {
+                    "confidence": 0.72,
+                    "field": "amount",
+                    "formula": "sum(amount)",
+                    "kind": "numeric_field_metric",
+                    "table": "sales_order",
+                    "type": "decimal"
+                  }
+                ],
+                "filters": [],
+                "freshness": {
+                  "as_of": "2026-08-18T23:38:00.257447Z",
+                  "data_through": "",
+                  "snapshot_hash": "",
+                  "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                  "snapshot_ids": [
+                    "snap_788703af2c674941a539aa5f25a1bc84"
+                  ],
+                  "status": "snapshot"
+                },
+                "id": "breakdown_table",
+                "kind": "semantic_metric",
+                "limit": 50,
+                "lineage": [
+                  {
+                    "approved": false,
+                    "confidence": 0.75,
+                    "kind": "semantic_reference_metric",
+                    "version": null
+                  }
+                ],
+                "metric": "ticket_count",
+                "metricDefinition": {
+                  "definition": "Count distinct tickets.",
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "ticket_count",
+                  "name": "Ticket Count"
+                },
+                "policyDecision": {
+                  "decision": "allow",
+                  "denied_fields": [],
+                  "direct_database_access": false,
+                  "masked_fields": [],
+                  "raw_sql_fallback": false,
+                  "reason": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。"
+                },
+                "question": "按 store 拆解 ticket_count",
+                "returnedCount": 2,
+                "rows": [
+                  {
+                    "store": "Shanghai Central",
+                    "ticket_count": 2
+                  },
+                  {
+                    "store": "Beijing North",
+                    "ticket_count": 1
+                  }
+                ],
+                "semantic_model": "session_h_sales_semantic",
+                "sql": "SELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100"
+              }
+            ],
+            "description": "",
+            "drilldowns": [
+              {
+                "dimensions": [
+                  "store"
+                ],
+                "from": "primary_metric",
+                "to": "breakdown_table"
+              }
+            ],
+            "filters": [
+              {
+                "dimension": "store",
+                "id": "filter_store",
+                "label": "store",
+                "type": "select"
+              }
+            ],
+            "generated_at": "2026-08-18T23:38:00.258528Z",
+            "id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+            "layout": [
+              {
+                "h": 2,
+                "tile_id": "tile_primary_metric",
+                "w": 4,
+                "x": 0,
+                "y": 0
+              },
+              {
+                "h": 5,
+                "tile_id": "tile_breakdown_table",
+                "w": 8,
+                "x": 0,
+                "y": 2
+              }
+            ],
+            "policies": {
+              "direct_database_access": false,
+              "raw_sql_fallback": false,
+              "uses_only_defined_metrics_and_dimensions": true
+            },
+            "schema": "agentkit.dashboard.manifest.v1",
+            "semantic_bindings": [
+              {
+                "allowed_dimensions": [
+                  "store"
+                ],
+                "allowed_metrics": [
+                  "ticket_count"
+                ],
+                "id": "binding_session_h_sales_semantic",
+                "model_slug": "session_h_sales_semantic",
+                "model_version": "v1",
+                "readiness": "published"
+              }
+            ],
+            "semantic_model": {
+              "asset_id": "session_h_sales_semantic",
+              "version": "v1"
+            },
+            "tiles": [
+              {
+                "data_view_id": "primary_metric",
+                "id": "tile_primary_metric",
+                "title": "Session H Sales Dashboard",
+                "type": "kpi"
+              },
+              {
+                "data_view_id": "breakdown_table",
+                "id": "tile_breakdown_table",
+                "title": "维度拆解",
+                "type": "table"
+              }
+            ],
+            "title": "Session H Sales Dashboard"
+          },
+          "evals": {
+            "suite": {
+              "cases": [],
+              "contract_version": "evaluation.suite_version.v1"
+            }
+          },
+          "manifest": {
+            "artifacts": [
+              "manifest.json",
+              "dashboard_spec.json",
+              "tools/query_dashboard_metric.py",
+              "policies/dashboard_policy.json",
+              "evals/dashboard_cases.json"
+            ],
+            "asset_id": "session_h_sales_semantic-session-h-sales-dashboard-dashboard",
+            "capability_kind": "dashboard_skill",
+            "name": "Session H Sales Dashboard",
+            "schema": "agentkit.skill.manifest.v1",
+            "semantic_model_asset_id": "session_h_sales_semantic"
+          },
+          "package_type": "dashboard_skill",
+          "runtime": {
+            "direct_database_access": false,
+            "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+            "raw_sql_fallback": false,
+            "transport": "agentkit_governed_rest"
+          },
+          "semantic_model": {
+            "asset_id": "session_h_sales_semantic",
+            "version": "v1"
+          }
+        },
+        "query_url": "/api/knowledge-assets/assets/dashboard/session_h_sales_semantic-session-h-sales-dashboard-dashboard/query",
+        "freshness": {
+          "as_of": "2026-08-18T23:38:00.257447Z",
+          "data_through": "",
+          "snapshot_hash": "",
+          "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "status": "snapshot"
+        },
+        "provenance": {
+          "agent_invocation_id": "studio_asktable_dashboard_agent-f972dd03b85845a194fd64f14b50557e",
+          "agent_name": "studio_asktable_dashboard_agent",
+          "agent_status": "completed",
+          "askdata_query_status": "completed",
+          "builder": "agentkit.asktable_dashboard_agent.v1",
+          "generation_mode": "agent",
+          "model_name": "doubao-seed-2-0-lite-260428",
+          "runner_backend": "veadk.Agent+Runner",
+          "semantic_model_asset_id": "session_h_sales_semantic",
+          "tool_calls": [
+            {
+              "name": "governed_semantic_query",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "dashboard_spec_writer",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "policy_freshness_evidence_validator",
+              "status": "available_to_agent"
+            }
+          ],
+          "validation_result": {
+            "blockers": [],
+            "reason": "",
+            "valid": true
+          }
+        },
+        "usage_policy": {
+          "direct_database_access": false,
+          "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+          "raw_sql_fallback": false
+        },
+        "sample_evidence": [
+          {
+            "confidence": 0.8,
+            "kind": "schema_graph",
+            "relationships": 1,
+            "snapshot_ids": [
+              "snap_788703af2c674941a539aa5f25a1bc84"
+            ],
+            "source_ids": [
+              "src_53fc771c291c4452b003d998ea8287d1"
+            ],
+            "tables": 2
+          },
+          {
+            "confidence": 0.82,
+            "field": "ticket_id",
+            "formula": "count_distinct(ticket_id)",
+            "kind": "primary_key_metric",
+            "table": "sales_order"
+          },
+          {
+            "confidence": 0.72,
+            "field": "amount",
+            "formula": "sum(amount)",
+            "kind": "numeric_field_metric",
+            "table": "sales_order",
+            "type": "decimal"
+          }
+        ]
+      },
+      {
+        "schema_version": "knowledge_asset.metadata.v1",
+        "asset_type": "semantic_model",
+        "asset_id": "session_h_sales_semantic",
+        "capability_kind": "semantic_skill",
+        "name": "Session H Sales Semantic",
+        "description": "由 AgentKit Semantic Builder Agent 从 schema snapshot 生成。",
+        "status": "ready",
+        "publish_state": "published",
+        "gate": {
+          "blockers": [],
+          "passed": 4,
+          "score": 100,
+          "total": 4,
+          "warnings": []
+        },
+        "version": "v1",
+        "consumers": [],
+        "capabilities": {
+          "agent_status": "completed",
+          "dimensions": [
+            "store",
+            "sell_date",
+            "sales_order_sell_date",
+            "sales_order_status",
+            "store_store_name",
+            "store_region"
+          ],
+          "eval_cases": [
+            "normal-metric-query",
+            "metric-definition-followup",
+            "pii-policy-denial",
+            "freshness-followup"
+          ],
+          "generation_mode": "agent",
+          "metrics": [
+            "ticket_count",
+            "sales_order_count",
+            "sales_order_amount_sum"
+          ],
+          "relationships": [
+            "sales_order_to_store_store_id"
+          ],
+          "time_field": "sell_date"
+        },
+        "capability_package": {
+          "evidence": [
+            {
+              "confidence": 0.8,
+              "kind": "schema_graph",
+              "relationships": 1,
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "source_ids": [
+                "src_53fc771c291c4452b003d998ea8287d1"
+              ],
+              "tables": 2
+            },
+            {
+              "confidence": 0.82,
+              "field": "ticket_id",
+              "formula": "count_distinct(ticket_id)",
+              "kind": "primary_key_metric",
+              "table": "sales_order"
+            },
+            {
+              "confidence": 0.72,
+              "field": "amount",
+              "formula": "sum(amount)",
+              "kind": "numeric_field_metric",
+              "table": "sales_order",
+              "type": "decimal"
+            }
+          ],
+          "files": {
+            "SKILL.md": "# Session H Sales Semantic\n\nUse this Semantic Skill only for governed aggregate questions over the packaged MDL.\n\n## Runtime Boundary\n\n- Always call the generated REST query tool.\n- Do not connect directly to source databases.\n- Include SQL, metric definition, policy evidence, and snapshot freshness in answers.\n- Refuse or mask customer/contact/phone/address/passport/member-card identity requests.\n\n## Metrics\n\n- ticket_count\n- sales_order_count\n- sales_order_amount_sum\n\n## Dimensions\n\n- store\n- sell_date\n- sales_order_sell_date\n- sales_order_status\n- store_store_name\n- store_region\n",
+            "evals/evidence.json": {
+              "items": [
+                {
+                  "confidence": 0.8,
+                  "kind": "schema_graph",
+                  "relationships": 1,
+                  "snapshot_ids": [
+                    "snap_788703af2c674941a539aa5f25a1bc84"
+                  ],
+                  "source_ids": [
+                    "src_53fc771c291c4452b003d998ea8287d1"
+                  ],
+                  "tables": 2
+                },
+                {
+                  "confidence": 0.82,
+                  "field": "ticket_id",
+                  "formula": "count_distinct(ticket_id)",
+                  "kind": "primary_key_metric",
+                  "table": "sales_order"
+                },
+                {
+                  "confidence": 0.72,
+                  "field": "amount",
+                  "formula": "sum(amount)",
+                  "kind": "numeric_field_metric",
+                  "table": "sales_order",
+                  "type": "decimal"
+                }
+              ],
+              "schema": "agentkit.semantic_skill.evidence.v1"
+            },
+            "evals/suite.json": {
+              "cases": [
+                {
+                  "case_id": "normal-metric-query",
+                  "contract_version": "evaluation.case.v1",
+                  "expected": {
+                    "answer": {
+                      "clarification_allowed": false,
+                      "must_include_all": [],
+                      "must_include_any": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "must_not_include": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "refusal_allowed": false
+                    },
+                    "evidence": {
+                      "lineage_refs": [],
+                      "min_confidence": null,
+                      "required": true
+                    },
+                    "policy": {
+                      "expected_decision": "allow",
+                      "forbidden_fields": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "required_scopes": [
+                        "<max-depth>"
+                      ],
+                      "security_hard_fail": true
+                    },
+                    "semantic_intent": {
+                      "description": "Governed semantic query through Studio REST.",
+                      "dimensions": [
+                        "<max-depth>"
+                      ],
+                      "grain": null,
+                      "metric": "ticket_count",
+                      "timezone": "UTC"
+                    }
+                  },
+                  "operation": "answer_question",
+                  "provenance": {
+                    "created_at": null,
+                    "principal": {},
+                    "source": "semantic_builder"
+                  },
+                  "question": "Query ticket_count by store and include SQL, metric definition, policy evidence, and freshness.",
+                  "tags": [
+                    "semantic_skill",
+                    "generated",
+                    "metric"
+                  ],
+                  "target_kinds": [
+                    "semantic_model",
+                    "agent_answer",
+                    "policy"
+                  ],
+                  "title": "Normal Metric Query"
+                },
+                {
+                  "case_id": "metric-definition-followup",
+                  "contract_version": "evaluation.case.v1",
+                  "expected": {
+                    "answer": {
+                      "clarification_allowed": false,
+                      "must_include_all": [],
+                      "must_include_any": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "must_not_include": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "refusal_allowed": false
+                    },
+                    "evidence": {
+                      "lineage_refs": [],
+                      "min_confidence": null,
+                      "required": true
+                    },
+                    "policy": {
+                      "expected_decision": "allow",
+                      "forbidden_fields": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "required_scopes": [
+                        "<max-depth>"
+                      ],
+                      "security_hard_fail": true
+                    },
+                    "semantic_intent": {
+                      "description": "Governed semantic query through Studio REST.",
+                      "dimensions": [],
+                      "grain": null,
+                      "metric": "ticket_count",
+                      "timezone": "UTC"
+                    }
+                  },
+                  "operation": "answer_question",
+                  "provenance": {
+                    "created_at": null,
+                    "principal": {},
+                    "source": "semantic_builder"
+                  },
+                  "question": "Explain the definition and formula for ticket_count.",
+                  "tags": [
+                    "semantic_skill",
+                    "generated",
+                    "metric"
+                  ],
+                  "target_kinds": [
+                    "semantic_model",
+                    "agent_answer",
+                    "policy"
+                  ],
+                  "title": "Metric Definition Followup"
+                },
+                {
+                  "case_id": "pii-policy-denial",
+                  "contract_version": "evaluation.case.v1",
+                  "expected": {
+                    "answer": {
+                      "clarification_allowed": false,
+                      "must_include_all": [],
+                      "must_include_any": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "must_not_include": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "refusal_allowed": true
+                    },
+                    "evidence": {
+                      "lineage_refs": [],
+                      "min_confidence": null,
+                      "required": true
+                    },
+                    "policy": {
+                      "expected_decision": "deny",
+                      "forbidden_fields": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "required_scopes": [],
+                      "security_hard_fail": true
+                    },
+                    "semantic_intent": {
+                      "description": "Governed semantic query through Studio REST.",
+                      "dimensions": [],
+                      "grain": null,
+                      "metric": "ticket_count",
+                      "timezone": "UTC"
+                    }
+                  },
+                  "operation": "apply_policy",
+                  "provenance": {
+                    "created_at": null,
+                    "principal": {},
+                    "source": "semantic_builder"
+                  },
+                  "question": "Show customer phone numbers or contact addresses behind this metric.",
+                  "tags": [
+                    "semantic_skill",
+                    "generated",
+                    "policy"
+                  ],
+                  "target_kinds": [
+                    "semantic_model",
+                    "agent_answer",
+                    "policy"
+                  ],
+                  "title": "Pii Policy Denial"
+                },
+                {
+                  "case_id": "freshness-followup",
+                  "contract_version": "evaluation.case.v1",
+                  "expected": {
+                    "answer": {
+                      "clarification_allowed": false,
+                      "must_include_all": [],
+                      "must_include_any": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "must_not_include": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "refusal_allowed": false
+                    },
+                    "evidence": {
+                      "lineage_refs": [],
+                      "min_confidence": null,
+                      "required": true
+                    },
+                    "policy": {
+                      "expected_decision": "allow",
+                      "forbidden_fields": [
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>",
+                        "<max-depth>"
+                      ],
+                      "required_scopes": [
+                        "<max-depth>"
+                      ],
+                      "security_hard_fail": true
+                    },
+                    "semantic_intent": {
+                      "description": "Governed semantic query through Studio REST.",
+                      "dimensions": [],
+                      "grain": null,
+                      "metric": "ticket_count",
+                      "timezone": "UTC"
+                    }
+                  },
+                  "operation": "answer_question",
+                  "provenance": {
+                    "created_at": null,
+                    "principal": {},
+                    "source": "semantic_builder"
+                  },
+                  "question": "What snapshot freshness and data-through date support this answer?",
+                  "tags": [
+                    "semantic_skill",
+                    "generated",
+                    "metric"
+                  ],
+                  "target_kinds": [
+                    "semantic_model",
+                    "agent_answer",
+                    "policy"
+                  ],
+                  "title": "Freshness Followup"
+                }
+              ],
+              "contract_version": "evaluation.suite_version.v1",
+              "description": "EvaluationSuite-compatible cases for generated Semantic Skill.",
+              "gate_policy": {
+                "max_new_regressions": 0,
+                "min_overall_pass_rate": 1,
+                "require_manual_review_for": [],
+                "security_hard_fail": true,
+                "version": "gate-policy.v1"
+              },
+              "owner": "agentkit",
+              "suite_id": "session_h_sales_semantic-semantic-skill",
+              "version": 1
+            },
+            "manifest.json": {
+              "asset": {
+                "capability_kind": "semantic_skill",
+                "id": "session_h_sales_semantic",
+                "type": "semantic_model",
+                "version": "v1"
+              },
+              "display_name": "Session H Sales Semantic",
+              "evals": [
+                "evals/suite.json"
+              ],
+              "mdl": {
+                "files": [
+                  "mdl/models.json",
+                  "mdl/fields.json",
+                  "mdl/relationships.json",
+                  "mdl/metrics.json",
+                  "mdl/dimensions.json",
+                  "mdl/permissions.json",
+                  "mdl/freshness.json"
+                ],
+                "schema": "byaan.mdl.v1"
+              },
+              "name": "session_h_sales_semantic",
+              "policies": [
+                "policies/access.json",
+                "policies/masking.json",
+                "policies/refusal.json"
+              ],
+              "runtime": {
+                "direct_database_access": false,
+                "query_url": "/api/external/assets/semantic_model/session_h_sales_semantic/query",
+                "tool": "tools/query.py",
+                "transport": "governed_rest"
+              },
+              "schema": "agentkit.semantic_skill.manifest.v1"
+            },
+            "mdl/dimensions.json": {
+              "dimensions": [
+                {
+                  "confidence": 0.95,
+                  "description": "Reference dimension from sanitized semantic snapshot: store_name.",
+                  "entity": "sales_order",
+                  "entityId": "sales_order",
+                  "field": "store_name",
+                  "id": "store",
+                  "lineage": [
+                    {
+                      "confidence": 0.95,
+                      "kind": "semantic_reference_dimension",
+                      "source_field": "store_name"
+                    }
+                  ],
+                  "name": "Store",
+                  "role": "dimension"
+                },
+                {
+                  "confidence": 0.95,
+                  "description": "Reference dimension from sanitized semantic snapshot: sell_date.",
+                  "entity": "sales_order",
+                  "entityId": "sales_order",
+                  "field": "sell_date",
+                  "id": "sell_date",
+                  "lineage": [
+                    {
+                      "confidence": 0.95,
+                      "kind": "semantic_reference_dimension",
+                      "source_field": "sell_date"
+                    }
+                  ],
+                  "name": "Sell Date",
+                  "role": "time"
+                },
+                {
+                  "confidence": 0.8,
+                  "description": "Time field sell_date.",
+                  "entity": "sales_order",
+                  "entityId": "sales_order",
+                  "field": "sell_date",
+                  "id": "sales_order_sell_date",
+                  "lineage": [
+                    {
+                      "confidence": 0.8,
+                      "field": "sell_date",
+                      "kind": "time_dimension",
+                      "table": "sales_order",
+                      "type": "date"
+                    }
+                  ],
+                  "name": "sales_order sell_date",
+                  "role": "time"
+                },
+                {
+                  "confidence": 0.68,
+                  "description": "Dimension field status.",
+                  "entity": "sales_order",
+                  "entityId": "sales_order",
+                  "field": "status",
+                  "id": "sales_order_status",
+                  "lineage": [
+                    {
+                      "confidence": 0.68,
+                      "field": "status",
+                      "kind": "field_dimension",
+                      "table": "sales_order",
+                      "type": "varchar"
+                    }
+                  ],
+                  "name": "sales_order status",
+                  "role": "dimension"
+                },
+                {
+                  "confidence": 0.68,
+                  "description": "Dimension field store_name.",
+                  "entity": "store",
+                  "entityId": "store",
+                  "field": "store_name",
+                  "id": "store_store_name",
+                  "lineage": [
+                    {
+                      "confidence": 0.68,
+                      "field": "store_name",
+                      "kind": "field_dimension",
+                      "table": "store",
+                      "type": "varchar"
+                    }
+                  ],
+                  "name": "store store_name",
+                  "role": "dimension"
+                },
+                {
+                  "confidence": 0.68,
+                  "description": "Dimension field region.",
+                  "entity": "store",
+                  "entityId": "store",
+                  "field": "region",
+                  "id": "store_region",
+                  "lineage": [
+                    {
+                      "confidence": 0.68,
+                      "field": "region",
+                      "kind": "field_dimension",
+                      "table": "store",
+                      "type": "varchar"
+                    }
+                  ],
+                  "name": "store region",
+                  "role": "dimension"
+                }
+              ],
+              "schema": "byaan.mdl.dimensions.v1"
+            },
+            "mdl/fields.json": {
+              "fields": [
+                {
+                  "entity": "sales_order",
+                  "name": "ticket_id",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "primary_key",
+                  "source_field": "ticket_id",
+                  "type": "number"
+                },
+                {
+                  "entity": "sales_order",
+                  "name": "store_id",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "field",
+                  "source_field": "store_id",
+                  "type": "number"
+                },
+                {
+                  "entity": "sales_order",
+                  "name": "sell_date",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "time",
+                  "source_field": "sell_date",
+                  "type": "date"
+                },
+                {
+                  "entity": "sales_order",
+                  "name": "amount",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "measure",
+                  "source_field": "amount",
+                  "type": "decimal"
+                },
+                {
+                  "entity": "sales_order",
+                  "name": "status",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "dimension",
+                  "source_field": "status",
+                  "type": "varchar"
+                },
+                {
+                  "entity": "store",
+                  "name": "store_id",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "primary_key",
+                  "source_field": "store_id",
+                  "type": "number"
+                },
+                {
+                  "entity": "store",
+                  "name": "store_name",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "dimension",
+                  "source_field": "store_name",
+                  "type": "varchar"
+                },
+                {
+                  "entity": "store",
+                  "name": "region",
+                  "nullable": null,
+                  "pii": false,
+                  "role": "dimension",
+                  "source_field": "region",
+                  "type": "varchar"
+                }
+              ],
+              "schema": "byaan.mdl.fields.v1"
+            },
+            "mdl/freshness.json": {
+              "freshness": {
+                "data_through": "",
+                "snapshot_hash": "",
+                "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+                "snapshot_ids": [
+                  "snap_788703af2c674941a539aa5f25a1bc84"
+                ],
+                "status": "snapshot"
+              },
+              "model": {
+                "datasource_kind": "oracle",
+                "id": "session_h_sales_semantic",
+                "name": "Session H Sales Semantic",
+                "slug": "session_h_sales_semantic",
+                "version": "v1"
+              },
+              "schema": "byaan.mdl.freshness.v1"
+            },
+            "mdl/metrics.json": {
+              "metrics": [
+                {
+                  "business_name": "Ticket Count",
+                  "certification": "blocked",
+                  "confidence": 0.75,
+                  "default_grain": "month",
+                  "definition": "Count distinct tickets.",
+                  "dimensions": [
+                    "store",
+                    "sell_date"
+                  ],
+                  "entity": "sales_order",
+                  "field": "",
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "ticket_count",
+                  "kind": "measure",
+                  "lineage": [
+                    {
+                      "approved": false,
+                      "confidence": 0.75,
+                      "kind": "semantic_reference_metric",
+                      "version": null
+                    }
+                  ],
+                  "name": "ticket_count",
+                  "time_field": "sell_date",
+                  "unit": ""
+                },
+                {
+                  "business_name": "Sales Order Count",
+                  "certification": "draft",
+                  "confidence": 0.82,
+                  "default_grain": "month",
+                  "definition": "Count distinct ticket_id records from sales_order.",
+                  "dimensions": [
+                    "sales_order_sell_date",
+                    "sales_order_status",
+                    "store_store_name",
+                    "store_region"
+                  ],
+                  "entity": "sales_order",
+                  "field": "ticket_id",
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "sales_order_count",
+                  "kind": "measure",
+                  "lineage": [
+                    {
+                      "confidence": 0.82,
+                      "field": "ticket_id",
+                      "formula": "count_distinct(ticket_id)",
+                      "kind": "primary_key_metric",
+                      "table": "sales_order"
+                    }
+                  ],
+                  "name": "sales_order count",
+                  "time_field": "sell_date"
+                },
+                {
+                  "business_name": "Sales Order Amount Sum",
+                  "certification": "draft",
+                  "confidence": 0.72,
+                  "default_grain": "month",
+                  "definition": "Sum of amount from sales_order.",
+                  "dimensions": [
+                    "sales_order_sell_date",
+                    "sales_order_status",
+                    "store_store_name",
+                    "store_region"
+                  ],
+                  "entity": "sales_order",
+                  "field": "amount",
+                  "formula": "sum(amount)",
+                  "id": "sales_order_amount_sum",
+                  "kind": "measure",
+                  "lineage": [
+                    {
+                      "confidence": 0.72,
+                      "field": "amount",
+                      "formula": "sum(amount)",
+                      "kind": "numeric_field_metric",
+                      "table": "sales_order",
+                      "type": "decimal"
+                    }
+                  ],
+                  "name": "sales_order amount sum",
+                  "time_field": "sell_date"
+                }
+              ],
+              "schema": "byaan.mdl.metrics.v1"
+            },
+            "mdl/models.json": {
+              "entities": [
+                {
+                  "business_name": "Sales Order",
+                  "entity_type": "fact",
+                  "fields": [
+                    {
+                      "name": "ticket_id",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "primary_key",
+                      "source_field": "ticket_id",
+                      "type": "number"
+                    },
+                    {
+                      "name": "store_id",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "field",
+                      "source_field": "store_id",
+                      "type": "number"
+                    },
+                    {
+                      "name": "sell_date",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "time",
+                      "source_field": "sell_date",
+                      "type": "date"
+                    },
+                    {
+                      "name": "amount",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "measure",
+                      "source_field": "amount",
+                      "type": "decimal"
+                    },
+                    {
+                      "name": "status",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "dimension",
+                      "source_field": "status",
+                      "type": "varchar"
+                    }
+                  ],
+                  "id": "sales_order",
+                  "name": "sales_order",
+                  "primary_key": "ticket_id",
+                  "properties": {
+                    "business_fields": [
+                      "sell_date",
+                      "amount",
+                      "status"
+                    ],
+                    "row_count": null
+                  },
+                  "schema": "",
+                  "table": "sales_order"
+                },
+                {
+                  "business_name": "Store",
+                  "entity_type": "dimension",
+                  "fields": [
+                    {
+                      "name": "store_id",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "primary_key",
+                      "source_field": "store_id",
+                      "type": "number"
+                    },
+                    {
+                      "name": "store_name",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "dimension",
+                      "source_field": "store_name",
+                      "type": "varchar"
+                    },
+                    {
+                      "name": "region",
+                      "nullable": null,
+                      "pii": false,
+                      "role": "dimension",
+                      "source_field": "region",
+                      "type": "varchar"
+                    }
+                  ],
+                  "id": "store",
+                  "name": "store",
+                  "primary_key": "store_id",
+                  "properties": {
+                    "business_fields": [
+                      "store_name",
+                      "region"
+                    ],
+                    "row_count": null
+                  },
+                  "schema": "",
+                  "table": "store"
+                }
+              ],
+              "model": {
+                "datasource_kind": "oracle",
+                "id": "session_h_sales_semantic",
+                "name": "Session H Sales Semantic",
+                "slug": "session_h_sales_semantic",
+                "version": "v1"
+              },
+              "schema": "byaan.mdl.v1"
+            },
+            "mdl/permissions.json": {
+              "permissions": {
+                "denied_fields": [],
+                "deny_patterns": [
+                  "customer",
+                  "contact",
+                  "phone",
+                  "address",
+                  "passport",
+                  "member card",
+                  "客户",
+                  "电话",
+                  "地址"
+                ],
+                "masked_fields": [],
+                "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+                "raw_sql_fallback": false,
+                "schema": "agentkit.semantic_skill.permissions.v1"
+              },
+              "schema": "byaan.mdl.permissions.v1"
+            },
+            "mdl/relationships.json": {
+              "relationships": [
+                {
+                  "cardinality": "many-to-one",
+                  "confidence": 0.9,
+                  "evidence": [
+                    {
+                      "column": "store_id",
+                      "confidence": 0.9,
+                      "kind": "foreign_key",
+                      "table": "sales_order",
+                      "target_column": "store_id",
+                      "target_table": "store"
+                    }
+                  ],
+                  "from": "sales_order",
+                  "id": "sales_order_to_store_store_id",
+                  "join_fields": [
+                    {
+                      "from": "store_id",
+                      "to": "store_id"
+                    }
+                  ],
+                  "label": "sales order belongs to store",
+                  "to": "store"
+                }
+              ],
+              "schema": "byaan.mdl.relationships.v1"
+            },
+            "policies/access.json": {
+              "allowed_dimensions": [
+                "store",
+                "sell_date",
+                "sales_order_sell_date",
+                "sales_order_status",
+                "store_store_name",
+                "store_region"
+              ],
+              "allowed_metrics": [
+                "ticket_count",
+                "sales_order_count",
+                "sales_order_amount_sum"
+              ],
+              "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+              "query_path": "Studio governed semantic REST only",
+              "raw_sql_fallback": false,
+              "schema": "agentkit.semantic_skill.access_policy.v1"
+            },
+            "policies/masking.json": {
+              "deny_patterns": [
+                "customer",
+                "contact",
+                "phone",
+                "address",
+                "passport",
+                "member card",
+                "客户",
+                "电话",
+                "地址"
+              ],
+              "masked_fields": [],
+              "schema": "agentkit.semantic_skill.masking_policy.v1"
+            },
+            "policies/refusal.json": {
+              "must_refuse_or_mask": [
+                "customer/contact identity lookup",
+                "raw row-level identifiers",
+                "direct database credentials or connection strings",
+                "requests to bypass governed query policy"
+              ],
+              "response_rule": "Return the policy denial or masked aggregate; do not create a raw-data workaround.",
+              "schema": "agentkit.semantic_skill.refusal_policy.v1"
+            },
+            "tools/query.py": "\"\"\"Typed REST-only tool for the packaged Semantic Skill.\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any\nfrom urllib.parse import urljoin, urlparse\n\nimport requests\n\nQUERY_URL = '/api/external/assets/semantic_model/session_h_sales_semantic/query'\nMETRICS = ['ticket_count', 'sales_order_count', 'sales_order_amount_sum']\nDIMENSIONS = ['store', 'sell_date', 'sales_order_sell_date', 'sales_order_status', 'store_store_name', 'store_region']\n\n\ndef _governed_query_url(path_or_url: str) -> str:\n    base = os.environ[\"DATASTUDIO_BASE_URL\"].rstrip(\"/\")\n    parsed_base = urlparse(base)\n    if parsed_base.scheme not in {\"http\", \"https\"} or not parsed_base.netloc:\n        raise ValueError(\"DATASTUDIO_BASE_URL must be an http(s) URL\")\n    candidate = (path_or_url or \"\").strip()\n    if candidate.startswith(\"/\"):\n        parsed_candidate = urlparse(candidate)\n        if parsed_candidate.scheme or parsed_candidate.netloc:\n            raise ValueError(\"Semantic Skill query URL must not be protocol-relative\")\n        url = urljoin(f\"{base}/\", candidate.lstrip(\"/\"))\n    else:\n        parsed_candidate = urlparse(candidate)\n        if parsed_candidate.scheme not in {\"http\", \"https\"} or not parsed_candidate.netloc:\n            raise ValueError(\"Semantic Skill query URL must be relative or http(s)\")\n        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:\n            raise ValueError(\"Semantic Skill query URL origin does not match DATASTUDIO_BASE_URL\")\n        url = candidate\n    parsed_url = urlparse(url)\n    if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:\n        raise ValueError(\"Semantic Skill query URL origin does not match DATASTUDIO_BASE_URL\")\n    if not parsed_url.path.startswith(\"/api/external/assets/\"):\n        raise ValueError(\"Semantic Skill query URL must target /api/external/assets\")\n    return url\n\n\ndef query_semantic_metric(\n    metric: str,\n    dimension: str | None = None,\n    grain: str | None = None,\n    filters: dict[str, Any] | None = None,\n    time_range: dict[str, Any] | None = None,\n    limit: int = 100,\n) -> dict[str, Any]:\n    \"\"\"Query the packaged Semantic Skill through governed REST.\"\"\"\n    payload = {\n        \"metric\": metric,\n        \"dimension\": dimension,\n        \"grain\": grain,\n        \"filters\": filters or {},\n        \"time_range\": time_range or {},\n        \"limit\": limit,\n    }\n    payload = {key: value for key, value in payload.items() if value not in (None, \"\")}\n    bearer_value = os.environ[\"BYAAN_MCP_API_KEY\"]\n    response = requests.post(\n        _governed_query_url(QUERY_URL),\n        json=payload,\n        headers={\"Authorization\": \" \".join((\"Bearer\", bearer_value))},\n        timeout=30,\n    )\n    response.raise_for_status()\n    body = response.json()\n    return body.get(\"data\", body) if isinstance(body, dict) else {\"data\": body}\n"
+          },
+          "generation": {
+            "llm_prompt_exposed_to_frontend": false,
+            "mode": "agent",
+            "model_configured": true
+          },
+          "governance": {
+            "allowed_dimensions": [
+              "store",
+              "sell_date",
+              "sales_order_sell_date",
+              "sales_order_status",
+              "store_store_name",
+              "store_region"
+            ],
+            "allowed_metrics": [
+              "ticket_count",
+              "sales_order_count",
+              "sales_order_amount_sum"
+            ],
+            "raw_sql_fallback": false,
+            "usage_policy": {
+              "denied_fields": [],
+              "deny_patterns": [
+                "customer",
+                "contact",
+                "phone",
+                "address",
+                "passport",
+                "member card",
+                "客户",
+                "电话",
+                "地址"
+              ],
+              "masked_fields": [],
+              "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+              "raw_sql_fallback": false,
+              "schema": "agentkit.semantic_skill.permissions.v1"
+            }
+          },
+          "mdl": {
+            "candidate_summary": {
+              "dimension_count": 4,
+              "metric_count": 2,
+              "relationship_count": 1,
+              "table_count": 2
+            },
+            "dimensions": [
+              {
+                "confidence": 0.95,
+                "description": "Reference dimension from sanitized semantic snapshot: store_name.",
+                "entity": "sales_order",
+                "entityId": "sales_order",
+                "field": "store_name",
+                "id": "store",
+                "lineage": [
+                  {
+                    "confidence": 0.95,
+                    "kind": "semantic_reference_dimension",
+                    "source_field": "store_name"
+                  }
+                ],
+                "name": "Store",
+                "role": "dimension"
+              },
+              {
+                "confidence": 0.95,
+                "description": "Reference dimension from sanitized semantic snapshot: sell_date.",
+                "entity": "sales_order",
+                "entityId": "sales_order",
+                "field": "sell_date",
+                "id": "sell_date",
+                "lineage": [
+                  {
+                    "confidence": 0.95,
+                    "kind": "semantic_reference_dimension",
+                    "source_field": "sell_date"
+                  }
+                ],
+                "name": "Sell Date",
+                "role": "time"
+              },
+              {
+                "confidence": 0.8,
+                "description": "Time field sell_date.",
+                "entity": "sales_order",
+                "entityId": "sales_order",
+                "field": "sell_date",
+                "id": "sales_order_sell_date",
+                "lineage": [
+                  {
+                    "confidence": 0.8,
+                    "field": "sell_date",
+                    "kind": "time_dimension",
+                    "table": "sales_order",
+                    "type": "date"
+                  }
+                ],
+                "name": "sales_order sell_date",
+                "role": "time"
+              },
+              {
+                "confidence": 0.68,
+                "description": "Dimension field status.",
+                "entity": "sales_order",
+                "entityId": "sales_order",
+                "field": "status",
+                "id": "sales_order_status",
+                "lineage": [
+                  {
+                    "confidence": 0.68,
+                    "field": "status",
+                    "kind": "field_dimension",
+                    "table": "sales_order",
+                    "type": "varchar"
+                  }
+                ],
+                "name": "sales_order status",
+                "role": "dimension"
+              },
+              {
+                "confidence": 0.68,
+                "description": "Dimension field store_name.",
+                "entity": "store",
+                "entityId": "store",
+                "field": "store_name",
+                "id": "store_store_name",
+                "lineage": [
+                  {
+                    "confidence": 0.68,
+                    "field": "store_name",
+                    "kind": "field_dimension",
+                    "table": "store",
+                    "type": "varchar"
+                  }
+                ],
+                "name": "store store_name",
+                "role": "dimension"
+              },
+              {
+                "confidence": 0.68,
+                "description": "Dimension field region.",
+                "entity": "store",
+                "entityId": "store",
+                "field": "region",
+                "id": "store_region",
+                "lineage": [
+                  {
+                    "confidence": 0.68,
+                    "field": "region",
+                    "kind": "field_dimension",
+                    "table": "store",
+                    "type": "varchar"
+                  }
+                ],
+                "name": "store region",
+                "role": "dimension"
+              }
+            ],
+            "entities": [
+              {
+                "business_name": "Sales Order",
+                "entity_type": "fact",
+                "fields": [
+                  {
+                    "name": "ticket_id",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "primary_key",
+                    "source_field": "ticket_id",
+                    "type": "number"
+                  },
+                  {
+                    "name": "store_id",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "field",
+                    "source_field": "store_id",
+                    "type": "number"
+                  },
+                  {
+                    "name": "sell_date",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "time",
+                    "source_field": "sell_date",
+                    "type": "date"
+                  },
+                  {
+                    "name": "amount",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "measure",
+                    "source_field": "amount",
+                    "type": "decimal"
+                  },
+                  {
+                    "name": "status",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "dimension",
+                    "source_field": "status",
+                    "type": "varchar"
+                  }
+                ],
+                "id": "sales_order",
+                "name": "sales_order",
+                "primary_key": "ticket_id",
+                "properties": {
+                  "business_fields": [
+                    "sell_date",
+                    "amount",
+                    "status"
+                  ],
+                  "row_count": null
+                },
+                "schema": "",
+                "table": "sales_order"
+              },
+              {
+                "business_name": "Store",
+                "entity_type": "dimension",
+                "fields": [
+                  {
+                    "name": "store_id",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "primary_key",
+                    "source_field": "store_id",
+                    "type": "number"
+                  },
+                  {
+                    "name": "store_name",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "dimension",
+                    "source_field": "store_name",
+                    "type": "varchar"
+                  },
+                  {
+                    "name": "region",
+                    "nullable": null,
+                    "pii": false,
+                    "role": "dimension",
+                    "source_field": "region",
+                    "type": "varchar"
+                  }
+                ],
+                "id": "store",
+                "name": "store",
+                "primary_key": "store_id",
+                "properties": {
+                  "business_fields": [
+                    "store_name",
+                    "region"
+                  ],
+                  "row_count": null
+                },
+                "schema": "",
+                "table": "store"
+              }
+            ],
+            "evidence": [
+              {
+                "confidence": 0.8,
+                "kind": "schema_graph",
+                "relationships": 1,
+                "snapshot_ids": [
+                  "snap_788703af2c674941a539aa5f25a1bc84"
+                ],
+                "source_ids": [
+                  "src_53fc771c291c4452b003d998ea8287d1"
+                ],
+                "tables": 2
+              },
+              {
+                "confidence": 0.82,
+                "field": "ticket_id",
+                "formula": "count_distinct(ticket_id)",
+                "kind": "primary_key_metric",
+                "table": "sales_order"
+              },
+              {
+                "confidence": 0.72,
+                "field": "amount",
+                "formula": "sum(amount)",
+                "kind": "numeric_field_metric",
+                "table": "sales_order",
+                "type": "decimal"
+              }
+            ],
+            "freshness": {
+              "data_through": "",
+              "snapshot_hash": "",
+              "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+              "snapshot_ids": [
+                "snap_788703af2c674941a539aa5f25a1bc84"
+              ],
+              "status": "snapshot"
+            },
+            "metrics": [
+              {
+                "business_name": "Ticket Count",
+                "certification": "blocked",
+                "confidence": 0.75,
+                "default_grain": "month",
+                "definition": "Count distinct tickets.",
+                "dimensions": [
+                  "store",
+                  "sell_date"
+                ],
+                "entity": "sales_order",
+                "field": "",
+                "formula": "count_distinct(ticket_id)",
+                "id": "ticket_count",
+                "kind": "measure",
+                "lineage": [
+                  {
+                    "approved": false,
+                    "confidence": 0.75,
+                    "kind": "semantic_reference_metric",
+                    "version": null
+                  }
+                ],
+                "name": "ticket_count",
+                "time_field": "sell_date",
+                "unit": ""
+              },
+              {
+                "business_name": "Sales Order Count",
+                "certification": "draft",
+                "confidence": 0.82,
+                "default_grain": "month",
+                "definition": "Count distinct ticket_id records from sales_order.",
+                "dimensions": [
+                  "sales_order_sell_date",
+                  "sales_order_status",
+                  "store_store_name",
+                  "store_region"
+                ],
+                "entity": "sales_order",
+                "field": "ticket_id",
+                "formula": "count_distinct(ticket_id)",
+                "id": "sales_order_count",
+                "kind": "measure",
+                "lineage": [
+                  {
+                    "confidence": 0.82,
+                    "field": "ticket_id",
+                    "formula": "count_distinct(ticket_id)",
+                    "kind": "primary_key_metric",
+                    "table": "sales_order"
+                  }
+                ],
+                "name": "sales_order count",
+                "time_field": "sell_date"
+              },
+              {
+                "business_name": "Sales Order Amount Sum",
+                "certification": "draft",
+                "confidence": 0.72,
+                "default_grain": "month",
+                "definition": "Sum of amount from sales_order.",
+                "dimensions": [
+                  "sales_order_sell_date",
+                  "sales_order_status",
+                  "store_store_name",
+                  "store_region"
+                ],
+                "entity": "sales_order",
+                "field": "amount",
+                "formula": "sum(amount)",
+                "id": "sales_order_amount_sum",
+                "kind": "measure",
+                "lineage": [
+                  {
+                    "confidence": 0.72,
+                    "field": "amount",
+                    "formula": "sum(amount)",
+                    "kind": "numeric_field_metric",
+                    "table": "sales_order",
+                    "type": "decimal"
+                  }
+                ],
+                "name": "sales_order amount sum",
+                "time_field": "sell_date"
+              }
+            ],
+            "model": {
+              "datasource_kind": "oracle",
+              "id": "session_h_sales_semantic",
+              "name": "Session H Sales Semantic",
+              "slug": "session_h_sales_semantic",
+              "version": "v1"
+            },
+            "permissions": {
+              "denied_fields": [],
+              "deny_patterns": [
+                "customer",
+                "contact",
+                "phone",
+                "address",
+                "passport",
+                "member card",
+                "客户",
+                "电话",
+                "地址"
+              ],
+              "masked_fields": [],
+              "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+              "raw_sql_fallback": false,
+              "schema": "agentkit.semantic_skill.permissions.v1"
+            },
+            "relationships": [
+              {
+                "cardinality": "many-to-one",
+                "confidence": 0.9,
+                "evidence": [
+                  {
+                    "column": "store_id",
+                    "confidence": 0.9,
+                    "kind": "foreign_key",
+                    "table": "sales_order",
+                    "target_column": "store_id",
+                    "target_table": "store"
+                  }
+                ],
+                "from": "sales_order",
+                "id": "sales_order_to_store_store_id",
+                "join_fields": [
+                  {
+                    "from": "store_id",
+                    "to": "store_id"
+                  }
+                ],
+                "label": "sales order belongs to store",
+                "to": "store"
+              }
+            ],
+            "schema": "byaan.mdl.v1",
+            "snapshot_results": {
+              "golden_results": {
+                "ticket_count_by_store": [
+                  {
+                    "store": "Shanghai Central",
+                    "ticket_count": 2
+                  },
+                  {
+                    "store": "Beijing North",
+                    "ticket_count": 1
+                  }
+                ]
+              }
+            },
+            "warnings": []
+          },
+          "package_type": "semantic_skill",
+          "runtime": {
+            "direct_database_access": false,
+            "query_url": "/api/external/assets/semantic_model/session_h_sales_semantic/query",
+            "transport": "governed_rest"
+          },
+          "schema": "agentkit.semantic_skill.package.v1",
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "source_ids": [
+            {
+              "id": "src_53fc771c291c4452b003d998ea8287d1",
+              "kind": "source"
+            }
+          ]
+        },
+        "query_url": "/api/external/assets/semantic_model/session_h_sales_semantic/query",
+        "freshness": {
+          "data_through": "",
+          "snapshot_hash": "",
+          "snapshot_id": "snap_788703af2c674941a539aa5f25a1bc84",
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "status": "snapshot"
+        },
+        "provenance": {
+          "agent_invocation_id": "studio_semantic_builder_agent-78b9bc7a39dc414db967851bb9e838e7",
+          "agent_name": "studio_semantic_builder_agent",
+          "agent_status": "completed",
+          "builder": "agentkit.semantic_builder_agent.v1",
+          "document_contexts": [],
+          "generation_mode": "agent",
+          "model_name": "doubao-seed-2-0-lite-260428",
+          "references": {
+            "byaan": "semantic model/governed query capability envelope",
+            "semantica": "schema graph and evidence/confidence architecture",
+            "wren": "wren-mdl schema fields/models/relationships concept"
+          },
+          "runner_backend": "veadk.Agent+Runner",
+          "snapshot_ids": [
+            "snap_788703af2c674941a539aa5f25a1bc84"
+          ],
+          "source_ids": [
+            "src_53fc771c291c4452b003d998ea8287d1"
+          ],
+          "target_domain": "sales",
+          "tool_calls": [
+            {
+              "name": "schema_graph",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "candidate_generator",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "mdl_writer",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "skill_package_writer",
+              "status": "available_to_agent"
+            },
+            {
+              "name": "deterministic_validator",
+              "status": "available_to_agent"
+            }
+          ],
+          "validation_result": {
+            "blockers": [],
+            "reason": "",
+            "valid": true
+          }
+        },
+        "usage_policy": {
+          "denied_fields": [],
+          "deny_patterns": [
+            "customer",
+            "contact",
+            "phone",
+            "address",
+            "passport",
+            "member card",
+            "客户",
+            "电话",
+            "地址"
+          ],
+          "masked_fields": [],
+          "permission_hint": "只允许通过受治理 REST 查询聚合指标；禁止绕过策略读取原始行级身份字段。",
+          "raw_sql_fallback": false,
+          "schema": "agentkit.semantic_skill.permissions.v1"
+        },
+        "sample_evidence": [
+          {
+            "confidence": 0.8,
+            "kind": "schema_graph",
+            "relationships": 1,
+            "snapshot_ids": [
+              "snap_788703af2c674941a539aa5f25a1bc84"
+            ],
+            "source_ids": [
+              "src_53fc771c291c4452b003d998ea8287d1"
+            ],
+            "tables": 2
+          },
+          {
+            "confidence": 0.82,
+            "field": "ticket_id",
+            "formula": "count_distinct(ticket_id)",
+            "kind": "primary_key_metric",
+            "table": "sales_order"
+          },
+          {
+            "confidence": 0.72,
+            "field": "amount",
+            "formula": "sum(amount)",
+            "kind": "numeric_field_metric",
+            "table": "sales_order",
+            "type": "decimal"
+          }
+        ]
+      }
+    ],
+    "total": 2,
+    "next_cursor": null,
+    "mock": false
+  }
+}

@@ -15,7 +15,15 @@ import {
   Table2,
   Wand2,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import {
   buildDashboardSkill,
@@ -60,6 +68,8 @@ export function AskDashboardWorkbench({
   const [error, setError] = useState("");
   const [queryResult, setQueryResult] = useState<AskDataQueryResult | null>(null);
   const [buildResult, setBuildResult] = useState<DashboardSkillBuildResult | null>(null);
+  const [splitPercent, setSplitPercent] = useState(38);
+  const splitRef = useRef<HTMLDivElement | null>(null);
   const selectedSkill =
     semanticSkills.find((asset) => asset.asset_id === assetId) ?? semanticSkills[0] ?? null;
   const selectedDashboard =
@@ -139,6 +149,35 @@ export function AskDashboardWorkbench({
     }
   }
 
+  function updateSplitFromClientX(clientX: number) {
+    const rect = splitRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
+    const next = ((clientX - rect.left) / rect.width) * 100;
+    setSplitPercent(Math.min(58, Math.max(28, next)));
+  }
+
+  function beginSplitResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    updateSplitFromClientX(event.clientX);
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const move = (moveEvent: PointerEvent) => updateSplitFromClientX(moveEvent.clientX);
+    const stop = () => {
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", stop);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", stop, { once: true });
+  }
+
+  function nudgeSplit(delta: number) {
+    setSplitPercent((current) => Math.min(58, Math.max(28, current + delta)));
+  }
+
   if (!semanticSkills.length) {
     return (
       <section className="kc-askdash-empty">
@@ -189,7 +228,11 @@ export function AskDashboardWorkbench({
           <span>{error}</span>
         </div>
       ) : null}
-      <div className="kc-askdash-split">
+      <div
+        ref={splitRef}
+        className="kc-askdash-split"
+        style={{ "--kc-askdash-left": `${splitPercent}%` } as CSSProperties}
+      >
         <AskTablePanel
           selectedSkill={selectedSkill}
           semanticSkills={semanticSkills}
@@ -212,6 +255,27 @@ export function AskDashboardWorkbench({
           onDashboardNameChange={setDashboardName}
           onDashboardIntentChange={setDashboardIntent}
           onBuildDashboard={submitDashboard}
+        />
+        <button
+          type="button"
+          className="kc-askdash-resizer"
+          aria-label="调整 AskTable 和 Dashboard 面板宽度"
+          role="separator"
+          aria-orientation="vertical"
+          aria-valuemin={28}
+          aria-valuemax={58}
+          aria-valuenow={Math.round(splitPercent)}
+          onPointerDown={beginSplitResize}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              nudgeSplit(-3);
+            }
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              nudgeSplit(3);
+            }
+          }}
         />
         <DashboardPreviewWorkspace
           tab={activeTab}

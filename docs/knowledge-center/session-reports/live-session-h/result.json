@@ -1,12 +1,12 @@
 {
   "schema": "agentkit.knowledge_center.session_h_result.v1",
-  "generated_at": "2026-08-19T07:03:31+08:00",
+  "generated_at": "2026-08-19T07:21:39+08:00",
   "branch": "kc/session-h-semantic-askdashboard-agents",
   "remote_start_hash": "762751a41a759d35f3c91f394610cfb3dc6eb25e",
   "pre_commit_head": "762751a41a759d35f3c91f394610cfb3dc6eb25e",
   "local_server": {
-    "url": "http://127.0.0.1:18346",
-    "asset_db": "/tmp/veadk-session-h-knowledge-assets.db",
+    "url": "http://127.0.0.1:18347",
+    "asset_db": "/tmp/veadk-session-h-final-knowledge-assets.db",
     "frontend_dir": "veadk/webui"
   },
   "implementation_summary": [
@@ -33,9 +33,11 @@
       }
     },
     "semantic_build_job": {
-      "id": "job_9bf31a863d6048c18938162360b6e61d",
+      "id": "job_42dde31522474b43bcd218e5b22d7032",
       "status": "succeeded",
       "result_skill_id": "oracle_sales_semantic",
+      "agent_name": "studio_semantic_builder_agent",
+      "agent_invocation_id": "studio_semantic_builder_agent-8c990d508cab44558c0553aae160ef39",
       "agent_status": "completed",
       "generation_mode": "agent",
       "runner_backend": "veadk.Agent+Runner",
@@ -70,6 +72,8 @@
     },
     "askdata_query": {
       "status": "completed",
+      "agent_name": "studio_asktable_dashboard_agent",
+      "agent_invocation_id": "studio_asktable_dashboard_agent-0cb4c1f3fcce49ad9ab25407999b4b5c",
       "agent_status": "completed",
       "generation_mode": "agent",
       "runner_backend": "veadk.Agent+Runner",
@@ -141,42 +145,28 @@
     "not_configured_behavior": "Covered by tests/frontend/test_knowledge_asset_agents.py; live server had model credentials configured and executed real agents."
   },
   "validation": {
-    "frontend": {
+    "frontend_tests": {
       "command": "npm test",
       "cwd": "frontend",
       "result": "677 pass, 0 fail"
     },
-    "backend_focused": {
-      "command": "python -m pytest tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_semantic_builder.py tests/frontend/test_dashboard_askdata_routes.py tests/frontend/test_knowledge_asset_routes.py tests/cli/test_generated_agent_datastudio_codegen.py tests/cli/test_generated_agent_backend_codegen.py tests/cli/test_generated_agent_backend_codegen_extended.py tests/cli/test_generated_agent_request_models.py -q",
-      "result": "130 passed, 7 warnings"
-    },
-    "playwright_e2e": {
-      "command": "python Playwright sync API script against http://127.0.0.1:18346",
-      "result": "20 checks passed",
-      "viewports": [
-        {
-          "label": "desktop-1440",
-          "width": 1440,
-          "height": 900
-        },
-        {
-          "label": "mobile-390",
-          "width": 390,
-          "height": 844
-        }
-      ],
-      "screenshots": [
-        "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-semantic-workbench.png",
-        "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-capabilities-selector.png",
-        "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-askdashboard-queries.png",
-        "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-semantic-workbench.png",
-        "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-capabilities-selector.png",
-        "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-askdashboard-queries.png"
-      ]
-    },
     "frontend_build": {
       "command": "npm run build",
-      "result": "passed before final validation; regenerated veadk/webui assets"
+      "cwd": "frontend",
+      "result": "passed"
+    },
+    "backend_focused": {
+      "command": "python -m pytest tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_semantic_builder.py tests/frontend/test_dashboard_askdata_routes.py tests/frontend/test_knowledge_asset_routes.py tests/cli/test_generated_agent_datastudio_codegen.py tests/cli/test_generated_agent_backend_codegen.py tests/cli/test_generated_agent_backend_codegen_extended.py tests/cli/test_generated_agent_request_models.py -q",
+      "result": "131 passed, 7 warnings"
+    },
+    "live_e2e": {
+      "command": "Playwright Python against http://127.0.0.1:18347 at 1440x900 and 390x844",
+      "result": "passed",
+      "checks": 20
+    },
+    "secret_scan": {
+      "command": "custom changed-text scan plus screenshot artifact inventory",
+      "result": "passed"
     }
   },
   "screenshots": [

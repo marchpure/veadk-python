@@ -58,6 +58,9 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(panelSource, /SemanticMetadataDrawer/);
   assert.match(panelSource, /查看 MDL/);
   assert.match(panelSource, /查看评测/);
+  assert.match(panelSource, /relationshipFieldHighlights/);
+  assert.match(panelSource, /is-join-field/);
+  assert.match(panelSource, /kc-mobile-workbench-tabs/);
   assert.match(panelSource, /agent_status/);
   assert.doesNotMatch(panelSource, /<iframe/);
   assert.doesNotMatch(panelSource, /DATASTUDIO_API_KEY/);
@@ -114,6 +117,8 @@ test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence 
   assert.match(askDashboardSource, /policyDecision/);
   assert.match(askDashboardSource, /freshness/);
   assert.match(askDashboardSource, /metricDefinition/);
+  assert.match(askDashboardSource, /beginSplitResize/);
+  assert.match(askDashboardSource, /kc-askdash-resizer/);
   assert.match(askDashboardSource, /title="后端导出能力尚未启用"/);
   assert.match(knowledgeCenterSource, /<AskDashboardWorkbench/);
 });

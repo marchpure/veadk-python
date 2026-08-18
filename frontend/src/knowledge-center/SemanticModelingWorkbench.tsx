@@ -57,6 +57,8 @@ type SemanticNodeData = {
   dimensions: Array<Record<string, unknown>>;
   description?: string;
   source?: Record<string, unknown>;
+  edgeHoverRole?: "source" | "target";
+  highlightedFieldNames?: string[];
 };
 type SemanticGraphNodeType = Node<SemanticNodeData, "semanticNode">;
 type SemanticGraphEdgeType = Edge<Record<string, unknown>>;
@@ -99,6 +101,8 @@ export function SemanticModelingWorkbench({
   const [error, setError] = useState("");
   const [lastJob, setLastJob] = useState<KnowledgeAssetBuildJob | null>(null);
   const [inspector, setInspector] = useState<"metadata" | "mdl" | "evals">("metadata");
+  const [mobilePane, setMobilePane] = useState<"tree" | "canvas" | "metadata">("canvas");
+  const [treeCollapsed, setTreeCollapsed] = useState(false);
 
   const databaseSources = sources.filter((source) =>
     ["database", "schema_snapshot"].includes(String(source.source_type).toLowerCase()),
@@ -245,7 +249,32 @@ export function SemanticModelingWorkbench({
           <span>{error || String(latestJob?.error?.message || "构建被阻塞，请查看 Agent 状态。")}</span>
         </div>
       ) : null}
-      <div className="kc-semantic-layout">
+      <div className="kc-mobile-workbench-tabs" role="tablist" aria-label="语义移动端视图">
+        {(["tree", "canvas", "metadata"] as const).map((pane) => (
+          <button
+            key={pane}
+            type="button"
+            className={mobilePane === pane ? "is-active" : ""}
+            disabled={pane === "tree" && treeCollapsed}
+            onClick={() => setMobilePane(pane)}
+          >
+            {pane === "tree" ? "模型树" : pane === "canvas" ? "画布" : "详情"}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="kc-mobile-workbench-tabs__toggle"
+          onClick={() =>
+            setTreeCollapsed((current) => {
+              if (!current) setMobilePane("canvas");
+              return !current;
+            })
+          }
+        >
+          {treeCollapsed ? "展开模型树" : "收起模型树"}
+        </button>
+      </div>
+      <div className={`kc-semantic-layout is-mobile-${mobilePane}${treeCollapsed ? " is-tree-collapsed" : ""}`}>
         <SemanticModelTree
           mode={treeMode}
           onModeChange={setTreeMode}
@@ -286,17 +315,34 @@ function SemanticGraphCanvas({
 }) {
   const [hoveredEdgeId, setHoveredEdgeId] = useState("");
   const nodeTypes = useMemo(() => ({ semanticNode: SemanticGraphNode }), []);
+  const hoveredEdge = graph.edges.find((edge) => edge.id === hoveredEdgeId);
+  const hoveredFields = hoveredEdge ? relationshipFieldHighlights(hoveredEdge.data ?? {}) : null;
+  const nodes: SemanticGraphNodeType[] = graph.nodes.map((node) => {
+    if (!hoveredEdge || !hoveredFields) return node;
+    if (node.id !== hoveredEdge.source && node.id !== hoveredEdge.target) return node;
+    const role = node.id === hoveredEdge.source ? "source" : "target";
+    return {
+      ...node,
+      className: `is-edge-${role}`,
+      data: {
+        ...node.data,
+        edgeHoverRole: role,
+        highlightedFieldNames: role === "source" ? hoveredFields.source : hoveredFields.target,
+      },
+    };
+  });
   const edges: SemanticGraphEdgeType[] = graph.edges.map((edge) => ({
     ...edge,
     className: edge.id === hoveredEdgeId ? "is-hovered" : "",
     animated: edge.id === hoveredEdgeId,
+    label: edge.id === hoveredEdgeId ? relationshipHoverLabel(edge.data ?? {}, edge.label) : edge.label,
   }));
   return (
     <div className="kc-semantic-canvas" data-testid="semantic-graph-canvas">
       <ReactFlowProvider>
         <SemanticCanvasFitButton />
         <ReactFlow<SemanticGraphNodeType, SemanticGraphEdgeType>
-          nodes={graph.nodes}
+          nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           nodesDraggable={false}
@@ -330,8 +376,9 @@ function SemanticCanvasFitButton() {
 }
 
 function SemanticGraphNode({ data }: NodeProps<Node<SemanticNodeData>>) {
+  const highlightedFields = new Set((data.highlightedFieldNames ?? []).map(normalizeFieldName));
   return (
-    <article className={`kc-semantic-node is-${data.kind}`}>
+    <article className={`kc-semantic-node is-${data.kind}${data.edgeHoverRole ? ` is-edge-${data.edgeHoverRole}` : ""}`}>
       <Handle type="target" position={Position.Left} />
       <header>
         {data.kind === "model" ? <Database className="kc-native-icon" /> : <Table2 className="kc-native-icon" />}
@@ -339,12 +386,16 @@ function SemanticGraphNode({ data }: NodeProps<Node<SemanticNodeData>>) {
       </header>
       <p>{data.description || data.table || "Semantic model entity"}</p>
       <div className="kc-semantic-node__section">
-        {data.fields.slice(0, 5).map((field) => (
-          <span key={labelFrom(field)}>
-            {field.primary_key ? <CircleDot className="kc-native-icon" /> : null}
-            {labelFrom(field)} <em>{String(field.type ?? field.data_type ?? "")}</em>
-          </span>
-        ))}
+        {data.fields.slice(0, 5).map((field) => {
+          const fieldName = labelFrom(field);
+          const highlighted = highlightedFields.has(normalizeFieldName(fieldName));
+          return (
+            <span key={fieldName} className={highlighted ? "is-join-field" : ""}>
+              {field.primary_key ? <CircleDot className="kc-native-icon" /> : null}
+              {fieldName} <em>{String(field.type ?? field.data_type ?? "")}</em>
+            </span>
+          );
+        })}
       </div>
       <footer>
         <small>{data.metrics.length} metrics</small>
@@ -606,6 +657,50 @@ export function buildSemanticGraph(mdl: Record<string, unknown>): {
     };
   }).filter((edge) => edge.source && edge.target && edge.source !== edge.target);
   return layoutGraph(rawNodes, rawEdges);
+}
+
+export function relationshipFieldHighlights(relationship: Record<string, unknown>): {
+  source: string[];
+  target: string[];
+} {
+  const joinFields = arrayValue(relationship.join_fields ?? relationship.joinFields);
+  const source = new Set<string>();
+  const target = new Set<string>();
+  joinFields.forEach((item) => {
+    const record = objectValue(item);
+    const from = String(record.from ?? record.from_column ?? record.source_field ?? record.source ?? "");
+    const to = String(record.to ?? record.to_column ?? record.target_field ?? record.target ?? "");
+    if (from) source.add(from);
+    if (to) target.add(to);
+  });
+  for (const key of ["from_column", "fromField", "source_column", "source_field"]) {
+    const value = relationship[key];
+    if (value) source.add(String(value));
+  }
+  for (const key of ["to_column", "toField", "target_column", "target_field"]) {
+    const value = relationship[key];
+    if (value) target.add(String(value));
+  }
+  return {
+    source: [...source],
+    target: [...target],
+  };
+}
+
+function relationshipHoverLabel(
+  relationship: Record<string, unknown>,
+  fallback: unknown,
+): string {
+  const highlights = relationshipFieldHighlights(relationship);
+  const joins = highlights.source.map((source, index) => {
+    const target = highlights.target[index] ?? highlights.target[0] ?? "?";
+    return `${source} = ${target}`;
+  });
+  return joins.length ? joins.join(", ") : String(fallback || relationship.label || relationship.kind || "relationship");
+}
+
+function normalizeFieldName(value: string): string {
+  return value.trim().replace(/^.*\./, "").toLowerCase();
 }
 
 function layoutGraph(
