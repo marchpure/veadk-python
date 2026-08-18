@@ -188,6 +188,10 @@ class SelectedSkill(BaseModel):
     dataStudioTimeField: str = ""
     dataStudioDimensions: list[str] = Field(default_factory=list)
     dataStudioEvidence: list[str] = Field(default_factory=list)
+    dataStudioSourceCoverage: list[str] = Field(default_factory=list)
+    dataStudioFreshness: dict[str, Any] = Field(default_factory=dict)
+    dataStudioProvenance: dict[str, Any] = Field(default_factory=dict)
+    dataStudioUsagePolicy: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _default_folder(self) -> "SelectedSkill":
@@ -348,6 +352,16 @@ def normalize_and_validate_draft(raw: Any) -> AgentDraft:
 
 _ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ENV_REFERENCE_RE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+_SENSITIVE_DRAFT_VALUE_RE = re.compile(
+    r"(authorization|cookie|credential|secret|token|password|api[_-]?key|"
+    r"connection[_-]?obj|connection[_-]?string|session|dsn)",
+    re.IGNORECASE,
+)
+_SENSITIVE_DRAFT_TEXT_RE = re.compile(
+    r"(bearer\s+[a-z0-9._~-]+|password\s*=|://[^/\s:@]+:[^@\s]+@|"
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----)",
+    re.IGNORECASE,
+)
 
 
 def _env_segment(value: str, fallback: str) -> str:
@@ -362,6 +376,24 @@ def _next_env_name(base: str, used: set[str]) -> str:
     while f"{base}_{suffix}" in used:
         suffix += 1
     return f"{base}_{suffix}"
+
+
+def _safe_generated_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for key, child in value.items():
+            key_text = str(key)
+            out[key_text] = (
+                "[REDACTED]"
+                if _SENSITIVE_DRAFT_VALUE_RE.search(key_text)
+                else _safe_generated_value(child)
+            )
+        return out
+    if isinstance(value, list):
+        return [_safe_generated_value(item) for item in value]
+    if isinstance(value, str) and _SENSITIVE_DRAFT_TEXT_RE.search(value):
+        return "[REDACTED]"
+    return value
 
 
 def prepare_mcp_auth(draft: AgentDraft) -> AgentDraft:
@@ -431,6 +463,10 @@ def _safe_draft_payload(draft: AgentDraft) -> dict[str, Any]:
         "dataStudioTimeField",
         "dataStudioDimensions",
         "dataStudioEvidence",
+        "dataStudioSourceCoverage",
+        "dataStudioFreshness",
+        "dataStudioProvenance",
+        "dataStudioUsagePolicy",
     }
 
     def empty_value(value: Any) -> bool:
@@ -450,6 +486,17 @@ def _safe_draft_payload(draft: AgentDraft) -> dict[str, Any]:
             for key in list(skill):
                 if key in datastudio_keys and empty_value(skill.get(key)):
                     skill.pop(key, None)
+            if isinstance(skill.get("dataStudioCapabilityPackage"), dict):
+                skill["dataStudioCapabilityPackage"] = _safe_generated_value(
+                    skill["dataStudioCapabilityPackage"]
+                )
+            for nested_key in (
+                "dataStudioFreshness",
+                "dataStudioProvenance",
+                "dataStudioUsagePolicy",
+            ):
+                if isinstance(skill.get(nested_key), dict):
+                    skill[nested_key] = _safe_generated_value(skill[nested_key])
 
     def sanitize(node: dict[str, Any]) -> None:
         if node.get("cloudProvider") == "volcengine":

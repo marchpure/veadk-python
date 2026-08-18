@@ -167,6 +167,27 @@ function toConfig(draft: AgentDraft): Record<string, unknown> {
         if (s.dataStudioEvidence?.length) {
           base.dataStudioEvidence = s.dataStudioEvidence;
         }
+        if (s.dataStudioSourceCoverage?.length) {
+          base.dataStudioSourceCoverage = s.dataStudioSourceCoverage;
+        }
+        if (
+          s.dataStudioFreshness &&
+          Object.keys(s.dataStudioFreshness).length
+        ) {
+          base.dataStudioFreshness = s.dataStudioFreshness;
+        }
+        if (
+          s.dataStudioProvenance &&
+          Object.keys(s.dataStudioProvenance).length
+        ) {
+          base.dataStudioProvenance = s.dataStudioProvenance;
+        }
+        if (
+          s.dataStudioUsagePolicy &&
+          Object.keys(s.dataStudioUsagePolicy).length
+        ) {
+          base.dataStudioUsagePolicy = s.dataStudioUsagePolicy;
+        }
       }
       return base;
     });

@@ -101,6 +101,10 @@ import { LocalPicker } from "./LocalPicker";
 import { SkillSpacePicker } from "./SkillSpacePicker";
 import { DataStudioAssetPicker } from "./DataStudioAssetPicker";
 import {
+  dataStudioCapabilityLabel,
+  dataStudioSourceCoverageText,
+} from "./skills/datastudio";
+import {
   CloudEnvironmentAdvancedTrigger,
   CloudEnvironmentConfigurator,
 } from "../ui/CloudEnvironmentConfigurator";
@@ -262,8 +266,8 @@ const STEPS: StepMeta[] = [
   },
   { id: "model", label: "模型配置", hint: "模型与服务（可选）", icon: Cpu },
   { id: "tools", label: "工具", hint: "可调用的能力", icon: Wrench },
-  { id: "skills", label: "技能", hint: "声明式技能", icon: Sparkles },
-  { id: "knowledge", label: "知识库", hint: "外部知识检索", icon: Database },
+  { id: "skills", label: "能力", hint: "可运行 Skill", icon: Sparkles },
+  { id: "knowledge", label: "检索绑定", hint: "资料检索能力", icon: Database },
   { id: "memory", label: "记忆", hint: "短期与长期记忆", icon: Layers },
   { id: "subagents", label: "子 Agent", hint: "嵌套协作", icon: Boxes },
   { id: "review", label: "完成", hint: "预览并创建", icon: Rocket },
@@ -1894,11 +1898,15 @@ function SelectedSkillRow({
     label = "AgentKit Skills 中心";
   } else if (s.source === "datastudio") {
     Icon = Database;
-    label =
-      s.dataStudioCapabilityKind === "dashboard_skill"
-        ? "Data Studio Dashboard Skill"
-        : "Data Studio Semantic Skill";
+    label = dataStudioCapabilityLabel(
+      s.dataStudioAssetType,
+      s.dataStudioCapabilityKind,
+    );
   }
+  const sourceCoverage =
+    s.source === "datastudio"
+      ? dataStudioSourceCoverageText(s.dataStudioSourceCoverage)
+      : "";
   return (
     <motion.div
       key={`${s.source}:${s.folder}:${s.skillId || s.slug || ""}:${s.version || ""}`}
@@ -1916,6 +1924,7 @@ function SelectedSkillRow({
         <span className="cw-selected-skill-name">{s.name}</span>
         <span className="cw-selected-skill-detail">
           {label}
+          {sourceCoverage ? ` · 覆盖 ${sourceCoverage}` : ""}
           {s.description ? ` · ${displayDescription(s.description)}` : ""}
         </span>
       </span>
@@ -1939,7 +1948,7 @@ const SKILL_SOURCES: {
 }[] = [
   { id: "local", label: "本地文件", icon: FolderUp },
   { id: "skillspace", label: "AgentKit Skills 中心", icon: AgentKitSkillsIcon },
-  { id: "datastudio", label: "知识资产", icon: Database },
+  { id: "datastudio", label: "知识能力", icon: Database },
   { id: "skillhub", label: "火山 Find Skill 技能广场", icon: Globe },
 ];
 
@@ -1978,13 +1987,13 @@ function SkillsSourceTabs({
         <span className="cw-skill-add-icon" aria-hidden>
           <Plus className="cw-i" />
         </span>
-        <span>添加 Skill</span>
+        <span>添加能力</span>
       </button>
 
       {selected.length > 0 && (
         <div className="cw-skill-selected">
           <span className="cw-skill-selected-label">
-            已加入技能 · {selected.length}
+            已加入能力 · {selected.length}
           </span>
           <div className="cw-selected-skill-list">
             <AnimatePresence initial={false}>
@@ -2023,11 +2032,11 @@ function SkillsSourceTabs({
               transition={{ duration: 0.18, ease: "easeOut" }}
             >
               <div className="cw-skill-dialog-head">
-                <h3 id="cw-skill-dialog-title">添加 Skill</h3>
+                <h3 id="cw-skill-dialog-title">添加 Agent 能力</h3>
                 <button
                   type="button"
                   className="cw-skill-dialog-close"
-                  aria-label="关闭添加 Skill"
+                  aria-label="关闭添加能力"
                   onClick={() => setOpen(false)}
                 >
                   <X className="cw-i" />
@@ -5051,14 +5060,14 @@ export function CustomCreate({
                                 <Toggle
                                   checked={node.knowledgebase}
                                   onChange={(v) => patch({ knowledgebase: v })}
-                                  title="知识库"
-                                  desc="启用外部知识检索（RAG），让 Agent 基于你的资料作答。"
+                                  title="资料检索 Binding"
+                                  desc="绑定一个明确的 VikingDB 知识库作为检索能力，创建 Agent 时不直接选择原始资料 source。"
                                   icon={Database}
                                 />
                                 {node.knowledgebase && (
                                   <div className="cw-field cw-subfield">
                                     <label className="cw-label">
-                                      知识库后端
+                                      检索后端
                                     </label>
                                     <BackendSelect
                                       options={KB_BACKENDS}
@@ -5078,7 +5087,7 @@ export function CustomCreate({
                                       DEFAULT_KB_BACKEND) === "viking" && (
                                       <div className="cw-field cw-subfield">
                                         <label className="cw-label">
-                                          VikingDB 知识库
+                                          VikingDB 检索知识库
                                         </label>
                                         <VikingKnowledgebaseSelect
                                           value={node.knowledgebaseIndex ?? ""}

@@ -254,6 +254,10 @@ function parseSelectedSkills(o: Record<string, unknown>): SelectedSkill[] {
         dataStudioTimeField: asString(so.dataStudioTimeField),
         dataStudioDimensions: asStringArray(so.dataStudioDimensions),
         dataStudioEvidence: asStringArray(so.dataStudioEvidence),
+        dataStudioSourceCoverage: asStringArray(so.dataStudioSourceCoverage),
+        dataStudioFreshness: asObjectRecord(so.dataStudioFreshness),
+        dataStudioProvenance: asObjectRecord(so.dataStudioProvenance),
+        dataStudioUsagePolicy: asObjectRecord(so.dataStudioUsagePolicy),
       });
       continue;
     }

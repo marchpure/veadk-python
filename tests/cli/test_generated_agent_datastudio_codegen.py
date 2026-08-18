@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import runpy
 import sys
 
@@ -17,6 +18,21 @@ from veadk.cli.generated_agent_skills import materialize_selected_skills
 
 def _file_map(project) -> dict[str, str]:
     return {file.path: file.content for file in project.files}
+
+
+def _assert_no_secret_leaks(files: dict[str, str]) -> None:
+    joined = "\n".join(files.values())
+    forbidden = [
+        "must-not-enter-skill",
+        "must-not-ship",
+        "must-not-enter-draft",
+        "redacted-connection-placeholder",
+        "redacted-authorization-placeholder",
+        "ciphertext",
+        "DATASTUDIO_API_KEY",
+    ]
+    for value in forbidden:
+        assert value not in joined
 
 
 def test_datastudio_selected_skill_generates_rest_query_tool() -> None:
@@ -225,7 +241,8 @@ async def test_datastudio_semantic_skill_packages_mdl_snapshot() -> None:
     project = generate_project_from_draft(draft)
     await materialize_selected_skills(draft, project)
 
-    skill_md = _file_map(project)["skills/datastudio-semantic-sales/SKILL.md"]
+    files = _file_map(project)
+    skill_md = files["skills/datastudio-semantic-sales/SKILL.md"]
     assert "capability_kind: semantic_skill" in skill_md
     assert "- Capability: `semantic_skill`" in skill_md
     assert "schema: byaan.mdl.v1" in skill_md
@@ -234,6 +251,215 @@ async def test_datastudio_semantic_skill_packages_mdl_snapshot() -> None:
     assert "MDL is bundled inside this Semantic Skill" in skill_md
     assert "must-not-ship" not in skill_md
     assert "api_key: '[REDACTED]'" in skill_md
+
+
+@pytest.mark.asyncio
+async def test_datastudio_semantic_skill_materializes_production_package() -> None:
+    draft = AgentDraft(
+        name="oracle-semantic-agent",
+        instruction="Answer with governed Oracle semantic metrics.",
+        selectedSkills=[
+            SelectedSkill(
+                source="datastudio",
+                folder="datastudio-semantic-oracle-sales",
+                name="Oracle Sales Semantic Model",
+                description="Sanitized Oracle sales semantic model.",
+                dataStudioAssetType="semantic_model",
+                dataStudioAssetId="oracle-sales",
+                dataStudioCapabilityKind="semantic_skill",
+                dataStudioCapabilityPackage={
+                    "package_type": "semantic_skill",
+                    "source_ids": [
+                        {"kind": "database", "id": "oracle-sales-sanitized"},
+                        {"kind": "document", "id": "feishu-sales-handbook"},
+                    ],
+                    "runtime": {
+                        "query_url": "/api/external/assets/semantic_model/oracle-sales/query",
+                        "api_key": "must-not-enter-skill",
+                    },
+                    "mdl": {
+                        "schema": "byaan.mdl.v1",
+                        "model": {
+                            "id": "oracle-sales",
+                            "slug": "oracle-sales",
+                            "version": "v3",
+                        },
+                        "entities": [
+                            {
+                                "id": "sales_order",
+                                "table": "SALES_ORDER",
+                                "primary_key": "ORDER_ID",
+                                "fields": [
+                                    {
+                                        "name": "ORDER_ID",
+                                        "source_field": "ORDER_ID",
+                                        "type": "number",
+                                        "role": "primary_key",
+                                    },
+                                    {
+                                        "name": "SELL_DATE",
+                                        "source_field": "SELL_DATE",
+                                        "type": "date",
+                                        "role": "time",
+                                    },
+                                ],
+                            },
+                            {
+                                "id": "store",
+                                "table": "STORE",
+                                "primary_key": "STORE_ID",
+                                "fields": [
+                                    {
+                                        "name": "STORE_ID",
+                                        "source_field": "STORE_ID",
+                                        "type": "number",
+                                        "role": "primary_key",
+                                    }
+                                ],
+                            },
+                        ],
+                        "relationships": [
+                            {
+                                "id": "sales_order_to_store",
+                                "from": "sales_order",
+                                "to": "store",
+                                "join_fields": [
+                                    {"from": "STORE_ID", "to": "STORE_ID"}
+                                ],
+                                "cardinality": "many-to-one",
+                            }
+                        ],
+                        "metrics": [
+                            {
+                                "id": "ticket_count",
+                                "name": "ticket_count",
+                                "business_name": "Ticket Count",
+                                "definition": "Number of sanitized sales tickets.",
+                                "formula": "count_distinct(ORDER_ID)",
+                                "time_field": "SELL_DATE",
+                                "dimensions": ["store"],
+                            }
+                        ],
+                        "dimensions": [
+                            {
+                                "id": "store",
+                                "entity": "store",
+                                "field": "STORE_NAME",
+                                "description": "Sanitized store name.",
+                            }
+                        ],
+                    },
+                    "governance": {
+                        "allowed_metrics": ["ticket_count"],
+                        "allowed_dimensions": ["store", "SELL_DATE"],
+                        "raw_sql_fallback": False,
+                        "usage_policy": {
+                            "permission_hint": "Aggregates only.",
+                            "masked_fields": ["CUST_NAME", "CUST_TEL"],
+                        },
+                        "connection_obj_encrypted": "ciphertext",
+                    },
+                    "evidence": [
+                        {
+                            "kind": "metric_definition",
+                            "metric": "ticket_count",
+                            "definition": "Number of sanitized sales tickets.",
+                        }
+                    ],
+                },
+                dataStudioVersion="v3",
+                dataStudioMetrics=["ticket_count"],
+                dataStudioDimensions=["store", "SELL_DATE"],
+                dataStudioTimeField="SELL_DATE",
+                dataStudioPermissionHint="Aggregates only; customer/contact fields denied.",
+                dataStudioQueryUrl="/api/external/assets/semantic_model/oracle-sales/query",
+                dataStudioSourceCoverage=[
+                    "飞书销售手册",
+                    "Oracle 销售库",
+                ],
+                dataStudioFreshness={
+                    "status": "current",
+                    "snapshotId": "oracle-local-extract-sanitized",
+                    "snapshotHash": "abc123",
+                },
+                dataStudioProvenance={
+                    "datasource_kind": "oracle",
+                    "connection_string": "redacted-connection-placeholder",
+                },
+                dataStudioUsagePolicy={
+                    "permission_hint": "Aggregates only.",
+                    "masked_fields": ["CUST_NAME", "CUST_TEL"],
+                    "Authorization": "redacted-authorization-placeholder",
+                },
+            )
+        ],
+    )
+    project = generate_project_from_draft(draft)
+    await materialize_selected_skills(draft, project)
+    files = _file_map(project)
+
+    expected_paths = {
+        "skills/datastudio-semantic-oracle-sales/manifest.json",
+        "skills/datastudio-semantic-oracle-sales/SKILL.md",
+        "skills/datastudio-semantic-oracle-sales/mdl/models.json",
+        "skills/datastudio-semantic-oracle-sales/mdl/fields.json",
+        "skills/datastudio-semantic-oracle-sales/mdl/relationships.json",
+        "skills/datastudio-semantic-oracle-sales/mdl/metrics.json",
+        "skills/datastudio-semantic-oracle-sales/mdl/dimensions.json",
+        "skills/datastudio-semantic-oracle-sales/mdl/permissions.json",
+        "skills/datastudio-semantic-oracle-sales/mdl/freshness.json",
+        "skills/datastudio-semantic-oracle-sales/tools/query.py",
+        "skills/datastudio-semantic-oracle-sales/policies/access.json",
+        "skills/datastudio-semantic-oracle-sales/policies/masking.json",
+        "skills/datastudio-semantic-oracle-sales/policies/refusal.json",
+        "skills/datastudio-semantic-oracle-sales/evals/suite.json",
+        "skills/datastudio-semantic-oracle-sales/evals/evidence.json",
+    }
+    assert expected_paths.issubset(files)
+
+    manifest = json.loads(files["skills/datastudio-semantic-oracle-sales/manifest.json"])
+    assert manifest["schema"] == "agentkit.semantic_skill.manifest.v1"
+    assert manifest["asset"]["capability_kind"] == "semantic_skill"
+    assert manifest["runtime"]["transport"] == "datastudio_external_rest"
+    assert manifest["runtime"]["direct_database_access"] is False
+    assert manifest["source_ids"] == [
+        {"id": "oracle-sales-sanitized", "kind": "database"},
+        {"id": "feishu-sales-handbook", "kind": "document"},
+    ]
+
+    metrics = json.loads(files["skills/datastudio-semantic-oracle-sales/mdl/metrics.json"])
+    relationships = json.loads(
+        files["skills/datastudio-semantic-oracle-sales/mdl/relationships.json"]
+    )
+    access_policy = json.loads(
+        files["skills/datastudio-semantic-oracle-sales/policies/access.json"]
+    )
+    masking_policy = json.loads(
+        files["skills/datastudio-semantic-oracle-sales/policies/masking.json"]
+    )
+    eval_suite = json.loads(files["skills/datastudio-semantic-oracle-sales/evals/suite.json"])
+    tool_py = files["skills/datastudio-semantic-oracle-sales/tools/query.py"]
+    agent_py = files["agents/oracle_semantic_agent/agent.py"]
+
+    assert metrics["metrics"][0]["id"] == "ticket_count"
+    assert relationships["relationships"][0]["id"] == "sales_order_to_store"
+    assert access_policy["query_path"] == "Data Studio external asset REST only"
+    assert access_policy["raw_sql_fallback"] is False
+    assert "CUST_TEL" in masking_policy["masked_fields"]
+    assert eval_suite["contract_version"] == "evaluation.suite_version.v1"
+    assert {case["case_id"] for case in eval_suite["cases"]} == {
+        "metric-sql-policy-freshness",
+        "customer-contact-policy-denial",
+    }
+    assert "requests.post(" in tool_py
+    assert "BYAAN_MCP_API_KEY" in tool_py
+    assert "cx_Oracle" not in tool_py
+    assert "oracledb" not in tool_py
+    assert "direct_database_access" not in tool_py
+    assert '"dataStudioCapabilityPackage":' not in agent_py
+    assert "'dataStudioCapabilityPackage':" in agent_py
+    assert "[REDACTED]" in agent_py
+    _assert_no_secret_leaks(files)
 
 
 def test_datastudio_debug_runtime_env_allows_rest_credentials() -> None:

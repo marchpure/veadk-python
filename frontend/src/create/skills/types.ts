@@ -50,6 +50,10 @@ export interface SkillHit {
   dataStudioTimeField?: string;
   dataStudioDimensions?: string[];
   dataStudioEvidence?: string[];
+  dataStudioSourceCoverage?: string[];
+  dataStudioFreshness?: Record<string, unknown>;
+  dataStudioProvenance?: Record<string, unknown>;
+  dataStudioUsagePolicy?: Record<string, unknown>;
 }
 
 /** A skill the user has added to the draft. Saved in YAML and materialized
@@ -86,6 +90,10 @@ export interface SelectedSkill {
   dataStudioTimeField?: string;
   dataStudioDimensions?: string[];
   dataStudioEvidence?: string[];
+  dataStudioSourceCoverage?: string[];
+  dataStudioFreshness?: Record<string, unknown>;
+  dataStudioProvenance?: Record<string, unknown>;
+  dataStudioUsagePolicy?: Record<string, unknown>;
 }
 
 /** Source-specific downloader signature. Resolves to ProjectFiles to merge
