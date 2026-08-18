@@ -47,7 +47,12 @@ test("SemanticBuildPanel uses D3 slot and native build API", () => {
   assert.match(panelSource, /kind="semantic_skill"/);
   assert.match(panelSource, /buildSemanticSkill/);
   assert.match(panelSource, /Schema snapshot/);
+  assert.match(panelSource, /业务文档上下文/);
   assert.match(panelSource, /not_configured/);
+  assert.match(panelSource, /agentkit:open-settings/);
+  assert.match(panelSource, /BuildSteps/);
+  assert.match(panelSource, /Eval cases/);
+  assert.match(panelSource, /策略/);
   assert.match(panelSource, /受治理 REST 查询工具/);
   assert.doesNotMatch(panelSource, /<iframe/);
   assert.doesNotMatch(panelSource, /DATASTUDIO_API_KEY/);

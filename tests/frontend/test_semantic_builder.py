@@ -173,6 +173,28 @@ def test_semantic_skill_build_creates_published_capability(client: TestClient, m
     assert asset["query_url"] == "/api/external/assets/semantic_model/sales_semantic/query"
     assert asset["capability_package"]["runtime"]["direct_database_access"] is False
     assert asset["capability_package"]["mdl"]["permissions"]["masked_fields"][0]["field"] == "customer_phone"
+    package_files = asset["capability_package"]["files"]
+    assert {
+        "manifest.json",
+        "SKILL.md",
+        "mdl/models.json",
+        "mdl/fields.json",
+        "mdl/relationships.json",
+        "mdl/metrics.json",
+        "mdl/dimensions.json",
+        "mdl/permissions.json",
+        "mdl/freshness.json",
+        "tools/query.py",
+        "policies/access.json",
+        "policies/masking.json",
+        "policies/refusal.json",
+        "evals/suite.json",
+        "evals/evidence.json",
+    }.issubset(package_files)
+    assert "customer_phone" in json.dumps(package_files["policies/masking.json"])
+    assert "requests.post(" in package_files["tools/query.py"]
+    assert "oracledb" not in package_files["tools/query.py"]
+    assert "cx_Oracle" not in package_files["tools/query.py"]
     joined = json.dumps(asset, ensure_ascii=False)
     assert "must-not-leak" not in joined
     assert "customer_phone" in joined

@@ -373,7 +373,22 @@ def _datastudio_skill_md(skill: SelectedSkill, folder: str) -> str:
             "- Never infer SQL results from the prompt. Call the generated Data Studio REST function tool for every answer.",
         ]
     )
-    if capability_package:
+    if capability_package and asset_type == "semantic_model":
+        lines.extend(
+            [
+                "",
+                "## Packaged Artifact Layout",
+                "",
+                "- Manifest: `manifest.json`",
+                "- MDL files: `mdl/models.json`, `mdl/fields.json`, `mdl/relationships.json`, `mdl/metrics.json`, `mdl/dimensions.json`, `mdl/permissions.json`, `mdl/freshness.json`",
+                "- Runtime tool: `tools/query.py`",
+                "- Policies: `policies/access.json`, `policies/masking.json`, `policies/refusal.json`",
+                "- Evals: `evals/suite.json`",
+                "",
+                "MDL is bundled inside this Semantic Skill as structured files. Do not copy the full MDL into this document and do not treat it as a standalone selectable asset.",
+            ]
+        )
+    elif capability_package:
         lines.extend(
             [
                 "",

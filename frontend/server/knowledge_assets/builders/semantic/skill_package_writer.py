@@ -6,6 +6,8 @@ import json
 import re
 from typing import Any
 
+from .mdl_writer import mdl_file_set
+
 _SENSITIVE_KEY_RE = re.compile(
     r"(authorization|cookie|credential|secret|token|password|api[_-]?key|"
     r"connection[_-]?obj|connection[_-]?string|session|dsn)",
@@ -174,15 +176,158 @@ def _case(case_id: str, question: str, metric: str, dimensions: list[str], decis
 def _package_file_manifest(display_name: str, mdl: dict[str, Any]) -> dict[str, Any]:
     metrics = [str(metric.get("id")) for metric in mdl.get("metrics") or [] if isinstance(metric, dict)]
     dimensions = [str(dim.get("id")) for dim in mdl.get("dimensions") or [] if isinstance(dim, dict)]
+    model = mdl.get("model") if isinstance(mdl.get("model"), dict) else {}
+    asset_id = str(model.get("id") or model.get("slug") or "semantic_skill")
+    permissions = mdl.get("permissions") if isinstance(mdl.get("permissions"), dict) else {}
+    runtime_query_url = f"/api/external/assets/semantic_model/{asset_id}/query"
     return {
         "manifest.json": {
             "schema": "agentkit.semantic_skill.manifest.v1",
+            "name": slug_like(asset_id),
             "display_name": display_name,
-            "runtime": {"direct_database_access": False},
+            "asset": {
+                "type": "semantic_model",
+                "id": asset_id,
+                "version": str(model.get("version") or "v1"),
+                "capability_kind": "semantic_skill",
+            },
+            "runtime": {
+                "query_url": runtime_query_url,
+                "tool": "tools/query.py",
+                "transport": "governed_rest",
+                "direct_database_access": False,
+            },
+            "mdl": {
+                "schema": mdl.get("schema") or "byaan.mdl.v1",
+                "files": [
+                    "mdl/models.json",
+                    "mdl/fields.json",
+                    "mdl/relationships.json",
+                    "mdl/metrics.json",
+                    "mdl/dimensions.json",
+                    "mdl/permissions.json",
+                    "mdl/freshness.json",
+                ],
+            },
+            "policies": [
+                "policies/access.json",
+                "policies/masking.json",
+                "policies/refusal.json",
+            ],
+            "evals": ["evals/suite.json"],
         },
         "SKILL.md": skill_markdown_preview(display_name, mdl),
+        **mdl_file_set(mdl),
+        "tools/query.py": _semantic_query_tool_py(asset_id, metrics, dimensions),
+        "policies/access.json": {
+            "schema": "agentkit.semantic_skill.access_policy.v1",
+            "permission_hint": permissions.get("permission_hint")
+            or "只允许通过受治理 REST 查询聚合指标。",
+            "allowed_metrics": metrics,
+            "allowed_dimensions": dimensions,
+            "raw_sql_fallback": False,
+            "query_path": "Studio governed semantic REST only",
+        },
+        "policies/masking.json": {
+            "schema": "agentkit.semantic_skill.masking_policy.v1",
+            "masked_fields": permissions.get("masked_fields") or [],
+            "deny_patterns": permissions.get("deny_patterns")
+            or ["customer", "contact", "phone", "address", "passport", "member card"],
+        },
+        "policies/refusal.json": {
+            "schema": "agentkit.semantic_skill.refusal_policy.v1",
+            "must_refuse_or_mask": [
+                "customer/contact identity lookup",
+                "raw row-level identifiers",
+                "direct database credentials or connection strings",
+                "requests to bypass governed query policy",
+            ],
+            "response_rule": "Return the policy denial or masked aggregate; do not create a raw-data workaround.",
+        },
         "evals/suite.json": eval_suite(str((mdl.get("model") or {}).get("id") or "semantic_skill"), metrics, dimensions),
+        "evals/evidence.json": {
+            "schema": "agentkit.semantic_skill.evidence.v1",
+            "items": mdl.get("evidence") or [],
+        },
     }
+
+
+def _semantic_query_tool_py(asset_id: str, metrics: list[str], dimensions: list[str]) -> str:
+    query_url = f"/api/external/assets/semantic_model/{asset_id}/query"
+    return f'''"""Typed REST-only tool for the packaged Semantic Skill."""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+from urllib.parse import urljoin, urlparse
+
+import requests
+
+QUERY_URL = {query_url!r}
+METRICS = {metrics!r}
+DIMENSIONS = {dimensions!r}
+
+
+def _governed_query_url(path_or_url: str) -> str:
+    base = os.environ["DATASTUDIO_BASE_URL"].rstrip("/")
+    parsed_base = urlparse(base)
+    if parsed_base.scheme not in {{"http", "https"}} or not parsed_base.netloc:
+        raise ValueError("DATASTUDIO_BASE_URL must be an http(s) URL")
+    candidate = (path_or_url or "").strip()
+    if candidate.startswith("/"):
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme or parsed_candidate.netloc:
+            raise ValueError("Semantic Skill query URL must not be protocol-relative")
+        url = urljoin(f"{{base}}/", candidate.lstrip("/"))
+    else:
+        parsed_candidate = urlparse(candidate)
+        if parsed_candidate.scheme not in {{"http", "https"}} or not parsed_candidate.netloc:
+            raise ValueError("Semantic Skill query URL must be relative or http(s)")
+        if parsed_candidate.scheme != parsed_base.scheme or parsed_candidate.netloc != parsed_base.netloc:
+            raise ValueError("Semantic Skill query URL origin does not match DATASTUDIO_BASE_URL")
+        url = candidate
+    parsed_url = urlparse(url)
+    if parsed_url.scheme != parsed_base.scheme or parsed_url.netloc != parsed_base.netloc:
+        raise ValueError("Semantic Skill query URL origin does not match DATASTUDIO_BASE_URL")
+    if not parsed_url.path.startswith("/api/external/assets/"):
+        raise ValueError("Semantic Skill query URL must target /api/external/assets")
+    return url
+
+
+def query_semantic_metric(
+    metric: str,
+    dimension: str | None = None,
+    grain: str | None = None,
+    filters: dict[str, Any] | None = None,
+    time_range: dict[str, Any] | None = None,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Query the packaged Semantic Skill through governed REST."""
+    payload = {{
+        "metric": metric,
+        "dimension": dimension,
+        "grain": grain,
+        "filters": filters or {{}},
+        "time_range": time_range or {{}},
+        "limit": limit,
+    }}
+    payload = {{key: value for key, value in payload.items() if value not in (None, "")}}
+    response = requests.post(
+        _governed_query_url(QUERY_URL),
+        json=payload,
+        headers={{"Authorization": f"Bearer {{os.environ['BYAAN_MCP_API_KEY']}}"}},
+        timeout=30,
+    )
+    response.raise_for_status()
+    body = response.json()
+    return body.get("data", body) if isinstance(body, dict) else {{"data": body}}
+'''
+
+
+def slug_like(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", value).strip("-").lower()
+    return slug or "semantic-skill"
 
 
 def _redact(value: Any) -> Any:
@@ -201,4 +346,3 @@ def _redact(value: Any) -> Any:
 
 def package_to_json(package: dict[str, Any]) -> str:
     return json.dumps(package, ensure_ascii=False, indent=2, sort_keys=True)
-

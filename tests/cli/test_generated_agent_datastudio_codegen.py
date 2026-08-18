@@ -246,12 +246,13 @@ async def test_datastudio_semantic_skill_packages_mdl_snapshot() -> None:
     skill_md = files["skills/datastudio-semantic-sales/SKILL.md"]
     assert "capability_kind: semantic_skill" in skill_md
     assert "- Capability: `semantic_skill`" in skill_md
-    assert "schema: byaan.mdl.v1" in skill_md
-    assert "revenue_revenue" in skill_md
-    assert "orders_to_region" in skill_md
+    assert "## Packaged Artifact Layout" in skill_md
+    assert "mdl/metrics.json" in skill_md
+    assert "schema: byaan.mdl.v1" not in skill_md
+    assert "orders_to_region" not in skill_md
     assert "MDL is bundled inside this Semantic Skill" in skill_md
     assert "must-not-ship" not in skill_md
-    assert "api_key: '[REDACTED]'" in skill_md
+    assert "api_key: '[REDACTED]'" not in skill_md
 
 
 @pytest.mark.asyncio

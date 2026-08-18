@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -101,15 +102,26 @@ export function SemanticBuildPanel({
   const [state, setState] = useState<BuildState>({ status: "idle" });
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [selectedSnapshotId, setSelectedSnapshotId] = useState("");
+  const [selectedDocSourceId, setSelectedDocSourceId] = useState("");
   const [name, setName] = useState("销售语义问数 Skill");
   const [intent, setIntent] = useState("围绕销售票数、销售额、门店、时间趋势生成聚合问数能力");
   const [submitting, setSubmitting] = useState(false);
   const [lastJob, setLastJob] = useState<KnowledgeAssetBuildJob | null>(null);
+  const [snapshotRetry, setSnapshotRetry] = useState(0);
 
   const databaseSources = useMemo(
     () =>
       sources.filter((source) =>
         ["database", "schema_snapshot"].includes(String(source.source_type).toLowerCase()),
+      ),
+    [sources],
+  );
+  const documentSources = useMemo(
+    () =>
+      sources.filter((source) =>
+        ["document", "web", "feishu", "file", "knowledge_resource"].includes(
+          String(source.source_type).toLowerCase(),
+        ),
       ),
     [sources],
   );
@@ -163,7 +175,7 @@ export function SemanticBuildPanel({
     return () => {
       cancelled = true;
     };
-  }, [selectedSourceId]);
+  }, [selectedSourceId, snapshotRetry]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -172,7 +184,7 @@ export function SemanticBuildPanel({
     try {
       const job = await buildSemanticSkill({
         space_id: spaceId,
-        source_ids: [selectedSourceId],
+        source_ids: [selectedSourceId, selectedDocSourceId].filter(Boolean),
         snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
         name,
         intent,
@@ -256,6 +268,20 @@ export function SemanticBuildPanel({
                 </select>
               </label>
               <label>
+                <span>业务文档上下文（可选）</span>
+                <select
+                  value={selectedDocSourceId}
+                  onChange={(event) => setSelectedDocSourceId(event.target.value)}
+                >
+                  <option value="">不附加文档 source</option>
+                  {documentSources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 <span>Schema snapshot</span>
                 <select
                   value={selectedSnapshotId}
@@ -301,7 +327,13 @@ export function SemanticBuildPanel({
               {state.status === "error" ? (
                 <div className="kc-semantic-error" role="alert">
                   <AlertCircle className="kc-native-icon" />
-                  <span>{state.message}</span>
+                  <div>
+                    <strong>读取失败</strong>
+                    <span>{state.message}</span>
+                    <button type="button" onClick={() => setSnapshotRetry((value) => value + 1)}>
+                      重试读取
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </form>
@@ -335,6 +367,19 @@ export function SemanticBuildPanel({
                   <dd>{previewAsset?.publish_state ?? String(output.publish_state ?? "草案")}</dd>
                 </div>
               </dl>
+              <BuildSteps status={latestSemanticJob?.status} />
+              <PreviewList
+                title="日志摘要"
+                items={[
+                  selectedSourceId ? "已选择数据库 source" : "等待选择数据库 source",
+                  selectedSnapshotId ? "已锁定 schema snapshot" : "将使用最新 schema snapshot",
+                  String(output.model_status ?? "").includes("not_configured")
+                    ? "模型未配置，发布会被 gate 阻止"
+                    : "模型状态已记录",
+                  previewAsset?.publish_state === "published" ? "已发布到 Agent 能力选择器" : "等待发布或处理 blocker",
+                ]}
+                empty="暂无日志"
+              />
               {blockedReasons.length ? (
                 <div className="kc-semantic-blocked" role="alert">
                   <AlertCircle className="kc-native-icon" />
@@ -343,6 +388,21 @@ export function SemanticBuildPanel({
                     {blockedReasons.slice(0, 3).map((reason) => (
                       <span key={reason}>{reason}</span>
                     ))}
+                    <button type="button" onClick={() => void onRefresh()}>
+                      重新检查 snapshot
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {output.model_status === "not_configured" ? (
+                <div className="kc-semantic-config" role="status">
+                  <Wrench className="kc-native-icon" />
+                  <div>
+                    <strong>模型未配置</strong>
+                    <span>配置 Studio 后端模型环境变量，或仅保存 deterministic 草案等待复核。</span>
+                    <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("agentkit:open-settings"))}>
+                      打开设置
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -368,11 +428,41 @@ export function SemanticBuildPanel({
               <PreviewList title="指标" items={metrics} empty="暂无指标候选" />
               <PreviewList title="维度" items={dimensions} empty="暂无维度候选" />
               <PreviewList title="关系" items={relationships} empty="暂无 join path" />
+              <PreviewList
+                title="策略"
+                items={labels((mdl.permissions as Record<string, unknown> | undefined)?.denied_fields)}
+                empty="暂无策略命中"
+              />
+              <PreviewList
+                title="Eval cases"
+                items={labels(previewAsset?.capabilities?.eval_cases)}
+                empty="暂无 eval case"
+              />
             </article>
           </div>
         </section>
       )}
     />
+  );
+}
+
+function BuildSteps({ status }: { status: string | undefined }) {
+  const steps = [
+    ["profile", "读取 schema/profile"],
+    ["mapping", "生成 graph 与候选"],
+    ["package", "写入 MDL-in-Skill"],
+    ["gate", "执行发布 gate"],
+  ];
+  const done = status === "succeeded" ? steps.length : status === "blocked" || status === "failed" ? 3 : status === "running" ? 2 : 0;
+  return (
+    <ol className="kc-semantic-steps">
+      {steps.map(([id, label], index) => (
+        <li key={id} className={index < done ? "is-done" : ""}>
+          <span>{index + 1}</span>
+          {label}
+        </li>
+      ))}
+    </ol>
   );
 }
 
