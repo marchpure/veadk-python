@@ -56,6 +56,8 @@ test("native workbench uses first-level tabs and type-card source flow", () => {
   assert.match(workbenchSource, /飞书 OAuth/);
   assert.match(workbenchSource, /type="file"/);
   assert.match(workbenchSource, /readSourceFile/);
+  assert.match(workbenchSource, /metadata JSON/);
+  assert.match(workbenchSource, /Metadata JSON 无效/);
   assert.match(workbenchSource, /客户端预检查检测到疑似浏览器凭据/);
   assert.doesNotMatch(workbenchSource, /<select\b|<option\b/);
 });

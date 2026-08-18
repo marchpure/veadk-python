@@ -298,7 +298,7 @@ class KnowledgeAssetStore:
             }
         if source_type == "feishu_doc":
             return {
-                "status": "auth_required",
+                "status": "needs_configuration",
                 "status_reason": "飞书连接器未在知识资产工作台中配置，需管理员启用 OAuth。",
                 "next_action": "configure_feishu",
                 "source_metadata": {"auth_status": "not_configured"},
@@ -905,7 +905,7 @@ def _normalize_build_job_status(status: str) -> str:
 def _initial_import_status(source_type: str, target_knowledge_base_id: str) -> str:
     normalized = source_type.strip().casefold()
     if normalized in {"database", "oracle", "mysql", "postgres", "feishu_doc"}:
-        return "needs_configuration" if normalized != "feishu_doc" else "auth_required"
+        return "needs_configuration"
     if normalized == "schema_snapshot":
         return "registered"
     return "importing" if target_knowledge_base_id else "needs_configuration"

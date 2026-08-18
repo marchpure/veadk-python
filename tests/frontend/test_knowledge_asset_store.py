@@ -222,6 +222,26 @@ def test_import_source_needs_configuration_without_target_kb(store_env) -> None:
     asyncio.run(scenario())
 
 
+def test_feishu_import_needs_configuration_without_mock_success(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        result = await store.import_source(
+            ImportSourceBody(
+                space_id=space["id"],
+                source_type="feishu_doc",
+                name="飞书文档",
+                uri="https://example.feishu.cn/docx/doc_token",
+            )
+        )
+        assert result["source"]["status"] == "needs_configuration"
+        assert result["job"]["status"] == "blocked"
+        assert "OAuth" in result["source"]["status_reason"]
+
+    asyncio.run(scenario())
+
+
 def test_schema_snapshot_import_registers_ready_source_and_snapshot(store_env) -> None:
     store = KnowledgeAssetStore()
 

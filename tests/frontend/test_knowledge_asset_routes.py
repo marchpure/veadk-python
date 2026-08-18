@@ -214,6 +214,27 @@ def test_import_route_records_metadata_only_database_without_fake_success(
     assert "redact-me-db" not in response.text
 
 
+def test_import_route_feishu_requires_configuration_without_fake_success(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    response = client.post(
+        "/api/knowledge-assets/sources/import",
+        json={
+            "space_id": space["id"],
+            "source_type": "feishu_doc",
+            "name": "飞书文档",
+            "uri": "https://example.feishu.cn/docx/doc_token",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["source"]["status"] == "needs_configuration"
+    assert payload["job"]["status"] == "blocked"
+    assert "OAuth" in payload["source"]["status_reason"]
+
+
 def test_schema_snapshot_import_route_registers_ready_source(
     client: TestClient,
 ) -> None:

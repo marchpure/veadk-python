@@ -95,6 +95,7 @@ type SourceFlowState = {
   content: string;
   selectedFile: SourceFileDraft | null;
   schemaText: string;
+  metadataText: string;
   advancedOpen: boolean;
   error: WorkbenchError | null;
   lastResult: {
@@ -221,6 +222,7 @@ function initialSourceFlow(): SourceFlowState {
     content: "",
     selectedFile: null,
     schemaText: '{\n  "models": [],\n  "fields": []\n}',
+    metadataText: "{\n}",
     advancedOpen: false,
     error: null,
     lastResult: null,
@@ -334,6 +336,16 @@ function parseSchemaJson(text: string): Record<string, unknown> {
   const parsed = JSON.parse(trimmed) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("Schema Snapshot 必须是 JSON object。");
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function parseObjectJson(text: string, label: string): Record<string, unknown> {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${label} 必须是 JSON object。`);
   }
   return parsed as Record<string, unknown>;
 }
@@ -641,6 +653,18 @@ export function KnowledgeCenterView() {
         };
       }
     }
+    if (sourceFlow.advancedOpen) {
+      try {
+        parseObjectJson(sourceFlow.metadataText, "metadata");
+      } catch (error) {
+        return {
+          title: "Metadata JSON 无效",
+          reason: error instanceof Error ? error.message : "metadata 解析失败。",
+          diagnostic: "高级设置 metadata 预检查未通过。",
+          action: "修正 JSON 后再继续，敏感字段不要写入 metadata。",
+        };
+      }
+    }
     return null;
   }
 
@@ -657,6 +681,7 @@ export function KnowledgeCenterView() {
       const schema = sourceFlow.type === "schema_snapshot"
         ? parseSchemaJson(sourceFlow.schemaText)
         : {};
+      const advancedMetadata = parseObjectJson(sourceFlow.metadataText, "metadata");
       const result = await importKnowledgeAssetSource({
         space_id: activeSpace.id,
         source_type: sourceFlow.type,
@@ -679,6 +704,7 @@ export function KnowledgeCenterView() {
         schema,
         locator: sourceFlow.uri ? { uri: sourceFlow.uri } : {},
         metadata: {
+          ...advancedMetadata,
           created_from: "agentkit_native_workbench",
           ...(sourceFlow.selectedFile
             ? {
@@ -1434,6 +1460,14 @@ function SourceFlow({
                   value={flow.uri}
                   placeholder="不要填写用户名、密码、cookie 或 Authorization header"
                   onChange={(event) => onChange((prev) => ({ ...prev, uri: event.target.value }))}
+                />
+              </Field>
+              <Field label="metadata JSON">
+                <textarea
+                  className="kc-native-large-textarea"
+                  value={flow.metadataText}
+                  placeholder="{\n}"
+                  onChange={(event) => onChange((prev) => ({ ...prev, metadataText: event.target.value }))}
                 />
               </Field>
             </div>
