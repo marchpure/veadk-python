@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 
 class KnowledgeAssetRepositoryError(RuntimeError):
@@ -844,6 +844,89 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_build_jobs_status
             ON build_jobs(status, updated_at);
+
+        CREATE TABLE IF NOT EXISTS knowledge_asset_eval_suites (
+            id TEXT PRIMARY KEY,
+            space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            target_kind TEXT NOT NULL,
+            target_asset_id TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_eval_suites_space
+            ON knowledge_asset_eval_suites(space_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_eval_suites_target
+            ON knowledge_asset_eval_suites(target_kind, target_asset_id, updated_at);
+
+        CREATE TABLE IF NOT EXISTS knowledge_asset_eval_cases (
+            id TEXT PRIMARY KEY,
+            suite_id TEXT NOT NULL REFERENCES knowledge_asset_eval_suites(id) ON DELETE CASCADE,
+            target_kind TEXT NOT NULL,
+            input TEXT NOT NULL DEFAULT '',
+            question TEXT NOT NULL DEFAULT '',
+            intent TEXT NOT NULL DEFAULT '',
+            expected_metric TEXT NOT NULL DEFAULT '',
+            expected_dimensions_json TEXT NOT NULL DEFAULT '[]',
+            expected_sql_contains_json TEXT NOT NULL DEFAULT '[]',
+            expected_policy_decision TEXT NOT NULL DEFAULT '',
+            expected_dashboard_tiles_json TEXT NOT NULL DEFAULT '[]',
+            expected_evidence_keys_json TEXT NOT NULL DEFAULT '[]',
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_eval_cases_suite
+            ON knowledge_asset_eval_cases(suite_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS knowledge_asset_eval_runs (
+            id TEXT PRIMARY KEY,
+            suite_id TEXT NOT NULL REFERENCES knowledge_asset_eval_suites(id) ON DELETE CASCADE,
+            target_kind TEXT NOT NULL,
+            target_asset_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            score REAL NOT NULL DEFAULT 0,
+            started_at TEXT,
+            completed_at TEXT,
+            model_status TEXT NOT NULL DEFAULT 'not_configured',
+            generation_mode TEXT NOT NULL DEFAULT 'deterministic',
+            result_summary_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_eval_runs_suite
+            ON knowledge_asset_eval_runs(suite_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_eval_runs_target
+            ON knowledge_asset_eval_runs(target_kind, target_asset_id, updated_at);
+
+        CREATE TABLE IF NOT EXISTS knowledge_asset_eval_results (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES knowledge_asset_eval_runs(id) ON DELETE CASCADE,
+            case_id TEXT NOT NULL REFERENCES knowledge_asset_eval_cases(id) ON DELETE CASCADE,
+            status TEXT NOT NULL,
+            score REAL NOT NULL DEFAULT 0,
+            reason TEXT NOT NULL DEFAULT '',
+            actual_output_json TEXT,
+            actual_sql TEXT NOT NULL DEFAULT '',
+            actual_rows_preview_json TEXT NOT NULL DEFAULT '[]',
+            actual_policy_decision_json TEXT NOT NULL DEFAULT '{}',
+            actual_freshness_json TEXT NOT NULL DEFAULT '{}',
+            tool_calls_json TEXT NOT NULL DEFAULT '[]',
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            dashboard_spec_diff_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_eval_results_run
+            ON knowledge_asset_eval_results(run_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS knowledge_asset_eval_optimizations (
+            target_kind TEXT NOT NULL,
+            target_asset_id TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            source_run_ids_json TEXT NOT NULL DEFAULT '[]',
+            groups_json TEXT NOT NULL DEFAULT '[]',
+            PRIMARY KEY(target_kind, target_asset_id)
+        );
         """
     )
 

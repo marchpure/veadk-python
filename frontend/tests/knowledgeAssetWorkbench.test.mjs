@@ -27,6 +27,26 @@ const slotSource = readFileSync(
   new URL("../src/knowledge-center/capabilitySlots.ts", import.meta.url),
   "utf8",
 );
+const evaluationSource = readFileSync(
+  new URL("../src/knowledge-center/EvaluationWorkbench.tsx", import.meta.url),
+  "utf8",
+);
+const evaluationSuiteListSource = readFileSync(
+  new URL("../src/knowledge-center/EvaluationSuiteList.tsx", import.meta.url),
+  "utf8",
+);
+const evaluationCaseTableSource = readFileSync(
+  new URL("../src/knowledge-center/EvaluationCaseTable.tsx", import.meta.url),
+  "utf8",
+);
+const evaluationRunDetailSource = readFileSync(
+  new URL("../src/knowledge-center/EvaluationRunDetail.tsx", import.meta.url),
+  "utf8",
+);
+const evaluationOptimizationSource = readFileSync(
+  new URL("../src/knowledge-center/EvaluationOptimizationPanel.tsx", import.meta.url),
+  "utf8",
+);
 
 async function loadTypeScriptModule(relativePath) {
   const result = await build({
@@ -47,7 +67,7 @@ async function loadTypeScriptModule(relativePath) {
 }
 
 test("native workbench uses first-level tabs and type-card source flow", () => {
-  for (const label of ["概览", "数据源", "能力", "构建任务", "设置"]) {
+  for (const label of ["概览", "数据源", "语义构建", "AskTable / Dashboard", "测评", "能力", "构建任务", "设置"]) {
     assert.match(workbenchSource, new RegExp(`label: "${label}"`));
   }
   assert.match(workbenchSource, /SourceFlow/);
@@ -96,15 +116,40 @@ test("overview next actions route to real capability panels", () => {
   assert.match(workbenchSource, /生成语义 Skill/);
   assert.match(workbenchSource, /新建 Dashboard Skill/);
   assert.match(workbenchSource, /打开 AskData/);
+  assert.match(workbenchSource, /运行测评/);
   assert.match(workbenchSource, /function openWorkbenchTarget/);
   assert.match(workbenchSource, /pendingCapabilityFocusRef/);
   assert.match(workbenchSource, /onOpenCapability=\{\(target\) => openWorkbenchTarget\("capabilities", target\)\}/);
+  assert.match(workbenchSource, /onOpenEvaluation=\{\(\) => openWorkbenchTarget\("evaluation"\)\}/);
   assert.match(workbenchSource, /<button type="button" className="kc-next-action" onClick=\{onClick\}>/);
   assert.match(workbenchSource, /data-capability-target="semantic_skill"/);
   assert.match(workbenchSource, /data-capability-target="dashboard_skill"/);
   assert.match(workbenchSource, /data-capability-target="askdata"/);
   assert.doesNotMatch(workbenchSource, /function NextAction[\s\S]*?<article className="kc-next-action"/);
   assert.doesNotMatch(workbenchSource, /等待构建器接入|Builder 将挂载|AskData 入口已预留/);
+});
+
+test("evaluation tab uses native suite table detail optimization components", () => {
+  assert.match(workbenchSource, /<EvaluationWorkbench/);
+  assert.match(clientSource, /\/api\/knowledge-assets\/evaluation\/suites/);
+  assert.match(clientSource, /\/api\/knowledge-assets\/evaluation\/runs/);
+  assert.match(clientSource, /\/api\/knowledge-assets\/evaluation\/optimizations/);
+  assert.match(evaluationSource, /Run Evaluation/);
+  assert.match(evaluationSource, /Create Suite/);
+  assert.match(evaluationSource, /Import Cases/);
+  assert.match(evaluationSource, /Export result\.json/);
+  assert.match(evaluationSource, /Judge model not_configured/);
+  assert.match(evaluationSource, /没有 Semantic Skill，请先去语义构建/);
+  assert.match(evaluationSource, /没有 Dashboard Skill，dashboard 测评暂不可运行/);
+  assert.match(evaluationSuiteListSource, /Semantic Skill/);
+  assert.match(evaluationSuiteListSource, /AskTable Query/);
+  assert.match(evaluationSuiteListSource, /Dashboard Skill/);
+  assert.match(evaluationCaseTableSource, /expectedSqlContains/);
+  assert.match(evaluationCaseTableSource, /scoreMin/);
+  assert.match(evaluationRunDetailSource, /policyDecision/);
+  assert.match(evaluationRunDetailSource, /dashboardSpecDiff/);
+  assert.match(evaluationOptimizationSource, /不会自动修改 MDL 或 dashboard_spec/);
+  assert.doesNotMatch(evaluationSource, /<iframe|BYAAN/);
 });
 
 test("capability slot contract supports E2 and F panel mounting", async () => {
@@ -138,4 +183,6 @@ test("mobile layout constrains the workbench to one main scroll area", () => {
   assert.match(workbenchStyles, /\.kc-native-view\s*\{[\s\S]*?overflow-y:\s*auto;/);
   assert.match(workbenchStyles, /width:\s*100vw;/);
   assert.match(workbenchStyles, /grid-template-columns:\s*1fr;/);
+  assert.match(workbenchStyles, /\.kc-eval-grid[\s\S]*?grid-template-columns:\s*1fr;/);
+  assert.match(workbenchStyles, /\.kc-eval-table-scroll[\s\S]*?max-width:\s*calc\(100vw - 44px\);/);
 });

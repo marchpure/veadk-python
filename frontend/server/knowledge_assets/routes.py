@@ -56,6 +56,8 @@ from .builders.semantic.service import (
     SemanticSkillBuildRequest,
     SemanticSkillBuildService,
 )
+from .evaluation.routes import mount_knowledge_asset_evaluation_routes
+from .evaluation.service import KnowledgeAssetEvaluatorService
 
 
 def mount_knowledge_asset_routes(
@@ -71,6 +73,8 @@ def mount_knowledge_asset_routes(
     dashboard_writer = DashboardSkillWriter(store)
     dashboard_query = DashboardQueryService(store)
     semantic_query = GovernedSemanticQueryService(store)
+    evaluation = KnowledgeAssetEvaluatorService(store)
+    mount_knowledge_asset_evaluation_routes(app, evaluation)
 
     async def invoke(call: Callable[[], Awaitable[Any]]) -> Any:
         try:

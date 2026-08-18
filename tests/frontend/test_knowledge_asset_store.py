@@ -724,11 +724,19 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
         schema_version = conn.execute(
             "SELECT value FROM schema_meta WHERE key = 'schema_version'"
         ).fetchone()[0]
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
     assert credential["id"].startswith("cred_")
     assert credential["space_id"] == "space_legacy"
     assert credential["auth_mode"] == "none"
     assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
-    assert schema_version == "2"
+    assert schema_version == "3"
+    assert "knowledge_asset_eval_suites" in tables
+    assert "knowledge_asset_eval_results" in tables
 
 
 def test_wrong_key_and_corrupt_ciphertext_fail_cleanly(store_env, monkeypatch) -> None:

@@ -171,6 +171,128 @@ export interface DashboardSkillBuildResult {
   mock?: boolean;
 }
 
+export type KnowledgeAssetEvalTargetKind =
+  | "semantic_skill"
+  | "asktable"
+  | "dashboard_skill";
+
+export type KnowledgeAssetEvalRunStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "blocked";
+
+export type KnowledgeAssetEvalResultStatus = "passed" | "failed" | "blocked";
+
+export type KnowledgeAssetEvalModelStatus =
+  | "not_configured"
+  | "skipped"
+  | "succeeded"
+  | "failed";
+
+export interface KnowledgeAssetEvalSuite {
+  id: string;
+  spaceId: string;
+  name: string;
+  description?: string;
+  targetKind: KnowledgeAssetEvalTargetKind;
+  targetAssetId: string;
+  caseCount: number;
+  createdAt: string;
+  updatedAt: string;
+  mock?: boolean;
+}
+
+export interface KnowledgeAssetEvalCase {
+  id: string;
+  suiteId: string;
+  targetKind: KnowledgeAssetEvalTargetKind;
+  input: string;
+  question: string;
+  intent: string;
+  expectedMetric: string;
+  expectedDimensions: string[];
+  expectedSqlContains: string[];
+  expectedPolicyDecision: string;
+  expectedDashboardTiles: string[];
+  expectedEvidenceKeys: string[];
+  tags: string[];
+  createdAt: string;
+  mock?: boolean;
+}
+
+export interface KnowledgeAssetEvalRun {
+  id: string;
+  suiteId: string;
+  targetKind: KnowledgeAssetEvalTargetKind;
+  targetAssetId: string;
+  status: KnowledgeAssetEvalRunStatus;
+  score: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  modelStatus: KnowledgeAssetEvalModelStatus;
+  generationMode: string;
+  resultSummary: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeAssetEvalResult {
+  id: string;
+  runId: string;
+  caseId: string;
+  status: KnowledgeAssetEvalResultStatus;
+  score: number;
+  reason: string;
+  actualOutput?: unknown;
+  actualSql: string;
+  actualRowsPreview: Array<Record<string, unknown>>;
+  actualPolicyDecision: Record<string, unknown>;
+  actualFreshness: Record<string, unknown>;
+  toolCalls: Array<Record<string, unknown>>;
+  evidence: Array<Record<string, unknown>>;
+  dashboardSpecDiff: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface KnowledgeAssetEvalRunDetail {
+  run: KnowledgeAssetEvalRun;
+  suite: KnowledgeAssetEvalSuite;
+  cases: KnowledgeAssetEvalCase[];
+  results: KnowledgeAssetEvalResult[];
+  mock?: boolean;
+}
+
+export interface KnowledgeAssetOptimizationSuggestion {
+  suggestion: string;
+  reason: string;
+}
+
+export interface KnowledgeAssetOptimizationGroup {
+  priority: "high" | "medium" | "low";
+  module:
+    | "semantic_model"
+    | "metric_definition"
+    | "relationship"
+    | "policy"
+    | "freshness"
+    | "query_tool"
+    | "dashboard_layout"
+    | "evidence"
+    | "other";
+  customModule?: string | null;
+  items: KnowledgeAssetOptimizationSuggestion[];
+}
+
+export interface KnowledgeAssetOptimizationSnapshot {
+  targetKind: KnowledgeAssetEvalTargetKind;
+  targetAssetId: string;
+  generatedAt: string;
+  sourceRunIds: string[];
+  groups: KnowledgeAssetOptimizationGroup[];
+}
+
 export class KnowledgeAssetError extends Error {
   readonly status: number;
   readonly code: string;
@@ -549,6 +671,128 @@ export async function listKnowledgeAssetSidecars(): Promise<KnowledgeAssetSideca
     "/api/knowledge-assets/sidecars",
     undefined,
     "读取 sidecar 状态失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function listKnowledgeAssetEvalSuites(input: {
+  spaceId?: string;
+  targetKind?: KnowledgeAssetEvalTargetKind;
+} = {}): Promise<KnowledgeAssetEvalSuite[]> {
+  const params = new URLSearchParams();
+  if (input.spaceId) params.set("space_id", input.spaceId);
+  if (input.targetKind) params.set("target_kind", input.targetKind);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<{ items?: KnowledgeAssetEvalSuite[] }>(
+    `/api/knowledge-assets/evaluation/suites${suffix}`,
+    undefined,
+    "读取测评集失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function createKnowledgeAssetEvalSuite(input: {
+  spaceId: string;
+  name: string;
+  description?: string;
+  targetKind: KnowledgeAssetEvalTargetKind;
+  targetAssetId: string;
+}): Promise<KnowledgeAssetEvalSuite> {
+  return requestJson(
+    "/api/knowledge-assets/evaluation/suites",
+    { method: "POST", body: JSON.stringify(input) },
+    "创建测评集失败",
+  );
+}
+
+export async function listKnowledgeAssetEvalCases(
+  suiteId: string,
+): Promise<KnowledgeAssetEvalCase[]> {
+  const payload = await requestJson<{ items?: KnowledgeAssetEvalCase[] }>(
+    `/api/knowledge-assets/evaluation/suites/${encodeURIComponent(suiteId)}/cases`,
+    undefined,
+    "读取测评用例失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function createKnowledgeAssetEvalCase(
+  suiteId: string,
+  input: {
+    targetKind?: KnowledgeAssetEvalTargetKind;
+    input?: string;
+    question?: string;
+    intent?: string;
+    expectedMetric?: string;
+    expectedDimensions?: string[];
+    expectedSqlContains?: string[];
+    expectedPolicyDecision?: string;
+    expectedDashboardTiles?: string[];
+    expectedEvidenceKeys?: string[];
+    tags?: string[];
+  },
+): Promise<KnowledgeAssetEvalCase> {
+  return requestJson(
+    `/api/knowledge-assets/evaluation/suites/${encodeURIComponent(suiteId)}/cases`,
+    { method: "POST", body: JSON.stringify(input) },
+    "创建测评用例失败",
+  );
+}
+
+export async function runKnowledgeAssetEvaluation(input: {
+  suiteId: string;
+  targetAssetId?: string;
+  generationMode?: string;
+}): Promise<KnowledgeAssetEvalRunDetail> {
+  return requestJson(
+    "/api/knowledge-assets/evaluation/runs",
+    { method: "POST", body: JSON.stringify(input) },
+    "运行测评失败",
+  );
+}
+
+export async function listKnowledgeAssetEvalRuns(input: {
+  suiteId?: string;
+  targetKind?: KnowledgeAssetEvalTargetKind;
+  targetAssetId?: string;
+  limit?: number;
+} = {}): Promise<KnowledgeAssetEvalRun[]> {
+  const params = new URLSearchParams();
+  if (input.suiteId) params.set("suite_id", input.suiteId);
+  if (input.targetKind) params.set("target_kind", input.targetKind);
+  if (input.targetAssetId) params.set("target_asset_id", input.targetAssetId);
+  if (input.limit) params.set("limit", String(input.limit));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<{ items?: KnowledgeAssetEvalRun[] }>(
+    `/api/knowledge-assets/evaluation/runs${suffix}`,
+    undefined,
+    "读取测评运行失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function getKnowledgeAssetEvalRun(
+  runId: string,
+): Promise<KnowledgeAssetEvalRunDetail> {
+  return requestJson(
+    `/api/knowledge-assets/evaluation/runs/${encodeURIComponent(runId)}`,
+    undefined,
+    "读取测评结果失败",
+  );
+}
+
+export async function listKnowledgeAssetOptimizations(input: {
+  targetKind?: KnowledgeAssetEvalTargetKind;
+  targetAssetId?: string;
+} = {}): Promise<KnowledgeAssetOptimizationSnapshot[]> {
+  const params = new URLSearchParams();
+  if (input.targetKind) params.set("target_kind", input.targetKind);
+  if (input.targetAssetId) params.set("target_asset_id", input.targetAssetId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<{ items?: KnowledgeAssetOptimizationSnapshot[] }>(
+    `/api/knowledge-assets/evaluation/optimizations${suffix}`,
+    undefined,
+    "读取优化建议失败",
   );
   return payload.items ?? [];
 }

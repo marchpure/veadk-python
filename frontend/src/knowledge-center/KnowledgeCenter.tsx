@@ -15,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   Plus,
+  ShieldCheck,
   RefreshCw,
   Search,
   Settings,
@@ -64,6 +65,7 @@ import {
   type KnowledgeCapabilityCardProps,
 } from "./capabilitySlots";
 import { DashboardBuildPanel } from "./DashboardBuildPanel";
+import { EvaluationWorkbench } from "./EvaluationWorkbench";
 import "./KnowledgeCenter.css";
 import { SemanticBuildPanel } from "./SemanticBuildPanel";
 
@@ -73,7 +75,15 @@ type LoadState =
   | { status: "unauthorized"; message: string; diagnostic: string }
   | { status: "error"; message: string; diagnostic: string };
 
-type WorkbenchTab = "overview" | "sources" | "capabilities" | "jobs" | "settings";
+type WorkbenchTab =
+  | "overview"
+  | "sources"
+  | "semantic"
+  | "askdashboard"
+  | "evaluation"
+  | "capabilities"
+  | "jobs"
+  | "settings";
 type CapabilityFocusTarget = "semantic_skill" | "dashboard_skill" | "askdata";
 type SourceFlowStep = "type" | "details" | "preview";
 type SourceType =
@@ -167,6 +177,9 @@ function readSourceFile(file: File): Promise<SourceFileDraft> {
 const tabs: Array<{ id: WorkbenchTab; label: string; icon: LucideIcon }> = [
   { id: "overview", label: "概览", icon: Layers3 },
   { id: "sources", label: "数据源", icon: Database },
+  { id: "semantic", label: "语义构建", icon: Database },
+  { id: "askdashboard", label: "AskTable / Dashboard", icon: BarChart3 },
+  { id: "evaluation", label: "测评", icon: ShieldCheck },
   { id: "capabilities", label: "能力", icon: Sparkles },
   { id: "jobs", label: "构建任务", icon: Clock3 },
   { id: "settings", label: "设置", icon: Settings },
@@ -562,11 +575,22 @@ export function KnowledgeCenterView() {
 
   function openWorkbenchTarget(tab: WorkbenchTab, target?: CapabilityFocusTarget) {
     pendingCapabilityFocusRef.current = target ?? null;
+    if (target === "semantic_skill") {
+      setActiveTab("semantic");
+      return;
+    }
+    if (target === "dashboard_skill" || target === "askdata") {
+      setActiveTab("askdashboard");
+      return;
+    }
     setActiveTab(tab);
   }
 
   useEffect(() => {
-    if (activeTab !== "capabilities" || !pendingCapabilityFocusRef.current) return;
+    if (
+      !["capabilities", "semantic", "askdashboard"].includes(activeTab) ||
+      !pendingCapabilityFocusRef.current
+    ) return;
     const focusTarget = pendingCapabilityFocusRef.current;
     pendingCapabilityFocusRef.current = null;
     window.requestAnimationFrame(() => {
@@ -969,6 +993,7 @@ export function KnowledgeCenterView() {
               onCreateSpace={() => setSpaceForm({ ...initialSpaceForm(), open: true })}
               onOpenSources={() => openWorkbenchTarget("sources")}
               onOpenCapability={(target) => openWorkbenchTarget("capabilities", target)}
+              onOpenEvaluation={() => openWorkbenchTarget("evaluation")}
             />
           ) : null}
           {activeTab === "sources" ? (
@@ -985,15 +1010,32 @@ export function KnowledgeCenterView() {
               query={query}
               onQueryChange={setQuery}
               assetsByKind={assetsByKind}
+            />
+          ) : null}
+          {activeTab === "semantic" ? (
+            <SemanticTab
               capabilityCards={capabilityCards}
               capabilityJobs={capabilityJobs}
               spaceId={activeSpace?.id ?? ""}
               sources={spaceSources}
               assets={assets}
               buildJobs={buildJobs}
+              onRefresh={() => refresh(activeSpaceIdRef.current)}
+            />
+          ) : null}
+          {activeTab === "askdashboard" ? (
+            <AskDashboardTab
+              capabilityCards={capabilityCards}
+              capabilityJobs={capabilityJobs}
               activeSpace={activeSpace}
               semanticSkills={semanticSkills}
               onRefresh={() => refresh(activeSpaceIdRef.current)}
+            />
+          ) : null}
+          {activeTab === "evaluation" ? (
+            <EvaluationWorkbench
+              activeSpace={activeSpace}
+              assets={assets}
             />
           ) : null}
           {activeTab === "jobs" ? (
@@ -1093,6 +1135,7 @@ function OverviewTab({
   onCreateSpace,
   onOpenSources,
   onOpenCapability,
+  onOpenEvaluation,
 }: {
   sourceCounts: Record<string, number>;
   capabilityCounts: Record<string, number>;
@@ -1103,6 +1146,7 @@ function OverviewTab({
   onCreateSpace: () => void;
   onOpenSources: () => void;
   onOpenCapability: (target: CapabilityFocusTarget) => void;
+  onOpenEvaluation: () => void;
 }) {
   const latestJob = jobs[0];
   return (
@@ -1110,6 +1154,7 @@ function OverviewTab({
       <div className="kc-native-status-grid">
         <StatusTile icon={Database} title="数据源" value={String(sources.length)} detail={`可用 ${sourceCounts.ready || 0} · 已索引 ${sourceCounts.indexed || 0}`} tone="success" />
         <StatusTile icon={Sparkles} title="能力" value={String(assets.length)} detail={`检索 ${capabilityCounts.retrieval_binding || 0} · 语义 ${capabilityCounts.semantic_skill || 0}`} tone="success" />
+        <StatusTile icon={ShieldCheck} title="测评" value="可运行" detail="本地 deterministic checks + optional judge" tone="success" />
         <StatusTile icon={Clock3} title="构建任务" value={latestJob ? readableStatus(latestJob.status) : "暂无"} detail={latestJob?.job_type || "等待导入或构建"} tone={statusTone(latestJob?.status)} />
         <StatusTile icon={KeyRound} title="凭据" value={sourceCounts.credential_expired ? "有过期" : "安全"} detail="明文凭据不进入前端状态" tone={sourceCounts.credential_expired ? "danger" : "success"} />
       </div>
@@ -1125,7 +1170,7 @@ function OverviewTab({
         />
       ) : (
         <section className="kc-native-panel">
-          <PanelHead title="下一步" count={4} />
+          <PanelHead title="下一步" count={5} />
           <div className="kc-native-next-grid">
             <NextAction
               icon={FileSearch}
@@ -1144,6 +1189,12 @@ function OverviewTab({
               title="新建 Dashboard Skill"
               text="基于已发布 Semantic Skill 生成可查询的 dashboard_spec 和同源工具。"
               onClick={() => onOpenCapability("dashboard_skill")}
+            />
+            <NextAction
+              icon={ShieldCheck}
+              title="运行测评"
+              text="验证 Semantic Skill、AskTable Query 和 Dashboard Skill 的证据完整性。"
+              onClick={onOpenEvaluation}
             />
             <NextAction
               icon={Search}
@@ -1204,28 +1255,10 @@ function CapabilitiesTab({
   query,
   onQueryChange,
   assetsByKind,
-  capabilityCards,
-  capabilityJobs,
-  spaceId,
-  sources,
-  assets,
-  buildJobs,
-  activeSpace,
-  semanticSkills,
-  onRefresh,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
   assetsByKind: Record<"retrieval_binding" | "semantic_skill" | "dashboard_skill", KnowledgeAssetMetadata[]>;
-  capabilityCards: KnowledgeCapabilityCardProps[];
-  capabilityJobs: CapabilityBuildJobView[];
-  spaceId: string;
-  sources: KnowledgeAssetSource[];
-  assets: KnowledgeAssetMetadata[];
-  buildJobs: KnowledgeAssetBuildJob[];
-  activeSpace: KnowledgeAssetSpace | null;
-  semanticSkills: KnowledgeAssetMetadata[];
-  onRefresh: () => void | Promise<void>;
 }) {
   return (
     <section className="kc-native-panel">
@@ -1244,6 +1277,31 @@ function CapabilitiesTab({
         </div>
       </div>
       <CapabilityGroup title="Retrieval Binding" assets={assetsByKind.retrieval_binding} emptyText="从已索引数据源创建检索能力。" />
+      <CapabilityGroup title="Semantic Skill" assets={assetsByKind.semantic_skill} emptyText="从语义构建页创建 Semantic Skill。" />
+      <CapabilityGroup title="Dashboard Skill" assets={assetsByKind.dashboard_skill} emptyText="从 AskTable / Dashboard 页创建 Dashboard Skill。" />
+    </section>
+  );
+}
+
+function SemanticTab({
+  capabilityCards,
+  capabilityJobs,
+  spaceId,
+  sources,
+  assets,
+  buildJobs,
+  onRefresh,
+}: {
+  capabilityCards: KnowledgeCapabilityCardProps[];
+  capabilityJobs: CapabilityBuildJobView[];
+  spaceId: string;
+  sources: KnowledgeAssetSource[];
+  assets: KnowledgeAssetMetadata[];
+  buildJobs: KnowledgeAssetBuildJob[];
+  onRefresh: () => void | Promise<void>;
+}) {
+  return (
+    <section className="kc-native-panel">
       <section className="kc-capability-target" data-capability-target="semantic_skill" tabIndex={-1}>
         <CapabilityPanelSlot
           kind="semantic_skill"
@@ -1260,6 +1318,25 @@ function CapabilitiesTab({
           )}
         />
       </section>
+    </section>
+  );
+}
+
+function AskDashboardTab({
+  capabilityCards,
+  capabilityJobs,
+  activeSpace,
+  semanticSkills,
+  onRefresh,
+}: {
+  capabilityCards: KnowledgeCapabilityCardProps[];
+  capabilityJobs: CapabilityBuildJobView[];
+  activeSpace: KnowledgeAssetSpace | null;
+  semanticSkills: KnowledgeAssetMetadata[];
+  onRefresh: () => void | Promise<void>;
+}) {
+  return (
+    <section className="kc-native-panel">
       <section className="kc-capability-target" data-capability-target="dashboard_skill" tabIndex={-1}>
         <CapabilityPanelSlot
           kind="dashboard_skill"
