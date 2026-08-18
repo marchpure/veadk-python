@@ -13,6 +13,8 @@ from .contract import (
     KnowledgeAssetType,
     KnowledgeCapabilityKind,
 )
+from .routes import mount_knowledge_asset_routes
+from .service import KnowledgeAssetStore
 
 __all__ = [
     "KnowledgeAssetGateEnvelope",
@@ -20,6 +22,8 @@ __all__ = [
     "KnowledgeAssetMetadataEnvelope",
     "KnowledgeAssetPublishState",
     "KnowledgeAssetRegistry",
+    "KnowledgeAssetStore",
     "KnowledgeAssetType",
     "KnowledgeCapabilityKind",
+    "mount_knowledge_asset_routes",
 ]
