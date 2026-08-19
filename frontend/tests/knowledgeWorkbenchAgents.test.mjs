@@ -214,9 +214,11 @@ test("AskDashboard workspace source-ports BYAAN notebook components and keeps th
   assert.match(askDashboardSource, /applyEvent/);
   assert.match(askDashboardSource, /query_semantic_skill/);
   assert.match(askDashboardSource, /queryResultFromEvent/);
-  assert.match(askDashboardSource, /dashboardResultFromEvent/);
+  assert.match(askDashboardSource, /buildDashboardSkill/);
+  assert.match(askDashboardSource, /dashboardBuildReadiness/);
+  assert.match(askDashboardSource, /production_completed/);
   assert.doesNotMatch(askDashboardSource, /queryAskData/);
-  assert.doesNotMatch(askDashboardSource, /buildDashboardSkill/);
+  assert.doesNotMatch(askDashboardSource, /dashboardResultFromEvent/);
   assert.doesNotMatch(askDashboardSource, /Returned .*governed rows/);
   assert.doesNotMatch(
     askDashboardSource,
@@ -224,7 +226,9 @@ test("AskDashboard workspace source-ports BYAAN notebook components and keeps th
   );
   assert.doesNotMatch(askDashboardSource, /kc-askdash-portal-stage|kc-askdash-dashboard-tiles/);
   assert.match(knowledgeAssetsSource, /streamAskData/);
+  assert.match(knowledgeAssetsSource, /buildDashboardSkill/);
   assert.match(knowledgeAssetsSource, /\/api\/knowledge-assets\/askdata\/stream/);
+  assert.match(knowledgeAssetsSource, /\/api\/knowledge-assets\/build\/dashboard-skill/);
 
   assert.match(byaanNotebookSource, /data-source-port="byaan-notebook"/);
   assert.match(byaanNotebookSource, /byaan-notebook-source-port/);
@@ -249,6 +253,10 @@ test("AskDashboard workspace source-ports BYAAN notebook components and keeps th
   assert.match(byaanDashboardPreviewSource, /Queries/);
   assert.match(byaanDashboardPreviewSource, /QueryRunnerDocked/);
   assert.match(byaanDashboardPreviewSource, /Export HTML/);
+  assert.match(byaanDashboardPreviewSource, /Generate/);
+  assert.match(byaanDashboardPreviewSource, /PDF 导出服务未配置/);
+  assert.match(byaanDashboardPreviewSource, /分享服务未配置/);
+  assert.match(byaanDashboardPreviewSource, /new Blob/);
   assert.match(byaanDashboardPreviewSource, /Fullscreen/);
   assert.match(byaanDashboardPreviewSource, /srcDoc=\{preview\.processedHtmlContent\}/);
   assert.match(byaanQueryRunnerDockedSource, /Query Runner/);

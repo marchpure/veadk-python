@@ -233,6 +233,17 @@
   letter-spacing: 0;
 }
 
+.kc-native-breadcrumb {
+  display: block;
+  max-width: min(560px, 100%);
+  overflow: hidden;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .kc-native-head p {
   margin: 5px 0 0;
 }
@@ -270,6 +281,59 @@
   min-height: 0;
   overflow-y: auto;
   padding: 18px 22px 24px;
+}
+
+.kc-native-page--askdashboard {
+  background: hsl(var(--canvas));
+}
+
+.kc-native-page--askdashboard .kc-native-sidebar {
+  background: hsl(var(--panel));
+}
+
+.kc-native-page--askdashboard .kc-native-head {
+  padding: 8px 16px 7px;
+}
+
+.kc-native-page--askdashboard .kc-native-head h1 {
+  margin-top: 1px;
+  font-size: 14px;
+}
+
+.kc-native-page--askdashboard .kc-native-head p {
+  display: none;
+}
+
+.kc-native-page--askdashboard .kc-native-actions button {
+  min-height: 28px;
+  padding-inline: 9px;
+}
+
+.kc-native-page--askdashboard .kc-native-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 6px 16px;
+  background: hsl(var(--panel) / 0.96);
+}
+
+.kc-native-page--askdashboard .kc-native-tabs button {
+  min-height: 28px;
+  padding-inline: 9px;
+  font-size: 11.5px;
+}
+
+.kc-native-page--askdashboard .kc-native-view {
+  overflow: hidden;
+  padding: 0;
+  background: hsl(var(--canvas));
+}
+
+.kc-askdashboard-immersive {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .kc-native-overview,
@@ -1475,12 +1539,23 @@
   overflow: hidden;
 }
 
+.kc-native-page--askdashboard .byaan-notebook-source-port {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
 .byaan-notebook-portal {
   background: #fafafa;
 }
 
 .byaan-notebook-workspace {
   height: min(780px, calc(100vh - 164px));
+}
+
+.kc-native-page--askdashboard .byaan-notebook-workspace {
+  height: 100%;
 }
 
 .byaan-notebook-fullscreen {
@@ -1548,6 +1623,18 @@
 .byaan-menu-item:focus-visible {
   background: #2a2a2a;
   color: #ffffff;
+}
+
+.byaan-menu-item:disabled {
+  cursor: not-allowed;
+  color: #71717a;
+  opacity: 0.72;
+}
+
+.byaan-menu-item:disabled:hover,
+.byaan-menu-item:disabled:focus-visible {
+  background: transparent;
+  color: #71717a;
 }
 
 .byaan-notebook-source-port .resizable-split-panel {

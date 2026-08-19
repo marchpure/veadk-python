@@ -32,6 +32,8 @@ export function ByaanNotebook({
   busyQuery,
   busyBuild,
   onCreateDashboard,
+  createDashboardDisabled,
+  createDashboardDisabledReason,
   onRefresh,
   onFullscreen,
   blocked,
@@ -53,6 +55,8 @@ export function ByaanNotebook({
   busyQuery: boolean;
   busyBuild: boolean;
   onCreateDashboard: () => void;
+  createDashboardDisabled?: boolean;
+  createDashboardDisabledReason?: string;
   onRefresh: () => void;
   onFullscreen: () => void;
   blocked: boolean;
@@ -145,6 +149,8 @@ export function ByaanNotebook({
               dashboardAvailable={Boolean(dashboardPreview.processedHtmlContent)}
               busy={busyBuild}
               onCreateDashboard={onCreateDashboard}
+              createDashboardDisabled={createDashboardDisabled}
+              createDashboardDisabledReason={createDashboardDisabledReason}
             />
             <div className="flex-shrink-0 border-t border-[#2a2a2a] bg-[#181818] p-3">
               <NotebookComposer
@@ -167,6 +173,8 @@ export function ByaanNotebook({
             onRefresh={onRefresh}
             onOpenFullscreen={onFullscreen}
             onBuildDashboard={onCreateDashboard}
+            buildDashboardDisabled={createDashboardDisabled}
+            buildDashboardDisabledReason={createDashboardDisabledReason}
           />
         }
       />
@@ -202,8 +210,8 @@ function NotebookHeader({
           <Database className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <strong className="block truncate text-sm font-semibold text-[#18181b]">AskTable / Dashboard</strong>
-          <small className="block truncate text-xs text-[#707078]">BYAAN embedded notebook source-port</small>
+          <strong className="block truncate text-sm font-semibold text-[#18181b]">AskTable</strong>
+          <small className="block truncate text-xs text-[#707078]">Governed semantic query workspace</small>
         </div>
       </div>
       <div className="flex min-w-0 items-center gap-2">

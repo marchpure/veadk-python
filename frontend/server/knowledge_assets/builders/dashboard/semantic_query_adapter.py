@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
@@ -297,6 +299,9 @@ def select_dimensions(
     if out:
         return out[:3]
     question_norm = (question or "").casefold()
+    intent_dimension = _dimension_from_question(dimensions, question_norm)
+    if intent_dimension:
+        return [intent_dimension]
     for dimension in dimensions:
         candidates = [
             dimension_id(dimension),
@@ -306,6 +311,33 @@ def select_dimensions(
         if any(candidate.casefold() in question_norm for candidate in candidates if candidate):
             out.append(dimension)
     return out[:3]
+
+
+def _dimension_from_question(
+    dimensions: list[dict[str, Any]],
+    question_norm: str,
+) -> dict[str, Any] | None:
+    intent_aliases = (
+        (("门店", "store", "店铺"), ("store", "store_name")),
+        (("区域", "region", "地区"), ("region",)),
+        (("日期", "时间", "趋势", "month", "月份", "date"), ("date", "order_date", "month")),
+    )
+    for question_terms, dimension_terms in intent_aliases:
+        if not any(term in question_norm for term in question_terms):
+            continue
+        for dimension in dimensions:
+            haystack = " ".join(
+                str(value or "").casefold()
+                for value in (
+                    dimension_id(dimension),
+                    dimension.get("name"),
+                    dimension.get("field"),
+                    dimension.get("role"),
+                )
+            )
+            if any(term in haystack for term in dimension_terms):
+                return dimension
+    return None
 
 
 def semantic_denied_response(
@@ -431,6 +463,18 @@ async def _resolve_governed_result(
     if sidecar_result is not None:
         return sidecar_result
 
+    sqlite_result = _query_local_sqlite_runtime(
+        asset=asset,
+        package=package,
+        request=request,
+        metric=metric,
+        dimensions=dimensions,
+        policies=policies,
+        mdl=mdl,
+    )
+    if sqlite_result is not None:
+        return sqlite_result
+
     if request.require_live and not request.allow_demo_snapshot:
         raise KnowledgeAssetServiceError(
             "Semantic Skill 缺少可用 live governed query 结果；生产 AskTable 不会回退到 schema_only。"
@@ -520,6 +564,226 @@ async def _query_governed_sidecar(
     if not parsed.path.startswith("/api/external/assets/semantic_model/"):
         return None
     return None
+
+
+def _query_local_sqlite_runtime(
+    *,
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    policies: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any] | None:
+    runtime = _local_sqlite_runtime(package)
+    if not runtime:
+        return None
+    sql, params = _compile_local_sqlite_sql(runtime, metric, dimensions, request)
+    rows = _execute_local_sqlite(runtime, sql, params)
+    data = {
+        "rows": rows,
+        "returnedCount": len(rows),
+        "metric": _metric_payload(metric),
+        "dimensions": [_dimension_payload(item) for item in dimensions],
+        "sql": sql,
+        "metricDefinition": metric_definition(metric),
+        "policyDecision": {
+            "decision": "allow",
+            "reason": policies.get("permission_hint")
+            or "通过本地只读 SQLite governed runtime 返回聚合结果。",
+            "raw_sql_fallback": False,
+            "direct_database_access": False,
+            "denied_fields": policies.get("denied_fields", []),
+            "masked_fields": policies.get("masked_fields", []),
+        },
+        "freshness": freshness_payload(asset, package, now_iso(), mdl=mdl),
+        "lineage": metric.get("lineage") or asset.get("sample_evidence") or package.get("evidence") or [],
+        "evidence": [
+            *evidence_payload(asset, package, metric),
+            {
+                "kind": "local_governed_runtime",
+                "title": "Local SQLite governed query",
+                "datasource": runtime.get("datasource_id") or "local_sqlite",
+                "view": runtime["view"],
+            },
+        ],
+        "execution": {
+            "mode": "governed_semantic_skill",
+            "governed_rest": True,
+            "direct_database_access": False,
+            "raw_sql_fallback": False,
+            "result_source": "local_sqlite_governed_runtime",
+            "production_completed": True,
+            "readonly": True,
+        },
+        "execution_mode": "local_sqlite_governed_runtime",
+        "production_completed": True,
+        "live": True,
+    }
+    _require_complete_governed_result(data)
+    return _semantic_envelope(
+        {"schema": "agentkit.semantic_query_result.v1"},
+        asset,
+        data,
+        request,
+        metric,
+        dimensions,
+    )
+
+
+def _local_sqlite_runtime(package: dict[str, Any]) -> dict[str, Any] | None:
+    runtime = package.get("runtime") if isinstance(package.get("runtime"), dict) else {}
+    local = runtime.get("local_sqlite") if isinstance(runtime.get("local_sqlite"), dict) else {}
+    if not local:
+        return None
+    path = str(local.get("path") or "").strip()
+    view = str(local.get("view") or local.get("table") or "").strip()
+    if not path or not view:
+        raise KnowledgeAssetServiceError("Local SQLite governed runtime 缺少 path 或 view。")
+    db_path = Path(path).expanduser().resolve()
+    if not db_path.is_file():
+        raise KnowledgeAssetServiceError("Local SQLite governed runtime 数据库不存在。")
+    if not _safe_sql_name(view):
+        raise KnowledgeAssetServiceError("Local SQLite governed runtime view 名称无效。")
+    return {
+        "path": str(db_path),
+        "view": view,
+        "datasource_id": str(local.get("datasource_id") or "").strip(),
+        "metric_fields": local.get("metric_fields") if isinstance(local.get("metric_fields"), dict) else {},
+        "dimension_fields": local.get("dimension_fields") if isinstance(local.get("dimension_fields"), dict) else {},
+        "field_map": local.get("field_map") if isinstance(local.get("field_map"), dict) else {},
+    }
+
+
+def _compile_local_sqlite_sql(
+    runtime: dict[str, Any],
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    request: SemanticQueryRequest,
+) -> tuple[str, list[Any]]:
+    view = _sqlite_identifier(runtime["view"])
+    metric_alias = metric_id(metric)
+    if not _safe_sql_name(metric_alias):
+        raise KnowledgeAssetServiceError("Semantic Skill metric id 不能用于受治理查询。")
+    metric_expr = _sqlite_metric_expr(runtime, metric)
+    select_parts: list[str] = []
+    group_parts: list[str] = []
+    for dimension in dimensions:
+        alias = dimension_id(dimension)
+        if not _safe_sql_name(alias):
+            raise KnowledgeAssetServiceError("Semantic Skill dimension id 不能用于受治理查询。")
+        field = _sqlite_dimension_field(runtime, dimension)
+        select_parts.append(f"{_sqlite_identifier(field)} AS {_sqlite_identifier(alias)}")
+        group_parts.append(_sqlite_identifier(field))
+    select_parts.append(f"{metric_expr} AS {_sqlite_identifier(metric_alias)}")
+    sql = f"SELECT {', '.join(select_parts)} FROM {view}"
+    where_parts, params = _sqlite_where_parts(runtime, metric, request)
+    if where_parts:
+        sql += " WHERE " + " AND ".join(where_parts)
+    if group_parts:
+        sql += " GROUP BY " + ", ".join(group_parts)
+        sql += f" ORDER BY {_sqlite_identifier(metric_alias)} DESC"
+    sql += f" LIMIT {max(1, min(int(request.limit or 100), 500))}"
+    return sql, params
+
+
+def _sqlite_metric_expr(runtime: dict[str, Any], metric: dict[str, Any]) -> str:
+    fields = runtime.get("metric_fields") if isinstance(runtime.get("metric_fields"), dict) else {}
+    field_map = runtime.get("field_map") if isinstance(runtime.get("field_map"), dict) else {}
+    metric_key = metric_id(metric)
+    mapped = fields.get(metric_key) or field_map.get(metric.get("field")) or metric.get("field") or metric_key
+    field = _assert_sql_name(mapped, "metric field")
+    formula = str(metric.get("formula") or metric.get("expr") or "").strip().casefold()
+    kind = str(metric.get("kind") or "").casefold()
+    if formula.startswith("count_distinct") or "count(distinct" in formula or kind == "count_distinct":
+        return f"COUNT(DISTINCT {_sqlite_identifier(field)})"
+    if formula.startswith("count(") or kind == "count":
+        return f"COUNT({_sqlite_identifier(field)})"
+    if formula.startswith("avg(") or kind == "avg":
+        return f"AVG({_sqlite_identifier(field)})"
+    if formula.startswith("min(") or kind == "min":
+        return f"MIN({_sqlite_identifier(field)})"
+    if formula.startswith("max(") or kind == "max":
+        return f"MAX({_sqlite_identifier(field)})"
+    return f"SUM({_sqlite_identifier(field)})"
+
+
+def _sqlite_dimension_field(runtime: dict[str, Any], dimension: dict[str, Any]) -> str:
+    fields = runtime.get("dimension_fields") if isinstance(runtime.get("dimension_fields"), dict) else {}
+    field_map = runtime.get("field_map") if isinstance(runtime.get("field_map"), dict) else {}
+    key = dimension_id(dimension)
+    mapped = fields.get(key) or field_map.get(dimension.get("field")) or dimension.get("field") or key
+    return _assert_sql_name(mapped, "dimension field")
+
+
+def _sqlite_where_parts(
+    runtime: dict[str, Any],
+    metric: dict[str, Any],
+    request: SemanticQueryRequest,
+) -> tuple[list[str], list[Any]]:
+    parts: list[str] = []
+    params: list[Any] = []
+    field_map = runtime.get("field_map") if isinstance(runtime.get("field_map"), dict) else {}
+    filters = request.filters if isinstance(request.filters, dict) else {}
+    for key, value in filters.items():
+        field = _assert_sql_name(field_map.get(key) or key, "filter field")
+        if isinstance(value, list) and value:
+            values = value[:20]
+            parts.append(
+                f"{_sqlite_identifier(field)} IN ({', '.join('?' for _ in values)})"
+            )
+            params.extend(values)
+        elif value not in (None, ""):
+            parts.append(f"{_sqlite_identifier(field)} = ?")
+            params.append(value)
+    time_range = request.time_range if isinstance(request.time_range, dict) else {}
+    time_field = str(metric.get("time_field") or metric.get("timeField") or "").strip()
+    if time_field:
+        mapped_time = _assert_sql_name(field_map.get(time_field) or time_field, "time field")
+        if start := time_range.get("start") or time_range.get("from"):
+            parts.append(f"{_sqlite_identifier(mapped_time)} >= ?")
+            params.append(start)
+        if end := time_range.get("end") or time_range.get("to"):
+            parts.append(f"{_sqlite_identifier(mapped_time)} < ?")
+            params.append(end)
+    return parts, params
+
+
+def _execute_local_sqlite(
+    runtime: dict[str, Any],
+    sql: str,
+    params: list[Any],
+) -> list[dict[str, Any]]:
+    uri = f"file:{runtime['path']}?mode=ro"
+    try:
+        conn = sqlite3.connect(uri, uri=True, timeout=5)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA query_only = ON")
+            rows = conn.execute(sql, params).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+    except sqlite3.Error as error:
+        raise KnowledgeAssetServiceError(
+            "Local SQLite governed runtime 查询失败：" + str(error)
+        ) from error
+
+
+def _assert_sql_name(value: object, label: str) -> str:
+    text = str(value or "").strip()
+    if not _safe_sql_name(text):
+        raise KnowledgeAssetServiceError(f"Local SQLite governed runtime {label} 名称无效。")
+    return text
+
+
+def _safe_sql_name(value: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value or ""))
+
+
+def _sqlite_identifier(value: str) -> str:
+    return '"' + value.replace('"', '""') + '"'
 
 
 def _is_offline_mode(mode: str) -> bool:

@@ -176,8 +176,11 @@ test("AskDashboardWorkbench renders the BYAAN notebook source-port and governed 
   assert.match(askDashboardSource, /parseSSE/);
   assert.match(askDashboardSource, /applyEvent/);
   assert.match(askDashboardSource, /query_semantic_skill/);
+  assert.match(askDashboardSource, /buildDashboardSkill/);
+  assert.match(askDashboardSource, /dashboardBuildReadiness/);
+  assert.match(askDashboardSource, /production_completed/);
   assert.doesNotMatch(askDashboardSource, /queryAskData/);
-  assert.doesNotMatch(askDashboardSource, /buildDashboardSkill/);
+  assert.doesNotMatch(askDashboardSource, /dashboardResultFromEvent/);
   assert.doesNotMatch(askDashboardSource, /Returned .*governed rows/);
   assert.doesNotMatch(
     askDashboardSource,
@@ -197,6 +200,10 @@ test("AskDashboardWorkbench renders the BYAAN notebook source-port and governed 
   assert.match(byaanDashboardPreviewSource, /Queries/);
   assert.match(byaanDashboardPreviewSource, /QueryRunnerDocked/);
   assert.match(byaanDashboardPreviewSource, /Export HTML/);
+  assert.match(byaanDashboardPreviewSource, /Generate/);
+  assert.match(byaanDashboardPreviewSource, /PDF 导出服务未配置/);
+  assert.match(byaanDashboardPreviewSource, /分享服务未配置/);
+  assert.match(byaanDashboardPreviewSource, /new Blob/);
   assert.match(byaanDashboardPreviewSource, /srcDoc=\{preview\.processedHtmlContent\}/);
   assert.match(byaanQueryRunnerDockedSource, /Query Runner/);
   assert.match(byaanQueryRunnerDockedSource, /NotebookQueryPanel/);

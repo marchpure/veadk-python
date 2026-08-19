@@ -11,16 +11,39 @@ export function DashboardPreviewPanel({
   onRefresh,
   onOpenFullscreen,
   onBuildDashboard,
+  buildDashboardDisabled = false,
+  buildDashboardDisabledReason = "",
 }: {
   preview: ByaanDashboardPreviewModel;
   onRefresh: () => void;
   onOpenFullscreen: () => void;
   onBuildDashboard: () => void;
+  buildDashboardDisabled?: boolean;
+  buildDashboardDisabledReason?: string;
 }) {
   const [activeTab, setActiveTab] = useState<TabKey>("preview");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const hasPreview = preview.processedHtmlContent.trim().length > 0;
   const hasCode = preview.generatedCode.trim().length > 0;
+  const exportContent = preview.processedHtmlContent.trim() || preview.generatedCode.trim();
+  const canExportHtml = exportContent.length > 0;
+
+  function exportHtml() {
+    if (!canExportHtml) return;
+    const html = preview.processedHtmlContent.trim()
+      ? preview.processedHtmlContent
+      : `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(preview.title)}</title></head><body><pre>${escapeHtml(preview.generatedCode)}</pre></body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = `${slug(preview.title || "dashboard")}.html`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(href);
+    setShowMoreMenu(false);
+  }
 
   return (
     <div className="byaan-dashboard-preview h-full flex flex-col bg-[#1a1a1a] border-l border-[#2a2a2a] relative">
@@ -37,18 +60,28 @@ export function DashboardPreviewPanel({
             <span className="h-[5px] w-[5px] rounded-full bg-green-400" />
             <span className="font-medium text-[#e5e5e5]">{preview.versionInfo}</span>
           </span>
+          <button
+            onClick={onBuildDashboard}
+            disabled={preview.isGenerating || buildDashboardDisabled}
+            aria-label="Generate dashboard"
+            title={buildDashboardDisabled ? buildDashboardDisabledReason : "Generate dashboard"}
+            className="rounded-[5px] border border-[#404040] bg-[#232323] px-2.5 py-[5px] text-xs font-medium text-[#e5e5e5] transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {preview.isGenerating ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 inline h-3 w-3" />}
+            Generate
+          </button>
           <button onClick={onRefresh} className="byaan-toolbar-icon" title="Refresh"><RefreshCw className="h-3.5 w-3.5" /></button>
           <div className="relative">
             <button onClick={() => setShowMoreMenu((value) => !value)} className="byaan-toolbar-icon" title="More actions"><MoreHorizontal className="h-3.5 w-3.5" /></button>
             {showMoreMenu ? (
               <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-[#404040] bg-[#1a1a1a] py-1 shadow-xl">
-                <button className="byaan-menu-item"><FileDown className="h-3.5 w-3.5" />Export PDF</button>
-                <button className="byaan-menu-item"><FileCode2 className="h-3.5 w-3.5" />Export HTML</button>
+                <button className="byaan-menu-item" disabled title="PDF 导出服务未配置"><FileDown className="h-3.5 w-3.5" />Export PDF</button>
+                <button className="byaan-menu-item" onClick={exportHtml} disabled={!canExportHtml} title={canExportHtml ? "Export current dashboard HTML" : "暂无可导出的 HTML"}><FileCode2 className="h-3.5 w-3.5" />Export HTML</button>
                 <button className="byaan-menu-item" onClick={onOpenFullscreen}><Maximize2 className="h-3.5 w-3.5" />Fullscreen</button>
               </div>
             ) : null}
           </div>
-          <button className="rounded-[5px] bg-[#ff7a1a] px-3 py-[5px] text-xs font-medium text-white transition-colors hover:bg-[#ff7a1a]/90" title="Share dashboard">
+          <button disabled className="rounded-[5px] bg-[#3f3f46] px-3 py-[5px] text-xs font-medium text-[#a1a1aa] transition-colors disabled:cursor-not-allowed" title="分享服务未配置">
             <Share2 className="mr-1 inline h-3 w-3" />
             Share
           </button>
@@ -59,7 +92,7 @@ export function DashboardPreviewPanel({
         {activeTab === "preview" ? (
           <div className="flex h-full min-h-0 flex-col bg-[#0a0a0a]">
             {hasPreview ? (
-              <iframe className="h-full w-full border-0" srcDoc={preview.processedHtmlContent} title="Dashboard Preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" />
+              <iframe className="h-full w-full border-0" srcDoc={preview.processedHtmlContent} title="Dashboard Preview" sandbox="allow-scripts allow-forms allow-popups allow-modals" />
             ) : (
               <div className="relative flex h-full items-center justify-center overflow-hidden">
                 <div className="relative z-10 px-8 text-center">
@@ -71,7 +104,12 @@ export function DashboardPreviewPanel({
                     {preview.isGenerating ? "Your dashboard is being generated. This will appear here momentarily." : "Your preview will appear here once a real generated dashboard HTML artifact is available."}
                   </p>
                   {!preview.isGenerating && preview.queryResult ? (
-                    <button onClick={onBuildDashboard} className="mt-5 rounded-md border border-[#404040] bg-[#1a1a1a] px-3 py-2 text-xs text-[#e5e5e5] hover:bg-[#2a2a2a]">
+                    <button
+                      onClick={onBuildDashboard}
+                      disabled={buildDashboardDisabled}
+                      title={buildDashboardDisabled ? buildDashboardDisabledReason : "Generate dashboard"}
+                      className="mt-5 rounded-md border border-[#404040] bg-[#1a1a1a] px-3 py-2 text-xs text-[#e5e5e5] hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                       Generate dashboard
                     </button>
                   ) : null}
@@ -101,11 +139,25 @@ export function DashboardPreviewPanel({
         <span className={`h-[5px] w-[5px] rounded-full ${preview.isGenerating ? "animate-pulse bg-purple-400" : "bg-green-400"}`} />
         <span className="text-gray-400">{preview.isGenerating ? "Generating..." : "Ready"}</span>
         <div className="flex-1" />
-        <button className="inline-flex items-center gap-1 px-2 py-0.5 text-gray-400 transition-colors hover:text-white"><FileCode2 className="h-3 w-3" />HTML</button>
+        <button onClick={exportHtml} disabled={!canExportHtml} title={canExportHtml ? "Export current dashboard HTML" : "暂无可导出的 HTML"} className="inline-flex items-center gap-1 px-2 py-0.5 text-gray-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50"><FileCode2 className="h-3 w-3" />HTML</button>
         <button onClick={onOpenFullscreen} className="inline-flex items-center gap-1 px-2 py-0.5 text-gray-400 transition-colors hover:text-white"><Maximize2 className="h-3 w-3" />Focus</button>
       </div>
     </div>
   );
+}
+
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dashboard";
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  }[char] || char));
 }
 
 function PreviewTab({

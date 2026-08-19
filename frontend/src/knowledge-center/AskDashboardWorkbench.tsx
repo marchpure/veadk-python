@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import {
+  buildDashboardSkill,
   streamAskData,
   type AskDataQueryResult,
   type DashboardSkillBuildResult,
@@ -46,6 +47,7 @@ const fallbackExamples = [
 ];
 
 export function AskDashboardWorkbench({
+  activeSpace,
   semanticSkills,
   dashboardSkills,
   onRefresh,
@@ -109,6 +111,14 @@ export function AskDashboardWorkbench({
       busyBuild,
     }),
     [buildResult, busyBuild, queryResult, selectedDashboard],
+  );
+  const latestCompletedQuery = useMemo(
+    () => [...rounds].reverse().find((round) => round.result?.status === "completed")?.result ?? queryResult,
+    [queryResult, rounds],
+  );
+  const dashboardBuildGate = useMemo(
+    () => dashboardBuildReadiness(latestCompletedQuery),
+    [latestCompletedQuery],
   );
 
   useEffect(() => {
@@ -241,64 +251,28 @@ export function AskDashboardWorkbench({
       setError("需要先发布 Semantic Skill。");
       return;
     }
+    if (!dashboardBuildGate.ready) {
+      setError(dashboardBuildGate.reason);
+      return;
+    }
     const latestQuestion = rounds.at(-1)?.question || question || dashboardIntent || "展示核心指标、维度拆解和策略证据";
     setBusyBuild(true);
     setError("");
     try {
-      const response = await streamAskData({
+      const result = await buildDashboardSkill({
+        space_id: activeSpace?.id,
         semantic_asset_id: selectedSkill.asset_id,
-        message: `请基于上一轮 AskTable 证据生成 Dashboard Skill：${dashboardIntent || latestQuestion}`,
-        dashboard_intent: dashboardIntent || latestQuestion,
-        mode: "production",
-        limit: 100,
+        name: `${selectedSkill.name || "AskTable"} Dashboard`,
+        intent: dashboardIntent || latestQuestion,
+        metric: selectedMetricId(latestCompletedQuery),
+        dimensions: selectedDimensionIds(latestCompletedQuery),
+        publish: true,
       });
-      let acc = emptyAcc();
-      let payload: DashboardSkillBuildResult | null = null;
-      let askdata: AskDataQueryResult | null = null;
-      for await (const rawEvent of parseSSE(response)) {
-        if (!isAdkEvent(rawEvent)) continue;
-        acc = applyEvent(acc, rawEvent);
-        const toolResult = queryResultFromEvent(rawEvent);
-        if (toolResult) {
-          askdata = toolResult;
-          setQueryResult(toolResult);
-        }
-        const dashboardResult = dashboardResultFromEvent(rawEvent);
-        if (dashboardResult) {
-          payload = dashboardResult;
-        }
+      if (result.status !== "succeeded" || !result.dashboard) {
+        throw new Error(result.status ? `Dashboard Skill 生成失败：${result.status}` : "Dashboard Skill 生成失败。");
       }
-      if (!payload) {
-        throw new Error("AskTable Agent 未返回 Dashboard Skill 结果。");
-      }
-      setBuildResult(payload);
-      setVersionAssetId(payload.dashboard_asset_id);
-      if (payload.askdata || askdata) {
-        const result = payload.askdata ?? askdata;
-        setQueryResult(result ?? null);
-        setRounds((current) => {
-          if (!current.length) {
-            return [{
-              id: `query-${Date.now()}`,
-              question: latestQuestion,
-              status: result?.status === "completed" ? "completed" : "blocked",
-              result: result ?? null,
-              acc,
-              blocks: acc.blocks,
-            }];
-          }
-          return current.map((round, index) =>
-            index === current.length - 1 && !round.result
-              ? {
-                  ...round,
-                  status: result?.status === "completed" ? "completed" : "blocked",
-                  result: result ?? null,
-                }
-              : round,
-          );
-        });
-      }
-      await onRefresh();
+      setBuildResult(result);
+      setVersionAssetId(result.dashboard_asset_id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "生成 Dashboard Skill 失败。");
     } finally {
@@ -327,6 +301,8 @@ export function AskDashboardWorkbench({
         busyQuery={busyQuery}
         busyBuild={busyBuild}
         onCreateDashboard={() => void buildDashboardFromLatest()}
+        createDashboardDisabled={!dashboardBuildGate.ready}
+        createDashboardDisabledReason={dashboardBuildGate.reason}
         onRefresh={() => void onRefresh()}
         onFullscreen={() => setFullscreen((value) => !value)}
         blocked={!canAsk}
@@ -389,22 +365,6 @@ function queryResultFromEvent(event: unknown): AskDataQueryResult | null {
   };
 }
 
-function dashboardResultFromEvent(event: unknown): DashboardSkillBuildResult | null {
-  const response = functionResponse(event, "build_dashboard_skill");
-  if (!response) return null;
-  const dashboard = response.dashboard;
-  if (!dashboard || typeof dashboard !== "object") return null;
-  return {
-    schema: "agentkit.dashboard_skill_build.v1",
-    job_id: String(response.job_id || ""),
-    status: String(response.status || (response.success ? "succeeded" : "blocked")),
-    dashboard_asset_id: String(response.dashboard_asset_id || (dashboard as Record<string, unknown>).asset_id || ""),
-    dashboard: dashboard as KnowledgeAssetMetadata,
-    preview: objectValue(response.preview),
-    mock: false,
-  };
-}
-
 function functionResponse(event: unknown, name: string): Record<string, unknown> | null {
   if (!event || typeof event !== "object") return null;
   const content = (event as Record<string, unknown>).content;
@@ -435,6 +395,34 @@ function isAskDataQueryResult(value: unknown): value is AskDataQueryResult {
 
 function hasFinalText(blocks: Block[]): boolean {
   return blocks.some((block) => block.kind === "text" && block.text.trim().length > 0);
+}
+
+function dashboardBuildReadiness(result: AskDataQueryResult | null): { ready: boolean; reason: string } {
+  if (!result) {
+    return { ready: false, reason: "请先完成一次生产 AskTable 查询，再生成 Dashboard。" };
+  }
+  if (result.status !== "completed") {
+    return { ready: false, reason: "最近一次 AskTable 查询未完成，不能生成 Dashboard。" };
+  }
+  if (!result.data.rows?.length) {
+    return { ready: false, reason: "最近一次 AskTable 查询没有返回数据，不能生成 Dashboard。" };
+  }
+  if (result.data.execution?.production_completed !== true) {
+    return { ready: false, reason: "最近一次 AskTable 查询不是生产完成结果，不能生成 Dashboard。" };
+  }
+  return { ready: true, reason: "" };
+}
+
+function selectedMetricId(result: AskDataQueryResult | null): string | undefined {
+  const metric = result?.data.metric;
+  const id = metric?.id;
+  return typeof id === "string" && id ? id : undefined;
+}
+
+function selectedDimensionIds(result: AskDataQueryResult | null): string[] {
+  return (result?.data.dimensions ?? [])
+    .map((dimension) => dimension.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
 }
 
 function arrayValue(value: unknown): unknown[] {

@@ -7,11 +7,15 @@ export function SemanticEvidencePanel({
   dashboardAvailable,
   busy,
   onCreateDashboard,
+  createDashboardDisabled = false,
+  createDashboardDisabledReason = "",
 }: {
   event: ByaanSemanticQueryResultEvent | null;
   dashboardAvailable: boolean;
   busy: boolean;
   onCreateDashboard: () => void;
+  createDashboardDisabled?: boolean;
+  createDashboardDisabledReason?: string;
 }) {
   if (!event) return null;
   const result = event.result;
@@ -61,7 +65,8 @@ export function SemanticEvidencePanel({
         <button
           type="button"
           onClick={onCreateDashboard}
-          disabled={busy}
+          disabled={busy || createDashboardDisabled}
+          title={createDashboardDisabled ? createDashboardDisabledReason : "Create dashboard"}
           className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#d4d4d8] bg-white px-3 text-xs text-[#4f5159] hover:border-[#0081f2]/40 hover:bg-[#0081f2]/[0.06] hover:text-[#18181b] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <LineChart className="h-3.5 w-3.5 text-[#0081f2]" />

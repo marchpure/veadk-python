@@ -897,7 +897,7 @@ export function KnowledgeCenterView() {
   }
 
   return (
-    <main className="kc-native-page">
+    <main className={`kc-native-page kc-native-page--${activeTab}`}>
       <aside className="kc-native-sidebar">
         <div className="kc-native-sidebar-head">
           <div>
@@ -954,8 +954,9 @@ export function KnowledgeCenterView() {
       <section className="kc-native-main">
         <header className="kc-native-head">
           <div>
-            <h1>{activeSpace?.name ?? "知识资产工作台"}</h1>
-            <p>在 Studio 内管理数据源和 Agent 可运行能力。</p>
+            <span className="kc-native-breadcrumb">Knowledge Center{activeSpace ? ` / ${activeSpace.name}` : ""}</span>
+            <h1>{activeTab === "askdashboard" ? "AskTable" : activeSpace?.name ?? "知识资产工作台"}</h1>
+            <p>{activeTab === "askdashboard" ? "Governed query and dashboard preview workspace." : "在 Studio 内管理数据源和 Agent 可运行能力。"}</p>
           </div>
           <div className="kc-native-actions">
             <button type="button" onClick={() => void refresh()}>
@@ -1030,7 +1031,7 @@ export function KnowledgeCenterView() {
             </div>
           ) : null}
           {activeTab === "askdashboard" ? (
-            <div data-workbench-target="askdata" tabIndex={-1}>
+            <div className="kc-askdashboard-immersive" data-workbench-target="askdata" tabIndex={-1}>
               <AskDashboardWorkbench
                 activeSpace={activeSpace}
                 semanticSkills={semanticSkills}

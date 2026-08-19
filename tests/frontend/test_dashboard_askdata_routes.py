@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -255,6 +256,67 @@ def test_schema_only_package_fails_closed_in_production_mode(
 
     assert response.status_code == 400
     assert "schema_only" in response.text
+
+
+def test_askdata_production_uses_local_sqlite_governed_runtime(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    db_path = tmp_path / "sales.sqlite"
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE sales_order_summary (
+              order_id INTEGER PRIMARY KEY,
+              order_date TEXT NOT NULL,
+              store_name TEXT NOT NULL,
+              paid_amount REAL NOT NULL
+            );
+            INSERT INTO sales_order_summary VALUES
+              (1, '2026-08-01', 'Union Square', 900.0),
+              (2, '2026-08-02', 'Union Square', 780.0),
+              (3, '2026-08-03', 'Pike Place', 420.0);
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _semantic_skill(
+        client,
+        asset_id="local-sqlite-sales",
+        governed_result=False,
+        local_sqlite_path=str(db_path),
+    )
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/query",
+        json={
+            "semantic_asset_id": "local-sqlite-sales",
+            "metric": "ticket_count",
+            "dimension": "store",
+            "question": "按门店查看销售票数",
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    data = body["data"]
+    assert data["rows"] == [
+        {"store": "Union Square", "ticket_count": 2},
+        {"store": "Pike Place", "ticket_count": 1},
+    ]
+    assert data["returnedCount"] == 2
+    assert data["policyDecision"]["decision"] == "allow"
+    assert data["execution"]["result_source"] == "local_sqlite_governed_runtime"
+    assert data["execution"]["production_completed"] is True
+    assert data["execution"]["raw_sql_fallback"] is False
+    assert data["execution"]["direct_database_access"] is False
+    assert data["production_completed"] is True
+    assert "schema_only" not in data["execution_mode"]
 
 
 def test_schema_only_query_sanitizes_mdl_metadata_in_sql_evidence(
@@ -573,6 +635,7 @@ def _semantic_skill(
     artifacts_mdl: bool = False,
     byaan_shape: bool = False,
     malicious_metadata: bool = False,
+    local_sqlite_path: str | None = None,
 ) -> str:
     space = client.post("/api/knowledge-assets/spaces", json={"name": "Oracle"}).json()
     mdl = {
@@ -696,6 +759,15 @@ def _semantic_skill(
         package["mdl"] = mdl
     if governed_result:
         package["governed_query_result"] = result
+    if local_sqlite_path:
+        package["runtime"]["local_sqlite"] = {
+            "datasource_id": "test_local_sales",
+            "path": local_sqlite_path,
+            "view": "sales_order_summary",
+            "metric_fields": {"ticket_count": "order_id"},
+            "dimension_fields": {"store": "store_name", "sell_date": "order_date"},
+            "field_map": {"ticket_id": "order_id", "sell_date": "order_date"},
+        }
     response = client.post(
         "/api/knowledge-assets/skill-packages",
         json={
