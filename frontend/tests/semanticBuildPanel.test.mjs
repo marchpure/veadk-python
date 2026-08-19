@@ -51,6 +51,34 @@ const byaanAdapterSource = readFileSync(
   new URL("../src/features/knowledge-assets/adapters/byaanAskTableAdapter.ts", import.meta.url),
   "utf8",
 );
+const byaanNotebookSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/ByaanNotebook.tsx", import.meta.url),
+  "utf8",
+);
+const byaanNotebookAdapterSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/adapter.ts", import.meta.url),
+  "utf8",
+);
+const byaanDashboardPreviewSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/DashboardPreviewPanel.tsx", import.meta.url),
+  "utf8",
+);
+const byaanQueryPanelSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/NotebookQueryPanel.tsx", import.meta.url),
+  "utf8",
+);
+const byaanQueryRunnerDockedSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/QueryRunnerDocked.tsx", import.meta.url),
+  "utf8",
+);
+const byaanQueryResultsSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/QueryResults.tsx", import.meta.url),
+  "utf8",
+);
+const byaanSemanticEvidenceSource = readFileSync(
+  new URL("../src/features/knowledge-assets/byaan-notebook/SemanticEvidencePanel.tsx", import.meta.url),
+  "utf8",
+);
 
 async function loadTypeScriptModule(relativePath) {
   const result = await build({
@@ -138,48 +166,59 @@ test("Semantic build CSS is responsive without product iframe shell", () => {
   assert.match(cssSource, /\.kc-semantic-canvas/);
   assert.match(cssSource, /\.kc-semantic-layout/);
   assert.match(cssSource, /@media \(max-width: 980px\)/);
-  assert.doesNotMatch(cssSource, /iframe/);
+  assert.doesNotMatch(cssSource, /wren-ui|wrenai-legacy|byaan-knowledge-center|localhost:15183|localhost:3011/);
 });
 
-test("AskDashboardWorkbench renders native BYAAN-style portal, chat workspace, preview code, and query evidence tabs", () => {
-  assert.match(askDashboardSource, /kc-askdash-portal-stage/);
-  assert.match(askDashboardSource, /What do you need to know\?/);
-  assert.match(askDashboardSource, /kc-askdash-composer/);
-  assert.match(askDashboardSource, /kc-askdash-example-chips/);
-  assert.match(askDashboardSource, /kc-askdash-notebook-shell/);
-  assert.match(askDashboardSource, /kc-askdash-chat-area/);
-  assert.match(askDashboardSource, /kc-askdash-preview-panel/);
-  assert.match(askDashboardSource, /PreviewTabButton/);
-  assert.match(askDashboardSource, /QueriesPanel/);
-  assert.match(askDashboardSource, /LineagePanel/);
-  assert.match(askDashboardSource, /CodePanel/);
-  assert.match(askDashboardSource, /EvidenceGrid/);
+test("AskDashboardWorkbench renders the BYAAN notebook source-port and governed query evidence tabs", () => {
+  assert.match(askDashboardSource, /from "\.\.\/features\/knowledge-assets\/byaan-notebook"/);
+  assert.match(askDashboardSource, /<ByaanNotebook/);
   assert.match(askDashboardSource, /streamAskData/);
   assert.match(askDashboardSource, /parseSSE/);
   assert.match(askDashboardSource, /applyEvent/);
-  assert.match(askDashboardSource, /<Blocks/);
   assert.match(askDashboardSource, /query_semantic_skill/);
   assert.doesNotMatch(askDashboardSource, /queryAskData/);
   assert.doesNotMatch(askDashboardSource, /buildDashboardSkill/);
   assert.doesNotMatch(askDashboardSource, /Returned .*governed rows/);
-  assert.match(askDashboardSource, /askDataToNotebookViewModel/);
-  assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
-  assert.match(askDashboardSource, /blocked_no_semantic_skill/);
-  assert.match(askDashboardSource, /no published Semantic Skill/);
-  assert.match(askDashboardSource, /Metric definition/);
-  assert.match(askDashboardSource, /Permission policy/);
-  assert.match(askDashboardSource, /Freshness/);
-  assert.match(askDashboardSource, /Lineage/);
-  assert.match(askDashboardSource, /Evidence/);
-  assert.match(askDashboardSource, /Sparkline/);
-  assert.match(askDashboardSource, /Generate Dashboard/);
-  assert.match(cssSource, /\.kc-askdash-native/);
-  assert.match(cssSource, /\.kc-askdash-portal-stage/);
-  assert.match(cssSource, /\.kc-askdash-notebook-shell/);
-  assert.match(cssSource, /\.kc-askdash-preview-panel/);
-  assert.match(cssSource, /\.kc-askdash-mobile-tabs/);
-  assert.doesNotMatch(askDashboardSource, /ByaanNotebookDashboardSourcePort|QueryRunnerDocked|Source-level port|Source-ported BYAAN workspace/);
-  assert.doesNotMatch(askDashboardSource, /<iframe|from ["'][^"']*(ApiService|Tauri)|localhost:15183/);
+  assert.doesNotMatch(
+    askDashboardSource,
+    /function (AskTablePortal|AskComposer|QueryRoundView|DashboardNotebookPreview|DashboardCanvas|MiniResultTable)/,
+  );
+  assert.doesNotMatch(askDashboardSource, /kc-askdash-portal-stage|kc-askdash-dashboard-tiles/);
+
+  assert.match(byaanNotebookSource, /data-source-port="byaan-notebook"/);
+  assert.match(byaanNotebookSource, /What do you need to know\?/);
+  assert.match(byaanNotebookSource, /ResizableSplitPanel/);
+  assert.match(byaanNotebookSource, /MessageList/);
+  assert.match(byaanNotebookSource, /DashboardPreviewPanel/);
+  assert.match(byaanNotebookSource, /TableMentionInput/);
+  assert.match(byaanNotebookSource, /SemanticEvidencePanel/);
+  assert.match(byaanDashboardPreviewSource, /Preview/);
+  assert.match(byaanDashboardPreviewSource, /Code/);
+  assert.match(byaanDashboardPreviewSource, /Queries/);
+  assert.match(byaanDashboardPreviewSource, /QueryRunnerDocked/);
+  assert.match(byaanDashboardPreviewSource, /Export HTML/);
+  assert.match(byaanDashboardPreviewSource, /srcDoc=\{preview\.processedHtmlContent\}/);
+  assert.match(byaanQueryRunnerDockedSource, /Query Runner/);
+  assert.match(byaanQueryRunnerDockedSource, /NotebookQueryPanel/);
+  assert.match(byaanQueryPanelSource, /QueryResults/);
+  assert.doesNotMatch(byaanQueryPanelSource, /Query Runner/);
+  assert.match(byaanQueryResultsSource, /governed/);
+  assert.match(byaanSemanticEvidenceSource, /Metric definition/);
+  assert.match(byaanSemanticEvidenceSource, /Freshness/);
+  assert.match(byaanSemanticEvidenceSource, /Lineage/);
+  assert.match(byaanNotebookAdapterSource, /semantic_query_result/);
+  assert.match(byaanNotebookAdapterSource, /dashboardPreviewFromAgentKit/);
+  assert.match(byaanNotebookAdapterSource, /policyDecisionRaw/);
+  assert.match(cssSource, /\.byaan-notebook-source-port/);
+  assert.match(cssSource, /\.byaan-notebook-workspace/);
+  assert.match(cssSource, /\.byaan-dashboard-preview/);
+  assert.match(cssSource, /@media \(max-width: 390px\)/);
+  assert.doesNotMatch(cssSource, /kc-askdash-(native|portal-stage|dashboard-tiles|notebook-shell)/);
+  assert.doesNotMatch(askDashboardSource, /ByaanNotebookDashboardSourcePort|Source-level port|Source-ported BYAAN workspace/);
+  assert.doesNotMatch(
+    [askDashboardSource, byaanNotebookSource, byaanDashboardPreviewSource].join("\n"),
+    /from ["'][^"']*(ApiService|Tauri)|localhost:15183/,
+  );
   assert.match(byaanAdapterSource, /agentkit_native_asktable_dashboard/);
   assert.match(knowledgeCenterSource, /<AskDashboardWorkbench/);
   assert.match(knowledgeCenterSource, /buildJobs=\{buildJobs\}/);
