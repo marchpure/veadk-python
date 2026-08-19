@@ -37,6 +37,7 @@ export default defineConfig({
       "/harness": localApiProxy(),
       "/debug": localApiProxy(),
       "/dev": localApiProxy(),
+      "/api": localApiProxy(),
       "/oauth2": localApiProxy(),
       "/web": localApiProxy(),
       "/skillhub": {

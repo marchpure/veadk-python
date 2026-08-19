@@ -1304,31 +1304,30 @@ function isAdkEvent(value: unknown): value is {
 function queryResultFromEvent(event: unknown): AskDataQueryResult | null {
   const response = functionResponse(event, "query_semantic_skill");
   if (!response) return null;
-  const direct = response.askdata;
-  if (isAskDataQueryResult(direct)) return direct;
-  const rows = arrayRecords(response.rows ?? response.result);
+  const direct = isAskDataQueryResult(response.askdata) ? response.askdata : null;
+  const rows = arrayRecords(response.rows ?? response.result ?? direct?.data.rows);
   return {
     schema: "agentkit.askdata.result.v1",
-    status: String(response.status || (response.success === false ? "blocked" : "completed")),
-    asset: {
+    status: String(response.status || direct?.status || (response.success === false ? "blocked" : "completed")),
+    asset: direct?.asset ?? {
       type: "semantic_model",
       id: String(response.semantic_asset_id || ""),
       name: String(response.semantic_asset_id || "Semantic Skill"),
     },
     data: {
       rows,
-      returnedCount: Number(response.returnedCount ?? rows.length),
-      sql: String(response.sql || ""),
-      metricDefinition: response.metricDefinition as string | Record<string, unknown>,
-      policyDecision: objectValue(response.policyDecision),
-      freshness: objectValue(response.freshness),
-      evidence: arrayValue(response.evidence).filter(isRecord),
-      lineage: arrayValue(response.lineage).filter(isRecord),
-      metric: objectValue(response.metric),
-      dimensions: arrayValue(response.dimensions).filter(isRecord),
-      execution: objectValue(response.execution),
+      returnedCount: Number(response.returnedCount ?? direct?.data.returnedCount ?? rows.length),
+      sql: String(response.sql || direct?.data.sql || ""),
+      metricDefinition: (response.metricDefinition ?? direct?.data.metricDefinition ?? "") as string | Record<string, unknown>,
+      policyDecision: objectValue(response.policyDecision ?? direct?.data.policyDecision),
+      freshness: objectValue(response.freshness ?? direct?.data.freshness),
+      evidence: arrayValue(response.evidence ?? direct?.data.evidence).filter(isRecord),
+      lineage: arrayValue(response.lineage ?? direct?.data.lineage).filter(isRecord),
+      metric: objectValue(response.metric ?? direct?.data.metric),
+      dimensions: arrayValue(response.dimensions ?? direct?.data.dimensions).filter(isRecord),
+      execution: objectValue(response.execution ?? direct?.data.execution),
     },
-    mock: false,
+    mock: direct?.mock ?? false,
   };
 }
 
