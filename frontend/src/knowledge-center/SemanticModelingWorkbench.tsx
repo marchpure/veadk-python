@@ -64,7 +64,7 @@ export function SemanticModelingWorkbench({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lastJob, setLastJob] = useState<KnowledgeAssetBuildJob | null>(null);
-  const [inspector, setInspector] = useState<"metadata" | "mdl" | "evals">("metadata");
+  const [inspector, setInspector] = useState<"metadata" | "mdl" | "evidence" | "evals">("metadata");
 
   const viewModel = useMemo(
     () =>
@@ -208,8 +208,9 @@ export function SemanticModelingWorkbench({
         onSelectSource={setSelectedSourceId}
         onSelectSnapshot={setSelectedSnapshotId}
         onRefresh={() => void onRefresh()}
-        onBuild={() => void submit()}
-        busy={busy}
+        onOpenRunDetails={() => undefined}
+        onOpenTraining={() => undefined}
+        onRunEval={() => setInspector("evals")}
         intent={intent}
         targetDomain={targetDomain}
         publish={publish}

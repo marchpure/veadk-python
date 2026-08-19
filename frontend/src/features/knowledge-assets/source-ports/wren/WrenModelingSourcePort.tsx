@@ -12,7 +12,7 @@
  * and styled-components. Data arrives through wrenSemanticAdapter from AgentKit
  * /api/knowledge-assets/* endpoints.
  */
-import { AlertCircle, Edit3, FileJson, Loader2, Plus, RefreshCw, Rocket, Save, Table2 } from "lucide-react";
+import { AlertCircle, Edit3, FileJson, GitBranch, Plus, RefreshCw, Rocket, Save, Table2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
@@ -22,6 +22,7 @@ import {
 } from "../../adapters/wrenSemanticAdapter";
 import {
   formatJson,
+  objectValue,
   type WrenModelingField,
   type WrenModelingMetric,
   type WrenModelingModel,
@@ -107,8 +108,9 @@ export function WrenModelingSourcePort({
   onInspectorChange,
   onSelectAsset,
   onRefresh,
-  onBuild,
-  busy,
+  onOpenRunDetails,
+  onOpenTraining,
+  onRunEval,
   intent,
   targetDomain,
   publish,
@@ -123,14 +125,15 @@ export function WrenModelingSourcePort({
   onQueryChange: (value: string) => void;
   selectedItem: WrenSourcePortSelection;
   onSelect: (selection: WrenSourcePortSelection) => void;
-  inspector: "metadata" | "mdl" | "evals";
-  onInspectorChange: (value: "metadata" | "mdl" | "evals") => void;
+  inspector: "metadata" | "mdl" | "evidence" | "evals";
+  onInspectorChange: (value: "metadata" | "mdl" | "evidence" | "evals") => void;
   onSelectAsset: (id: string) => void;
   onSelectSource: (id: string) => void;
   onSelectSnapshot: (id: string) => void;
   onRefresh: () => void;
-  onBuild: () => void;
-  busy: boolean;
+  onOpenRunDetails: () => void;
+  onOpenTraining: (tab: "training" | "governance") => void;
+  onRunEval: () => void;
   intent: string;
   targetDomain: string;
   publish: boolean;
@@ -138,7 +141,7 @@ export function WrenModelingSourcePort({
   onTargetDomainChange: (value: string) => void;
   onPublishChange: (value: boolean) => void;
 }) {
-  const [mobilePane, setMobilePane] = useState<"tree" | "canvas" | "metadata">("canvas");
+  const [mobilePane, setMobilePane] = useState<"tree" | "canvas" | "inspector" | "run">("canvas");
   const [draftModels, setDraftModels] = useState<WrenModelingModel[]>([]);
   const [draftRelationships, setDraftRelationships] = useState<WrenModelingRelationship[]>([]);
   const [draftMetrics, setDraftMetrics] = useState<WrenModelingMetric[]>([]);
@@ -254,19 +257,19 @@ export function WrenModelingSourcePort({
 
   return (
     <section className="kc-wren-source-port adm-modeling-page" data-source-port="wren-modeling">
-      <header className="adm-modeling-topbar">
-        <div className="adm-project-return">
-          <strong>Modeling</strong>
-          <span>{viewModel.selectedAsset?.name || "Semantic Skill workspace"}</span>
-        </div>
+      <header className="adm-modeling-topbar adm-modeling-secondarybar">
         <div className="adm-modeling-actions">
-          <button type="button" onClick={onBuild} disabled={busy}>
-            {busy ? <Loader2 className="kc-native-icon kc-spin" /> : <Plus className="kc-native-icon" />}
-            生成/重新生成语义
-          </button>
           <button type="button" onClick={openNewModelEditor}>
             <Table2 className="kc-native-icon" />
             New Model
+          </button>
+          <button type="button" onClick={openNewRelationshipEditor} disabled={editableViewModel.modeling.models.length < 2} title={editableViewModel.modeling.models.length < 2 ? "At least two models are required." : "Create a relationship draft"}>
+            <GitBranch className="kc-native-icon" />
+            Relationship
+          </button>
+          <button type="button" onClick={openNewMetricEditor} disabled={!editableViewModel.modeling.models.length} title={!editableViewModel.modeling.models.length ? "Create or generate a model first." : "Create a metric draft"}>
+            <Plus className="kc-native-icon" />
+            Metric
           </button>
           <button type="button" onClick={onRefresh}>
             <RefreshCw className="kc-native-icon" />
@@ -275,6 +278,18 @@ export function WrenModelingSourcePort({
           <button type="button" onClick={() => onInspectorChange("mdl")} disabled={!hasMdl}>
             <FileJson className="kc-native-icon" />
             MDL
+          </button>
+          <button type="button" onClick={() => onOpenTraining("training")}>
+            Training Examples
+          </button>
+          <button type="button" onClick={() => onOpenTraining("governance")}>
+            Governance Rules
+          </button>
+          <button type="button" onClick={onOpenRunDetails}>
+            Run Details
+          </button>
+          <button type="button" onClick={onRunEval} disabled={!viewModel.selectedAsset} title={!viewModel.selectedAsset ? "Generate or select a Semantic Skill before running eval." : "Run Semantic Skill eval"}>
+            Run Eval
           </button>
           <button
             type="button"
@@ -298,9 +313,17 @@ export function WrenModelingSourcePort({
       </div>
 
       <div className="kc-mobile-workbench-tabs" role="tablist" aria-label="Wren modeling mobile panes">
-        {(["tree", "canvas", "metadata"] as const).map((pane) => (
-          <button key={pane} type="button" className={mobilePane === pane ? "is-active" : ""} onClick={() => setMobilePane(pane)}>
-            {pane === "tree" ? "Models" : pane === "canvas" ? "Diagram" : "Metadata"}
+        {(["tree", "canvas", "inspector", "run"] as const).map((pane) => (
+          <button
+            key={pane}
+            type="button"
+            className={mobilePane === pane ? "is-active" : ""}
+            onClick={() => {
+              setMobilePane(pane);
+              if (pane === "run") onOpenRunDetails();
+            }}
+          >
+            {pane === "tree" ? "Tree" : pane === "canvas" ? "Canvas" : pane === "inspector" ? "Inspector" : "Run Details"}
           </button>
         ))}
       </div>
@@ -422,8 +445,8 @@ function MetadataDrawer({
 }: {
   viewModel: WrenSourcePortViewModel;
   selectedItem: WrenSourcePortSelection;
-  inspector: "metadata" | "mdl" | "evals";
-  onInspectorChange: (value: "metadata" | "mdl" | "evals") => void;
+  inspector: "metadata" | "mdl" | "evidence" | "evals";
+  onInspectorChange: (value: "metadata" | "mdl" | "evidence" | "evals") => void;
   onEditSelected: () => void;
   intent: string;
   targetDomain: string;
@@ -455,14 +478,22 @@ function MetadataDrawer({
               ? selectedItem.data
               : {};
   const summary = selectedSummary(selectedItem, viewModel);
-  const evidence = viewModel.modeling.evidence;
-  const alignments = arrayValue(viewModel.selectedAsset?.capability_package?.alignments);
+  const semanticPackage = viewModel.selectedAsset?.capability_package ?? {};
+  const docGraph = objectValue(semanticPackage.doc_graph);
+  const evidence = [
+    ...viewModel.modeling.evidence,
+    ...arrayValue(docGraph.evidence_fragments),
+    ...arrayValue(viewModel.selectedAsset?.sample_evidence),
+  ];
+  const alignments = arrayValue(semanticPackage.alignments);
+  const ontologyCandidates = arrayValue(docGraph.ontology_candidates);
+  const provenance = objectValue(viewModel.selectedAsset?.provenance);
   return (
     <aside className="kc-wren-inspector adm-metadata-drawer" data-testid="wren-source-port-inspector">
       <div className="adm-metadata-tabs" role="tablist" aria-label="Wren metadata inspector">
-        {(["metadata", "mdl", "evals"] as const).map((item) => (
+        {(["metadata", "mdl", "evidence", "evals"] as const).map((item) => (
           <button key={item} type="button" className={inspector === item ? "is-active" : ""} onClick={() => onInspectorChange(item)}>
-            {item === "metadata" ? "Metadata" : item === "mdl" ? "MDL / Raw" : "Evidence"}
+            {item === "metadata" ? "Metadata" : item === "mdl" ? "MDL" : item === "evidence" ? "Evidence" : "Evals"}
           </button>
         ))}
       </div>
@@ -511,8 +542,12 @@ function MetadataDrawer({
             <pre className="kc-json-view"><code>{formatJson(raw)}</code></pre>
           </section>
         </div>
-      ) : (
+      ) : inspector === "evidence" ? (
         <div className="adm-metadata-stack">
+          <section>
+            <h3>Ontology Candidates</h3>
+            <CompactJsonList items={ontologyCandidates} emptyText="No ontology candidates were persisted yet." />
+          </section>
           <section>
             <h3>Evidence</h3>
             <CompactJsonList items={evidence} emptyText="No evidence fragments in this Semantic Pack." />
@@ -520,6 +555,17 @@ function MetadataDrawer({
           <section>
             <h3>Alignments</h3>
             <CompactJsonList items={alignments} emptyText="No doc-to-MDL alignments persisted yet." />
+          </section>
+          <section>
+            <h3>Provenance</h3>
+            <pre className="kc-json-view"><code>{formatJson(provenance)}</code></pre>
+          </section>
+        </div>
+      ) : (
+        <div className="adm-metadata-stack">
+          <section>
+            <h3>Validation Gate</h3>
+            <pre className="kc-json-view"><code>{formatJson(viewModel.selectedAsset?.gate ?? viewModel.latestJob?.output?.gate ?? {})}</code></pre>
           </section>
           <section>
             <h3>Eval Seed</h3>

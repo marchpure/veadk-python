@@ -4353,6 +4353,24 @@
     width: 100%;
   }
 
+  .kc-semantic-builder-bar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .kc-semantic-builder-bar > button,
+  .kc-semantic-builder-bar .kc-builder-chip {
+    width: 100%;
+  }
+
+  .kc-data-context-popover {
+    position: fixed;
+    top: 118px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+
   .kc-mobile-workbench-tabs {
     display: flex;
     gap: 6px;
@@ -4421,8 +4439,10 @@
   .kc-wren-modeling-layout.is-mobile-canvas .kc-wren-inspector,
   .kc-wren-modeling-layout.is-mobile-tree .kc-wren-diagram,
   .kc-wren-modeling-layout.is-mobile-tree .kc-wren-inspector,
-  .kc-wren-modeling-layout.is-mobile-metadata .kc-wren-sidebar,
-  .kc-wren-modeling-layout.is-mobile-metadata .kc-wren-diagram {
+  .kc-wren-modeling-layout.is-mobile-inspector .kc-wren-sidebar,
+  .kc-wren-modeling-layout.is-mobile-inspector .kc-wren-diagram,
+  .kc-wren-modeling-layout.is-mobile-run .kc-wren-sidebar,
+  .kc-wren-modeling-layout.is-mobile-run .kc-wren-inspector {
     display: none;
   }
 
@@ -4433,12 +4453,13 @@
   }
 
   .kc-wren-modeling-layout.is-mobile-tree .kc-wren-sidebar,
-  .kc-wren-modeling-layout.is-mobile-metadata .kc-wren-inspector {
+  .kc-wren-modeling-layout.is-mobile-inspector .kc-wren-inspector {
     display: flex;
   }
 
   .kc-semantic-layout.is-mobile-canvas .kc-semantic-canvas,
-  .kc-wren-modeling-layout.is-mobile-canvas .kc-wren-diagram {
+  .kc-wren-modeling-layout.is-mobile-canvas .kc-wren-diagram,
+  .kc-wren-modeling-layout.is-mobile-run .kc-wren-diagram {
     display: block;
   }
 
@@ -4459,9 +4480,16 @@
   }
 
   .kc-wren-topbar,
-  .kc-byaan-workspace-head {
+  .kc-byaan-workspace-head,
+  .adm-modeling-topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .adm-modeling-actions {
+    justify-content: flex-start;
+    width: 100%;
+    overflow-x: auto;
   }
 
   .kc-byaan-original-notebook-header {
@@ -5946,18 +5974,308 @@
   clip: auto;
 }
 
-.kc-semantic-agent-workbench {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  gap: 12px;
-}
-
+.kc-semantic-agent-workbench,
 .kc-semantic-composite {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
+}
+
+.kc-semantic-workspace {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.kc-semantic-builder-bar {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(260px, 1.4fr) minmax(180px, 0.9fr) auto auto auto auto;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--panel));
+}
+
+.kc-builder-control {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.kc-builder-control > span,
+.kc-data-context-popover label > span,
+.kc-data-context-popover section > span {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.kc-builder-control select,
+.kc-builder-control input,
+.kc-data-context-popover select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12px;
+}
+
+.kc-builder-name {
+  min-width: 150px;
+}
+
+.kc-data-context-selector {
+  position: relative;
+  min-width: 0;
+}
+
+.kc-data-context-trigger {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  text-align: left;
+}
+
+.kc-data-context-trigger span {
+  display: grid;
+  min-width: 0;
+}
+
+.kc-data-context-trigger strong,
+.kc-data-context-trigger em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc-data-context-trigger em {
+  color: hsl(var(--muted-foreground));
+  font-size: 10.5px;
+  font-style: normal;
+}
+
+.kc-data-context-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 15;
+  display: grid;
+  width: min(420px, calc(100vw - 32px));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--panel));
+  box-shadow: 0 20px 60px hsl(0 0% 0% / 0.2);
+}
+
+.kc-data-context-popover label,
+.kc-data-context-popover section,
+.kc-compact-form,
+.kc-training-panel {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.kc-builder-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--muted) / 0.55);
+  color: hsl(var(--foreground));
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.kc-builder-chip.is-running,
+.kc-builder-chip.is-building,
+.kc-builder-chip.is-pending,
+.kc-builder-chip.is-queued {
+  border-color: hsl(211 64% 45% / 0.25);
+  background: hsl(211 80% 96%);
+  color: hsl(211 64% 35%);
+}
+
+.kc-builder-chip.is-succeeded {
+  border-color: hsl(145 58% 42% / 0.28);
+  background: hsl(145 60% 95%);
+  color: hsl(145 58% 28%);
+}
+
+.kc-builder-chip.is-failed,
+.kc-builder-chip.is-blocked {
+  border-color: hsl(0 70% 55% / 0.25);
+  background: hsl(0 80% 96%);
+  color: hsl(0 70% 36%);
+}
+
+.adm-modeling-secondarybar {
+  justify-content: flex-end;
+  padding: 8px 10px;
+}
+
+.kc-semantic-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  justify-content: flex-end;
+  background: hsl(0 0% 0% / 0.2);
+}
+
+.kc-semantic-side-drawer {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  width: min(620px, 100vw);
+  height: 100%;
+  gap: 12px;
+  padding: 14px;
+  border-left: 1px solid hsl(var(--border));
+  background: hsl(var(--panel));
+  box-shadow: -22px 0 70px hsl(0 0% 0% / 0.22);
+  overflow: auto;
+}
+
+.kc-semantic-side-drawer > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.kc-semantic-side-drawer > header strong,
+.kc-run-detail-summary h3,
+.kc-semantic-side-drawer section > h3 {
+  display: block;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.kc-semantic-side-drawer > header span {
+  display: block;
+  margin-top: 2px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.kc-semantic-stage-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kc-semantic-stage-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.kc-semantic-stage-list li.is-running {
+  border-color: hsl(211 64% 45% / 0.28);
+  color: hsl(211 64% 35%);
+}
+
+.kc-semantic-stage-list li.is-done {
+  border-color: hsl(145 58% 42% / 0.25);
+  color: hsl(145 58% 28%);
+}
+
+.kc-semantic-stage-list li.is-blocked {
+  border-color: hsl(0 70% 55% / 0.25);
+  color: hsl(0 70% 36%);
+}
+
+.kc-run-detail-summary,
+.kc-semantic-side-drawer section {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kc-run-detail-summary dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.kc-run-detail-summary div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+}
+
+.kc-run-detail-summary dt {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+
+.kc-run-detail-summary dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.kc-training-panel input,
+.kc-training-panel select,
+.kc-training-panel textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12px;
+}
+
+.kc-training-panel input,
+.kc-training-panel select {
+  height: 34px;
+  padding: 0 9px;
+}
+
+.kc-training-panel textarea {
+  min-height: 92px;
+  padding: 8px 9px;
+  resize: vertical;
 }
 
 .kc-semantic-agent-head,

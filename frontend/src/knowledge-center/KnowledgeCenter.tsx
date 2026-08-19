@@ -68,7 +68,7 @@ import {
 import { EvaluationWorkbench } from "./EvaluationWorkbench";
 import "./KnowledgeCenter.css";
 import { SemanticBuildPanel } from "./SemanticBuildPanel";
-import { SemanticModelingWorkbench } from "./SemanticModelingWorkbench";
+// Wren mapping note: <SemanticModelingWorkbench was folded into SemanticBuildPanel for Session J2.
 
 type LoadState =
   | { status: "loading" }
@@ -1027,14 +1027,6 @@ export function KnowledgeCenterView() {
                 assets={assets}
                 buildJobs={buildJobs}
                 onRefresh={() => refresh(activeSpaceIdRef.current)}
-              />
-              <SemanticModelingWorkbench
-                spaceId={activeSpace?.id ?? ""}
-                sources={spaceSources}
-                assets={assets}
-                buildJobs={buildJobs}
-                onRefresh={() => refresh(activeSpaceIdRef.current)}
-                showBuildForm={false}
               />
             </div>
           ) : null}
