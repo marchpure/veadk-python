@@ -261,13 +261,21 @@ export function AskDashboardWorkbench({
           round.id === roundId
             ? {
                 ...round,
-                status: payload?.status === "completed" ? "completed" : payload?.status === "blocked" ? "blocked" : "error",
+                status: payload?.status === "completed"
+                  ? "completed"
+                  : payload?.status === "blocked"
+                    ? "blocked"
+                    : hasFinalText(acc.blocks)
+                      ? "completed"
+                      : "error",
                 result: payload,
                 acc,
                 blocks: acc.blocks,
                 conversationId,
                 sessionId,
-                error: payload ? undefined : "AskTable stream ended without a governed query result.",
+                error: payload || hasFinalText(acc.blocks)
+                  ? undefined
+                  : "AskTable stream ended without a governed query result.",
               }
             : round,
         ),
