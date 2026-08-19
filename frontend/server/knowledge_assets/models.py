@@ -239,6 +239,46 @@ class UpdateSemanticReviewStatusBody(ApiModel):
     status: str | None = Field(default=None, max_length=80)
 
 
+class SemanticBuilderConversationBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    draft_pack_id: str | None = Field(default=None, max_length=256)
+    title: str = Field(default="Semantic Builder conversation", max_length=300)
+    source_ids: list[str] = Field(default_factory=list)
+    snapshot_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("source_ids", "snapshot_ids")
+    @classmethod
+    def _clean_ids(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
+class SemanticBuilderMessageBody(ApiModel):
+    message: str = Field(min_length=1, max_length=4000)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+
+
+class SemanticBuilderPublishBody(ApiModel):
+    publish: bool = True
+
+
+class SemanticBuilderViewDraftBody(ApiModel):
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=1000)
+    base_metric: str = Field(default="", max_length=256)
+    dimensions: list[str] = Field(default_factory=list)
+    filters: list[dict[str, Any]] = Field(default_factory=list)
+    time_grain: str = Field(default="month", max_length=80)
+    query_spec: dict[str, Any] = Field(default_factory=dict)
+    generated_sql: str = Field(default="", max_length=12000)
+
+    @field_validator("dimensions")
+    @classmethod
+    def _clean_dimensions(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
 class QueryExternalAssetBody(ApiModel):
     metric: str = Field(default="", max_length=256)
     dimension: str | None = Field(default=None, max_length=256)
@@ -260,6 +300,10 @@ __all__ = [
     "RecordSkillPackageBody",
     "RecordSnapshotBody",
     "SaveCredentialBody",
+    "SemanticBuilderConversationBody",
+    "SemanticBuilderMessageBody",
+    "SemanticBuilderPublishBody",
+    "SemanticBuilderViewDraftBody",
     "SemanticInstructionBody",
     "SemanticQuestionSqlPairBody",
     "UpdateBuildJobBody",

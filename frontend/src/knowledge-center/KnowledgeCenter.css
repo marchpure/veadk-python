@@ -6130,6 +6130,143 @@
   color: hsl(0 70% 36%);
 }
 
+.kc-semantic-feedback,
+.kc-semantic-patch-diff,
+.kc-semantic-view-dialog {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--panel));
+}
+
+.kc-semantic-feedback {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.kc-semantic-feedback label,
+.kc-semantic-view-dialog label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.kc-semantic-feedback label > span,
+.kc-semantic-view-dialog label > span,
+.kc-semantic-patch-diff header span {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.kc-semantic-feedback textarea,
+.kc-semantic-view-dialog input,
+.kc-semantic-view-dialog textarea,
+.kc-semantic-view-dialog select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12px;
+}
+
+.kc-semantic-feedback textarea,
+.kc-semantic-view-dialog textarea {
+  min-height: 64px;
+  padding: 8px 9px;
+  resize: vertical;
+}
+
+.kc-semantic-view-dialog input,
+.kc-semantic-view-dialog select {
+  height: 34px;
+  padding: 0 9px;
+}
+
+.kc-semantic-feedback button,
+.kc-semantic-view-dialog footer button {
+  min-height: 34px;
+}
+
+.kc-semantic-patch-diff header,
+.kc-semantic-view-dialog header,
+.kc-semantic-view-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.kc-semantic-patch-diff header strong,
+.kc-semantic-view-dialog header strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.kc-semantic-patch-diff > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kc-semantic-patch-diff article {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+}
+
+.kc-semantic-patch-diff article span,
+.kc-semantic-patch-diff article small {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.kc-semantic-view-dialog {
+  align-self: center;
+  width: min(520px, calc(100vw - 24px));
+  margin: auto;
+  box-shadow: 0 22px 70px hsl(0 0% 0% / 0.24);
+}
+
+.kc-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kc-review-grid span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+}
+
+.kc-review-grid strong {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.kc-review-grid em {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-style: normal;
+}
+
 .adm-modeling-secondarybar {
   justify-content: flex-end;
   padding: 8px 10px;

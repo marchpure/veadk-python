@@ -47,6 +47,10 @@ from .models import (
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    SemanticBuilderConversationBody,
+    SemanticBuilderMessageBody,
+    SemanticBuilderPublishBody,
+    SemanticBuilderViewDraftBody,
     SemanticInstructionBody,
     SemanticQuestionSqlPairBody,
     UpdateBuildJobBody,
@@ -195,9 +199,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/sources")
     async def list_sources(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         items = await invoke(lambda: store.list_sources(space_id=space_id))
         return {"items": items, "total": len(items), "mock": False}
@@ -242,9 +244,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/indexed-documents")
     async def list_indexed_documents(
-        source_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         items = await invoke(lambda: store.list_indexed_documents(source_id=source_id))
         return {"items": items, "total": len(items), "mock": False}
@@ -295,7 +295,9 @@ def mount_knowledge_asset_routes(
         job = await invoke(lambda: semantic_agent.enqueue(request))
 
         async def stream_events():
-            yield _sse("job_status", {"status": "queued", "job": job, "job_id": job["id"]})
+            yield _sse(
+                "job_status", {"status": "queued", "job": job, "job_id": job["id"]}
+            )
             async for event in semantic_agent.stream(job["id"], request):
                 yield _sse(event["event_type"], event)
 
@@ -314,6 +316,54 @@ def mount_knowledge_asset_routes(
             lambda: store.list_build_events(job_id, after_sequence=after_sequence)
         )
         return {"items": items, "total": len(items), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/semantic-builder/conversations",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_semantic_builder_conversation(
+        body: SemanticBuilderConversationBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.create_semantic_builder_conversation(body))
+
+    @app.get("/api/knowledge-assets/semantic-builder/conversations/{conversation_id}")
+    async def get_semantic_builder_conversation(
+        conversation_id: str,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.get_semantic_builder_conversation(conversation_id)
+        )
+
+    @app.post(
+        "/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/messages"
+    )
+    async def refine_semantic_builder_conversation(
+        conversation_id: str,
+        body: SemanticBuilderMessageBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.refine_semantic_builder_conversation(conversation_id, body)
+        )
+
+    @app.post("/api/knowledge-assets/semantic-builder/drafts/{asset_id}/views")
+    async def create_semantic_builder_view_draft(
+        asset_id: str,
+        body: SemanticBuilderViewDraftBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.create_semantic_builder_view_draft(asset_id, body)
+        )
+
+    @app.post("/api/knowledge-assets/semantic-builder/drafts/{asset_id}/publish")
+    async def publish_semantic_builder_draft(
+        asset_id: str,
+        body: SemanticBuilderPublishBody,
+    ) -> dict[str, Any]:
+        if not body.publish:
+            raise _convert_error(
+                KnowledgeAssetServiceError("publish=false 不会发布语义草案。")
+            )
+        return await invoke(lambda: store.publish_semantic_builder_draft(asset_id))
 
     async def _run_semantic_skill_build(
         builder: SemanticBuilderAgent,
@@ -336,15 +386,9 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/build-jobs")
     async def list_build_jobs(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
-        source_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
-        asset_id: Annotated[
-            str | None, Query(min_length=1, max_length=256)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+        asset_id: Annotated[str | None, Query(min_length=1, max_length=256)] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
     ) -> dict[str, Any]:
         items = await invoke(
@@ -519,9 +563,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/workbench/overview")
     async def workbench_overview(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         return await invoke(lambda: store.overview(space_id=space_id))
 
@@ -542,12 +584,8 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/snapshots")
     async def list_snapshots(
-        asset_id: Annotated[
-            str | None, Query(min_length=1, max_length=256)
-        ] = None,
-        source_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        asset_id: Annotated[str | None, Query(min_length=1, max_length=256)] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         items = await invoke(
             lambda: store.list_snapshots(asset_id=asset_id, source_id=source_id)
@@ -563,9 +601,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/skill-packages")
     async def list_skill_packages(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
         q: Annotated[str, Query(max_length=200)] = "",
         asset_type: Annotated[list[KnowledgeAssetType] | None, Query()] = None,
         capability_kind: Annotated[
@@ -650,7 +686,9 @@ def mount_knowledge_asset_routes(
         return await query_knowledge_asset(asset_type, asset_id, body)
 
     @app.get("/api/knowledge-assets/assets/{asset_type}/{asset_id}")
-    async def get_asset(asset_type: KnowledgeAssetType, asset_id: str) -> dict[str, Any]:
+    async def get_asset(
+        asset_type: KnowledgeAssetType, asset_id: str
+    ) -> dict[str, Any]:
         return await invoke(
             lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
         )

@@ -3,12 +3,12 @@
   "baseUrl": "http://127.0.0.1:8000",
   "apiUrl": "http://127.0.0.1:8000",
   "seed": {
-    "space_id": "space_5ccd4ec20d3843a99b608ddb0f3242ef",
-    "source_id": "src_c70ef9c41fff4e94b9001772f7602333",
-    "document_source_id": "src_043942277e6e4e20bb767246cc934460",
-    "snapshot_id": "snap_63d0064c524c40f3a6fa5435084f5cf9"
+    "space_id": "space_eccaeb656cb0412dab60f0f94147bc42",
+    "source_id": "src_3555f55b400440119abc0862c80e00bf",
+    "document_source_id": "src_c9a7263151ca4e3c9b2e585b1b0790c6",
+    "snapshot_id": "snap_ec20b4aa89c7467a9cbba3d910015d23"
   },
-  "durationSeconds": 6.17,
+  "durationSeconds": 6.5,
   "desktop": {
     "health": {
       "configured": true,
@@ -20,14 +20,14 @@
           "status": "available",
           "runner_backend": "veadk.Agent+Runner",
           "model_name": "doubao-seed-2-0-lite-260428",
-          "deterministic_fallback_enabled": false
+          "deterministic_fallback_enabled": true
         },
         "asktable_dashboard": {
           "configured": true,
           "status": "available",
           "runner_backend": "veadk.Agent+Runner",
           "model_name": "doubao-seed-2-0-lite-260428",
-          "deterministic_fallback_enabled": false
+          "deterministic_fallback_enabled": true
         }
       },
       "capabilities": [
@@ -39,7 +39,7 @@
       ]
     },
     "latestJob": {
-      "id": "job_372bbdfc69c04463b453f49ac956f062",
+      "id": "job_efe2596affc642af9fd9a3513e99b3b8",
       "status": "succeeded",
       "result_skill_id": "skill",
       "publish_state": "published",
@@ -92,8 +92,14 @@
       "graph_relations": 1,
       "alignments": 4,
       "browser_question_persisted": true,
-      "browser_instruction_persisted": true
-    }
+      "browser_instruction_persisted": true,
+      "browser_view_persisted": true,
+      "refine_revision_persisted": true
+    },
+    "semanticSkillCount": 1,
+    "semanticSkillNames": [
+      "销售语义问数 Skill"
+    ]
   },
   "mobile": {
     "horizontalOverflowPx": 0

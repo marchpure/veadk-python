@@ -32,6 +32,8 @@ import Diagram from "./original/diagram";
 import ModelingSidebar from "./original/sidebar/Modeling";
 import type { ClickPayload, WrenOriginalDiagram, WrenOriginalRelationship, WrenTreeRow } from "./original/types";
 
+export type WrenInspectorTab = "review" | "evidence" | "evals" | "advanced";
+
 export type WrenSourcePortSelection =
   | { type: "node"; id: string; data: WrenSourcePortNode }
   | { type: "edge"; id: string; data: Record<string, unknown> }
@@ -111,6 +113,8 @@ export function WrenModelingSourcePort({
   onOpenRunDetails,
   onOpenTraining,
   onRunEval,
+  onCreateView,
+  onPublish,
   intent,
   targetDomain,
   publish,
@@ -125,8 +129,8 @@ export function WrenModelingSourcePort({
   onQueryChange: (value: string) => void;
   selectedItem: WrenSourcePortSelection;
   onSelect: (selection: WrenSourcePortSelection) => void;
-  inspector: "metadata" | "mdl" | "evidence" | "evals";
-  onInspectorChange: (value: "metadata" | "mdl" | "evidence" | "evals") => void;
+  inspector: WrenInspectorTab;
+  onInspectorChange: (value: WrenInspectorTab) => void;
   onSelectAsset: (id: string) => void;
   onSelectSource: (id: string) => void;
   onSelectSnapshot: (id: string) => void;
@@ -134,6 +138,8 @@ export function WrenModelingSourcePort({
   onOpenRunDetails: () => void;
   onOpenTraining: (tab: "training" | "governance") => void;
   onRunEval: () => void;
+  onCreateView: () => void;
+  onPublish: () => void;
   intent: string;
   targetDomain: string;
   publish: boolean;
@@ -175,7 +181,11 @@ export function WrenModelingSourcePort({
   const metricRows = editableViewModel.modeling.metrics.map(metricToTreeRow);
   const publishStatus = publishStatusText(editableViewModel);
   const publishActionReason = publishActionDisabledReason(editableViewModel);
-  const draftCount = draftModels.length + draftRelationships.length + draftMetrics.length;
+  const canPublish = Boolean(
+    editableViewModel.selectedAsset
+      && editableViewModel.selectedAsset.publish_state !== "published"
+      && !editableViewModel.selectedAsset.gate?.blockers?.length,
+  );
 
   const openNewModelEditor = () => {
     const next = { ...emptyModelDraft, id: `draft_model_${draftModels.length + 1}`, displayName: "Draft Model", table: "draft_model" };
@@ -271,31 +281,36 @@ export function WrenModelingSourcePort({
             <Plus className="kc-native-icon" />
             Metric
           </button>
+          <button type="button" onClick={onCreateView} disabled={!editableViewModel.selectedAsset} title={editableViewModel.selectedAsset ? "Create and persist a Semantic Builder view draft." : "Generate or select a Semantic Pack first."}>
+            <Plus className="kc-native-icon" />
+            New View
+          </button>
           <button type="button" onClick={onRefresh}>
             <RefreshCw className="kc-native-icon" />
             Refresh
           </button>
-          <button type="button" onClick={() => onInspectorChange("mdl")} disabled={!hasMdl}>
+          <button type="button" onClick={() => onInspectorChange("advanced")} disabled={!hasMdl}>
             <FileJson className="kc-native-icon" />
-            MDL
+            Advanced
           </button>
           <button type="button" onClick={() => onOpenTraining("training")}>
-            Training Examples
+            教 Agent 问数口径
           </button>
           <button type="button" onClick={() => onOpenTraining("governance")}>
-            Governance Rules
+            规则/禁用口径
           </button>
           <button type="button" onClick={onOpenRunDetails}>
-            Run Details
+            运行详情
           </button>
           <button type="button" onClick={onRunEval} disabled={!viewModel.selectedAsset} title={!viewModel.selectedAsset ? "Generate or select a Semantic Skill before running eval." : "Run Semantic Skill eval"}>
-            Run Eval
+            运行测评
           </button>
           <button
             type="button"
-            disabled
+            disabled={!canPublish}
+            onClick={onPublish}
             title={publishActionReason}
-            aria-disabled="true"
+            aria-disabled={!canPublish}
           >
             <Rocket className="kc-native-icon" />
             Publish
@@ -304,12 +319,9 @@ export function WrenModelingSourcePort({
       </header>
 
       <div className="kc-agent-status-strip adm-deploy-status">
-        <StatusChip label="Build" value={editableViewModel.status.buildStatus} />
-        <StatusChip label="Agent" value={editableViewModel.status.agentStatus} />
-        <StatusChip label="Runner" value={editableViewModel.status.runnerBackend} />
-        <StatusChip label="Mode" value={editableViewModel.status.generationMode} />
-        <StatusChip label="Drafts" value={draftCount ? `${draftCount} local` : "none"} />
-        <StatusChip label="Publish" value={publishStatus} />
+        <StatusChip label="构建" value={userFacingBuildStatus(editableViewModel.status.buildStatus)} />
+        <StatusChip label="Agent" value={userFacingAgentStatus(editableViewModel.status.agentStatus)} />
+        <StatusChip label="发布" value={publishStatus} />
       </div>
 
       <div className="kc-mobile-workbench-tabs" role="tablist" aria-label="Wren modeling mobile panes">
@@ -363,7 +375,7 @@ export function WrenModelingSourcePort({
             onAddClick={(payload) => {
               const target = "targetNodeType" in payload ? payload.targetNodeType : "";
               if (!isModelLike(payload.data)) {
-                onInspectorChange("metadata");
+                onInspectorChange("review");
                 return;
               }
               const model = payload.data;
@@ -393,7 +405,7 @@ export function WrenModelingSourcePort({
                 setEditorKind("metric");
                 return;
               }
-              onInspectorChange("metadata");
+              onInspectorChange("review");
             }}
           />
         </main>
@@ -445,8 +457,8 @@ function MetadataDrawer({
 }: {
   viewModel: WrenSourcePortViewModel;
   selectedItem: WrenSourcePortSelection;
-  inspector: "metadata" | "mdl" | "evidence" | "evals";
-  onInspectorChange: (value: "metadata" | "mdl" | "evidence" | "evals") => void;
+  inspector: WrenInspectorTab;
+  onInspectorChange: (value: WrenInspectorTab) => void;
   onEditSelected: () => void;
   intent: string;
   targetDomain: string;
@@ -488,16 +500,18 @@ function MetadataDrawer({
   const alignments = arrayValue(semanticPackage.alignments);
   const ontologyCandidates = arrayValue(docGraph.ontology_candidates);
   const provenance = objectValue(viewModel.selectedAsset?.provenance);
+  const permissions = objectValue(viewModel.mdl.permissions);
+  const blockers = viewModel.selectedAsset?.gate?.blockers ?? [];
   return (
     <aside className="kc-wren-inspector adm-metadata-drawer" data-testid="wren-source-port-inspector">
       <div className="adm-metadata-tabs" role="tablist" aria-label="Wren metadata inspector">
-        {(["metadata", "mdl", "evidence", "evals"] as const).map((item) => (
+        {(["review", "evidence", "evals", "advanced"] as const).map((item) => (
           <button key={item} type="button" className={inspector === item ? "is-active" : ""} onClick={() => onInspectorChange(item)}>
-            {item === "metadata" ? "Metadata" : item === "mdl" ? "MDL" : item === "evidence" ? "Evidence" : "Evals"}
+            {item === "review" ? "Review" : item === "evidence" ? "Evidence" : item === "evals" ? "Evals" : "Advanced"}
           </button>
         ))}
       </div>
-      {inspector === "metadata" ? (
+      {inspector === "review" ? (
         <div className="adm-metadata-stack">
           <section>
             <div className="adm-section-title-row">
@@ -516,30 +530,31 @@ function MetadataDrawer({
             </dl>
           </section>
           <section>
+            <h3>语义草案 Review</h3>
+            <div className="kc-review-grid">
+              <ReviewStat label="Models" value={viewModel.modeling.models.length} />
+              <ReviewStat label="Relationships" value={viewModel.modeling.relationships.length} />
+              <ReviewStat label="Metrics" value={viewModel.modeling.metrics.length} />
+              <ReviewStat label="Dimensions" value={dimensionCount(viewModel)} />
+              <ReviewStat label="Views" value={viewModel.modeling.views.length} />
+              <ReviewStat label="Policies" value={policyCount(permissions)} />
+              <ReviewStat label="Evidence" value={evidence.length} />
+              <ReviewStat label="Few-shot QA" value={arrayValue(semanticPackage.few_shot).length} />
+            </div>
+          </section>
+          <section>
             <h3>Semantic Builder</h3>
             <label><span>Domain</span><input value={targetDomain} onChange={(event) => onTargetDomainChange(event.target.value)} /></label>
             <label><span>Intent</span><textarea value={intent} onChange={(event) => onIntentChange(event.target.value)} /></label>
             <label className="kc-native-checkbox"><input type="checkbox" checked={publish} onChange={(event) => onPublishChange(event.target.checked)} /><span>Publish after build</span></label>
           </section>
           <section>
-            <h3>Build Gate</h3>
-            <dl>
-              <div><dt>Asset</dt><dd>{viewModel.selectedAsset?.name || "n/a"}</dd></div>
-              <div><dt>Version</dt><dd>{viewModel.selectedAsset?.version || "v1"}</dd></div>
-              <div><dt>Score</dt><dd>{String(viewModel.selectedAsset?.gate?.score || "n/a")}</dd></div>
-              <div><dt>Blocked</dt><dd>{viewModel.status.blockedReason}</dd></div>
-            </dl>
-          </section>
-        </div>
-      ) : inspector === "mdl" ? (
-        <div className="adm-metadata-stack">
-          <section>
-            <h3>Structured MDL</h3>
-            <pre className="kc-json-view"><code>{formatJson(viewModel.mdl)}</code></pre>
-          </section>
-          <section>
-            <h3>Selected Raw JSON</h3>
-            <pre className="kc-json-view"><code>{formatJson(raw)}</code></pre>
+            <h3>可发布检查</h3>
+            {blockers.length ? (
+              <CompactJsonList items={blockers} emptyText="" />
+            ) : (
+              <p className="adm-empty-note">当前没有阻断项。确认 Review 后可以发布。</p>
+            )}
           </section>
         </div>
       ) : inspector === "evidence" ? (
@@ -563,6 +578,14 @@ function MetadataDrawer({
         </div>
       ) : (
         <div className="adm-metadata-stack">
+          <section>
+            <h3>Structured MDL</h3>
+            <pre className="kc-json-view"><code>{formatJson(viewModel.mdl)}</code></pre>
+          </section>
+          <section>
+            <h3>Selected Raw JSON</h3>
+            <pre className="kc-json-view"><code>{formatJson(raw)}</code></pre>
+          </section>
           <section>
             <h3>Validation Gate</h3>
             <pre className="kc-json-view"><code>{formatJson(viewModel.selectedAsset?.gate ?? viewModel.latestJob?.output?.gate ?? {})}</code></pre>
@@ -727,6 +750,38 @@ function modelToNode(model: WrenModelingModel): WrenSourcePortNode {
 
 function StatusChip({ label, value }: { label: string; value: string }) {
   return <span><strong>{label}</strong><em>{value}</em></span>;
+}
+
+function ReviewStat({ label, value }: { label: string; value: number }) {
+  return <span><strong>{value}</strong><em>{label}</em></span>;
+}
+
+function dimensionCount(viewModel: WrenSourcePortViewModel): number {
+  return viewModel.modeling.models.reduce(
+    (total, model) => total + model.dimensions.length,
+    0,
+  );
+}
+
+function policyCount(permissions: Record<string, unknown>): number {
+  return Object.keys(permissions).filter((key) => permissions[key] !== undefined).length;
+}
+
+function userFacingBuildStatus(status: string): string {
+  if (status === "succeeded") return "草案已生成";
+  if (status === "blocked") return "需要处理";
+  if (status === "failed") return "生成失败";
+  if (["queued", "running", "pending", "building"].includes(status)) return "Agent 分析中";
+  return "待生成";
+}
+
+function userFacingAgentStatus(status: string): string {
+  if (status === "completed") return "已完成";
+  if (status === "not_configured") return "模型未配置";
+  if (status === "running") return "调用工具中";
+  if (status === "blocked") return "被阻断";
+  if (!status || status === "unknown") return "待开始";
+  return status;
 }
 
 function mergeById<T extends { id: string }>(base: T[], drafts: T[]): T[] {

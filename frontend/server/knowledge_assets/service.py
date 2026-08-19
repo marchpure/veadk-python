@@ -36,6 +36,9 @@ from .models import (
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    SemanticBuilderConversationBody,
+    SemanticBuilderMessageBody,
+    SemanticBuilderViewDraftBody,
     SemanticInstructionBody,
     SemanticQuestionSqlPairBody,
     UpdateBuildJobBody,
@@ -115,14 +118,18 @@ class KnowledgeAssetStore:
             "region": _sanitize_text(body.region or "") or None,
             "metadata_json": dumps_json(redact_sensitive(body.metadata)),
         }
-        return _space_payload(await asyncio.to_thread(self._repository.create_space, row))
+        return _space_payload(
+            await asyncio.to_thread(self._repository.create_space, row)
+        )
 
     async def list_spaces(self) -> list[dict[str, Any]]:
         rows = await asyncio.to_thread(self._repository.list_spaces)
         return [_space_payload(row) for row in rows]
 
     async def get_space(self, space_id: str) -> dict[str, Any]:
-        return _space_payload(await asyncio.to_thread(self._repository.get_space, space_id))
+        return _space_payload(
+            await asyncio.to_thread(self._repository.get_space, space_id)
+        )
 
     async def update_space(
         self, space_id: str, body: UpdateSpaceBody
@@ -356,7 +363,9 @@ class KnowledgeAssetStore:
                 "status": "needs_configuration",
                 "status_reason": "Studio 知识库导入服务未接入，无法写入 Viking。",
                 "next_action": "configure_backend",
-                "source_metadata": {"target_knowledge_base_id": target_knowledge_base_id},
+                "source_metadata": {
+                    "target_knowledge_base_id": target_knowledge_base_id
+                },
             }
         markdown, title, safe_url = await _source_markdown(body)
         content_hash = _content_hash(markdown)
@@ -414,7 +423,9 @@ class KnowledgeAssetStore:
             },
         }
 
-    async def list_sources(self, *, space_id: str | None = None) -> list[dict[str, Any]]:
+    async def list_sources(
+        self, *, space_id: str | None = None
+    ) -> list[dict[str, Any]]:
         rows = await asyncio.to_thread(self._repository.list_sources, space_id=space_id)
         return [_source_payload(row) for row in rows]
 
@@ -546,7 +557,9 @@ class KnowledgeAssetStore:
         self, body: RecordSkillPackageBody
     ) -> KnowledgeAssetMetadataEnvelope:
         values = body.model_dump(by_alias=True)
-        asset_id = values.get("asset_id") or values.get("package_id") or _new_id("asset")
+        asset_id = (
+            values.get("asset_id") or values.get("package_id") or _new_id("asset")
+        )
         values["asset_id"] = asset_id
         package_id = values.pop("package_id") or _stable_package_id(
             values["asset_type"], asset_id
@@ -590,6 +603,35 @@ class KnowledgeAssetStore:
         row = await asyncio.to_thread(
             self._repository.get_skill_package,
             package_id,
+        )
+        return _metadata_envelope(row)
+
+    async def patch_skill_package_asset(
+        self,
+        asset_id: str,
+        patch: Mapping[str, Any],
+    ) -> KnowledgeAssetMetadataEnvelope:
+        row_patch = {
+            key: value
+            for key, value in patch.items()
+            if key
+            in {
+                "status",
+                "publish_state",
+                "gate_json",
+                "capabilities_json",
+                "capability_package_json",
+                "provenance_json",
+                "usage_policy_json",
+                "sample_evidence_json",
+                "metadata_json",
+            }
+        }
+        row = await asyncio.to_thread(
+            self._repository.update_skill_package_by_asset,
+            "semantic_model",
+            asset_id,
+            row_patch,
         )
         return _metadata_envelope(row)
 
@@ -1017,6 +1059,256 @@ class KnowledgeAssetStore:
             )
         )
 
+    async def create_semantic_builder_conversation(
+        self,
+        body: SemanticBuilderConversationBody,
+    ) -> dict[str, Any]:
+        semantic_pack_id = (
+            _sanitize_text(body.semantic_pack_id or body.draft_pack_id or "") or None
+        )
+        row = {
+            "id": _new_id("sbc"),
+            "space_id": body.space_id,
+            "semantic_pack_id": semantic_pack_id,
+            "draft_pack_id": _sanitize_text(
+                body.draft_pack_id or semantic_pack_id or ""
+            )
+            or None,
+            "title": _sanitize_text(body.title or "Semantic Builder conversation"),
+            "source_ids_json": dumps_json(redact_sensitive(body.source_ids)),
+            "snapshot_ids_json": dumps_json(redact_sensitive(body.snapshot_ids)),
+            "metadata_json": dumps_json(redact_sensitive(body.metadata)),
+        }
+        conversation = _semantic_conversation_payload(
+            await asyncio.to_thread(self._repository.create_semantic_conversation, row)
+        )
+        revision = await self._append_semantic_builder_revision(
+            conversation["id"],
+            semantic_pack_id=conversation.get("semantic_pack_id"),
+            author_role="agent",
+            message="Conversation started for Semantic Builder draft.",
+            patch={"operation": "start_conversation"},
+            diff=[],
+            status="draft",
+        )
+        return {**conversation, "revisions": [revision]}
+
+    async def get_semantic_builder_conversation(
+        self,
+        conversation_id: str,
+    ) -> dict[str, Any]:
+        conversation = _semantic_conversation_payload(
+            await asyncio.to_thread(
+                self._repository.get_semantic_conversation,
+                conversation_id,
+            )
+        )
+        revisions = await asyncio.to_thread(
+            self._repository.list_semantic_revisions,
+            conversation_id,
+        )
+        return {
+            **conversation,
+            "revisions": [_semantic_revision_payload(row) for row in revisions],
+        }
+
+    async def refine_semantic_builder_conversation(
+        self,
+        conversation_id: str,
+        body: SemanticBuilderMessageBody,
+    ) -> dict[str, Any]:
+        conversation = _semantic_conversation_payload(
+            await asyncio.to_thread(
+                self._repository.get_semantic_conversation,
+                conversation_id,
+            )
+        )
+        semantic_pack_id = _sanitize_text(
+            body.semantic_pack_id
+            or str(
+                conversation.get("semantic_pack_id")
+                or conversation.get("draft_pack_id")
+                or ""
+            )
+        )
+        if not semantic_pack_id:
+            raise KnowledgeAssetServiceError("需要先生成或选择一个语义草案。")
+        detail = await self.semantic_pack_detail(semantic_pack_id)
+        package = dict(detail["asset"].get("capability_package") or {})
+        mdl = dict(detail.get("structured_mdl") or {})
+        before = _mdl_summary(mdl)
+        message = _sanitize_text(body.message)
+        patch, diff = _semantic_refine_patch(message, mdl)
+        _apply_semantic_refine_patch(mdl, patch)
+        package["mdl"] = mdl
+        package["structured_mdl"] = mdl
+        history = list(package.get("revision_history") or [])
+        revision = await self._append_semantic_builder_revision(
+            conversation_id,
+            semantic_pack_id=semantic_pack_id,
+            author_role="user",
+            message=message,
+            patch=patch,
+            diff=diff,
+            status="draft",
+        )
+        history.append(
+            {
+                "revision_id": revision["id"],
+                "conversation_id": conversation_id,
+                "message": message,
+                "patch": patch,
+                "diff": diff,
+                "created_at": revision["created_at"],
+            }
+        )
+        package["revision_history"] = history[-50:]
+        metadata = dict(detail["asset"].get("capabilities") or {})
+        metadata["draft_revision_count"] = len(history)
+        metadata["last_patch_summary"] = diff
+        await self.patch_skill_package_asset(
+            semantic_pack_id,
+            {
+                "status": "draft",
+                "publish_state": "draft",
+                "capability_package_json": dumps_json(redact_sensitive(package)),
+                "capabilities_json": dumps_json(redact_sensitive(metadata)),
+            },
+        )
+        updated = await self.semantic_pack_detail(semantic_pack_id)
+        after = _mdl_summary(updated.get("structured_mdl") or {})
+        return {
+            **await self.get_semantic_builder_conversation(conversation_id),
+            "semantic_pack_id": semantic_pack_id,
+            "latest_revision": revision,
+            "draft": updated,
+            "diff": diff or _summary_diff(before, after),
+            "mock": False,
+        }
+
+    async def create_semantic_builder_view_draft(
+        self,
+        asset_id: str,
+        body: SemanticBuilderViewDraftBody,
+    ) -> dict[str, Any]:
+        detail = await self.semantic_pack_detail(asset_id)
+        package = dict(detail["asset"].get("capability_package") or {})
+        mdl = dict(detail.get("structured_mdl") or {})
+        view = _semantic_view_draft(asset_id, body)
+        raw_views = mdl.get("views")
+        views = [
+            item
+            for item in (raw_views if isinstance(raw_views, list) else [])
+            if isinstance(item, Mapping) and item.get("id") != view["id"]
+        ]
+        views.append(view)
+        mdl["views"] = views
+        package["views"] = views
+        raw_entities = mdl.get("entities")
+        entities = [
+            item
+            for item in (raw_entities if isinstance(raw_entities, list) else [])
+            if not (isinstance(item, Mapping) and item.get("id") == view["id"])
+        ]
+        entities.append(_view_as_entity(view))
+        mdl["entities"] = entities
+        package["mdl"] = mdl
+        package["structured_mdl"] = mdl
+        history = list(package.get("revision_history") or [])
+        diff = [
+            {"kind": "views", "action": "added", "id": view["id"], "name": view["name"]}
+        ]
+        history.append(
+            {
+                "revision_id": _new_id("rev"),
+                "operation": "create_view",
+                "view_id": view["id"],
+                "diff": diff,
+            }
+        )
+        package["revision_history"] = history[-50:]
+        capabilities = dict(detail["asset"].get("capabilities") or {})
+        capabilities["views"] = [
+            str(item.get("id") or item.get("name"))
+            for item in views
+            if isinstance(item, Mapping)
+        ]
+        await self.patch_skill_package_asset(
+            asset_id,
+            {
+                "status": "draft",
+                "publish_state": "draft",
+                "capability_package_json": dumps_json(redact_sensitive(package)),
+                "capabilities_json": dumps_json(redact_sensitive(capabilities)),
+            },
+        )
+        return {
+            "schema": "agentkit.semantic_builder.view_draft.v1",
+            "semantic_pack_id": asset_id,
+            "view": view,
+            "diff": diff,
+            "draft": await self.semantic_pack_detail(asset_id),
+            "mock": False,
+        }
+
+    async def publish_semantic_builder_draft(self, asset_id: str) -> dict[str, Any]:
+        detail = await self.semantic_pack_detail(asset_id)
+        asset = detail["asset"]
+        gate = asset.get("gate") or {}
+        blockers = gate.get("blockers") if isinstance(gate, Mapping) else []
+        if isinstance(blockers, list) and blockers:
+            raise KnowledgeAssetServiceError("语义草案仍有阻断项，不能发布。")
+        metadata = {
+            **dict(asset.get("provenance") or {}),
+            "published_from": "semantic_builder_draft",
+            "published_at": _utc_now(),
+        }
+        updated = await self.patch_skill_package_asset(
+            asset_id,
+            {
+                "status": "ready",
+                "publish_state": "published",
+                "provenance_json": dumps_json(redact_sensitive(metadata)),
+            },
+        )
+        return {
+            "schema": "agentkit.semantic_builder.publish.v1",
+            "semantic_pack_id": asset_id,
+            "asset": updated,
+            "publish_state": updated["publish_state"],
+            "mock": False,
+        }
+
+    async def _append_semantic_builder_revision(
+        self,
+        conversation_id: str,
+        *,
+        semantic_pack_id: str | None,
+        author_role: str,
+        message: str,
+        patch: Mapping[str, Any],
+        diff: Sequence[Mapping[str, Any]],
+        status: str,
+    ) -> dict[str, Any]:
+        revision_number = await asyncio.to_thread(
+            self._repository.next_semantic_revision_number,
+            conversation_id,
+        )
+        row = {
+            "id": _new_id("rev"),
+            "conversation_id": conversation_id,
+            "semantic_pack_id": _sanitize_text(semantic_pack_id or "") or None,
+            "revision_number": revision_number,
+            "author_role": _sanitize_text(author_role),
+            "message": _sanitize_text(message),
+            "patch_json": dumps_json(redact_sensitive(dict(patch))),
+            "diff_json": dumps_json(redact_sensitive(list(diff))),
+            "status": _sanitize_text(status),
+        }
+        return _semantic_revision_payload(
+            await asyncio.to_thread(self._repository.append_semantic_revision, row)
+        )
+
     async def semantic_pack_detail(self, asset_id: str) -> dict[str, Any]:
         row = await asyncio.to_thread(
             self._repository.get_skill_package_by_asset,
@@ -1056,7 +1348,9 @@ class KnowledgeAssetStore:
             "few_shot": few_shot,
             "instructions": instructions,
             "graph_objects": await self.list_graph_objects(semantic_pack_id=asset_id),
-            "graph_relations": await self.list_graph_relations(semantic_pack_id=asset_id),
+            "graph_relations": await self.list_graph_relations(
+                semantic_pack_id=asset_id
+            ),
             "provenance": pack.get("provenance") or {},
             "policy": pack.get("usage_policy") or {},
             "eval_seed": package.get("eval_seed", {}),
@@ -1302,6 +1596,39 @@ def _alignment_payload(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _semantic_conversation_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "agentkit.semantic_builder.conversation.v1",
+        "id": row["id"],
+        "space_id": row["space_id"],
+        "semantic_pack_id": row.get("semantic_pack_id"),
+        "draft_pack_id": row.get("draft_pack_id"),
+        "title": row.get("title") or "Semantic Builder conversation",
+        "source_ids": loads_json(row.get("source_ids_json"), []),
+        "snapshot_ids": loads_json(row.get("snapshot_ids_json"), []),
+        "metadata": loads_json(row.get("metadata_json"), {}),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+        "mock": False,
+    }
+
+
+def _semantic_revision_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "agentkit.semantic_builder.revision.v1",
+        "id": row["id"],
+        "conversation_id": row["conversation_id"],
+        "semantic_pack_id": row.get("semantic_pack_id"),
+        "revision_number": int(row.get("revision_number") or 0),
+        "author_role": row.get("author_role") or "agent",
+        "message": row.get("message") or "",
+        "patch": loads_json(row.get("patch_json"), {}),
+        "diff": loads_json(row.get("diff_json"), []),
+        "status": row.get("status") or "draft",
+        "created_at": row.get("created_at"),
+    }
+
+
 def _snapshot_payload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -1337,6 +1664,396 @@ def _metadata_envelope(row: dict[str, Any]) -> KnowledgeAssetMetadataEnvelope:
         "usage_policy": loads_json(row.get("usage_policy_json"), {}),
         "sample_evidence": loads_json(row.get("sample_evidence_json"), []),
     }
+
+
+def _mdl_summary(mdl: Mapping[str, Any]) -> dict[str, int]:
+    return {
+        "models": len(_mapping_list(mdl.get("entities"))),
+        "relationships": len(_mapping_list(mdl.get("relationships"))),
+        "metrics": len(_mapping_list(mdl.get("metrics"))),
+        "dimensions": len(_mapping_list(mdl.get("dimensions"))),
+        "views": len(_mapping_list(mdl.get("views"))),
+        "policies": len(
+            _mapping_list(
+                (mdl.get("permissions") or {}).get("masked_fields")
+                if isinstance(mdl.get("permissions"), Mapping)
+                else []
+            )
+        ),
+    }
+
+
+def _summary_diff(
+    before: Mapping[str, int], after: Mapping[str, int]
+) -> list[dict[str, Any]]:
+    diff: list[dict[str, Any]] = []
+    for key in sorted(set(before) | set(after)):
+        old = int(before.get(key) or 0)
+        new = int(after.get(key) or 0)
+        if old != new:
+            diff.append(
+                {"kind": key, "action": "count_changed", "before": old, "after": new}
+            )
+    return diff
+
+
+def _semantic_refine_patch(
+    message: str,
+    mdl: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    normalized = message.strip()
+    lower = normalized.casefold()
+    patch: dict[str, Any] = {
+        "operation": "refine_semantic_draft",
+        "message": normalized,
+        "metric_updates": [],
+        "field_policy_updates": [],
+        "relationship_hints": [],
+        "view_suggestions": [],
+        "instruction": {
+            "kind": "semantic_builder_feedback",
+            "text": normalized,
+            "created_at": _utc_now(),
+        },
+    }
+    diff: list[dict[str, Any]] = []
+
+    for metric in _mapping_list(mdl.get("metrics")):
+        metric_id = str(metric.get("id") or metric.get("name") or "")
+        metric_name = str(
+            metric.get("name") or metric.get("business_name") or metric_id
+        )
+        metric_text = f"{metric_id} {metric_name}".casefold()
+        if metric_id and any(
+            token for token in _message_tokens(lower) if token in metric_text
+        ):
+            update: dict[str, Any] = {
+                "id": metric_id,
+                "definition_append": normalized,
+                "review_status": "needs_review",
+            }
+            if any(term in lower for term in ("distinct", "去重", "唯一")):
+                field_hint = _first_identifier_after(
+                    lower, ("distinct", "去重", "唯一")
+                )
+                update["formula_hint"] = (
+                    f"Use COUNT(DISTINCT {field_hint})"
+                    if field_hint
+                    else "Use COUNT(DISTINCT <confirmed_field>)"
+                )
+            if any(term in lower for term in ("refund", "退款", "扣除")):
+                update["formula_hint"] = (
+                    "Exclude or subtract refunded amount according to confirmed refund field."
+                )
+            patch["metric_updates"].append(update)
+            diff.append(
+                {
+                    "kind": "metrics",
+                    "action": "updated",
+                    "id": metric_id,
+                    "name": metric_name,
+                    "summary": normalized,
+                }
+            )
+            break
+
+    if any(term in lower for term in ("hide", "mask", "隐藏", "脱敏", "屏蔽")):
+        fields = _sensitive_fields_from_message(lower, mdl)
+        if not fields and any(term in lower for term in ("phone", "手机号", "电话")):
+            fields = ["phone"]
+        if fields:
+            patch["field_policy_updates"].append(
+                {
+                    "fields": fields,
+                    "policy": "masked",
+                    "reason": normalized,
+                }
+            )
+            diff.append(
+                {
+                    "kind": "policy",
+                    "action": "updated",
+                    "fields": fields,
+                    "summary": "字段将加入脱敏策略。",
+                }
+            )
+
+    if any(term in lower for term in ("dimension", "维表", "维度表", "lookup")):
+        entity = _mentioned_entity(lower, mdl)
+        hint = {
+            "entity": entity or "",
+            "semantic_role": "dimension_table",
+            "reason": normalized,
+        }
+        patch["relationship_hints"].append(hint)
+        diff.append(
+            {
+                "kind": "models",
+                "action": "annotated",
+                "id": entity or "unresolved_entity",
+                "summary": "标记为维表候选，需要后续关系确认。",
+            }
+        )
+
+    if "view" in lower or "视图" in lower or "趋势" in lower or "排行" in lower:
+        view_name = _suggested_view_name(normalized)
+        patch["view_suggestions"].append(
+            {
+                "name": view_name,
+                "description": normalized,
+                "time_grain": "month"
+                if any(term in lower for term in ("month", "月份", "月"))
+                else "",
+            }
+        )
+        diff.append(
+            {
+                "kind": "views",
+                "action": "suggested",
+                "name": view_name,
+                "summary": "已记录为 view draft 建议，可用 New View 固化。",
+            }
+        )
+
+    if not diff:
+        diff.append(
+            {
+                "kind": "instructions",
+                "action": "added",
+                "summary": "反馈已保存到下一轮 Semantic Builder 上下文。",
+            }
+        )
+    return patch, diff
+
+
+def _apply_semantic_refine_patch(mdl: dict[str, Any], patch: Mapping[str, Any]) -> None:
+    raw_instructions = mdl.get("instructions")
+    instructions = list(raw_instructions if isinstance(raw_instructions, list) else [])
+    instruction = patch.get("instruction")
+    if isinstance(instruction, Mapping):
+        instructions.append(dict(instruction))
+    mdl["instructions"] = instructions[-100:]
+
+    metrics = _mapping_list(mdl.get("metrics"))
+    metric_updates = _mapping_list(patch.get("metric_updates"))
+    for update in metric_updates:
+        target_id = str(update.get("id") or "")
+        if not target_id:
+            continue
+        for metric in metrics:
+            metric_id = str(metric.get("id") or metric.get("name") or "")
+            if metric_id != target_id:
+                continue
+            definition = str(
+                metric.get("definition") or metric.get("description") or ""
+            )
+            append = str(update.get("definition_append") or "")
+            if append and append not in definition:
+                metric["definition"] = (
+                    definition + "\n\nUser refinement: " + append
+                ).strip()
+            if update.get("formula_hint"):
+                metric["formula_hint"] = str(update["formula_hint"])
+            metric["review_status"] = str(update.get("review_status") or "needs_review")
+            metric["certification"] = "draft"
+    if metrics:
+        mdl["metrics"] = metrics
+
+    policy_updates = _mapping_list(patch.get("field_policy_updates"))
+    if policy_updates:
+        raw_permissions = mdl.get("permissions")
+        permissions = dict(
+            raw_permissions if isinstance(raw_permissions, Mapping) else {}
+        )
+        raw_masked_fields = permissions.get("masked_fields")
+        masked_fields = [
+            str(item)
+            for item in (
+                raw_masked_fields if isinstance(raw_masked_fields, list) else []
+            )
+            if str(item)
+        ]
+        for update in policy_updates:
+            raw_fields = update.get("fields")
+            for field in raw_fields if isinstance(raw_fields, list) else []:
+                field_name = str(field)
+                if field_name and field_name not in masked_fields:
+                    masked_fields.append(field_name)
+        permissions["masked_fields"] = masked_fields
+        permissions["raw_sql_fallback"] = False
+        mdl["permissions"] = permissions
+
+    relationship_hints = _mapping_list(patch.get("relationship_hints"))
+    if relationship_hints:
+        existing = _mapping_list(mdl.get("relationship_hints"))
+        mdl["relationship_hints"] = [*existing, *relationship_hints][-50:]
+
+    view_suggestions = _mapping_list(patch.get("view_suggestions"))
+    if view_suggestions:
+        existing = _mapping_list(mdl.get("view_suggestions"))
+        mdl["view_suggestions"] = [*existing, *view_suggestions][-50:]
+
+
+def _semantic_view_draft(
+    asset_id: str, body: SemanticBuilderViewDraftBody
+) -> dict[str, Any]:
+    name = _sanitize_text(body.name.strip())
+    view_id = f"view_{_safe_identifier(name) or hashlib.sha256(name.encode()).hexdigest()[:8]}"
+    dimensions = [_sanitize_text(item) for item in body.dimensions if item.strip()]
+    query_spec = {
+        **redact_sensitive(body.query_spec),
+        "base_metric": _sanitize_text(body.base_metric),
+        "dimensions": dimensions,
+        "filters": redact_sensitive(body.filters),
+        "time_grain": _sanitize_text(body.time_grain),
+    }
+    generated_sql = _sanitize_text(body.generated_sql)
+    if not generated_sql:
+        generated_sql = _view_query_sql(body.base_metric, dimensions, body.time_grain)
+    return {
+        "id": view_id,
+        "name": view_id,
+        "business_name": name,
+        "description": _sanitize_text(body.description),
+        "kind": "view",
+        "type": "view",
+        "base_metric": _sanitize_text(body.base_metric),
+        "dimensions": dimensions,
+        "filters": redact_sensitive(body.filters),
+        "time_grain": _sanitize_text(body.time_grain),
+        "query_spec": query_spec,
+        "generated_sql": generated_sql,
+        "sql": generated_sql,
+        "source": "semantic_builder_view_draft",
+        "status": "draft",
+        "created_from_asset_id": asset_id,
+    }
+
+
+def _view_as_entity(view: Mapping[str, Any]) -> dict[str, Any]:
+    fields = [
+        {
+            "name": "metric_value",
+            "source_field": str(view.get("base_metric") or "metric_value"),
+            "type": "metric",
+            "role": "measure",
+            "nullable": True,
+            "pii": False,
+        }
+    ]
+    raw_dimensions = view.get("dimensions")
+    for dimension in raw_dimensions if isinstance(raw_dimensions, list) else []:
+        fields.append(
+            {
+                "name": str(dimension),
+                "source_field": str(dimension),
+                "type": "dimension",
+                "role": "dimension",
+                "nullable": True,
+                "pii": False,
+            }
+        )
+    return {
+        "id": str(view.get("id") or view.get("name")),
+        "name": str(view.get("name") or view.get("id")),
+        "business_name": str(
+            view.get("business_name") or view.get("name") or view.get("id")
+        ),
+        "description": str(view.get("description") or ""),
+        "kind": "view",
+        "type": "view",
+        "entity_type": "view",
+        "table": str(view.get("id") or view.get("name")),
+        "fields": fields,
+        "properties": {
+            "base_metric": view.get("base_metric") or "",
+            "query_spec": view.get("query_spec") or {},
+            "generated_sql": view.get("generated_sql") or view.get("sql") or "",
+        },
+    }
+
+
+def _view_query_sql(
+    base_metric: str, dimensions: Sequence[str], time_grain: str
+) -> str:
+    metric = _safe_identifier(base_metric) or "metric_value"
+    select_parts = [metric]
+    select_parts.extend(
+        _safe_identifier(item) for item in dimensions if _safe_identifier(item)
+    )
+    grain = _safe_identifier(time_grain)
+    if grain:
+        select_parts.append(f"<time_field> /* grain: {grain} */")
+    return "SELECT " + ", ".join(select_parts) + " FROM <semantic_model> LIMIT 100"
+
+
+def _mapping_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, Mapping)]
+
+
+def _message_tokens(lower: str) -> list[str]:
+    return [
+        token
+        for token in re.split(r"[^a-z0-9_\u4e00-\u9fff]+", lower)
+        if len(token) >= 2
+    ]
+
+
+def _first_identifier_after(lower: str, markers: Sequence[str]) -> str:
+    for marker in markers:
+        if marker not in lower:
+            continue
+        tail = lower.split(marker, 1)[1]
+        match = re.search(r"[a-z_][a-z0-9_]{1,80}", tail)
+        if match:
+            return match.group(0)
+    return ""
+
+
+def _sensitive_fields_from_message(lower: str, mdl: Mapping[str, Any]) -> list[str]:
+    fields: set[str] = set()
+    for entity in _mapping_list(mdl.get("entities")):
+        raw_fields = entity.get("fields")
+        for field in raw_fields if isinstance(raw_fields, list) else []:
+            if not isinstance(field, Mapping):
+                continue
+            name = str(field.get("name") or field.get("source_field") or "")
+            if name and name.casefold() in lower:
+                fields.add(name)
+            if "phone" in lower and "phone" in name.casefold():
+                fields.add(name)
+            if "手机号" in lower and any(
+                term in name.casefold() for term in ("phone", "mobile", "tel")
+            ):
+                fields.add(name)
+    return sorted(fields)
+
+
+def _mentioned_entity(lower: str, mdl: Mapping[str, Any]) -> str:
+    for entity in _mapping_list(mdl.get("entities")):
+        entity_id = str(
+            entity.get("id") or entity.get("name") or entity.get("table") or ""
+        )
+        labels = {
+            entity_id.casefold(),
+            str(entity.get("name") or "").casefold(),
+            str(entity.get("table") or "").casefold(),
+            str(entity.get("business_name") or "").casefold(),
+        }
+        if any(label and label in lower for label in labels):
+            return entity_id
+    return ""
+
+
+def _suggested_view_name(message: str) -> str:
+    lowered = message.casefold()
+    if "趋势" in lowered or "trend" in lowered:
+        return "语义趋势视图"
+    if "排行" in lowered or "rank" in lowered or "top" in lowered:
+        return "语义排行视图"
+    return "语义分析视图"
 
 
 def _normalize_source_status(
@@ -1385,7 +2102,8 @@ def _source_capabilities(source_type: str, schema: Mapping[str, Any]) -> dict[st
         }
     return {
         "can_build_semantic_skill": False,
-        "can_create_retrieval_binding": normalized not in {"database", "oracle", "mysql", "postgres"},
+        "can_create_retrieval_binding": normalized
+        not in {"database", "oracle", "mysql", "postgres"},
     }
 
 
@@ -1422,7 +2140,9 @@ async def _source_markdown(body: ImportSourceBody) -> tuple[str, str, str]:
         content = (body.content or "").strip()
         if not content:
             if source_type in {"file", "pdf", "image"}:
-                raise KnowledgeAssetServiceError("文件导入需要上传内容或接入文件上传链路。")
+                raise KnowledgeAssetServiceError(
+                    "文件导入需要上传内容或接入文件上传链路。"
+                )
             raise KnowledgeAssetServiceError("本地/内网页面导入需要粘贴已清洗内容。")
         _assert_no_browser_secrets(content)
         title = (body.name or "本地资料").strip()
@@ -1548,14 +2268,18 @@ def _assert_no_browser_secrets(text: str) -> None:
         )
 
 
-def _normalize_schema_payload(value: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+def _normalize_schema_payload(
+    value: Mapping[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
     models = _object_list(value.get("models") or value.get("tables"))
     fields = _object_list(value.get("fields") or value.get("columns"))
     relationships = _object_list(value.get("relationships") or value.get("relations"))
     metrics = _object_list(value.get("metrics"))
     normalized_models = [
         {
-            "name": _safe_identifier(item.get("name") or item.get("table") or item.get("id")),
+            "name": _safe_identifier(
+                item.get("name") or item.get("table") or item.get("id")
+            ),
             "label": _sanitize_text(str(item.get("label") or item.get("name") or "")),
             "description": _sanitize_text(str(item.get("description") or "")),
         }
@@ -1571,7 +2295,9 @@ def _normalize_schema_payload(value: Mapping[str, Any]) -> dict[str, list[dict[s
             {
                 "name": name,
                 "model": _safe_identifier(item.get("model") or item.get("table")) or "",
-                "type": _sanitize_text(str(item.get("type") or item.get("data_type") or "string")),
+                "type": _sanitize_text(
+                    str(item.get("type") or item.get("data_type") or "string")
+                ),
                 "role": _sanitize_text(str(item.get("role") or "dimension")),
                 "description": _sanitize_text(str(item.get("description") or "")),
             }
@@ -1590,7 +2316,9 @@ def _normalize_schema_payload(value: Mapping[str, Any]) -> dict[str, list[dict[s
         "metrics": [
             {
                 "name": _safe_identifier(item.get("name") or item.get("id")),
-                "formula": _sanitize_text(str(item.get("formula") or item.get("sql") or "")),
+                "formula": _sanitize_text(
+                    str(item.get("formula") or item.get("sql") or "")
+                ),
                 "description": _sanitize_text(str(item.get("description") or "")),
             }
             for item in metrics
@@ -1618,7 +2346,10 @@ def _safe_identifier(value: object) -> str:
 
 def _slug(value: str | None) -> str:
     text = _safe_identifier(value or "")
-    return text.replace("_", "-") or f"asset-{hashlib.sha256(_utc_now().encode()).hexdigest()[:8]}"
+    return (
+        text.replace("_", "-")
+        or f"asset-{hashlib.sha256(_utc_now().encode()).hexdigest()[:8]}"
+    )
 
 
 def _content_hash(value: str) -> str:
@@ -1656,9 +2387,7 @@ def _asset_row(record_id: str, values: dict[str, Any]) -> dict[str, Any]:
         "gate_json": dumps_json(sanitized.get("gate")) if values.get("gate") else None,
         "consumers_json": dumps_json(sanitized.get("consumers", [])),
         "capabilities_json": dumps_json(sanitized.get("capabilities", {})),
-        "capability_package_json": dumps_json(
-            sanitized.get("capability_package", {})
-        ),
+        "capability_package_json": dumps_json(sanitized.get("capability_package", {})),
         "query_url": _safe_query_url(values.get("query_url")),
         "freshness_json": dumps_json(sanitized.get("freshness", {})),
         "provenance_json": dumps_json(sanitized.get("provenance", {})),
@@ -1683,7 +2412,9 @@ def _decode_cursor(cursor: str | None) -> int:
     try:
         value = int(cursor)
     except ValueError as error:
-        raise KnowledgeAssetServiceError("Knowledge asset cursor is invalid.") from error
+        raise KnowledgeAssetServiceError(
+            "Knowledge asset cursor is invalid."
+        ) from error
     if value < 0:
         raise KnowledgeAssetServiceError("Knowledge asset cursor is invalid.")
     return value

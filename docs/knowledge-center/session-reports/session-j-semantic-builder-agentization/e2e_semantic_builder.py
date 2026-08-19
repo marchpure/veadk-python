@@ -4,17 +4,24 @@ import json
 import time
 from pathlib import Path
 from urllib import request
+from urllib.parse import quote
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, expect, sync_playwright
-
 
 ROOT = Path(__file__).resolve().parent
 SCREENSHOTS = ROOT / "screenshots"
 API_URL = "http://127.0.0.1:8000"
 BASE_URL = API_URL
+WORKBENCH_SELECTOR = "[data-testid='semantic-builder-workspace']"
 BROWSER_QUESTION = "Browser E2E sales by month"
 BROWSER_SQL = "select strftime('%Y-%m', order_date) as month, sum(amount) as sales from sales_order group by 1"
-BROWSER_INSTRUCTION = "Use order_date as the default sales time grain for browser E2E checks."
+BROWSER_INSTRUCTION = (
+    "Use order_date as the default sales time grain for browser E2E checks."
+)
+BROWSER_FEEDBACK = "把 ticket_count 定义改成 distinct order_id，并隐藏 customer_phone。"
+BROWSER_VIEW_NAME = "Browser monthly sales trend"
+BROWSER_VIEW_ID = "view_browser_monthly_sales_trend"
 
 
 def api_get(path: str) -> dict:
@@ -105,7 +112,12 @@ def seed_session_space() -> dict:
                     },
                 ]
             },
-            "profile": {"snapshot": {"id": f"browser-e2e-{suffix}", "hash": f"session-j-{suffix}"}},
+            "profile": {
+                "snapshot": {
+                    "id": f"browser-e2e-{suffix}",
+                    "hash": f"session-j-{suffix}",
+                }
+            },
         },
     )
     return {"space": space, "source": source, "doc": doc, "snapshot": snapshot}
@@ -119,70 +131,176 @@ def click_text(page: Page, text: str) -> None:
 
 def open_knowledge_center(page: Page, space_name: str | None = None) -> None:
     page.goto(BASE_URL, wait_until="networkidle")
-    if page.get_by_placeholder("用户名（字母 + 数字，最多 16 位）").is_visible(timeout=3_000):
+    if page.get_by_placeholder("用户名（字母 + 数字，最多 16 位）").is_visible(
+        timeout=3_000
+    ):
         page.get_by_placeholder("用户名（字母 + 数字，最多 16 位）").fill("sessionj")
         page.get_by_label("进入").click()
         expect(page.get_by_label("知识资产")).to_be_visible(timeout=20_000)
     try:
         page.get_by_label("知识资产").click(timeout=8_000)
-    except Exception:
+    except PlaywrightError:
         page.get_by_title("知识资产").click(timeout=8_000)
     expect(page.get_by_text("资产空间", exact=True).first).to_be_visible(timeout=20_000)
     if space_name:
         click_text(page, space_name)
-        expect(page.get_by_role("heading", name=space_name, exact=True)).to_be_visible(timeout=20_000)
+        expect(page.get_by_role("heading", name=space_name, exact=True)).to_be_visible(
+            timeout=20_000
+        )
 
 
 def open_semantic_builder(page: Page, space_name: str) -> None:
     open_knowledge_center(page, space_name)
     click_text(page, "语义构建")
-    expect(page.locator("[data-testid='semantic-builder-workbench']")).to_be_visible(timeout=20_000)
-    expect(page.locator("[data-testid='semantic-builder-workbench']").get_by_text("Sales DB", exact=True)).to_be_visible(timeout=20_000)
-    expect(page.locator("[data-testid='semantic-builder-workbench']").get_by_text("Sales playbook", exact=True)).to_be_visible(timeout=20_000)
+    workbench = page.locator(WORKBENCH_SELECTOR)
+    expect(workbench).to_be_visible(timeout=20_000)
+    expect(workbench.get_by_text("Sales DB", exact=True)).to_be_visible(timeout=20_000)
+    workbench.locator(".kc-data-context-trigger").click()
+    expect(
+        page.locator("[data-testid='semantic-data-context-selector']").get_by_text(
+            "Sales playbook", exact=True
+        )
+    ).to_be_visible(timeout=20_000)
+    workbench.locator(".kc-data-context-trigger").click()
 
 
 def add_browser_few_shot(page: Page) -> None:
+    page.get_by_role("button", name="教 Agent 问数口径", exact=True).first.click()
     panel = page.locator("[data-testid='semantic-few-shot-panel']")
     expect(panel).to_be_visible(timeout=20_000)
     if panel.get_by_text(BROWSER_QUESTION, exact=True).count():
         return
     panel.get_by_role("textbox", name="Question", exact=True).fill(BROWSER_QUESTION)
     panel.get_by_role("textbox", name="SQL", exact=True).fill(BROWSER_SQL)
-    panel.get_by_role("textbox", name="Notes", exact=True).fill("created by Session J Playwright gate")
-    panel.get_by_role("button", name="添加").click()
-    expect(panel.get_by_text(BROWSER_QUESTION, exact=True)).to_be_visible(timeout=20_000)
+    panel.get_by_role("textbox", name="Notes", exact=True).fill(
+        "created by Session J Playwright gate"
+    )
+    panel.get_by_role("button", name="Add question-SQL pair").click()
+    expect(panel.get_by_text(BROWSER_QUESTION, exact=True)).to_be_visible(
+        timeout=20_000
+    )
 
 
 def add_browser_instruction(page: Page) -> None:
+    drawer = page.get_by_role("dialog", name="Semantic training examples")
+    if drawer.is_visible(timeout=2_000):
+        drawer.get_by_role("button", name="规则/禁用口径", exact=True).click()
+    else:
+        page.get_by_role("button", name="规则/禁用口径", exact=True).first.click()
     panel = page.locator("[data-testid='semantic-instructions-panel']")
     expect(panel).to_be_visible(timeout=20_000)
     if panel.get_by_text(BROWSER_INSTRUCTION, exact=True).count():
         return
-    panel.get_by_role("textbox", name="Instruction", exact=True).fill(BROWSER_INSTRUCTION)
+    panel.get_by_role("textbox", name="Instruction", exact=True).fill(
+        BROWSER_INSTRUCTION
+    )
     panel.get_by_role("combobox", name="Scope", exact=True).select_option("global")
-    panel.get_by_role("button", name="添加").click()
-    expect(panel.get_by_text(BROWSER_INSTRUCTION, exact=True)).to_be_visible(timeout=20_000)
+    panel.get_by_role("button", name="Add instruction").click()
+    expect(panel.get_by_text(BROWSER_INSTRUCTION, exact=True)).to_be_visible(
+        timeout=20_000
+    )
+
+
+def close_training_drawer(page: Page) -> None:
+    page.get_by_role("button", name="Close training drawer").click()
+    expect(
+        page.get_by_role("dialog", name="Semantic training examples")
+    ).not_to_be_visible(timeout=10_000)
+
+
+def close_run_details_if_open(page: Page) -> None:
+    drawer = page.get_by_role("dialog", name="Semantic run details")
+    if drawer.is_visible(timeout=2_000):
+        drawer.get_by_role("button", name="Close run details").click()
+        expect(drawer).not_to_be_visible(timeout=10_000)
+
+
+def refine_semantic_draft(page: Page) -> None:
+    form = page.locator(".kc-semantic-feedback")
+    expect(form.get_by_text("告诉 Agent 如何调整语义", exact=True)).to_be_visible(
+        timeout=20_000
+    )
+    form.get_by_role("textbox").fill(BROWSER_FEEDBACK)
+    form.get_by_role("button", name="让 Agent 调整草案").click()
+    diff = page.locator("[data-testid='semantic-patch-diff']")
+    expect(diff).to_be_visible(timeout=20_000)
+    expect(
+        diff.get_by_text("metrics").or_(diff.get_by_text("policy")).first
+    ).to_be_visible(timeout=20_000)
+
+
+def create_browser_view(page: Page) -> None:
+    page.get_by_role("button", name="New View", exact=True).click()
+    dialog = page.get_by_role("dialog", name="New semantic view")
+    expect(dialog).to_be_visible(timeout=10_000)
+    dialog.get_by_label("View 名称").fill(BROWSER_VIEW_NAME)
+    dialog.get_by_label("说明").fill(
+        "Browser-created persisted view draft for monthly sales trend."
+    )
+    dialog.get_by_label("Base metric").fill("ticket_count")
+    dialog.get_by_label("Dimensions（逗号分隔）").fill("store_id, region")
+    dialog.get_by_label("Time grain").select_option("month")
+    dialog.get_by_role("button", name="保存 View 草案").click()
+    expect(dialog).not_to_be_visible(timeout=20_000)
+    expect(
+        page.locator("[data-testid='semantic-patch-diff']").get_by_text("views")
+    ).to_be_visible(timeout=20_000)
+
+
+def publish_refined_draft(page: Page) -> None:
+    publish = page.locator("[data-source-port='wren-modeling']").get_by_role(
+        "button", name="Publish", exact=True
+    )
+    expect(publish).to_be_enabled(timeout=20_000)
+    publish.click()
+    expect(
+        page.locator("[data-source-port='wren-modeling']")
+        .get_by_text("published")
+        .first
+    ).to_be_visible(timeout=30_000)
 
 
 def verify_reload_persistence(page: Page, space_name: str) -> None:
     page.reload(wait_until="networkidle")
-    if page.get_by_placeholder("用户名（字母 + 数字，最多 16 位）").is_visible(timeout=3_000):
+    if page.get_by_placeholder("用户名（字母 + 数字，最多 16 位）").is_visible(
+        timeout=3_000
+    ):
         page.get_by_placeholder("用户名（字母 + 数字，最多 16 位）").fill("sessionj")
         page.get_by_label("进入").click()
         expect(page.get_by_label("知识资产")).to_be_visible(timeout=20_000)
-    if not page.locator("[data-testid='semantic-builder-workbench']").is_visible(timeout=5_000):
+    if not page.locator(WORKBENCH_SELECTOR).is_visible(timeout=5_000):
         try:
             page.get_by_label("知识资产").click(timeout=8_000)
-        except Exception:
+        except PlaywrightError:
             page.get_by_title("知识资产").click(timeout=8_000)
         click_text(page, space_name)
         click_text(page, "语义构建")
-    expect(page.locator("[data-testid='semantic-builder-workbench']")).to_be_visible(timeout=20_000)
-    expect(page.locator("[data-testid='semantic-few-shot-panel']").get_by_text(BROWSER_QUESTION, exact=True)).to_be_visible(timeout=20_000)
-    expect(page.locator("[data-testid='semantic-instructions-panel']").get_by_text(BROWSER_INSTRUCTION, exact=True)).to_be_visible(timeout=20_000)
+    expect(page.locator(WORKBENCH_SELECTOR)).to_be_visible(timeout=20_000)
+    page.get_by_role("button", name="教 Agent 问数口径", exact=True).first.click()
+    expect(
+        page.locator("[data-testid='semantic-few-shot-panel']").get_by_text(
+            BROWSER_QUESTION, exact=True
+        )
+    ).to_be_visible(timeout=20_000)
+    page.get_by_role("dialog", name="Semantic training examples").get_by_role(
+        "button", name="规则/禁用口径", exact=True
+    ).click()
+    expect(
+        page.locator("[data-testid='semantic-instructions-panel']").get_by_text(
+            BROWSER_INSTRUCTION, exact=True
+        )
+    ).to_be_visible(timeout=20_000)
+    close_training_drawer(page)
     expect(page.get_by_text("published · v1").first).to_be_visible(timeout=30_000)
-    expect(page.get_by_text("Graph / Evidence / Alignments")).to_be_visible(timeout=30_000)
-    expect(page.locator("[data-testid='semantic-agent-timeline']").get_by_text("tool_call_start").first).to_be_visible(timeout=30_000)
+    expect(page.get_by_text("语义草案 Review")).to_be_visible(timeout=30_000)
+    expect(page.get_by_text(BROWSER_VIEW_ID).first).to_have_count(1, timeout=30_000)
+    page.get_by_role("button", name="运行详情", exact=True).click()
+    expect(
+        page.locator("[data-testid='semantic-agent-timeline']")
+        .get_by_text("tool_call_start")
+        .first
+    ).to_be_visible(timeout=30_000)
+    close_run_details_if_open(page)
 
 
 def run_desktop(page: Page, seed: dict) -> dict:
@@ -190,44 +308,70 @@ def run_desktop(page: Page, seed: dict) -> dict:
     open_semantic_builder(page, seed["space"]["name"])
     add_browser_few_shot(page)
     add_browser_instruction(page)
-    page.locator("[data-testid='semantic-builder-workbench']").get_by_role("button", name="生成语义").click()
-    expect(page.locator("[data-testid='semantic-agent-timeline']").get_by_text("tool_call_start").first).to_be_visible(timeout=60_000)
-    expect(page.get_by_text("Graph / Evidence / Alignments")).to_be_visible(timeout=60_000)
+    close_training_drawer(page)
+    page.locator(WORKBENCH_SELECTOR).get_by_role("button", name="生成语义").click()
+    expect(
+        page.locator("[data-testid='semantic-agent-timeline']")
+        .get_by_text("tool_call_start")
+        .first
+    ).to_be_visible(timeout=60_000)
+    expect(page.get_by_text("语义草案 Review")).to_be_visible(timeout=60_000)
     expect(page.get_by_text("published · v1").first).to_be_visible(timeout=30_000)
+    close_run_details_if_open(page)
     wren = page.locator("[data-source-port='wren-modeling']")
     expect(wren).to_be_visible(timeout=20_000)
     wren.scroll_into_view_if_needed()
-    expect(wren.get_by_role("button", name="sales_order").first).to_be_visible(timeout=20_000)
+    expect(wren.get_by_role("button", name="sales_order").first).to_be_visible(
+        timeout=20_000
+    )
     page.screenshot(path=SCREENSHOTS / "desktop-modeling-workbench.png", full_page=True)
 
-    click_text(page, "New Model")
-    dialog = page.get_by_role("dialog")
-    expect(dialog).to_be_visible(timeout=10_000)
-    dialog.get_by_role("textbox", name="Name", exact=True).fill("Browser Draft Model")
-    dialog.get_by_role("textbox", name="Table", exact=True).fill("browser_draft_model")
-    dialog.get_by_role("textbox", name="Fields, one per line as name:type[:pk]").fill("draft_id:number:pk\nlabel:varchar")
-    click_text(page, "Save Draft")
-    expect(page.get_by_text("1 local").first).to_be_visible(timeout=10_000)
-
-    click_text(page, "New")
-    expect(page.get_by_role("dialog")).to_be_visible(timeout=10_000)
-    click_text(page, "Close")
+    refine_semantic_draft(page)
+    create_browser_view(page)
+    publish_refined_draft(page)
 
     inspector = page.locator("[data-testid='wren-source-port-inspector']")
-    inspector.get_by_role("button", name="MDL / Raw", exact=True).click()
+    inspector.get_by_role("button", name="Advanced", exact=True).click()
     expect(inspector.get_by_text("Selected Raw JSON")).to_be_visible(timeout=10_000)
     inspector.get_by_role("button", name="Evidence", exact=True).click()
-    expect(inspector.get_by_role("heading", name="Evidence")).to_be_visible(timeout=10_000)
-    expect(inspector.get_by_role("heading", name="Alignments")).to_be_visible(timeout=10_000)
-    page.screenshot(path=SCREENSHOTS / "desktop-evidence-alignments.png", full_page=True)
+    expect(inspector.get_by_role("heading", name="Evidence")).to_be_visible(
+        timeout=10_000
+    )
+    expect(inspector.get_by_role("heading", name="Alignments")).to_be_visible(
+        timeout=10_000
+    )
+    page.screenshot(
+        path=SCREENSHOTS / "desktop-evidence-alignments.png", full_page=True
+    )
     verify_reload_persistence(page, seed["space"]["name"])
     page.screenshot(path=SCREENSHOTS / "desktop-reload-persistence.png", full_page=True)
 
     health = api_get("/api/knowledge-assets/health")
-    jobs = api_get("/api/knowledge-assets/build-jobs")["items"]
+    jobs = api_get(
+        f"/api/knowledge-assets/build-jobs?space_id={quote(seed['space']['id'])}"
+    )["items"]
     latest_job = next(job for job in jobs if job["job_type"] == "semantic_skill")
-    events = api_get(f"/api/knowledge-assets/semantic-build/{latest_job['id']}/events")["items"]
-    detail = api_get(f"/api/knowledge-assets/semantic-packs/{latest_job['result_skill_id']}/detail")
+    events = api_get(f"/api/knowledge-assets/semantic-build/{latest_job['id']}/events")[
+        "items"
+    ]
+    detail = api_get(
+        f"/api/knowledge-assets/semantic-packs/{latest_job['result_skill_id']}/detail"
+    )
+    skill_packages = api_get(
+        f"/api/knowledge-assets/skill-packages?space_id={quote(seed['space']['id'])}"
+    )["items"]
+    semantic_skills = [
+        item
+        for item in skill_packages
+        if item.get("capability_kind") == "semantic_skill"
+        or item.get("asset_type") == "semantic_model"
+    ]
+    raw_views = (
+        detail["structured_mdl"].get("views")
+        if isinstance(detail["structured_mdl"], dict)
+        else []
+    )
+    views = raw_views if isinstance(raw_views, list) else []
     return {
         "health": health,
         "latestJob": {
@@ -247,11 +391,31 @@ def run_desktop(page: Page, seed: dict) -> dict:
             "graph_objects": len(detail["graph_objects"]),
             "graph_relations": len(detail["graph_relations"]),
             "alignments": len(detail["alignments"]),
-            "browser_question_persisted": any(pair["question"] == BROWSER_QUESTION for pair in detail["few_shot"]),
+            "browser_question_persisted": any(
+                pair["question"] == BROWSER_QUESTION for pair in detail["few_shot"]
+            ),
             "browser_instruction_persisted": any(
-                instruction["instruction"] == BROWSER_INSTRUCTION for instruction in detail["instructions"]
+                instruction["instruction"] == BROWSER_INSTRUCTION
+                for instruction in detail["instructions"]
+            ),
+            "browser_view_persisted": any(
+                isinstance(view, dict)
+                and (
+                    view.get("business_name") == BROWSER_VIEW_NAME
+                    or view.get("name") == BROWSER_VIEW_ID
+                    or view.get("id") == BROWSER_VIEW_ID
+                )
+                for view in views
+            ),
+            "refine_revision_persisted": any(
+                isinstance(item, dict) and item.get("message") == BROWSER_FEEDBACK
+                for item in detail["asset"]["capability_package"].get(
+                    "revision_history", []
+                )
             ),
         },
+        "semanticSkillCount": len(semantic_skills),
+        "semanticSkillNames": [item["name"] for item in semantic_skills],
     }
 
 
@@ -259,10 +423,15 @@ def run_mobile(page: Page, seed: dict) -> dict:
     page.set_viewport_size({"width": 390, "height": 844})
     open_knowledge_center(page, seed["space"]["name"])
     click_text(page, "语义构建")
-    expect(page.locator("[data-testid='semantic-builder-workbench']")).to_be_visible(timeout=20_000)
-    expect(page.get_by_role("tablist", name="Wren modeling mobile panes")).to_be_visible(timeout=20_000)
-    click_text(page, "Metadata")
-    expect(page.locator("[data-testid='wren-source-port-inspector']")).to_be_visible(timeout=20_000)
+    expect(page.locator(WORKBENCH_SELECTOR)).to_be_visible(timeout=20_000)
+    expect(
+        page.get_by_role("tablist", name="Wren modeling mobile panes")
+    ).to_be_visible(timeout=20_000)
+    click_text(page, "Inspector")
+    expect(page.locator("[data-testid='wren-source-port-inspector']")).to_be_visible(
+        timeout=20_000
+    )
+    expect(page.get_by_text("语义草案 Review")).to_be_visible(timeout=20_000)
     overflow = page.evaluate(
         "() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth"
     )
@@ -306,10 +475,15 @@ def main() -> None:
             and desktop["detail"]["alignments"] > 0
             and desktop["detail"]["browser_question_persisted"]
             and desktop["detail"]["browser_instruction_persisted"]
+            and desktop["detail"]["browser_view_persisted"]
+            and desktop["detail"]["refine_revision_persisted"]
+            and desktop["semanticSkillCount"] == 1
             and mobile["horizontalOverflowPx"] <= 4
         ),
     }
-    (ROOT / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    (ROOT / "result.json").write_text(
+        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 

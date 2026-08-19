@@ -17,6 +17,7 @@ import {
 } from "../features/knowledge-assets/adapters/wrenSemanticAdapter";
 import {
   WrenModelingSourcePort,
+  type WrenInspectorTab,
   type WrenSourcePortSelection,
 } from "../features/knowledge-assets/source-ports/wren/WrenModelingSourcePort";
 import {
@@ -64,7 +65,7 @@ export function SemanticModelingWorkbench({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [lastJob, setLastJob] = useState<KnowledgeAssetBuildJob | null>(null);
-  const [inspector, setInspector] = useState<"metadata" | "mdl" | "evidence" | "evals">("metadata");
+  const [inspector, setInspector] = useState<WrenInspectorTab>("review");
 
   const viewModel = useMemo(
     () =>
@@ -210,6 +211,8 @@ export function SemanticModelingWorkbench({
         onRefresh={() => void onRefresh()}
         onOpenRunDetails={() => undefined}
         onOpenTraining={() => undefined}
+        onCreateView={() => undefined}
+        onPublish={() => undefined}
         onRunEval={() => setInspector("evals")}
         intent={intent}
         targetDomain={targetDomain}

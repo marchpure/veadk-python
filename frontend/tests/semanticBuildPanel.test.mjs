@@ -111,9 +111,14 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(wrenOriginalSidebarSource, /Metrics" count=\{metricRows\.length\} onAction/);
   assert.match(wrenSourcePortSource, /Publish/);
   assert.match(wrenSourcePortSource, /publishActionDisabledReason/);
-  assert.match(wrenSourcePortSource, /disabled\s*\n\s*title=\{publishActionReason\}/);
-  assert.match(wrenSourcePortSource, /Publishing is controlled by the Semantic Builder quality gate/);
-  assert.doesNotMatch(wrenSourcePortSource, /const canPublish/);
+  assert.match(wrenSourcePortSource, /onPublish/);
+  assert.match(wrenSourcePortSource, /const canPublish/);
+  assert.match(wrenSourcePortSource, /New View/);
+  assert.match(wrenSourcePortSource, /onCreateView/);
+  assert.match(wrenSourcePortSource, /Review/);
+  assert.match(wrenSourcePortSource, /Advanced/);
+  assert.match(wrenSourcePortSource, /语义草案 Review/);
+  assert.doesNotMatch(wrenSourcePortSource, /StatusChip label="Runner"|StatusChip label="Mode"|StatusChip label="Drafts"/);
   assert.doesNotMatch(wrenGroupTreeTitleSource, /MoreHorizontal|adm-tree-more|aria-label=\{`\$\{title\} actions`\}/);
   assert.doesNotMatch(wrenOriginalSidebarSource, /Semantic Skills" count=\{semanticRows\.length\} onAction/);
   assert.match(wrenSourcePortSource, /Selected Raw JSON/);
@@ -129,7 +134,7 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(knowledgeCenterSource, /<SemanticModelingWorkbench/);
 });
 
-test("Semantic builder exposes persisted few-shot and instruction CRUD", () => {
+test("Semantic builder exposes persisted few-shot, instruction, feedback, view, and publish actions", () => {
   assert.match(semanticBuildPanelSource, /data-testid="semantic-few-shot-panel"/);
   assert.match(semanticBuildPanelSource, /data-testid="semantic-instructions-panel"/);
   assert.match(semanticBuildPanelSource, /createSemanticQuestionSqlPair/);
@@ -141,6 +146,15 @@ test("Semantic builder exposes persisted few-shot and instruction CRUD", () => {
   assert.match(semanticBuildPanelSource, /aria-label="Question"/);
   assert.match(semanticBuildPanelSource, /aria-label="SQL"/);
   assert.match(semanticBuildPanelSource, /aria-label="Instruction"/);
+  assert.match(semanticBuildPanelSource, /告诉 Agent 如何调整语义/);
+  assert.match(semanticBuildPanelSource, /refineSemanticBuilderConversation/);
+  assert.match(semanticBuildPanelSource, /data-testid="semantic-patch-diff"/);
+  assert.match(semanticBuildPanelSource, /createSemanticBuilderViewDraft/);
+  assert.match(semanticBuildPanelSource, /ViewDraftDialog/);
+  assert.match(semanticBuildPanelSource, /publishSemanticBuilderDraft/);
+  assert.match(semanticBuildPanelSource, /setInspector\("review"\)/);
+  assert.match(semanticBuildPanelSource, /教 Agent 问数口径/);
+  assert.doesNotMatch(semanticBuildPanelSource, /Training & Governance/);
 });
 
 test("Session J Playwright gate covers browser CRUD and reload persistence", () => {
@@ -152,11 +166,60 @@ test("Session J Playwright gate covers browser CRUD and reload persistence", () 
   assert.match(semanticBuilderE2eSource, /Use order_date as the default sales time grain/);
 });
 
-test("knowledgeAssets client exposes semantic build stream endpoint", async () => {
+test("knowledgeAssets client exposes semantic builder stream and draft endpoints", async () => {
   const calls = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, init = {}) => {
     calls.push({ url: String(url), method: init.method ?? "GET", body: init.body, headers: init.headers ?? {} });
+    const path = String(url);
+    if (path.includes("/semantic-builder/conversations") && path.endsWith("/messages")) {
+      return Response.json({
+        schema: "agentkit.semantic_builder.conversation.v1",
+        id: "sbc_1",
+        space_id: "space_1",
+        semantic_pack_id: "sales_semantic",
+        draft_pack_id: "sales_semantic",
+        title: "Refine",
+        source_ids: [],
+        snapshot_ids: [],
+        metadata: {},
+        revisions: [],
+        latest_revision: {
+          schema: "agentkit.semantic_builder.revision.v1",
+          id: "rev_1",
+          conversation_id: "sbc_1",
+          semantic_pack_id: "sales_semantic",
+          revision_number: 2,
+          author_role: "user",
+          message: "hide phone",
+          patch: {},
+          diff: [],
+          status: "draft",
+        },
+        draft: { schema: "agentkit.semantic_pack.detail.v1", semantic_pack_id: "sales_semantic", asset: {}, structured_mdl: {}, doc_graph: {}, alignments: [], few_shot: [], instructions: [], graph_objects: [], graph_relations: [], provenance: {}, policy: {}, eval_seed: {}, skill_runtime: {} },
+        diff: [{ kind: "policy", action: "updated" }],
+      });
+    }
+    if (path.includes("/semantic-builder/conversations")) {
+      return Response.json({
+        schema: "agentkit.semantic_builder.conversation.v1",
+        id: "sbc_1",
+        space_id: "space_1",
+        semantic_pack_id: "sales_semantic",
+        draft_pack_id: "sales_semantic",
+        title: "Refine",
+        source_ids: [],
+        snapshot_ids: [],
+        metadata: {},
+        revisions: [],
+      });
+    }
+    if (path.includes("/views")) {
+      return Response.json({ schema: "agentkit.semantic_builder.view_draft.v1", semantic_pack_id: "sales_semantic", view: { id: "view_1" }, diff: [], draft: {} });
+    }
+    if (path.includes("/publish")) {
+      return Response.json({ schema: "agentkit.semantic_builder.publish.v1", semantic_pack_id: "sales_semantic", asset: { publish_state: "published" }, publish_state: "published" });
+    }
     return new Response(
       [
         "event: agent_message",
@@ -170,7 +233,13 @@ test("knowledgeAssets client exposes semantic build stream endpoint", async () =
     );
   };
   try {
-    const { streamSemanticBuild } = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
+    const {
+      createSemanticBuilderConversation,
+      createSemanticBuilderViewDraft,
+      publishSemanticBuilderDraft,
+      refineSemanticBuilderConversation,
+      streamSemanticBuild,
+    } = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
     const observed = [];
     const events = await streamSemanticBuild({
       space_id: "space_1",
@@ -178,6 +247,10 @@ test("knowledgeAssets client exposes semantic build stream endpoint", async () =
       snapshot_ids: ["snap_1"],
       name: "Sales Semantic",
     }, (event) => observed.push(event));
+    await createSemanticBuilderConversation({ space_id: "space_1", semantic_pack_id: "sales_semantic" });
+    await refineSemanticBuilderConversation("sbc_1", { message: "hide phone", semantic_pack_id: "sales_semantic" });
+    await createSemanticBuilderViewDraft("sales_semantic", { name: "Monthly trend", base_metric: "gmv" });
+    await publishSemanticBuilderDraft("sales_semantic");
     assert.equal(events.at(-1).payload.status, "blocked");
     assert.equal(observed.length, 2);
     assert.equal(calls[0].url, "/api/knowledge-assets/semantic-build/stream");
@@ -189,6 +262,10 @@ test("knowledgeAssets client exposes semantic build stream endpoint", async () =
       snapshot_ids: ["snap_1"],
       name: "Sales Semantic",
     });
+    assert.equal(calls[1].url, "/api/knowledge-assets/semantic-builder/conversations");
+    assert.match(calls[2].url, /\/api\/knowledge-assets\/semantic-builder\/conversations\/sbc_1\/messages/);
+    assert.match(calls[3].url, /\/api\/knowledge-assets\/semantic-builder\/drafts\/sales_semantic\/views/);
+    assert.match(calls[4].url, /\/api\/knowledge-assets\/semantic-builder\/drafts\/sales_semantic\/publish/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -197,6 +274,10 @@ test("knowledgeAssets client exposes semantic build stream endpoint", async () =
 test("Semantic build CSS is responsive without product iframe shell", () => {
   assert.match(cssSource, /\.kc-semantic-agent-workbench/);
   assert.match(cssSource, /\.kc-agent-timeline/);
+  assert.match(cssSource, /\.kc-semantic-feedback/);
+  assert.match(cssSource, /\.kc-semantic-patch-diff/);
+  assert.match(cssSource, /\.kc-semantic-view-dialog/);
+  assert.match(cssSource, /\.kc-review-grid/);
   assert.match(cssSource, /\.kc-native-sidebar:hover/);
   assert.match(cssSource, /\.adm-draft-editor/);
   assert.match(cssSource, /\.kc-semantic-workbench/);

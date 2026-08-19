@@ -15,6 +15,8 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
+  createSemanticBuilderConversation,
+  createSemanticBuilderViewDraft,
   createSemanticInstruction,
   createSemanticQuestionSqlPair,
   deleteSemanticInstruction,
@@ -26,6 +28,8 @@ import {
   listSemanticBuildEvents,
   listSemanticInstructions,
   listSemanticQuestionSqlPairs,
+  publishSemanticBuilderDraft,
+  refineSemanticBuilderConversation,
   runKnowledgeAssetEvaluation,
   streamSemanticBuild,
   updateSemanticInstruction,
@@ -35,6 +39,7 @@ import {
   type KnowledgeAssetSnapshot,
   type KnowledgeAssetSource,
   type SemanticBuildEvent,
+  type SemanticBuilderConversation,
   type SemanticInstruction,
   type SemanticPackDetail,
   type SemanticQuestionSqlPair,
@@ -44,6 +49,7 @@ import {
 } from "../features/knowledge-assets/adapters/wrenSemanticAdapter";
 import {
   WrenModelingSourcePort,
+  type WrenInspectorTab,
   type WrenSourcePortSelection,
 } from "../features/knowledge-assets/source-ports/wren/WrenModelingSourcePort";
 import {
@@ -51,7 +57,7 @@ import {
   objectValue,
 } from "./knowledgeWorkbenchUtils";
 
-type InspectorTab = "metadata" | "mdl" | "evidence" | "evals";
+type InspectorTab = WrenInspectorTab;
 type TrainingTab = "training" | "governance";
 type RunStageKey =
   | "inspect_schema"
@@ -230,7 +236,7 @@ export function SemanticBuildPanel({
   const [detail, setDetail] = useState<SemanticPackDetail | null>(null);
   const [selectedItem, setSelectedItem] = useState<WrenSourcePortSelection>(null);
   const [treeQuery, setTreeQuery] = useState("");
-  const [inspector, setInspector] = useState<InspectorTab>("metadata");
+  const [inspector, setInspector] = useState<InspectorTab>("review");
   const [runDetailsOpen, setRunDetailsOpen] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
   const [trainingTab, setTrainingTab] = useState<TrainingTab>("training");
@@ -239,6 +245,19 @@ export function SemanticBuildPanel({
   const [editingPairId, setEditingPairId] = useState("");
   const [editingInstructionId, setEditingInstructionId] = useState("");
   const [evalMessage, setEvalMessage] = useState("");
+  const [conversation, setConversation] = useState<SemanticBuilderConversation | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [latestDiff, setLatestDiff] = useState<Array<Record<string, unknown>>>([]);
+  const [viewDraftOpen, setViewDraftOpen] = useState(false);
+  const [viewDraft, setViewDraft] = useState({
+    name: "",
+    description: "",
+    baseMetric: "",
+    dimensions: "",
+    timeGrain: "month",
+  });
+  const [publishBusy, setPublishBusy] = useState(false);
 
   const selectedAsset = semanticAssets.find((asset) => asset.asset_id === assetId) ?? semanticAssets[0];
   const selectedSource = databaseSources.find((source) => source.id === selectedSourceId) ?? null;
@@ -268,6 +287,7 @@ export function SemanticBuildPanel({
   const mode = buildMode(selectedSourceId, selectedDocIds);
   const statusText = submitting ? "running" : latestSemanticJob?.status || "idle";
   const publishState = detail?.asset.publish_state || selectedAsset?.publish_state || latestSemanticJob?.output?.publish_state || "draft";
+  const activeSemanticPackId = detail?.semantic_pack_id || viewModel.selectedAsset?.asset_id || assetId;
 
   useEffect(() => {
     setSelectedSourceId((current) => current || databaseSources[0]?.id || "");
@@ -400,7 +420,19 @@ export function SemanticBuildPanel({
       );
       if (packId) {
         setAssetId(packId);
-        setDetail(await getSemanticPackDetail(packId));
+        const nextDetail = await getSemanticPackDetail(packId);
+        setDetail(nextDetail);
+        setInspector("review");
+        const nextConversation = await createSemanticBuilderConversation({
+          space_id: spaceId,
+          semantic_pack_id: packId,
+          draft_pack_id: packId,
+          title: `${name} 语义建模对话`,
+          source_ids: [selectedSourceId, ...selectedDocIds].filter(Boolean),
+          snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
+          metadata: { build_job_id: finalJob?.id || jobId },
+        });
+        setConversation(nextConversation);
       }
     } catch (caught) {
       setError(userFacingError(caught, "生成语义失败。"));
@@ -417,6 +449,103 @@ export function SemanticBuildPanel({
       latest = await getKnowledgeAssetBuildJob(jobId);
     }
     return latest;
+  }
+
+  async function ensureConversation(packId: string): Promise<SemanticBuilderConversation> {
+    if (conversation?.semantic_pack_id === packId || conversation?.draft_pack_id === packId) {
+      return conversation;
+    }
+    const nextConversation = await createSemanticBuilderConversation({
+      space_id: spaceId,
+      semantic_pack_id: packId,
+      draft_pack_id: packId,
+      title: `${detail?.asset.name || viewModel.selectedAsset?.name || name} 语义建模对话`,
+      source_ids: [selectedSourceId, ...selectedDocIds].filter(Boolean),
+      snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
+    });
+    setConversation(nextConversation);
+    return nextConversation;
+  }
+
+  async function submitFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const packId = activeSemanticPackId;
+    if (!packId) {
+      setError("请先生成或选择一个语义草案，再告诉 Agent 如何调整。");
+      return;
+    }
+    if (!feedback.trim()) return;
+    setFeedbackBusy(true);
+    setError("");
+    try {
+      const activeConversation = await ensureConversation(packId);
+      const refined = await refineSemanticBuilderConversation(activeConversation.id, {
+        message: feedback.trim(),
+        semantic_pack_id: packId,
+      });
+      setConversation(refined);
+      setDetail(refined.draft);
+      setAssetId(refined.semantic_pack_id || packId);
+      setLatestDiff(refined.diff);
+      setFeedback("");
+      setInspector("review");
+    } catch (caught) {
+      setError(userFacingError(caught, "调整语义草案失败。"));
+    } finally {
+      setFeedbackBusy(false);
+    }
+  }
+
+  async function createViewDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const packId = activeSemanticPackId;
+    if (!packId) {
+      setError("请先生成或选择一个语义草案，再新增 View。");
+      return;
+    }
+    if (!viewDraft.name.trim()) return;
+    setError("");
+    try {
+      const result = await createSemanticBuilderViewDraft(packId, {
+        name: viewDraft.name.trim(),
+        description: viewDraft.description.trim(),
+        base_metric: viewDraft.baseMetric.trim(),
+        dimensions: viewDraft.dimensions.split(",").map((item) => item.trim()).filter(Boolean),
+        time_grain: viewDraft.timeGrain.trim() || "month",
+      });
+      setDetail(result.draft);
+      setLatestDiff(result.diff);
+      setViewDraftOpen(false);
+      setViewDraft({ name: "", description: "", baseMetric: "", dimensions: "", timeGrain: "month" });
+      setInspector("review");
+    } catch (caught) {
+      setError(userFacingError(caught, "创建语义视图草案失败。"));
+    }
+  }
+
+  async function publishDraft() {
+    const packId = activeSemanticPackId;
+    if (!packId) {
+      setError("请先生成或选择一个语义草案，再发布。");
+      return;
+    }
+    setPublishBusy(true);
+    setError("");
+    try {
+      const result = await publishSemanticBuilderDraft(packId);
+      setDetail((current) =>
+        current
+          ? { ...current, asset: result.asset }
+          : null,
+      );
+      setAssetId(result.semantic_pack_id);
+      setInspector("review");
+      await onRefresh();
+    } catch (caught) {
+      setError(userFacingError(caught, "发布语义草案失败。"));
+    } finally {
+      setPublishBusy(false);
+    }
   }
 
   async function savePair(event: FormEvent<HTMLFormElement>) {
@@ -542,6 +671,23 @@ export function SemanticBuildPanel({
           <span>{evalMessage}</span>
         </div>
       ) : null}
+      {latestDiff.length ? <PatchDiff diff={latestDiff} /> : null}
+
+      <form className="kc-semantic-feedback" onSubmit={submitFeedback}>
+        <label>
+          <span>告诉 Agent 如何调整语义</span>
+          <textarea
+            value={feedback}
+            onChange={(event) => setFeedback(event.target.value)}
+            placeholder="例如：把票数定义改成去重 billid；隐藏客户手机号；增加按月份趋势的 view"
+            disabled={!activeSemanticPackId || feedbackBusy}
+          />
+        </label>
+        <button type="submit" disabled={!activeSemanticPackId || !feedback.trim() || feedbackBusy}>
+          {feedbackBusy ? <Loader2 className="kc-native-icon kc-spin" /> : <Sparkles className="kc-native-icon" />}
+          让 Agent 调整草案
+        </button>
+      </form>
 
       <WrenModelingSourcePort
         viewModel={viewModel}
@@ -560,9 +706,11 @@ export function SemanticBuildPanel({
         onOpenRunDetails={() => setRunDetailsOpen(true)}
         onOpenTraining={openTraining}
         onRunEval={() => void runEval()}
+        onCreateView={() => setViewDraftOpen(true)}
+        onPublish={() => void publishDraft()}
         intent={intent}
         targetDomain={targetDomain}
-        publish={publish}
+        publish={publish && !publishBusy}
         onIntentChange={setIntent}
         onTargetDomainChange={setTargetDomain}
         onPublishChange={setPublish}
@@ -602,6 +750,16 @@ export function SemanticBuildPanel({
           }}
           onPairDelete={(pair) => void removePair(pair)}
           onInstructionDelete={(instruction) => void removeInstruction(instruction)}
+        />
+      ) : null}
+
+      {viewDraftOpen ? (
+        <ViewDraftDialog
+          draft={viewDraft}
+          onDraftChange={setViewDraft}
+          metrics={metricOptions(detail)}
+          onClose={() => setViewDraftOpen(false)}
+          onSubmit={(event) => void createViewDraft(event)}
         />
       ) : null}
     </section>
@@ -794,14 +952,14 @@ function TrainingDrawer({
       <aside className="kc-semantic-side-drawer" role="dialog" aria-modal="true" aria-label="Semantic training examples" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
-            <strong>Training & Governance</strong>
-            <span>Persisted examples and rules for Semantic Builder.</span>
+            <strong>教 Agent 问数口径</strong>
+            <span>保存问数样例、SQL 口径和禁用规则，后续语义调整会持续复用。</span>
           </div>
           <button type="button" onClick={onClose} aria-label="Close training drawer"><X className="kc-native-icon" /></button>
         </header>
         <div className="adm-metadata-tabs" role="tablist">
-          <button type="button" className={tab === "training" ? "is-active" : ""} onClick={() => onTabChange("training")}>Training Examples</button>
-          <button type="button" className={tab === "governance" ? "is-active" : ""} onClick={() => onTabChange("governance")}>Governance Rules</button>
+          <button type="button" className={tab === "training" ? "is-active" : ""} onClick={() => onTabChange("training")}>问数样例</button>
+          <button type="button" className={tab === "governance" ? "is-active" : ""} onClick={() => onTabChange("governance")}>规则/禁用口径</button>
         </div>
         {tab === "training" ? (
           <section className="kc-training-panel" data-testid="semantic-few-shot-panel">
@@ -852,6 +1010,91 @@ function TrainingDrawer({
   );
 }
 
+function PatchDiff({ diff }: { diff: Array<Record<string, unknown>> }) {
+  return (
+    <section className="kc-semantic-patch-diff" data-testid="semantic-patch-diff" aria-label="Semantic patch diff">
+      <header>
+        <strong>Patch diff</strong>
+        <span>本次反馈对语义草案的改动</span>
+      </header>
+      <div>
+        {diff.map((item, index) => (
+          <article key={`${String(item.kind || "diff")}-${index}`}>
+            <span>{String(item.kind || "semantic")}</span>
+            <strong>{String(item.action || "updated")}</strong>
+            <small>{String(item.summary || item.name || item.id || "")}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ViewDraftDialog({
+  draft,
+  metrics,
+  onDraftChange,
+  onClose,
+  onSubmit,
+}: {
+  draft: { name: string; description: string; baseMetric: string; dimensions: string; timeGrain: string };
+  metrics: string[];
+  onDraftChange: (draft: { name: string; description: string; baseMetric: string; dimensions: string; timeGrain: string }) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <div className="kc-semantic-drawer-backdrop" role="presentation" onMouseDown={onClose}>
+      <form className="kc-semantic-view-dialog" role="dialog" aria-modal="true" aria-label="New semantic view" onMouseDown={(event) => event.stopPropagation()} onSubmit={onSubmit}>
+        <header>
+          <div>
+            <strong>新增 View 草案</strong>
+            <span>保存到 Semantic Pack 的 MDL views，并作为 view entity 展示在画布中。</span>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close view draft"><X className="kc-native-icon" /></button>
+        </header>
+        <label>
+          <span>View 名称</span>
+          <input value={draft.name} onChange={(event) => onDraftChange({ ...draft, name: event.target.value })} placeholder="门店销售趋势" />
+        </label>
+        <label>
+          <span>说明</span>
+          <textarea value={draft.description} onChange={(event) => onDraftChange({ ...draft, description: event.target.value })} placeholder="用于按月份查看门店销售趋势" />
+        </label>
+        <label>
+          <span>Base metric</span>
+          <input list="semantic-view-metrics" value={draft.baseMetric} onChange={(event) => onDraftChange({ ...draft, baseMetric: event.target.value })} placeholder={metrics[0] || "sales_amount"} />
+          <datalist id="semantic-view-metrics">
+            {metrics.map((metric) => <option key={metric} value={metric} />)}
+          </datalist>
+        </label>
+        <div className="kc-inline-fields">
+          <label>
+            <span>Dimensions（逗号分隔）</span>
+            <input value={draft.dimensions} onChange={(event) => onDraftChange({ ...draft, dimensions: event.target.value })} placeholder="store_id, region" />
+          </label>
+          <label>
+            <span>Time grain</span>
+            <select value={draft.timeGrain} onChange={(event) => onDraftChange({ ...draft, timeGrain: event.target.value })}>
+              <option value="day">day</option>
+              <option value="week">week</option>
+              <option value="month">month</option>
+              <option value="quarter">quarter</option>
+            </select>
+          </label>
+        </div>
+        <footer>
+          <button type="button" onClick={onClose}>取消</button>
+          <button type="submit" className="is-primary" disabled={!draft.name.trim()}>
+            <Plus className="kc-native-icon" />
+            保存 View 草案
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
 function RowList<T>({
   items,
   empty,
@@ -877,4 +1120,14 @@ function RowList<T>({
       )) : <em>{empty}</em>}
     </div>
   );
+}
+
+function metricOptions(detail: SemanticPackDetail | null): string[] {
+  const mdl = objectValue(detail?.structured_mdl);
+  return arrayValue(mdl.metrics)
+    .map((item) => {
+      const record = objectValue(item);
+      return String(record.id || record.name || "").trim();
+    })
+    .filter(Boolean);
 }

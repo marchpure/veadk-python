@@ -364,6 +364,59 @@ export interface SemanticPackDetail {
   mock?: boolean;
 }
 
+export interface SemanticBuilderRevision {
+  schema: "agentkit.semantic_builder.revision.v1";
+  id: string;
+  conversation_id: string;
+  semantic_pack_id?: string | null;
+  revision_number: number;
+  author_role: string;
+  message: string;
+  patch: Record<string, unknown>;
+  diff: Array<Record<string, unknown>>;
+  status: string;
+  created_at?: string;
+}
+
+export interface SemanticBuilderConversation {
+  schema: "agentkit.semantic_builder.conversation.v1";
+  id: string;
+  space_id: string;
+  semantic_pack_id?: string | null;
+  draft_pack_id?: string | null;
+  title: string;
+  source_ids: string[];
+  snapshot_ids: string[];
+  metadata: Record<string, unknown>;
+  revisions: SemanticBuilderRevision[];
+  created_at?: string;
+  updated_at?: string;
+  mock?: boolean;
+}
+
+export interface SemanticBuilderRefineResult extends SemanticBuilderConversation {
+  latest_revision: SemanticBuilderRevision;
+  draft: SemanticPackDetail;
+  diff: Array<Record<string, unknown>>;
+}
+
+export interface SemanticBuilderViewDraftResult {
+  schema: "agentkit.semantic_builder.view_draft.v1";
+  semantic_pack_id: string;
+  view: Record<string, unknown>;
+  diff: Array<Record<string, unknown>>;
+  draft: SemanticPackDetail;
+  mock?: boolean;
+}
+
+export interface SemanticBuilderPublishResult {
+  schema: "agentkit.semantic_builder.publish.v1";
+  semantic_pack_id: string;
+  asset: KnowledgeAssetMetadata;
+  publish_state: KnowledgePublishState;
+  mock?: boolean;
+}
+
 export class KnowledgeAssetError extends Error {
   readonly status: number;
   readonly code: string;
@@ -778,6 +831,76 @@ export async function listSemanticBuildEvents(
     "读取语义构建事件失败",
   );
   return payload.items ?? [];
+}
+
+export async function createSemanticBuilderConversation(input: {
+  space_id: string;
+  semantic_pack_id?: string | null;
+  draft_pack_id?: string | null;
+  title?: string;
+  source_ids?: string[];
+  snapshot_ids?: string[];
+  metadata?: Record<string, unknown>;
+}): Promise<SemanticBuilderConversation> {
+  return requestJson(
+    "/api/knowledge-assets/semantic-builder/conversations",
+    { method: "POST", body: JSON.stringify(input) },
+    "创建语义建模对话失败",
+  );
+}
+
+export async function getSemanticBuilderConversation(
+  conversationId: string,
+): Promise<SemanticBuilderConversation> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-builder/conversations/${encodeURIComponent(conversationId)}`,
+    undefined,
+    "读取语义建模对话失败",
+  );
+}
+
+export async function refineSemanticBuilderConversation(
+  conversationId: string,
+  input: {
+    message: string;
+    semantic_pack_id?: string | null;
+  },
+): Promise<SemanticBuilderRefineResult> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-builder/conversations/${encodeURIComponent(conversationId)}/messages`,
+    { method: "POST", body: JSON.stringify(input) },
+    "调整语义草案失败",
+  );
+}
+
+export async function createSemanticBuilderViewDraft(
+  assetId: string,
+  input: {
+    name: string;
+    description?: string;
+    base_metric?: string;
+    dimensions?: string[];
+    filters?: Array<Record<string, unknown>>;
+    time_grain?: string;
+    query_spec?: Record<string, unknown>;
+    generated_sql?: string;
+  },
+): Promise<SemanticBuilderViewDraftResult> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-builder/drafts/${encodeURIComponent(assetId)}/views`,
+    { method: "POST", body: JSON.stringify(input) },
+    "创建语义视图草案失败",
+  );
+}
+
+export async function publishSemanticBuilderDraft(
+  assetId: string,
+): Promise<SemanticBuilderPublishResult> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-builder/drafts/${encodeURIComponent(assetId)}/publish`,
+    { method: "POST", body: JSON.stringify({ publish: true }) },
+    "发布语义草案失败",
+  );
 }
 
 export async function listSemanticQuestionSqlPairs(input: {
