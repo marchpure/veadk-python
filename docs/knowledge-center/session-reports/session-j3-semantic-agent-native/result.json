@@ -1,0 +1,120 @@
+{
+  "schema": "session-j3.semantic-builder.result.v1",
+  "branch": "kc/session-j3-semantic-agent-native",
+  "base_commit": "8387adc",
+  "working_base_commit": "1ee032470bcf1cf43c67e5c115e44a361d2c56ac",
+  "worktree": "/Users/bytedance/worktrees/veadk-python-session-j3-semantic-agent-native-clean",
+  "worktree_clean_start": true,
+  "worktree_clean_end": true,
+  "pushed": true,
+  "runner": {
+    "configured": true,
+    "backend": "veadk.Agent+Runner",
+    "model_name": "doubao-seed-2-0-lite-260428",
+    "deterministic_fallback_enabled": false,
+    "used_fallback": false
+  },
+  "checks": {
+    "start_calls_runner": true,
+    "refine_calls_runner": true,
+    "start_always_draft": true,
+    "publish_explicit_endpoint": true,
+    "fail_closed_when_unconfigured": true,
+    "conversation_draft_revision_agent_run_persisted": true,
+    "few_shot_instructions_package_contract": true,
+    "view_writes_mdl_and_package": true,
+    "revision_accept_reject_revert": true,
+    "secret_redaction_tested": true
+  },
+  "live_e2e": {
+    "result_path": "live-e2e-result.json",
+    "passed": true,
+    "runner_configured": true,
+    "live_runner_unavailable": false,
+    "used_fallback": false,
+    "api_flow": {
+      "job_status": "succeeded",
+      "start_publish_state": "draft",
+      "final_publish_state": "published",
+      "runner_backend": "veadk.Agent+Runner",
+      "refine_revision_status": "draft",
+      "accept_revision_status": "accepted",
+      "publish_revision_status": "published",
+      "views": 1,
+      "few_shot": 1,
+      "instructions": 1
+    },
+    "mobile": {
+      "horizontal_overflow_px": 0
+    },
+    "screenshots": [
+      "screenshots/desktop-semantic-builder.png",
+      "screenshots/mobile-semantic-builder.png",
+      "screenshots/desktop-agent-run.png",
+      "screenshots/desktop-patch-diff.png"
+    ]
+  },
+  "commands": [
+    {
+      "command": "python -m py_compile frontend/server/knowledge_assets/agents/runner.py docs/knowledge-center/session-reports/session-j3-semantic-agent-native/run-live-e2e.py",
+      "status": "passed"
+    },
+    {
+      "command": "uv run --with ruff ruff check frontend/server/knowledge_assets/agents/runner.py tests/frontend/test_knowledge_asset_agents.py",
+      "status": "passed"
+    },
+    {
+      "command": "pytest -q tests/frontend/test_knowledge_asset_agents.py",
+      "status": "passed"
+    },
+    {
+      "command": "J3_E2E_BASE_URL=http://127.0.0.1:18765 python docs/knowledge-center/session-reports/session-j3-semantic-agent-native/run-live-e2e.py",
+      "status": "passed"
+    },
+    {
+      "command": "python -m py_compile frontend/server/knowledge_assets/agents/runner.py frontend/server/knowledge_assets/agents/semantic_builder.py frontend/server/knowledge_assets/builders/semantic/service.py frontend/server/knowledge_assets/contract.py frontend/server/knowledge_assets/models.py frontend/server/knowledge_assets/repository.py frontend/server/knowledge_assets/routes.py frontend/server/knowledge_assets/service.py docs/knowledge-center/session-reports/session-j3-semantic-agent-native/run-live-e2e.py",
+      "status": "passed"
+    },
+    {
+      "command": "uv run --with ruff ruff check frontend/server/knowledge_assets/agents/runner.py frontend/server/knowledge_assets/agents/semantic_builder.py frontend/server/knowledge_assets/builders/semantic/service.py frontend/server/knowledge_assets/contract.py frontend/server/knowledge_assets/models.py frontend/server/knowledge_assets/repository.py frontend/server/knowledge_assets/routes.py frontend/server/knowledge_assets/service.py tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_knowledge_asset_semantic_builder.py tests/frontend/test_knowledge_asset_store.py docs/knowledge-center/session-reports/session-j3-semantic-agent-native/run-live-e2e.py",
+      "status": "passed"
+    },
+    {
+      "command": "pytest -q tests/frontend/test_knowledge_asset_semantic_builder.py tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_knowledge_asset_store.py",
+      "status": "passed"
+    },
+    {
+      "command": "cd frontend && npm run build",
+      "status": "passed"
+    },
+    {
+      "command": "cd frontend && npm test",
+      "status": "passed"
+    },
+    {
+      "command": "pre-commit run --files $(git diff --name-only --diff-filter=ACMRT)",
+      "status": "passed"
+    },
+    {
+      "command": "high-confidence diff secret scan (custom regex); gitleaks via pre-commit hook",
+      "status": "passed"
+    },
+    {
+      "command": "git fetch origin --prune; origin/kc/session-j3-semantic-agent-native matched working base 1ee032470bcf1cf43c67e5c115e44a361d2c56ac",
+      "status": "passed"
+    }
+  ],
+  "pending_final_verification": [],
+  "blockers": [],
+  "warnings": [
+    "Standalone gitleaks binary was not on PATH; repository pre-commit gitleaks hook passed.",
+    "Frontend production build emitted existing Vite chunk-size/dynamic-import warnings; build succeeded."
+  ],
+  "sensitive_data_policy": {
+    "api_keys_in_report": false,
+    "database_passwords_in_report": false,
+    "connection_strings_in_report": false,
+    "cookies_or_tokens_in_report": false,
+    "raw_document_sensitive_text_in_report": false
+  }
+}

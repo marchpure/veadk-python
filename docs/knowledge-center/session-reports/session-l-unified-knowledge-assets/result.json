@@ -1,0 +1,96 @@
+{
+  "session": "session-l-unified-knowledge-assets",
+  "branch": "kc/session-l-unified-knowledge-assets",
+  "base_branch": "marchpure/kc/session-i-h6-g2-integration",
+  "merged_branch": "marchpure/kc/session-j3-semantic-agent-native",
+  "status": "passed",
+  "blockers": [],
+  "scope": [
+    "Unified Session I/G2 knowledge asset baseline with J3 Semantic Builder agent-native implementation.",
+    "Preserved AskTable, Dashboard share/export, Semantic Builder, Evaluation, capabilities, jobs, and settings surfaces.",
+    "Rebuilt shipped web UI assets."
+  ],
+  "feature_checks": {
+    "knowledge_center_tabs": [
+      "概览",
+      "数据源",
+      "语义构建",
+      "AskTable / Dashboard",
+      "测评",
+      "能力",
+      "构建任务",
+      "设置"
+    ],
+    "asktable": {
+      "status": "present",
+      "evidence": [
+        "/api/knowledge-assets/askdata/query",
+        "/api/knowledge-assets/askdata/stream",
+        "/api/knowledge-assets/askdata/conversations/{conversation_id}"
+      ]
+    },
+    "dashboard_share_export": {
+      "status": "present",
+      "evidence": [
+        "/api/knowledge-assets/assets/dashboard/{asset_id}/share",
+        "/api/knowledge-assets/shares/{share_id}",
+        "/api/knowledge-assets/shares/{share_id}/revoke",
+        "/share/knowledge-assets/dashboard/{share_id}",
+        "frontend shareDashboardAsset/getDashboardShare/revokeDashboardShare APIs"
+      ]
+    },
+    "semantic_builder_j3": {
+      "status": "present",
+      "evidence": [
+        "/api/knowledge-assets/semantic-build/stream",
+        "/api/knowledge-assets/semantic-build/{job_id}/events",
+        "/api/knowledge-assets/semantic-builder/conversations",
+        "/api/knowledge-assets/semantic-builder/drafts/{asset_id}/publish"
+      ]
+    },
+    "evaluation": {
+      "status": "present",
+      "evidence": [
+        "/api/knowledge-assets/evaluation/suites",
+        "/api/knowledge-assets/evaluation/runs",
+        "frontend listKnowledgeAssetEvalSuites/runKnowledgeAssetEvaluation APIs"
+      ]
+    }
+  },
+  "validation": [
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "uvx ruff check touched Python files",
+      "status": "passed",
+      "note": "Global `ruff` and project `uv run ruff` executable were unavailable; used `uvx ruff` for the requested ruff CLI validation."
+    },
+    {
+      "command": "pytest -q tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_knowledge_asset_semantic_builder.py tests/frontend/test_dashboard_askdata_routes.py",
+      "status": "passed",
+      "summary": "28 passed, 7 warnings"
+    },
+    {
+      "command": "pytest -q tests/frontend/test_semantic_builder.py::test_semantic_skill_build_prefers_sanitized_semantic_reference",
+      "status": "passed",
+      "summary": "1 passed, 9 warnings"
+    },
+    {
+      "command": "cd frontend && npm test -- semanticBuildPanel.test.mjs knowledgeWorkbenchAgents.test.mjs",
+      "status": "passed",
+      "summary": "682 passed"
+    },
+    {
+      "command": "cd frontend && npm run build",
+      "status": "passed",
+      "summary": "Vite build completed with chunk-size/dynamic-import warnings only."
+    }
+  ],
+  "unified_experience_path": "/knowledge-center",
+  "notes": [
+    "No new UX refactor was introduced in Session L.",
+    "The Session L report was generated after merge validation."
+  ]
+}

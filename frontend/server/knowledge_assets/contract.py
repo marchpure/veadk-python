@@ -51,6 +51,8 @@ class KnowledgeAssetMetadataEnvelope(TypedDict):
     """Stable metadata envelope for AgentKit Knowledge Center capabilities."""
 
     schema_version: Literal["knowledge_asset.metadata.v1"]
+    package_id: str
+    space_id: str | None
     asset_type: KnowledgeAssetType
     asset_id: str
     capability_kind: KnowledgeCapabilityKind

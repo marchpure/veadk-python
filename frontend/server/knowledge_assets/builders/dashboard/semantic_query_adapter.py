@@ -7,9 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlsplit
-
-import httpx
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator
 
@@ -43,7 +41,7 @@ class SemanticQueryRequest:
     allow_demo_snapshot: bool = False
 
     @classmethod
-    def from_body(cls, body: Any) -> "SemanticQueryRequest":
+    def from_body(cls, body: Any) -> SemanticQueryRequest:
         dimensions = getattr(body, "dimensions", []) or []
         mode = str(getattr(body, "mode", "summary") or "summary")
         offline_mode = _is_offline_mode(mode)
@@ -72,7 +70,7 @@ class SemanticQueryRequest:
         cls,
         asset_id: str,
         body: Any,
-    ) -> "SemanticQueryRequest":
+    ) -> SemanticQueryRequest:
         request = cls.from_body(body)
         return cls(
             semantic_asset_id=asset_id,
@@ -207,7 +205,7 @@ def normalize_semantic_mdl(
     asset: dict[str, Any],
     package: dict[str, Any],
 ) -> dict[str, Any]:
-    inline = package.get("mdl") if isinstance(package.get("mdl"), dict) else {}
+    inline = _merged_dicts(package.get("structured_mdl"), package.get("mdl"))
     artifacts = _package_artifacts(package)
     models = _artifact_dict(artifacts, "mdl/models.json")
     metrics = _artifact_dict(artifacts, "mdl/metrics.json")
@@ -475,11 +473,46 @@ async def _resolve_governed_result(
     if sqlite_result is not None:
         return sqlite_result
 
+    if snapshot_result := _schema_snapshot_governed_result(
+        asset=asset,
+        package=package,
+        request=request,
+        metric=metric,
+        dimensions=dimensions,
+        policies=policies,
+        mdl=mdl,
+    ):
+        return snapshot_result
+
     if request.require_live and not request.allow_demo_snapshot:
         raise KnowledgeAssetServiceError(
             "Semantic Skill 缺少可用 live governed query 结果；生产 AskTable 不会回退到 schema_only。"
         )
 
+    return _schema_only_governed_result(
+        asset=asset,
+        package=package,
+        request=request,
+        metric=metric,
+        dimensions=dimensions,
+        policies=policies,
+        mdl=mdl,
+    )
+
+
+def _schema_snapshot_governed_result(
+    *,
+    asset: dict[str, Any],
+    package: dict[str, Any],
+    request: SemanticQueryRequest,
+    metric: dict[str, Any],
+    dimensions: list[dict[str, Any]],
+    policies: dict[str, Any],
+    mdl: dict[str, Any],
+) -> dict[str, Any] | None:
+    rows = _snapshot_rows(mdl.get("snapshot_results"), metric, dimensions, request.limit)
+    if not rows:
+        return None
     return _schema_only_governed_result(
         asset=asset,
         package=package,
@@ -1224,6 +1257,14 @@ def _first_dict(*values: Any) -> dict[str, Any]:
         if isinstance(value, dict):
             return dict(value)
     return {}
+
+
+def _merged_dicts(*values: Any) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for value in values:
+        if isinstance(value, dict):
+            out.update(value)
+    return out
 
 
 def _first_list(*values: Any) -> list[dict[str, Any]]:

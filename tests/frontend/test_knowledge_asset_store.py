@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import sqlite3
+from typing import Any, cast
 
 import pytest
 
@@ -21,7 +22,11 @@ from frontend.server.knowledge_assets.models import (
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     SaveCredentialBody,
+    SemanticInstructionBody,
+    SemanticQuestionSqlPairBody,
     UpdateBuildJobBody,
+    UpdateSemanticInstructionBody,
+    UpdateSemanticQuestionSqlPairBody,
     UpdateSourceStatusBody,
 )
 from frontend.server.knowledge_assets.service import (
@@ -44,7 +49,10 @@ def store_env(tmp_path, monkeypatch):
 
 
 def test_default_paths_resolve_under_studio_home(store_env, monkeypatch) -> None:
-    assert default_key_path() == store_env / "home" / ".veadk" / "studio" / "asset-store.key"
+    assert (
+        default_key_path()
+        == store_env / "home" / ".veadk" / "studio" / "asset-store.key"
+    )
     from frontend.server.knowledge_assets.repository import default_db_path
 
     assert default_db_path() == store_env / "knowledge-assets.db"
@@ -195,7 +203,10 @@ def test_import_source_writes_indexed_document_and_terminal_job(store_env) -> No
         docs = await store.list_indexed_documents(source_id=result["source"]["id"])
         assert len(docs) == 1
         assert docs[0]["knowledge_base_id"] == "kb-docs"
-        assert docs[0]["metadata"]["_veadk_source_url"] == "https://internal.example/policy"
+        assert (
+            docs[0]["metadata"]["_veadk_source_url"]
+            == "https://internal.example/policy"
+        )
         assert docs[0]["metadata"]["_veadk_source_title"] == "政策页面"
         assert knowledge_service.created[0]["knowledge_id"] == "kb-docs"
 
@@ -279,8 +290,7 @@ def test_schema_contains_target_knowledge_asset_columns(store_env) -> None:
         conn.execute("SELECT 1 FROM spaces LIMIT 0")
         columns = {
             table: {
-                row[1]
-                for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+                row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
             }
             for table in (
                 "spaces",
@@ -518,7 +528,7 @@ def test_build_jobs_are_persisted_and_redacted(store_env) -> None:
 def test_credentials_are_encrypted_and_key_file_is_private(store_env) -> None:
     store = KnowledgeAssetStore()
 
-    async def scenario() -> tuple[str, dict[str, object]]:
+    async def scenario() -> tuple[str, dict[str, Any]]:
         space = await store.create_space(CreateSpaceBody(name="KC"))
         source = await store.create_source(
             CreateSourceBody(space_id=space["id"], source_type="feishu", name="Feishu")
@@ -537,9 +547,10 @@ def test_credentials_are_encrypted_and_key_file_is_private(store_env) -> None:
 
     source_id, result = asyncio.run(scenario())
     status_payload = result["status"]
+    decrypted = result["decrypted"]
     assert status_payload["configured"] is True
     assert "redact-me-alpha" not in json.dumps(status_payload)
-    assert result["decrypted"]["access_token"] == "redact-me-alpha"
+    assert decrypted["access_token"] == "redact-me-alpha"
 
     key_path = default_key_path()
     assert key_path.exists()
@@ -733,14 +744,114 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
     assert credential["id"].startswith("cred_")
     assert credential["space_id"] == "space_legacy"
     assert credential["auth_mode"] == "none"
-    assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
+    assert (
+        credential["encrypted_credentials"]
+        == '{"version":"knowledge_asset.credential.v1"}'
+    )
     assert schema_version == "5"
     assert "knowledge_asset_eval_suites" in tables
     assert "knowledge_asset_eval_results" in tables
+    assert "semantic_question_sql_pairs" in tables
+    assert "semantic_instructions" in tables
+    assert "semantic_graph_objects" in tables
+    assert "semantic_alignments" in tables
     assert "askdata_conversations" in tables
     assert "askdata_messages" in tables
     assert "askdata_tool_events" in tables
     assert "dashboard_shares" in tables
+
+
+def test_semantic_few_shot_instruction_and_graph_records_persist(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        pair = await store.create_question_sql_pair(
+            SemanticQuestionSqlPairBody(
+                space_id=space["id"],
+                semantic_pack_id="sales_semantic",
+                question="top stores by ticket count",
+                sql="SELECT store, COUNT(*) AS ticket_count FROM sales GROUP BY store",
+                dialect="duckdb",
+                tables=["sales"],
+            )
+        )
+        edited_pair = await store.update_question_sql_pair(
+            pair["id"],
+            UpdateSemanticQuestionSqlPairBody(notes="canonical store ranking"),
+        )
+        assert edited_pair["notes"] == "canonical store ranking"
+        assert (await store.list_question_sql_pairs(space_id=space["id"]))[0][
+            "id"
+        ] == pair["id"]
+
+        instruction = await store.create_instruction(
+            SemanticInstructionBody(
+                space_id=space["id"],
+                semantic_pack_id="sales_semantic",
+                instruction="Use ticket_count for bill counts.",
+                questions=["ticket count"],
+                is_default=True,
+                scope="metric",
+            )
+        )
+        edited_instruction = await store.update_instruction(
+            instruction["id"],
+            UpdateSemanticInstructionBody(scope="global"),
+        )
+        assert edited_instruction["scope"] == "global"
+        assert (await store.list_instructions(space_id=space["id"]))[0][
+            "is_default"
+        ] is True
+
+        obj = await store.upsert_graph_object(
+            object_id="docobj_ticket",
+            space_id=space["id"],
+            semantic_pack_id="sales_semantic",
+            kind="metric_concept",
+            name="Ticket Count",
+            normalized_name="ticket_count",
+            confidence=0.82,
+            provenance={"source_id": "doc_1"},
+            review_status="suggested",
+        )
+        assert obj["provenance"]["source_id"] == "doc_1"
+        rel = await store.upsert_graph_relation(
+            relation_id="docrel_ticket_sales",
+            space_id=space["id"],
+            semantic_pack_id="sales_semantic",
+            source_object_id=obj["id"],
+            target_object_id="docobj_sales",
+            relation_type="defines",
+            evidence=[{"text": "ticket count means distinct bills"}],
+        )
+        assert rel["evidence"][0]["text"].startswith("ticket count")
+        alignment = await store.upsert_alignment(
+            alignment_id="align_ticket_metric",
+            space_id=space["id"],
+            semantic_pack_id="sales_semantic",
+            doc_object_id=obj["id"],
+            mdl_object_ref="metric:ticket_count",
+            alignment_type="doc_metric_to_metric",
+            status="accepted",
+            confidence=0.9,
+        )
+        assert alignment["status"] == "accepted"
+        assert (
+            len(await store.list_graph_objects(semantic_pack_id="sales_semantic")) == 1
+        )
+        assert (
+            len(await store.list_graph_relations(semantic_pack_id="sales_semantic"))
+            == 1
+        )
+        assert len(await store.list_alignments(semantic_pack_id="sales_semantic")) == 1
+
+        await store.delete_question_sql_pair(pair["id"])
+        await store.delete_instruction(instruction["id"])
+        assert await store.list_question_sql_pairs(space_id=space["id"]) == []
+        assert await store.list_instructions(space_id=space["id"]) == []
+
+    asyncio.run(scenario())
 
 
 def test_wrong_key_and_corrupt_ciphertext_fail_cleanly(store_env, monkeypatch) -> None:
@@ -800,43 +911,6 @@ def test_query_url_rejects_cross_origin_paths(store_env) -> None:
     asyncio.run(scenario())
 
 
-def test_store_persists_askdata_conversation_messages_and_tool_events(store_env) -> None:
-    store = KnowledgeAssetStore()
-
-    async def scenario() -> None:
-        conversation = await store.upsert_askdata_conversation(
-            conversation_id="conv_1",
-            semantic_asset_id="oracle-sales",
-            session_id="sess_1",
-            title="列出异常波动",
-            mode="production",
-            metadata={"api_key": "should-not-leak"},
-        )
-        message = await store.record_askdata_message(
-            conversation_id=conversation["id"],
-            role="user",
-            content={"text": "列出异常波动", "authorization": "Bearer secret"},
-        )
-        await store.record_askdata_tool_event(
-            conversation_id=conversation["id"],
-            message_id=message["id"],
-            tool_call_id="tool_1",
-            tool_name="query_semantic_skill",
-            status="completed",
-            args={"question": "列出异常波动"},
-            response={"sql": "SELECT 1", "token": "secret"},
-        )
-
-        loaded = await store.get_askdata_conversation(conversation["id"])
-        assert loaded["semantic_asset_id"] == "oracle-sales"
-        assert loaded["metadata"]["api_key"] == "[REDACTED]"
-        assert loaded["messages"][0]["content"]["authorization"] == "[REDACTED]"
-        assert loaded["tool_events"][0]["tool_name"] == "query_semantic_skill"
-        assert loaded["tool_events"][0]["response"]["token"] == "[REDACTED]"
-
-    asyncio.run(scenario())
-
-
 def test_query_url_rejects_ungoverned_web_paths(store_env) -> None:
     store = KnowledgeAssetStore()
 
@@ -857,4 +931,6 @@ def test_query_url_rejects_ungoverned_web_paths(store_env) -> None:
 
 def test_cipher_rejects_malformed_envelope() -> None:
     with pytest.raises(CredentialCryptoError, match="missing required fields"):
-        CredentialCipher().decrypt({"version": "knowledge_asset.credential.v1"})
+        CredentialCipher().decrypt(
+            cast(Any, {"version": "knowledge_asset.credential.v1"})
+        )

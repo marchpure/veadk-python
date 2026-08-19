@@ -67,7 +67,8 @@ import {
 } from "./capabilitySlots";
 import { EvaluationWorkbench } from "./EvaluationWorkbench";
 import "./KnowledgeCenter.css";
-import { SemanticModelingWorkbench } from "./SemanticModelingWorkbench";
+import { SemanticBuildPanel } from "./SemanticBuildPanel";
+// Wren mapping note: <SemanticModelingWorkbench was folded into SemanticBuildPanel for Session J2.
 
 type LoadState =
   | { status: "loading" }
@@ -1020,8 +1021,8 @@ export function KnowledgeCenterView() {
             />
           ) : null}
           {activeTab === "semantic" ? (
-            <div data-workbench-target="semantic_skill" tabIndex={-1}>
-              <SemanticModelingWorkbench
+            <div className="kc-semantic-composite" data-workbench-target="semantic_skill" tabIndex={-1}>
+              <SemanticBuildPanel
                 spaceId={activeSpace?.id ?? ""}
                 sources={spaceSources}
                 assets={assets}

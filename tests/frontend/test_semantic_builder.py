@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from frontend.server.knowledge_assets import mount_knowledge_asset_routes
+from frontend.server.knowledge_assets.builders.semantic.mdl_writer import write_mdl
 from frontend.server.knowledge_assets.builders.semantic.metric_dimension_candidates import (
     generate_candidates,
 )
-from frontend.server.knowledge_assets.builders.semantic.mdl_writer import write_mdl
-from frontend.server.knowledge_assets.builders.semantic.schema_graph import build_schema_graph
+from frontend.server.knowledge_assets.builders.semantic.schema_graph import (
+    build_schema_graph,
+)
 from frontend.server.knowledge_assets.repository import KnowledgeAssetRepository
 from frontend.server.knowledge_assets.service import KnowledgeAssetStore
 
@@ -43,7 +47,7 @@ def _schema() -> dict[str, object]:
     }
 
 
-def _job(client: TestClient, job_id: str) -> dict[str, object]:
+def _job(client: TestClient, job_id: str) -> dict[str, Any]:
     return client.get(f"/api/knowledge-assets/build-jobs/{job_id}").json()
 
 
@@ -84,7 +88,7 @@ def test_candidates_and_mdl_are_wren_style_and_governed() -> None:
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
+def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "semantic local key material")
     for name in (
@@ -137,6 +141,7 @@ def test_semantic_skill_build_blocks_without_snapshot(client: TestClient) -> Non
 
 def test_semantic_skill_build_creates_published_capability(client: TestClient, monkeypatch) -> None:
     monkeypatch.setenv("VEADK_SEMANTIC_BUILDER_DETERMINISTIC", "1")
+    monkeypatch.setenv("VEADK_KNOWLEDGE_AGENT_API_KEY", "unit-test-model-key")
     space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
     source = client.post(
         "/api/knowledge-assets/sources",
@@ -226,6 +231,7 @@ def test_semantic_skill_build_records_safe_document_context(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("VEADK_SEMANTIC_BUILDER_DETERMINISTIC", "1")
+    monkeypatch.setenv("VEADK_KNOWLEDGE_AGENT_API_KEY", "unit-test-model-key")
     space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
     source = client.post(
         "/api/knowledge-assets/sources",
@@ -289,6 +295,7 @@ def test_semantic_skill_build_prefers_sanitized_semantic_reference(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("VEADK_SEMANTIC_BUILDER_DETERMINISTIC", "1")
+    monkeypatch.setenv("VEADK_KNOWLEDGE_AGENT_API_KEY", "unit-test-model-key")
     space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
     source = client.post(
         "/api/knowledge-assets/sources",

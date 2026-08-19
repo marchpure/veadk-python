@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 from uuid import uuid4
@@ -88,12 +89,16 @@ class AgentRunResult:
     metadata: AgentRuntimeMetadata
 
 
-class InternalAgentRunner(Protocol):
-    async def run(self, request: AgentRunRequest) -> AgentRunResult:
-        ...
+@dataclass(frozen=True)
+class ParsedAgentJson:
+    payload: Any
+    validation_result: dict[str, Any]
 
-    def health(self) -> dict[str, Any]:
-        ...
+
+class InternalAgentRunner(Protocol):
+    async def run(self, request: AgentRunRequest) -> AgentRunResult: ...
+
+    def health(self) -> dict[str, Any]: ...
 
 
 class StudioInternalAgentRunner:
@@ -184,7 +189,8 @@ class StudioInternalAgentRunner:
             timeout=request.timeout_seconds,
         )
         try:
-            parsed = json.loads(raw)
+            parsed_result = _parse_agent_json(raw)
+            parsed = parsed_result.payload
         except json.JSONDecodeError as error:
             raise AgentValidationError("内置 Agent 未返回合法 JSON。") from error
         if request.output_schema:
@@ -203,7 +209,7 @@ class StudioInternalAgentRunner:
             if isinstance(payload.get("blocked_reasons"), list)
             else [],
             tool_calls=_tool_call_summary(request.tool_names),
-            validation_result={"valid": True},
+            validation_result=parsed_result.validation_result,
         )
         return AgentRunResult(
             output=output,
@@ -246,3 +252,88 @@ def _tool_call_summary(
         }
         for name in names
     ]
+
+
+def _parse_agent_json(raw: Any) -> ParsedAgentJson:
+    """Parse a model JSON response with narrow, auditable envelope repair.
+
+    The internal runner still fails closed for unparseable or schema-invalid output.
+    Repairs here are intentionally limited to common response-format noise:
+    markdown fences, text surrounding the first JSON object, and a stray quote after
+    an array/object value before a delimiter.
+    """
+
+    text = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
+    candidates: list[tuple[str, str]] = [("strict", text)]
+    stripped = _strip_markdown_json_fence(text)
+    if stripped != text:
+        candidates.append(("strip_markdown_fence", stripped))
+    extracted = _extract_first_json_object(stripped)
+    if extracted and extracted != stripped:
+        candidates.append(("extract_first_json_object", extracted))
+    repair_base = extracted or stripped
+    repaired = _repair_common_json_value_quote(repair_base)
+    if repaired != repair_base:
+        candidates.append(("repair_stray_quote_after_value", repaired))
+
+    seen: set[str] = set()
+    first_error: json.JSONDecodeError | None = None
+    for strategy, candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        try:
+            return ParsedAgentJson(
+                payload=json.loads(candidate),
+                validation_result={
+                    "valid": True,
+                    "original_json_valid": strategy == "strict",
+                    "output_repair": None if strategy == "strict" else strategy,
+                },
+            )
+        except json.JSONDecodeError as error:
+            if first_error is None:
+                first_error = error
+    if first_error is not None:
+        raise first_error
+    raise json.JSONDecodeError("No JSON object found", text, 0)
+
+
+def _strip_markdown_json_fence(text: str) -> str:
+    stripped = text.strip()
+    fence = re.fullmatch(r"```(?:json|JSON)?\s*(.*?)\s*```", stripped, re.DOTALL)
+    if fence:
+        return fence.group(1).strip()
+    return stripped
+
+
+def _extract_first_json_object(text: str) -> str | None:
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1].strip()
+    return None
+
+
+def _repair_common_json_value_quote(text: str) -> str:
+    return re.sub(r"(?<=[}\]])\"(?=\s*[,}\]])", "", text)

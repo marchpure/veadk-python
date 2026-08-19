@@ -1,15 +1,17 @@
-import { MoreHorizontal, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export function GroupTreeTitle({
   title,
   count,
   actionLabel = "New",
   onAction,
+  disabledReason,
 }: {
   title: string;
   count: number;
   actionLabel?: string;
   onAction?: () => void;
+  disabledReason?: string;
 }) {
   return (
     <div className="adm-tree-group-title">
@@ -22,11 +24,9 @@ export function GroupTreeTitle({
           <Plus className="kc-native-icon" />
           {actionLabel}
         </button>
-      ) : (
-        <button type="button" className="adm-tree-more" aria-label={`${title} actions`}>
-          <MoreHorizontal className="kc-native-icon" />
-        </button>
-      )}
+      ) : disabledReason ? (
+        <small className="adm-tree-disabled-reason">{disabledReason}</small>
+      ) : null}
     </div>
   );
 }

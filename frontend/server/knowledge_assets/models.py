@@ -163,6 +163,7 @@ class UpdateBuildJobBody(ApiModel):
 class BuildSemanticSkillBody(ApiModel):
     space_id: str | None = Field(default=None, max_length=128)
     source_ids: list[str] = Field(default_factory=list)
+    document_source_ids: list[str] = Field(default_factory=list)
     snapshot_ids: list[str] = Field(default_factory=list)
     name: str = Field(default="Generated Semantic Skill", min_length=1, max_length=300)
     description: str = Field(default="", max_length=2000)
@@ -170,10 +171,119 @@ class BuildSemanticSkillBody(ApiModel):
     target_domain: str = Field(default="", max_length=200)
     publish: bool = False
 
-    @field_validator("source_ids", "snapshot_ids")
+    @field_validator("source_ids", "document_source_ids", "snapshot_ids")
     @classmethod
     def _clean_ids(cls, value: list[str]) -> list[str]:
         return [item.strip() for item in value if item.strip()]
+
+
+class SemanticQuestionSqlPairBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    question: str = Field(min_length=1, max_length=2000)
+    sql: str = Field(min_length=1, max_length=12000)
+    dialect: str = Field(default="ansi", max_length=80)
+    tables: list[str] = Field(default_factory=list)
+    notes: str = Field(default="", max_length=2000)
+
+    @field_validator("tables")
+    @classmethod
+    def _clean_tables(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
+class UpdateSemanticQuestionSqlPairBody(ApiModel):
+    question: str | None = Field(default=None, min_length=1, max_length=2000)
+    sql: str | None = Field(default=None, min_length=1, max_length=12000)
+    dialect: str | None = Field(default=None, max_length=80)
+    tables: list[str] | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("tables")
+    @classmethod
+    def _clean_tables(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
+class SemanticInstructionBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    instruction: str = Field(min_length=1, max_length=4000)
+    questions: list[str] = Field(default_factory=list)
+    is_default: bool = False
+    scope: str = Field(default="global", max_length=80)
+
+    @field_validator("questions")
+    @classmethod
+    def _clean_questions(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:1000] for item in value if item.strip()]
+
+
+class UpdateSemanticInstructionBody(ApiModel):
+    instruction: str | None = Field(default=None, min_length=1, max_length=4000)
+    questions: list[str] | None = None
+    is_default: bool | None = None
+    scope: str | None = Field(default=None, max_length=80)
+
+    @field_validator("questions")
+    @classmethod
+    def _clean_questions(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return [item.strip()[:1000] for item in value if item.strip()]
+
+
+class UpdateSemanticReviewStatusBody(ApiModel):
+    review_status: str | None = Field(default=None, max_length=80)
+    status: str | None = Field(default=None, max_length=80)
+
+
+class SemanticBuilderConversationBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    draft_pack_id: str | None = Field(default=None, max_length=256)
+    title: str = Field(default="Semantic Builder conversation", max_length=300)
+    source_ids: list[str] = Field(default_factory=list)
+    document_source_ids: list[str] = Field(default_factory=list)
+    snapshot_ids: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("source_ids", "document_source_ids", "snapshot_ids")
+    @classmethod
+    def _clean_ids(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
+class SemanticBuilderMessageBody(ApiModel):
+    message: str = Field(min_length=1, max_length=4000)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    base_revision_id: str | None = Field(default=None, max_length=256)
+
+
+class SemanticBuilderPublishBody(ApiModel):
+    publish: bool = True
+
+
+class SemanticBuilderRevisionActionBody(ApiModel):
+    message: str = Field(default="", max_length=2000)
+
+
+class SemanticBuilderViewDraftBody(ApiModel):
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=1000)
+    base_metric: str = Field(default="", max_length=256)
+    dimensions: list[str] = Field(default_factory=list)
+    filters: list[dict[str, Any]] = Field(default_factory=list)
+    time_grain: str = Field(default="month", max_length=80)
+    query_spec: dict[str, Any] = Field(default_factory=dict)
+    generated_sql: str = Field(default="", max_length=12000)
+
+    @field_validator("dimensions")
+    @classmethod
+    def _clean_dimensions(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:256] for item in value if item.strip()]
 
 
 class QueryExternalAssetBody(ApiModel):
@@ -197,18 +307,28 @@ class ShareDashboardBody(ApiModel):
 
 
 __all__ = [
+    "BuildSemanticSkillBody",
     "CreateSourceBody",
     "CreateSpaceBody",
     "ImportSourceBody",
-    "RecordIndexedDocumentBody",
+    "QueryExternalAssetBody",
     "RecordBuildJobBody",
+    "RecordIndexedDocumentBody",
     "RecordSkillPackageBody",
     "RecordSnapshotBody",
     "SaveCredentialBody",
-    "BuildSemanticSkillBody",
-    "QueryExternalAssetBody",
+    "SemanticBuilderConversationBody",
+    "SemanticBuilderMessageBody",
+    "SemanticBuilderPublishBody",
+    "SemanticBuilderRevisionActionBody",
+    "SemanticBuilderViewDraftBody",
+    "SemanticInstructionBody",
+    "SemanticQuestionSqlPairBody",
     "ShareDashboardBody",
     "UpdateBuildJobBody",
+    "UpdateSemanticInstructionBody",
+    "UpdateSemanticQuestionSqlPairBody",
+    "UpdateSemanticReviewStatusBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",
 ]

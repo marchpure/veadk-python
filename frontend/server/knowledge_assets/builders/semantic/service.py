@@ -9,8 +9,8 @@ from typing import Any
 
 from ...models import RecordBuildJobBody, RecordSkillPackageBody, UpdateBuildJobBody
 from ...service import KnowledgeAssetServiceError, KnowledgeAssetStore
-from .metric_dimension_candidates import CandidateSet, generate_candidates
 from .mdl_writer import write_mdl
+from .metric_dimension_candidates import CandidateSet, generate_candidates
 from .schema_graph import SchemaGraph, build_schema_graph, slugify
 from .skill_package_writer import build_capability_package, eval_suite
 
@@ -19,6 +19,7 @@ from .skill_package_writer import build_capability_package, eval_suite
 class SemanticSkillBuildRequest:
     space_id: str | None
     source_ids: list[str]
+    document_source_ids: list[str]
     snapshot_ids: list[str]
     name: str
     description: str
@@ -37,7 +38,9 @@ class SemanticSkillBuildService:
 
     async def enqueue(self, request: SemanticSkillBuildRequest) -> dict[str, Any]:
         if not request.source_ids and not request.snapshot_ids:
-            raise KnowledgeAssetServiceError("需要选择数据库 source 或 schema snapshot。")
+            raise KnowledgeAssetServiceError(
+                "需要选择数据库 source 或 schema snapshot。"
+            )
         primary_source = request.source_ids[0] if request.source_ids else None
         asset_id = _asset_id(request.name, request.source_ids, request.snapshot_ids)
         return await self._store.record_build_job(
@@ -93,7 +96,9 @@ class SemanticSkillBuildService:
                 UpdateBuildJobBody(
                     status=status,
                     error={
-                        "code": "SEMANTIC_BUILD_BLOCKED" if blocked else "SEMANTIC_BUILD_FAILED",
+                        "code": "SEMANTIC_BUILD_BLOCKED"
+                        if blocked
+                        else "SEMANTIC_BUILD_FAILED",
                         "message": str(error),
                     },
                     output={"asset_id": asset_id},
@@ -109,11 +114,15 @@ class SemanticSkillBuildService:
         asset_id: str,
         request: SemanticSkillBuildRequest,
     ) -> dict[str, Any]:
-        sources = [await self._store.get_source(source_id) for source_id in request.source_ids]
+        sources = [
+            await self._store.get_source(source_id) for source_id in request.source_ids
+        ]
         snapshots = await self._load_snapshots(request)
         schema, profile, snapshot_ids = _merge_snapshots(snapshots)
         if not schema:
-            raise SemanticBuildBlocked("需要 schema snapshot 或数据库 introspection 结果。")
+            raise SemanticBuildBlocked(
+                "需要 schema snapshot 或数据库 introspection 结果。"
+            )
 
         graph = build_schema_graph(schema, profile)
         if not graph.tables:
@@ -160,8 +169,16 @@ class SemanticSkillBuildService:
             generation_mode=generation_mode,
             model_configured=configured,
         )
-        metrics = [str(metric.get("id")) for metric in mdl.get("metrics") or [] if isinstance(metric, dict)]
-        dimensions = [str(dim.get("id")) for dim in mdl.get("dimensions") or [] if isinstance(dim, dict)]
+        metrics = [
+            str(metric.get("id"))
+            for metric in mdl.get("metrics") or []
+            if isinstance(metric, dict)
+        ]
+        dimensions = [
+            str(dim.get("id"))
+            for dim in mdl.get("dimensions") or []
+            if isinstance(dim, dict)
+        ]
         gate = _gate(
             graph,
             candidates,
@@ -169,7 +186,9 @@ class SemanticSkillBuildService:
             configured=configured,
             deterministic_allowed=deterministic_allowed,
         )
-        publish_state = "published" if request.publish and not gate["blockers"] else "draft"
+        publish_state = (
+            "published" if request.publish and not gate["blockers"] else "draft"
+        )
         status = "ready" if not gate["blockers"] else "blocked"
         skill = await self._store.record_skill_package(
             RecordSkillPackageBody(
@@ -178,7 +197,8 @@ class SemanticSkillBuildService:
                 asset_id=asset_id,
                 capability_kind="semantic_skill",
                 name=request.name,
-                description=request.description or "由 AgentKit Semantic Builder 从 schema snapshot 生成。",
+                description=request.description
+                or "由 AgentKit Semantic Builder 从 schema snapshot 生成。",
                 status=status,
                 publish_state=publish_state,
                 type="semantic_skill",
@@ -193,8 +213,15 @@ class SemanticSkillBuildService:
                     "metrics": metrics,
                     "dimensions": dimensions,
                     "time_field": _first_time_field(mdl),
-                    "relationships": [rel.get("id") for rel in mdl.get("relationships") or [] if isinstance(rel, dict)],
-                    "eval_cases": [case["case_id"] for case in eval_suite(asset_id, metrics, dimensions)["cases"]],
+                    "relationships": [
+                        rel.get("id")
+                        for rel in mdl.get("relationships") or []
+                        if isinstance(rel, dict)
+                    ],
+                    "eval_cases": [
+                        case["case_id"]
+                        for case in eval_suite(asset_id, metrics, dimensions)["cases"]
+                    ],
                     "generation_mode": generation_mode,
                 },
                 freshness=mdl.get("freshness") or {},
@@ -242,7 +269,9 @@ class SemanticSkillBuildService:
             ),
         )
 
-    async def _load_snapshots(self, request: SemanticSkillBuildRequest) -> list[dict[str, Any]]:
+    async def _load_snapshots(
+        self, request: SemanticSkillBuildRequest
+    ) -> list[dict[str, Any]]:
         snapshots: list[dict[str, Any]] = []
         for snapshot_id in request.snapshot_ids:
             snapshots.append(await self._store.get_snapshot(snapshot_id))
@@ -275,7 +304,9 @@ def _deterministic_live_allowed() -> bool:
     }
 
 
-def _merge_snapshots(snapshots: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+def _merge_snapshots(
+    snapshots: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
     if not snapshots:
         return {}, {}, []
     tables: list[dict[str, Any]] = []
@@ -283,11 +314,17 @@ def _merge_snapshots(snapshots: list[dict[str, Any]]) -> tuple[dict[str, Any], d
     snapshot_ids: list[str] = []
     for snapshot in snapshots:
         snapshot_ids.append(str(snapshot.get("id")))
-        schema = snapshot.get("schema") if isinstance(snapshot.get("schema"), dict) else {}
-        profile = snapshot.get("profile") if isinstance(snapshot.get("profile"), dict) else {}
+        schema = (
+            snapshot.get("schema") if isinstance(snapshot.get("schema"), dict) else {}
+        )
+        profile = (
+            snapshot.get("profile") if isinstance(snapshot.get("profile"), dict) else {}
+        )
         if isinstance(schema.get("tables"), list):
             tables.extend([item for item in schema["tables"] if isinstance(item, dict)])
-        elif isinstance(schema.get("schemas"), list) or isinstance(schema.get("fields"), list):
+        elif isinstance(schema.get("schemas"), list) or isinstance(
+            schema.get("fields"), list
+        ):
             tables.extend(_normalize_tables(schema))
         if isinstance(profile.get("tables"), dict):
             profiles["tables"].update(profile["tables"])
@@ -299,8 +336,16 @@ def _merge_snapshots(snapshots: list[dict[str, Any]]) -> tuple[dict[str, Any], d
                 profiles.update(profile)
     if tables:
         return {"tables": tables}, profiles, snapshot_ids
-    schema = snapshots[0].get("schema") if isinstance(snapshots[0].get("schema"), dict) else {}
-    profile = snapshots[0].get("profile") if isinstance(snapshots[0].get("profile"), dict) else {}
+    schema = (
+        snapshots[0].get("schema")
+        if isinstance(snapshots[0].get("schema"), dict)
+        else {}
+    )
+    profile = (
+        snapshots[0].get("profile")
+        if isinstance(snapshots[0].get("profile"), dict)
+        else {}
+    )
     return schema, profile, snapshot_ids
 
 
@@ -313,10 +358,17 @@ def _normalize_tables(schema: dict[str, Any]) -> list[dict[str, Any]]:
             namespace_name = namespace.get("name") or namespace.get("schema")
             for table in namespace.get("tables") or []:
                 if isinstance(table, dict):
-                    out.append({**table, "schema": table.get("schema") or namespace_name})
+                    out.append(
+                        {**table, "schema": table.get("schema") or namespace_name}
+                    )
         return out
     if isinstance(schema.get("fields"), list):
-        return [{"name": schema.get("name") or schema.get("table") or "source", "columns": schema.get("fields")}]
+        return [
+            {
+                "name": schema.get("name") or schema.get("table") or "source",
+                "columns": schema.get("fields"),
+            }
+        ]
     return []
 
 
@@ -324,7 +376,9 @@ def _asset_id(name: str, source_ids: list[str], snapshot_ids: list[str]) -> str:
     slug = slugify(name, fallback="")
     if slug:
         return slug[:80]
-    digest = hashlib.sha256("|".join([*source_ids, *snapshot_ids]).encode()).hexdigest()[:10]
+    digest = hashlib.sha256(
+        "|".join([*source_ids, *snapshot_ids]).encode()
+    ).hexdigest()[:10]
     return f"semantic_skill_{digest}"
 
 
@@ -425,7 +479,9 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
                 "entity": entity,
                 "entityId": entity,
                 "field": field_name,
-                "role": "time" if "date" in dim_id.lower() or "date" in field_name.lower() else "dimension",
+                "role": "time"
+                if "date" in dim_id.lower() or "date" in field_name.lower()
+                else "dimension",
                 "description": f"Reference dimension from sanitized semantic snapshot: {field}.",
                 "confidence": 0.95,
                 "lineage": [
@@ -443,7 +499,11 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
         if isinstance(item, dict)
     }
     mdl["dimensions"] = [
-        *[item for item in reference_dimensions if item["id"] not in existing_dimensions],
+        *[
+            item
+            for item in reference_dimensions
+            if item["id"] not in existing_dimensions
+        ],
         *(mdl.get("dimensions") or []),
     ]
 
@@ -468,8 +528,12 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
             {
                 "id": slugify(metric_id),
                 "name": str(item.get("name") or metric_id),
-                "business_name": str(item.get("name") or metric_id).replace("_", " ").title(),
-                "entity": _metric_entity_from_formula(formula, base_entity, alias_entity),
+                "business_name": str(item.get("name") or metric_id)
+                .replace("_", " ")
+                .title(),
+                "entity": _metric_entity_from_formula(
+                    formula, base_entity, alias_entity
+                ),
                 "field": _metric_field_from_formula(formula),
                 "definition": str(item.get("definition") or ""),
                 "kind": "measure",
@@ -478,7 +542,9 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
                 "default_grain": str(item.get("grain") or "month"),
                 "dimensions": dimension_ids,
                 "unit": str(item.get("unit") or ""),
-                "certification": "approved" if item.get("approved") is True else "blocked",
+                "certification": "approved"
+                if item.get("approved") is True
+                else "blocked",
                 "confidence": 0.97 if item.get("approved") is True else 0.75,
                 "lineage": [
                     {
@@ -500,7 +566,9 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
         *(mdl.get("metrics") or []),
     ]
 
-    policy = reference.get("policy") if isinstance(reference.get("policy"), dict) else {}
+    policy = (
+        reference.get("policy") if isinstance(reference.get("policy"), dict) else {}
+    )
     if policy:
         permissions = mdl.setdefault("permissions", {})
         denied_fields = permissions.setdefault("denied_fields", [])
@@ -513,8 +581,14 @@ def _apply_semantic_reference(mdl: dict[str, Any], profile: dict[str, Any]) -> N
                     }
                 )
         if policy.get("relative_time_anchor"):
-            mdl.setdefault("freshness", {})["relative_time_anchor"] = policy["relative_time_anchor"]
-    provenance = reference.get("provenance") if isinstance(reference.get("provenance"), dict) else {}
+            mdl.setdefault("freshness", {})["relative_time_anchor"] = policy[
+                "relative_time_anchor"
+            ]
+    provenance = (
+        reference.get("provenance")
+        if isinstance(reference.get("provenance"), dict)
+        else {}
+    )
     if provenance:
         freshness = mdl.setdefault("freshness", {})
         for source_key, target_key in (
@@ -577,7 +651,9 @@ def _metric_field_from_formula(formula: str) -> str:
     return ""
 
 
-def _reference_alias_entities(mdl: dict[str, Any], reference: dict[str, Any]) -> dict[str, str]:
+def _reference_alias_entities(
+    mdl: dict[str, Any], reference: dict[str, Any]
+) -> dict[str, str]:
     entities = [item for item in mdl.get("entities") or [] if isinstance(item, dict)]
     alias_fields: dict[str, set[str]] = {}
     for item in reference.get("dimensions") or []:
@@ -586,7 +662,9 @@ def _reference_alias_entities(mdl: dict[str, Any], reference: dict[str, Any]) ->
     for item in reference.get("metrics") or []:
         if isinstance(item, dict):
             formula = str(item.get("formula") or "")
-            for token in formula.replace("(", " ").replace(")", " ").replace(",", " ").split():
+            for token in (
+                formula.replace("(", " ").replace(")", " ").replace(",", " ").split()
+            ):
                 _collect_alias_field(alias_fields, token)
 
     mapping: dict[str, str] = {}

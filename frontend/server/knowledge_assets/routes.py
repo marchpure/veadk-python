@@ -7,41 +7,13 @@
 
 from __future__ import annotations
 
-import asyncio
+import json
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
-from .crypto import CredentialCryptoError
-from .models import (
-    BuildSemanticSkillBody,
-    CreateSourceBody,
-    CreateSpaceBody,
-    ImportSourceBody,
-    RecordBuildJobBody,
-    RecordIndexedDocumentBody,
-    RecordSkillPackageBody,
-    RecordSnapshotBody,
-    SaveCredentialBody,
-    ShareDashboardBody,
-    UpdateBuildJobBody,
-    UpdateSourceStatusBody,
-    UpdateSpaceBody,
-)
-from .repository import (
-    KnowledgeAssetConflict,
-    KnowledgeAssetNotFound,
-    KnowledgeAssetRepositoryError,
-)
-from .service import (
-    KnowledgeAssetCredentialError,
-    KnowledgeAssetServiceError,
-    KnowledgeAssetStore,
-    redact_sensitive,
-)
 from .agents import (
     AskDataStreamBody,
     AskTableDashboardAgent,
@@ -65,8 +37,46 @@ from .builders.semantic.service import (
     SemanticBuildBlocked,
     SemanticSkillBuildRequest,
 )
+from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
+from .crypto import CredentialCryptoError
 from .evaluation.routes import mount_knowledge_asset_evaluation_routes
 from .evaluation.service import KnowledgeAssetEvaluatorService
+from .models import (
+    BuildSemanticSkillBody,
+    CreateSourceBody,
+    CreateSpaceBody,
+    ImportSourceBody,
+    RecordBuildJobBody,
+    RecordIndexedDocumentBody,
+    RecordSkillPackageBody,
+    RecordSnapshotBody,
+    SaveCredentialBody,
+    SemanticBuilderConversationBody,
+    SemanticBuilderMessageBody,
+    SemanticBuilderPublishBody,
+    SemanticBuilderRevisionActionBody,
+    SemanticBuilderViewDraftBody,
+    SemanticInstructionBody,
+    SemanticQuestionSqlPairBody,
+    ShareDashboardBody,
+    UpdateBuildJobBody,
+    UpdateSemanticInstructionBody,
+    UpdateSemanticQuestionSqlPairBody,
+    UpdateSemanticReviewStatusBody,
+    UpdateSourceStatusBody,
+    UpdateSpaceBody,
+)
+from .repository import (
+    KnowledgeAssetConflict,
+    KnowledgeAssetNotFound,
+    KnowledgeAssetRepositoryError,
+)
+from .service import (
+    KnowledgeAssetCredentialError,
+    KnowledgeAssetServiceError,
+    KnowledgeAssetStore,
+    redact_sensitive,
+)
 
 
 def mount_knowledge_asset_routes(
@@ -134,7 +144,7 @@ def mount_knowledge_asset_routes(
                 **config.model_dump(mode="json"),
                 "origin": configured_origin(config),
             }
-        except Exception:
+        except Exception:  # noqa: BLE001 - datastudio is optional; health must fail closed.
             datastudio = {
                 "configured": False,
                 "baseUrl": "",
@@ -203,9 +213,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/sources")
     async def list_sources(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         items = await invoke(lambda: store.list_sources(space_id=space_id))
         return {"items": items, "total": len(items), "mock": False}
@@ -250,9 +258,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/indexed-documents")
     async def list_indexed_documents(
-        source_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         items = await invoke(lambda: store.list_indexed_documents(source_id=source_id))
         return {"items": items, "total": len(items), "mock": False}
@@ -272,6 +278,7 @@ def mount_knowledge_asset_routes(
         request = SemanticSkillBuildRequest(
             space_id=body.space_id,
             source_ids=body.source_ids,
+            document_source_ids=body.document_source_ids,
             snapshot_ids=body.snapshot_ids,
             name=body.name,
             description=body.description,
@@ -288,6 +295,110 @@ def mount_knowledge_asset_routes(
         )
         return job
 
+    @app.post("/api/knowledge-assets/semantic-build/stream")
+    async def stream_semantic_build(body: BuildSemanticSkillBody) -> StreamingResponse:
+        request = SemanticSkillBuildRequest(
+            space_id=body.space_id,
+            source_ids=body.source_ids,
+            document_source_ids=body.document_source_ids,
+            snapshot_ids=body.snapshot_ids,
+            name=body.name,
+            description=body.description,
+            intent=body.intent,
+            target_domain=body.target_domain,
+            publish=body.publish,
+        )
+        job = await invoke(lambda: semantic_agent.enqueue(request))
+
+        async def stream_events():
+            yield _sse(
+                "job_status", {"status": "queued", "job": job, "job_id": job["id"]}
+            )
+            async for event in semantic_agent.stream(job["id"], request):
+                yield _sse(event["event_type"], event)
+
+        return StreamingResponse(
+            stream_events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.get("/api/knowledge-assets/semantic-build/{job_id}/events")
+    async def list_semantic_build_events(
+        job_id: str,
+        after_sequence: Annotated[int | None, Query(ge=0)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_build_events(job_id, after_sequence=after_sequence)
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/semantic-builder/conversations",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_semantic_builder_conversation(
+        body: SemanticBuilderConversationBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.create_semantic_builder_conversation(body))
+
+    @app.get("/api/knowledge-assets/semantic-builder/conversations/{conversation_id}")
+    async def get_semantic_builder_conversation(
+        conversation_id: str,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.get_semantic_builder_conversation(conversation_id)
+        )
+
+    @app.post(
+        "/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/messages"
+    )
+    async def refine_semantic_builder_conversation(
+        conversation_id: str,
+        body: SemanticBuilderMessageBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: semantic_agent.refine_conversation(conversation_id, body)
+        )
+
+    @app.post(
+        "/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/revisions/{revision_id}/{action}"
+    )
+    async def apply_semantic_builder_revision_action(
+        conversation_id: str,
+        revision_id: str,
+        action: str,
+        body: SemanticBuilderRevisionActionBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.apply_semantic_builder_revision_action(
+                conversation_id,
+                revision_id,
+                action,
+                body,
+            )
+        )
+
+    @app.post("/api/knowledge-assets/semantic-builder/drafts/{asset_id}/views")
+    async def create_semantic_builder_view_draft(
+        asset_id: str,
+        body: SemanticBuilderViewDraftBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.create_semantic_builder_view_draft(asset_id, body)
+        )
+
+    @app.post("/api/knowledge-assets/semantic-builder/drafts/{asset_id}/publish")
+    async def publish_semantic_builder_draft(
+        asset_id: str,
+        body: SemanticBuilderPublishBody,
+    ) -> dict[str, Any]:
+        if not body.publish:
+            raise _convert_error(
+                KnowledgeAssetServiceError("publish=false 不会发布语义草案。")
+            )
+        return await invoke(lambda: store.publish_semantic_builder_draft(asset_id))
+
     async def _run_semantic_skill_build(
         builder: SemanticBuilderAgent,
         job_id: str,
@@ -295,7 +406,7 @@ def mount_knowledge_asset_routes(
     ) -> None:
         try:
             await builder.run_job(job_id, request)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - background job boundary records terminal failure.
             await store.update_build_job(
                 job_id,
                 UpdateBuildJobBody(
@@ -309,15 +420,9 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/build-jobs")
     async def list_build_jobs(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
-        source_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
-        asset_id: Annotated[
-            str | None, Query(min_length=1, max_length=256)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+        asset_id: Annotated[str | None, Query(min_length=1, max_length=256)] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
     ) -> dict[str, Any]:
         items = await invoke(
@@ -341,11 +446,158 @@ def mount_knowledge_asset_routes(
     ) -> dict[str, Any]:
         return await invoke(lambda: store.update_build_job(job_id, body))
 
+    @app.get("/api/knowledge-assets/semantic/question-sql-pairs")
+    async def list_question_sql_pairs(
+        space_id: Annotated[str, Query(min_length=1, max_length=128)],
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_question_sql_pairs(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/semantic/question-sql-pairs",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_question_sql_pair(
+        body: SemanticQuestionSqlPairBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.create_question_sql_pair(body))
+
+    @app.patch("/api/knowledge-assets/semantic/question-sql-pairs/{pair_id}")
+    async def update_question_sql_pair(
+        pair_id: str,
+        body: UpdateSemanticQuestionSqlPairBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.update_question_sql_pair(pair_id, body))
+
+    @app.delete(
+        "/api/knowledge-assets/semantic/question-sql-pairs/{pair_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def delete_question_sql_pair(pair_id: str) -> None:
+        await invoke(lambda: store.delete_question_sql_pair(pair_id))
+
+    @app.get("/api/knowledge-assets/semantic/instructions")
+    async def list_instructions(
+        space_id: Annotated[str, Query(min_length=1, max_length=128)],
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_instructions(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/semantic/instructions",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_instruction(body: SemanticInstructionBody) -> dict[str, Any]:
+        return await invoke(lambda: store.create_instruction(body))
+
+    @app.patch("/api/knowledge-assets/semantic/instructions/{instruction_id}")
+    async def update_instruction(
+        instruction_id: str,
+        body: UpdateSemanticInstructionBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.update_instruction(instruction_id, body))
+
+    @app.delete(
+        "/api/knowledge-assets/semantic/instructions/{instruction_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def delete_instruction(instruction_id: str) -> None:
+        await invoke(lambda: store.delete_instruction(instruction_id))
+
+    @app.get("/api/knowledge-assets/semantic/graph-objects")
+    async def list_graph_objects(
+        space_id: Annotated[str | None, Query(max_length=128)] = None,
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_graph_objects(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.patch("/api/knowledge-assets/semantic/graph-objects/{object_id}")
+    async def update_graph_object(
+        object_id: str,
+        body: UpdateSemanticReviewStatusBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.update_graph_object_status(
+                object_id,
+                body.review_status or body.status or "suggested",
+            )
+        )
+
+    @app.get("/api/knowledge-assets/semantic/graph-relations")
+    async def list_graph_relations(
+        space_id: Annotated[str | None, Query(max_length=128)] = None,
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_graph_relations(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.patch("/api/knowledge-assets/semantic/graph-relations/{relation_id}")
+    async def update_graph_relation(
+        relation_id: str,
+        body: UpdateSemanticReviewStatusBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.update_graph_relation_status(
+                relation_id,
+                body.review_status or body.status or "suggested",
+            )
+        )
+
+    @app.get("/api/knowledge-assets/semantic/alignments")
+    async def list_alignments(
+        space_id: Annotated[str | None, Query(max_length=128)] = None,
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_alignments(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.patch("/api/knowledge-assets/semantic/alignments/{alignment_id}")
+    async def update_alignment(
+        alignment_id: str,
+        body: UpdateSemanticReviewStatusBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.update_alignment_status(
+                alignment_id,
+                body.status or body.review_status or "suggested",
+            )
+        )
+
+    @app.get("/api/knowledge-assets/semantic-packs/{asset_id}/detail")
+    async def semantic_pack_detail(asset_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.semantic_pack_detail(asset_id))
+
     @app.get("/api/knowledge-assets/workbench/overview")
     async def workbench_overview(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         return await invoke(lambda: store.overview(space_id=space_id))
 
@@ -359,21 +611,12 @@ def mount_knowledge_asset_routes(
             try:
                 async for event in asktable_streaming_agent.stream(body):
                     yield sse_frame(event)
-            except asyncio.CancelledError:
-                raise
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 - SSE boundary emits fail-closed error frames.
                 yield sse_frame(
                     {
-                        "author": "studio_asktable_streaming_agent",
-                        "content": {
-                            "role": "model",
-                            "parts": [
-                                {
-                                    "text": "AskTable streaming failed: "
-                                    + str(redact_sensitive(str(error)))
-                                }
-                            ],
-                        },
+                        "event": "error",
+                        "code": "ASKTABLE_STREAM_FAILED",
+                        "message": redact_sensitive(str(error)),
                     }
                 )
 
@@ -396,12 +639,8 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/snapshots")
     async def list_snapshots(
-        asset_id: Annotated[
-            str | None, Query(min_length=1, max_length=256)
-        ] = None,
-        source_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        asset_id: Annotated[str | None, Query(min_length=1, max_length=256)] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
     ) -> dict[str, Any]:
         items = await invoke(
             lambda: store.list_snapshots(asset_id=asset_id, source_id=source_id)
@@ -417,9 +656,7 @@ def mount_knowledge_asset_routes(
 
     @app.get("/api/knowledge-assets/skill-packages")
     async def list_skill_packages(
-        space_id: Annotated[
-            str | None, Query(min_length=1, max_length=128)
-        ] = None,
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
         q: Annotated[str, Query(max_length=200)] = "",
         asset_type: Annotated[list[KnowledgeAssetType] | None, Query()] = None,
         capability_kind: Annotated[
@@ -490,8 +727,8 @@ def mount_knowledge_asset_routes(
 
     @app.get("/share/knowledge-assets/dashboard/{share_id}", response_class=HTMLResponse)
     async def dashboard_share_page(share_id: str) -> HTMLResponse:
-        html = await invoke(lambda: store.dashboard_share_html(share_id))
-        return HTMLResponse(html)
+        dashboard_html = await invoke(lambda: store.dashboard_share_html(share_id))
+        return HTMLResponse(dashboard_html)
 
     @app.post("/api/knowledge-assets/assets/{asset_type}/{asset_id}/query")
     async def query_knowledge_asset(
@@ -527,7 +764,9 @@ def mount_knowledge_asset_routes(
         return await query_knowledge_asset(asset_type, asset_id, body)
 
     @app.get("/api/knowledge-assets/assets/{asset_type}/{asset_id}")
-    async def get_asset(asset_type: KnowledgeAssetType, asset_id: str) -> dict[str, Any]:
+    async def get_asset(
+        asset_type: KnowledgeAssetType, asset_id: str
+    ) -> dict[str, Any]:
         return await invoke(
             lambda: store.get_asset(asset_type=asset_type, asset_id=asset_id)
         )
@@ -541,6 +780,8 @@ def _convert_error(error: Exception) -> HTTPException:
     if isinstance(error, KnowledgeAssetConflict):
         return _api_error(409, error.code, str(error))
     if isinstance(error, SemanticBuildBlocked):
+        if "AGENT_NOT_CONFIGURED" in str(error):
+            return _api_error(409, "AGENT_NOT_CONFIGURED", str(error))
         return _api_error(409, "SEMANTIC_BUILD_BLOCKED", str(error))
     if isinstance(error, (KnowledgeAssetServiceError, ValueError)):
         return _api_error(400, "KNOWLEDGE_ASSET_INVALID_REQUEST", str(error))
@@ -563,6 +804,13 @@ def _api_error(status_code: int, code: str, message: str) -> HTTPException:
             "message": redact_sensitive(message),
             "retryable": status_code >= 500,
         },
+    )
+
+
+def _sse(event: str, payload: dict[str, Any]) -> str:
+    return (
+        f"event: {event}\n"
+        f"data: {json.dumps(redact_sensitive(payload), ensure_ascii=False)}\n\n"
     )
 
 
