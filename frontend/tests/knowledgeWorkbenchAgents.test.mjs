@@ -53,26 +53,6 @@ const wrenAdapterSource = readFileSync(
   new URL("../src/features/knowledge-assets/adapters/wrenSemanticAdapter.ts", import.meta.url),
   "utf8",
 );
-const byaanSourcePortSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/ByaanNotebookDashboardSourcePort.tsx", import.meta.url),
-  "utf8",
-);
-const byaanQueryEditorSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/QueryEditor.tsx", import.meta.url),
-  "utf8",
-);
-const byaanNotebookPanelSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/NotebookQueryPanel.tsx", import.meta.url),
-  "utf8",
-);
-const byaanQueryResultsSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/QueryResults.tsx", import.meta.url),
-  "utf8",
-);
-const byaanDashboardPreviewSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/DashboardPreviewPanel.tsx", import.meta.url),
-  "utf8",
-);
 const byaanAdapterSource = readFileSync(
   new URL("../src/features/knowledge-assets/adapters/byaanAskTableAdapter.ts", import.meta.url),
   "utf8",
@@ -182,53 +162,52 @@ test("semantic graph helper renders fixture MDL and exposes join hover metadata"
   );
 });
 
-test("AskDashboard workspace exposes query evidence preview code tabs and disabled honest actions", () => {
-  assert.match(askDashboardSource, /ByaanNotebookDashboardSourcePort/);
-  assert.match(askDashboardSource, /createByaanAskTableSourcePortViewModel/);
+test("AskDashboard workspace renders native notebook portal, chat answers, preview tabs, and honest blocked states", () => {
+  assert.match(askDashboardSource, /kc-askdash-portal-stage/);
+  assert.match(askDashboardSource, /What do you need to know\?/);
+  assert.match(askDashboardSource, /kc-askdash-composer/);
+  assert.match(askDashboardSource, /kc-askdash-example-chips/);
+  assert.match(askDashboardSource, /kc-askdash-notebook-shell/);
+  assert.match(askDashboardSource, /kc-askdash-chat-area/);
+  assert.match(askDashboardSource, /kc-askdash-message-list/);
+  assert.match(askDashboardSource, /kc-askdash-preview-panel/);
+  assert.match(askDashboardSource, /MobilePaneTabs/);
+  assert.match(askDashboardSource, /PreviewTabButton/);
+  assert.match(askDashboardSource, /QueriesPanel/);
+  assert.match(askDashboardSource, /LineagePanel/);
+  assert.match(askDashboardSource, /CodePanel/);
+  assert.match(askDashboardSource, /EvidenceGrid/);
+  assert.match(askDashboardSource, /MiniResultTable/);
   assert.match(askDashboardSource, /queryAskData/);
   assert.match(askDashboardSource, /buildDashboardSkill/);
-  assert.match(byaanSourcePortSource, /Source-level port of BYAAN Notebook\/Dashboard workspace/);
-  assert.match(byaanSourcePortSource, /client\/src\/components\/NotebookQueryPanel\.tsx/);
-  assert.match(byaanSourcePortSource, /original\/DashboardPreviewPanel/);
-  assert.match(byaanSourcePortSource, /original\/QueryRunnerDocked/);
-  assert.match(byaanNotebookPanelSource, /export function NotebookQueryPanel/);
-  assert.match(byaanQueryEditorSource, /export function QueryEditor/);
-  assert.match(byaanQueryResultsSource, /export function QueryResults/);
-  assert.match(byaanDashboardPreviewSource, /export function DashboardPreviewPanel/);
-  assert.match(byaanQueryEditorSource, /EditorView/);
-  assert.match(byaanNotebookPanelSource, /kc-byaan-original-notebook/);
-  assert.match(byaanSourcePortSource, /askdashboard-not-configured-blocked/);
-  assert.match(byaanAdapterSource, /agentkit_native_asktable_dashboard/);
-  assert.match(byaanAdapterSource, /agentkit_governed_rest/);
-  assert.match(byaanAdapterSource, /askDataToNotebookViewModel/);
-  assert.match(byaanAdapterSource, /dashboardSpecToByaanViewModel/);
-  assert.match(byaanAdapterSource, /blocked_no_semantic_skill/);
-  assert.match(byaanAdapterSource, /no published Semantic Skill/);
-  assert.match(byaanSourcePortSource, /不会伪造 query 或 dashboard 成功/);
-  assert.match(byaanDashboardPreviewSource, /Preview/);
-  assert.match(byaanDashboardPreviewSource, /Code/);
-  assert.match(byaanDashboardPreviewSource, /Lineage/);
-  assert.match(byaanDashboardPreviewSource, /Queries/);
-  assert.match(byaanDashboardPreviewSource, /policyDecision/);
-  assert.match(byaanDashboardPreviewSource, /freshness/);
-  assert.match(byaanDashboardPreviewSource, /lineage/);
-  assert.match(byaanDashboardPreviewSource, /evidence/);
-  assert.match(byaanDashboardPreviewSource, /Sparkline/);
-  assert.match(byaanDashboardPreviewSource, /kc-byaan-data-views/);
-  assert.match(byaanQueryResultsSource, /Ready to Execute/);
-  assert.match(byaanSourcePortSource, /Blocked/);
-  assert.match(byaanDashboardPreviewSource, /disabled title="Export PDF"/);
-  assert.match(byaanDashboardPreviewSource, /disabled title="Share"/);
+  assert.match(askDashboardSource, /\/api\/knowledge-assets\/askdata\/query|queryAskData/);
+  assert.match(askDashboardSource, /\/api\/knowledge-assets\/build\/dashboard-skill|buildDashboardSkill/);
+  assert.match(askDashboardSource, /askDataToNotebookViewModel/);
+  assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
+  assert.match(askDashboardSource, /blocked_no_semantic_skill/);
+  assert.match(askDashboardSource, /no published Semantic Skill/);
+  assert.match(askDashboardSource, /不会伪造 query 或 dashboard 成功/);
+  assert.match(askDashboardSource, /SQL/);
+  assert.match(askDashboardSource, /Metric definition/);
+  assert.match(askDashboardSource, /Permission policy/);
+  assert.match(askDashboardSource, /Freshness/);
+  assert.match(askDashboardSource, /Lineage/);
+  assert.match(askDashboardSource, /Evidence/);
+  assert.match(askDashboardSource, /Generate Dashboard/);
+  assert.match(askDashboardSource, /data-asktable-state="portal"/);
+  assert.match(cssSource, /\.kc-askdash-native/);
+  assert.match(cssSource, /\.kc-askdash-portal-stage/);
+  assert.match(cssSource, /\.kc-askdash-notebook-shell/);
+  assert.match(cssSource, /\.kc-askdash-preview-panel/);
+  assert.match(cssSource, /\.kc-askdash-mobile-tabs/);
+  assert.match(cssSource, /\.kc-askdash-notebook-shell\.is-mobile-answer \.kc-askdash-preview-panel/);
+  assert.doesNotMatch(askDashboardSource, /ByaanNotebookDashboardSourcePort|QueryRunnerDocked|Source-level port|Source-ported BYAAN workspace/);
   assert.doesNotMatch(
-    [
-      byaanSourcePortSource,
-      byaanQueryEditorSource,
-      byaanNotebookPanelSource,
-      byaanQueryResultsSource,
-      byaanDashboardPreviewSource,
-    ].join("\n"),
+    askDashboardSource,
     /from ["'][^"']*(ApiService|Tauri)|<iframe|localhost:15183/,
   );
+  assert.match(byaanAdapterSource, /agentkit_native_asktable_dashboard/);
+  assert.match(byaanAdapterSource, /agentkit_governed_rest/);
 });
 
 test("AskDashboard no-model path renders blocked native notebook shell", async () => {
@@ -246,10 +225,13 @@ test("AskDashboard no-model path renders blocked native notebook shell", async (
   assert.match(markup, /data-testid="askdashboard-not-configured-blocked"/);
   assert.match(markup, /blocked_no_semantic_skill/);
   assert.match(markup, /not_configured/);
-  assert.match(markup, /Blocked: no published Semantic Skill/);
+  assert.match(markup, /No Semantic Skill/);
+  assert.match(markup, /Publish a Semantic Skill before asking data questions/);
+  assert.match(markup, /What do you need to know\?/);
   assert.match(markup, /不会伪造 query 或 dashboard 成功/);
-  assert.match(markup, /<button type="button" disabled="">Execute<\/button>/);
-  assert.match(markup, /<button type="button" disabled="">Dashboard<\/button>/);
+  assert.match(markup, /class="kc-askdash-composer is-portal"/);
+  assert.match(markup, /class="kc-askdash-example-chips"/);
+  assert.match(markup, /<button type="submit" class="kc-askdash-send" disabled="">/);
 });
 
 test("workbench CSS avoids horizontal page overflow and nested card shells on mobile", () => {

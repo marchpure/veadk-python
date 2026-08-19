@@ -47,22 +47,6 @@ const wrenAdapterSource = readFileSync(
   new URL("../src/features/knowledge-assets/adapters/wrenSemanticAdapter.ts", import.meta.url),
   "utf8",
 );
-const byaanSourcePortSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/ByaanNotebookDashboardSourcePort.tsx", import.meta.url),
-  "utf8",
-);
-const byaanQueryEditorSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/QueryEditor.tsx", import.meta.url),
-  "utf8",
-);
-const byaanQueryResultsSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/QueryResults.tsx", import.meta.url),
-  "utf8",
-);
-const byaanDashboardPreviewSource = readFileSync(
-  new URL("../src/features/knowledge-assets/source-ports/byaan/original/DashboardPreviewPanel.tsx", import.meta.url),
-  "utf8",
-);
 const byaanAdapterSource = readFileSync(
   new URL("../src/features/knowledge-assets/adapters/byaanAskTableAdapter.ts", import.meta.url),
   "utf8",
@@ -157,36 +141,40 @@ test("Semantic build CSS is responsive without product iframe shell", () => {
   assert.doesNotMatch(cssSource, /iframe/);
 });
 
-test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence tabs", () => {
-  assert.match(askDashboardSource, /ByaanNotebookDashboardSourcePort/);
-  assert.match(askDashboardSource, /createByaanAskTableSourcePortViewModel/);
+test("AskDashboardWorkbench renders native BYAAN-style portal, chat workspace, preview code, and query evidence tabs", () => {
+  assert.match(askDashboardSource, /kc-askdash-portal-stage/);
+  assert.match(askDashboardSource, /What do you need to know\?/);
+  assert.match(askDashboardSource, /kc-askdash-composer/);
+  assert.match(askDashboardSource, /kc-askdash-example-chips/);
+  assert.match(askDashboardSource, /kc-askdash-notebook-shell/);
+  assert.match(askDashboardSource, /kc-askdash-chat-area/);
+  assert.match(askDashboardSource, /kc-askdash-preview-panel/);
+  assert.match(askDashboardSource, /PreviewTabButton/);
+  assert.match(askDashboardSource, /QueriesPanel/);
+  assert.match(askDashboardSource, /LineagePanel/);
+  assert.match(askDashboardSource, /CodePanel/);
+  assert.match(askDashboardSource, /EvidenceGrid/);
   assert.match(askDashboardSource, /queryAskData/);
   assert.match(askDashboardSource, /buildDashboardSkill/);
-  assert.match(byaanSourcePortSource, /Source-level port of BYAAN Notebook\/Dashboard workspace/);
-  assert.match(byaanSourcePortSource, /original\/QueryRunnerDocked/);
-  assert.match(byaanSourcePortSource, /original\/DashboardPreviewPanel/);
-  assert.match(byaanQueryEditorSource, /export function QueryEditor/);
-  assert.match(byaanQueryResultsSource, /export function QueryResults/);
-  assert.match(byaanDashboardPreviewSource, /export function DashboardPreviewPanel/);
+  assert.match(askDashboardSource, /askDataToNotebookViewModel/);
+  assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
+  assert.match(askDashboardSource, /blocked_no_semantic_skill/);
+  assert.match(askDashboardSource, /no published Semantic Skill/);
+  assert.match(askDashboardSource, /Metric definition/);
+  assert.match(askDashboardSource, /Permission policy/);
+  assert.match(askDashboardSource, /Freshness/);
+  assert.match(askDashboardSource, /Lineage/);
+  assert.match(askDashboardSource, /Evidence/);
+  assert.match(askDashboardSource, /Sparkline/);
+  assert.match(askDashboardSource, /Generate Dashboard/);
+  assert.match(cssSource, /\.kc-askdash-native/);
+  assert.match(cssSource, /\.kc-askdash-portal-stage/);
+  assert.match(cssSource, /\.kc-askdash-notebook-shell/);
+  assert.match(cssSource, /\.kc-askdash-preview-panel/);
+  assert.match(cssSource, /\.kc-askdash-mobile-tabs/);
+  assert.doesNotMatch(askDashboardSource, /ByaanNotebookDashboardSourcePort|QueryRunnerDocked|Source-level port|Source-ported BYAAN workspace/);
+  assert.doesNotMatch(askDashboardSource, /<iframe|from ["'][^"']*(ApiService|Tauri)|localhost:15183/);
   assert.match(byaanAdapterSource, /agentkit_native_asktable_dashboard/);
-  assert.match(byaanAdapterSource, /askDataToNotebookViewModel/);
-  assert.match(byaanAdapterSource, /dashboardSpecToByaanViewModel/);
-  assert.match(byaanQueryEditorSource, /kc-byaan-original-query-editor/);
-  assert.match(byaanSourcePortSource, /askdashboard-not-configured-blocked/);
-  assert.match(byaanAdapterSource, /blocked_no_semantic_skill/);
-  assert.match(byaanAdapterSource, /no published Semantic Skill/);
-  assert.match(byaanDashboardPreviewSource, /Preview/);
-  assert.match(byaanDashboardPreviewSource, /Code/);
-  assert.match(byaanDashboardPreviewSource, /Lineage/);
-  assert.match(byaanDashboardPreviewSource, /policyDecision/);
-  assert.match(byaanDashboardPreviewSource, /freshness/);
-  assert.match(byaanDashboardPreviewSource, /metricDefinition/);
-  assert.match(byaanQueryResultsSource, /Ready to Execute/);
-  assert.match(byaanDashboardPreviewSource, /Sparkline/);
-  assert.match(byaanDashboardPreviewSource, /kc-byaan-data-views/);
-  assert.match(byaanSourcePortSource, /Blocked/);
-  assert.match(byaanDashboardPreviewSource, /title="Export PDF"/);
-  assert.doesNotMatch([byaanSourcePortSource, byaanQueryEditorSource, byaanQueryResultsSource, byaanDashboardPreviewSource].join("\n"), /<iframe|from ["'][^"']*(ApiService|Tauri)|localhost:15183/);
   assert.match(knowledgeCenterSource, /<AskDashboardWorkbench/);
   assert.match(knowledgeCenterSource, /buildJobs=\{buildJobs\}/);
 });
