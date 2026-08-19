@@ -2,7 +2,13 @@
   "schema": "session-j.semantic-builder.e2e.v1",
   "baseUrl": "http://127.0.0.1:8000",
   "apiUrl": "http://127.0.0.1:8000",
-  "durationSeconds": 5.75,
+  "seed": {
+    "space_id": "space_5ccd4ec20d3843a99b608ddb0f3242ef",
+    "source_id": "src_c70ef9c41fff4e94b9001772f7602333",
+    "document_source_id": "src_043942277e6e4e20bb767246cc934460",
+    "snapshot_id": "snap_63d0064c524c40f3a6fa5435084f5cf9"
+  },
+  "durationSeconds": 6.17,
   "desktop": {
     "health": {
       "configured": true,
@@ -33,7 +39,7 @@
       ]
     },
     "latestJob": {
-      "id": "job_c0e8bd01dd8c49e1bf233dc8991f30e0",
+      "id": "job_372bbdfc69c04463b453f49ac956f062",
       "status": "succeeded",
       "result_skill_id": "skill",
       "publish_state": "published",
@@ -70,9 +76,13 @@
       "tool_call_start",
       "tool_call_delta",
       "tool_call_result",
-      "artifact_preview"
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "job_status"
     ],
-    "eventCount": 31,
+    "eventCount": 35,
     "detail": {
       "semantic_pack_id": "skill",
       "publish_state": "published",
@@ -80,7 +90,9 @@
       "instructions": 1,
       "graph_objects": 7,
       "graph_relations": 1,
-      "alignments": 4
+      "alignments": 4,
+      "browser_question_persisted": true,
+      "browser_instruction_persisted": true
     }
   },
   "mobile": {
@@ -89,6 +101,7 @@
   "screenshots": [
     "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/desktop-modeling-workbench.png",
     "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/desktop-evidence-alignments.png",
+    "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/desktop-reload-persistence.png",
     "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/mobile-metadata-pane.png"
   ],
   "passed": true

@@ -43,6 +43,18 @@ const wrenOriginalSidebarSource = readFileSync(
   new URL("../src/features/knowledge-assets/source-ports/wren/original/sidebar/Modeling.tsx", import.meta.url),
   "utf8",
 );
+const wrenGroupTreeTitleSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/wren/original/sidebar/modeling/GroupTreeTitle.tsx", import.meta.url),
+  "utf8",
+);
+const semanticBuildPanelSource = readFileSync(
+  new URL("../src/knowledge-center/SemanticBuildPanel.tsx", import.meta.url),
+  "utf8",
+);
+const semanticBuilderE2eSource = readFileSync(
+  new URL("../../docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/e2e_semantic_builder.py", import.meta.url),
+  "utf8",
+);
 const wrenAdapterSource = readFileSync(
   new URL("../src/features/knowledge-assets/adapters/wrenSemanticAdapter.ts", import.meta.url),
   "utf8",
@@ -98,7 +110,12 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(wrenOriginalSidebarSource, /Relationships" count=\{relationshipRows\.length\} onAction/);
   assert.match(wrenOriginalSidebarSource, /Metrics" count=\{metricRows\.length\} onAction/);
   assert.match(wrenSourcePortSource, /Publish/);
-  assert.match(wrenSourcePortSource, /publishBlockerText/);
+  assert.match(wrenSourcePortSource, /publishActionDisabledReason/);
+  assert.match(wrenSourcePortSource, /disabled\s*\n\s*title=\{publishActionReason\}/);
+  assert.match(wrenSourcePortSource, /Publishing is controlled by the Semantic Builder quality gate/);
+  assert.doesNotMatch(wrenSourcePortSource, /const canPublish/);
+  assert.doesNotMatch(wrenGroupTreeTitleSource, /MoreHorizontal|adm-tree-more|aria-label=\{`\$\{title\} actions`\}/);
+  assert.doesNotMatch(wrenOriginalSidebarSource, /Semantic Skills" count=\{semanticRows\.length\} onAction/);
   assert.match(wrenSourcePortSource, /Selected Raw JSON/);
   assert.match(wrenSourcePortSource, /No doc-to-MDL alignments persisted yet/);
   assert.match(wrenSourcePortSource, /Save Draft/);
@@ -110,6 +127,29 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.doesNotMatch([wrenSourcePortSource, wrenOriginalDiagramSource, wrenOriginalModelNodeSource, wrenOriginalSidebarSource].join("\n"), /<iframe|from ["'][^"']*(Apollo|ApiService)|localhost:3011/);
   assert.doesNotMatch(panelSource, /DATASTUDIO_API_KEY/);
   assert.match(knowledgeCenterSource, /<SemanticModelingWorkbench/);
+});
+
+test("Semantic builder exposes persisted few-shot and instruction CRUD", () => {
+  assert.match(semanticBuildPanelSource, /data-testid="semantic-few-shot-panel"/);
+  assert.match(semanticBuildPanelSource, /data-testid="semantic-instructions-panel"/);
+  assert.match(semanticBuildPanelSource, /createSemanticQuestionSqlPair/);
+  assert.match(semanticBuildPanelSource, /updateSemanticQuestionSqlPair/);
+  assert.match(semanticBuildPanelSource, /deleteSemanticQuestionSqlPair/);
+  assert.match(semanticBuildPanelSource, /createSemanticInstruction/);
+  assert.match(semanticBuildPanelSource, /updateSemanticInstruction/);
+  assert.match(semanticBuildPanelSource, /deleteSemanticInstruction/);
+  assert.match(semanticBuildPanelSource, /aria-label="Question"/);
+  assert.match(semanticBuildPanelSource, /aria-label="SQL"/);
+  assert.match(semanticBuildPanelSource, /aria-label="Instruction"/);
+});
+
+test("Session J Playwright gate covers browser CRUD and reload persistence", () => {
+  assert.match(semanticBuilderE2eSource, /add_browser_few_shot/);
+  assert.match(semanticBuilderE2eSource, /add_browser_instruction/);
+  assert.match(semanticBuilderE2eSource, /verify_reload_persistence/);
+  assert.match(semanticBuilderE2eSource, /page\.reload\(wait_until="networkidle"\)/);
+  assert.match(semanticBuilderE2eSource, /Browser E2E sales by month/);
+  assert.match(semanticBuilderE2eSource, /Use order_date as the default sales time grain/);
 });
 
 test("knowledgeAssets client exposes semantic build stream endpoint", async () => {

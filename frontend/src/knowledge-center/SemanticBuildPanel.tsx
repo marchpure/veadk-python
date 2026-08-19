@@ -21,6 +21,7 @@ import {
   getKnowledgeAssetBuildJob,
   getSemanticPackDetail,
   listKnowledgeAssetSnapshots,
+  listSemanticBuildEvents,
   listSemanticInstructions,
   listSemanticQuestionSqlPairs,
   streamSemanticBuild,
@@ -198,6 +199,22 @@ export function SemanticBuildPanel({
       cancelled = true;
     };
   }, [generatedAssetId, latestSemanticJob?.updated_at]);
+
+  useEffect(() => {
+    const jobId = latestSemanticJob?.id;
+    if (!jobId || submitting) return;
+    let cancelled = false;
+    listSemanticBuildEvents(jobId)
+      .then((items) => {
+        if (!cancelled) setEvents(items);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [latestSemanticJob?.id, latestSemanticJob?.updated_at, submitting]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

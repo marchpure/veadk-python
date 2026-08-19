@@ -5,7 +5,8 @@
 - Branch: `kc/session-j-semantic-builder-agentization`
 - Remote: `origin https://github.com/marchpure/veadk-python.git`
 - Start hash: `9d982aa1708ace7f3f16b5b19d8b7ae1c5fb5f32`
-- End hash: recorded by the commit that includes this report.
+- Implementation hash before completion audit follow-up: `b36c5809f72665ebd3bb851eaa4efba703c5666a`
+- End hash: final follow-up commit SHA is recorded in Git metadata and the completion response.
 
 Session J replaces the previous Knowledge Asset semantic builder path with a native AgentKit Studio Semantic Builder Workbench. The flow stays inside Studio, without BYAAN iframe or local product shell dependencies, and produces governed Semantic Skill assets with auditable build events, Wren-style MDL artifacts, Semantica-style document graph evidence, editable few-shot/instruction memory, and publish gates.
 
@@ -18,6 +19,9 @@ Session J replaces the previous Knowledge Asset semantic builder path with a nat
 - Added source sanitization and redaction on source metadata, document context, job input/output, events, generated packages, and report artifacts.
 - Reworked the Knowledge Center semantic UI into a native Studio workbench with streamed agent progress, Wren-inspired modeling canvas, evidence/alignment inspection, MDL/raw panes, and responsive mobile metadata panes.
 - Integrated the Wren source-port UI as native React components rather than an iframe shell, preserving Studio layout and mobile overflow constraints.
+- Removed the remaining Wren-style no-op controls: topbar Publish is disabled with a gate explanation, and sidebar group titles no longer render ellipsis buttons without a handler.
+- Rehydrated persisted semantic build events after reload so the Agent transcript remains visible with prior tool calls.
+- Strengthened the live browser gate to seed a fresh DB+document space, create few-shot and instruction records through the UI, run the builder, reload, and verify those records plus the Agent result persist.
 - Regenerated tracked `veadk/webui` static assets from the production frontend build.
 
 ## API Surface
@@ -66,11 +70,11 @@ The E2E run confirmed the runtime health path reported `runner_backend: veadk.Ag
 ## Validation
 
 - `cd frontend && npm test`
-  - Passed: `679` tests, `0` failures.
+  - Passed: `681` tests, `0` failures.
 - `cd frontend && npm run build`
   - Passed. Vite emitted existing chunk-size/dynamic-import warnings and regenerated tracked `veadk/webui` assets.
 - `cd frontend && node --test tests/semanticBuildPanel.test.mjs tests/knowledgeAssetWorkbench.test.mjs`
-  - Passed: `13` tests, `0` failures.
+  - Passed: `15` tests, `0` failures.
 - `pytest -q tests/frontend/test_knowledge_asset_store.py tests/frontend/test_knowledge_asset_semantic_builder.py tests/frontend/test_semantic_builder.py`
   - Passed: `27` tests, `0` failures.
 - `python -m compileall frontend/server/knowledge_assets tests/frontend docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/e2e_semantic_builder.py`
@@ -96,19 +100,22 @@ python docs/knowledge-center/session-reports/session-j-semantic-builder-agentiza
 Result file: `docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/result.json`
 
 - Passed: `true`
-- Duration: `5.75s`
+- Duration: `6.17s`
 - Backend: `http://127.0.0.1:8000`
+- Seeded space/source/snapshot through API before browser checks: `space_5ccd4ec20d3843a99b608ddb0f3242ef`, `src_c70ef9c41fff4e94b9001772f7602333`, `src_043942277e6e4e20bb767246cc934460`, `snap_63d0064c524c40f3a6fa5435084f5cf9`
 - Semantic builder health: configured, `veadk.Agent+Runner`, model `doubao-seed-2-0-lite-260428`
 - Latest job: `succeeded`
 - Publish state: `published`
-- Persisted event count: `31`
+- Persisted event count: `35`
 - Persisted detail: `few_shot: 1`, `instructions: 1`, `graph_objects: 7`, `graph_relations: 1`, `alignments: 4`
+- Browser-created persistence checks: `browser_question_persisted: true`, `browser_instruction_persisted: true`
 - Mobile horizontal overflow: `0px`
 
 Screenshots:
 
 - `screenshots/desktop-modeling-workbench.png` (`1440x900`)
 - `screenshots/desktop-evidence-alignments.png` (`1440x900`)
+- `screenshots/desktop-reload-persistence.png` (`1440x900`)
 - `screenshots/mobile-metadata-pane.png` (`390x844`)
 
 ## Known Limits And Next Steps

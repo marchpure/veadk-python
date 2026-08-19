@@ -170,8 +170,8 @@ export function WrenModelingSourcePort({
   }));
   const relationshipRows = editableViewModel.modeling.relationships.map(relationshipToTreeRow);
   const metricRows = editableViewModel.modeling.metrics.map(metricToTreeRow);
-  const publishBlocker = publishBlockerText(editableViewModel);
-  const canPublish = Boolean(editableViewModel.selectedAsset) && !publishBlocker;
+  const publishStatus = publishStatusText(editableViewModel);
+  const publishActionReason = publishActionDisabledReason(editableViewModel);
   const draftCount = draftModels.length + draftRelationships.length + draftMetrics.length;
 
   const openNewModelEditor = () => {
@@ -278,9 +278,9 @@ export function WrenModelingSourcePort({
           </button>
           <button
             type="button"
-            disabled={!canPublish}
-            title={publishBlocker || "Semantic Pack can be published"}
-            aria-disabled={!canPublish}
+            disabled
+            title={publishActionReason}
+            aria-disabled="true"
           >
             <Rocket className="kc-native-icon" />
             Publish
@@ -294,7 +294,7 @@ export function WrenModelingSourcePort({
         <StatusChip label="Runner" value={editableViewModel.status.runnerBackend} />
         <StatusChip label="Mode" value={editableViewModel.status.generationMode} />
         <StatusChip label="Drafts" value={draftCount ? `${draftCount} local` : "none"} />
-        <StatusChip label="Publish" value={publishBlocker || "ready"} />
+        <StatusChip label="Publish" value={publishStatus} />
       </div>
 
       <div className="kc-mobile-workbench-tabs" role="tablist" aria-label="Wren modeling mobile panes">
@@ -874,15 +874,20 @@ function mdlWithDrafts(
   };
 }
 
-function publishBlockerText(viewModel: WrenSourcePortViewModel): string {
+function publishStatusText(viewModel: WrenSourcePortViewModel): string {
   if (!viewModel.selectedAsset) return "select or generate a Semantic Pack first";
   if (viewModel.status.agentStatus === "not_configured") return "model not configured";
-  if (viewModel.selectedAsset.publish_state === "published") return "";
+  if (viewModel.selectedAsset.publish_state === "published") return "published";
   if (viewModel.status.blockedReason && viewModel.status.blockedReason !== "none") return viewModel.status.blockedReason;
   const gate = viewModel.selectedAsset.gate;
   if (gate?.blockers?.length) return gate.blockers.join(", ");
   if (gate && gate.passed !== undefined && gate.total !== undefined && gate.passed < gate.total) return "quality gate not passed";
   return "publish from a passing semantic build";
+}
+
+function publishActionDisabledReason(viewModel: WrenSourcePortViewModel): string {
+  if (viewModel.selectedAsset?.publish_state === "published") return "Already published by the validated Semantic Builder run.";
+  return "Publishing is controlled by the Semantic Builder quality gate. Enable Publish after build, then run 生成/重新生成语义.";
 }
 
 function selectedSummary(
