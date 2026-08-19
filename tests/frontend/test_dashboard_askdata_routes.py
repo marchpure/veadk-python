@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from google.genai import types
 
 from frontend.server.knowledge_assets import mount_knowledge_asset_routes
 from frontend.server.knowledge_assets.repository import KnowledgeAssetRepository
@@ -23,6 +25,108 @@ def _client(tmp_path, monkeypatch) -> TestClient:
     return TestClient(app)
 
 
+def _client_with_streaming_runner(tmp_path, monkeypatch, runner) -> TestClient:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "dashboard askdata stream test key")
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        service=KnowledgeAssetStore(
+            repository=KnowledgeAssetRepository(tmp_path / "knowledge-assets.db")
+        ),
+        asktable_streaming_runner=runner,
+    )
+    return TestClient(app)
+
+
+class FakeAskTableStreamingRunner:
+    def health(self) -> dict[str, object]:
+        return {
+            "configured": True,
+            "status": "available",
+            "runner_backend": "fake-streaming-runner",
+            "model_name": "fake-model",
+        }
+
+    async def run(
+        self,
+        *,
+        instruction: str,
+        message: str,
+        session_id: str,
+        conversation_id: str,
+        semantic_asset: dict[str, object],
+        tools: dict[str, object],
+    ):
+        call = types.Part.from_function_call(
+            name="query_semantic_skill",
+            args={"question": message, "metric": "ticket_count", "dimensions": ["store"]},
+        )
+        yield _event(
+            author="studio_asktable_streaming_agent",
+            role="model",
+            part=call,
+            conversation_id=conversation_id,
+            session_id=session_id,
+        )
+        response = await tools["query_semantic_skill"](
+            question=message,
+            metric="ticket_count",
+            dimensions=["store"],
+        )
+        yield _event(
+            author="studio_asktable_streaming_agent",
+            role="user",
+            part=types.Part.from_function_response(
+                name="query_semantic_skill",
+                response=response,
+            ),
+            conversation_id=conversation_id,
+            session_id=session_id,
+        )
+        yield _event(
+            author="studio_asktable_streaming_agent",
+            role="model",
+            part=types.Part.from_text(
+                text="VNPTTE has 56 tickets. SQL and metric evidence are included in the tool result.",
+            ),
+            conversation_id=conversation_id,
+            session_id=session_id,
+        )
+
+
+def _event(
+    *,
+    author: str,
+    role: str,
+    part: types.Part,
+    conversation_id: str,
+    session_id: str,
+) -> dict[str, object]:
+    return {
+        "author": author,
+        "conversation_id": conversation_id,
+        "session_id": session_id,
+        "content": {
+            "role": role,
+            "parts": [part.model_dump(mode="json", by_alias=True, exclude_none=True)],
+        },
+    }
+
+
+def _sse_events(response) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for frame in response.text.split("\n\n"):
+        data_lines = [
+            line.removeprefix("data:").strip()
+            for line in frame.splitlines()
+            if line.startswith("data:")
+        ]
+        if data_lines:
+            events.append(json.loads("\n".join(data_lines)))
+    return events
+
+
 def test_askdata_query_returns_required_evidence(tmp_path, monkeypatch) -> None:
     client = _client(tmp_path, monkeypatch)
     _semantic_skill(client)
@@ -34,6 +138,7 @@ def test_askdata_query_returns_required_evidence(tmp_path, monkeypatch) -> None:
             "metric": "ticket_count",
             "dimension": "store",
             "question": "按门店查看销售票数",
+            "mode": "offline",
         },
     )
 
@@ -73,6 +178,7 @@ def test_askdata_uses_e2_schema_only_governed_query_without_fixture_result(
             "metric": "ticket_count",
             "dimension": "store",
             "question": "按门店查看销售票数",
+            "mode": "offline",
         },
     )
 
@@ -110,6 +216,7 @@ def test_askdata_accepts_current_e2_inline_mdl_package_without_fixture_result(
             "metric": "ticket_count",
             "dimensions": ["store"],
             "question": "按门店统计最近销售票数 Top 3",
+            "mode": "offline",
         },
     )
 
@@ -122,6 +229,32 @@ def test_askdata_accepts_current_e2_inline_mdl_package_without_fixture_result(
     assert "COUNT(DISTINCT" in data["sql"]
     assert data["metricDefinition"] == "Count distinct tickets."
     assert data["policyDecision"]["direct_database_access"] is False
+
+
+def test_schema_only_package_fails_closed_in_production_mode(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(
+        client,
+        asset_id="schema-only-sales",
+        governed_result=False,
+        artifacts_mdl=True,
+    )
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/query",
+        json={
+            "semantic_asset_id": "schema-only-sales",
+            "metric": "ticket_count",
+            "dimension": "store",
+            "question": "按门店查看销售票数",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "schema_only" in response.text
 
 
 def test_schema_only_query_sanitizes_mdl_metadata_in_sql_evidence(
@@ -145,6 +278,7 @@ def test_schema_only_query_sanitizes_mdl_metadata_in_sql_evidence(
             "dimension": "store",
             "filters": {"region; DROP TABLE audit": "SG' OR '1'='1"},
             "question": "按门店查看销售票数",
+            "mode": "offline",
         },
     )
 
@@ -195,6 +329,7 @@ def test_dashboard_skill_build_records_skill_package_and_job(tmp_path, monkeypat
             "metric": "ticket_count",
             "dimensions": ["store"],
             "publish": True,
+            "mode": "offline",
         },
     )
 
@@ -262,6 +397,7 @@ def test_dashboard_skill_build_accepts_e2_schema_only_semantic_package(
             "metric": "ticket_count",
             "dimensions": ["store"],
             "publish": True,
+            "mode": "offline",
         },
     )
 
@@ -326,6 +462,107 @@ def test_askdata_normalizes_byaan_external_query_result_shape(
         "status": "fresh",
         "as_of": "2026-08-18T06:55:06Z",
     }
+
+
+def test_askdata_stream_emits_tool_result_final_answer_and_persists_events(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client_with_streaming_runner(
+        tmp_path,
+        monkeypatch,
+        FakeAskTableStreamingRunner(),
+    )
+    _semantic_skill(client)
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/stream",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "message": "列出异常波动，并给出 SQL 和口径证据",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+        },
+    )
+
+    assert response.status_code == 200
+    events = _sse_events(response)
+    assert any(
+        event["content"]["parts"][0].get("functionCall", {}).get("name")
+        == "query_semantic_skill"
+        for event in events
+    )
+    response_event = next(
+        event
+        for event in events
+        if event["content"]["parts"][0].get("functionResponse", {}).get("name")
+        == "query_semantic_skill"
+    )
+    tool_payload = response_event["content"]["parts"][0]["functionResponse"]["response"]
+    assert tool_payload["success"] is True
+    assert "SALES_ORDER" in tool_payload["sql"]
+    assert tool_payload["metricDefinition"] == "Count distinct tickets."
+    assert tool_payload["policyDecision"]["decision"] == "allow"
+    assert tool_payload["freshness"]["status"] == "fresh"
+    assert tool_payload["lineage"]
+    assert tool_payload["evidence"]
+    assert tool_payload["execution"]["direct_database_access"] is False
+    assert "secret" not in response.text.lower()
+
+    response_index = events.index(response_event)
+    final_text_events = [
+        event
+        for event in events[response_index + 1 :]
+        if event["content"]["parts"][0].get("text")
+    ]
+    assert final_text_events
+    assert "VNPTTE" in final_text_events[-1]["content"]["parts"][0]["text"]
+
+    conversation_id = response_event["conversation_id"]
+    persisted = client.get(
+        f"/api/knowledge-assets/askdata/conversations/{conversation_id}"
+    )
+    assert persisted.status_code == 200
+    body = persisted.json()
+    assert body["semantic_asset_id"] == "oracle-sales"
+    assert body["messages"][0]["role"] == "user"
+    assert body["tool_events"][0]["tool_name"] == "query_semantic_skill"
+    assert body["tool_events"][0]["response"]["sql"]
+
+
+def test_askdata_stream_blocks_without_model_config(tmp_path, monkeypatch) -> None:
+    for name in (
+        "MODEL_AGENT_API_KEY",
+        "ARK_API_KEY",
+        "OPENAI_API_KEY",
+        "VEADK_SEMANTIC_BUILDER_API_KEY",
+        "VEADK_KNOWLEDGE_AGENT_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client)
+
+    response = client.post(
+        "/api/knowledge-assets/askdata/stream",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "message": "按门店查看销售票数",
+        },
+    )
+
+    assert response.status_code == 200
+    events = _sse_events(response)
+    response_event = next(
+        event
+        for event in events
+        if event["content"]["parts"][0].get("functionResponse", {}).get("name")
+        == "query_semantic_skill"
+    )
+    tool_payload = response_event["content"]["parts"][0]["functionResponse"]["response"]
+    assert tool_payload["success"] is False
+    assert tool_payload["status"] == "blocked"
+    assert tool_payload["policyDecision"]["decision"] == "deny"
+    assert "not configured" in response.text
 
 
 def _semantic_skill(

@@ -154,8 +154,14 @@ test("AskDashboardWorkbench renders native BYAAN-style portal, chat workspace, p
   assert.match(askDashboardSource, /LineagePanel/);
   assert.match(askDashboardSource, /CodePanel/);
   assert.match(askDashboardSource, /EvidenceGrid/);
-  assert.match(askDashboardSource, /queryAskData/);
-  assert.match(askDashboardSource, /buildDashboardSkill/);
+  assert.match(askDashboardSource, /streamAskData/);
+  assert.match(askDashboardSource, /parseSSE/);
+  assert.match(askDashboardSource, /applyEvent/);
+  assert.match(askDashboardSource, /<Blocks/);
+  assert.match(askDashboardSource, /query_semantic_skill/);
+  assert.doesNotMatch(askDashboardSource, /queryAskData/);
+  assert.doesNotMatch(askDashboardSource, /buildDashboardSkill/);
+  assert.doesNotMatch(askDashboardSource, /Returned .*governed rows/);
   assert.match(askDashboardSource, /askDataToNotebookViewModel/);
   assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
   assert.match(askDashboardSource, /blocked_no_semantic_skill/);

@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 
 
 class KnowledgeAssetRepositoryError(RuntimeError):
@@ -618,6 +618,114 @@ class KnowledgeAssetRepository:
                 )
             )
 
+    def upsert_askdata_conversation(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            conn.execute(
+                """
+                INSERT INTO askdata_conversations (
+                    id, semantic_asset_id, session_id, title, status, mode,
+                    metadata_json
+                )
+                VALUES (
+                    :id, :semantic_asset_id, :session_id, :title, :status, :mode,
+                    :metadata_json
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    semantic_asset_id = excluded.semantic_asset_id,
+                    session_id = excluded.session_id,
+                    title = excluded.title,
+                    status = excluded.status,
+                    mode = excluded.mode,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                """,
+                row,
+            )
+            return self.get_askdata_conversation(row["id"], conn=conn)
+
+    def get_askdata_conversation(
+        self,
+        conversation_id: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM askdata_conversations WHERE id = ?",
+                (conversation_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("AskData conversation not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def record_askdata_message(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_askdata_conversation(row["conversation_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO askdata_messages (
+                    id, conversation_id, role, content_json
+                )
+                VALUES (:id, :conversation_id, :role, :content_json)
+                """,
+                row,
+            )
+            stored = conn.execute(
+                "SELECT * FROM askdata_messages WHERE id = ?",
+                (row["id"],),
+            ).fetchone()
+            if stored is None:
+                raise KnowledgeAssetRepositoryError("AskData message was not stored.")
+            return dict(stored)
+
+    def record_askdata_tool_event(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_askdata_conversation(row["conversation_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO askdata_tool_events (
+                    id, conversation_id, message_id, tool_call_id, tool_name,
+                    status, args_json, response_json
+                )
+                VALUES (
+                    :id, :conversation_id, :message_id, :tool_call_id, :tool_name,
+                    :status, :args_json, :response_json
+                )
+                """,
+                row,
+            )
+            stored = conn.execute(
+                "SELECT * FROM askdata_tool_events WHERE id = ?",
+                (row["id"],),
+            ).fetchone()
+            if stored is None:
+                raise KnowledgeAssetRepositoryError("AskData tool event was not stored.")
+            return dict(stored)
+
+    def list_askdata_messages(self, conversation_id: str) -> list[dict[str, Any]]:
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    "SELECT * FROM askdata_messages WHERE conversation_id = ? "
+                    "ORDER BY created_at ASC, id ASC",
+                    (conversation_id,),
+                )
+            )
+
+    def list_askdata_tool_events(self, conversation_id: str) -> list[dict[str, Any]]:
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    "SELECT * FROM askdata_tool_events WHERE conversation_id = ? "
+                    "ORDER BY created_at ASC, id ASC",
+                    (conversation_id,),
+                )
+            )
+
     @contextmanager
     def _read(self):
         conn = self._connect()
@@ -844,6 +952,48 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_build_jobs_status
             ON build_jobs(status, updated_at);
+
+        CREATE TABLE IF NOT EXISTS askdata_conversations (
+            id TEXT PRIMARY KEY,
+            semantic_asset_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'active',
+            mode TEXT NOT NULL DEFAULT 'production',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_askdata_conversations_asset
+            ON askdata_conversations(semantic_asset_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_askdata_conversations_session
+            ON askdata_conversations(session_id, updated_at);
+
+        CREATE TABLE IF NOT EXISTS askdata_messages (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL REFERENCES askdata_conversations(id) ON DELETE CASCADE,
+            role TEXT NOT NULL,
+            content_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_askdata_messages_conversation
+            ON askdata_messages(conversation_id, created_at);
+
+        CREATE TABLE IF NOT EXISTS askdata_tool_events (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL REFERENCES askdata_conversations(id) ON DELETE CASCADE,
+            message_id TEXT REFERENCES askdata_messages(id) ON DELETE SET NULL,
+            tool_call_id TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            args_json TEXT NOT NULL DEFAULT '{}',
+            response_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_askdata_tool_events_conversation
+            ON askdata_tool_events(conversation_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_askdata_tool_events_call
+            ON askdata_tool_events(tool_call_id);
 
         CREATE TABLE IF NOT EXISTS knowledge_asset_eval_suites (
             id TEXT PRIMARY KEY,

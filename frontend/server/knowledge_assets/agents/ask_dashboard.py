@@ -161,6 +161,7 @@ class AskTableDashboardAgent:
                     time_range=body.time_range,
                     question=body.intent,
                     limit=100,
+                    mode=body.mode,
                 )
             )
             blocked = askdata_result.get("status") == "blocked"
@@ -233,6 +234,7 @@ class AskTableDashboardAgent:
                         "builder": "agentkit.asktable_dashboard_agent.v1",
                         "semantic_model_asset_id": body.semantic_asset_id,
                         "askdata_query_status": askdata_result.get("status"),
+                        **_dashboard_tool_provenance(body),
                         **agent_metadata,
                     },
                     usage_policy={
@@ -469,6 +471,17 @@ def _stable_dashboard_asset_id(body: DashboardSkillBuildBody) -> str:
         f"{body.semantic_asset_id}-{body.name}-dashboard",
         fallback="dashboard",
     )
+
+
+def _dashboard_tool_provenance(body: DashboardSkillBuildBody) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if body.conversation_id:
+        out["conversation_id"] = body.conversation_id
+    if body.tool_call_id:
+        out["tool_call_id"] = body.tool_call_id
+    if body.query_evidence_hash:
+        out["query_evidence_hash"] = body.query_evidence_hash
+    return out
 
 
 ASK_DASHBOARD_AGENT_INSTRUCTION = """

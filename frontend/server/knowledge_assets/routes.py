@@ -7,10 +7,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
@@ -40,9 +42,13 @@ from .service import (
     redact_sensitive,
 )
 from .agents import (
+    AskDataStreamBody,
     AskTableDashboardAgent,
+    AskTableStreamingAgent,
     InternalAgentRunner,
     SemanticBuilderAgent,
+    StreamingRunner,
+    sse_frame,
 )
 from .builders.dashboard import (
     AskDataQueryBody,
@@ -70,10 +76,16 @@ def mount_knowledge_asset_routes(
     identity_resolver: Callable[[Request], Any] | None = None,
     region_resolver: Callable[[str | None], str] | None = None,
     internal_agent_runner: InternalAgentRunner | None = None,
+    asktable_streaming_runner: StreamingRunner | None = None,
 ) -> None:
     store = service or KnowledgeAssetStore()
     semantic_agent = SemanticBuilderAgent(store, runner=internal_agent_runner)
     ask_dashboard_agent = AskTableDashboardAgent(store, runner=internal_agent_runner)
+    asktable_streaming_agent = AskTableStreamingAgent(
+        store,
+        dashboard_agent=ask_dashboard_agent,
+        runner=asktable_streaming_runner,
+    )
     dashboard_query = DashboardQueryService(store)
     semantic_query = GovernedSemanticQueryService(store)
     evaluation = KnowledgeAssetEvaluatorService(store)
@@ -89,6 +101,7 @@ def mount_knowledge_asset_routes(
     async def health() -> dict[str, Any]:
         semantic_status = semantic_agent.health()
         ask_dashboard_status = ask_dashboard_agent.health()
+        asktable_streaming_status = asktable_streaming_agent.health()
         return {
             "configured": True,
             "mock": False,
@@ -96,6 +109,7 @@ def mount_knowledge_asset_routes(
             "agents": {
                 "semantic_builder": semantic_status,
                 "asktable_dashboard": ask_dashboard_status,
+                "asktable_streaming": asktable_streaming_status,
             },
             "capabilities": [
                 "spaces",
@@ -337,6 +351,36 @@ def mount_knowledge_asset_routes(
     @app.post("/api/knowledge-assets/askdata/query")
     async def askdata_query(body: AskDataQueryBody) -> dict[str, Any]:
         return await invoke(lambda: ask_dashboard_agent.query(body))
+
+    @app.post("/api/knowledge-assets/askdata/stream")
+    async def askdata_stream(body: AskDataStreamBody) -> StreamingResponse:
+        async def events() -> Any:
+            try:
+                async for event in asktable_streaming_agent.stream(body):
+                    yield sse_frame(event)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                yield sse_frame(
+                    {
+                        "author": "studio_asktable_streaming_agent",
+                        "content": {
+                            "role": "model",
+                            "parts": [
+                                {
+                                    "text": "AskTable streaming failed: "
+                                    + str(redact_sensitive(str(error)))
+                                }
+                            ],
+                        },
+                    }
+                )
+
+        return StreamingResponse(events(), media_type="text/event-stream")
+
+    @app.get("/api/knowledge-assets/askdata/conversations/{conversation_id}")
+    async def get_askdata_conversation(conversation_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.get_askdata_conversation(conversation_id))
 
     @app.post(
         "/api/knowledge-assets/build/dashboard-skill",

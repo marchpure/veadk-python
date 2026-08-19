@@ -37,10 +37,16 @@ class SemanticQueryRequest:
     question: str | None = None
     limit: int = 100
     mode: str = "summary"
+    require_live: bool = True
+    allow_demo_snapshot: bool = False
 
     @classmethod
     def from_body(cls, body: Any) -> "SemanticQueryRequest":
         dimensions = getattr(body, "dimensions", []) or []
+        mode = str(getattr(body, "mode", "summary") or "summary")
+        offline_mode = _is_offline_mode(mode)
+        require_live_value = getattr(body, "require_live", None)
+        allow_demo_value = getattr(body, "allow_demo_snapshot", None)
         return cls(
             semantic_asset_id=str(getattr(body, "semantic_asset_id", "") or ""),
             metric=getattr(body, "metric", None),
@@ -50,7 +56,13 @@ class SemanticQueryRequest:
             time_range=getattr(body, "time_range", {}) or {},
             question=getattr(body, "question", None),
             limit=int(getattr(body, "limit", 100) or 100),
-            mode=str(getattr(body, "mode", "summary") or "summary"),
+            mode=mode,
+            require_live=not offline_mode
+            if require_live_value is None
+            else bool(require_live_value),
+            allow_demo_snapshot=offline_mode
+            if allow_demo_value is None
+            else bool(allow_demo_value),
         )
 
     @classmethod
@@ -70,6 +82,8 @@ class SemanticQueryRequest:
             question=request.question,
             limit=request.limit,
             mode=request.mode,
+            require_live=request.require_live,
+            allow_demo_snapshot=request.allow_demo_snapshot,
         )
 
     def as_payload(self) -> dict[str, Any]:
@@ -82,6 +96,8 @@ class SemanticQueryRequest:
             "question": self.question,
             "limit": self.limit,
             "mode": self.mode,
+            "require_live": self.require_live,
+            "allow_demo_snapshot": self.allow_demo_snapshot,
         }
 
 
@@ -96,6 +112,8 @@ class SemanticAssetQueryBody(ApiModel):
     question: str | None = Field(default=None, max_length=1000)
     mode: str = Field(default="summary", max_length=80)
     data_view_ids: list[str] = Field(default_factory=list, max_length=20)
+    require_live: bool | None = None
+    allow_demo_snapshot: bool | None = None
 
     @field_validator("dimensions", "data_view_ids")
     @classmethod
@@ -386,6 +404,8 @@ async def _resolve_governed_result(
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
+        if request.require_live and _is_demo_snapshot_candidate(candidate):
+            continue
         result = _normalize_governed_result(
             candidate,
             asset=asset,
@@ -410,6 +430,11 @@ async def _resolve_governed_result(
     )
     if sidecar_result is not None:
         return sidecar_result
+
+    if request.require_live and not request.allow_demo_snapshot:
+        raise KnowledgeAssetServiceError(
+            "Semantic Skill 缺少可用 live governed query 结果；生产 AskTable 不会回退到 schema_only。"
+        )
 
     return _schema_only_governed_result(
         asset=asset,
@@ -461,6 +486,8 @@ def _schema_only_governed_result(
             "result_source": "semantic_skill_snapshot"
             if rows
             else "semantic_skill_mdl",
+            "demo_offline": True,
+            "production_completed": False,
         },
         "execution_mode": "snapshot_evidence_plan" if rows else "schema_only",
     }
@@ -493,6 +520,43 @@ async def _query_governed_sidecar(
     if not parsed.path.startswith("/api/external/assets/semantic_model/"):
         return None
     return None
+
+
+def _is_offline_mode(mode: str) -> bool:
+    return mode.strip().casefold() in {
+        "demo",
+        "offline",
+        "schema_only",
+        "snapshot",
+        "test",
+    }
+
+
+def _is_demo_snapshot_candidate(candidate: dict[str, Any]) -> bool:
+    data = candidate.get("data") if isinstance(candidate.get("data"), dict) else candidate
+    execution = data.get("execution") if isinstance(data, dict) else {}
+    mode = str(
+        data.get("execution_mode")
+        or (execution.get("mode") if isinstance(execution, dict) else "")
+        or ""
+    ).casefold()
+    source = str(
+        (execution.get("result_source") if isinstance(execution, dict) else "")
+        or ""
+    ).casefold()
+    if mode in {"schema_only", "snapshot_evidence_plan"}:
+        return True
+    return "snapshot" in source and not _candidate_marks_live(data, execution)
+
+
+def _candidate_marks_live(data: dict[str, Any], execution: Any) -> bool:
+    if isinstance(execution, dict):
+        if execution.get("production_completed") is True:
+            return True
+        source = str(execution.get("result_source") or "").casefold()
+        if source in {"live", "sidecar", "governed_sidecar", "semantic_runtime"}:
+            return True
+    return bool(data.get("live") or data.get("production_completed"))
 
 
 def _governed_result_candidates(package: dict[str, Any]) -> list[dict[str, Any]]:

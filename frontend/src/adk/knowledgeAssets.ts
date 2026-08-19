@@ -156,8 +156,24 @@ export interface AskDataQueryResult {
     freshness: Record<string, unknown>;
     evidence?: Array<Record<string, unknown>>;
     lineage?: Array<Record<string, unknown>>;
+    execution?: Record<string, unknown>;
   };
   mock?: boolean;
+}
+
+export interface AskDataStreamInput {
+  semantic_asset_id: string;
+  message: string;
+  conversation_id?: string;
+  session_id?: string;
+  dashboard_intent?: string;
+  metric?: string;
+  dimension?: string;
+  dimensions?: string[];
+  filters?: Record<string, unknown>;
+  time_range?: Record<string, unknown>;
+  mode?: string;
+  limit?: number;
 }
 
 export interface DashboardSkillBuildResult {
@@ -603,6 +619,35 @@ export async function queryAskData(input: {
     { method: "POST", body: JSON.stringify(input) },
     "AskData 查询失败",
   );
+}
+
+export async function streamAskData(
+  input: AskDataStreamInput,
+  options: { signal?: AbortSignal } = {},
+): Promise<Response> {
+  let res: Response;
+  try {
+    res = await fetch("/api/knowledge-assets/askdata/stream", {
+      method: "POST",
+      headers: {
+        accept: "text/event-stream",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+      signal: options.signal,
+    });
+  } catch {
+    throw new KnowledgeAssetError(
+      0,
+      "无法连接 AskTable streaming endpoint，请确认工作台后端已启动。",
+      "NETWORK_UNREACHABLE",
+    );
+  }
+  if (!res.ok) {
+    const detail = await errorMessage(res, `AskTable streaming 失败（HTTP ${res.status}）`);
+    throw new KnowledgeAssetError(res.status, detail.message, detail.code);
+  }
+  return res;
 }
 
 export async function buildDashboardSkill(input: {

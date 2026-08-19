@@ -28,14 +28,16 @@ import {
 } from "react";
 
 import {
-  buildDashboardSkill,
-  queryAskData,
+  streamAskData,
   type AskDataQueryResult,
   type DashboardSkillBuildResult,
   type KnowledgeAssetBuildJob,
   type KnowledgeAssetMetadata,
   type KnowledgeAssetSpace,
 } from "../adk/knowledgeAssets";
+import { parseSSE } from "../adk/sse";
+import { applyEvent, emptyAcc, type Acc, type Block } from "../blocks";
+import { Blocks } from "../ui/Blocks";
 import {
   askDataToNotebookViewModel,
   capabilityValues,
@@ -54,6 +56,10 @@ type QueryRound = {
   question: string;
   status: "running" | "completed" | "blocked" | "error";
   result: AskDataQueryResult | null;
+  acc: Acc;
+  blocks: Block[];
+  conversationId?: string;
+  sessionId?: string;
   error?: string;
 };
 
@@ -73,7 +79,6 @@ const fallbackExamples = [
 ];
 
 export function AskDashboardWorkbench({
-  activeSpace,
   semanticSkills,
   dashboardSkills,
   buildJobs,
@@ -192,27 +197,77 @@ export function AskDashboardWorkbench({
     setMobilePane("answer");
     setRounds((current) => [
       ...current,
-      { id: roundId, question: trimmed, status: "running", result: null },
+      {
+        id: roundId,
+        question: trimmed,
+        status: "running",
+        result: null,
+        acc: emptyAcc(),
+        blocks: [],
+      },
     ]);
 
     try {
-      const payload = await queryAskData({
+      const response = await streamAskData({
         semantic_asset_id: selectedSkill.asset_id,
+        message: trimmed,
         metric: metric || undefined,
         dimensions: dimension ? [dimension] : [],
-        question: trimmed,
+        dashboard_intent: dashboardIntent || trimmed,
+        mode: "production",
         limit: 100,
       });
-      setQueryResult(payload);
-      setDashboardIntent((current) => current || trimmed);
-      setPreviewTab(payload.status === "blocked" ? "lineage" : "queries");
+      let acc = emptyAcc();
+      let payload: AskDataQueryResult | null = null;
+      let conversationId = "";
+      let sessionId = "";
+      for await (const rawEvent of parseSSE(response)) {
+        if (!isAdkEvent(rawEvent)) continue;
+        const eventPayload = rawEvent as Record<string, unknown>;
+        conversationId = typeof eventPayload.conversation_id === "string" ? eventPayload.conversation_id : conversationId;
+        sessionId = typeof eventPayload.session_id === "string" ? eventPayload.session_id : sessionId;
+        acc = applyEvent(acc, rawEvent);
+        const toolResult = queryResultFromEvent(rawEvent);
+        if (toolResult) {
+          payload = toolResult;
+          setQueryResult(toolResult);
+          setDashboardIntent((current) => current || trimmed);
+          setPreviewTab(toolResult.status === "blocked" ? "lineage" : "queries");
+        }
+        const finalStatus =
+          payload?.status === "completed"
+            ? hasFinalText(acc.blocks) ? "completed" : "running"
+            : payload?.status === "blocked"
+              ? "blocked"
+              : "running";
+        setRounds((current) =>
+          current.map((round) =>
+            round.id === roundId
+              ? {
+                  ...round,
+                  acc,
+                  blocks: acc.blocks,
+                  status: finalStatus,
+                  result: payload,
+                  conversationId,
+                  sessionId,
+                }
+              : round,
+          ),
+        );
+      }
       setRounds((current) =>
         current.map((round) =>
           round.id === roundId
             ? {
                 ...round,
-                status: payload.status === "completed" ? "completed" : payload.status === "blocked" ? "blocked" : "error",
+                status: payload?.status === "completed" ? "completed" : payload?.status === "blocked" ? "blocked" : "error",
                 result: payload,
+                acc,
+                blocks: acc.blocks,
+                conversationId,
+                sessionId,
+                error: payload ? undefined : "AskTable stream ended without a governed query result.",
               }
             : round,
         ),
@@ -241,34 +296,56 @@ export function AskDashboardWorkbench({
     setError("");
     setMobilePane("preview");
     try {
-      const payload = await buildDashboardSkill({
-        space_id: activeSpace?.id,
+      const response = await streamAskData({
         semantic_asset_id: selectedSkill.asset_id,
-        name: dashboardName || `${selectedSkill.name} Dashboard`,
-        intent: dashboardIntent || latestQuestion,
+        message: `请基于上一轮 AskTable 证据生成 Dashboard Skill：${dashboardIntent || latestQuestion}`,
+        dashboard_intent: dashboardIntent || latestQuestion,
         metric: metric || undefined,
         dimensions: dimension ? [dimension] : [],
-        publish: true,
+        mode: "production",
+        limit: 100,
       });
+      let acc = emptyAcc();
+      let payload: DashboardSkillBuildResult | null = null;
+      let askdata: AskDataQueryResult | null = null;
+      for await (const rawEvent of parseSSE(response)) {
+        if (!isAdkEvent(rawEvent)) continue;
+        acc = applyEvent(acc, rawEvent);
+        const toolResult = queryResultFromEvent(rawEvent);
+        if (toolResult) {
+          askdata = toolResult;
+          setQueryResult(toolResult);
+        }
+        const dashboardResult = dashboardResultFromEvent(rawEvent);
+        if (dashboardResult) {
+          payload = dashboardResult;
+        }
+      }
+      if (!payload) {
+        throw new Error("AskTable Agent 未返回 Dashboard Skill 结果。");
+      }
       setBuildResult(payload);
       setVersionAssetId(payload.dashboard_asset_id);
-      if (payload.askdata) {
-        setQueryResult(payload.askdata);
+      if (payload.askdata || askdata) {
+        const result = payload.askdata ?? askdata;
+        setQueryResult(result ?? null);
         setRounds((current) => {
           if (!current.length) {
             return [{
               id: `query-${Date.now()}`,
               question: latestQuestion,
-              status: payload.askdata?.status === "completed" ? "completed" : "blocked",
-              result: payload.askdata ?? null,
+              status: result?.status === "completed" ? "completed" : "blocked",
+              result: result ?? null,
+              acc,
+              blocks: acc.blocks,
             }];
           }
           return current.map((round, index) =>
             index === current.length - 1 && !round.result
               ? {
                   ...round,
-                  status: payload.askdata?.status === "completed" ? "completed" : "blocked",
-                  result: payload.askdata ?? null,
+                  status: result?.status === "completed" ? "completed" : "blocked",
+                  result: result ?? null,
                 }
               : round,
           );
@@ -703,39 +780,42 @@ function QueryRoundView({
             {round.status === "running" ? <Loader2 className="kc-native-icon is-spinning" /> : <CheckCircle2 className="kc-native-icon" />}
             {round.status === "running" ? "Analyzing" : round.status}
           </span>
-          {round.status === "running" ? (
-            <p>Running a governed Semantic Skill query and preparing evidence blocks.</p>
-          ) : round.error ? (
+          {round.error ? (
             <p>{round.error}</p>
-          ) : round.result ? (
-            <AskDataAnswer result={round.result} onBuildDashboard={onBuildDashboard} busyBuild={busyBuild} onOpenPreview={onOpenPreview} />
-          ) : null}
+          ) : (
+            <AskDataStreamAnswer
+              round={round}
+              onBuildDashboard={onBuildDashboard}
+              busyBuild={busyBuild}
+              onOpenPreview={onOpenPreview}
+            />
+          )}
         </div>
       </article>
     </>
   );
 }
 
-function AskDataAnswer({
-  result,
+function AskDataStreamAnswer({
+  round,
   onBuildDashboard,
   busyBuild,
   onOpenPreview,
 }: {
-  result: AskDataQueryResult;
+  round: QueryRound;
   onBuildDashboard: (event?: FormEvent<HTMLFormElement>) => void;
   busyBuild: boolean;
   onOpenPreview: () => void;
 }) {
-  const notebook = askDataToNotebookViewModel(result, "");
-  const completed = result.status === "completed";
+  const result = round.result;
+  const completed = result?.status === "completed";
   return (
     <div className="kc-askdash-answer">
-      <p>
-        {completed
-          ? `Returned ${notebook.returnedCount} governed rows from ${result.asset.name}.`
-          : `The governed query is ${result.status}; review the policy evidence below.`}
-      </p>
+      {round.blocks.length ? (
+        <Blocks blocks={round.blocks} onAction={() => {}} />
+      ) : (
+        <p>Running a governed Semantic Skill query and preparing evidence blocks.</p>
+      )}
       <div className="kc-askdash-answer-actions">
         <button type="button" onClick={onOpenPreview}>
           <LayoutDashboard className="kc-native-icon" />
@@ -746,8 +826,12 @@ function AskDataAnswer({
           Generate Dashboard
         </button>
       </div>
-      <EvidenceGrid result={result} />
-      <MiniResultTable rows={result.data.rows} />
+      {result ? (
+        <>
+          <EvidenceGrid result={result} />
+          <MiniResultTable rows={result.data.rows} />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1209,4 +1293,101 @@ function Sparkline({ values }: { values: number[] }) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
+}
+
+function isAdkEvent(value: unknown): value is {
+  content?: { parts?: Array<Record<string, unknown>> };
+} {
+  return Boolean(value && typeof value === "object" && "content" in value);
+}
+
+function queryResultFromEvent(event: unknown): AskDataQueryResult | null {
+  const response = functionResponse(event, "query_semantic_skill");
+  if (!response) return null;
+  const direct = response.askdata;
+  if (isAskDataQueryResult(direct)) return direct;
+  const rows = arrayRecords(response.rows ?? response.result);
+  return {
+    schema: "agentkit.askdata.result.v1",
+    status: String(response.status || (response.success === false ? "blocked" : "completed")),
+    asset: {
+      type: "semantic_model",
+      id: String(response.semantic_asset_id || ""),
+      name: String(response.semantic_asset_id || "Semantic Skill"),
+    },
+    data: {
+      rows,
+      returnedCount: Number(response.returnedCount ?? rows.length),
+      sql: String(response.sql || ""),
+      metricDefinition: response.metricDefinition as string | Record<string, unknown>,
+      policyDecision: objectValue(response.policyDecision),
+      freshness: objectValue(response.freshness),
+      evidence: arrayValue(response.evidence).filter(isRecord),
+      lineage: arrayValue(response.lineage).filter(isRecord),
+      metric: objectValue(response.metric),
+      dimensions: arrayValue(response.dimensions).filter(isRecord),
+      execution: objectValue(response.execution),
+    },
+    mock: false,
+  };
+}
+
+function dashboardResultFromEvent(event: unknown): DashboardSkillBuildResult | null {
+  const response = functionResponse(event, "build_dashboard_skill");
+  if (!response) return null;
+  const dashboard = response.dashboard;
+  if (!dashboard || typeof dashboard !== "object") return null;
+  return {
+    schema: "agentkit.dashboard_skill_build.v1",
+    job_id: String(response.job_id || ""),
+    status: String(response.status || (response.success ? "succeeded" : "blocked")),
+    dashboard_asset_id: String(response.dashboard_asset_id || (dashboard as Record<string, unknown>).asset_id || ""),
+    dashboard: dashboard as KnowledgeAssetMetadata,
+    preview: objectValue(response.preview),
+    mock: false,
+  };
+}
+
+function functionResponse(event: unknown, name: string): Record<string, unknown> | null {
+  if (!event || typeof event !== "object") return null;
+  const content = (event as Record<string, unknown>).content;
+  if (!content || typeof content !== "object") return null;
+  const parts = (content as Record<string, unknown>).parts;
+  if (!Array.isArray(parts)) return null;
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    const record = part as Record<string, unknown>;
+    const response = record.functionResponse ?? record.function_response;
+    if (!response || typeof response !== "object") continue;
+    const payload = response as Record<string, unknown>;
+    if (payload.name !== name) continue;
+    const body = payload.response;
+    return body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  }
+  return null;
+}
+
+function isAskDataQueryResult(value: unknown): value is AskDataQueryResult {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      (value as Record<string, unknown>).schema === "agentkit.askdata.result.v1" &&
+      typeof (value as Record<string, unknown>).data === "object",
+  );
+}
+
+function hasFinalText(blocks: Block[]): boolean {
+  return blocks.some((block) => block.kind === "text" && block.text.trim().length > 0);
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function arrayRecords(value: unknown): Array<Record<string, unknown>> {
+  return arrayValue(value).filter(isRecord);
 }

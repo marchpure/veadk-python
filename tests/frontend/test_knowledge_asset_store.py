@@ -734,9 +734,12 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
     assert credential["space_id"] == "space_legacy"
     assert credential["auth_mode"] == "none"
     assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
-    assert schema_version == "3"
+    assert schema_version == "4"
     assert "knowledge_asset_eval_suites" in tables
     assert "knowledge_asset_eval_results" in tables
+    assert "askdata_conversations" in tables
+    assert "askdata_messages" in tables
+    assert "askdata_tool_events" in tables
 
 
 def test_wrong_key_and_corrupt_ciphertext_fail_cleanly(store_env, monkeypatch) -> None:
@@ -792,6 +795,43 @@ def test_query_url_rejects_cross_origin_paths(store_env) -> None:
                     query_url="https://evil.example/query",
                 )
             )
+
+    asyncio.run(scenario())
+
+
+def test_store_persists_askdata_conversation_messages_and_tool_events(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        conversation = await store.upsert_askdata_conversation(
+            conversation_id="conv_1",
+            semantic_asset_id="oracle-sales",
+            session_id="sess_1",
+            title="列出异常波动",
+            mode="production",
+            metadata={"api_key": "should-not-leak"},
+        )
+        message = await store.record_askdata_message(
+            conversation_id=conversation["id"],
+            role="user",
+            content={"text": "列出异常波动", "authorization": "Bearer secret"},
+        )
+        await store.record_askdata_tool_event(
+            conversation_id=conversation["id"],
+            message_id=message["id"],
+            tool_call_id="tool_1",
+            tool_name="query_semantic_skill",
+            status="completed",
+            args={"question": "列出异常波动"},
+            response={"sql": "SELECT 1", "token": "secret"},
+        )
+
+        loaded = await store.get_askdata_conversation(conversation["id"])
+        assert loaded["semantic_asset_id"] == "oracle-sales"
+        assert loaded["metadata"]["api_key"] == "[REDACTED]"
+        assert loaded["messages"][0]["content"]["authorization"] == "[REDACTED]"
+        assert loaded["tool_events"][0]["tool_name"] == "query_semantic_skill"
+        assert loaded["tool_events"][0]["response"]["token"] == "[REDACTED]"
 
     asyncio.run(scenario())
 

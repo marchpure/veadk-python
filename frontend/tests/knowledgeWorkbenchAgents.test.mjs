@@ -21,6 +21,10 @@ const askDashboardSource = readFileSync(
   new URL("../src/knowledge-center/AskDashboardWorkbench.tsx", import.meta.url),
   "utf8",
 );
+const knowledgeAssetsSource = readFileSync(
+  new URL("../src/adk/knowledgeAssets.ts", import.meta.url),
+  "utf8",
+);
 const cssSource = readFileSync(
   new URL("../src/knowledge-center/KnowledgeCenter.css", import.meta.url),
   "utf8",
@@ -178,10 +182,18 @@ test("AskDashboard workspace renders native notebook portal, chat answers, previ
   assert.match(askDashboardSource, /CodePanel/);
   assert.match(askDashboardSource, /EvidenceGrid/);
   assert.match(askDashboardSource, /MiniResultTable/);
-  assert.match(askDashboardSource, /queryAskData/);
-  assert.match(askDashboardSource, /buildDashboardSkill/);
-  assert.match(askDashboardSource, /\/api\/knowledge-assets\/askdata\/query|queryAskData/);
-  assert.match(askDashboardSource, /\/api\/knowledge-assets\/build\/dashboard-skill|buildDashboardSkill/);
+  assert.match(askDashboardSource, /streamAskData/);
+  assert.match(askDashboardSource, /parseSSE/);
+  assert.match(askDashboardSource, /applyEvent/);
+  assert.match(askDashboardSource, /<Blocks/);
+  assert.match(askDashboardSource, /query_semantic_skill/);
+  assert.match(askDashboardSource, /queryResultFromEvent/);
+  assert.match(askDashboardSource, /dashboardResultFromEvent/);
+  assert.doesNotMatch(askDashboardSource, /queryAskData/);
+  assert.doesNotMatch(askDashboardSource, /buildDashboardSkill/);
+  assert.doesNotMatch(askDashboardSource, /Returned .*governed rows/);
+  assert.match(knowledgeAssetsSource, /streamAskData/);
+  assert.match(knowledgeAssetsSource, /\/api\/knowledge-assets\/askdata\/stream/);
   assert.match(askDashboardSource, /askDataToNotebookViewModel/);
   assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
   assert.match(askDashboardSource, /blocked_no_semantic_skill/);

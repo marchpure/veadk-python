@@ -697,6 +697,99 @@ class KnowledgeAssetStore:
             await asyncio.to_thread(self._repository.get_build_job, job_id)
         )
 
+    async def upsert_askdata_conversation(
+        self,
+        *,
+        conversation_id: str,
+        semantic_asset_id: str,
+        session_id: str,
+        title: str = "",
+        status: str = "active",
+        mode: str = "production",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        row = {
+            "id": _sanitize_text(conversation_id),
+            "semantic_asset_id": _sanitize_text(semantic_asset_id),
+            "session_id": _sanitize_text(session_id),
+            "title": _sanitize_text(title or "")[:300],
+            "status": _sanitize_text(status or "active") or "active",
+            "mode": _sanitize_text(mode or "production") or "production",
+            "metadata_json": dumps_json(redact_sensitive(metadata or {})),
+        }
+        return _askdata_conversation_payload(
+            await asyncio.to_thread(self._repository.upsert_askdata_conversation, row)
+        )
+
+    async def get_askdata_conversation(
+        self,
+        conversation_id: str,
+    ) -> dict[str, Any]:
+        conversation = _askdata_conversation_payload(
+            await asyncio.to_thread(
+                self._repository.get_askdata_conversation,
+                conversation_id,
+            )
+        )
+        messages = await asyncio.to_thread(
+            self._repository.list_askdata_messages,
+            conversation_id,
+        )
+        tool_events = await asyncio.to_thread(
+            self._repository.list_askdata_tool_events,
+            conversation_id,
+        )
+        return {
+            **conversation,
+            "messages": [_askdata_message_payload(row) for row in messages],
+            "tool_events": [_askdata_tool_event_payload(row) for row in tool_events],
+            "mock": False,
+        }
+
+    async def record_askdata_message(
+        self,
+        *,
+        conversation_id: str,
+        role: str,
+        content: dict[str, Any],
+        message_id: str | None = None,
+    ) -> dict[str, Any]:
+        row = {
+            "id": _sanitize_text(message_id or _new_id("msg")),
+            "conversation_id": _sanitize_text(conversation_id),
+            "role": _sanitize_text(role or "assistant") or "assistant",
+            "content_json": dumps_json(redact_sensitive(content)),
+        }
+        return _askdata_message_payload(
+            await asyncio.to_thread(self._repository.record_askdata_message, row)
+        )
+
+    async def record_askdata_tool_event(
+        self,
+        *,
+        conversation_id: str,
+        tool_call_id: str,
+        tool_name: str,
+        status: str,
+        args: dict[str, Any],
+        response: dict[str, Any],
+        message_id: str | None = None,
+        event_id: str | None = None,
+    ) -> dict[str, Any]:
+        row = {
+            "id": _sanitize_text(event_id or _new_id("tool")),
+            "conversation_id": _sanitize_text(conversation_id),
+            "message_id": _sanitize_text(message_id or "") or None,
+            "tool_call_id": _sanitize_text(tool_call_id),
+            "tool_name": _sanitize_text(tool_name),
+            "status": _sanitize_text(status or "completed") or "completed",
+            "args_json": dumps_json(redact_sensitive(args)),
+            "response_json": dumps_json(redact_sensitive(response)),
+        }
+        return _askdata_tool_event_payload(
+            await asyncio.to_thread(self._repository.record_askdata_tool_event, row)
+        )
+
     async def overview(self, *, space_id: str | None = None) -> dict[str, Any]:
         spaces = await self.list_spaces()
         target_space_id = space_id or (spaces[0]["id"] if spaces else "")
@@ -839,6 +932,44 @@ def _build_job_payload(row: dict[str, Any]) -> dict[str, Any]:
         "output": loads_json(row.get("output_json"), {}),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
+    }
+
+
+def _askdata_conversation_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "semantic_asset_id": row["semantic_asset_id"],
+        "session_id": row["session_id"],
+        "title": row.get("title") or "",
+        "status": row.get("status") or "active",
+        "mode": row.get("mode") or "production",
+        "metadata": loads_json(row.get("metadata_json"), {}),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _askdata_message_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "conversation_id": row["conversation_id"],
+        "role": row["role"],
+        "content": loads_json(row.get("content_json"), {}),
+        "created_at": row.get("created_at"),
+    }
+
+
+def _askdata_tool_event_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "conversation_id": row["conversation_id"],
+        "message_id": row.get("message_id"),
+        "tool_call_id": row["tool_call_id"],
+        "tool_name": row["tool_name"],
+        "status": row["status"],
+        "args": loads_json(row.get("args_json"), {}),
+        "response": loads_json(row.get("response_json"), {}),
+        "created_at": row.get("created_at"),
     }
 
 

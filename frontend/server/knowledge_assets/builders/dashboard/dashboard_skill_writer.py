@@ -24,6 +24,10 @@ class DashboardSkillBuildBody(ApiModel):
     dimensions: list[str] = Field(default_factory=list, max_length=8)
     filters: dict[str, Any] = Field(default_factory=dict)
     time_range: dict[str, Any] = Field(default_factory=dict)
+    mode: str = Field(default="summary", max_length=80)
+    conversation_id: str | None = Field(default=None, max_length=128)
+    tool_call_id: str | None = Field(default=None, max_length=128)
+    query_evidence_hash: str | None = Field(default=None, max_length=256)
     publish: bool = True
 
     @field_validator("dimensions")
@@ -66,6 +70,7 @@ class DashboardSkillWriter:
                     time_range=body.time_range,
                     question=body.intent,
                     limit=100,
+                    mode=body.mode,
                 )
             )
             blocked = askdata_result.get("status") == "blocked"
@@ -121,6 +126,7 @@ class DashboardSkillWriter:
                         "builder": "agentkit_native_dashboard_skill_writer",
                         "semantic_model_asset_id": body.semantic_asset_id,
                         "askdata_query_status": askdata_result.get("status"),
+                        **_dashboard_tool_provenance(body),
                     },
                     usage_policy={
                         "permission_hint": _policy_hint(askdata_result),
@@ -232,6 +238,10 @@ def _dashboard_package(
                 "asset_id": semantic_asset["asset_id"],
                 "version": semantic_asset.get("version") or "v1",
             },
+            "provenance": {
+                "semantic_asset_id": semantic_asset["asset_id"],
+                **_dashboard_tool_provenance(body),
+            },
             "askdata_seed": askdata_result,
             "evals": {
                 "suite": {
@@ -241,6 +251,17 @@ def _dashboard_package(
             },
         }
     )
+
+
+def _dashboard_tool_provenance(body: DashboardSkillBuildBody) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if body.conversation_id:
+        out["conversation_id"] = body.conversation_id
+    if body.tool_call_id:
+        out["tool_call_id"] = body.tool_call_id
+    if body.query_evidence_hash:
+        out["query_evidence_hash"] = body.query_evidence_hash
+    return out
 
 
 def _tool_py(query_url: str) -> str:
