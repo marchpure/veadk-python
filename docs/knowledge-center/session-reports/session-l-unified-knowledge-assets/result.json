@@ -3,12 +3,27 @@
   "branch": "kc/session-l-unified-knowledge-assets",
   "base_branch": "marchpure/kc/session-i-h6-g2-integration",
   "merged_branch": "marchpure/kc/session-j3-semantic-agent-native",
+  "input_remote_hashes": {
+    "asktable_g2": "22e0f869",
+    "j3_semantic_builder": "c2d43dfd"
+  },
+  "pre_final_commit": "ccd1298f4be9bbf44ddf038c1173dbadc93f0680",
   "status": "passed",
   "blockers": [],
+  "unified_experience": {
+    "local_url": "http://127.0.0.1:5174/",
+    "entry": "Knowledge Center / 知识资产",
+    "path": "/knowledge-center"
+  },
+  "semantic_builder_unstaged_diff": {
+    "path": "frontend/server/knowledge_assets/agents/semantic_builder.py",
+    "present": false,
+    "action": "not staged because there was no unstaged or staged diff for this file at final closure"
+  },
   "scope": [
-    "Unified Session I/G2 knowledge asset baseline with J3 Semantic Builder agent-native implementation.",
+    "Unified AskTable/Dashboard/share baseline with J3 Semantic Builder agent-native implementation.",
     "Preserved AskTable, Dashboard share/export, Semantic Builder, Evaluation, capabilities, jobs, and settings surfaces.",
-    "Rebuilt shipped web UI assets."
+    "Added final live-validation harness and report artifacts."
   ],
   "feature_checks": {
     "knowledge_center_tabs": [
@@ -26,7 +41,8 @@
       "evidence": [
         "/api/knowledge-assets/askdata/query",
         "/api/knowledge-assets/askdata/stream",
-        "/api/knowledge-assets/askdata/conversations/{conversation_id}"
+        "/api/knowledge-assets/askdata/conversations/{conversation_id}",
+        "live-validation-result.json workflows.asktable"
       ]
     },
     "dashboard_share_export": {
@@ -36,7 +52,8 @@
         "/api/knowledge-assets/shares/{share_id}",
         "/api/knowledge-assets/shares/{share_id}/revoke",
         "/share/knowledge-assets/dashboard/{share_id}",
-        "frontend shareDashboardAsset/getDashboardShare/revokeDashboardShare APIs"
+        "BYAAN DashboardPreviewPanel HTML/JSON export and share modal wiring",
+        "live-validation-result.json workflows.dashboard sharePageStatus=200"
       ]
     },
     "semantic_builder_j3": {
@@ -45,7 +62,8 @@
         "/api/knowledge-assets/semantic-build/stream",
         "/api/knowledge-assets/semantic-build/{job_id}/events",
         "/api/knowledge-assets/semantic-builder/conversations",
-        "/api/knowledge-assets/semantic-builder/drafts/{asset_id}/publish"
+        "/api/knowledge-assets/semantic-builder/drafts/{asset_id}/publish",
+        "live-validation-result.json workflows.semanticBuilder.modelStatus.status=available"
       ]
     },
     "evaluation": {
@@ -53,7 +71,9 @@
       "evidence": [
         "/api/knowledge-assets/evaluation/suites",
         "/api/knowledge-assets/evaluation/runs",
-        "frontend listKnowledgeAssetEvalSuites/runKnowledgeAssetEvaluation APIs"
+        "/api/knowledge-assets/evaluation/runs/{run_id}",
+        "/api/knowledge-assets/evaluation/optimizations",
+        "live-validation-result.json workflows.evaluation.runStatus=succeeded"
       ]
     }
   },
@@ -63,19 +83,19 @@
       "status": "passed"
     },
     {
-      "command": "uvx ruff check touched Python files",
-      "status": "passed",
-      "note": "Global `ruff` and project `uv run ruff` executable were unavailable; used `uvx ruff` for the requested ruff CLI validation."
+      "command": "uvx ruff check docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/live_app.py",
+      "status": "passed"
+    },
+    {
+      "command": "uvx ruff check $(git diff --name-only 012f1cfc25090e0126c8402a5433ff2c2f4c966b...HEAD -- '*.py') docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/live_app.py",
+      "status": "failed_existing_lint_debt",
+      "summary": "115 ruff findings in generated/report/CLI and earlier branch-touched files; not introduced by final unstaged closure.",
+      "note": "Current final unstaged scope contains no product Python diff; live_app.py passed ruff."
     },
     {
       "command": "pytest -q tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_knowledge_asset_semantic_builder.py tests/frontend/test_dashboard_askdata_routes.py",
       "status": "passed",
       "summary": "28 passed, 7 warnings"
-    },
-    {
-      "command": "pytest -q tests/frontend/test_semantic_builder.py::test_semantic_skill_build_prefers_sanitized_semantic_reference",
-      "status": "passed",
-      "summary": "1 passed, 9 warnings"
     },
     {
       "command": "cd frontend && npm test -- semanticBuildPanel.test.mjs knowledgeWorkbenchAgents.test.mjs",
@@ -85,12 +105,47 @@
     {
       "command": "cd frontend && npm run build",
       "status": "passed",
-      "summary": "Vite build completed with chunk-size/dynamic-import warnings only."
+      "summary": "Vite build completed with existing chunk-size/dynamic-import warnings."
+    },
+    {
+      "command": "SESSION_L_API_BASE=http://127.0.0.1:8070 SESSION_L_UI_BASE=http://127.0.0.1:5174 node docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/run-live-validation.mjs",
+      "status": "passed",
+      "summary": "AskTable API, Dashboard share page, Semantic Builder availability, Evaluation succeeded, desktop/mobile screenshots captured."
+    },
+    {
+      "command": "rg secret-pattern scan over knowledge asset source, tests, and session-l artifacts",
+      "status": "passed",
+      "summary": "No real secrets found; matches were fake test DB URLs and a defensive leak blocklist."
     }
   ],
-  "unified_experience_path": "/knowledge-center",
+  "live_validation_artifacts": {
+    "result": "docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/live-validation-result.json",
+    "screenshots": [
+      "docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/screenshots/desktop-knowledge-center.png",
+      "docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/screenshots/mobile-knowledge-center.png"
+    ]
+  },
+  "secret_scan": {
+    "status": "passed",
+    "real_secret_found": false,
+    "findings": [
+      {
+        "path": "tests/frontend/test_dashboard_askdata_routes.py:441",
+        "classification": "fake fixture database URL"
+      },
+      {
+        "path": "tests/frontend/test_knowledge_asset_agents.py:510",
+        "classification": "fake fixture database URL"
+      },
+      {
+        "path": "frontend/server/knowledge_assets/agents/semantic_builder.py:1942",
+        "classification": "defensive sensitive-token blocklist"
+      }
+    ]
+  },
   "notes": [
-    "No new UX refactor was introduced in Session L.",
-    "The Session L report was generated after merge validation."
+    "No branch switch and no new worktree were used.",
+    "No new UX refactor was introduced; the final UI code only wires previously disabled BYAAN source-port share/export controls to existing APIs.",
+    "Local live validation used sqlite and deterministic fallback; health reported mock=false."
   ]
 }

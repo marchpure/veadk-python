@@ -18,6 +18,7 @@ import type { FormEvent } from "react";
 
 import type {
   AskDataQueryResult,
+  DashboardShare,
   DashboardSkillBuildResult,
   KnowledgeAssetMetadata,
 } from "../../../../adk/knowledgeAssets";
@@ -56,6 +57,11 @@ export function ByaanNotebookDashboardSourcePort({
   onDashboardNameChange,
   onDashboardIntentChange,
   onBuildDashboard,
+  busyShare = false,
+  onShareDashboard,
+  shareResult,
+  onClearShare,
+  onRevokeShare,
   activeTab,
   onActiveTabChange,
   onRefresh,
@@ -84,6 +90,11 @@ export function ByaanNotebookDashboardSourcePort({
   onDashboardNameChange: (value: string) => void;
   onDashboardIntentChange: (value: string) => void;
   onBuildDashboard: (event: FormEvent<HTMLFormElement>) => void;
+  busyShare?: boolean;
+  onShareDashboard: () => void;
+  shareResult: DashboardShare | null;
+  onClearShare: () => void;
+  onRevokeShare: (shareId: string) => void;
   activeTab: ByaanDashboardTab;
   onActiveTabChange: (value: ByaanDashboardTab) => void;
   onRefresh: () => void;
@@ -152,6 +163,11 @@ export function ByaanNotebookDashboardSourcePort({
           onActiveTabChange={onActiveTabChange}
           onRefresh={onRefresh}
           onOpenFullscreen={onFullscreen}
+          busyShare={busyShare}
+          onShareDashboard={onShareDashboard}
+          shareResult={shareResult}
+          onClearShare={onClearShare}
+          onRevokeShare={onRevokeShare}
         />
       </div>
     </section>

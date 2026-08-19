@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, Code, Copy, Database, Eye, FileCode2, FileDown, Filter, Hand, Maximize2, MoreHorizontal, RefreshCw, Share2 } from "lucide-react";
+import { Check, Code, Copy, Database, ExternalLink, Eye, FileCode2, FileDown, FileJson, Filter, Hand, Loader2, Maximize2, MoreHorizontal, RefreshCw, Share2, X } from "lucide-react";
 import { useState } from "react";
 
+import type { DashboardShare } from "../../../../../adk/knowledgeAssets";
 import { formatJson, objectValue } from "../../../../../knowledge-center/knowledgeWorkbenchUtils";
 import type { ByaanOriginalWorkspaceModel, DashboardWorkspaceTab } from "./types";
 
@@ -12,17 +13,32 @@ export function DashboardPreviewPanel({
   onActiveTabChange,
   onRefresh,
   onOpenFullscreen,
+  busyShare = false,
+  onShareDashboard,
+  shareResult,
+  onClearShare,
+  onRevokeShare,
 }: {
   workspace: ByaanOriginalWorkspaceModel;
   activeTab: DashboardWorkspaceTab;
   onActiveTabChange: (tab: DashboardWorkspaceTab) => void;
   onRefresh: () => void;
   onOpenFullscreen: () => void;
+  busyShare?: boolean;
+  onShareDashboard: () => void;
+  shareResult: DashboardShare | null;
+  onClearShare: () => void;
+  onRevokeShare: (shareId: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [copiedShare, setCopiedShare] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const dashboard = workspace.dashboard;
   const codeForDisplay = formatJson(workspace.dashboardSpec);
   const hasPreview = dashboard.tiles.length > 0 || workspace.previewRows.length > 0;
+  const dashboardAssetId = String(workspace.selectedDashboard?.asset_id || workspace.buildResult?.dashboard?.asset_id || "");
+  const canExportJson = hasPreview && Object.keys(workspace.dashboardSpec).length > 0;
+  const canShare = hasPreview && Boolean(dashboardAssetId);
 
   const handleCopy = async () => {
     try {
@@ -33,6 +49,51 @@ export function DashboardPreviewPanel({
       setCopied(false);
     }
   };
+
+  function exportHtml() {
+    if (!hasPreview) return;
+    downloadBlob(
+      new Blob([dashboardHtml(workspace)], { type: "text/html;charset=utf-8" }),
+      `${slug(dashboard.title || workspace.selectedDashboard?.name || "dashboard")}.html`,
+    );
+  }
+
+  function exportJson() {
+    if (!canExportJson) return;
+    downloadBlob(
+      new Blob(
+        [
+          JSON.stringify(
+            {
+              title: dashboard.title,
+              dashboard_asset_id: dashboardAssetId,
+              dashboard_spec: workspace.dashboardSpec,
+              rows: workspace.previewRows,
+              query_result: workspace.queryResult?.data ?? null,
+              build_result: workspace.buildResult,
+            },
+            null,
+            2,
+          ),
+        ],
+        { type: "application/json;charset=utf-8" },
+      ),
+      `${slug(dashboard.title || workspace.selectedDashboard?.name || "dashboard")}.json`,
+    );
+  }
+
+  function createShare() {
+    if (!canShare || busyShare) return;
+    onShareDashboard();
+    setShareModalOpen(true);
+  }
+
+  async function copyShareLink() {
+    if (!shareResult?.share_url) return;
+    await navigator.clipboard.writeText(shareResult.share_url);
+    setCopiedShare(true);
+    window.setTimeout(() => setCopiedShare(false), 1800);
+  }
 
   return (
     <div className="kc-byaan-dashboard-preview h-full flex flex-col bg-[#1a1a1a] border-l border-[#2a2a2a] relative">
@@ -57,14 +118,17 @@ export function DashboardPreviewPanel({
           <button type="button" onClick={onRefresh} title="Refresh">
             <RefreshCw className="kc-native-icon" />
           </button>
-          <button type="button" disabled title="Export PDF">
+          <button type="button" disabled title="PDF export is not configured for local Studio">
             <FileDown className="kc-native-icon" />
           </button>
-          <button type="button" disabled title="Export HTML">
+          <button type="button" onClick={exportHtml} disabled={!hasPreview} title={hasPreview ? "Export current dashboard HTML" : "Run a query or build dashboard before exporting HTML"}>
             <FileCode2 className="kc-native-icon" />
           </button>
-          <button type="button" disabled title="Share">
-            <Share2 className="kc-native-icon" />
+          <button type="button" onClick={exportJson} disabled={!canExportJson} title={canExportJson ? "Export dashboard spec and evidence JSON" : "Build dashboard evidence before exporting JSON"}>
+            <FileJson className="kc-native-icon" />
+          </button>
+          <button type="button" onClick={createShare} disabled={!canShare || busyShare} title={canShare ? "Create share link" : "Generate a dashboard asset before sharing"}>
+            {busyShare ? <Loader2 className="kc-native-icon kc-spin" /> : <Share2 className="kc-native-icon" />}
           </button>
           <button type="button" onClick={onOpenFullscreen} title="Open fullscreen">
             <Maximize2 className="kc-native-icon" />
@@ -95,6 +159,25 @@ export function DashboardPreviewPanel({
           <LineagePanel workspace={workspace} />
         )}
       </div>
+      {shareModalOpen ? (
+        <ShareDashboardModal
+          share={shareResult}
+          sharing={busyShare}
+          copied={copiedShare}
+          onCopy={() => void copyShareLink()}
+          onOpen={() => {
+            if (shareResult?.share_url) window.open(shareResult.share_url, "_blank", "noopener,noreferrer");
+          }}
+          onRevoke={() => {
+            if (shareResult?.share_id) onRevokeShare(shareResult.share_id);
+          }}
+          onClose={() => {
+            setShareModalOpen(false);
+            setCopiedShare(false);
+            if (shareResult?.revoked_at) onClearShare();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -223,4 +306,98 @@ function MiniTable({ rows }: { rows: Array<Record<string, unknown>> }) {
 
 function EvidenceBlock({ title, value }: { title: string; value: string }) {
   return <section><h3>{title}</h3><pre><code>{value}</code></pre></section>;
+}
+
+function dashboardHtml(workspace: ByaanOriginalWorkspaceModel): string {
+  const rows = workspace.previewRows.slice(0, 20);
+  const columns = Object.keys(rows[0] ?? {});
+  const table = rows.length
+    ? `<table><thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead><tbody>${rows
+        .map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(String(row[column] ?? ""))}</td>`).join("")}</tr>`)
+        .join("")}</tbody></table>`
+    : "<p>No rows returned.</p>";
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(workspace.dashboard.title || "Dashboard")}</title><style>body{font-family:system-ui,sans-serif;margin:24px;color:#111827}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:left}th{background:#f3f4f6}.tile{border:1px solid #d1d5db;border-radius:8px;padding:12px;margin:8px 0}</style></head><body><h1>${escapeHtml(workspace.dashboard.title || "Dashboard")}</h1><p>${escapeHtml(workspace.dashboard.description || "Governed dashboard export")}</p>${workspace.dashboard.tiles.map((tile) => `<div class="tile"><strong>${escapeHtml(String(objectValue(tile).title || objectValue(tile).id || "Tile"))}</strong><br><span>${escapeHtml(String(objectValue(tile).data_view_id || ""))}</span></div>`).join("")}${table}</body></html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dashboard";
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(href);
+}
+
+function ShareDashboardModal({
+  share,
+  sharing,
+  copied,
+  onCopy,
+  onOpen,
+  onRevoke,
+  onClose,
+}: {
+  share: DashboardShare | null;
+  sharing: boolean;
+  copied: boolean;
+  onCopy: () => void;
+  onOpen: () => void;
+  onRevoke: () => void;
+  onClose: () => void;
+}) {
+  const revoked = Boolean(share?.revoked_at);
+  return (
+    <div className="byaan-share-backdrop" role="dialog" aria-modal="true" aria-label="Dashboard share link">
+      <div className="byaan-share-modal">
+        <header>
+          <div>
+            <h2>Share dashboard</h2>
+            <p>{revoked ? "This link has been revoked." : "Local link ready for this generated dashboard snapshot."}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close share dialog"><X className="kc-native-icon" /></button>
+        </header>
+        {sharing && !share ? (
+          <div className="byaan-share-loading"><Loader2 className="kc-native-icon kc-spin" />Creating share link...</div>
+        ) : share ? (
+          <div className="byaan-share-body">
+            <label>
+              <span>Share URL</span>
+              <input readOnly value={share.share_url} />
+            </label>
+            <div className="byaan-share-meta">
+              <span>{share.asset_version || "v1"}</span>
+              <span>{share.visibility}</span>
+              {share.created_at ? <span>{new Date(share.created_at).toLocaleString()}</span> : null}
+            </div>
+            <footer>
+              <button type="button" onClick={onCopy} disabled={revoked}>
+                {copied ? <Check className="kc-native-icon" /> : <Copy className="kc-native-icon" />}
+                {copied ? "Copied" : "Copy link"}
+              </button>
+              <button type="button" onClick={onOpen} disabled={revoked}>
+                <ExternalLink className="kc-native-icon" />
+                Open
+              </button>
+              <button type="button" onClick={onRevoke} disabled={revoked || sharing} className="is-danger">
+                {sharing ? <Loader2 className="kc-native-icon kc-spin" /> : <X className="kc-native-icon" />}
+                Revoke
+              </button>
+            </footer>
+          </div>
+        ) : (
+          <div className="byaan-share-loading">Share link was not created.</div>
+        )}
+      </div>
+    </div>
+  );
 }

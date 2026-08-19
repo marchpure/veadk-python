@@ -1,0 +1,100 @@
+{
+  "apiBase": "http://127.0.0.1:8070",
+  "uiBase": "http://127.0.0.1:5174",
+  "screenshots": [
+    "docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/screenshots/desktop-knowledge-center.png",
+    "docs/knowledge-center/session-reports/session-l-unified-knowledge-assets/screenshots/mobile-knowledge-center.png"
+  ],
+  "api": {
+    "health": {
+      "mock": false,
+      "store": "sqlite",
+      "semantic_builder": "available",
+      "asktable_dashboard": "available",
+      "asktable_streaming": "available"
+    },
+    "core": {
+      "spaces": 2,
+      "sources": 2,
+      "assets": 2
+    }
+  },
+  "workflows": {
+    "asktable": {
+      "rows": [
+        {
+          "store": "VNPTTE",
+          "ticket_count": 56
+        },
+        {
+          "store": "SG - ANTA VIVO City",
+          "ticket_count": 9
+        }
+      ],
+      "sql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name ORDER BY ticket_count DESC LIMIT 100",
+      "metricDefinition": "Count distinct tickets.",
+      "policyDecision": {
+        "raw_sql_fallback": false,
+        "decision": "allow",
+        "denied_fields": [
+          {
+            "field": "customer_phone"
+          }
+        ],
+        "reason": "Aggregates only."
+      },
+      "freshness": {
+        "as_of": "2026-08-18T00:00:00Z",
+        "status": "fresh"
+      },
+      "lineage": [
+        {
+          "kind": "snapshot",
+          "title": "oracle sanitized"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "metric",
+          "title": "ticket"
+        }
+      ]
+    },
+    "dashboard": {
+      "dashboardAssetId": "oracle-sales-live-oracle-sales-live-dashboard-dashboard",
+      "runViews": 1,
+      "shareId": "share_91e135b4bdfa4c22ba91fb0f98b3e2f8",
+      "shareUrl": "/share/knowledge-assets/dashboard/share_91e135b4bdfa4c22ba91fb0f98b3e2f8",
+      "sharePageStatus": 200
+    },
+    "evaluation": {
+      "suiteId": "eval_suite_48f981ddd60942cb90ebe80cd87284da",
+      "runId": "eval_run_741bde3e40d84c31b88b6c893c1a7983",
+      "runStatus": "succeeded",
+      "runsTotal": 2,
+      "resultCount": 1
+    },
+    "semanticBuilder": {
+      "routePresent": true,
+      "modelStatus": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": true
+      },
+      "note": "Live external model was not required for this smoke; agent-native routes are covered by Python tests and health."
+    }
+  },
+  "ui": {
+    "desktop": {
+      "horizontalOverflow": false,
+      "emptyText": false
+    },
+    "mobile": {
+      "horizontalOverflow": false,
+      "emptyText": false
+    }
+  },
+  "warnings": []
+}

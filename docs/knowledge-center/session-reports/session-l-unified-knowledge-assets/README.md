@@ -1,16 +1,19 @@
 # Session L Unified Knowledge Assets
 
+## Result
+
 Session L unified the AskTable/Dashboard/share baseline with the J3 Semantic Builder branch on `kc/session-l-unified-knowledge-assets`.
 
-Status: passed, no blocker.
+Current status: passed, no blocker.
 
-## Preserved Surfaces
+Unified experience address used for live validation: `http://127.0.0.1:5174/`, Knowledge Center tab `知识资产`.
 
-- Knowledge Center tabs: `概览`, `数据源`, `语义构建`, `AskTable / Dashboard`, `测评`, `能力`, `构建任务`, `设置`.
-- AskTable governed query, stream, and conversation routes.
-- Dashboard Skill build/run, share/fetch/revoke/public page, plus HTML/JSON export controls in both BYAAN workbench paths.
+## What Was Preserved
+
+- AskTable governed query and streaming conversation persistence.
+- Dashboard Skill build, run, HTML/JSON export, share, fetch, revoke, and public share page.
 - J3 Semantic Builder stream, events, conversations, revisions, draft publish, document graph, and provenance.
-- Evaluation suites, cases, runs, run details, results, and optimizations.
+- Evaluation suites, cases, runs, run details, results, and optimization endpoints.
 
 ## Validation
 
@@ -19,13 +22,12 @@ Status: passed, no blocker.
 - Full branch touched-Python `uvx ruff check ...`: existing generated/report/CLI lint debt remains outside this final unstaged scope.
 - `pytest -q tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_knowledge_asset_semantic_builder.py tests/frontend/test_dashboard_askdata_routes.py`: 28 passed, 7 warnings.
 - `cd frontend && npm test -- semanticBuildPanel.test.mjs knowledgeWorkbenchAgents.test.mjs`: 682 passed.
-- `cd frontend && npm run build`: passed with existing Vite chunk/dynamic-import warnings.
-- Live validation: `run-live-validation.mjs` passed API + UI smoke at `http://127.0.0.1:5174/`; Evaluation run status `succeeded`; desktop/mobile screenshots captured.
+- `cd frontend && npm run build`: passed with existing Vite chunk/dynamic import warnings.
+- Live smoke: API + UI + Playwright screenshots passed; Evaluation run status `succeeded`.
 - Secret scan: no real secrets found. Hits were test fixture fake DB URLs and a defensive semantic-builder blocklist.
 
 ## Artifacts
 
-- `README.md`
 - `result.json`
 - `live-validation-result.json`
 - `screenshots/desktop-knowledge-center.png`
