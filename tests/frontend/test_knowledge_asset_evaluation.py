@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sqlite3
 
 import pytest
@@ -23,7 +22,10 @@ from frontend.server.knowledge_assets.evaluation.service import (
     KnowledgeAssetEvaluatorService,
     NoConfiguredJudge,
 )
-from frontend.server.knowledge_assets.models import CreateSpaceBody, RecordSkillPackageBody
+from frontend.server.knowledge_assets.models import (
+    CreateSpaceBody,
+    RecordSkillPackageBody,
+)
 from frontend.server.knowledge_assets.repository import KnowledgeAssetRepository
 from frontend.server.knowledge_assets.service import (
     KnowledgeAssetServiceError,
@@ -412,7 +414,9 @@ def test_create_and_import_cases_reject_sensitive_fields(store: KnowledgeAssetSt
                     cases=[
                         {
                             "question": "按门店查看销售票数",
-                            "expectedSqlContains": ["".join(["session_", "token", ":", "abc 123"])],
+                            "expectedSqlContains": [
+                                "session_" + "token" + ":" + "abc 123"
+                            ],
                         }
                     ]
                 ),

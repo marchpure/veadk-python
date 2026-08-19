@@ -77,7 +77,7 @@ class KnowledgeAssetOptimizationGroup(KnowledgeAssetEvalModel):
     )
 
     @model_validator(mode="after")
-    def validate_custom_module(self) -> "KnowledgeAssetOptimizationGroup":
+    def validate_custom_module(self) -> KnowledgeAssetOptimizationGroup:
         custom = (self.custom_module or "").strip()
         if self.module == "other" and not custom:
             raise ValueError("customModule is required when module is other")
@@ -154,7 +154,7 @@ class CreateKnowledgeAssetEvalCaseBody(KnowledgeAssetEvalModel):
         return [str(item).strip() for item in value if str(item).strip()]
 
     @model_validator(mode="after")
-    def validate_prompt(self) -> "CreateKnowledgeAssetEvalCaseBody":
+    def validate_prompt(self) -> CreateKnowledgeAssetEvalCaseBody:
         if not (self.input.strip() or self.question.strip() or self.intent.strip()):
             raise ValueError("input, question, or intent is required")
         return self

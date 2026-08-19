@@ -21,7 +21,7 @@ from ..builders.dashboard.dashboard_skill_writer import DashboardSkillBuildBody
 from ..models import ApiModel
 from ..service import KnowledgeAssetServiceError, KnowledgeAssetStore, redact_sensitive
 from .ask_dashboard import AskTableDashboardAgent
-from .runner import DEFAULT_INTERNAL_MODEL, MODEL_KEY_ENV_NAMES, model_configured
+from .runner import DEFAULT_INTERNAL_MODEL, model_configured
 
 
 class AskDataStreamBody(ApiModel):
@@ -199,7 +199,7 @@ class AskTableStreamingAgent:
                 yield _with_session(event, conversation_id, session_id)
         except asyncio.CancelledError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - streaming boundary degrades to a blocked tool response.
             response = _blocked_tool_result(
                 body,
                 reason=f"AskTable Agent streaming failed: {redact_sensitive(str(error))}",
@@ -250,7 +250,7 @@ class AskTableStreamingAgent:
             )
             try:
                 result = await self._askdata.query(request)
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 - tool boundary records the blocked query response.
                 response = _blocked_tool_result(
                     body,
                     reason="Semantic Skill live governed query failed: "

@@ -364,7 +364,7 @@ def list_eval_runs(
                 ORDER BY updated_at DESC, id
                 LIMIT ?
                 """,
-                tuple([*params, bounded]),
+                (*params, bounded),
             )
         )
 

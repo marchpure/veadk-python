@@ -232,7 +232,7 @@ test("Agent creation presents knowledge choices as runnable capabilities", () =>
   assert.match(customCreateCss, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
 });
 
-test("Knowledge asset center is native and keeps BYAAN as an optional sidecar", () => {
+test("Knowledge asset center is native and keeps governed query backend optional", () => {
   assert.doesNotMatch(sidebarSource, /show\("datastudio"\)/);
   assert.match(sidebarSource, /aria-label="知识资产"/);
   assert.doesNotMatch(appSource, /features\.datastudio/);
@@ -240,9 +240,10 @@ test("Knowledge asset center is native and keeps BYAAN as an optional sidecar", 
   assert.match(knowledgeCenterSource, /importKnowledgeAssetSource/);
   assert.match(knowledgeCenterSource, /createKnowledgeAssetCapability/);
   assert.match(knowledgeCenterSource, /CapabilityPanelSlot/);
-  assert.match(knowledgeCenterSource, /BYAAN sidecar/);
+  assert.match(knowledgeCenterSource, /受治理查询后端/);
   assert.match(knowledgeCenterSource, /缺失时原生工作台仍可打开/);
   assert.doesNotMatch(knowledgeCenterSource, /<iframe/);
+  assert.doesNotMatch(knowledgeCenterSource, /BYAAN sidecar/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_BASE_URL/);
   assert.doesNotMatch(knowledgeCenterSource, /DATASTUDIO_API_KEY/);
 });

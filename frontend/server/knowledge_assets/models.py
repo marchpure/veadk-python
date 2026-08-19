@@ -76,6 +76,49 @@ class UpdateSourceStatusBody(ApiModel):
     metadata: dict[str, Any] | None = None
 
 
+class CreateSourceResourceBody(ApiModel):
+    asset_space_id: str = Field(min_length=1, max_length=128)
+    source_id: str = Field(min_length=1, max_length=128)
+    resource_id: str | None = Field(default=None, max_length=256)
+    source_type: str = Field(min_length=1, max_length=80)
+    provider: str | None = Field(default=None, max_length=120)
+    uri: str | None = Field(default=None, max_length=4096)
+    provider_ref: str | None = Field(default=None, max_length=512)
+    content_hash: str | None = Field(default=None, max_length=256)
+    tags: list[str] = Field(default_factory=list)
+    permission_scope: str = Field(default="private", min_length=1, max_length=80)
+    freshness: dict[str, Any] = Field(default_factory=dict)
+    sync_status: str = Field(default="registered", min_length=1, max_length=80)
+    last_synced_at: str | None = Field(default=None, max_length=128)
+    error_summary: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("tags")
+    @classmethod
+    def _trim_tags(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:80] for item in value if item.strip()]
+
+
+class UpdateSourceResourceBody(ApiModel):
+    uri: str | None = Field(default=None, max_length=4096)
+    provider_ref: str | None = Field(default=None, max_length=512)
+    content_hash: str | None = Field(default=None, max_length=256)
+    tags: list[str] | None = None
+    permission_scope: str | None = Field(default=None, min_length=1, max_length=80)
+    freshness: dict[str, Any] | None = None
+    sync_status: str | None = Field(default=None, min_length=1, max_length=80)
+    last_synced_at: str | None = Field(default=None, max_length=128)
+    error_summary: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, Any] | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def _trim_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return value
+        return [item.strip()[:80] for item in value if item.strip()]
+
+
 class SaveCredentialBody(ApiModel):
     credentials: dict[str, Any] = Field(min_length=1)
     provider: str | None = Field(default=None, max_length=120)
@@ -309,6 +352,7 @@ class ShareDashboardBody(ApiModel):
 __all__ = [
     "BuildSemanticSkillBody",
     "CreateSourceBody",
+    "CreateSourceResourceBody",
     "CreateSpaceBody",
     "ImportSourceBody",
     "QueryExternalAssetBody",
@@ -329,6 +373,7 @@ __all__ = [
     "UpdateSemanticInstructionBody",
     "UpdateSemanticQuestionSqlPairBody",
     "UpdateSemanticReviewStatusBody",
+    "UpdateSourceResourceBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",
 ]

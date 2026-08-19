@@ -16,6 +16,7 @@ from frontend.server.knowledge_assets.crypto import (
 )
 from frontend.server.knowledge_assets.models import (
     CreateSourceBody,
+    CreateSourceResourceBody,
     CreateSpaceBody,
     ImportSourceBody,
     RecordBuildJobBody,
@@ -27,6 +28,7 @@ from frontend.server.knowledge_assets.models import (
     UpdateBuildJobBody,
     UpdateSemanticInstructionBody,
     UpdateSemanticQuestionSqlPairBody,
+    UpdateSourceResourceBody,
     UpdateSourceStatusBody,
 )
 from frontend.server.knowledge_assets.service import (
@@ -208,7 +210,33 @@ def test_import_source_writes_indexed_document_and_terminal_job(store_env) -> No
             == "https://internal.example/policy"
         )
         assert docs[0]["metadata"]["_veadk_source_title"] == "政策页面"
+        assert docs[0]["metadata"]["asset_space_id"] == space["id"]
+        assert docs[0]["metadata"]["source_id"] == result["source"]["id"]
+        assert docs[0]["metadata"]["source_connection_id"] == result["source"]["id"]
+        assert docs[0]["metadata"]["resource_id"].startswith("local_web_page:")
+        assert docs[0]["metadata"]["source_type"] == "local_web"
+        assert docs[0]["metadata"]["provider"] == "local_web"
+        assert "retrieval_index" in docs[0]["metadata"]["tags"]
+        assert docs[0]["metadata"]["permissions"] == {
+            "scope": "sensitive_local_context",
+            "policy_partition": "local-only",
+        }
+        assert docs[0]["metadata"]["permission_scope"] == "sensitive_local_context"
+        resources = await store.list_source_resources(source_id=result["source"]["id"])
+        assert len(resources) == 1
+        assert resources[0]["asset_space_id"] == space["id"]
+        assert resources[0]["resource_id"] == docs[0]["metadata"]["resource_id"]
+        assert resources[0]["source_type"] == "local_web_page"
+        assert resources[0]["sync_status"] == "indexed"
+        assert resources[0]["permission_scope"] == "sensitive_local_context"
+        assert resources[0]["metadata"]["asset_space_id"] == space["id"]
+        assert resources[0]["metadata"]["resource_id"] == docs[0]["metadata"]["resource_id"]
+        assert resources[0]["metadata"]["provider"] == "local_web"
+        assert resources[0]["metadata"]["tags"] == docs[0]["metadata"]["tags"]
+        assert resources[0]["metadata"]["permission_scope"] == "sensitive_local_context"
         assert knowledge_service.created[0]["knowledge_id"] == "kb-docs"
+        assert knowledge_service.created[0]["body"].metadata["resource_id"] == docs[0]["metadata"]["resource_id"]
+        assert knowledge_service.created[0]["body"].metadata["permissions"]["policy_partition"] == "local-only"
 
     asyncio.run(scenario())
 
@@ -229,6 +257,9 @@ def test_import_source_needs_configuration_without_target_kb(store_env) -> None:
         assert result["source"]["status"] == "needs_configuration"
         assert result["job"]["status"] == "blocked"
         assert "Viking" in result["source"]["status_reason"]
+        resources = await store.list_source_resources(source_id=result["source"]["id"])
+        assert resources[0]["sync_status"] == "needs_configuration"
+        assert "Viking" in resources[0]["error_summary"]
 
     asyncio.run(scenario())
 
@@ -249,6 +280,10 @@ def test_feishu_import_needs_configuration_without_mock_success(store_env) -> No
         assert result["source"]["status"] == "needs_configuration"
         assert result["job"]["status"] == "blocked"
         assert "OAuth" in result["source"]["status_reason"]
+        resources = await store.list_source_resources(source_id=result["source"]["id"])
+        assert resources[0]["source_type"] == "feishu_doc"
+        assert resources[0]["sync_status"] == "needs_configuration"
+        assert resources[0]["permission_scope"] == "follow_source"
 
     asyncio.run(scenario())
 
@@ -280,6 +315,96 @@ def test_schema_snapshot_import_registers_ready_source_and_snapshot(store_env) -
         assert len(snapshots) == 1
         assert snapshots[0]["schema"]["models"][0]["name"] == "orders"
         assert imported["source"]["metadata"]["schema_status"] == "ready"
+        resources = await store.list_source_resources(source_id=imported["source"]["id"])
+        assert resources[0]["source_type"] == "database_schema"
+        assert resources[0]["sync_status"] == "ready"
+        assert resources[0]["content_hash"].startswith("sha256:")
+
+    asyncio.run(scenario())
+
+
+def test_connector_registry_manifest_is_authoritative_and_safe(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        registry = await store.list_connector_definitions()
+        assert registry["schema_version"] == "knowledge_asset.connector_registry.v1"
+        assert registry["mock"] is False
+        by_id = {item["id"]: item for item in registry["items"]}
+        assert by_id["web"]["availability"] == "available"
+        assert "import_resource" in by_id["web"]["capabilities"]
+        assert "retrieval_index" in by_id["file"]["capabilities"]
+        assert by_id["feishu_doc"]["availability"] == "needs_auth"
+        assert by_id["postgres"]["availability"] == "preview"
+        assert by_id["custom_rest"]["availability"] == "planned"
+        assert "password" in by_id["postgres"]["form_schema"]["secret_fields"]
+        assert by_id["web"]["provider_name"] == "Public Web"
+        assert by_id["web"]["copies_data"] is True
+        assert by_id["web"]["requires_helper"] is False
+        assert "资料" in by_id["web"]["intent_groups"]
+        assert "需要授权" in by_id["feishu_doc"]["intent_groups"]
+        assert "预览中" in by_id["postgres"]["intent_groups"]
+        assert by_id["postgres"]["cost_hint"]
+        assert "redact-me" not in json.dumps(registry).lower()
+
+        database = await store.list_connector_definitions(category="database")
+        assert {item["category"] for item in database["items"]} == {"database"}
+        single = await store.get_connector_definition("schema_snapshot")
+        assert single["resource_picker_schema"]["mode"] == "schema_payload"
+
+    asyncio.run(scenario())
+
+
+def test_source_resource_crud_redacts_metadata(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        source = await store.create_source(
+            CreateSourceBody(space_id=space["id"], source_type="web", name="Docs")
+        )
+        resource = await store.create_source_resource(
+            CreateSourceResourceBody(
+                asset_space_id=space["id"],
+                source_id=source["id"],
+                resource_id="doc-1",
+                source_type="web_page",
+                provider="web",
+                uri="https://example.com/docs?token=redact-me-resource",
+                content_hash="sha256:abc",
+                tags=["docs", " docs "],
+                permission_scope="public",
+                sync_status="indexed",
+                last_synced_at="2026-08-18T12:00:00Z",
+                metadata={"Authorization": "Bearer redact-me-resource-token"},
+            )
+        )
+        assert resource["tags"] == ["docs", "docs"]
+        assert resource["metadata"]["Authorization"] == "[REDACTED]"
+        assert "redact-me-resource" not in json.dumps(resource)
+
+        updated = await store.update_source_resource(
+            resource["id"],
+            UpdateSourceResourceBody(
+                sync_status="partial",
+                freshness={"state": "stale", "reason": "manual"},
+                metadata={"password": "redact-me-update"},
+            ),
+        )
+        assert updated["sync_status"] == "partial"
+        assert updated["freshness"]["state"] == "stale"
+        assert updated["metadata"]["password"] == "[REDACTED]"
+
+        revoked = await store.update_source_resource(
+            resource["id"],
+            UpdateSourceResourceBody(sync_status="revoked"),
+        )
+        assert revoked["sync_status"] == "revoked"
+
+        listed = await store.list_source_resources(asset_space_id=space["id"])
+        assert [item["id"] for item in listed] == [resource["id"]]
+        await store.delete_source_resource(resource["id"])
+        assert await store.list_source_resources(asset_space_id=space["id"]) == []
 
     asyncio.run(scenario())
 
@@ -295,6 +420,7 @@ def test_schema_contains_target_knowledge_asset_columns(store_env) -> None:
             for table in (
                 "spaces",
                 "sources",
+                "source_resources",
                 "credentials",
                 "indexed_documents",
                 "snapshots",
@@ -323,6 +449,26 @@ def test_schema_contains_target_knowledge_asset_columns(store_env) -> None:
         "created_at",
         "updated_at",
     }.issubset(columns["sources"])
+    assert {
+        "id",
+        "asset_space_id",
+        "source_id",
+        "resource_id",
+        "source_type",
+        "provider",
+        "uri",
+        "provider_ref",
+        "content_hash",
+        "tags_json",
+        "permission_scope",
+        "freshness_json",
+        "sync_status",
+        "last_synced_at",
+        "error_summary",
+        "metadata_json",
+        "created_at",
+        "updated_at",
+    }.issubset(columns["source_resources"])
     assert {
         "id",
         "space_id",
@@ -416,6 +562,9 @@ def test_target_storage_fields_are_persisted_and_returned(store_env) -> None:
         assert credential_status["space_id"] == space["id"]
         assert credential_status["provider"] == "feishu"
         assert credential_status["auth_mode"] == "oauth"
+        assert credential_status["status"] == "connected"
+        assert "algorithm" not in credential_status
+        assert "key_id" not in credential_status
         assert "redact-me-delta" not in json.dumps(credential_status)
 
         document = await store.record_indexed_document(
@@ -748,7 +897,7 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
         credential["encrypted_credentials"]
         == '{"version":"knowledge_asset.credential.v1"}'
     )
-    assert schema_version == "5"
+    assert schema_version == "6"
     assert "knowledge_asset_eval_suites" in tables
     assert "knowledge_asset_eval_results" in tables
     assert "semantic_question_sql_pairs" in tables
@@ -759,6 +908,7 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
     assert "askdata_messages" in tables
     assert "askdata_tool_events" in tables
     assert "dashboard_shares" in tables
+    assert "source_resources" in tables
 
 
 def test_semantic_few_shot_instruction_and_graph_records_persist(store_env) -> None:

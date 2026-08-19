@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from pydantic import Field, field_validator
 
-from ...models import ApiModel, RecordBuildJobBody, RecordSkillPackageBody, UpdateBuildJobBody
+from ...models import (
+    ApiModel,
+    RecordBuildJobBody,
+    RecordSkillPackageBody,
+    UpdateBuildJobBody,
+)
 from ...service import KnowledgeAssetStore, redact_sensitive
 from .askdata_query_service import AskDataQueryBody, AskDataQueryService
 from .common import now_iso, safe_identifier, stable_slug

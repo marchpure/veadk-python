@@ -17,8 +17,7 @@ from typing import Any
 
 import pytest
 
-from frontend.server.storage import StudioProvider
-from frontend.server.storage import provisioning
+from frontend.server.storage import StudioProvider, provisioning
 
 
 class _FakeTosClient:

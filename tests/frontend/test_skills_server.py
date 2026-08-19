@@ -17,11 +17,10 @@ from __future__ import annotations
 import base64
 import io
 import json
-import sys
 import stat
+import sys
 import zipfile
-from types import ModuleType
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 

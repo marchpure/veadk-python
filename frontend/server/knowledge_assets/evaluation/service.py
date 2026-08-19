@@ -6,7 +6,6 @@ import asyncio
 import json
 import os
 import re
-from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Protocol
 from uuid import uuid4
@@ -27,7 +26,6 @@ from ..builders.dashboard.semantic_query_adapter import (
     normalize_semantic_mdl,
 )
 from ..repository import (
-    KnowledgeAssetNotFound,
     KnowledgeAssetRepository,
     dumps_json,
     loads_json,
@@ -43,10 +41,9 @@ from .models import (
     KnowledgeAssetEvalRun,
     KnowledgeAssetEvalRunDetail,
     KnowledgeAssetEvalSuite,
-    KnowledgeAssetEvaluationOutput,
     KnowledgeAssetEvalTargetKind,
+    KnowledgeAssetEvaluationOutput,
     KnowledgeAssetOptimizationGroup,
-    KnowledgeAssetOptimizationOutput,
     KnowledgeAssetOptimizationSnapshot,
     KnowledgeAssetOptimizationSuggestion,
     RunKnowledgeAssetEvalBody,
@@ -511,8 +508,13 @@ class KnowledgeAssetEvaluatorService:
         try:
             mdl = normalize_semantic_mdl(asset, package)
             checks.append((True, "MDL schema is loadable."))
-        except Exception as error:
-            checks.append((False, f"MDL schema is not loadable: {redact_sensitive(str(error))}"))
+        except Exception as error:  # noqa: BLE001 - evaluation records schema validation failures as checks.
+            checks.append(
+                (
+                    False,
+                    f"MDL schema is not loadable: {redact_sensitive(str(error))}",
+                )
+            )
         checks.extend(
             [
                 (bool(mdl.get("metrics")), "MDL has metrics."),
@@ -534,7 +536,7 @@ class KnowledgeAssetEvaluatorService:
             try:
                 query_result = await self._semantic_query.query_asset(asset_id, body)
                 checks.append((True, "Governed semantic query returned."))
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 - evaluation records query failures as checks.
                 query_result = {"error": redact_sensitive(str(error))}
                 checks.append((False, "Governed semantic query failed."))
         checks.extend(_common_result_checks(case, query_result))

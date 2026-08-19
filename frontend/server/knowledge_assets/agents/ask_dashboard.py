@@ -10,10 +10,6 @@ from ..builders.dashboard.askdata_query_service import (
     AskDataQueryBody,
     AskDataQueryService,
 )
-from ..builders.dashboard.dashboard_spec_builder import (
-    build_dashboard_spec,
-    fallback_dashboard_spec,
-)
 from ..builders.dashboard.dashboard_skill_writer import (
     DashboardSkillBuildBody,
     _capabilities,
@@ -22,6 +18,10 @@ from ..builders.dashboard.dashboard_skill_writer import (
     _policy_hint,
     _safe_evidence,
     _safe_string_list,
+)
+from ..builders.dashboard.dashboard_spec_builder import (
+    build_dashboard_spec,
+    fallback_dashboard_spec,
 )
 from ..models import RecordBuildJobBody, RecordSkillPackageBody, UpdateBuildJobBody
 from ..service import KnowledgeAssetStore, redact_sensitive
