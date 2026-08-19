@@ -87,6 +87,15 @@ def test_candidates_and_mdl_are_wren_style_and_governed() -> None:
 def client(tmp_path, monkeypatch) -> TestClient:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "semantic local key material")
+    for name in (
+        "MODEL_AGENT_API_KEY",
+        "ARK_API_KEY",
+        "OPENAI_API_KEY",
+        "VEADK_SEMANTIC_BUILDER_API_KEY",
+        "VEADK_KNOWLEDGE_AGENT_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("VEADK_SEMANTIC_BUILDER_DETERMINISTIC", "1")
     app = FastAPI()
     service = KnowledgeAssetStore(
         repository=KnowledgeAssetRepository(tmp_path / "knowledge-assets.db")

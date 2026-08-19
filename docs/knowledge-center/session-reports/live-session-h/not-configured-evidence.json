@@ -1,0 +1,288 @@
+{
+  "schema": "agentkit.knowledge_center.session_h_not_configured_evidence.v1",
+  "base_url": "http://127.0.0.1:18349",
+  "generated_at": "2026-08-19T08:14:10+0800",
+  "asset_db": "/tmp/veadk-session-h-not-configured-18349.db",
+  "health": {
+    "configured": true,
+    "mock": false,
+    "store": "sqlite",
+    "agents": {
+      "semantic_builder": {
+        "configured": false,
+        "status": "not_configured",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "deterministic_fallback_enabled": false
+      },
+      "asktable_dashboard": {
+        "configured": false,
+        "status": "not_configured",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    "capabilities": [
+      "spaces",
+      "sources",
+      "retrieval_binding",
+      "semantic_skill",
+      "dashboard_skill"
+    ]
+  },
+  "space": {
+    "id": "space_e833a29736f243a397d84b09b1db795d",
+    "name": "Session H Not Configured Space 1787098439",
+    "description": "Live no-model validation space for blocked agent behavior.",
+    "default_knowledge_base_id": null,
+    "region": null,
+    "metadata": {},
+    "created_at": "2026-08-19T00:13:59.596Z",
+    "updated_at": "2026-08-19T00:13:59.596Z"
+  },
+  "asset": {
+    "schema_version": "knowledge_asset.metadata.v1",
+    "asset_type": "semantic_model",
+    "asset_id": "not-configured-sales-1787098439",
+    "capability_kind": "semantic_skill",
+    "name": "Not Configured Sales Semantic",
+    "description": null,
+    "status": "ready",
+    "publish_state": "published",
+    "gate": null,
+    "version": null,
+    "consumers": [],
+    "capabilities": {
+      "dimensions": [
+        "store",
+        "sell_date"
+      ],
+      "metrics": [
+        "ticket_count"
+      ]
+    },
+    "capability_package": {
+      "governance": {
+        "allowed_dimensions": [
+          "store",
+          "sell_date"
+        ],
+        "allowed_metrics": [
+          "ticket_count"
+        ],
+        "raw_sql_fallback": false,
+        "usage_policy": {
+          "permission_hint": "Aggregates only."
+        }
+      },
+      "mdl": {
+        "dimensions": [
+          {
+            "field": "store_name",
+            "id": "store",
+            "name": "Store"
+          },
+          {
+            "field": "sell_date",
+            "id": "sell_date",
+            "kind": "time",
+            "name": "Sell Date"
+          }
+        ],
+        "entities": [
+          {
+            "id": "sales",
+            "table": "sales_order"
+          }
+        ],
+        "freshness": {
+          "as_of": "2026-08-18T00:00:00Z",
+          "status": "fresh"
+        },
+        "metrics": [
+          {
+            "definition": "Count distinct tickets.",
+            "evidence": [
+              {
+                "kind": "metric",
+                "title": "ticket"
+              }
+            ],
+            "formula": "count_distinct(ticket_id)",
+            "id": "ticket_count",
+            "name": "Ticket Count",
+            "time_field": "sell_date"
+          }
+        ],
+        "model": {
+          "id": "not-configured-sales-1787098439",
+          "slug": "not-configured-sales-1787098439",
+          "version": "v1"
+        },
+        "permissions": {
+          "denied_fields": [
+            {
+              "field": "customer_phone"
+            }
+          ],
+          "permission_hint": "Aggregates only.",
+          "raw_sql_fallback": false
+        },
+        "schema": "agentkit.mdl.v1",
+        "snapshot_results": {
+          "golden_results": {
+            "ticket_count_last_30_snapshot_days": 86,
+            "top_3_stores_by_ticket_count": [
+              {
+                "store": "VNPTTE",
+                "ticket_count": 56
+              }
+            ]
+          }
+        }
+      },
+      "package_type": "semantic_skill",
+      "runtime": {
+        "direct_database_access": false,
+        "query_url": "/api/knowledge-assets/assets/semantic_model/not-configured-sales-1787098439/query",
+        "raw_sql_fallback": false,
+        "transport": "agentkit_governed_rest"
+      }
+    },
+    "query_url": "/api/knowledge-assets/assets/semantic_model/not-configured-sales-1787098439/query",
+    "freshness": {
+      "as_of": "2026-08-18T00:00:00Z",
+      "status": "fresh"
+    },
+    "provenance": {},
+    "usage_policy": {
+      "denied_fields": [
+        {
+          "field": "customer_phone"
+        }
+      ],
+      "permission_hint": "Aggregates only."
+    },
+    "sample_evidence": []
+  },
+  "blocked_askdata": {
+    "schema": "agentkit.askdata.result.v1",
+    "status": "blocked",
+    "asset": {
+      "type": "semantic_model",
+      "id": "not-configured-sales-1787098439",
+      "name": "Not Configured Sales Semantic",
+      "version": "v1"
+    },
+    "query": {
+      "semantic_asset_id": "not-configured-sales-1787098439",
+      "metric": "ticket_count",
+      "dimension": null,
+      "dimensions": [
+        "store"
+      ],
+      "filters": {},
+      "time_range": {},
+      "question": "按门店查看销售票数",
+      "limit": 100,
+      "mode": "summary"
+    },
+    "data": {
+      "rows": [],
+      "returnedCount": 0,
+      "sql": "-- blocked: internal AskTableDashboardAgent model is not configured",
+      "metricDefinition": "",
+      "policyDecision": {
+        "decision": "deny",
+        "reason": "模型未配置：请配置模型后再运行内置 Agent。",
+        "raw_sql_fallback": false,
+        "direct_database_access": false
+      },
+      "freshness": {
+        "status": "blocked"
+      },
+      "evidence": [
+        {
+          "kind": "agent_status",
+          "title": "AskTableDashboardAgent not configured"
+        }
+      ],
+      "lineage": [],
+      "execution": {
+        "mode": "agent_not_configured",
+        "governed_rest": true,
+        "direct_database_access": false,
+        "raw_sql_fallback": false
+      }
+    },
+    "agent": {
+      "agent_name": "studio_asktable_dashboard_agent",
+      "agent_status": "not_configured",
+      "generation_mode": "blocked",
+      "runner_backend": "not_configured",
+      "model_name": "not_configured",
+      "validation_result": {
+        "valid": false,
+        "reason": "model_not_configured"
+      }
+    },
+    "generation_mode": "blocked",
+    "agent_status": "not_configured",
+    "mock": false
+  },
+  "screenshot": "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-not-configured-blocked.png",
+  "screenshot_text_summary": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\n刷新\n全屏预览\n导出\n分享\nAskTable\nNot Configured Sales Semantic\nSemantic Skill\nNot Configured Sales Semantic\nNot Configured Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket_count\n维度\n不拆解\nstore\nsell_date\n执行 governed query\nblocked\n0 rows\nn/a ms\nPolicy\ndeny\nFreshness\nblocked\nAgent\nnot_configured\n-- blocked: internal AskTableDashboardAgent model is not configured\nDashboard builder\n基于真实 AskTable 查询证据生成 Skill\nDashboard 名称\nDashboard intent\n生成 Dashboard Skill\nPreview\nCode\nQueries\nSQL\n-- blocked: internal AskTableDashboardAgent model is not configured\nmetricDefinition\n\"\"\npolicyDecision\n{\n  \"decision\": \"deny\",\n  \"reason\": \"模型未配置：请配置模型后再运行内置 Agent。\",\n  \"raw_sql_fallback\": false,\n  \"direct_database_access\": false\n}\nfreshness\n{\n  \"status\": \"blocked\"\n}\nlineage\n[]\nevidence\n[\n  {\n    \"kind\": \"agent_status\",\n    \"title\": \"AskTableDashboardAgent not configured\"\n  }\n]\nrows / elapsed / errors\n{\n  \"rows\": 0,\n  \"execution\": {\n    \"mode\": \"agent_not_configured\",\n    \"governed_rest\": true,\n    \"direct_database_access\": false,\n    \"raw_sql_fallback\": false\n  },\n  \"error\": \"模型未配置：请配置模型后再运行内置 Agent。\"\n}",
+  "checks": [
+    {
+      "name": "health semantic builder not_configured",
+      "ok": true,
+      "detail": {
+        "configured": false,
+        "status": "not_configured",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    {
+      "name": "health asktable dashboard not_configured",
+      "ok": true,
+      "detail": {
+        "configured": false,
+        "status": "not_configured",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    {
+      "name": "askdata blocked without model",
+      "ok": true,
+      "detail": {
+        "status": "blocked",
+        "agent_status": "not_configured"
+      }
+    },
+    {
+      "name": "askdata marks model not configured",
+      "ok": true,
+      "detail": {
+        "agent_name": "studio_asktable_dashboard_agent",
+        "agent_status": "not_configured",
+        "generation_mode": "blocked",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "validation_result": {
+          "valid": false,
+          "reason": "model_not_configured"
+        }
+      }
+    },
+    {
+      "name": "ui renders blocked not_configured evidence",
+      "ok": true,
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\n刷新\n全屏预览\n导出\n分享\nAskTable\nNot Configured Sales Semantic\nSemantic Skill\nNot Configured Sales Semantic\nNot Configured Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket_count\n维度\n不拆解\nstore\nsell_date\n执行 governed query\nblocked\n0 rows\nn/a ms\nPolicy\ndeny\nFreshness\nblocked\nAgent\nnot_configured\n-- blocked: internal AskTableDashboardAgent model is not configured\nDashboard builder\n基于真实 AskTable 查询证据生成 Skill\nDashboard 名称\nDashboard intent\n生成 Da"
+    }
+  ]
+}

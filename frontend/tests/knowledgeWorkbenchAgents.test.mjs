@@ -114,7 +114,7 @@ test("AskDashboard workspace exposes query evidence preview code tabs and disabl
 
 test("workbench CSS avoids horizontal page overflow and nested card shells on mobile", () => {
   assert.match(cssSource, /\.kc-semantic-layout\s*\{[\s\S]*?grid-template-columns: minmax\(210px, 260px\) minmax\(420px, 1fr\) minmax\(260px, 340px\)/);
-  assert.match(cssSource, /\.kc-askdash-split\s*\{[\s\S]*?grid-template-columns: minmax\(320px, var\(--kc-askdash-left, 38%\)\) 8px minmax\(520px, 1fr\)/);
+  assert.match(cssSource, /\.kc-askdash-split\s*\{[\s\S]*?grid-template-columns: minmax\(280px, var\(--kc-askdash-left, 38%\)\) 8px minmax\(360px, 1fr\)/);
   assert.match(cssSource, /\.kc-askdash-resizer\s*\{[\s\S]*?cursor:\s*col-resize;/);
   assert.match(cssSource, /\.kc-semantic-node__section span\.is-join-field/);
   assert.match(cssSource, /\.kc-mobile-workbench-tabs\s*\{[\s\S]*?display:\s*none;/);

@@ -1,19 +1,24 @@
 {
   "schema": "agentkit.knowledge_center.session_h_result.v1",
-  "generated_at": "2026-08-19T07:21:39+08:00",
+  "generated_at": "2026-08-19T08:54:15+0800",
   "branch": "kc/session-h-semantic-askdashboard-agents",
   "remote_start_hash": "762751a41a759d35f3c91f394610cfb3dc6eb25e",
   "pre_commit_head": "762751a41a759d35f3c91f394610cfb3dc6eb25e",
   "local_server": {
-    "url": "http://127.0.0.1:18347",
-    "asset_db": "/tmp/veadk-session-h-final-knowledge-assets.db",
+    "url": "http://127.0.0.1:18348",
+    "asset_db": "/tmp/veadk-session-h-final-18348-0819.db",
     "frontend_dir": "veadk/webui"
+  },
+  "not_configured_server": {
+    "url": "http://127.0.0.1:18349",
+    "asset_db": "/tmp/veadk-session-h-not-configured-18349.db"
   },
   "implementation_summary": [
     "Backend Knowledge Asset routes delegate semantic build, AskData query, and dashboard build to internal VeADK agents.",
     "Semantic Builder Agent records runner/model/tool-call/validation provenance and fails closed when model configuration is absent.",
     "AskTable Dashboard Agent resolves governed semantic queries before dashboard skill packaging and preserves SQL, policy, freshness, lineage, and evidence.",
-    "Knowledge Center exposes first-level Semantic Modeling and AskTable / Dashboard workbenches; capability tab lists selectable capabilities only."
+    "Knowledge Center exposes first-level Semantic Modeling and AskTable / Dashboard workbenches; capability tab lists selectable capabilities only.",
+    "AskTable/Dashboard split panel supports keyboard and pointer resizing; evidence/code blocks wrap to avoid page overflow."
   ],
   "live_agent_verification": {
     "health_agents": {
@@ -33,116 +38,200 @@
       }
     },
     "semantic_build_job": {
-      "id": "job_42dde31522474b43bcd218e5b22d7032",
+      "id": "job_d39d1e4ec45b4b11a3185decc677f52b",
       "status": "succeeded",
-      "result_skill_id": "oracle_sales_semantic",
-      "agent_name": "studio_semantic_builder_agent",
-      "agent_invocation_id": "studio_semantic_builder_agent-8c990d508cab44558c0553aae160ef39",
-      "agent_status": "completed",
-      "generation_mode": "agent",
-      "runner_backend": "veadk.Agent+Runner",
-      "model_name": "doubao-seed-2-0-lite-260428",
-      "validation_result": {
-        "blockers": [],
-        "reason": "",
-        "valid": true
+      "result_skill_id": "session_h_final_sales_semantic",
+      "output": {
+        "agent_name": "studio_semantic_builder_agent",
+        "agent_invocation_id": "studio_semantic_builder_agent-ef4e58fe91894eac92a3c1757dd29d26",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "generation_mode": "agent",
+        "agent_status": "completed",
+        "validation_result": {
+          "blockers": [],
+          "reason": "",
+          "valid": true
+        },
+        "tool_calls": [
+          {
+            "name": "schema_graph",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "candidate_generator",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "mdl_writer",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "skill_package_writer",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "deterministic_validator",
+            "status": "available_to_agent"
+          }
+        ]
       },
-      "tool_calls": [
-        {
-          "name": "schema_graph",
-          "status": "available_to_agent"
-        },
-        {
-          "name": "candidate_generator",
-          "status": "available_to_agent"
-        },
-        {
-          "name": "mdl_writer",
-          "status": "available_to_agent"
-        },
-        {
-          "name": "skill_package_writer",
-          "status": "available_to_agent"
-        },
-        {
-          "name": "deterministic_validator",
-          "status": "available_to_agent"
-        }
+      "metrics": [
+        "ticket_count",
+        "sales_order_count",
+        "sales_order_amount_sum"
+      ],
+      "dimensions": [
+        "store",
+        "sell_date",
+        "sales_order_sell_date",
+        "sales_order_status",
+        "store_store_name",
+        "store_region"
       ]
     },
     "askdata_query": {
       "status": "completed",
-      "agent_name": "studio_asktable_dashboard_agent",
-      "agent_invocation_id": "studio_asktable_dashboard_agent-0cb4c1f3fcce49ad9ab25407999b4b5c",
-      "agent_status": "completed",
-      "generation_mode": "agent",
-      "runner_backend": "veadk.Agent+Runner",
-      "model_name": "doubao-seed-2-0-lite-260428",
-      "validation_result": {
-        "valid": true,
-        "blockers": [],
-        "reason": ""
+      "agent": {
+        "agent_name": "studio_asktable_dashboard_agent",
+        "agent_invocation_id": "studio_asktable_dashboard_agent-f0a05b90eef04faa8f6de9799025d3b8",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "generation_mode": "agent",
+        "agent_status": "completed",
+        "validation_result": {
+          "valid": true,
+          "blockers": [],
+          "reason": ""
+        },
+        "tool_calls": [
+          {
+            "name": "governed_semantic_query",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "dashboard_spec_writer",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "policy_freshness_evidence_validator",
+            "status": "available_to_agent"
+          }
+        ]
       },
-      "tool_calls": [
-        {
-          "name": "governed_semantic_query",
-          "status": "available_to_agent"
-        },
-        {
-          "name": "dashboard_spec_writer",
-          "status": "available_to_agent"
-        },
-        {
-          "name": "policy_freshness_evidence_validator",
-          "status": "available_to_agent"
-        }
-      ],
       "has_sql": true,
+      "returned_count": 0,
       "policy_decision": "allow",
       "freshness_status": "snapshot",
-      "direct_database_access": false
+      "direct_database_access": false,
+      "raw_sql_fallback": false
     },
-    "semantic_assets": [
-      {
-        "asset_id": "oracle_sales_semantic",
-        "status": "ready",
-        "publish_state": "published",
-        "agent_status": "completed",
-        "generation_mode": "agent",
+    "dashboard_build": {
+      "status": "succeeded",
+      "dashboard_asset_id": "session_h_final_sales_semantic-session-h-final-sales-dashboard-dashboard",
+      "agent": {
+        "agent_name": "studio_asktable_dashboard_agent",
+        "agent_invocation_id": "studio_asktable_dashboard_agent-68ceb18ef62746fca7c01ac4f63aaef7",
         "runner_backend": "veadk.Agent+Runner",
         "model_name": "doubao-seed-2-0-lite-260428",
-        "metrics": [
-          "ticket_count",
-          "sales_order_count",
-          "sales_order_amount_sum"
-        ],
-        "dimensions": [
-          "store",
-          "sell_date",
-          "sales_order_sell_date",
-          "store_store_name",
-          "store_region"
-        ]
-      }
-    ],
-    "dashboard_assets": [
-      {
-        "asset_id": "oracle_sales_semantic-oracle-sales-dashboard-dashboard",
-        "status": "ready",
-        "publish_state": "published",
-        "agent_status": "completed",
         "generation_mode": "agent",
-        "runner_backend": "veadk.Agent+Runner",
-        "model_name": "doubao-seed-2-0-lite-260428",
-        "metrics": [
-          "ticket_count"
-        ],
-        "dimensions": [
-          "store"
+        "agent_status": "completed",
+        "validation_result": {
+          "blockers": [],
+          "reason": "",
+          "valid": true
+        },
+        "tool_calls": [
+          {
+            "name": "governed_semantic_query",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "dashboard_spec_writer",
+            "status": "available_to_agent"
+          },
+          {
+            "name": "policy_freshness_evidence_validator",
+            "status": "available_to_agent"
+          }
         ]
+      },
+      "preview": {
+        "tile_count": 2,
+        "data_view_count": 2,
+        "filter_count": 1
       }
-    ],
-    "not_configured_behavior": "Covered by tests/frontend/test_knowledge_asset_agents.py; live server had model credentials configured and executed real agents."
+    },
+    "semantic_asset": {
+      "asset_type": "semantic_model",
+      "asset_id": "session_h_final_sales_semantic",
+      "status": "ready",
+      "publish_state": "published",
+      "runner_backend": "veadk.Agent+Runner",
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "generation_mode": "agent",
+      "agent_status": "completed",
+      "metrics": [
+        "ticket_count",
+        "sales_order_count",
+        "sales_order_amount_sum"
+      ],
+      "dimensions": [
+        "store",
+        "sell_date",
+        "sales_order_sell_date",
+        "sales_order_status",
+        "store_store_name",
+        "store_region"
+      ]
+    },
+    "dashboard_asset": {
+      "asset_type": "dashboard",
+      "asset_id": "session_h_final_sales_semantic-session-h-final-sales-dashboard-dashboard",
+      "status": "ready",
+      "publish_state": "published",
+      "runner_backend": "veadk.Agent+Runner",
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "generation_mode": "agent",
+      "agent_status": "completed",
+      "metrics": [
+        "ticket_count"
+      ],
+      "dimensions": [
+        "store"
+      ]
+    },
+    "assertions": {
+      "semantic_agent_runner": true,
+      "asktable_agent_runner": true,
+      "dashboard_agent_runner": true,
+      "governed_query_only": true
+    }
+  },
+  "not_configured_verification": {
+    "health_agents": {
+      "semantic_builder": {
+        "configured": false,
+        "status": "not_configured",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "deterministic_fallback_enabled": false
+      },
+      "asktable_dashboard": {
+        "configured": false,
+        "status": "not_configured",
+        "runner_backend": "not_configured",
+        "model_name": "not_configured",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    "blocked_status": "blocked",
+    "agent_status": "not_configured",
+    "runner_backend": "not_configured",
+    "model_name": "not_configured",
+    "screenshot": "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-not-configured-blocked.png",
+    "checks": 5,
+    "failed_checks": []
   },
   "validation": {
     "frontend_tests": {
@@ -160,9 +249,15 @@
       "result": "131 passed, 7 warnings"
     },
     "live_e2e": {
-      "command": "Playwright Python against http://127.0.0.1:18347 at 1440x900 and 390x844",
+      "command": "Playwright Python against http://127.0.0.1:18348 at 1440x900 and 390x844",
       "result": "passed",
-      "checks": 20
+      "checks": 40,
+      "failed_checks": []
+    },
+    "not_configured_e2e": {
+      "command": "Playwright Python against http://127.0.0.1:18349 at 1440x900",
+      "result": "passed",
+      "checks": 5
     },
     "secret_scan": {
       "command": "custom changed-text scan plus screenshot artifact inventory",
@@ -175,6 +270,7 @@
     "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-askdashboard-queries.png",
     "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-semantic-workbench.png",
     "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-capabilities-selector.png",
-    "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-askdashboard-queries.png"
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/mobile-390-askdashboard-queries.png",
+    "docs/knowledge-center/session-reports/live-session-h/screenshots/desktop-1440-not-configured-blocked.png"
   ]
 }

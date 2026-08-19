@@ -1,5 +1,6 @@
 {
-  "base_url": "http://127.0.0.1:18347",
+  "base_url": "http://127.0.0.1:18348",
+  "generated_at": "2026-08-19T08:32:59+0800",
   "viewports": [
     {
       "label": "desktop-1440",
@@ -13,6 +14,16 @@
     }
   ],
   "checks": [
+    {
+      "name": "desktop-1440 first-level tab includes semantic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "desktop-1440 first-level tab includes askdashboard",
+      "ok": true,
+      "detail": ""
+    },
     {
       "name": "desktop-1440 semantic canvas has dimensions",
       "ok": true,
@@ -29,44 +40,94 @@
       "detail": ""
     },
     {
-      "name": "desktop-1440 capability tab excludes semantic builder",
+      "name": "desktop-1440 semantic model tree present",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "desktop-1440 capability tab excludes dashboard builder",
+      "name": "desktop-1440 semantic join fields render or edge exists",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "desktop-1440 capability tab excludes askdata form",
+      "name": "desktop-1440 capability tab excludes semantic builder controls",
       "ok": true,
-      "detail": ""
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "desktop-1440 capability tab excludes dashboard builder controls",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "desktop-1440 capability tab excludes askdata workbench controls",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "desktop-1440 capability tab lists selectable skills",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "desktop-1440 askdashboard preview/code/queries tabs present",
+      "ok": true,
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket_count\nsales_order_count\nsales_order_amount_sum\n维度\n不拆解\nstore"
     },
     {
       "name": "desktop-1440 dashboard evidence includes governed SQL",
       "ok": true,
-      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket"
     },
     {
       "name": "desktop-1440 dashboard evidence includes policy and freshness",
       "ok": true,
-      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket"
+    },
+    {
+      "name": "desktop-1440 dashboard evidence includes metric definition",
+      "ok": true,
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket"
+    },
+    {
+      "name": "desktop-1440 split keyboard resize changes panel width",
+      "ok": true,
+      "detail": "{\"before\": {\"x\": 549, \"y\": 280, \"width\": 326.03125, \"height\": 1122.25}, \"after\": {\"x\": 549, \"y\": 152, \"width\": 351.765625, \"height\": 1122.25}}"
+    },
+    {
+      "name": "desktop-1440 split pointer resize changes panel width",
+      "ok": true,
+      "detail": "{\"before\": {\"x\": 549, \"y\": 152, \"width\": 351.765625, \"height\": 1122.25}, \"resizer\": {\"x\": 900.765625, \"y\": 152, \"width\": 24, \"height\": 1122.25}, \"after\": {\"x\": 549, \"y\": 152, \"width\": 490, \"height\": 1243}}"
     },
     {
       "name": "desktop-1440 document has no significant horizontal overflow",
       "ok": true,
-      "detail": "{\"bodyScrollWidth\": 1440, \"docScrollWidth\": 1440, \"innerWidth\": 1440, \"bodyScrollHeight\": 900, \"innerHeight\": 900, \"workbenchRect\": {\"left\": 549, \"right\": 1407, \"width\": 858, \"top\": 170, \"bottom\": 1471.25}, \"viewportOverflowNodes\": []}"
+      "detail": "{\"bodyScrollWidth\": 1440, \"docScrollWidth\": 1440, \"innerWidth\": 1440, \"bodyScrollHeight\": 900, \"innerHeight\": 900, \"workbenchRect\": {\"left\": 549, \"right\": 1407, \"width\": 858, \"top\": 42, \"bottom\": 1395}, \"viewportOverflowNodes\": []}"
     },
     {
       "name": "desktop-1440 workbench surfaces stay within viewport width",
       "ok": true,
-      "detail": "{\"bodyScrollWidth\": 1440, \"docScrollWidth\": 1440, \"innerWidth\": 1440, \"bodyScrollHeight\": 900, \"innerHeight\": 900, \"workbenchRect\": {\"left\": 549, \"right\": 1407, \"width\": 858, \"top\": 170, \"bottom\": 1471.25}, \"viewportOverflowNodes\": []}"
+      "detail": "{\"bodyScrollWidth\": 1440, \"docScrollWidth\": 1440, \"innerWidth\": 1440, \"bodyScrollHeight\": 900, \"innerHeight\": 900, \"workbenchRect\": {\"left\": 549, \"right\": 1407, \"width\": 858, \"top\": 42, \"bottom\": 1395}, \"viewportOverflowNodes\": []}"
+    },
+    {
+      "name": "desktop-1440 no unexpected 404/500 responses",
+      "ok": true,
+      "detail": "{\"unexpected\": []}"
+    },
+    {
+      "name": "mobile-390 first-level tab includes semantic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 first-level tab includes askdashboard",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "mobile-390 semantic canvas has dimensions",
       "ok": true,
-      "detail": "{'x': 81, 'y': 1239.890625, 'width': 284, 'height': 460}"
+      "detail": "{'x': 81, 'y': 1053.890625, 'width': 284, 'height': 460}"
     },
     {
       "name": "mobile-390 semantic minimap present",
@@ -79,39 +140,79 @@
       "detail": ""
     },
     {
-      "name": "mobile-390 capability tab excludes semantic builder",
+      "name": "mobile-390 semantic model tree present",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "mobile-390 capability tab excludes dashboard builder",
+      "name": "mobile-390 semantic join fields render or edge exists",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "mobile-390 capability tab excludes askdata form",
+      "name": "mobile-390 mobile tabs visible",
       "ok": true,
       "detail": ""
+    },
+    {
+      "name": "mobile-390 mobile model tree toggles",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mobile-390 capability tab excludes semantic builder controls",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "mobile-390 capability tab excludes dashboard builder controls",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "mobile-390 capability tab excludes askdata workbench controls",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "mobile-390 capability tab lists selectable skills",
+      "ok": true,
+      "detail": "Retrieval Binding\n\n从已索引数据源创建检索能力。"
+    },
+    {
+      "name": "mobile-390 askdashboard preview/code/queries tabs present",
+      "ok": true,
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket_count\nsales_order_count\nsales_order_amount_sum\n维度\n不拆解\nstore"
     },
     {
       "name": "mobile-390 dashboard evidence includes governed SQL",
       "ok": true,
-      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket"
     },
     {
       "name": "mobile-390 dashboard evidence includes policy and freshness",
       "ok": true,
-      "detail": "SQL\nSELECT \"store_name\" AS \"store\", COUNT(DISTINCT \"sales\".\"ticket_id\") AS \"ticket_count\" FROM \"sales_order\" GROUP BY \"store_name\" LIMIT 100\nmetricDefinition\n\"Count distinct tickets.\"\npolicyDecision\n{\n  \"decision\": \"allo"
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket"
+    },
+    {
+      "name": "mobile-390 dashboard evidence includes metric definition",
+      "ok": true,
+      "detail": "AskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nSession H Final Sales Dashboard · v1\n刷新\n全屏预览\n导出\n分享\nAskTable\nSession H Final Sales Semantic\nSemantic Skill\nSession H Final Sales Semantic\n自然语言问题\n指标\nAgent 选择\nticket"
     },
     {
       "name": "mobile-390 document has no significant horizontal overflow",
       "ok": true,
-      "detail": "{\"bodyScrollWidth\": 390, \"docScrollWidth\": 390, \"innerWidth\": 390, \"bodyScrollHeight\": 844, \"innerHeight\": 844, \"workbenchRect\": {\"left\": 81, \"right\": 365, \"width\": 284, \"top\": -496.109375, \"bottom\": 2280.140625}, \"viewportOverflowNodes\": []}"
+      "detail": "{\"bodyScrollWidth\": 390, \"docScrollWidth\": 390, \"innerWidth\": 390, \"bodyScrollHeight\": 844, \"innerHeight\": 844, \"workbenchRect\": {\"left\": 81, \"right\": 365, \"width\": 284, \"top\": -496.109375, \"bottom\": 2193.890625}, \"viewportOverflowNodes\": []}"
     },
     {
       "name": "mobile-390 workbench surfaces stay within viewport width",
       "ok": true,
-      "detail": "{\"bodyScrollWidth\": 390, \"docScrollWidth\": 390, \"innerWidth\": 390, \"bodyScrollHeight\": 844, \"innerHeight\": 844, \"workbenchRect\": {\"left\": 81, \"right\": 365, \"width\": 284, \"top\": -496.109375, \"bottom\": 2280.140625}, \"viewportOverflowNodes\": []}"
+      "detail": "{\"bodyScrollWidth\": 390, \"docScrollWidth\": 390, \"innerWidth\": 390, \"bodyScrollHeight\": 844, \"innerHeight\": 844, \"workbenchRect\": {\"left\": 81, \"right\": 365, \"width\": 284, \"top\": -496.109375, \"bottom\": 2193.890625}, \"viewportOverflowNodes\": []}"
+    },
+    {
+      "name": "mobile-390 no unexpected 404/500 responses",
+      "ok": true,
+      "detail": "{\"unexpected\": []}"
     }
   ],
   "screenshots": [
@@ -132,8 +233,8 @@
       "left": 549,
       "right": 1407,
       "width": 858,
-      "top": 170,
-      "bottom": 1471.25
+      "top": 42,
+      "bottom": 1395
     },
     "viewportOverflowNodes": []
   },
@@ -148,8 +249,15 @@
       "right": 365,
       "width": 284,
       "top": -496.109375,
-      "bottom": 2280.140625
+      "bottom": 2193.890625
     },
     "viewportOverflowNodes": []
-  }
+  },
+  "allowed_404s": [
+    {
+      "url": "*/oauth2/userinfo",
+      "status": 404,
+      "reason": "local username login mode reports SSO as not_configured"
+    }
+  ]
 }

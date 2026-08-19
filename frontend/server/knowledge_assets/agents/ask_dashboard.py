@@ -111,6 +111,11 @@ class AskTableDashboardAgent:
         status = result.get("status")
         if not validation["valid"] and status != "blocked":
             result["status"] = "blocked"
+            metadata["agent_status"] = "blocked"
+        elif validation["valid"] and status == "completed" and metadata.get(
+            "agent_status"
+        ) not in {"not_configured", "failed"}:
+            metadata["agent_status"] = "completed"
         return redact_sensitive(
             {
                 **result,
