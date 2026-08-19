@@ -1,0 +1,452 @@
+{
+  "generatedAt": "2026-08-18T22:40:37.255Z",
+  "studioUrl": "http://127.0.0.1:18331",
+  "space": {
+    "id": "space_29da6b70e7b445ebb86b852e452c402f",
+    "name": "Session G Evaluation",
+    "description": "Live E2E fixture for Knowledge Asset evaluation.",
+    "default_knowledge_base_id": null,
+    "region": null,
+    "metadata": {},
+    "created_at": "2026-08-18T22:40:28.209Z",
+    "updated_at": "2026-08-18T22:40:28.209Z"
+  },
+  "suite": {
+    "spaceId": "space_29da6b70e7b445ebb86b852e452c402f",
+    "name": "Oracle Sales Semantic Eval",
+    "description": "Live deterministic Semantic Skill evaluation.",
+    "targetKind": "semantic_skill",
+    "targetAssetId": "oracle-sales",
+    "id": "eval_suite_7a96745c590c4f4989b8b8610d2e3f99",
+    "caseCount": 1,
+    "createdAt": "2026-08-18T22:40:28.249Z",
+    "updatedAt": "2026-08-18T22:40:28.266Z"
+  },
+  "caseCount": 1,
+  "runId": "eval_run_e07dce50d70f41f3b5bf5c91332b7a2e",
+  "score": 1,
+  "failedCases": [],
+  "judgeModelStatus": "not_configured",
+  "runStatus": "succeeded",
+  "targetKind": "semantic_skill",
+  "targetAssetId": "oracle-sales",
+  "results": [
+    {
+      "id": "eval_result_8fbdf64bb3794c5ba501c361f9b2e679",
+      "runId": "eval_run_e07dce50d70f41f3b5bf5c91332b7a2e",
+      "caseId": "eval_case_48fd21fb24fd45c89358abf45204f7a5",
+      "status": "passed",
+      "score": 1,
+      "reason": "All deterministic checks passed.",
+      "actualOutput": {
+        "mdl": {
+          "dimensions": [
+            {
+              "field": "store_name",
+              "id": "store",
+              "name": "Store"
+            },
+            {
+              "field": "sell_date",
+              "id": "sell_date",
+              "name": "Sell Date"
+            }
+          ],
+          "entities": [
+            {
+              "id": "sales",
+              "table": "SALES_ORDER"
+            }
+          ],
+          "evidence": [],
+          "freshness": {
+            "as_of": "2026-08-18T00:00:00Z",
+            "status": "fresh"
+          },
+          "metrics": [
+            {
+              "definition": "Count distinct tickets.",
+              "evidence": [
+                {
+                  "kind": "metric",
+                  "title": "ticket"
+                }
+              ],
+              "formula": "count_distinct(ticket_id)",
+              "id": "ticket_count",
+              "name": "Ticket Count",
+              "time_field": "sell_date"
+            }
+          ],
+          "model": {
+            "id": "oracle-sales",
+            "slug": "oracle-sales",
+            "version": "v1"
+          },
+          "permissions": {
+            "denied_fields": [
+              {
+                "field": "customer_phone"
+              }
+            ],
+            "permission_hint": "Aggregates only.",
+            "raw_sql_fallback": false
+          },
+          "relationships": [
+            {
+              "from": "sales.store_id",
+              "to": "store.id"
+            }
+          ],
+          "schema": "agentkit.mdl.v1",
+          "snapshot_results": {}
+        },
+        "query_result": {
+          "asset": {
+            "id": "oracle-sales",
+            "type": "semantic_model",
+            "version": "v1"
+          },
+          "data": {
+            "dimensions": [
+              {
+                "field": "store_name",
+                "id": "store",
+                "name": "Store"
+              }
+            ],
+            "evidence": [
+              {
+                "kind": "metric",
+                "title": "ticket"
+              }
+            ],
+            "execution": {
+              "direct_database_access": false,
+              "governed_rest": true,
+              "mode": "governed_semantic_skill_fixture",
+              "raw_sql_fallback": false
+            },
+            "freshness": {
+              "as_of": "2026-08-18T00:00:00Z",
+              "status": "fresh"
+            },
+            "lineage": [
+              {
+                "kind": "metric",
+                "title": "ticket"
+              }
+            ],
+            "metric": {
+              "definition": "Count distinct tickets.",
+              "id": "ticket_count",
+              "name": "Ticket Count"
+            },
+            "metricDefinition": "Count distinct tickets.",
+            "policyDecision": {
+              "decision": "allow",
+              "raw_sql_fallback": false,
+              "reason": "Aggregates only."
+            },
+            "returnedCount": 2,
+            "rows": [
+              {
+                "store": "VNPTTE",
+                "ticket_count": 56
+              },
+              {
+                "store": "SG - ANTA VIVO City",
+                "ticket_count": 9
+              }
+            ],
+            "sql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name"
+          },
+          "mock": false,
+          "query": {
+            "dimension": "store",
+            "dimensions": [
+              "store"
+            ],
+            "filters": {},
+            "limit": 20,
+            "metric": "ticket_count",
+            "mode": "summary",
+            "question": "按门店查看销售票数",
+            "time_range": {}
+          },
+          "schema": "agentkit.semantic_query_result.v1"
+        },
+        "target": {
+          "asset_id": "oracle-sales",
+          "asset_type": "semantic_model",
+          "capabilities": {
+            "dimensions": [
+              "store"
+            ],
+            "metrics": [
+              "ticket_count"
+            ]
+          },
+          "capability_kind": "semantic_skill",
+          "capability_package": {
+            "governance": {
+              "raw_sql_fallback": false,
+              "usage_policy": {
+                "permission_hint": "Aggregates only."
+              }
+            },
+            "governed_query_result": {
+              "data": {
+                "dimensions": [
+                  {
+                    "field": "store_name",
+                    "id": "store",
+                    "name": "Store"
+                  }
+                ],
+                "evidence": [
+                  {
+                    "kind": "metric",
+                    "title": "ticket"
+                  }
+                ],
+                "execution": {
+                  "direct_database_access": false,
+                  "governed_rest": true,
+                  "mode": "governed_semantic_skill_fixture",
+                  "raw_sql_fallback": false
+                },
+                "freshness": {
+                  "as_of": "2026-08-18T00:00:00Z",
+                  "status": "fresh"
+                },
+                "metric": {
+                  "definition": "Count distinct tickets.",
+                  "id": "ticket_count",
+                  "name": "Ticket Count"
+                },
+                "metricDefinition": "Count distinct tickets.",
+                "policyDecision": {
+                  "decision": "allow",
+                  "raw_sql_fallback": false,
+                  "reason": "Aggregates only."
+                },
+                "returnedCount": 2,
+                "rows": [
+                  {
+                    "store": "VNPTTE",
+                    "ticket_count": 56
+                  },
+                  {
+                    "store": "SG - ANTA VIVO City",
+                    "ticket_count": 9
+                  }
+                ],
+                "sql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name"
+              },
+              "mock": false,
+              "schema": "agentkit.semantic_query_result.v1"
+            },
+            "mdl": {
+              "dimensions": [
+                {
+                  "field": "store_name",
+                  "id": "store",
+                  "name": "Store"
+                },
+                {
+                  "field": "sell_date",
+                  "id": "sell_date",
+                  "name": "Sell Date"
+                }
+              ],
+              "entities": [
+                {
+                  "id": "sales",
+                  "table": "SALES_ORDER"
+                }
+              ],
+              "freshness": {
+                "as_of": "2026-08-18T00:00:00Z",
+                "status": "fresh"
+              },
+              "metrics": [
+                {
+                  "definition": "Count distinct tickets.",
+                  "evidence": [
+                    {
+                      "kind": "metric",
+                      "title": "ticket"
+                    }
+                  ],
+                  "formula": "count_distinct(ticket_id)",
+                  "id": "ticket_count",
+                  "name": "Ticket Count",
+                  "time_field": "sell_date"
+                }
+              ],
+              "model": {
+                "id": "oracle-sales",
+                "slug": "oracle-sales",
+                "version": "v1"
+              },
+              "permissions": {
+                "denied_fields": [
+                  {
+                    "field": "customer_phone"
+                  }
+                ],
+                "permission_hint": "Aggregates only.",
+                "raw_sql_fallback": false
+              },
+              "relationships": [
+                {
+                  "from": "sales.store_id",
+                  "to": "store.id"
+                }
+              ],
+              "schema": "agentkit.mdl.v1"
+            },
+            "package_type": "semantic_skill",
+            "runtime": {
+              "direct_database_access": false,
+              "query_url": "/api/knowledge-assets/assets/semantic_model/oracle-sales/query",
+              "raw_sql_fallback": false,
+              "transport": "agentkit_governed_rest"
+            }
+          },
+          "consumers": [],
+          "description": null,
+          "freshness": {
+            "as_of": "2026-08-18T00:00:00Z",
+            "status": "fresh"
+          },
+          "gate": null,
+          "name": "Oracle Sales",
+          "provenance": {},
+          "publish_state": "published",
+          "query_url": "/api/knowledge-assets/assets/semantic_model/oracle-sales/query",
+          "sample_evidence": [
+            {
+              "kind": "metric",
+              "title": "ticket"
+            }
+          ],
+          "schema_version": "knowledge_asset.metadata.v1",
+          "status": "ready",
+          "usage_policy": {
+            "permission_hint": "Aggregates only."
+          },
+          "version": null
+        },
+        "tool_calls": [
+          {
+            "raw_sql_fallback": false,
+            "semantic_asset_id": "oracle-sales",
+            "tool": "governed_semantic_query"
+          }
+        ]
+      },
+      "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+      "actualRowsPreview": [
+        {
+          "store": "VNPTTE",
+          "ticket_count": 56
+        },
+        {
+          "store": "SG - ANTA VIVO City",
+          "ticket_count": 9
+        }
+      ],
+      "actualPolicyDecision": {
+        "decision": "allow",
+        "raw_sql_fallback": false,
+        "reason": "Aggregates only."
+      },
+      "actualFreshness": {
+        "as_of": "2026-08-18T00:00:00Z",
+        "status": "fresh"
+      },
+      "toolCalls": [
+        {
+          "raw_sql_fallback": false,
+          "semantic_asset_id": "oracle-sales",
+          "tool": "governed_semantic_query"
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "metric",
+          "title": "ticket"
+        }
+      ],
+      "dashboardSpecDiff": {},
+      "createdAt": "2026-08-18T22:40:28.305Z"
+    }
+  ],
+  "mock": false,
+  "screenshots": [
+    "screenshots/desktop-1440-evaluation.png",
+    "screenshots/mobile-390-evaluation.png"
+  ],
+  "observations": [
+    {
+      "viewport": "desktop-1440",
+      "url": "http://127.0.0.1:18331/",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "failedRequests": [],
+      "layout": {
+        "documentOverflowX": 0,
+        "bodyOverflowX": 0,
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "hasMain": true,
+        "hasGrid": true,
+        "mainRect": {
+          "width": 858,
+          "height": 1476,
+          "left": 549,
+          "right": 1407
+        },
+        "visibleButtons": [
+          "Run Evaluation",
+          "Create Suite",
+          "Import Cases",
+          "Export result.json",
+          "Refresh"
+        ]
+      }
+    },
+    {
+      "viewport": "mobile-390",
+      "url": "http://127.0.0.1:18331/",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ],
+      "failedRequests": [],
+      "layout": {
+        "documentOverflowX": 0,
+        "bodyOverflowX": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "hasMain": true,
+        "hasGrid": true,
+        "mainRect": {
+          "width": 284,
+          "height": 2539,
+          "left": 81,
+          "right": 365
+        },
+        "visibleButtons": [
+          "Run Evaluation",
+          "Create Suite",
+          "Import Cases",
+          "Export result.json",
+          "Refresh"
+        ]
+      }
+    }
+  ]
+}

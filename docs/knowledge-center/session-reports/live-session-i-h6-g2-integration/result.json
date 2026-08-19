@@ -1,0 +1,290 @@
+{
+  "schema": "agentkit.knowledge_center.session_i_h6_g2_integration.v1",
+  "generatedAt": "2026-08-19T07:24:28.737Z",
+  "studioUrl": "http://127.0.0.1:18219",
+  "sourceBranchHashes": {
+    "kc/session-h6-asktable-byaan-parity": "806dc34d7e00531d57177a41a2a7068fa9b141b7",
+    "kc/session-g2-evaluation-hardening": "47a14f89342164f922447616e2ca8dd0a5d92607"
+  },
+  "healthResponseSummary": {
+    "mock": false,
+    "store": "sqlite",
+    "agents": {
+      "semantic_builder": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      },
+      "asktable_dashboard": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      }
+    }
+  },
+  "spaceId": "space_8c3048abc8e74c388529dfc0d4fabf8c",
+  "semanticAssetId": "i-1787124242509-oracle-sales",
+  "dashboardAssetId": "i-1787124242509-sales-dashboard",
+  "runner_backend": "veadk.Agent+Runner",
+  "mock": false,
+  "mockStatus": {
+    "healthMock": false,
+    "askdataMock": false,
+    "evaluationRunsMock": [
+      false,
+      false,
+      false
+    ]
+  },
+  "askdataRows": 2,
+  "askdata": {
+    "status": "completed",
+    "returnedCount": 2,
+    "policyDecision": {
+      "raw_sql_fallback": false,
+      "decision": "allow",
+      "reason": "Aggregates only."
+    },
+    "execution": {
+      "mode": "governed_semantic_skill_fixture",
+      "governed_rest": true,
+      "direct_database_access": false,
+      "raw_sql_fallback": false
+    },
+    "agent": {
+      "agent_name": "studio_asktable_dashboard_agent",
+      "agent_invocation_id": "studio_asktable_dashboard_agent-5cfec810c03d4b2790673f3ebac1cfed",
+      "runner_backend": "veadk.Agent+Runner",
+      "model_name": "doubao-seed-2-0-lite-260428",
+      "tool_calls": [
+        {
+          "name": "governed_semantic_query",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "dashboard_spec_writer",
+          "status": "available_to_agent"
+        },
+        {
+          "name": "policy_freshness_evidence_validator",
+          "status": "available_to_agent"
+        }
+      ],
+      "generation_mode": "agent",
+      "agent_status": "completed",
+      "validation_result": {
+        "valid": true,
+        "blockers": [],
+        "reason": ""
+      }
+    }
+  },
+  "evaluationTargetKindsAndScores": [
+    {
+      "targetKind": "semantic_skill",
+      "score": 1,
+      "status": "succeeded",
+      "allowEvidence": true,
+      "denyEvidence": false,
+      "cases": [
+        {
+          "caseId": "eval_case_e4aac68e222b4d56a3879c18c6f8ac6e",
+          "prompt": "按门店查看销售票数",
+          "expectedPolicyDecision": "allow",
+          "status": "passed",
+          "score": 1,
+          "policyDecision": "allow",
+          "freshnessStatus": "fresh",
+          "rowCount": 2,
+          "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "ticket_count definition"
+          ],
+          "reason": "All deterministic checks passed."
+        }
+      ]
+    },
+    {
+      "targetKind": "asktable_query",
+      "score": 1,
+      "status": "succeeded",
+      "allowEvidence": true,
+      "denyEvidence": true,
+      "cases": [
+        {
+          "caseId": "eval_case_161370765f614aeda3ec0b5d2509fbe3",
+          "prompt": "show customer phone/contact by store",
+          "expectedPolicyDecision": "deny",
+          "status": "blocked",
+          "score": 1,
+          "policyDecision": "deny",
+          "freshnessStatus": "blocked",
+          "rowCount": 0,
+          "actualSql": "-- policy denied by governed Semantic Skill; no raw SQL executed",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "PII policy guard"
+          ],
+          "reason": "All deterministic checks passed."
+        },
+        {
+          "caseId": "eval_case_efa634c77e7e4202b1e9baeb7b55bc10",
+          "prompt": "按门店查看销售票数",
+          "expectedPolicyDecision": "allow",
+          "status": "passed",
+          "score": 1,
+          "policyDecision": "allow",
+          "freshnessStatus": "fresh",
+          "rowCount": 2,
+          "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "ticket_count definition"
+          ],
+          "reason": "All deterministic checks passed."
+        }
+      ]
+    },
+    {
+      "targetKind": "dashboard_skill",
+      "score": 1,
+      "status": "succeeded",
+      "allowEvidence": true,
+      "denyEvidence": false,
+      "cases": [
+        {
+          "caseId": "eval_case_f89f30e018e84a0aac65d9b26e73a74c",
+          "prompt": "验证门店销售 dashboard 的主要 tile 和 data_view 证据",
+          "expectedPolicyDecision": "allow",
+          "status": "passed",
+          "score": 1,
+          "policyDecision": "allow",
+          "freshnessStatus": "fresh",
+          "rowCount": 2,
+          "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "ticket_count definition"
+          ],
+          "reason": "All deterministic checks passed."
+        }
+      ]
+    }
+  ],
+  "iframeCount": 0,
+  "failedRequests": [],
+  "consoleErrors": [],
+  "observations": [
+    {
+      "viewport": "desktop-1440",
+      "url": "http://127.0.0.1:18219/",
+      "consoleErrors": [],
+      "failedRequests": [],
+      "layout": {
+        "documentOverflowX": 0,
+        "bodyOverflowX": 0,
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "iframeCount": 0,
+        "hasByaanSidebar": false,
+        "hasWrenSidebar": false,
+        "semanticRendered": false,
+        "asktableRendered": false,
+        "evaluationRendered": true,
+        "clippedButtons": []
+      }
+    },
+    {
+      "viewport": "mobile-390",
+      "url": "http://127.0.0.1:18219/",
+      "consoleErrors": [],
+      "failedRequests": [],
+      "layout": {
+        "documentOverflowX": 0,
+        "bodyOverflowX": 0,
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "iframeCount": 0,
+        "hasByaanSidebar": false,
+        "hasWrenSidebar": false,
+        "semanticRendered": false,
+        "asktableRendered": false,
+        "evaluationRendered": true,
+        "clippedButtons": []
+      }
+    }
+  ],
+  "screenshotPaths": [
+    "screenshots/desktop-1440-semantic.png",
+    "screenshots/desktop-1440-asktable-portal.png",
+    "screenshots/desktop-1440-asktable-result.png",
+    "screenshots/desktop-1440-evaluation.png",
+    "screenshots/mobile-390-semantic.png",
+    "screenshots/mobile-390-asktable.png",
+    "screenshots/mobile-390-evaluation.png"
+  ],
+  "integrationBranch": "kc/session-i-h6-g2-integration",
+  "integrationBranchHash": "14d945e68f3faa880c65fc729f5cb7a190094693",
+  "mergeBase": {
+    "createdFrom": "origin/kc/session-h6-asktable-byaan-parity",
+    "merged": "origin/kc/session-g2-evaluation-hardening",
+    "strategy": "git merge --no-ff origin/kc/session-g2-evaluation-hardening"
+  },
+  "testCommands": [
+    {
+      "command": "rg -n \"knowledge_asset|evaluation|askdata|semantic\" tests/frontend",
+      "status": "passed",
+      "notes": "Used to locate focused Knowledge Asset, AskData, Semantic Builder, and Evaluation tests."
+    },
+    {
+      "command": "python -m pytest tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_dashboard_askdata_routes.py tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_semantic_builder.py tests/frontend/test_knowledge_asset_evaluation.py tests/frontend/test_knowledge_asset_store.py -q",
+      "status": "passed",
+      "summary": "61 passed, 7 warnings"
+    },
+    {
+      "command": "cd frontend && npm test",
+      "status": "passed",
+      "summary": "679 passed, 0 failed"
+    },
+    {
+      "command": "cd frontend && npx tsc --noEmit",
+      "status": "passed",
+      "summary": "TypeScript completed with no diagnostics."
+    },
+    {
+      "command": "cd frontend && npm run build",
+      "status": "passed",
+      "summary": "Vite production build completed; only existing chunk-size/static-dynamic import warnings."
+    },
+    {
+      "command": "VEADK_STUDIO_URL=http://127.0.0.1:18219 node docs/knowledge-center/session-reports/live-session-i-h6-g2-integration/run-live-smoke.mjs",
+      "status": "passed",
+      "summary": "Fresh Studio on sqlite store, desktop/mobile UI smoke, AskData, Dashboard preview, Evaluation import/run, no iframe/no 404/no console errors."
+    }
+  ],
+  "artifactChecklist": {
+    "FINAL_REPORT.md": "present",
+    "result.json": "present",
+    "secret-scan-result.json": "present",
+    "screenshots": [
+      "screenshots/desktop-1440-semantic.png",
+      "screenshots/desktop-1440-asktable-portal.png",
+      "screenshots/desktop-1440-asktable-result.png",
+      "screenshots/desktop-1440-evaluation.png",
+      "screenshots/mobile-390-semantic.png",
+      "screenshots/mobile-390-asktable.png",
+      "screenshots/mobile-390-evaluation.png"
+    ]
+  },
+  "secretScan": {
+    "path": "secret-scan-result.json",
+    "status": "passed",
+    "findings": 0
+  },
+  "integrationBranchHashNote": "Hash of the committed integration state before recording this hash in report metadata; the final pushed branch tip is reported separately."
+}

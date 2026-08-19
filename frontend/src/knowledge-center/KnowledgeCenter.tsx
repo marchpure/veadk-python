@@ -16,6 +16,7 @@ import {
   Loader2,
   LockKeyhole,
   Plus,
+  ShieldCheck,
   RefreshCw,
   Search,
   Settings,
@@ -64,6 +65,7 @@ import {
   type CapabilityBuildJobView,
   type KnowledgeCapabilityCardProps,
 } from "./capabilitySlots";
+import { EvaluationWorkbench } from "./EvaluationWorkbench";
 import "./KnowledgeCenter.css";
 import { SemanticModelingWorkbench } from "./SemanticModelingWorkbench";
 
@@ -78,6 +80,7 @@ type WorkbenchTab =
   | "sources"
   | "semantic"
   | "askdashboard"
+  | "evaluation"
   | "capabilities"
   | "jobs"
   | "settings";
@@ -176,6 +179,7 @@ const tabs: Array<{ id: WorkbenchTab; label: string; icon: LucideIcon }> = [
   { id: "sources", label: "数据源", icon: Database },
   { id: "semantic", label: "语义构建", icon: GitBranch },
   { id: "askdashboard", label: "AskTable / Dashboard", icon: BarChart3 },
+  { id: "evaluation", label: "测评", icon: ShieldCheck },
   { id: "capabilities", label: "能力", icon: Sparkles },
   { id: "jobs", label: "构建任务", icon: Clock3 },
   { id: "settings", label: "设置", icon: Settings },
@@ -581,11 +585,22 @@ export function KnowledgeCenterView() {
 
   function openWorkbenchTarget(tab: WorkbenchTab, target?: CapabilityFocusTarget) {
     pendingCapabilityFocusRef.current = target ?? null;
+    if (target === "semantic_skill") {
+      setActiveTab("semantic");
+      return;
+    }
+    if (target === "dashboard_skill" || target === "askdata") {
+      setActiveTab("askdashboard");
+      return;
+    }
     setActiveTab(tab);
   }
 
   useEffect(() => {
-    if (!["capabilities", "semantic", "askdashboard"].includes(activeTab) || !pendingCapabilityFocusRef.current) return;
+    if (
+      !["capabilities", "semantic", "askdashboard"].includes(activeTab) ||
+      !pendingCapabilityFocusRef.current
+    ) return;
     const focusTarget = pendingCapabilityFocusRef.current;
     pendingCapabilityFocusRef.current = null;
     window.requestAnimationFrame(() => {
@@ -991,6 +1006,7 @@ export function KnowledgeCenterView() {
                 if (target === "semantic_skill") openWorkbenchTarget("semantic", target);
                 else openWorkbenchTarget("askdashboard", target);
               }}
+              onOpenEvaluation={() => openWorkbenchTarget("evaluation")}
             />
           ) : null}
           {activeTab === "sources" ? (
@@ -1032,6 +1048,12 @@ export function KnowledgeCenterView() {
               capabilityCards={capabilityCards}
               capabilityJobs={capabilityJobs}
               semanticSkills={semanticSkills}
+            />
+          ) : null}
+          {activeTab === "evaluation" ? (
+            <EvaluationWorkbench
+              activeSpace={activeSpace}
+              assets={assets}
             />
           ) : null}
           {activeTab === "jobs" ? (
@@ -1131,6 +1153,7 @@ function OverviewTab({
   onCreateSpace,
   onOpenSources,
   onOpenCapability,
+  onOpenEvaluation,
 }: {
   sourceCounts: Record<string, number>;
   capabilityCounts: Record<string, number>;
@@ -1141,6 +1164,7 @@ function OverviewTab({
   onCreateSpace: () => void;
   onOpenSources: () => void;
   onOpenCapability: (target: CapabilityFocusTarget) => void;
+  onOpenEvaluation: () => void;
 }) {
   const latestJob = jobs[0];
   return (
@@ -1148,6 +1172,7 @@ function OverviewTab({
       <div className="kc-native-status-grid">
         <StatusTile icon={Database} title="数据源" value={String(sources.length)} detail={`可用 ${sourceCounts.ready || 0} · 已索引 ${sourceCounts.indexed || 0}`} tone="success" />
         <StatusTile icon={Sparkles} title="能力" value={String(assets.length)} detail={`检索 ${capabilityCounts.retrieval_binding || 0} · 语义 ${capabilityCounts.semantic_skill || 0}`} tone="success" />
+        <StatusTile icon={ShieldCheck} title="测评" value="可运行" detail="本地 deterministic checks + optional judge" tone="success" />
         <StatusTile icon={Clock3} title="构建任务" value={latestJob ? readableStatus(latestJob.status) : "暂无"} detail={latestJob?.job_type || "等待导入或构建"} tone={statusTone(latestJob?.status)} />
         <StatusTile icon={KeyRound} title="凭据" value={sourceCounts.credential_expired ? "有过期" : "安全"} detail="明文凭据不进入前端状态" tone={sourceCounts.credential_expired ? "danger" : "success"} />
       </div>
@@ -1163,7 +1188,7 @@ function OverviewTab({
         />
       ) : (
         <section className="kc-native-panel">
-          <PanelHead title="下一步" count={4} />
+          <PanelHead title="下一步" count={5} />
           <div className="kc-native-next-grid">
             <NextAction
               icon={FileSearch}
@@ -1182,6 +1207,12 @@ function OverviewTab({
               title="新建 Dashboard Skill"
               text="基于已发布 Semantic Skill 生成可查询的 dashboard_spec 和同源工具。"
               onClick={() => onOpenCapability("dashboard_skill")}
+            />
+            <NextAction
+              icon={ShieldCheck}
+              title="运行测评"
+              text="验证 Semantic Skill、AskTable Query 和 Dashboard Skill 的证据完整性。"
+              onClick={onOpenEvaluation}
             />
             <NextAction
               icon={Search}

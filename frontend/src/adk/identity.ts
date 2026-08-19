@@ -157,12 +157,21 @@ export function logout(): void {
   window.location.assign("/oauth2/logout");
 }
 
-/** Resolve identity. With SSO: via /oauth2/userinfo. Without SSO (endpoint 404):
+/** Resolve identity. With SSO: via /oauth2/userinfo. Without SSO:
  *  use a locally chosen username, or prompt for one on the login page.
  *
  *  Network and server failures reject instead of silently changing identity
  *  mode. The caller can then show a retryable error. */
 export async function resolveIdentity(): Promise<Identity> {
+  const providers = await fetchProviders();
+  if (providers.length === 0) {
+    const saved = getLocalUser();
+    if (saved) {
+      return { status: "authenticated", userId: saved, info: { name: saved }, local: true };
+    }
+    return { status: "unauthenticated", userId: "", local: true };
+  }
+
   let res: Response;
   try {
     res = await fetch("/oauth2/userinfo", {
@@ -195,12 +204,7 @@ export async function resolveIdentity(): Promise<Identity> {
     throw new Error(`身份服务异常（HTTP ${res.status}），请稍后重试。`);
   }
 
-  // Legacy server without the identity endpoint: local username mode.
-  const saved = getLocalUser();
-  if (saved) {
-    return { status: "authenticated", userId: saved, info: { name: saved }, local: true };
-  }
-  return { status: "unauthenticated", userId: "", local: true };
+  throw new Error(`身份服务异常（HTTP ${res.status}），请稍后重试。`);
 }
 
 /** A short display name for the signed-in user. */

@@ -44,12 +44,16 @@ test.after(() => {
 });
 
 test("identity 200 resolves as authenticated", async () => {
-  globalThis.fetch = async () =>
-    Response.json({
+  globalThis.fetch = async (url) => {
+    if (url === "/web/auth-config") {
+      return Response.json({ providers: [{ id: "oidc", loginUrl: "/oauth2/login" }] });
+    }
+    return Response.json({
       sub: "u-1",
       name: "Li",
       picture: "https://example.com/avatar.png",
     });
+  };
   const identity = await resolveIdentity();
   assert.equal(identity.status, "authenticated");
   assert.equal(identity.userId, "u-1");
@@ -58,20 +62,30 @@ test("identity 200 resolves as authenticated", async () => {
 });
 
 test("identity 401 keeps SSO mode unauthenticated", async () => {
-  globalThis.fetch = async () => new Response("", { status: 401 });
+  globalThis.fetch = async (url) => {
+    if (url === "/web/auth-config") {
+      return Response.json({ providers: [{ id: "oidc", loginUrl: "/oauth2/login" }] });
+    }
+    return new Response("", { status: 401 });
+  };
   const identity = await resolveIdentity();
   assert.deepEqual(identity, { status: "unauthenticated", userId: "", local: false });
 });
 
-test("identity 404 enters legacy local mode", async () => {
-  globalThis.fetch = async () => new Response("", { status: 404 });
+test("empty provider list enters local mode without probing oauth userinfo", async () => {
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    return Response.json({ providers: [] });
+  };
   const identity = await resolveIdentity();
   assert.deepEqual(identity, { status: "unauthenticated", userId: "", local: true });
+  assert.deepEqual(calls, ["/web/auth-config"]);
 });
 
-test("identity 404 restores a saved local username", async () => {
+test("empty provider list restores a saved local username", async () => {
   globalThis.localStorage = { getItem: () => "alice" };
-  globalThis.fetch = async () => new Response("", { status: 404 });
+  globalThis.fetch = async () => Response.json({ providers: [] });
   const identity = await resolveIdentity();
   assert.equal(identity.status, "authenticated");
   assert.equal(identity.userId, "alice");
@@ -105,16 +119,26 @@ test("identity network and server failures do not enter local mode", async (t) =
     globalThis.fetch = async () => {
       throw new TypeError("fetch failed");
     };
-    await assert.rejects(resolveIdentity(), /无法连接身份服务/);
+    await assert.rejects(resolveIdentity(), /无法加载登录配置/);
   });
   await t.test("gateway failure", async () => {
-    globalThis.fetch = async () => new Response("bad gateway", { status: 502 });
+    globalThis.fetch = async (url) => {
+      if (url === "/web/auth-config") {
+        return Response.json({ providers: [{ id: "oidc", loginUrl: "/oauth2/login" }] });
+      }
+      return new Response("bad gateway", { status: 502 });
+    };
     await assert.rejects(resolveIdentity(), /HTTP 502/);
   });
 });
 
 test("identity rejects a non-JSON success response", async () => {
-  globalThis.fetch = async () => new Response("<!doctype html>", { status: 200 });
+  globalThis.fetch = async (url) => {
+    if (url === "/web/auth-config") {
+      return Response.json({ providers: [{ id: "oidc", loginUrl: "/oauth2/login" }] });
+    }
+    return new Response("<!doctype html>", { status: 200 });
+  };
   await assert.rejects(resolveIdentity(), /无法解析/);
 });
 
