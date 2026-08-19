@@ -734,12 +734,13 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
     assert credential["space_id"] == "space_legacy"
     assert credential["auth_mode"] == "none"
     assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
-    assert schema_version == "4"
+    assert schema_version == "5"
     assert "knowledge_asset_eval_suites" in tables
     assert "knowledge_asset_eval_results" in tables
     assert "askdata_conversations" in tables
     assert "askdata_messages" in tables
     assert "askdata_tool_events" in tables
+    assert "dashboard_shares" in tables
 
 
 def test_wrong_key_and_corrupt_ciphertext_fail_cleanly(store_env, monkeypatch) -> None:

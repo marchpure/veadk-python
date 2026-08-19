@@ -253,9 +253,12 @@ test("AskDashboard workspace source-ports BYAAN notebook components and keeps th
   assert.match(byaanDashboardPreviewSource, /Queries/);
   assert.match(byaanDashboardPreviewSource, /QueryRunnerDocked/);
   assert.match(byaanDashboardPreviewSource, /Export HTML/);
+  assert.match(byaanDashboardPreviewSource, /Export JSON/);
   assert.match(byaanDashboardPreviewSource, /Generate/);
-  assert.match(byaanDashboardPreviewSource, /PDF 导出服务未配置/);
-  assert.match(byaanDashboardPreviewSource, /分享服务未配置/);
+  assert.match(byaanDashboardPreviewSource, /PDF export not configured/);
+  assert.match(byaanDashboardPreviewSource, /Create share link/);
+  assert.match(byaanDashboardPreviewSource, /ShareDashboardModal/);
+  assert.match(byaanDashboardPreviewSource, /navigator\.clipboard\.writeText/);
   assert.match(byaanDashboardPreviewSource, /new Blob/);
   assert.match(byaanDashboardPreviewSource, /Fullscreen/);
   assert.match(byaanDashboardPreviewSource, /srcDoc=\{preview\.processedHtmlContent\}/);

@@ -29,6 +29,7 @@ test("local API proxy strips browser origin headers before forwarding", () => {
     "/debug",
     "/dev",
     "/api",
+    "/share",
     "/oauth2",
     "/web",
   ]) {

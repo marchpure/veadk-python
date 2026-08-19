@@ -187,6 +187,21 @@ export interface DashboardSkillBuildResult {
   mock?: boolean;
 }
 
+export interface DashboardShare {
+  share_id: string;
+  asset_type: "dashboard" | string;
+  asset_id: string;
+  asset_version?: string | null;
+  title: string;
+  created_at?: string | null;
+  expires_at?: string | null;
+  revoked_at?: string | null;
+  visibility: "local_link" | "workspace" | string;
+  sanitized_snapshot: Record<string, unknown>;
+  share_url: string;
+  mock?: boolean;
+}
+
 export type KnowledgeAssetEvalTargetKind =
   | "semantic_skill"
   | "asktable_query"
@@ -666,6 +681,41 @@ export async function buildDashboardSkill(input: {
     "/api/knowledge-assets/build/dashboard-skill",
     { method: "POST", body: JSON.stringify(input) },
     "生成 Dashboard Skill 失败",
+  );
+}
+
+export async function shareDashboardAsset(
+  assetId: string,
+  input: {
+    title?: string;
+    visibility?: "local_link" | "workspace";
+    expires_at?: string | null;
+    dashboard_html?: string;
+    dashboard_spec?: Record<string, unknown>;
+    query?: Record<string, unknown>;
+    evidence?: Record<string, unknown>;
+  },
+): Promise<DashboardShare> {
+  return requestJson(
+    `/api/knowledge-assets/assets/dashboard/${encodeURIComponent(assetId)}/share`,
+    { method: "POST", body: JSON.stringify(input) },
+    "创建 Dashboard 分享失败",
+  );
+}
+
+export async function getDashboardShare(shareId: string): Promise<DashboardShare> {
+  return requestJson(
+    `/api/knowledge-assets/shares/${encodeURIComponent(shareId)}`,
+    undefined,
+    "读取 Dashboard 分享失败",
+  );
+}
+
+export async function revokeDashboardShare(shareId: string): Promise<DashboardShare> {
+  return requestJson(
+    `/api/knowledge-assets/shares/${encodeURIComponent(shareId)}/revoke`,
+    { method: "POST", body: JSON.stringify({}) },
+    "撤销 Dashboard 分享失败",
   );
 }
 

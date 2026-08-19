@@ -11,6 +11,7 @@ import asyncio
 import base64
 import binascii
 import hashlib
+import html
 import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
@@ -36,6 +37,7 @@ from .models import (
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    ShareDashboardBody,
     UpdateBuildJobBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
@@ -633,6 +635,42 @@ class KnowledgeAssetStore:
             raise KnowledgeAssetNotFound("Knowledge asset is not published.")
         return _metadata_envelope(row)
 
+    async def create_dashboard_share(
+        self,
+        asset_id: str,
+        body: ShareDashboardBody,
+    ) -> dict[str, Any]:
+        visibility = _normalize_share_visibility(body.visibility)
+        asset = await self.get_asset(asset_type="dashboard", asset_id=asset_id)
+        snapshot = _dashboard_share_snapshot(asset, body)
+        row = {
+            "share_id": _new_id("share"),
+            "asset_type": "dashboard",
+            "asset_id": asset["asset_id"],
+            "asset_version": _sanitize_text(asset.get("version") or "") or "v1",
+            "title": _sanitize_text(body.title or asset.get("name") or "Dashboard"),
+            "expires_at": _sanitize_text(body.expires_at or "") or None,
+            "visibility": visibility,
+            "sanitized_snapshot_json": dumps_json(snapshot),
+        }
+        stored = await asyncio.to_thread(self._repository.create_dashboard_share, row)
+        return _dashboard_share_payload(stored)
+
+    async def get_dashboard_share(self, share_id: str) -> dict[str, Any]:
+        row = await asyncio.to_thread(self._repository.get_dashboard_share, share_id)
+        payload = _dashboard_share_payload(row)
+        if _share_unavailable(payload):
+            raise KnowledgeAssetNotFound("Knowledge asset dashboard share not found.")
+        return payload
+
+    async def revoke_dashboard_share(self, share_id: str) -> dict[str, Any]:
+        row = await asyncio.to_thread(self._repository.revoke_dashboard_share, share_id)
+        return _dashboard_share_payload(row)
+
+    async def dashboard_share_html(self, share_id: str) -> str:
+        share = await self.get_dashboard_share(share_id)
+        return _render_dashboard_share_html(share)
+
     async def record_build_job(self, body: RecordBuildJobBody) -> dict[str, Any]:
         row = {
             "id": _new_id("job"),
@@ -973,6 +1011,23 @@ def _askdata_tool_event_payload(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _dashboard_share_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "share_id": row["share_id"],
+        "asset_type": row["asset_type"],
+        "asset_id": row["asset_id"],
+        "asset_version": row.get("asset_version"),
+        "title": row["title"],
+        "created_at": row.get("created_at"),
+        "expires_at": row.get("expires_at"),
+        "revoked_at": row.get("revoked_at"),
+        "visibility": row.get("visibility") or "local_link",
+        "sanitized_snapshot": loads_json(row.get("sanitized_snapshot_json"), {}),
+        "share_url": f"/share/knowledge-assets/dashboard/{row['share_id']}",
+        "mock": False,
+    }
+
+
 def _snapshot_payload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -1035,6 +1090,201 @@ def _normalize_build_job_status(status: str) -> str:
     if candidate in _BUILD_JOB_STATUSES:
         return candidate
     raise KnowledgeAssetServiceError("Build job 状态无效。")
+
+
+def _normalize_share_visibility(value: str) -> str:
+    candidate = (value or "local_link").strip().casefold()
+    if candidate in {"local_link", "workspace"}:
+        return candidate
+    raise KnowledgeAssetServiceError("Dashboard share visibility is invalid.")
+
+
+def _dashboard_share_snapshot(
+    asset: Mapping[str, Any],
+    body: ShareDashboardBody,
+) -> dict[str, Any]:
+    package = asset.get("capability_package") if isinstance(asset.get("capability_package"), Mapping) else {}
+    artifacts = package.get("artifacts") if isinstance(package.get("artifacts"), Mapping) else {}
+    package_spec = (
+        body.dashboard_spec
+        or (package.get("dashboard") if isinstance(package.get("dashboard"), dict) else {})
+        or (artifacts.get("dashboard_spec.json") if isinstance(artifacts.get("dashboard_spec.json"), dict) else {})
+    )
+    html_snapshot = body.dashboard_html or ""
+    if not html_snapshot:
+        artifact_html = artifacts.get("dashboard.html") or artifacts.get("index.html")
+        html_snapshot = artifact_html if isinstance(artifact_html, str) else ""
+    query = body.query or _first_data_view_query(package_spec)
+    evidence = body.evidence or _first_data_view_evidence(package_spec)
+    snapshot = redact_sensitive(
+        {
+            "asset": {
+                "asset_type": asset.get("asset_type"),
+                "asset_id": asset.get("asset_id"),
+                "asset_version": asset.get("version") or "v1",
+                "title": body.title or asset.get("name") or "Dashboard",
+            },
+            "dashboard": {
+                "html": html_snapshot,
+                "spec": package_spec,
+            },
+            "query": query,
+            "evidence": evidence,
+            "created_from": "knowledge_asset_dashboard_share",
+        }
+    )
+    return _strip_share_secrets(snapshot)
+
+
+def _first_data_view_query(spec: Mapping[str, Any]) -> dict[str, Any]:
+    view = _first_data_view(spec)
+    if not view:
+        return {}
+    return {
+        "sql": view.get("sql") or "",
+        "metricDefinition": view.get("metricDefinition") or "",
+        "rows": view.get("rows") if isinstance(view.get("rows"), list) else [],
+        "returnedCount": view.get("returnedCount") or 0,
+    }
+
+
+def _first_data_view_evidence(spec: Mapping[str, Any]) -> dict[str, Any]:
+    view = _first_data_view(spec)
+    if not view:
+        return {}
+    return {
+        "policyDecision": view.get("policyDecision") if isinstance(view.get("policyDecision"), dict) else {},
+        "freshness": view.get("freshness") if isinstance(view.get("freshness"), dict) else {},
+        "lineage": view.get("lineage") if isinstance(view.get("lineage"), list) else [],
+        "evidence": view.get("evidence") if isinstance(view.get("evidence"), list) else [],
+    }
+
+
+def _first_data_view(spec: Mapping[str, Any]) -> Mapping[str, Any]:
+    views = spec.get("data_views")
+    if not isinstance(views, list):
+        return {}
+    for view in views:
+        if isinstance(view, Mapping):
+            return view
+    return {}
+
+
+def _strip_share_secrets(value: Any, *, key: object = "") -> Any:
+    if _is_sensitive_key(key):
+        return _REDACTED
+    if isinstance(value, str):
+        return _sanitize_text(value)
+    if isinstance(value, Mapping):
+        out: dict[str, Any] = {}
+        for item_key, item_value in value.items():
+            text_key = str(item_key)
+            if _is_sensitive_key(text_key):
+                out[text_key] = _REDACTED
+                continue
+            out[text_key] = _strip_share_secrets(item_value, key=text_key)
+        return out
+    if isinstance(value, list):
+        return [_strip_share_secrets(item) for item in value[:500]]
+    return value
+
+
+def _share_unavailable(share: Mapping[str, Any]) -> bool:
+    if share.get("revoked_at"):
+        return True
+    expires_at = share.get("expires_at")
+    if not expires_at:
+        return False
+    try:
+        expires = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    now = datetime.now(timezone.utc)
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    return expires <= now
+
+
+def _render_dashboard_share_html(share: Mapping[str, Any]) -> str:
+    snapshot = share.get("sanitized_snapshot") if isinstance(share.get("sanitized_snapshot"), Mapping) else {}
+    dashboard = snapshot.get("dashboard") if isinstance(snapshot.get("dashboard"), Mapping) else {}
+    query = snapshot.get("query") if isinstance(snapshot.get("query"), Mapping) else {}
+    evidence = snapshot.get("evidence") if isinstance(snapshot.get("evidence"), Mapping) else {}
+    raw_html = dashboard.get("html") if isinstance(dashboard.get("html"), str) else ""
+    spec = dashboard.get("spec") if isinstance(dashboard.get("spec"), Mapping) else {}
+    preview_srcdoc = raw_html or _render_spec_preview_html(spec, str(share.get("title") or "Dashboard"))
+    evidence_json = dumps_json({"query": query, "evidence": evidence})
+    title = str(share.get("title") or "Dashboard")
+    created = str(share.get("created_at") or "")
+    version = str(share.get("asset_version") or "v1")
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{html.escape(title)}</title>
+  <style>
+    :root {{ color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+    body {{ margin: 0; background: #f6f7f9; color: #18181b; }}
+    .shell {{ display: grid; min-height: 100vh; grid-template-rows: auto 1fr; }}
+    header {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid #e4e4e7; background: #fff; }}
+    h1 {{ margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }}
+    .meta {{ margin-top: 6px; color: #707078; font-size: 12px; }}
+    main {{ display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: 16px; min-height: 0; padding: 16px; }}
+    iframe {{ width: 100%; min-height: calc(100vh - 112px); border: 1px solid #e4e4e7; border-radius: 8px; background: #fff; }}
+    aside {{ min-width: 0; border: 1px solid #e4e4e7; border-radius: 8px; background: #fff; overflow: hidden; }}
+    details {{ border-bottom: 1px solid #e4e4e7; }}
+    details:last-child {{ border-bottom: 0; }}
+    summary {{ cursor: pointer; padding: 12px 14px; font-size: 13px; font-weight: 650; }}
+    pre {{ margin: 0; max-height: 260px; overflow: auto; padding: 0 14px 14px; color: #4f5159; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }}
+    .badge {{ display: inline-flex; align-items: center; min-height: 24px; padding: 0 9px; border: 1px solid #d4d4d8; border-radius: 999px; color: #4f5159; font-size: 12px; }}
+    @media (max-width: 820px) {{ header {{ flex-direction: column; padding: 14px; }} main {{ grid-template-columns: 1fr; padding: 12px; }} iframe {{ min-height: 58vh; }} }}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>{html.escape(title)}</h1>
+        <div class="meta">Shared dashboard · {html.escape(version)} · {html.escape(created)}</div>
+      </div>
+      <span class="badge">{html.escape(str(share.get("visibility") or "local_link"))}</span>
+    </header>
+    <main>
+      <iframe title="Dashboard Preview" sandbox="allow-scripts allow-forms allow-popups allow-modals" srcdoc="{html.escape(preview_srcdoc, quote=True)}"></iframe>
+      <aside>
+        <details open><summary>SQL / Metric</summary><pre>{html.escape(dumps_json(query))}</pre></details>
+        <details><summary>Policy / Freshness / Evidence</summary><pre>{html.escape(evidence_json)}</pre></details>
+        <details><summary>Dashboard Spec</summary><pre>{html.escape(dumps_json(spec))}</pre></details>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>"""
+
+
+def _render_spec_preview_html(spec: Mapping[str, Any], fallback_title: str) -> str:
+    view = _first_data_view(spec)
+    rows = view.get("rows") if isinstance(view.get("rows"), list) else []
+    columns = list(rows[0].keys())[:8] if rows and isinstance(rows[0], Mapping) else []
+    title = str(spec.get("title") or fallback_title)
+    metric = str(view.get("metric") or "Semantic metric")
+    cells = ""
+    if columns:
+        header = "".join(f"<th>{html.escape(str(column))}</th>" for column in columns)
+        body = "".join(
+            "<tr>"
+            + "".join(
+                f"<td>{html.escape(str(row.get(column, '')))}</td>"
+                for column in columns
+                if isinstance(row, Mapping)
+            )
+            + "</tr>"
+            for row in rows[:50]
+        )
+        cells = f"<table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table>"
+    return f"""<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>body{{margin:0;background:#f6f7f9;color:#18181b;font-family:Inter,system-ui,sans-serif}}main{{display:grid;gap:16px;padding:22px}}h1{{margin:0;font-size:22px}}.meta{{color:#707078;font-size:12px}}.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}}.card,table{{border:1px solid #e4e4e7;border-radius:8px;background:#fff}}.card{{padding:14px}}table{{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;overflow:hidden}}th,td{{padding:10px 12px;border-bottom:1px solid #f0f0f1;text-align:left}}th{{background:#f8f9fb;color:#4f5159}}</style></head><body><main><div><h1>{html.escape(title)}</h1><div class="meta">{html.escape(metric)} · {len(rows)} governed rows</div></div><section class="cards"><div class="card"><div class="meta">Metric</div><strong>{html.escape(metric)}</strong></div><div class="card"><div class="meta">Rows</div><strong>{len(rows)}</strong></div></section>{cells}</main></body></html>"""
 
 
 def _initial_import_status(source_type: str, target_knowledge_base_id: str) -> str:

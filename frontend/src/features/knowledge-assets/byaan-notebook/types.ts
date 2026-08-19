@@ -48,6 +48,10 @@ export interface ByaanDashboardPreviewModel {
   generatedCode: string;
   title: string;
   versionInfo: string;
+  dashboardAssetId: string;
+  dashboardSpec: Record<string, unknown>;
+  querySnapshot: Record<string, unknown>;
+  evidenceSnapshot: Record<string, unknown>;
   queryResult: ByaanSemanticQueryResultEvent | null;
   isGenerating: boolean;
 }

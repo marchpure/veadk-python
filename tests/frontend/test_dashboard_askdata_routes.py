@@ -319,6 +319,165 @@ def test_askdata_production_uses_local_sqlite_governed_runtime(
     assert "schema_only" not in data["execution_mode"]
 
 
+def test_dashboard_share_create_get_revoke_and_public_page(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client)
+    build = client.post(
+        "/api/knowledge-assets/build/dashboard-skill",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "name": "Oracle Sales Dashboard",
+            "intent": "按门店查看销售票数",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+            "publish": True,
+        },
+    )
+    assert build.status_code == 201
+    asset_id = build.json()["dashboard_asset_id"]
+
+    share = client.post(
+        f"/api/knowledge-assets/assets/dashboard/{asset_id}/share",
+        json={
+            "visibility": "local_link",
+            "dashboard_html": "<main><h1>Shared Dashboard</h1><script>window.__ok=true</script></main>",
+            "dashboard_spec": build.json()["preview"],
+            "query": {
+                "sql": "SELECT store_name FROM SALES_ORDER",
+                "metricDefinition": "Count distinct tickets.",
+            },
+            "evidence": {
+                "policyDecision": {"decision": "allow"},
+                "freshness": {"status": "fresh"},
+            },
+        },
+    )
+    assert share.status_code == 201
+    payload = share.json()
+    share_id = payload["share_id"]
+    assert payload["asset_id"] == asset_id
+    assert payload["share_url"] == f"/share/knowledge-assets/dashboard/{share_id}"
+    assert payload["sanitized_snapshot"]["dashboard"]["html"].startswith("<main>")
+
+    fetched = client.get(f"/api/knowledge-assets/shares/{share_id}")
+    assert fetched.status_code == 200
+    assert fetched.json()["share_id"] == share_id
+
+    page = client.get(f"/share/knowledge-assets/dashboard/{share_id}")
+    assert page.status_code == 200
+    assert "Shared Dashboard" in page.text
+    assert "SQL / Metric" in page.text
+
+    revoked = client.post(f"/api/knowledge-assets/shares/{share_id}/revoke")
+    assert revoked.status_code == 200
+    assert revoked.json()["revoked_at"]
+    assert client.get(f"/api/knowledge-assets/shares/{share_id}").status_code == 404
+    assert client.get(f"/share/knowledge-assets/dashboard/{share_id}").status_code == 404
+
+
+def test_dashboard_share_expiry_hides_api_and_public_page(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client)
+    build = client.post(
+        "/api/knowledge-assets/build/dashboard-skill",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "name": "Expired Dashboard",
+            "intent": "按门店查看销售票数",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+            "publish": True,
+        },
+    )
+    assert build.status_code == 201
+    asset_id = build.json()["dashboard_asset_id"]
+
+    share = client.post(
+        f"/api/knowledge-assets/assets/dashboard/{asset_id}/share",
+        json={
+            "expires_at": "2000-01-01T00:00:00Z",
+            "dashboard_html": "<main><h1>Expired Dashboard</h1></main>",
+            "dashboard_spec": build.json()["preview"],
+        },
+    )
+
+    assert share.status_code == 201
+    share_id = share.json()["share_id"]
+    assert client.get(f"/api/knowledge-assets/shares/{share_id}").status_code == 404
+    assert client.get(f"/share/knowledge-assets/dashboard/{share_id}").status_code == 404
+
+
+def test_dashboard_share_snapshot_redacts_secrets(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client)
+    build = client.post(
+        "/api/knowledge-assets/build/dashboard-skill",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "name": "Secret Safe Dashboard",
+            "intent": "按门店查看销售票数",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+            "publish": True,
+        },
+    )
+    assert build.status_code == 201
+    asset_id = build.json()["dashboard_asset_id"]
+
+    response = client.post(
+        f"/api/knowledge-assets/assets/dashboard/{asset_id}/share",
+        json={
+            "dashboard_html": "<main data-token='abc'>authorization: Bearer abc</main>",
+            "dashboard_spec": {
+                "connection_string": "postgres://user:pass@example/db",
+                "api_key": "abc",
+                "ak": "access",
+                "sk": "secret",
+                "data_views": [
+                    {
+                        "id": "primary",
+                        "sql": "SELECT 1",
+                        "rows": [{"authorization": "Bearer abc", "cookie": "sid=abc"}],
+                    }
+                ],
+            },
+            "query": {
+                "sql": "SELECT 1",
+                "token": "abc",
+                "authorization": "Bearer abc",
+                "cookie": "sid=abc",
+                "password": "pw",
+            },
+            "evidence": {"secret": "abc", "policyDecision": {"decision": "allow"}},
+        },
+    )
+
+    assert response.status_code == 201
+    text = json.dumps(response.json()["sanitized_snapshot"]).lower()
+    for forbidden in [
+        "bearer abc",
+        "sid=abc",
+        "postgres://user:pass",
+        '"api_key": "abc"',
+        '"authorization": "bearer abc"',
+        '"cookie": "sid=abc"',
+        '"password": "pw"',
+        '"ak": "access"',
+        '"sk": "secret"',
+    ]:
+        assert forbidden not in text
+    assert "[redacted]" in text
+
+
 def test_schema_only_query_sanitizes_mdl_metadata_in_sql_evidence(
     tmp_path,
     monkeypatch,

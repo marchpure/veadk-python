@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_VERSION = 4
+_SCHEMA_VERSION = 5
 
 
 class KnowledgeAssetRepositoryError(RuntimeError):
@@ -534,6 +534,58 @@ class KnowledgeAssetRepository:
                 params.extend([limit, offset])
             return _rows(conn.execute(sql, tuple(params))), total
 
+    def create_dashboard_share(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_skill_package_by_asset(
+                row["asset_type"],
+                row["asset_id"],
+                conn=conn,
+            )
+            conn.execute(
+                """
+                INSERT INTO dashboard_shares (
+                    share_id, asset_type, asset_id, asset_version, title,
+                    expires_at, visibility, sanitized_snapshot_json
+                )
+                VALUES (
+                    :share_id, :asset_type, :asset_id, :asset_version, :title,
+                    :expires_at, :visibility, :sanitized_snapshot_json
+                )
+                """,
+                row,
+            )
+            return self.get_dashboard_share(row["share_id"], conn=conn)
+
+    def get_dashboard_share(
+        self,
+        share_id: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM dashboard_shares WHERE share_id = ?",
+                (share_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Knowledge asset dashboard share not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def revoke_dashboard_share(self, share_id: str) -> dict[str, Any]:
+        with self._write() as conn:
+            cursor = conn.execute(
+                "UPDATE dashboard_shares SET revoked_at = COALESCE(revoked_at, "
+                f"{utc_now_sql()}) WHERE share_id = ?",
+                (share_id,),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Knowledge asset dashboard share not found.")
+            return self.get_dashboard_share(share_id, conn=conn)
+
     def record_build_job(self, row: dict[str, Any]) -> dict[str, Any]:
         with self._write() as conn:
             if row.get("space_id"):
@@ -933,6 +985,25 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             ON skill_packages(space_id, updated_at);
         CREATE INDEX IF NOT EXISTS idx_skill_packages_publish
             ON skill_packages(publish_state, asset_type, capability_kind);
+
+        CREATE TABLE IF NOT EXISTS dashboard_shares (
+            share_id TEXT PRIMARY KEY,
+            asset_type TEXT NOT NULL,
+            asset_id TEXT NOT NULL,
+            asset_version TEXT,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            expires_at TEXT,
+            revoked_at TEXT,
+            visibility TEXT NOT NULL DEFAULT 'local_link',
+            sanitized_snapshot_json TEXT NOT NULL DEFAULT '{}',
+            FOREIGN KEY(asset_type, asset_id) REFERENCES skill_packages(asset_type, asset_id)
+                ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_dashboard_shares_asset
+            ON dashboard_shares(asset_type, asset_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_dashboard_shares_visibility
+            ON dashboard_shares(visibility, created_at);
 
         CREATE TABLE IF NOT EXISTS build_jobs (
             id TEXT PRIMARY KEY,

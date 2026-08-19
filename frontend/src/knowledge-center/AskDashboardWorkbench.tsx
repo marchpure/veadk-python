@@ -8,8 +8,11 @@ import {
 
 import {
   buildDashboardSkill,
+  revokeDashboardShare,
+  shareDashboardAsset,
   streamAskData,
   type AskDataQueryResult,
+  type DashboardShare,
   type DashboardSkillBuildResult,
   type KnowledgeAssetBuildJob,
   type KnowledgeAssetMetadata,
@@ -65,9 +68,11 @@ export function AskDashboardWorkbench({
   const [fullscreen, setFullscreen] = useState(false);
   const [busyQuery, setBusyQuery] = useState(false);
   const [busyBuild, setBusyBuild] = useState(false);
+  const [busyShare, setBusyShare] = useState(false);
   const [error, setError] = useState("");
   const [queryResult, setQueryResult] = useState<AskDataQueryResult | null>(null);
   const [buildResult, setBuildResult] = useState<DashboardSkillBuildResult | null>(null);
+  const [shareResult, setShareResult] = useState<DashboardShare | null>(null);
   const [rounds, setRounds] = useState<QueryRound[]>([]);
 
   const selectedSkill =
@@ -273,10 +278,54 @@ export function AskDashboardWorkbench({
       }
       setBuildResult(result);
       setVersionAssetId(result.dashboard_asset_id);
+      setShareResult(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "生成 Dashboard Skill 失败。");
     } finally {
       setBusyBuild(false);
+    }
+  }
+
+  async function shareDashboard() {
+    if (!byaanDashboardPreview.dashboardAssetId || !byaanDashboardPreview.processedHtmlContent.trim()) {
+      setError("需要先生成可预览的 Dashboard，再创建分享链接。");
+      return;
+    }
+    setBusyShare(true);
+    setError("");
+    try {
+      const result = await shareDashboardAsset(byaanDashboardPreview.dashboardAssetId, {
+        title: byaanDashboardPreview.title,
+        visibility: "local_link",
+        dashboard_html: byaanDashboardPreview.processedHtmlContent,
+        dashboard_spec: byaanDashboardPreview.dashboardSpec,
+        query: byaanDashboardPreview.querySnapshot,
+        evidence: byaanDashboardPreview.evidenceSnapshot,
+      });
+      setShareResult({
+        ...result,
+        share_url: absoluteShareUrl(result.share_url),
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "创建 Dashboard 分享失败。");
+    } finally {
+      setBusyShare(false);
+    }
+  }
+
+  async function revokeShare(shareId: string) {
+    setBusyShare(true);
+    setError("");
+    try {
+      const result = await revokeDashboardShare(shareId);
+      setShareResult({
+        ...result,
+        share_url: absoluteShareUrl(result.share_url),
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "撤销 Dashboard 分享失败。");
+    } finally {
+      setBusyShare(false);
     }
   }
 
@@ -300,15 +349,26 @@ export function AskDashboardWorkbench({
         dashboardPreview={byaanDashboardPreview}
         busyQuery={busyQuery}
         busyBuild={busyBuild}
+        busyShare={busyShare}
         onCreateDashboard={() => void buildDashboardFromLatest()}
         createDashboardDisabled={!dashboardBuildGate.ready}
         createDashboardDisabledReason={dashboardBuildGate.reason}
+        onShareDashboard={() => void shareDashboard()}
+        shareResult={shareResult}
+        onClearShare={() => setShareResult(null)}
+        onRevokeShare={(shareId) => void revokeShare(shareId)}
         onRefresh={() => void onRefresh()}
         onFullscreen={() => setFullscreen((value) => !value)}
         blocked={!canAsk}
       />
     </div>
   );
+}
+
+function absoluteShareUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${window.location.origin}${normalized}`;
 }
 
 function WorkbenchAlert({ message }: { message: string }) {

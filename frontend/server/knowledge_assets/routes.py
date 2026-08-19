@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
@@ -26,6 +26,7 @@ from .models import (
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    ShareDashboardBody,
     UpdateBuildJobBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
@@ -468,6 +469,29 @@ def mount_knowledge_asset_routes(
         body: DashboardQueryBody,
     ) -> dict[str, Any]:
         return await invoke(lambda: dashboard_query.query(asset_id, body))
+
+    @app.post(
+        "/api/knowledge-assets/assets/dashboard/{asset_id}/share",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def share_dashboard_asset(
+        asset_id: str,
+        body: ShareDashboardBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.create_dashboard_share(asset_id, body))
+
+    @app.get("/api/knowledge-assets/shares/{share_id}")
+    async def get_dashboard_share(share_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.get_dashboard_share(share_id))
+
+    @app.post("/api/knowledge-assets/shares/{share_id}/revoke")
+    async def revoke_dashboard_share(share_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.revoke_dashboard_share(share_id))
+
+    @app.get("/share/knowledge-assets/dashboard/{share_id}", response_class=HTMLResponse)
+    async def dashboard_share_page(share_id: str) -> HTMLResponse:
+        html = await invoke(lambda: store.dashboard_share_html(share_id))
+        return HTMLResponse(html)
 
     @app.post("/api/knowledge-assets/assets/{asset_type}/{asset_id}/query")
     async def query_knowledge_asset(

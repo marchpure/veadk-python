@@ -38,6 +38,7 @@ export default defineConfig({
       "/debug": localApiProxy(),
       "/dev": localApiProxy(),
       "/api": localApiProxy(),
+      "/share": localApiProxy(),
       "/oauth2": localApiProxy(),
       "/web": localApiProxy(),
       "/skillhub": {

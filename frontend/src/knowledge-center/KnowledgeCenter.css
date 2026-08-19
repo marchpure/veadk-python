@@ -1637,6 +1637,120 @@
   color: #71717a;
 }
 
+.byaan-share-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: hsl(0 0% 0% / 0.42);
+}
+
+.byaan-share-modal {
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+  max-height: min(520px, calc(100vh - 80px));
+  overflow: auto;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--panel));
+  color: hsl(var(--foreground));
+  box-shadow: 0 22px 70px hsl(0 0% 0% / 0.32);
+}
+
+.byaan-share-modal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+
+.byaan-share-modal h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.byaan-share-modal p {
+  margin: 5px 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.byaan-share-modal header button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.byaan-share-body,
+.byaan-share-loading {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.byaan-share-loading {
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: start;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+.byaan-share-body label {
+  display: grid;
+  gap: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.byaan-share-body input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12px;
+}
+
+.byaan-share-meta,
+.byaan-share-body footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.byaan-share-meta span {
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+
+.byaan-share-body footer {
+  justify-content: flex-end;
+}
+
+.byaan-share-body footer button {
+  min-height: 32px;
+}
+
+.byaan-share-body footer .is-danger {
+  border-color: hsl(0 68% 82%);
+  color: hsl(0 58% 38%);
+}
+
 .byaan-notebook-source-port .resizable-split-panel {
   min-height: 0;
   flex: 1 1 auto;
@@ -4589,6 +4703,24 @@
     width: 100%;
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .byaan-dashboard-preview > div:first-child button,
+  .byaan-dashboard-preview > div:first-child span {
+    max-width: 100%;
+  }
+
+  .byaan-share-backdrop {
+    padding: 10px;
+  }
+
+  .byaan-share-modal {
+    max-height: calc(100vh - 40px);
+  }
+
+  .byaan-share-body footer {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .byaan-dashboard-preview iframe {

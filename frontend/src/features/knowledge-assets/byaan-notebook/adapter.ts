@@ -118,6 +118,10 @@ export function dashboardPreviewFromAgentKit({
     generatedCode,
     title: selectedDashboard?.name || buildResult?.dashboard?.name || "Dashboard Preview",
     versionInfo: selectedDashboard?.version ? `v${selectedDashboard.version}` : "v1",
+    dashboardAssetId: selectedDashboard?.asset_id || buildResult?.dashboard_asset_id || "",
+    dashboardSpec: spec,
+    querySnapshot: querySnapshotFromAskData(queryResult),
+    evidenceSnapshot: evidenceSnapshotFromAskData(queryResult),
     queryResult: askDataToSemanticQueryResultEvent(queryResult),
     isGenerating: busyBuild,
   };
@@ -191,6 +195,31 @@ function renderDashboardSpecHtml(spec: Record<string, unknown>, fallbackTitle: s
   </main>
 </body>
 </html>`;
+}
+
+function querySnapshotFromAskData(result: AskDataQueryResult | null): Record<string, unknown> {
+  if (!result) return {};
+  return {
+    status: result.status,
+    asset: result.asset,
+    sql: result.data.sql,
+    metricDefinition: result.data.metricDefinition,
+    metric: result.data.metric,
+    dimensions: result.data.dimensions,
+    rows: result.data.rows,
+    returnedCount: result.data.returnedCount ?? result.data.rows.length,
+    execution: result.data.execution,
+  };
+}
+
+function evidenceSnapshotFromAskData(result: AskDataQueryResult | null): Record<string, unknown> {
+  if (!result) return {};
+  return {
+    policyDecision: result.data.policyDecision,
+    freshness: result.data.freshness,
+    lineage: result.data.lineage ?? [],
+    evidence: result.data.evidence ?? [],
+  };
 }
 
 function escapeHtml(value: string): string {

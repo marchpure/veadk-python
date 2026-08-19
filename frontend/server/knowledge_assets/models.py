@@ -186,6 +186,16 @@ class QueryExternalAssetBody(ApiModel):
     question: str = Field(default="", max_length=2000)
 
 
+class ShareDashboardBody(ApiModel):
+    title: str | None = Field(default=None, max_length=300)
+    visibility: str = Field(default="local_link", max_length=40)
+    expires_at: str | None = Field(default=None, max_length=128)
+    dashboard_html: str | None = Field(default=None, max_length=2_000_000)
+    dashboard_spec: dict[str, Any] = Field(default_factory=dict)
+    query: dict[str, Any] = Field(default_factory=dict)
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
 __all__ = [
     "CreateSourceBody",
     "CreateSpaceBody",
@@ -197,6 +207,7 @@ __all__ = [
     "SaveCredentialBody",
     "BuildSemanticSkillBody",
     "QueryExternalAssetBody",
+    "ShareDashboardBody",
     "UpdateBuildJobBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",

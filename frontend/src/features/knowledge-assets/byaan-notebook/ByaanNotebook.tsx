@@ -7,6 +7,9 @@ import { ResizableSplitPanel } from "./ResizableSplitPanel";
 import { SemanticEvidencePanel } from "./SemanticEvidencePanel";
 import { TableMentionInput } from "./TableMentionInput";
 import type {
+  DashboardShare,
+} from "../../../adk/knowledgeAssets";
+import type {
   ByaanDashboardOption,
   ByaanDashboardPreviewModel,
   ByaanNotebookMessage,
@@ -31,9 +34,14 @@ export function ByaanNotebook({
   dashboardPreview,
   busyQuery,
   busyBuild,
+  busyShare,
   onCreateDashboard,
   createDashboardDisabled,
   createDashboardDisabledReason,
+  onShareDashboard,
+  shareResult,
+  onClearShare,
+  onRevokeShare,
   onRefresh,
   onFullscreen,
   blocked,
@@ -54,9 +62,14 @@ export function ByaanNotebook({
   dashboardPreview: ByaanDashboardPreviewModel;
   busyQuery: boolean;
   busyBuild: boolean;
+  busyShare?: boolean;
   onCreateDashboard: () => void;
   createDashboardDisabled?: boolean;
   createDashboardDisabledReason?: string;
+  onShareDashboard: () => void;
+  shareResult: DashboardShare | null;
+  onClearShare: () => void;
+  onRevokeShare: (shareId: string) => void;
   onRefresh: () => void;
   onFullscreen: () => void;
   blocked: boolean;
@@ -175,6 +188,11 @@ export function ByaanNotebook({
             onBuildDashboard={onCreateDashboard}
             buildDashboardDisabled={createDashboardDisabled}
             buildDashboardDisabledReason={createDashboardDisabledReason}
+            onShareDashboard={onShareDashboard}
+            shareResult={shareResult}
+            onClearShare={onClearShare}
+            onRevokeShare={onRevokeShare}
+            sharing={Boolean(busyShare)}
           />
         }
       />
