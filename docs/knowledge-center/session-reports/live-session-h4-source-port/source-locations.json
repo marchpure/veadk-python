@@ -1,0 +1,24 @@
+{
+  "wren": [
+    "/Users/bytedance/wrenai-legacy-v1-style-a/wren-ui/src/pages/modeling.tsx",
+    "/Users/bytedance/wrenai-legacy-v1-style-a/wren-ui/src/components/diagram/index.tsx",
+    "/Users/bytedance/wrenai-legacy-v1-style-a/wren-ui/src/components/diagram/customNode/ModelNode.tsx",
+    "/Users/bytedance/wrenai-legacy-v1-style-a/wren-ui/src/components/sidebar/Modeling.tsx",
+    "/Users/bytedance/wrenai-legacy-v1-style-a/wren-ui/src/components/sidebar/modeling/*"
+  ],
+  "byaan": [
+    "/Users/bytedance/worktrees/session-f-byaan-knowledge-center-20260818/client/src/components/NotebookQueryPanel.tsx",
+    "/Users/bytedance/worktrees/session-f-byaan-knowledge-center-20260818/client/src/components/QueryEditor.tsx",
+    "/Users/bytedance/worktrees/session-f-byaan-knowledge-center-20260818/client/src/components/QueryResults.tsx",
+    "/Users/bytedance/worktrees/session-f-byaan-knowledge-center-20260818/client/src/components/QueryRunnerDocked.tsx",
+    "/Users/bytedance/worktrees/session-f-byaan-knowledge-center-20260818/client/src/features/dashboard/pages/DashboardWorkspacePage.tsx"
+  ],
+  "target": [
+    "frontend/src/features/knowledge-assets/source-ports/wren/WrenModelingSourcePort.tsx",
+    "frontend/src/features/knowledge-assets/adapters/wrenSemanticAdapter.ts",
+    "frontend/src/features/knowledge-assets/source-ports/byaan/ByaanNotebookDashboardSourcePort.tsx",
+    "frontend/src/features/knowledge-assets/adapters/byaanAskTableAdapter.ts",
+    "frontend/src/knowledge-center/SemanticModelingWorkbench.tsx",
+    "frontend/src/knowledge-center/AskDashboardWorkbench.tsx"
+  ]
+}

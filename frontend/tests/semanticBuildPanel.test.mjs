@@ -27,6 +27,46 @@ const cssSource = readFileSync(
   new URL("../src/knowledge-center/KnowledgeCenter.css", import.meta.url),
   "utf8",
 );
+const wrenSourcePortSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/wren/WrenModelingSourcePort.tsx", import.meta.url),
+  "utf8",
+);
+const wrenOriginalDiagramSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/wren/original/diagram/index.tsx", import.meta.url),
+  "utf8",
+);
+const wrenOriginalModelNodeSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/wren/original/customNode/ModelNode.tsx", import.meta.url),
+  "utf8",
+);
+const wrenOriginalSidebarSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/wren/original/sidebar/Modeling.tsx", import.meta.url),
+  "utf8",
+);
+const wrenAdapterSource = readFileSync(
+  new URL("../src/features/knowledge-assets/adapters/wrenSemanticAdapter.ts", import.meta.url),
+  "utf8",
+);
+const byaanSourcePortSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/byaan/ByaanNotebookDashboardSourcePort.tsx", import.meta.url),
+  "utf8",
+);
+const byaanQueryEditorSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/byaan/original/QueryEditor.tsx", import.meta.url),
+  "utf8",
+);
+const byaanQueryResultsSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/byaan/original/QueryResults.tsx", import.meta.url),
+  "utf8",
+);
+const byaanDashboardPreviewSource = readFileSync(
+  new URL("../src/features/knowledge-assets/source-ports/byaan/original/DashboardPreviewPanel.tsx", import.meta.url),
+  "utf8",
+);
+const byaanAdapterSource = readFileSync(
+  new URL("../src/features/knowledge-assets/adapters/byaanAskTableAdapter.ts", import.meta.url),
+  "utf8",
+);
 
 async function loadTypeScriptModule(relativePath) {
   const result = await build({
@@ -47,29 +87,32 @@ async function loadTypeScriptModule(relativePath) {
 }
 
 test("SemanticModelingWorkbench uses React Flow canvas and native build API", () => {
-  assert.match(panelSource, /ReactFlow/);
-  assert.match(panelSource, /MiniMap/);
-  assert.match(panelSource, /Controls/);
-  assert.match(panelSource, /Background/);
-  assert.match(panelSource, /dagre/);
+  assert.match(wrenOriginalDiagramSource, /ReactFlow/);
+  assert.match(wrenOriginalDiagramSource, /MiniMap/);
+  assert.match(wrenOriginalDiagramSource, /Controls/);
+  assert.match(wrenOriginalDiagramSource, /Background/);
+  assert.match(wrenOriginalDiagramSource, /dagre/);
   assert.match(panelSource, /buildSemanticSkill/);
-  assert.match(panelSource, /SemanticModelTree/);
-  assert.match(panelSource, /SemanticGraphCanvas/);
-  assert.match(panelSource, /SemanticMetadataDrawer/);
-  assert.match(panelSource, /查看 MDL/);
-  assert.match(panelSource, /查看评测/);
+  assert.match(panelSource, /WrenModelingSourcePort/);
+  assert.match(panelSource, /createWrenSemanticSourcePortViewModel/);
   assert.match(panelSource, /aria-label="Semantic Skill"/);
-  assert.match(panelSource, /kc-semantic-canvas-empty/);
-  assert.match(panelSource, /kc-tree-group-title/);
-  assert.match(panelSource, /blockedReason/);
-  assert.match(panelSource, /kc-semantic-node__facts/);
+  assert.match(wrenSourcePortSource, /Source-level port of Wren UI modeling workspace/);
+  assert.match(wrenSourcePortSource, /original\/diagram/);
+  assert.match(wrenSourcePortSource, /original\/sidebar\/Modeling/);
+  assert.match(wrenOriginalSidebarSource, /ModelTree/);
+  assert.match(wrenOriginalSidebarSource, /ViewTree/);
+  assert.match(wrenOriginalModelNodeSource, /export const ModelNode/);
+  assert.match(wrenSourcePortSource, /kc-wren-diagram-empty/);
+  assert.match(wrenOriginalSidebarSource, /GroupTreeTitle/);
+  assert.match(wrenAdapterSource, /blockedReason/);
+  assert.match(wrenOriginalModelNodeSource, /Calculated Fields/);
   assert.match(panelSource, /relationshipFieldHighlights/);
-  assert.match(panelSource, /is-join-field/);
-  assert.match(panelSource, /kc-mobile-workbench-tabs/);
-  assert.match(panelSource, /mdlToModelingViewModel/);
-  assert.match(panelSource, /WrenTreeGroup/);
-  assert.match(panelSource, /agent_status/);
+  assert.match(wrenOriginalDiagramSource, /onEdgeMouseEnter/);
+  assert.match(wrenSourcePortSource, /kc-mobile-workbench-tabs/);
+  assert.match(wrenAdapterSource, /mdlToModelingViewModel/);
+  assert.match(wrenAdapterSource, /agent_status/);
   assert.doesNotMatch(panelSource, /<iframe/);
+  assert.doesNotMatch([wrenSourcePortSource, wrenOriginalDiagramSource, wrenOriginalModelNodeSource, wrenOriginalSidebarSource].join("\n"), /<iframe|from ["'][^"']*(Apollo|ApiService)|localhost:3011/);
   assert.doesNotMatch(panelSource, /DATASTUDIO_API_KEY/);
   assert.match(knowledgeCenterSource, /<SemanticModelingWorkbench/);
 });
@@ -115,35 +158,35 @@ test("Semantic build CSS is responsive without product iframe shell", () => {
 });
 
 test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence tabs", () => {
-  assert.match(askDashboardSource, /AskTablePanel/);
-  assert.match(askDashboardSource, /DashboardPreviewWorkspace/);
-  assert.match(askDashboardSource, /DashboardQueryEvidencePanel/);
-  assert.match(askDashboardSource, /AskDashboardStatusStrip/);
-  assert.match(askDashboardSource, /askDashboardStatusModel/);
-  assert.match(askDashboardSource, /agentkit_native_asktable_dashboard/);
-  assert.match(askDashboardSource, /askDataToNotebookViewModel/);
-  assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
-  assert.match(askDashboardSource, /kc-byaan-query-editor/);
-  assert.match(askDashboardSource, /askdashboard-not-configured-blocked/);
-  assert.match(askDashboardSource, /blocked_no_semantic_skill/);
-  assert.match(askDashboardSource, /no published Semantic Skill/);
-  assert.match(askDashboardSource, /Preview/);
-  assert.match(askDashboardSource, /Code/);
-  assert.match(askDashboardSource, /Queries/);
-  assert.match(askDashboardSource, /policyDecision/);
-  assert.match(askDashboardSource, /freshness/);
-  assert.match(askDashboardSource, /metricDefinition/);
-  assert.match(askDashboardSource, /AskTableNotebookResult/);
-  assert.match(askDashboardSource, /QueryResultTab/);
-  assert.match(askDashboardSource, /Results/);
-  assert.match(askDashboardSource, /Metric/);
-  assert.match(askDashboardSource, /kc-query-tabs/);
-  assert.match(askDashboardSource, /DashboardSparkline/);
-  assert.match(askDashboardSource, /kc-dashboard-data-views/);
-  assert.match(askDashboardSource, /beginSplitResize/);
-  assert.match(askDashboardSource, /kc-askdash-resizer/);
-  assert.match(askDashboardSource, /Blocked/);
-  assert.match(askDashboardSource, /title="后端导出能力尚未启用"/);
+  assert.match(askDashboardSource, /ByaanNotebookDashboardSourcePort/);
+  assert.match(askDashboardSource, /createByaanAskTableSourcePortViewModel/);
+  assert.match(askDashboardSource, /queryAskData/);
+  assert.match(askDashboardSource, /buildDashboardSkill/);
+  assert.match(byaanSourcePortSource, /Source-level port of BYAAN Notebook\/Dashboard workspace/);
+  assert.match(byaanSourcePortSource, /original\/QueryRunnerDocked/);
+  assert.match(byaanSourcePortSource, /original\/DashboardPreviewPanel/);
+  assert.match(byaanQueryEditorSource, /export function QueryEditor/);
+  assert.match(byaanQueryResultsSource, /export function QueryResults/);
+  assert.match(byaanDashboardPreviewSource, /export function DashboardPreviewPanel/);
+  assert.match(byaanAdapterSource, /agentkit_native_asktable_dashboard/);
+  assert.match(byaanAdapterSource, /askDataToNotebookViewModel/);
+  assert.match(byaanAdapterSource, /dashboardSpecToByaanViewModel/);
+  assert.match(byaanQueryEditorSource, /kc-byaan-original-query-editor/);
+  assert.match(byaanSourcePortSource, /askdashboard-not-configured-blocked/);
+  assert.match(byaanAdapterSource, /blocked_no_semantic_skill/);
+  assert.match(byaanAdapterSource, /no published Semantic Skill/);
+  assert.match(byaanDashboardPreviewSource, /Preview/);
+  assert.match(byaanDashboardPreviewSource, /Code/);
+  assert.match(byaanDashboardPreviewSource, /Lineage/);
+  assert.match(byaanDashboardPreviewSource, /policyDecision/);
+  assert.match(byaanDashboardPreviewSource, /freshness/);
+  assert.match(byaanDashboardPreviewSource, /metricDefinition/);
+  assert.match(byaanQueryResultsSource, /Ready to Execute/);
+  assert.match(byaanDashboardPreviewSource, /Sparkline/);
+  assert.match(byaanDashboardPreviewSource, /kc-byaan-data-views/);
+  assert.match(byaanSourcePortSource, /Blocked/);
+  assert.match(byaanDashboardPreviewSource, /title="Export PDF"/);
+  assert.doesNotMatch([byaanSourcePortSource, byaanQueryEditorSource, byaanQueryResultsSource, byaanDashboardPreviewSource].join("\n"), /<iframe|from ["'][^"']*(ApiService|Tauri)|localhost:15183/);
   assert.match(knowledgeCenterSource, /<AskDashboardWorkbench/);
   assert.match(knowledgeCenterSource, /buildJobs=\{buildJobs\}/);
 });

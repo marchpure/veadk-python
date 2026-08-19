@@ -827,34 +827,42 @@ def _sql_identifier(value: object) -> str:
     return ".".join(f'"{part[:128]}"' for part in cleaned)
 
 
+_SQL_CONTROL_TOKENS = {
+    "alter",
+    "attach",
+    "call",
+    "copy",
+    "create",
+    "delete",
+    "detach",
+    "drop",
+    "export",
+    "insert",
+    "install",
+    "load",
+    "pragma",
+    "update",
+}
+_SQL_LITERAL_CONTROL_TOKENS = _SQL_CONTROL_TOKENS | {"table"}
+
+
 def _clean_identifier_part(value: str) -> str:
-    forbidden_tokens = {
-        "alter",
-        "attach",
-        "call",
-        "copy",
-        "create",
-        "delete",
-        "detach",
-        "drop",
-        "export",
-        "insert",
-        "install",
-        "load",
-        "pragma",
-        "update",
-    }
     raw_tokens = re.sub(r"[^A-Za-z0-9_]", "_", value).strip("_").split("_")
     tokens = [
         token
         for token in raw_tokens
-        if token and token.casefold() not in forbidden_tokens
+        if token and token.casefold() not in _SQL_CONTROL_TOKENS
     ]
     return "_".join(tokens) or "field"
 
 
 def _sql_literal(value: object) -> str:
-    return "'" + str(value).replace("'", "''")[:512] + "'"
+    text = str(value)[:512]
+    text = re.sub(r"(--|/\*|\*/|;)", " ", text)
+    for token in _SQL_LITERAL_CONTROL_TOKENS:
+        text = re.sub(rf"\b{re.escape(token)}\b", "redacted", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+", " ", text).strip()
+    return "'" + text.replace("'", "''") + "'"
 
 
 def _metric_payload(
