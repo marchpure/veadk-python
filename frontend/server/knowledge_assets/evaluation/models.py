@@ -16,6 +16,7 @@ from pydantic import (
 
 KnowledgeAssetEvalTargetKind = Literal[
     "semantic_skill",
+    "asktable_query",
     "asktable",
     "dashboard_skill",
 ]
@@ -159,6 +160,10 @@ class CreateKnowledgeAssetEvalCaseBody(KnowledgeAssetEvalModel):
         return self
 
 
+class ImportKnowledgeAssetEvalCasesBody(KnowledgeAssetEvalModel):
+    cases: list[CreateKnowledgeAssetEvalCaseBody] = Field(min_length=1, max_length=200)
+
+
 class KnowledgeAssetEvalCase(CreateKnowledgeAssetEvalCaseBody):
     id: str = Field(min_length=1, max_length=128)
     suite_id: str = Field(alias="suiteId", min_length=1, max_length=128)
@@ -248,4 +253,10 @@ class KnowledgeAssetEvalRunDetail(KnowledgeAssetEvalModel):
     suite: KnowledgeAssetEvalSuite
     cases: list[KnowledgeAssetEvalCase]
     results: list[KnowledgeAssetEvalResult]
+    mock: Literal[False] = False
+
+
+class ImportKnowledgeAssetEvalCasesResult(KnowledgeAssetEvalModel):
+    items: list[KnowledgeAssetEvalCase]
+    imported: int = Field(ge=0)
     mock: Literal[False] = False

@@ -173,6 +173,7 @@ export interface DashboardSkillBuildResult {
 
 export type KnowledgeAssetEvalTargetKind =
   | "semantic_skill"
+  | "asktable_query"
   | "asktable"
   | "dashboard_skill";
 
@@ -219,6 +220,26 @@ export interface KnowledgeAssetEvalCase {
   expectedEvidenceKeys: string[];
   tags: string[];
   createdAt: string;
+  mock?: boolean;
+}
+
+export interface KnowledgeAssetEvalCaseInput {
+  targetKind?: KnowledgeAssetEvalTargetKind;
+  input?: string;
+  question?: string;
+  intent?: string;
+  expectedMetric?: string;
+  expectedDimensions?: string[];
+  expectedSqlContains?: string[];
+  expectedPolicyDecision?: string;
+  expectedDashboardTiles?: string[];
+  expectedEvidenceKeys?: string[];
+  tags?: string[];
+}
+
+export interface KnowledgeAssetEvalCaseImportResult {
+  items: KnowledgeAssetEvalCase[];
+  imported: number;
   mock?: boolean;
 }
 
@@ -718,24 +739,23 @@ export async function listKnowledgeAssetEvalCases(
 
 export async function createKnowledgeAssetEvalCase(
   suiteId: string,
-  input: {
-    targetKind?: KnowledgeAssetEvalTargetKind;
-    input?: string;
-    question?: string;
-    intent?: string;
-    expectedMetric?: string;
-    expectedDimensions?: string[];
-    expectedSqlContains?: string[];
-    expectedPolicyDecision?: string;
-    expectedDashboardTiles?: string[];
-    expectedEvidenceKeys?: string[];
-    tags?: string[];
-  },
+  input: KnowledgeAssetEvalCaseInput,
 ): Promise<KnowledgeAssetEvalCase> {
   return requestJson(
     `/api/knowledge-assets/evaluation/suites/${encodeURIComponent(suiteId)}/cases`,
     { method: "POST", body: JSON.stringify(input) },
     "创建测评用例失败",
+  );
+}
+
+export async function importKnowledgeAssetEvalCases(
+  suiteId: string,
+  cases: KnowledgeAssetEvalCaseInput[],
+): Promise<KnowledgeAssetEvalCaseImportResult> {
+  return requestJson(
+    `/api/knowledge-assets/evaluation/suites/${encodeURIComponent(suiteId)}/cases/import`,
+    { method: "POST", body: JSON.stringify({ cases }) },
+    "导入测评用例失败",
   );
 }
 

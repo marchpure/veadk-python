@@ -12,6 +12,7 @@ from ..service import KnowledgeAssetServiceError, redact_sensitive
 from .models import (
     CreateKnowledgeAssetEvalCaseBody,
     CreateKnowledgeAssetEvalSuiteBody,
+    ImportKnowledgeAssetEvalCasesBody,
     KnowledgeAssetEvalTargetKind,
     RunKnowledgeAssetEvalBody,
 )
@@ -73,6 +74,17 @@ def mount_knowledge_asset_evaluation_routes(
     ) -> dict[str, Any]:
         item = await invoke(lambda: service.create_case(suite_id, body))
         return {**item.model_dump(mode="json", by_alias=True), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/evaluation/suites/{suite_id}/cases/import",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def import_cases(
+        suite_id: str,
+        body: ImportKnowledgeAssetEvalCasesBody,
+    ) -> dict[str, Any]:
+        result = await invoke(lambda: service.import_cases(suite_id, body))
+        return result.model_dump(mode="json", by_alias=True)
 
     @app.post("/api/knowledge-assets/evaluation/runs")
     async def run_evaluation(body: RunKnowledgeAssetEvalBody) -> dict[str, Any]:

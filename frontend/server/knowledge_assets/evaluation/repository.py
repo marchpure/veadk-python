@@ -14,30 +14,98 @@ from ..repository import (
 )
 
 
-def install_evaluation_repository_methods() -> None:
-    """Attach evaluation methods to ``KnowledgeAssetRepository``.
+class KnowledgeAssetEvaluationRepository:
+    """Explicit evaluation persistence boundary over the asset SQLite store."""
 
-    The main store already owns SQLite initialization and locking. Keeping these
-    methods in the evaluation package avoids mixing the evaluation domain logic
-    into the broader asset repository source.
-    """
+    def __init__(self, repository: KnowledgeAssetRepository) -> None:
+        self._repository = repository
 
-    if hasattr(KnowledgeAssetRepository, "create_eval_suite"):
-        return
+    def create_eval_suite(self, row: dict[str, Any]) -> dict[str, Any]:
+        return create_eval_suite(self._repository, row)
 
-    KnowledgeAssetRepository.create_eval_suite = create_eval_suite  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.list_eval_suites = list_eval_suites  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.get_eval_suite = get_eval_suite  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.create_eval_case = create_eval_case  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.list_eval_cases = list_eval_cases  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.create_eval_run = create_eval_run  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.update_eval_run = update_eval_run  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.list_eval_runs = list_eval_runs  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.get_eval_run = get_eval_run  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.create_eval_result = create_eval_result  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.list_eval_results = list_eval_results  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.put_eval_optimization = put_eval_optimization  # type: ignore[attr-defined]
-    KnowledgeAssetRepository.list_eval_optimizations = list_eval_optimizations  # type: ignore[attr-defined]
+    def list_eval_suites(
+        self,
+        *,
+        space_id: str | None = None,
+        target_kind: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return list_eval_suites(
+            self._repository,
+            space_id=space_id,
+            target_kind=target_kind,
+        )
+
+    def get_eval_suite(
+        self,
+        suite_id: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        return get_eval_suite(self._repository, suite_id, conn=conn)
+
+    def create_eval_case(self, row: dict[str, Any]) -> dict[str, Any]:
+        return create_eval_case(self._repository, row)
+
+    def create_eval_cases(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return create_eval_cases(self._repository, rows)
+
+    def list_eval_cases(self, *, suite_id: str) -> list[dict[str, Any]]:
+        return list_eval_cases(self._repository, suite_id=suite_id)
+
+    def create_eval_run(self, row: dict[str, Any]) -> dict[str, Any]:
+        return create_eval_run(self._repository, row)
+
+    def update_eval_run(
+        self,
+        run_id: str,
+        patch: dict[str, Any],
+    ) -> dict[str, Any]:
+        return update_eval_run(self._repository, run_id, patch)
+
+    def list_eval_runs(
+        self,
+        *,
+        suite_id: str | None = None,
+        target_kind: str | None = None,
+        target_asset_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return list_eval_runs(
+            self._repository,
+            suite_id=suite_id,
+            target_kind=target_kind,
+            target_asset_id=target_asset_id,
+            limit=limit,
+        )
+
+    def get_eval_run(
+        self,
+        run_id: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        return get_eval_run(self._repository, run_id, conn=conn)
+
+    def create_eval_result(self, row: dict[str, Any]) -> dict[str, Any]:
+        return create_eval_result(self._repository, row)
+
+    def list_eval_results(self, *, run_id: str) -> list[dict[str, Any]]:
+        return list_eval_results(self._repository, run_id=run_id)
+
+    def put_eval_optimization(self, row: dict[str, Any]) -> dict[str, Any]:
+        return put_eval_optimization(self._repository, row)
+
+    def list_eval_optimizations(
+        self,
+        *,
+        target_kind: str | None = None,
+        target_asset_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return list_eval_optimizations(
+            self._repository,
+            target_kind=target_kind,
+            target_asset_id=target_asset_id,
+        )
 
 
 def create_eval_suite(self: KnowledgeAssetRepository, row: dict[str, Any]) -> dict[str, Any]:
@@ -143,6 +211,45 @@ def create_eval_case(self: KnowledgeAssetRepository, row: dict[str, Any]) -> dic
             (row["suite_id"],),
         )
         return _case_payload(get_eval_case(self, row["id"], conn=conn))
+
+
+def create_eval_cases(
+    self: KnowledgeAssetRepository,
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not rows:
+        return []
+    suite_id = rows[0]["suite_id"]
+    with self._write() as conn:  # type: ignore[attr-defined]
+        suite = get_eval_suite(self, suite_id, conn=conn)
+        for row in rows:
+            if row["suite_id"] != suite_id:
+                raise ValueError("Eval case import must target a single suite.")
+            row.setdefault("target_kind", suite["target_kind"])
+            conn.execute(
+                """
+                INSERT INTO knowledge_asset_eval_cases (
+                    id, suite_id, target_kind, input, question, intent,
+                    expected_metric, expected_dimensions_json,
+                    expected_sql_contains_json, expected_policy_decision,
+                    expected_dashboard_tiles_json, expected_evidence_keys_json,
+                    tags_json
+                )
+                VALUES (
+                    :id, :suite_id, :target_kind, :input, :question, :intent,
+                    :expected_metric, :expected_dimensions_json,
+                    :expected_sql_contains_json, :expected_policy_decision,
+                    :expected_dashboard_tiles_json, :expected_evidence_keys_json,
+                    :tags_json
+                )
+                """,
+                row,
+            )
+        conn.execute(
+            f"UPDATE knowledge_asset_eval_suites SET updated_at = {utc_now_sql()} WHERE id = ?",
+            (suite_id,),
+        )
+        return [_case_payload(get_eval_case(self, row["id"], conn=conn)) for row in rows]
 
 
 def get_eval_case(
@@ -444,4 +551,4 @@ def _rows(cursor: sqlite3.Cursor) -> list[dict[str, Any]]:
     return [dict(row) for row in cursor.fetchall()]
 
 
-__all__ = ["install_evaluation_repository_methods", "dumps_json", "loads_json"]
+__all__ = ["KnowledgeAssetEvaluationRepository", "dumps_json", "loads_json"]

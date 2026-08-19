@@ -1398,6 +1398,7 @@
 }
 
 .kc-eval-toolbar > div:last-child,
+.kc-eval-toolbar-actions,
 .kc-eval-object-actions,
 .kc-eval-empty-states {
   display: flex;
@@ -1407,6 +1408,8 @@
 }
 
 .kc-eval-empty-states span,
+.kc-eval-import-notice,
+.kc-eval-schema-hint,
 .kc-eval-error {
   padding: 8px 10px;
   border: 1px solid hsl(38 75% 70% / 0.55);
@@ -1420,6 +1423,49 @@
   border-color: hsl(2 72% 68% / 0.5);
   background: hsl(2 90% 97%);
   color: hsl(2 62% 38%);
+}
+
+.kc-eval-import-notice {
+  border-color: hsl(148 45% 70% / 0.55);
+  background: hsl(148 55% 96%);
+  color: hsl(148 45% 30%);
+}
+
+.kc-eval-schema-hint {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.kc-eval-schema-hint code {
+  font-size: 11px;
+}
+
+.kc-eval-kind-select {
+  display: grid;
+  min-width: 148px;
+  gap: 4px;
+}
+
+.kc-eval-kind-select span {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1;
+}
+
+.kc-eval-kind-select select {
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--canvas));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 12px;
+}
+
+.kc-eval-file-input {
+  display: none;
 }
 
 .kc-eval-grid {

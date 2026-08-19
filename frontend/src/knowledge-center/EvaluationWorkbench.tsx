@@ -1,15 +1,17 @@
 import { Download, FileInput, Play, Plus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createKnowledgeAssetEvalCase,
   createKnowledgeAssetEvalSuite,
   getKnowledgeAssetEvalRun,
+  importKnowledgeAssetEvalCases,
   listKnowledgeAssetEvalCases,
   listKnowledgeAssetEvalRuns,
   listKnowledgeAssetEvalSuites,
   listKnowledgeAssetOptimizations,
   runKnowledgeAssetEvaluation,
+  type KnowledgeAssetEvalCaseInput,
   type KnowledgeAssetEvalCase,
   type KnowledgeAssetEvalResult,
   type KnowledgeAssetEvalRun,
@@ -43,6 +45,8 @@ export function EvaluationWorkbench({
   const [runDetail, setRunDetail] = useState<KnowledgeAssetEvalRunDetail | null>(null);
   const [optimizations, setOptimizations] = useState<KnowledgeAssetOptimizationSnapshot[]>([]);
   const [activeSuiteId, setActiveSuiteId] = useState("");
+  const [createTargetKind, setCreateTargetKind] =
+    useState<KnowledgeAssetEvalTargetKind>("semantic_skill");
   const [targetFilter, setTargetFilter] = useState<KnowledgeAssetEvalTargetKind | "all">("all");
   const [suiteKeyword, setSuiteKeyword] = useState("");
   const [caseTargetKind, setCaseTargetKind] = useState<KnowledgeAssetEvalTargetKind | "all">("all");
@@ -54,6 +58,8 @@ export function EvaluationWorkbench({
   const [selectedCaseId, setSelectedCaseId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [importNotice, setImportNotice] = useState("");
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const semanticSkills = assets.filter(
     (asset) =>
@@ -184,6 +190,7 @@ export function EvaluationWorkbench({
     if (!activeSuite) return;
     setBusy(true);
     setError("");
+    setImportNotice("");
     try {
       await createKnowledgeAssetEvalCase(activeSuite.id, defaultCasePayload(activeSuite.targetKind));
       await selectSuite(activeSuite);
@@ -191,6 +198,28 @@ export function EvaluationWorkbench({
       setError(err instanceof Error ? err.message : "创建测评用例失败。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function importCasesFile(file: File | null) {
+    if (!activeSuite || !file) return;
+    setBusy(true);
+    setError("");
+    setImportNotice("");
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const cases = importedCasesFromJson(parsed);
+      if (cases.length === 0) {
+        throw new Error("JSON 必须包含 cases 数组，且至少 1 条用例。");
+      }
+      const result = await importKnowledgeAssetEvalCases(activeSuite.id, cases);
+      setImportNotice(`已导入 ${result.imported} 条 ${evaluationTargetLabel(activeSuite.targetKind)} cases。`);
+      await selectSuite(activeSuite);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导入测评用例失败。");
+    } finally {
+      setBusy(false);
+      if (importInputRef.current) importInputRef.current.value = "";
     }
   }
 
@@ -253,18 +282,42 @@ export function EvaluationWorkbench({
           <h2>测评</h2>
           <span>Semantic Skill、AskTable Query、Dashboard Skill 的本地 SQLite evaluation。</span>
         </div>
-        <div>
+        <div className="kc-eval-toolbar-actions">
+          <label className="kc-eval-kind-select">
+            <span>创建对象</span>
+            <select
+              value={createTargetKind}
+              onChange={(event) =>
+                setCreateTargetKind(event.target.value as KnowledgeAssetEvalTargetKind)
+              }
+            >
+              <option value="semantic_skill">Semantic Skill</option>
+              <option value="asktable_query">AskTable Query</option>
+              <option value="dashboard_skill">Dashboard Skill</option>
+            </select>
+          </label>
           <button type="button" disabled={busy || !activeSuite} onClick={runEvaluation}>
             <Play className="kc-native-icon" />
             Run Evaluation
           </button>
-          <button type="button" disabled={busy} onClick={() => void createSuite("semantic_skill")}>
+          <button type="button" disabled={busy} onClick={() => void createSuite(createTargetKind)}>
             <Plus className="kc-native-icon" />
             Create Suite
           </button>
-          <button type="button" disabled={busy || !activeSuite} onClick={addCase}>
+          <button type="button" disabled={busy || !activeSuite} onClick={() => importInputRef.current?.click()}>
             <FileInput className="kc-native-icon" />
             Import Cases
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="kc-eval-file-input"
+            onChange={(event) => void importCasesFile(event.currentTarget.files?.[0] ?? null)}
+          />
+          <button type="button" disabled={busy || !activeSuite} onClick={addCase}>
+            <Plus className="kc-native-icon" />
+            Add Default Case
           </button>
           <button type="button" disabled={!runDetail} onClick={exportResult}>
             <Download className="kc-native-icon" />
@@ -277,6 +330,10 @@ export function EvaluationWorkbench({
         </div>
       </header>
       {error ? <div className="kc-eval-error">{error}</div> : null}
+      {importNotice ? <div className="kc-eval-import-notice">{importNotice}</div> : null}
+      <div className="kc-eval-schema-hint">
+        Import schema: <code>{"{\"cases\":[{\"targetKind\":\"semantic_skill|asktable_query|dashboard_skill\",\"question\":\"...\",\"expectedMetric\":\"ticket_count\"}]}"}</code>
+      </div>
       <div className="kc-eval-empty-states">
         {semanticSkills.length === 0 ? <span>没有 Semantic Skill，请先去语义构建。</span> : null}
         {dashboardSkills.length === 0 ? <span>没有 Dashboard Skill，dashboard 测评暂不可运行。</span> : null}
@@ -286,7 +343,7 @@ export function EvaluationWorkbench({
         <button type="button" disabled={busy || semanticSkills.length === 0} onClick={() => void createSuite("semantic_skill")}>
           Semantic Skill
         </button>
-        <button type="button" disabled={busy || semanticSkills.length === 0} onClick={() => void createSuite("asktable")}>
+        <button type="button" disabled={busy || semanticSkills.length === 0} onClick={() => void createSuite("asktable_query")}>
           AskTable Query
         </button>
         <button type="button" disabled={busy || dashboardSkills.length === 0} onClick={() => void createSuite("dashboard_skill")}>
@@ -354,4 +411,16 @@ function defaultCasePayload(kind: KnowledgeAssetEvalTargetKind) {
     expectedEvidenceKeys: ["metric"],
     tags: ["smoke"],
   };
+}
+
+function importedCasesFromJson(value: unknown): KnowledgeAssetEvalCaseInput[] {
+  const maybeCases =
+    Array.isArray(value)
+      ? value
+      : value && typeof value === "object" && Array.isArray((value as { cases?: unknown }).cases)
+        ? (value as { cases: unknown[] }).cases
+        : [];
+  return maybeCases.filter((item): item is KnowledgeAssetEvalCaseInput =>
+    Boolean(item && typeof item === "object"),
+  );
 }

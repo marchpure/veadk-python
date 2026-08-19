@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Protocol
@@ -35,6 +36,8 @@ from ..service import KnowledgeAssetServiceError, KnowledgeAssetStore, redact_se
 from .models import (
     CreateKnowledgeAssetEvalCaseBody,
     CreateKnowledgeAssetEvalSuiteBody,
+    ImportKnowledgeAssetEvalCasesBody,
+    ImportKnowledgeAssetEvalCasesResult,
     KnowledgeAssetEvalCase,
     KnowledgeAssetEvalResult,
     KnowledgeAssetEvalRun,
@@ -48,7 +51,7 @@ from .models import (
     KnowledgeAssetOptimizationSuggestion,
     RunKnowledgeAssetEvalBody,
 )
-from .repository import install_evaluation_repository_methods
+from .repository import KnowledgeAssetEvaluationRepository
 
 logger = get_logger(__name__)
 
@@ -158,12 +161,16 @@ class KnowledgeAssetEvaluatorService:
         self,
         store: KnowledgeAssetStore,
         *,
-        repository: KnowledgeAssetRepository | None = None,
+        repository: KnowledgeAssetEvaluationRepository | KnowledgeAssetRepository | None = None,
         judge: KnowledgeAssetJudge | None = None,
     ) -> None:
-        install_evaluation_repository_methods()
         self._store = store
-        self._repository = repository or store._repository
+        if repository is None:
+            self._repository = KnowledgeAssetEvaluationRepository(store._repository)
+        elif isinstance(repository, KnowledgeAssetEvaluationRepository):
+            self._repository = repository
+        else:
+            self._repository = KnowledgeAssetEvaluationRepository(repository)
         self._judge = judge or KnowledgeAssetStructuredEvaluationModels()
         self._semantic_query = GovernedSemanticQueryService(store)
         self._askdata = AskDataQueryService(store)
@@ -214,19 +221,38 @@ class KnowledgeAssetEvaluatorService:
             "id": _new_id("eval_case"),
             "suite_id": suite_id,
             "target_kind": target_kind,
-            "input": _sanitize(body.input),
-            "question": _sanitize(body.question),
-            "intent": _sanitize(body.intent),
-            "expected_metric": _sanitize(body.expected_metric),
-            "expected_dimensions_json": dumps_json(body.expected_dimensions),
-            "expected_sql_contains_json": dumps_json(body.expected_sql_contains),
-            "expected_policy_decision": _sanitize(body.expected_policy_decision),
-            "expected_dashboard_tiles_json": dumps_json(body.expected_dashboard_tiles),
-            "expected_evidence_keys_json": dumps_json(body.expected_evidence_keys),
-            "tags_json": dumps_json(body.tags),
+            **_case_row_values(body),
         }
         stored = await asyncio.to_thread(self._repository.create_eval_case, row)
         return _case_model(stored)
+
+    async def import_cases(
+        self,
+        suite_id: str,
+        body: ImportKnowledgeAssetEvalCasesBody,
+    ) -> ImportKnowledgeAssetEvalCasesResult:
+        suite = await self.get_suite(suite_id)
+        rows: list[dict[str, Any]] = []
+        for index, case in enumerate(body.cases, start=1):
+            target_kind = case.target_kind or suite.target_kind
+            if target_kind != suite.target_kind:
+                raise KnowledgeAssetServiceError(
+                    f"Imported case #{index} target kind must match suite."
+                )
+            rows.append(
+                {
+                    "id": _new_id("eval_case"),
+                    "suite_id": suite_id,
+                    "target_kind": target_kind,
+                    **_case_row_values(case),
+                }
+            )
+        stored = await asyncio.to_thread(self._repository.create_eval_cases, rows)
+        imported = [_case_model(row) for row in stored]
+        return ImportKnowledgeAssetEvalCasesResult(
+            items=imported,
+            imported=len(imported),
+        )
 
     async def list_cases(self, suite_id: str) -> list[KnowledgeAssetEvalCase]:
         await self.get_suite(suite_id)
@@ -412,7 +438,7 @@ class KnowledgeAssetEvaluatorService:
                 case,
                 target_asset_id,
             )
-        elif suite.target_kind == "asktable":
+        elif suite.target_kind in {"asktable_query", "asktable"}:
             actual, checks = await self._evaluate_asktable(case, target_asset_id)
         elif suite.target_kind == "dashboard_skill":
             actual, checks = await self._evaluate_dashboard_skill(
@@ -775,6 +801,54 @@ def _json_dict(row: dict[str, Any], key: str, json_key: str) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _case_row_values(body: CreateKnowledgeAssetEvalCaseBody) -> dict[str, Any]:
+    values = {
+        "input": _sanitize_case_text("input", body.input),
+        "question": _sanitize_case_text("question", body.question),
+        "intent": _sanitize_case_text("intent", body.intent),
+        "expected_metric": _sanitize_case_text("expectedMetric", body.expected_metric),
+        "expected_policy_decision": _sanitize_case_text(
+            "expectedPolicyDecision",
+            body.expected_policy_decision,
+        ),
+    }
+    expected_dimensions = _sanitize_case_list(
+        "expectedDimensions",
+        body.expected_dimensions,
+    )
+    expected_sql_contains = _sanitize_case_list(
+        "expectedSqlContains",
+        body.expected_sql_contains,
+    )
+    expected_dashboard_tiles = _sanitize_case_list(
+        "expectedDashboardTiles",
+        body.expected_dashboard_tiles,
+    )
+    expected_evidence_keys = _sanitize_case_list(
+        "expectedEvidenceKeys",
+        body.expected_evidence_keys,
+    )
+    tags = _sanitize_case_list("tags", body.tags)
+    return {
+        **values,
+        "expected_dimensions_json": dumps_json(expected_dimensions),
+        "expected_sql_contains_json": dumps_json(expected_sql_contains),
+        "expected_dashboard_tiles_json": dumps_json(expected_dashboard_tiles),
+        "expected_evidence_keys_json": dumps_json(expected_evidence_keys),
+        "tags_json": dumps_json(tags),
+    }
+
+
+def _sanitize_case_list(field: str, values: list[str]) -> list[str]:
+    return [_sanitize_case_text(field, value) for value in values]
+
+
+def _sanitize_case_text(field: str, value: str) -> str:
+    text = str(value or "")
+    _assert_no_sensitive_case_value(field, text)
+    return _sanitize(text)
+
+
 def _common_result_checks(
     case: KnowledgeAssetEvalCase,
     result: dict[str, Any],
@@ -889,6 +963,7 @@ def _optimization_groups(
         return []
     module = {
         "semantic_skill": "semantic_model",
+        "asktable_query": "query_tool",
         "asktable": "query_tool",
         "dashboard_skill": "dashboard_layout",
     }[target_kind]
@@ -1007,6 +1082,34 @@ def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
 
 def _lower_items(values: list[str]) -> list[str]:
     return [value.strip().casefold() for value in values if value.strip()]
+
+
+_SENSITIVE_CASE_PATTERNS = [
+    re.compile(
+        r"(?i)\bauthorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]+"
+    ),
+    re.compile(r"(?i)\b(?:set-)?cookie\s*:\s*[^\r\n]+"),
+    re.compile(
+        r"(?i)\b(?:access|refresh|session)[_-]?token\s*[:=]\s*[A-Za-z0-9._~+/=-]+"
+    ),
+    re.compile(r"(?i)\bapi[_-]?key\s*[:=]\s*[A-Za-z0-9._~+/=-]+"),
+    re.compile(r"(?i)\b(?:password|secret)\s*[:=]\s*[^\s,;}&]+"),
+    re.compile(r"(?i)\b[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{12,}\b"),
+]
+_SENSITIVE_FIELD_WORDS = re.compile(
+    r"(?i)\b(authorization|cookie|token|password|secret|api[_-]?key)\b"
+)
+
+
+def _assert_no_sensitive_case_value(field: str, value: str) -> None:
+    if not value:
+        return
+    if _SENSITIVE_FIELD_WORDS.search(field) or any(
+        pattern.search(value) for pattern in _SENSITIVE_CASE_PATTERNS
+    ):
+        raise KnowledgeAssetServiceError(
+            "Eval cases must not contain password, secret, token, Authorization, or cookie values."
+        )
 
 
 def _new_id(prefix: str) -> str:

@@ -3,6 +3,8 @@
 from .models import (
     CreateKnowledgeAssetEvalCaseBody,
     CreateKnowledgeAssetEvalSuiteBody,
+    ImportKnowledgeAssetEvalCasesBody,
+    ImportKnowledgeAssetEvalCasesResult,
     KnowledgeAssetEvalCase,
     KnowledgeAssetEvalResult,
     KnowledgeAssetEvalRun,
@@ -16,6 +18,8 @@ from .service import KnowledgeAssetEvaluatorService
 __all__ = [
     "CreateKnowledgeAssetEvalCaseBody",
     "CreateKnowledgeAssetEvalSuiteBody",
+    "ImportKnowledgeAssetEvalCasesBody",
+    "ImportKnowledgeAssetEvalCasesResult",
     "KnowledgeAssetEvalCase",
     "KnowledgeAssetEvalResult",
     "KnowledgeAssetEvalRun",

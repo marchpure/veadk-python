@@ -6,6 +6,7 @@ import type {
 
 const targetLabels: Record<KnowledgeAssetEvalTargetKind, string> = {
   semantic_skill: "Semantic Skill",
+  asktable_query: "AskTable Query",
   asktable: "AskTable Query",
   dashboard_skill: "Dashboard Skill",
 };
@@ -86,7 +87,7 @@ export function EvaluationCaseTable({
           >
             <option value="all">全部对象</option>
             <option value="semantic_skill">Semantic Skill</option>
-            <option value="asktable">AskTable Query</option>
+            <option value="asktable_query">AskTable Query</option>
             <option value="dashboard_skill">Dashboard Skill</option>
           </select>
         </label>

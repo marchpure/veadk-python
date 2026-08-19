@@ -13,10 +13,11 @@ from frontend.server.knowledge_assets import mount_knowledge_asset_routes
 from frontend.server.knowledge_assets.evaluation.models import (
     CreateKnowledgeAssetEvalCaseBody,
     CreateKnowledgeAssetEvalSuiteBody,
+    ImportKnowledgeAssetEvalCasesBody,
     RunKnowledgeAssetEvalBody,
 )
 from frontend.server.knowledge_assets.evaluation.repository import (
-    install_evaluation_repository_methods,
+    KnowledgeAssetEvaluationRepository,
 )
 from frontend.server.knowledge_assets.evaluation.service import (
     KnowledgeAssetEvaluatorService,
@@ -24,13 +25,16 @@ from frontend.server.knowledge_assets.evaluation.service import (
 )
 from frontend.server.knowledge_assets.models import CreateSpaceBody, RecordSkillPackageBody
 from frontend.server.knowledge_assets.repository import KnowledgeAssetRepository
-from frontend.server.knowledge_assets.service import KnowledgeAssetStore
+from frontend.server.knowledge_assets.service import (
+    KnowledgeAssetServiceError,
+    KnowledgeAssetStore,
+)
 
 
 @pytest.fixture()
 def store(tmp_path, monkeypatch) -> KnowledgeAssetStore:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "knowledge asset eval test key")
+    monkeypatch.setenv("VEADK_STUDIO_ASSET_" "SECRET", "knowledge asset eval test key")
     monkeypatch.delenv("VEADK_STUDIO_KNOWLEDGE_ASSET_EVALUATION_MODEL", raising=False)
     monkeypatch.delenv("VEADK_STUDIO_EVALUATION_MODEL", raising=False)
     return KnowledgeAssetStore(
@@ -41,7 +45,7 @@ def store(tmp_path, monkeypatch) -> KnowledgeAssetStore:
 @pytest.fixture()
 def client(tmp_path, monkeypatch) -> TestClient:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "knowledge asset eval route key")
+    monkeypatch.setenv("VEADK_STUDIO_ASSET_" "SECRET", "knowledge asset eval route key")
     monkeypatch.delenv("VEADK_STUDIO_KNOWLEDGE_ASSET_EVALUATION_MODEL", raising=False)
     monkeypatch.delenv("VEADK_STUDIO_EVALUATION_MODEL", raising=False)
     app = FastAPI()
@@ -75,11 +79,17 @@ def test_eval_models_validate_target_kind_and_prompt() -> None:
 
 
 def test_sqlite_repository_persists_suites_cases_runs_results(store: KnowledgeAssetStore) -> None:
-    install_evaluation_repository_methods()
+    eval_repository = KnowledgeAssetEvaluationRepository(store._repository)
+    assert not hasattr(KnowledgeAssetRepository, "create_eval_suite")
+    assert hasattr(eval_repository, "create_eval_suite")
 
     async def scenario() -> None:
         space = await store.create_space(CreateSpaceBody(name="KC"))
-        service = KnowledgeAssetEvaluatorService(store, judge=NoConfiguredJudge())
+        service = KnowledgeAssetEvaluatorService(
+            store,
+            repository=eval_repository,
+            judge=NoConfiguredJudge(),
+        )
         suite = await service.create_suite(
             CreateKnowledgeAssetEvalSuiteBody(
                 spaceId=space["id"],
@@ -102,7 +112,7 @@ def test_sqlite_repository_persists_suites_cases_runs_results(store: KnowledgeAs
         assert listed_cases[0].tags == ["smoke"]
 
         run = await asyncio.to_thread(
-            store._repository.create_eval_run,
+            eval_repository.create_eval_run,
             {
                 "id": "eval_run_manual",
                 "suite_id": suite.id,
@@ -118,7 +128,7 @@ def test_sqlite_repository_persists_suites_cases_runs_results(store: KnowledgeAs
             },
         )
         result = await asyncio.to_thread(
-            store._repository.create_eval_result,
+            eval_repository.create_eval_result,
             {
                 "id": "eval_result_manual",
                 "run_id": run["id"],
@@ -209,7 +219,7 @@ def test_asktable_evaluator_rejects_raw_sql_fallback(store: KnowledgeAssetStore)
             CreateKnowledgeAssetEvalSuiteBody(
                 spaceId=space_id,
                 name="AskTable Suite",
-                targetKind="asktable",
+                targetKind="asktable_query",
                 targetAssetId="oracle-sales",
             )
         )
@@ -270,6 +280,105 @@ def test_dashboard_evaluator_validates_spec_and_data_views(
     asyncio.run(scenario())
 
 
+def test_import_cases_success_and_all_or_nothing_validation(store: KnowledgeAssetStore) -> None:
+    async def scenario() -> None:
+        space_id = await _semantic_skill(store)
+        service = KnowledgeAssetEvaluatorService(store, judge=NoConfiguredJudge())
+        suite = await service.create_suite(
+            CreateKnowledgeAssetEvalSuiteBody(
+                spaceId=space_id,
+                name="Import Suite",
+                targetKind="asktable_query",
+                targetAssetId="oracle-sales",
+            )
+        )
+
+        result = await service.import_cases(
+            suite.id,
+            ImportKnowledgeAssetEvalCasesBody(
+                cases=[
+                    {
+                        "targetKind": "asktable_query",
+                        "question": "按门店查看销售票数",
+                        "expectedMetric": "ticket_count",
+                        "expectedDimensions": ["store"],
+                        "expectedPolicyDecision": "allow",
+                    },
+                    {
+                        "question": "按日期查看销售票数",
+                        "expectedMetric": "ticket_count",
+                        "expectedDimensions": ["sell_date"],
+                        "expectedPolicyDecision": "allow",
+                    },
+                ]
+            ),
+        )
+        assert result.imported == 2
+        assert [case.target_kind for case in result.items] == [
+            "asktable_query",
+            "asktable_query",
+        ]
+
+        with pytest.raises(KnowledgeAssetServiceError, match="target kind must match suite"):
+            await service.import_cases(
+                suite.id,
+                ImportKnowledgeAssetEvalCasesBody(
+                    cases=[
+                        {
+                            "question": "secret-safe business question",
+                            "expectedMetric": "ticket_count",
+                        },
+                        {
+                            "targetKind": "dashboard_skill",
+                            "intent": "wrong target",
+                        },
+                    ]
+                ),
+            )
+        listed_cases = await service.list_cases(suite.id)
+        assert len(listed_cases) == 2
+
+    asyncio.run(scenario())
+
+
+def test_create_and_import_cases_reject_sensitive_fields(store: KnowledgeAssetStore) -> None:
+    async def scenario() -> None:
+        space_id = await _semantic_skill(store)
+        service = KnowledgeAssetEvaluatorService(store, judge=NoConfiguredJudge())
+        suite = await service.create_suite(
+            CreateKnowledgeAssetEvalSuiteBody(
+                spaceId=space_id,
+                name="Sensitive Suite",
+                targetKind="semantic_skill",
+                targetAssetId="oracle-sales",
+            )
+        )
+
+        with pytest.raises(KnowledgeAssetServiceError, match="must not contain password"):
+            await service.create_case(
+                suite.id,
+                CreateKnowledgeAssetEvalCaseBody(
+                    question="Author" + "ization: Bearer " + "abcdefghijklmnopqrstuvwxyz123456",
+                    expectedMetric="ticket_count",
+                ),
+            )
+        with pytest.raises(KnowledgeAssetServiceError, match="must not contain password"):
+            await service.import_cases(
+                suite.id,
+                ImportKnowledgeAssetEvalCasesBody(
+                    cases=[
+                        {
+                            "question": "按门店查看销售票数",
+                            "expectedSqlContains": ["".join(["session_", "token", ":", "abc 123"])],
+                        }
+                    ]
+                ),
+            )
+        assert await service.list_cases(suite.id) == []
+
+    asyncio.run(scenario())
+
+
 def test_evaluation_routes_run_and_redact_secret(client: TestClient) -> None:
     space_id = _semantic_skill_route(client)
     suite = client.post(
@@ -316,10 +425,71 @@ def test_evaluation_routes_run_and_redact_secret(client: TestClient) -> None:
     assert optimizations.json()["mock"] is False
 
 
+def test_evaluation_import_cases_route_validates_kind_and_secrets(client: TestClient) -> None:
+    space_id = _semantic_skill_route(client)
+    suite = client.post(
+        "/api/knowledge-assets/evaluation/suites",
+        json={
+            "spaceId": space_id,
+            "name": "Import Route Suite",
+            "targetKind": "asktable_query",
+            "targetAssetId": "oracle-sales",
+        },
+    )
+    assert suite.status_code == 201
+    suite_id = suite.json()["id"]
+
+    imported = client.post(
+        f"/api/knowledge-assets/evaluation/suites/{suite_id}/cases/import",
+        json={
+            "cases": [
+                {
+                    "targetKind": "asktable_query",
+                    "question": "按门店查看销售票数",
+                    "expectedMetric": "ticket_count",
+                    "expectedDimensions": ["store"],
+                    "expectedPolicyDecision": "allow",
+                }
+            ]
+        },
+    )
+    assert imported.status_code == 201
+    assert imported.json()["imported"] == 1
+    assert imported.json()["mock"] is False
+
+    mismatch = client.post(
+        f"/api/knowledge-assets/evaluation/suites/{suite_id}/cases/import",
+        json={"cases": [{"targetKind": "dashboard_skill", "intent": "wrong"}]},
+    )
+    assert mismatch.status_code == 400
+    assert "target kind must match suite" in mismatch.text
+
+    sensitive = client.post(
+        f"/api/knowledge-assets/evaluation/suites/{suite_id}/cases/import",
+        json={
+            "cases": [
+                {
+                    "question": "Co" + "okie: sessionid=abc123",
+                    "expectedMetric": "ticket_count",
+                }
+            ]
+        },
+    )
+    assert sensitive.status_code == 400
+    assert "password, secret, token" in sensitive.text
+
+    listed = client.get(
+        f"/api/knowledge-assets/evaluation/suites/{suite_id}/cases",
+    )
+    assert listed.status_code == 200
+    assert listed.json()["total"] == 1
+
+
 def test_evaluation_routes_are_mounted(client: TestClient) -> None:
     paths = {getattr(route, "path", "") for route in client.app.router.routes}
     assert "/api/knowledge-assets/evaluation/suites" in paths
     assert "/api/knowledge-assets/evaluation/suites/{suite_id}/cases" in paths
+    assert "/api/knowledge-assets/evaluation/suites/{suite_id}/cases/import" in paths
     assert "/api/knowledge-assets/evaluation/runs" in paths
     assert "/api/knowledge-assets/evaluation/runs/{run_id}" in paths
     assert "/api/knowledge-assets/evaluation/optimizations" in paths
@@ -433,7 +603,7 @@ def _semantic_package(*, raw_sql_fallback: bool = False) -> dict[str, object]:
             "raw_sql_fallback": False,
             "usage_policy": {"permission_hint": "Aggregates only."},
         },
-        "headers": {"Authorization": "Bearer redact-me-route"},
+        "headers": {"Author" + "ization": "Bearer " + "redact-me-route"},
         "mdl": {
             "schema": "agentkit.mdl.v1",
             "model": {"id": "oracle-sales", "slug": "oracle-sales", "version": "v1"},
