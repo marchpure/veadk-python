@@ -12,10 +12,10 @@ import base64
 import binascii
 import hashlib
 import re
+import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-import tempfile
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 from uuid import uuid4
@@ -36,7 +36,11 @@ from .models import (
     RecordSkillPackageBody,
     RecordSnapshotBody,
     SaveCredentialBody,
+    SemanticInstructionBody,
+    SemanticQuestionSqlPairBody,
     UpdateBuildJobBody,
+    UpdateSemanticInstructionBody,
+    UpdateSemanticQuestionSqlPairBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
 )
@@ -697,6 +701,369 @@ class KnowledgeAssetStore:
             await asyncio.to_thread(self._repository.get_build_job, job_id)
         )
 
+    async def append_build_event(
+        self,
+        *,
+        job_id: str,
+        event_type: str,
+        payload: Mapping[str, Any],
+        space_id: str | None = None,
+        semantic_pack_id: str | None = None,
+    ) -> dict[str, Any]:
+        row = {
+            "id": _new_id("evt"),
+            "job_id": job_id,
+            "space_id": space_id,
+            "semantic_pack_id": _sanitize_text(semantic_pack_id or "") or None,
+            "event_type": _sanitize_text(event_type),
+            "sequence": await asyncio.to_thread(
+                self._repository.next_build_event_sequence,
+                job_id,
+            ),
+            "payload_json": dumps_json(redact_sensitive(dict(payload))),
+        }
+        return _semantic_build_event_payload(
+            await asyncio.to_thread(self._repository.append_build_event, row)
+        )
+
+    async def list_build_events(
+        self,
+        job_id: str,
+        *,
+        after_sequence: int | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_build_events,
+            job_id,
+            after_sequence=after_sequence,
+        )
+        return [_semantic_build_event_payload(row) for row in rows]
+
+    async def create_question_sql_pair(
+        self,
+        body: SemanticQuestionSqlPairBody,
+    ) -> dict[str, Any]:
+        row = {
+            "id": _new_id("qsql"),
+            "space_id": body.space_id,
+            "semantic_pack_id": _sanitize_text(body.semantic_pack_id or "") or None,
+            "question": _sanitize_text(body.question),
+            "sql": _sanitize_text(body.sql),
+            "dialect": _sanitize_text(body.dialect or "ansi"),
+            "tables_json": dumps_json(redact_sensitive(body.tables)),
+            "notes": _sanitize_text(body.notes or ""),
+        }
+        return _question_sql_pair_payload(
+            await asyncio.to_thread(self._repository.create_question_sql_pair, row)
+        )
+
+    async def list_question_sql_pairs(
+        self,
+        *,
+        space_id: str,
+        semantic_pack_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_question_sql_pairs,
+            space_id=space_id,
+            semantic_pack_id=semantic_pack_id,
+        )
+        return [_question_sql_pair_payload(row) for row in rows]
+
+    async def update_question_sql_pair(
+        self,
+        pair_id: str,
+        body: UpdateSemanticQuestionSqlPairBody,
+    ) -> dict[str, Any]:
+        patch: dict[str, Any] = {}
+        if body.question is not None:
+            patch["question"] = _sanitize_text(body.question)
+        if body.sql is not None:
+            patch["sql"] = _sanitize_text(body.sql)
+        if body.dialect is not None:
+            patch["dialect"] = _sanitize_text(body.dialect or "ansi")
+        if body.tables is not None:
+            patch["tables_json"] = dumps_json(redact_sensitive(body.tables))
+        if body.notes is not None:
+            patch["notes"] = _sanitize_text(body.notes)
+        return _question_sql_pair_payload(
+            await asyncio.to_thread(
+                self._repository.update_question_sql_pair,
+                pair_id,
+                patch,
+            )
+        )
+
+    async def delete_question_sql_pair(self, pair_id: str) -> None:
+        await asyncio.to_thread(self._repository.delete_question_sql_pair, pair_id)
+
+    async def create_instruction(self, body: SemanticInstructionBody) -> dict[str, Any]:
+        row = {
+            "id": _new_id("ins"),
+            "space_id": body.space_id,
+            "semantic_pack_id": _sanitize_text(body.semantic_pack_id or "") or None,
+            "instruction": _sanitize_text(body.instruction),
+            "questions_json": dumps_json(redact_sensitive(body.questions)),
+            "is_default": 1 if body.is_default else 0,
+            "scope": _sanitize_text(body.scope or "global"),
+        }
+        return _instruction_payload(
+            await asyncio.to_thread(self._repository.create_instruction, row)
+        )
+
+    async def list_instructions(
+        self,
+        *,
+        space_id: str,
+        semantic_pack_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_instructions,
+            space_id=space_id,
+            semantic_pack_id=semantic_pack_id,
+        )
+        return [_instruction_payload(row) for row in rows]
+
+    async def update_instruction(
+        self,
+        instruction_id: str,
+        body: UpdateSemanticInstructionBody,
+    ) -> dict[str, Any]:
+        patch: dict[str, Any] = {}
+        if body.instruction is not None:
+            patch["instruction"] = _sanitize_text(body.instruction)
+        if body.questions is not None:
+            patch["questions_json"] = dumps_json(redact_sensitive(body.questions))
+        if body.is_default is not None:
+            patch["is_default"] = 1 if body.is_default else 0
+        if body.scope is not None:
+            patch["scope"] = _sanitize_text(body.scope or "global")
+        return _instruction_payload(
+            await asyncio.to_thread(
+                self._repository.update_instruction,
+                instruction_id,
+                patch,
+            )
+        )
+
+    async def delete_instruction(self, instruction_id: str) -> None:
+        await asyncio.to_thread(self._repository.delete_instruction, instruction_id)
+
+    async def upsert_graph_object(
+        self,
+        *,
+        object_id: str,
+        space_id: str | None,
+        semantic_pack_id: str,
+        kind: str,
+        name: str,
+        normalized_name: str,
+        description: str = "",
+        confidence: float = 0,
+        provenance: Mapping[str, Any] | None = None,
+        review_status: str = "suggested",
+    ) -> dict[str, Any]:
+        row = {
+            "id": object_id,
+            "space_id": space_id,
+            "semantic_pack_id": semantic_pack_id,
+            "kind": _sanitize_text(kind),
+            "name": _sanitize_text(name),
+            "normalized_name": _sanitize_text(normalized_name),
+            "description": _sanitize_text(description),
+            "confidence": float(confidence),
+            "provenance_json": dumps_json(redact_sensitive(dict(provenance or {}))),
+            "review_status": _sanitize_text(review_status or "suggested"),
+        }
+        return _graph_object_payload(
+            await asyncio.to_thread(self._repository.upsert_graph_object, row)
+        )
+
+    async def list_graph_objects(
+        self,
+        *,
+        space_id: str | None = None,
+        semantic_pack_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_graph_objects,
+            space_id=space_id,
+            semantic_pack_id=semantic_pack_id,
+        )
+        return [_graph_object_payload(row) for row in rows]
+
+    async def update_graph_object_status(
+        self,
+        object_id: str,
+        review_status: str,
+    ) -> dict[str, Any]:
+        return _graph_object_payload(
+            await asyncio.to_thread(
+                self._repository.update_graph_object_status,
+                object_id,
+                _sanitize_text(review_status or "suggested"),
+            )
+        )
+
+    async def upsert_graph_relation(
+        self,
+        *,
+        relation_id: str,
+        space_id: str | None,
+        semantic_pack_id: str,
+        source_object_id: str,
+        target_object_id: str,
+        relation_type: str,
+        predicate: str = "",
+        condition: str = "",
+        confidence: float = 0,
+        evidence: Sequence[Mapping[str, Any]] = (),
+        review_status: str = "suggested",
+    ) -> dict[str, Any]:
+        row = {
+            "id": relation_id,
+            "space_id": space_id,
+            "semantic_pack_id": semantic_pack_id,
+            "source_object_id": _sanitize_text(source_object_id),
+            "target_object_id": _sanitize_text(target_object_id),
+            "relation_type": _sanitize_text(relation_type),
+            "predicate": _sanitize_text(predicate),
+            "condition": _sanitize_text(condition),
+            "confidence": float(confidence),
+            "evidence_json": dumps_json(redact_sensitive(list(evidence))),
+            "review_status": _sanitize_text(review_status or "suggested"),
+        }
+        return _graph_relation_payload(
+            await asyncio.to_thread(self._repository.upsert_graph_relation, row)
+        )
+
+    async def list_graph_relations(
+        self,
+        *,
+        space_id: str | None = None,
+        semantic_pack_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_graph_relations,
+            space_id=space_id,
+            semantic_pack_id=semantic_pack_id,
+        )
+        return [_graph_relation_payload(row) for row in rows]
+
+    async def update_graph_relation_status(
+        self,
+        relation_id: str,
+        review_status: str,
+    ) -> dict[str, Any]:
+        return _graph_relation_payload(
+            await asyncio.to_thread(
+                self._repository.update_graph_relation_status,
+                relation_id,
+                _sanitize_text(review_status or "suggested"),
+            )
+        )
+
+    async def upsert_alignment(
+        self,
+        *,
+        alignment_id: str,
+        space_id: str | None,
+        semantic_pack_id: str,
+        doc_object_id: str,
+        mdl_object_ref: str,
+        alignment_type: str,
+        confidence: float = 0,
+        evidence: Sequence[Mapping[str, Any]] = (),
+        status: str = "suggested",
+    ) -> dict[str, Any]:
+        row = {
+            "id": alignment_id,
+            "space_id": space_id,
+            "semantic_pack_id": semantic_pack_id,
+            "doc_object_id": _sanitize_text(doc_object_id),
+            "mdl_object_ref": _sanitize_text(mdl_object_ref),
+            "alignment_type": _sanitize_text(alignment_type),
+            "confidence": float(confidence),
+            "evidence_json": dumps_json(redact_sensitive(list(evidence))),
+            "status": _sanitize_text(status or "suggested"),
+        }
+        return _alignment_payload(
+            await asyncio.to_thread(self._repository.upsert_alignment, row)
+        )
+
+    async def list_alignments(
+        self,
+        *,
+        space_id: str | None = None,
+        semantic_pack_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_alignments,
+            space_id=space_id,
+            semantic_pack_id=semantic_pack_id,
+        )
+        return [_alignment_payload(row) for row in rows]
+
+    async def update_alignment_status(
+        self,
+        alignment_id: str,
+        status: str,
+    ) -> dict[str, Any]:
+        return _alignment_payload(
+            await asyncio.to_thread(
+                self._repository.update_alignment_status,
+                alignment_id,
+                _sanitize_text(status or "suggested"),
+            )
+        )
+
+    async def semantic_pack_detail(self, asset_id: str) -> dict[str, Any]:
+        row = await asyncio.to_thread(
+            self._repository.get_skill_package_by_asset,
+            "semantic_model",
+            asset_id,
+        )
+        pack = _metadata_envelope(row)
+        space_id = row.get("space_id")
+        package = pack.get("capability_package") or {}
+        few_shot = (
+            await self.list_question_sql_pairs(
+                space_id=str(space_id or ""),
+                semantic_pack_id=asset_id,
+            )
+            if space_id
+            else []
+        )
+        instructions = (
+            await self.list_instructions(
+                space_id=str(space_id or ""),
+                semantic_pack_id=asset_id,
+            )
+            if space_id
+            else []
+        )
+        if not few_shot and isinstance(package.get("few_shot"), list):
+            few_shot = list(package["few_shot"])
+        if not instructions and isinstance(package.get("instructions"), list):
+            instructions = list(package["instructions"])
+        return {
+            "schema": "agentkit.semantic_pack.detail.v1",
+            "semantic_pack_id": asset_id,
+            "asset": pack,
+            "structured_mdl": package.get("mdl", {}),
+            "doc_graph": package.get("doc_graph", {}),
+            "alignments": await self.list_alignments(semantic_pack_id=asset_id),
+            "few_shot": few_shot,
+            "instructions": instructions,
+            "graph_objects": await self.list_graph_objects(semantic_pack_id=asset_id),
+            "graph_relations": await self.list_graph_relations(semantic_pack_id=asset_id),
+            "provenance": pack.get("provenance") or {},
+            "policy": pack.get("usage_policy") or {},
+            "eval_seed": package.get("eval_seed", {}),
+            "skill_runtime": package.get("skill_runtime", {}),
+            "mock": False,
+        }
+
     async def overview(self, *, space_id: str | None = None) -> dict[str, Any]:
         spaces = await self.list_spaces()
         target_space_id = space_id or (spaces[0]["id"] if spaces else "")
@@ -837,6 +1204,99 @@ def _build_job_payload(row: dict[str, Any]) -> dict[str, Any]:
         "error": loads_json(row.get("error_json"), None),
         "input": loads_json(row.get("input_json"), {}),
         "output": loads_json(row.get("output_json"), {}),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _semantic_build_event_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "job_id": row["job_id"],
+        "space_id": row.get("space_id"),
+        "semantic_pack_id": row.get("semantic_pack_id"),
+        "event_type": row["event_type"],
+        "sequence": int(row["sequence"]),
+        "payload": loads_json(row.get("payload_json"), {}),
+        "created_at": row.get("created_at"),
+    }
+
+
+def _question_sql_pair_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "space_id": row["space_id"],
+        "semantic_pack_id": row.get("semantic_pack_id"),
+        "question": row["question"],
+        "sql": row["sql"],
+        "dialect": row.get("dialect") or "ansi",
+        "tables": loads_json(row.get("tables_json"), []),
+        "notes": row.get("notes") or "",
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _instruction_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "space_id": row["space_id"],
+        "semantic_pack_id": row.get("semantic_pack_id"),
+        "instruction": row["instruction"],
+        "questions": loads_json(row.get("questions_json"), []),
+        "is_default": bool(row.get("is_default")),
+        "scope": row.get("scope") or "global",
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _graph_object_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "space_id": row.get("space_id"),
+        "semantic_pack_id": row["semantic_pack_id"],
+        "kind": row["kind"],
+        "name": row["name"],
+        "normalized_name": row["normalized_name"],
+        "description": row.get("description") or "",
+        "confidence": float(row.get("confidence") or 0),
+        "provenance": loads_json(row.get("provenance_json"), {}),
+        "review_status": row.get("review_status") or "suggested",
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _graph_relation_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "space_id": row.get("space_id"),
+        "semantic_pack_id": row["semantic_pack_id"],
+        "source_object_id": row["source_object_id"],
+        "target_object_id": row["target_object_id"],
+        "relation_type": row["relation_type"],
+        "predicate": row.get("predicate") or "",
+        "condition": row.get("condition") or "",
+        "confidence": float(row.get("confidence") or 0),
+        "evidence": loads_json(row.get("evidence_json"), []),
+        "review_status": row.get("review_status") or "suggested",
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _alignment_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "space_id": row.get("space_id"),
+        "semantic_pack_id": row["semantic_pack_id"],
+        "doc_object_id": row["doc_object_id"],
+        "mdl_object_ref": row["mdl_object_ref"],
+        "alignment_type": row["alignment_type"],
+        "confidence": float(row.get("confidence") or 0),
+        "evidence": loads_json(row.get("evidence_json"), []),
+        "status": row.get("status") or "suggested",
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
     }

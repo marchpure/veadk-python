@@ -5,11 +5,13 @@ export function GroupTreeTitle({
   count,
   actionLabel = "New",
   onAction,
+  disabledReason,
 }: {
   title: string;
   count: number;
   actionLabel?: string;
   onAction?: () => void;
+  disabledReason?: string;
 }) {
   return (
     <div className="adm-tree-group-title">
@@ -22,6 +24,8 @@ export function GroupTreeTitle({
           <Plus className="kc-native-icon" />
           {actionLabel}
         </button>
+      ) : disabledReason ? (
+        <small className="adm-tree-disabled-reason">{disabledReason}</small>
       ) : (
         <button type="button" className="adm-tree-more" aria-label={`${title} actions`}>
           <MoreHorizontal className="kc-native-icon" />

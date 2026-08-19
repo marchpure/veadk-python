@@ -76,7 +76,7 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(wrenOriginalDiagramSource, /Controls/);
   assert.match(wrenOriginalDiagramSource, /Background/);
   assert.match(wrenOriginalDiagramSource, /dagre/);
-  assert.match(panelSource, /buildSemanticSkill/);
+  assert.match(panelSource, /streamSemanticBuild/);
   assert.match(panelSource, /WrenModelingSourcePort/);
   assert.match(panelSource, /createWrenSemanticSourcePortViewModel/);
   assert.match(panelSource, /aria-label="Semantic Skill"/);
@@ -93,6 +93,17 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(panelSource, /relationshipFieldHighlights/);
   assert.match(wrenOriginalDiagramSource, /onEdgeMouseEnter/);
   assert.match(wrenSourcePortSource, /kc-mobile-workbench-tabs/);
+  assert.match(wrenSourcePortSource, /DraftEditor/);
+  assert.match(wrenSourcePortSource, /New Model/);
+  assert.match(wrenOriginalSidebarSource, /Relationships" count=\{relationshipRows\.length\} onAction/);
+  assert.match(wrenOriginalSidebarSource, /Metrics" count=\{metricRows\.length\} onAction/);
+  assert.match(wrenSourcePortSource, /Publish/);
+  assert.match(wrenSourcePortSource, /publishBlockerText/);
+  assert.match(wrenSourcePortSource, /Selected Raw JSON/);
+  assert.match(wrenSourcePortSource, /No doc-to-MDL alignments persisted yet/);
+  assert.match(wrenSourcePortSource, /Save Draft/);
+  assert.doesNotMatch(wrenSourcePortSource, />Build</);
+  assert.doesNotMatch(wrenSourcePortSource, />Deploy</);
   assert.match(wrenAdapterSource, /mdlToModelingViewModel/);
   assert.match(wrenAdapterSource, /agent_status/);
   assert.doesNotMatch(panelSource, /<iframe/);
@@ -101,27 +112,37 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(knowledgeCenterSource, /<SemanticModelingWorkbench/);
 });
 
-test("knowledgeAssets client exposes semantic-skill build endpoint", async () => {
+test("knowledgeAssets client exposes semantic build stream endpoint", async () => {
   const calls = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, init = {}) => {
-    calls.push({ url: String(url), method: init.method ?? "GET", body: init.body });
+    calls.push({ url: String(url), method: init.method ?? "GET", body: init.body, headers: init.headers ?? {} });
     return new Response(
-      JSON.stringify({ id: "job_1", job_type: "semantic_skill", status: "blocked" }),
-      { status: 201, headers: { "content-type": "application/json" } },
+      [
+        "event: agent_message",
+        'data: {"event_type":"agent_message","sequence":1,"payload":{"message":"start"}}',
+        "",
+        "event: job_status",
+        'data: {"event_type":"job_status","sequence":2,"payload":{"job_id":"job_1","status":"blocked"}}',
+        "",
+      ].join("\n"),
+      { status: 200, headers: { "content-type": "text/event-stream" } },
     );
   };
   try {
-    const { buildSemanticSkill } = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
-    const job = await buildSemanticSkill({
+    const { streamSemanticBuild } = await loadTypeScriptModule("../src/adk/knowledgeAssets.ts");
+    const observed = [];
+    const events = await streamSemanticBuild({
       space_id: "space_1",
       source_ids: ["src_1"],
       snapshot_ids: ["snap_1"],
       name: "Sales Semantic",
-    });
-    assert.equal(job.status, "blocked");
-    assert.equal(calls[0].url, "/api/knowledge-assets/build/semantic-skill");
+    }, (event) => observed.push(event));
+    assert.equal(events.at(-1).payload.status, "blocked");
+    assert.equal(observed.length, 2);
+    assert.equal(calls[0].url, "/api/knowledge-assets/semantic-build/stream");
     assert.equal(calls[0].method, "POST");
+    assert.equal(calls[0].headers.accept, "text/event-stream");
     assert.deepEqual(JSON.parse(calls[0].body), {
       space_id: "space_1",
       source_ids: ["src_1"],
@@ -134,6 +155,10 @@ test("knowledgeAssets client exposes semantic-skill build endpoint", async () =>
 });
 
 test("Semantic build CSS is responsive without product iframe shell", () => {
+  assert.match(cssSource, /\.kc-semantic-agent-workbench/);
+  assert.match(cssSource, /\.kc-agent-timeline/);
+  assert.match(cssSource, /\.kc-native-sidebar:hover/);
+  assert.match(cssSource, /\.adm-draft-editor/);
   assert.match(cssSource, /\.kc-semantic-workbench/);
   assert.match(cssSource, /\.kc-semantic-canvas/);
   assert.match(cssSource, /\.kc-semantic-layout/);

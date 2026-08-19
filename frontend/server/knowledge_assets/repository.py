@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 
 
 class KnowledgeAssetRepositoryError(RuntimeError):
@@ -614,9 +614,468 @@ class KnowledgeAssetRepository:
                 conn.execute(
                     f"SELECT * FROM build_jobs {where} "
                     "ORDER BY updated_at DESC, id LIMIT ?",
-                    tuple([*params, bounded]),
+                    (*params, bounded),
                 )
             )
+
+    def append_build_event(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_build_job(row["job_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO semantic_build_events (
+                    id, job_id, space_id, semantic_pack_id, event_type,
+                    sequence, payload_json
+                )
+                VALUES (
+                    :id, :job_id, :space_id, :semantic_pack_id, :event_type,
+                    :sequence, :payload_json
+                )
+                """,
+                row,
+            )
+            return self.get_build_event(row["id"], conn=conn)
+
+    def get_build_event(
+        self, event_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM semantic_build_events WHERE id = ?",
+                (event_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Semantic build event not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_build_events(
+        self, job_id: str, *, after_sequence: int | None = None
+    ) -> list[dict[str, Any]]:
+        clauses = ["job_id = ?"]
+        params: list[Any] = [job_id]
+        if after_sequence is not None:
+            clauses.append("sequence > ?")
+            params.append(after_sequence)
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    "SELECT * FROM semantic_build_events "
+                    f"WHERE {' AND '.join(clauses)} "
+                    "ORDER BY sequence ASC, created_at ASC, id",
+                    tuple(params),
+                )
+            )
+
+    def next_build_event_sequence(self, job_id: str) -> int:
+        with self._read() as conn:
+            value = conn.execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM semantic_build_events "
+                "WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()[0]
+            return int(value)
+
+    def create_question_sql_pair(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_space(row["space_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO semantic_question_sql_pairs (
+                    id, space_id, semantic_pack_id, question, sql, dialect,
+                    tables_json, notes
+                )
+                VALUES (
+                    :id, :space_id, :semantic_pack_id, :question, :sql,
+                    :dialect, :tables_json, :notes
+                )
+                """,
+                row,
+            )
+            return self.get_question_sql_pair(row["id"], conn=conn)
+
+    def update_question_sql_pair(self, pair_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+        if not patch:
+            return self.get_question_sql_pair(pair_id)
+        fields = ", ".join(f"{key} = :{key}" for key in patch)
+        params = {**patch, "id": pair_id}
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE semantic_question_sql_pairs "
+                f"SET {fields}, updated_at = {utc_now_sql()} "
+                "WHERE id = :id AND deleted_at IS NULL",
+                params,
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Question-SQL pair not found.")
+            return self.get_question_sql_pair(pair_id, conn=conn)
+
+    def delete_question_sql_pair(self, pair_id: str) -> None:
+        with self._write() as conn:
+            cursor = conn.execute(
+                "UPDATE semantic_question_sql_pairs "
+                f"SET deleted_at = {utc_now_sql()}, updated_at = {utc_now_sql()} "
+                "WHERE id = ? AND deleted_at IS NULL",
+                (pair_id,),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Question-SQL pair not found.")
+
+    def get_question_sql_pair(
+        self, pair_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM semantic_question_sql_pairs "
+                "WHERE id = ? AND deleted_at IS NULL",
+                (pair_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Question-SQL pair not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_question_sql_pairs(
+        self, *, space_id: str, semantic_pack_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses = ["space_id = ?", "deleted_at IS NULL"]
+        params: list[Any] = [space_id]
+        if semantic_pack_id:
+            clauses.append("semantic_pack_id = ?")
+            params.append(semantic_pack_id)
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    "SELECT * FROM semantic_question_sql_pairs "
+                    f"WHERE {' AND '.join(clauses)} "
+                    "ORDER BY updated_at DESC, id",
+                    tuple(params),
+                )
+            )
+
+    def create_instruction(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_space(row["space_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO semantic_instructions (
+                    id, space_id, semantic_pack_id, instruction, questions_json,
+                    is_default, scope
+                )
+                VALUES (
+                    :id, :space_id, :semantic_pack_id, :instruction,
+                    :questions_json, :is_default, :scope
+                )
+                """,
+                row,
+            )
+            return self.get_instruction(row["id"], conn=conn)
+
+    def update_instruction(self, instruction_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+        if not patch:
+            return self.get_instruction(instruction_id)
+        fields = ", ".join(f"{key} = :{key}" for key in patch)
+        params = {**patch, "id": instruction_id}
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE semantic_instructions "
+                f"SET {fields}, updated_at = {utc_now_sql()} "
+                "WHERE id = :id AND deleted_at IS NULL",
+                params,
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Semantic instruction not found.")
+            return self.get_instruction(instruction_id, conn=conn)
+
+    def delete_instruction(self, instruction_id: str) -> None:
+        with self._write() as conn:
+            cursor = conn.execute(
+                "UPDATE semantic_instructions "
+                f"SET deleted_at = {utc_now_sql()}, updated_at = {utc_now_sql()} "
+                "WHERE id = ? AND deleted_at IS NULL",
+                (instruction_id,),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Semantic instruction not found.")
+
+    def get_instruction(
+        self, instruction_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM semantic_instructions "
+                "WHERE id = ? AND deleted_at IS NULL",
+                (instruction_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Semantic instruction not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_instructions(
+        self, *, space_id: str, semantic_pack_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses = ["space_id = ?", "deleted_at IS NULL"]
+        params: list[Any] = [space_id]
+        if semantic_pack_id:
+            clauses.append("semantic_pack_id = ?")
+            params.append(semantic_pack_id)
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    "SELECT * FROM semantic_instructions "
+                    f"WHERE {' AND '.join(clauses)} "
+                    "ORDER BY is_default DESC, updated_at DESC, id",
+                    tuple(params),
+                )
+            )
+
+    def upsert_graph_object(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            if row.get("space_id"):
+                self.get_space(row["space_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO semantic_graph_objects (
+                    id, space_id, semantic_pack_id, kind, name, normalized_name,
+                    description, confidence, provenance_json, review_status
+                )
+                VALUES (
+                    :id, :space_id, :semantic_pack_id, :kind, :name,
+                    :normalized_name, :description, :confidence,
+                    :provenance_json, :review_status
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    space_id = excluded.space_id,
+                    semantic_pack_id = excluded.semantic_pack_id,
+                    kind = excluded.kind,
+                    name = excluded.name,
+                    normalized_name = excluded.normalized_name,
+                    description = excluded.description,
+                    confidence = excluded.confidence,
+                    provenance_json = excluded.provenance_json,
+                    review_status = excluded.review_status,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                """,
+                row,
+            )
+            return self.get_graph_object(row["id"], conn=conn)
+
+    def get_graph_object(
+        self, object_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM semantic_graph_objects WHERE id = ?",
+                (object_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Semantic graph object not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_graph_objects(
+        self, *, space_id: str | None = None, semantic_pack_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if space_id:
+            clauses.append("space_id = ?")
+            params.append(space_id)
+        if semantic_pack_id:
+            clauses.append("semantic_pack_id = ?")
+            params.append(semantic_pack_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    f"SELECT * FROM semantic_graph_objects {where} "
+                    "ORDER BY confidence DESC, updated_at DESC, id",
+                    tuple(params),
+                )
+            )
+
+    def update_graph_object_status(self, object_id: str, review_status: str) -> dict[str, Any]:
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE semantic_graph_objects SET review_status = ?, "
+                f"updated_at = {utc_now_sql()} WHERE id = ?",
+                (review_status, object_id),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Semantic graph object not found.")
+            return self.get_graph_object(object_id, conn=conn)
+
+    def upsert_graph_relation(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            if row.get("space_id"):
+                self.get_space(row["space_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO semantic_graph_relations (
+                    id, space_id, semantic_pack_id, source_object_id,
+                    target_object_id, relation_type, predicate, condition,
+                    confidence, evidence_json, review_status
+                )
+                VALUES (
+                    :id, :space_id, :semantic_pack_id, :source_object_id,
+                    :target_object_id, :relation_type, :predicate, :condition,
+                    :confidence, :evidence_json, :review_status
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    space_id = excluded.space_id,
+                    semantic_pack_id = excluded.semantic_pack_id,
+                    source_object_id = excluded.source_object_id,
+                    target_object_id = excluded.target_object_id,
+                    relation_type = excluded.relation_type,
+                    predicate = excluded.predicate,
+                    condition = excluded.condition,
+                    confidence = excluded.confidence,
+                    evidence_json = excluded.evidence_json,
+                    review_status = excluded.review_status,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                """,
+                row,
+            )
+            return self.get_graph_relation(row["id"], conn=conn)
+
+    def get_graph_relation(
+        self, relation_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM semantic_graph_relations WHERE id = ?",
+                (relation_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Semantic graph relation not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_graph_relations(
+        self, *, space_id: str | None = None, semantic_pack_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if space_id:
+            clauses.append("space_id = ?")
+            params.append(space_id)
+        if semantic_pack_id:
+            clauses.append("semantic_pack_id = ?")
+            params.append(semantic_pack_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    f"SELECT * FROM semantic_graph_relations {where} "
+                    "ORDER BY confidence DESC, updated_at DESC, id",
+                    tuple(params),
+                )
+            )
+
+    def update_graph_relation_status(self, relation_id: str, review_status: str) -> dict[str, Any]:
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE semantic_graph_relations SET review_status = ?, "
+                f"updated_at = {utc_now_sql()} WHERE id = ?",
+                (review_status, relation_id),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Semantic graph relation not found.")
+            return self.get_graph_relation(relation_id, conn=conn)
+
+    def upsert_alignment(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            if row.get("space_id"):
+                self.get_space(row["space_id"], conn=conn)
+            conn.execute(
+                """
+                INSERT INTO semantic_alignments (
+                    id, space_id, semantic_pack_id, doc_object_id, mdl_object_ref,
+                    alignment_type, confidence, evidence_json, status
+                )
+                VALUES (
+                    :id, :space_id, :semantic_pack_id, :doc_object_id,
+                    :mdl_object_ref, :alignment_type, :confidence,
+                    :evidence_json, :status
+                )
+                ON CONFLICT(id) DO UPDATE SET
+                    space_id = excluded.space_id,
+                    semantic_pack_id = excluded.semantic_pack_id,
+                    doc_object_id = excluded.doc_object_id,
+                    mdl_object_ref = excluded.mdl_object_ref,
+                    alignment_type = excluded.alignment_type,
+                    confidence = excluded.confidence,
+                    evidence_json = excluded.evidence_json,
+                    status = excluded.status,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                """,
+                row,
+            )
+            return self.get_alignment(row["id"], conn=conn)
+
+    def get_alignment(
+        self, alignment_id: str, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM semantic_alignments WHERE id = ?",
+                (alignment_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Semantic alignment not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def list_alignments(
+        self, *, space_id: str | None = None, semantic_pack_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if space_id:
+            clauses.append("space_id = ?")
+            params.append(space_id)
+        if semantic_pack_id:
+            clauses.append("semantic_pack_id = ?")
+            params.append(semantic_pack_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    f"SELECT * FROM semantic_alignments {where} "
+                    "ORDER BY confidence DESC, updated_at DESC, id",
+                    tuple(params),
+                )
+            )
+
+    def update_alignment_status(self, alignment_id: str, status: str) -> dict[str, Any]:
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE semantic_alignments SET status = ?, "
+                f"updated_at = {utc_now_sql()} WHERE id = ?",
+                (status, alignment_id),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Semantic alignment not found.")
+            return self.get_alignment(alignment_id, conn=conn)
 
     @contextmanager
     def _read(self):
@@ -927,6 +1386,102 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             groups_json TEXT NOT NULL DEFAULT '[]',
             PRIMARY KEY(target_kind, target_asset_id)
         );
+
+        CREATE TABLE IF NOT EXISTS semantic_build_events (
+            id TEXT PRIMARY KEY,
+            job_id TEXT NOT NULL REFERENCES build_jobs(id) ON DELETE CASCADE,
+            space_id TEXT REFERENCES spaces(id) ON DELETE SET NULL,
+            semantic_pack_id TEXT,
+            event_type TEXT NOT NULL,
+            sequence INTEGER NOT NULL,
+            payload_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            UNIQUE(job_id, sequence)
+        );
+        CREATE INDEX IF NOT EXISTS idx_semantic_build_events_job
+            ON semantic_build_events(job_id, sequence);
+
+        CREATE TABLE IF NOT EXISTS semantic_question_sql_pairs (
+            id TEXT PRIMARY KEY,
+            space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+            semantic_pack_id TEXT,
+            question TEXT NOT NULL,
+            sql TEXT NOT NULL,
+            dialect TEXT NOT NULL DEFAULT 'ansi',
+            tables_json TEXT NOT NULL DEFAULT '[]',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_semantic_qsql_space_pack
+            ON semantic_question_sql_pairs(space_id, semantic_pack_id, updated_at);
+
+        CREATE TABLE IF NOT EXISTS semantic_instructions (
+            id TEXT PRIMARY KEY,
+            space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+            semantic_pack_id TEXT,
+            instruction TEXT NOT NULL,
+            questions_json TEXT NOT NULL DEFAULT '[]',
+            is_default INTEGER NOT NULL DEFAULT 0,
+            scope TEXT NOT NULL DEFAULT 'global',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_semantic_instructions_space_pack
+            ON semantic_instructions(space_id, semantic_pack_id, updated_at);
+
+        CREATE TABLE IF NOT EXISTS semantic_graph_objects (
+            id TEXT PRIMARY KEY,
+            space_id TEXT REFERENCES spaces(id) ON DELETE CASCADE,
+            semantic_pack_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            name TEXT NOT NULL,
+            normalized_name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            confidence REAL NOT NULL DEFAULT 0,
+            provenance_json TEXT NOT NULL DEFAULT '{}',
+            review_status TEXT NOT NULL DEFAULT 'suggested',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_semantic_graph_objects_pack
+            ON semantic_graph_objects(semantic_pack_id, kind, confidence);
+
+        CREATE TABLE IF NOT EXISTS semantic_graph_relations (
+            id TEXT PRIMARY KEY,
+            space_id TEXT REFERENCES spaces(id) ON DELETE CASCADE,
+            semantic_pack_id TEXT NOT NULL,
+            source_object_id TEXT NOT NULL,
+            target_object_id TEXT NOT NULL,
+            relation_type TEXT NOT NULL,
+            predicate TEXT NOT NULL DEFAULT '',
+            condition TEXT NOT NULL DEFAULT '',
+            confidence REAL NOT NULL DEFAULT 0,
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            review_status TEXT NOT NULL DEFAULT 'suggested',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_semantic_graph_relations_pack
+            ON semantic_graph_relations(semantic_pack_id, relation_type, confidence);
+
+        CREATE TABLE IF NOT EXISTS semantic_alignments (
+            id TEXT PRIMARY KEY,
+            space_id TEXT REFERENCES spaces(id) ON DELETE CASCADE,
+            semantic_pack_id TEXT NOT NULL,
+            doc_object_id TEXT NOT NULL,
+            mdl_object_ref TEXT NOT NULL,
+            alignment_type TEXT NOT NULL,
+            confidence REAL NOT NULL DEFAULT 0,
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'suggested',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_semantic_alignments_pack
+            ON semantic_alignments(semantic_pack_id, status, confidence);
         """
     )
 

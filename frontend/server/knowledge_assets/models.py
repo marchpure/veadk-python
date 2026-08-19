@@ -176,6 +176,69 @@ class BuildSemanticSkillBody(ApiModel):
         return [item.strip() for item in value if item.strip()]
 
 
+class SemanticQuestionSqlPairBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    question: str = Field(min_length=1, max_length=2000)
+    sql: str = Field(min_length=1, max_length=12000)
+    dialect: str = Field(default="ansi", max_length=80)
+    tables: list[str] = Field(default_factory=list)
+    notes: str = Field(default="", max_length=2000)
+
+    @field_validator("tables")
+    @classmethod
+    def _clean_tables(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
+class UpdateSemanticQuestionSqlPairBody(ApiModel):
+    question: str | None = Field(default=None, min_length=1, max_length=2000)
+    sql: str | None = Field(default=None, min_length=1, max_length=12000)
+    dialect: str | None = Field(default=None, max_length=80)
+    tables: list[str] | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("tables")
+    @classmethod
+    def _clean_tables(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return [item.strip()[:256] for item in value if item.strip()]
+
+
+class SemanticInstructionBody(ApiModel):
+    space_id: str = Field(min_length=1, max_length=128)
+    semantic_pack_id: str | None = Field(default=None, max_length=256)
+    instruction: str = Field(min_length=1, max_length=4000)
+    questions: list[str] = Field(default_factory=list)
+    is_default: bool = False
+    scope: str = Field(default="global", max_length=80)
+
+    @field_validator("questions")
+    @classmethod
+    def _clean_questions(cls, value: list[str]) -> list[str]:
+        return [item.strip()[:1000] for item in value if item.strip()]
+
+
+class UpdateSemanticInstructionBody(ApiModel):
+    instruction: str | None = Field(default=None, min_length=1, max_length=4000)
+    questions: list[str] | None = None
+    is_default: bool | None = None
+    scope: str | None = Field(default=None, max_length=80)
+
+    @field_validator("questions")
+    @classmethod
+    def _clean_questions(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return [item.strip()[:1000] for item in value if item.strip()]
+
+
+class UpdateSemanticReviewStatusBody(ApiModel):
+    review_status: str | None = Field(default=None, max_length=80)
+    status: str | None = Field(default=None, max_length=80)
+
+
 class QueryExternalAssetBody(ApiModel):
     metric: str = Field(default="", max_length=256)
     dimension: str | None = Field(default=None, max_length=256)
@@ -187,17 +250,22 @@ class QueryExternalAssetBody(ApiModel):
 
 
 __all__ = [
+    "BuildSemanticSkillBody",
     "CreateSourceBody",
     "CreateSpaceBody",
     "ImportSourceBody",
-    "RecordIndexedDocumentBody",
+    "QueryExternalAssetBody",
     "RecordBuildJobBody",
+    "RecordIndexedDocumentBody",
     "RecordSkillPackageBody",
     "RecordSnapshotBody",
     "SaveCredentialBody",
-    "BuildSemanticSkillBody",
-    "QueryExternalAssetBody",
+    "SemanticInstructionBody",
+    "SemanticQuestionSqlPairBody",
     "UpdateBuildJobBody",
+    "UpdateSemanticInstructionBody",
+    "UpdateSemanticQuestionSqlPairBody",
+    "UpdateSemanticReviewStatusBody",
     "UpdateSourceStatusBody",
     "UpdateSpaceBody",
 ]

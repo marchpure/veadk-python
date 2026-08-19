@@ -3,9 +3,9 @@ import { AlertCircle, Database, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
-  buildSemanticSkill,
   getKnowledgeAssetBuildJob,
   listKnowledgeAssetSnapshots,
+  streamSemanticBuild,
   type KnowledgeAssetBuildJob,
   type KnowledgeAssetMetadata,
   type KnowledgeAssetSnapshot,
@@ -30,12 +30,14 @@ export function SemanticModelingWorkbench({
   assets,
   buildJobs,
   onRefresh,
+  showBuildForm = true,
 }: {
   spaceId: string;
   sources: KnowledgeAssetSource[];
   assets: KnowledgeAssetMetadata[];
   buildJobs: KnowledgeAssetBuildJob[];
   onRefresh: () => void | Promise<void>;
+  showBuildForm?: boolean;
 }) {
   const semanticAssets = assets.filter(
     (asset) => asset.asset_type === "semantic_model" && asset.capability_kind === "semantic_skill",
@@ -122,7 +124,7 @@ export function SemanticModelingWorkbench({
     setBusy(true);
     setError("");
     try {
-      const job = await buildSemanticSkill({
+      const events = await streamSemanticBuild({
         space_id: spaceId,
         source_ids: [selectedSourceId],
         snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
@@ -130,12 +132,14 @@ export function SemanticModelingWorkbench({
         intent,
         target_domain: targetDomain,
         publish,
-      });
-      setLastJob(job);
-      const finalJob = await pollBuildJob(job.id);
-      setLastJob(finalJob);
+      }, () => undefined);
+      const terminal = [...events].reverse().find((item) => item.event_type === "job_status");
+      const jobId = String(terminal?.payload?.job_id || "");
+      const finalJob = jobId ? await pollBuildJob(jobId) : null;
+      if (finalJob) setLastJob(finalJob);
       await onRefresh();
-      if (finalJob.result_skill_id) setAssetId(finalJob.result_skill_id);
+      const resultSkillId = finalJob?.result_skill_id || String(terminal?.payload?.semantic_pack_id || "");
+      if (resultSkillId) setAssetId(resultSkillId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "生成语义 Skill 失败。");
     } finally {
@@ -166,7 +170,8 @@ export function SemanticModelingWorkbench({
 
   return (
     <section data-testid="semantic-modeling-workbench">
-      <form className="kc-wren-build-form" onSubmit={submit}>
+      {showBuildForm ? (
+        <form className="kc-wren-build-form" onSubmit={submit}>
         <select aria-label="Semantic Skill" value={viewModel.selectedAsset?.asset_id || ""} onChange={(event) => setAssetId(event.target.value)}>
           <option value="">Semantic Skill</option>
           {semanticAssets.map((asset) => <option key={asset.asset_id} value={asset.asset_id}>{asset.name} · {asset.version || "v1"}</option>)}
@@ -181,7 +186,8 @@ export function SemanticModelingWorkbench({
         </select>
         <input value={name} onChange={(event) => setName(event.target.value)} aria-label="语义 Skill 名称" />
         <button type="submit" disabled={busy}>{busy ? <Loader2 className="kc-native-icon kc-spin" /> : null}生成语义</button>
-      </form>
+        </form>
+      ) : null}
       {error || viewModel.latestJob?.status === "blocked" ? (
         <div className="kc-workbench-alert" role="alert">
           <AlertCircle className="kc-native-icon" />

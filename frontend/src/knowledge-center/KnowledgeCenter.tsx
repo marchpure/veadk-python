@@ -67,6 +67,7 @@ import {
 } from "./capabilitySlots";
 import { EvaluationWorkbench } from "./EvaluationWorkbench";
 import "./KnowledgeCenter.css";
+import { SemanticBuildPanel } from "./SemanticBuildPanel";
 import { SemanticModelingWorkbench } from "./SemanticModelingWorkbench";
 
 type LoadState =
@@ -1019,13 +1020,21 @@ export function KnowledgeCenterView() {
             />
           ) : null}
           {activeTab === "semantic" ? (
-            <div data-workbench-target="semantic_skill" tabIndex={-1}>
+            <div className="kc-semantic-composite" data-workbench-target="semantic_skill" tabIndex={-1}>
+              <SemanticBuildPanel
+                spaceId={activeSpace?.id ?? ""}
+                sources={spaceSources}
+                assets={assets}
+                buildJobs={buildJobs}
+                onRefresh={() => refresh(activeSpaceIdRef.current)}
+              />
               <SemanticModelingWorkbench
                 spaceId={activeSpace?.id ?? ""}
                 sources={spaceSources}
                 assets={assets}
                 buildJobs={buildJobs}
                 onRefresh={() => refresh(activeSpaceIdRef.current)}
+                showBuildForm={false}
               />
             </div>
           ) : null}

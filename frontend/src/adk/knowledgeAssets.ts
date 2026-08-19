@@ -314,6 +314,56 @@ export interface KnowledgeAssetOptimizationSnapshot {
   groups: KnowledgeAssetOptimizationGroup[];
 }
 
+export interface SemanticBuildEvent {
+  event_type: string;
+  sequence?: number;
+  created_at?: string;
+  payload: Record<string, unknown>;
+}
+
+export interface SemanticQuestionSqlPair {
+  id: string;
+  space_id: string;
+  semantic_pack_id?: string | null;
+  question: string;
+  sql: string;
+  dialect: string;
+  tables: string[];
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SemanticInstruction {
+  id: string;
+  space_id: string;
+  semantic_pack_id?: string | null;
+  instruction: string;
+  questions: string[];
+  is_default: boolean;
+  scope: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SemanticPackDetail {
+  schema: "agentkit.semantic_pack.detail.v1";
+  semantic_pack_id: string;
+  asset: KnowledgeAssetMetadata;
+  structured_mdl: Record<string, unknown>;
+  doc_graph: Record<string, unknown>;
+  alignments: Array<Record<string, unknown>>;
+  few_shot: SemanticQuestionSqlPair[];
+  instructions: SemanticInstruction[];
+  graph_objects: Array<Record<string, unknown>>;
+  graph_relations: Array<Record<string, unknown>>;
+  provenance: Record<string, unknown>;
+  policy: Record<string, unknown>;
+  eval_seed: Record<string, unknown>;
+  skill_runtime: Record<string, unknown>;
+  mock?: boolean;
+}
+
 export class KnowledgeAssetError extends Error {
   readonly status: number;
   readonly code: string;
@@ -384,6 +434,34 @@ async function requestJson<T>(
     throw new KnowledgeAssetError(res.status, detail.message, detail.code);
   }
   return (await res.json()) as T;
+}
+
+async function requestNoContent(
+  url: string,
+  init?: RequestInit,
+  fallback = "知识资产请求失败",
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        accept: "application/json",
+        ...(init?.body ? { "content-type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new KnowledgeAssetError(
+      0,
+      `无法连接后端服务，请确认工作台后端已启动。诊断端点：${url}`,
+      "NETWORK_UNREACHABLE",
+    );
+  }
+  if (!res.ok) {
+    const detail = await errorMessage(res, `${fallback}（HTTP ${res.status}）`);
+    throw new KnowledgeAssetError(res.status, detail.message, detail.code);
+  }
 }
 
 export async function getKnowledgeAssetHealth(): Promise<{
@@ -585,6 +663,225 @@ export async function buildSemanticSkill(input: {
     "/api/knowledge-assets/build/semantic-skill",
     { method: "POST", body: JSON.stringify(input) },
     "生成 Semantic Skill 失败",
+  );
+}
+
+export async function streamSemanticBuild(
+  input: {
+    space_id?: string;
+    source_ids?: string[];
+    snapshot_ids?: string[];
+    name: string;
+    description?: string;
+    intent?: string;
+    target_domain?: string;
+    publish?: boolean;
+  },
+  onEvent: (event: SemanticBuildEvent) => void,
+): Promise<SemanticBuildEvent[]> {
+  let res: Response;
+  try {
+    res = await fetch("/api/knowledge-assets/semantic-build/stream", {
+      method: "POST",
+      headers: {
+        accept: "text/event-stream",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new KnowledgeAssetError(
+      0,
+      "无法连接语义构建流，请确认工作台后端已启动。",
+      "NETWORK_UNREACHABLE",
+    );
+  }
+  if (!res.ok) {
+    const detail = await errorMessage(res, `语义构建流启动失败（HTTP ${res.status}）`);
+    throw new KnowledgeAssetError(res.status, detail.message, detail.code);
+  }
+  const events: SemanticBuildEvent[] = [];
+  const handleBlock = (block: string) => {
+    const event = parseSseBlock(block);
+    if (!event) return;
+    events.push(event);
+    onEvent(event);
+  };
+  if (!res.body) {
+    const text = await res.text();
+    parseSseText(text).forEach((event) => {
+      events.push(event);
+      onEvent(event);
+    });
+    return events;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      handleBlock(block);
+      boundary = buffer.indexOf("\n\n");
+    }
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) handleBlock(buffer);
+  return events;
+}
+
+function parseSseText(text: string): SemanticBuildEvent[] {
+  return text
+    .split("\n\n")
+    .map(parseSseBlock)
+    .filter((event): event is SemanticBuildEvent => Boolean(event));
+}
+
+function parseSseBlock(block: string): SemanticBuildEvent | null {
+  if (!block.trim()) return null;
+  let eventType = "message";
+  const dataLines: string[] = [];
+  for (const line of block.split(/\r?\n/)) {
+    if (line.startsWith("event:")) eventType = line.slice(6).trim();
+    if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+  }
+  const dataText = dataLines.join("\n");
+  if (!dataText) return null;
+  const payload = JSON.parse(dataText) as Record<string, unknown>;
+  return {
+    event_type:
+      typeof payload.event_type === "string" ? payload.event_type : eventType,
+    sequence: typeof payload.sequence === "number" ? payload.sequence : undefined,
+    created_at: typeof payload.created_at === "string" ? payload.created_at : undefined,
+    payload:
+      payload.payload && typeof payload.payload === "object"
+        ? (payload.payload as Record<string, unknown>)
+        : payload,
+  };
+}
+
+export async function listSemanticBuildEvents(
+  jobId: string,
+  afterSequence?: number,
+): Promise<SemanticBuildEvent[]> {
+  const params = new URLSearchParams();
+  if (afterSequence !== undefined) params.set("after_sequence", String(afterSequence));
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<{ items?: SemanticBuildEvent[] }>(
+    `/api/knowledge-assets/semantic-build/${encodeURIComponent(jobId)}/events${suffix}`,
+    undefined,
+    "读取语义构建事件失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function listSemanticQuestionSqlPairs(input: {
+  spaceId: string;
+  semanticPackId?: string;
+}): Promise<SemanticQuestionSqlPair[]> {
+  const params = new URLSearchParams({ space_id: input.spaceId });
+  if (input.semanticPackId) params.set("semantic_pack_id", input.semanticPackId);
+  const payload = await requestJson<{ items?: SemanticQuestionSqlPair[] }>(
+    `/api/knowledge-assets/semantic/question-sql-pairs?${params.toString()}`,
+    undefined,
+    "读取 question-SQL pairs 失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function createSemanticQuestionSqlPair(input: {
+  space_id: string;
+  semantic_pack_id?: string | null;
+  question: string;
+  sql: string;
+  dialect?: string;
+  tables?: string[];
+  notes?: string;
+}): Promise<SemanticQuestionSqlPair> {
+  return requestJson(
+    "/api/knowledge-assets/semantic/question-sql-pairs",
+    { method: "POST", body: JSON.stringify(input) },
+    "创建 question-SQL pair 失败",
+  );
+}
+
+export async function updateSemanticQuestionSqlPair(
+  id: string,
+  input: Partial<Pick<SemanticQuestionSqlPair, "question" | "sql" | "dialect" | "tables" | "notes">>,
+): Promise<SemanticQuestionSqlPair> {
+  return requestJson(
+    `/api/knowledge-assets/semantic/question-sql-pairs/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+    "更新 question-SQL pair 失败",
+  );
+}
+
+export async function deleteSemanticQuestionSqlPair(id: string): Promise<void> {
+  await requestNoContent(
+    `/api/knowledge-assets/semantic/question-sql-pairs/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "删除 question-SQL pair 失败",
+  );
+}
+
+export async function listSemanticInstructions(input: {
+  spaceId: string;
+  semanticPackId?: string;
+}): Promise<SemanticInstruction[]> {
+  const params = new URLSearchParams({ space_id: input.spaceId });
+  if (input.semanticPackId) params.set("semantic_pack_id", input.semanticPackId);
+  const payload = await requestJson<{ items?: SemanticInstruction[] }>(
+    `/api/knowledge-assets/semantic/instructions?${params.toString()}`,
+    undefined,
+    "读取 semantic instructions 失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function createSemanticInstruction(input: {
+  space_id: string;
+  semantic_pack_id?: string | null;
+  instruction: string;
+  questions?: string[];
+  is_default?: boolean;
+  scope?: string;
+}): Promise<SemanticInstruction> {
+  return requestJson(
+    "/api/knowledge-assets/semantic/instructions",
+    { method: "POST", body: JSON.stringify(input) },
+    "创建 semantic instruction 失败",
+  );
+}
+
+export async function updateSemanticInstruction(
+  id: string,
+  input: Partial<Pick<SemanticInstruction, "instruction" | "questions" | "is_default" | "scope">>,
+): Promise<SemanticInstruction> {
+  return requestJson(
+    `/api/knowledge-assets/semantic/instructions/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+    "更新 semantic instruction 失败",
+  );
+}
+
+export async function deleteSemanticInstruction(id: string): Promise<void> {
+  await requestNoContent(
+    `/api/knowledge-assets/semantic/instructions/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "删除 semantic instruction 失败",
+  );
+}
+
+export async function getSemanticPackDetail(assetId: string): Promise<SemanticPackDetail> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-packs/${encodeURIComponent(assetId)}/detail`,
+    undefined,
+    "读取 Semantic Pack 详情失败",
   );
 }
 

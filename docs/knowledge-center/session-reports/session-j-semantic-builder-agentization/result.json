@@ -1,0 +1,95 @@
+{
+  "schema": "session-j.semantic-builder.e2e.v1",
+  "baseUrl": "http://127.0.0.1:8000",
+  "apiUrl": "http://127.0.0.1:8000",
+  "durationSeconds": 5.75,
+  "desktop": {
+    "health": {
+      "configured": true,
+      "mock": false,
+      "store": "sqlite",
+      "agents": {
+        "semantic_builder": {
+          "configured": true,
+          "status": "available",
+          "runner_backend": "veadk.Agent+Runner",
+          "model_name": "doubao-seed-2-0-lite-260428",
+          "deterministic_fallback_enabled": false
+        },
+        "asktable_dashboard": {
+          "configured": true,
+          "status": "available",
+          "runner_backend": "veadk.Agent+Runner",
+          "model_name": "doubao-seed-2-0-lite-260428",
+          "deterministic_fallback_enabled": false
+        }
+      },
+      "capabilities": [
+        "spaces",
+        "sources",
+        "retrieval_binding",
+        "semantic_skill",
+        "dashboard_skill"
+      ]
+    },
+    "latestJob": {
+      "id": "job_c0e8bd01dd8c49e1bf233dc8991f30e0",
+      "status": "succeeded",
+      "result_skill_id": "skill",
+      "publish_state": "published",
+      "agent_status": "completed"
+    },
+    "eventTypes": [
+      "agent_message",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "validation_result",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview"
+    ],
+    "eventCount": 31,
+    "detail": {
+      "semantic_pack_id": "skill",
+      "publish_state": "published",
+      "few_shot": 1,
+      "instructions": 1,
+      "graph_objects": 7,
+      "graph_relations": 1,
+      "alignments": 4
+    }
+  },
+  "mobile": {
+    "horizontalOverflowPx": 0
+  },
+  "screenshots": [
+    "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/desktop-modeling-workbench.png",
+    "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/desktop-evidence-alignments.png",
+    "/Users/bytedance/worktrees/veadk-python-session-j-semantic-builder-agentization/docs/knowledge-center/session-reports/session-j-semantic-builder-agentization/screenshots/mobile-metadata-pane.png"
+  ],
+  "passed": true
+}

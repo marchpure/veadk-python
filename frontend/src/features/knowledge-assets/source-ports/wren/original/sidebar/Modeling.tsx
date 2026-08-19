@@ -10,6 +10,8 @@ export default function Modeling({
   query,
   onQueryChange,
   onOpenModelDrawer,
+  onOpenRelationshipDrawer,
+  onOpenMetricDrawer,
   onSelect,
   semanticRows,
   relationshipRows,
@@ -19,6 +21,8 @@ export default function Modeling({
   query: string;
   onQueryChange: (value: string) => void;
   onOpenModelDrawer: () => void;
+  onOpenRelationshipDrawer: () => void;
+  onOpenMetricDrawer: () => void;
   onSelect: (row: WrenTreeRow) => void;
   semanticRows: WrenTreeRow[];
   relationshipRows: WrenTreeRow[];
@@ -49,7 +53,7 @@ export default function Modeling({
       <ModelTree models={data.models} selectedKeys={[]} onOpenModelDrawer={onOpenModelDrawer} onSelect={onSelect} />
       <ViewTree views={data.views} selectedKeys={[]} onSelect={onSelect} />
       <section className="adm-sidebar-tree adm-relationship-tree">
-        <GroupTreeTitle title="Relationships" count={relationshipRows.length} />
+        <GroupTreeTitle title="Relationships" count={relationshipRows.length} onAction={onOpenRelationshipDrawer} />
         <div className="adm-tree-list">
           {filter(relationshipRows).map((row) => (
             <button type="button" key={row.id} className="adm-treeNode" onClick={() => onSelect(row)}>
@@ -61,7 +65,7 @@ export default function Modeling({
         </div>
       </section>
       <section className="adm-sidebar-tree adm-metric-tree">
-        <GroupTreeTitle title="Metrics" count={metricRows.length} />
+        <GroupTreeTitle title="Metrics" count={metricRows.length} onAction={onOpenMetricDrawer} />
         <div className="adm-tree-list">
           {filter(metricRows).map((row) => (
             <button type="button" key={row.id} className="adm-treeNode" onClick={() => onSelect(row)}>

@@ -7,38 +7,13 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 
-from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
-from .crypto import CredentialCryptoError
-from .models import (
-    BuildSemanticSkillBody,
-    CreateSourceBody,
-    CreateSpaceBody,
-    ImportSourceBody,
-    RecordBuildJobBody,
-    RecordIndexedDocumentBody,
-    RecordSkillPackageBody,
-    RecordSnapshotBody,
-    SaveCredentialBody,
-    UpdateBuildJobBody,
-    UpdateSourceStatusBody,
-    UpdateSpaceBody,
-)
-from .repository import (
-    KnowledgeAssetConflict,
-    KnowledgeAssetNotFound,
-    KnowledgeAssetRepositoryError,
-)
-from .service import (
-    KnowledgeAssetCredentialError,
-    KnowledgeAssetServiceError,
-    KnowledgeAssetStore,
-    redact_sensitive,
-)
 from .agents import (
     AskTableDashboardAgent,
     InternalAgentRunner,
@@ -58,8 +33,40 @@ from .builders.semantic.service import (
     SemanticBuildBlocked,
     SemanticSkillBuildRequest,
 )
+from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
+from .crypto import CredentialCryptoError
 from .evaluation.routes import mount_knowledge_asset_evaluation_routes
 from .evaluation.service import KnowledgeAssetEvaluatorService
+from .models import (
+    BuildSemanticSkillBody,
+    CreateSourceBody,
+    CreateSpaceBody,
+    ImportSourceBody,
+    RecordBuildJobBody,
+    RecordIndexedDocumentBody,
+    RecordSkillPackageBody,
+    RecordSnapshotBody,
+    SaveCredentialBody,
+    SemanticInstructionBody,
+    SemanticQuestionSqlPairBody,
+    UpdateBuildJobBody,
+    UpdateSemanticInstructionBody,
+    UpdateSemanticQuestionSqlPairBody,
+    UpdateSemanticReviewStatusBody,
+    UpdateSourceStatusBody,
+    UpdateSpaceBody,
+)
+from .repository import (
+    KnowledgeAssetConflict,
+    KnowledgeAssetNotFound,
+    KnowledgeAssetRepositoryError,
+)
+from .service import (
+    KnowledgeAssetCredentialError,
+    KnowledgeAssetServiceError,
+    KnowledgeAssetStore,
+    redact_sensitive,
+)
 
 
 def mount_knowledge_asset_routes(
@@ -119,7 +126,7 @@ def mount_knowledge_asset_routes(
                 **config.model_dump(mode="json"),
                 "origin": configured_origin(config),
             }
-        except Exception:
+        except Exception:  # noqa: BLE001 - datastudio is optional; health must fail closed.
             datastudio = {
                 "configured": False,
                 "baseUrl": "",
@@ -273,6 +280,41 @@ def mount_knowledge_asset_routes(
         )
         return job
 
+    @app.post("/api/knowledge-assets/semantic-build/stream")
+    async def stream_semantic_build(body: BuildSemanticSkillBody) -> StreamingResponse:
+        request = SemanticSkillBuildRequest(
+            space_id=body.space_id,
+            source_ids=body.source_ids,
+            snapshot_ids=body.snapshot_ids,
+            name=body.name,
+            description=body.description,
+            intent=body.intent,
+            target_domain=body.target_domain,
+            publish=body.publish,
+        )
+        job = await invoke(lambda: semantic_agent.enqueue(request))
+
+        async def stream_events():
+            yield _sse("job_status", {"status": "queued", "job": job, "job_id": job["id"]})
+            async for event in semantic_agent.stream(job["id"], request):
+                yield _sse(event["event_type"], event)
+
+        return StreamingResponse(
+            stream_events(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.get("/api/knowledge-assets/semantic-build/{job_id}/events")
+    async def list_semantic_build_events(
+        job_id: str,
+        after_sequence: Annotated[int | None, Query(ge=0)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_build_events(job_id, after_sequence=after_sequence)
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
     async def _run_semantic_skill_build(
         builder: SemanticBuilderAgent,
         job_id: str,
@@ -280,7 +322,7 @@ def mount_knowledge_asset_routes(
     ) -> None:
         try:
             await builder.run_job(job_id, request)
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - background job boundary records terminal failure.
             await store.update_build_job(
                 job_id,
                 UpdateBuildJobBody(
@@ -325,6 +367,155 @@ def mount_knowledge_asset_routes(
         body: UpdateBuildJobBody,
     ) -> dict[str, Any]:
         return await invoke(lambda: store.update_build_job(job_id, body))
+
+    @app.get("/api/knowledge-assets/semantic/question-sql-pairs")
+    async def list_question_sql_pairs(
+        space_id: Annotated[str, Query(min_length=1, max_length=128)],
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_question_sql_pairs(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/semantic/question-sql-pairs",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_question_sql_pair(
+        body: SemanticQuestionSqlPairBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.create_question_sql_pair(body))
+
+    @app.patch("/api/knowledge-assets/semantic/question-sql-pairs/{pair_id}")
+    async def update_question_sql_pair(
+        pair_id: str,
+        body: UpdateSemanticQuestionSqlPairBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.update_question_sql_pair(pair_id, body))
+
+    @app.delete(
+        "/api/knowledge-assets/semantic/question-sql-pairs/{pair_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def delete_question_sql_pair(pair_id: str) -> None:
+        await invoke(lambda: store.delete_question_sql_pair(pair_id))
+
+    @app.get("/api/knowledge-assets/semantic/instructions")
+    async def list_instructions(
+        space_id: Annotated[str, Query(min_length=1, max_length=128)],
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_instructions(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.post(
+        "/api/knowledge-assets/semantic/instructions",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_instruction(body: SemanticInstructionBody) -> dict[str, Any]:
+        return await invoke(lambda: store.create_instruction(body))
+
+    @app.patch("/api/knowledge-assets/semantic/instructions/{instruction_id}")
+    async def update_instruction(
+        instruction_id: str,
+        body: UpdateSemanticInstructionBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.update_instruction(instruction_id, body))
+
+    @app.delete(
+        "/api/knowledge-assets/semantic/instructions/{instruction_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def delete_instruction(instruction_id: str) -> None:
+        await invoke(lambda: store.delete_instruction(instruction_id))
+
+    @app.get("/api/knowledge-assets/semantic/graph-objects")
+    async def list_graph_objects(
+        space_id: Annotated[str | None, Query(max_length=128)] = None,
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_graph_objects(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.patch("/api/knowledge-assets/semantic/graph-objects/{object_id}")
+    async def update_graph_object(
+        object_id: str,
+        body: UpdateSemanticReviewStatusBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.update_graph_object_status(
+                object_id,
+                body.review_status or body.status or "suggested",
+            )
+        )
+
+    @app.get("/api/knowledge-assets/semantic/graph-relations")
+    async def list_graph_relations(
+        space_id: Annotated[str | None, Query(max_length=128)] = None,
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_graph_relations(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.patch("/api/knowledge-assets/semantic/graph-relations/{relation_id}")
+    async def update_graph_relation(
+        relation_id: str,
+        body: UpdateSemanticReviewStatusBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.update_graph_relation_status(
+                relation_id,
+                body.review_status or body.status or "suggested",
+            )
+        )
+
+    @app.get("/api/knowledge-assets/semantic/alignments")
+    async def list_alignments(
+        space_id: Annotated[str | None, Query(max_length=128)] = None,
+        semantic_pack_id: Annotated[str | None, Query(max_length=256)] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_alignments(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.patch("/api/knowledge-assets/semantic/alignments/{alignment_id}")
+    async def update_alignment(
+        alignment_id: str,
+        body: UpdateSemanticReviewStatusBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.update_alignment_status(
+                alignment_id,
+                body.status or body.review_status or "suggested",
+            )
+        )
+
+    @app.get("/api/knowledge-assets/semantic-packs/{asset_id}/detail")
+    async def semantic_pack_detail(asset_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.semantic_pack_detail(asset_id))
 
     @app.get("/api/knowledge-assets/workbench/overview")
     async def workbench_overview(
@@ -495,6 +686,13 @@ def _api_error(status_code: int, code: str, message: str) -> HTTPException:
             "message": redact_sensitive(message),
             "retryable": status_code >= 500,
         },
+    )
+
+
+def _sse(event: str, payload: dict[str, Any]) -> str:
+    return (
+        f"event: {event}\n"
+        f"data: {json.dumps(redact_sensitive(payload), ensure_ascii=False)}\n\n"
     )
 
 

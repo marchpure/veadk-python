@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import sqlite3
+from typing import Any, cast
 
 import pytest
 
@@ -21,7 +22,11 @@ from frontend.server.knowledge_assets.models import (
     RecordIndexedDocumentBody,
     RecordSkillPackageBody,
     SaveCredentialBody,
+    SemanticInstructionBody,
+    SemanticQuestionSqlPairBody,
     UpdateBuildJobBody,
+    UpdateSemanticInstructionBody,
+    UpdateSemanticQuestionSqlPairBody,
     UpdateSourceStatusBody,
 )
 from frontend.server.knowledge_assets.service import (
@@ -518,7 +523,7 @@ def test_build_jobs_are_persisted_and_redacted(store_env) -> None:
 def test_credentials_are_encrypted_and_key_file_is_private(store_env) -> None:
     store = KnowledgeAssetStore()
 
-    async def scenario() -> tuple[str, dict[str, object]]:
+    async def scenario() -> tuple[str, dict[str, Any]]:
         space = await store.create_space(CreateSpaceBody(name="KC"))
         source = await store.create_source(
             CreateSourceBody(space_id=space["id"], source_type="feishu", name="Feishu")
@@ -537,9 +542,10 @@ def test_credentials_are_encrypted_and_key_file_is_private(store_env) -> None:
 
     source_id, result = asyncio.run(scenario())
     status_payload = result["status"]
+    decrypted = result["decrypted"]
     assert status_payload["configured"] is True
     assert "redact-me-alpha" not in json.dumps(status_payload)
-    assert result["decrypted"]["access_token"] == "redact-me-alpha"
+    assert decrypted["access_token"] == "redact-me-alpha"
 
     key_path = default_key_path()
     assert key_path.exists()
@@ -734,9 +740,97 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
     assert credential["space_id"] == "space_legacy"
     assert credential["auth_mode"] == "none"
     assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
-    assert schema_version == "3"
+    assert schema_version == "4"
     assert "knowledge_asset_eval_suites" in tables
     assert "knowledge_asset_eval_results" in tables
+    assert "semantic_question_sql_pairs" in tables
+    assert "semantic_instructions" in tables
+    assert "semantic_graph_objects" in tables
+    assert "semantic_alignments" in tables
+
+
+def test_semantic_few_shot_instruction_and_graph_records_persist(store_env) -> None:
+    store = KnowledgeAssetStore()
+
+    async def scenario() -> None:
+        space = await store.create_space(CreateSpaceBody(name="KC"))
+        pair = await store.create_question_sql_pair(
+            SemanticQuestionSqlPairBody(
+                space_id=space["id"],
+                semantic_pack_id="sales_semantic",
+                question="top stores by ticket count",
+                sql="SELECT store, COUNT(*) AS ticket_count FROM sales GROUP BY store",
+                dialect="duckdb",
+                tables=["sales"],
+            )
+        )
+        edited_pair = await store.update_question_sql_pair(
+            pair["id"],
+            UpdateSemanticQuestionSqlPairBody(notes="canonical store ranking"),
+        )
+        assert edited_pair["notes"] == "canonical store ranking"
+        assert (await store.list_question_sql_pairs(space_id=space["id"]))[0]["id"] == pair["id"]
+
+        instruction = await store.create_instruction(
+            SemanticInstructionBody(
+                space_id=space["id"],
+                semantic_pack_id="sales_semantic",
+                instruction="Use ticket_count for bill counts.",
+                questions=["ticket count"],
+                is_default=True,
+                scope="metric",
+            )
+        )
+        edited_instruction = await store.update_instruction(
+            instruction["id"],
+            UpdateSemanticInstructionBody(scope="global"),
+        )
+        assert edited_instruction["scope"] == "global"
+        assert (await store.list_instructions(space_id=space["id"]))[0]["is_default"] is True
+
+        obj = await store.upsert_graph_object(
+            object_id="docobj_ticket",
+            space_id=space["id"],
+            semantic_pack_id="sales_semantic",
+            kind="metric_concept",
+            name="Ticket Count",
+            normalized_name="ticket_count",
+            confidence=0.82,
+            provenance={"source_id": "doc_1"},
+            review_status="suggested",
+        )
+        assert obj["provenance"]["source_id"] == "doc_1"
+        rel = await store.upsert_graph_relation(
+            relation_id="docrel_ticket_sales",
+            space_id=space["id"],
+            semantic_pack_id="sales_semantic",
+            source_object_id=obj["id"],
+            target_object_id="docobj_sales",
+            relation_type="defines",
+            evidence=[{"text": "ticket count means distinct bills"}],
+        )
+        assert rel["evidence"][0]["text"].startswith("ticket count")
+        alignment = await store.upsert_alignment(
+            alignment_id="align_ticket_metric",
+            space_id=space["id"],
+            semantic_pack_id="sales_semantic",
+            doc_object_id=obj["id"],
+            mdl_object_ref="metric:ticket_count",
+            alignment_type="doc_metric_to_metric",
+            status="accepted",
+            confidence=0.9,
+        )
+        assert alignment["status"] == "accepted"
+        assert len(await store.list_graph_objects(semantic_pack_id="sales_semantic")) == 1
+        assert len(await store.list_graph_relations(semantic_pack_id="sales_semantic")) == 1
+        assert len(await store.list_alignments(semantic_pack_id="sales_semantic")) == 1
+
+        await store.delete_question_sql_pair(pair["id"])
+        await store.delete_instruction(instruction["id"])
+        assert await store.list_question_sql_pairs(space_id=space["id"]) == []
+        assert await store.list_instructions(space_id=space["id"]) == []
+
+    asyncio.run(scenario())
 
 
 def test_wrong_key_and_corrupt_ciphertext_fail_cleanly(store_env, monkeypatch) -> None:
@@ -816,4 +910,6 @@ def test_query_url_rejects_ungoverned_web_paths(store_env) -> None:
 
 def test_cipher_rejects_malformed_envelope() -> None:
     with pytest.raises(CredentialCryptoError, match="missing required fields"):
-        CredentialCipher().decrypt({"version": "knowledge_asset.credential.v1"})
+        CredentialCipher().decrypt(
+            cast(Any, {"version": "knowledge_asset.credential.v1"})
+        )
