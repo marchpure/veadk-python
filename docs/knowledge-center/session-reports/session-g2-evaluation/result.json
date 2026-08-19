@@ -1,31 +1,31 @@
 {
-  "generatedAt": "2026-08-19T00:13:01.084Z",
+  "generatedAt": "2026-08-19T00:44:30.663Z",
   "studioUrl": "http://127.0.0.1:18331",
   "environment": {
     "VEADK_STUDIO_URL": "http://127.0.0.1:18331"
   },
   "space": {
-    "id": "space_37f514c4daa64b3383f05edd569b40ff",
-    "name": "Session G2 Evaluation g2-1787098377553",
+    "id": "space_f1a3f5f23b104defb7bc6720f60715db",
+    "name": "Session G2 Evaluation g2-1787100264555",
     "description": "Live E2E fixture for Knowledge Asset evaluation hardening.",
     "default_knowledge_base_id": null,
     "region": null,
     "metadata": {},
-    "created_at": "2026-08-19T00:12:57.591Z",
-    "updated_at": "2026-08-19T00:12:57.591Z"
+    "created_at": "2026-08-19T00:44:24.605Z",
+    "updated_at": "2026-08-19T00:44:24.605Z"
   },
   "fixtureAssets": {
-    "semanticAssetId": "g2-1787098377553-oracle-sales",
-    "dashboardAssetId": "g2-1787098377553-sales-dashboard",
+    "semanticAssetId": "g2-1787100264555-oracle-sales",
+    "dashboardAssetId": "g2-1787100264555-sales-dashboard",
     "fixture": "local SQLite Knowledge Asset fixtures; query services execute real repository-backed package query paths"
   },
   "runs": [
     {
-      "runId": "eval_run_c5dedd936e464443adb20d944d8732f1",
-      "suiteId": "eval_suite_61d7cf1c1f384b209311b28b97aafc97",
-      "suiteName": "G2 Semantic Skill Eval g2-1787098377553",
+      "runId": "eval_run_99ecd429b22540fba3401ca5736fa815",
+      "suiteId": "eval_suite_eadf00a89ad74cdcaedf7c16924777fd",
+      "suiteName": "G2 Semantic Skill Eval g2-1787100264555",
       "targetKind": "semantic_skill",
-      "targetAssetId": "g2-1787098377553-oracle-sales",
+      "targetAssetId": "g2-1787100264555-oracle-sales",
       "status": "succeeded",
       "score": 1,
       "reason": "All deterministic checks passed.",
@@ -33,6 +33,26 @@
       "modelStatus": "not_configured",
       "mock": false,
       "mockVerified": true,
+      "cases": [
+        {
+          "caseId": "eval_case_1c52098de4ed4bb792d7244077ae22e8",
+          "prompt": "按门店查看销售票数",
+          "expectedPolicyDecision": "allow",
+          "status": "passed",
+          "score": 1,
+          "policyDecision": "allow",
+          "freshnessStatus": "fresh",
+          "rowCount": 2,
+          "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "ticket_count definition"
+          ],
+          "reason": "All deterministic checks passed."
+        }
+      ],
+      "allowEvidence": true,
+      "denyEvidence": false,
       "completeness": {
         "actualSql": true,
         "dashboardSpecDiff": false,
@@ -43,9 +63,9 @@
         "actualOutput": true
       },
       "result": {
-        "id": "eval_result_380d88c163ca4bad8f4a28f9756eae5a",
-        "runId": "eval_run_c5dedd936e464443adb20d944d8732f1",
-        "caseId": "eval_case_f53765a4ebd04102a51369783d5561b5",
+        "id": "eval_result_e721db4daa5246468efbaf12889a45ef",
+        "runId": "eval_run_99ecd429b22540fba3401ca5736fa815",
+        "caseId": "eval_case_1c52098de4ed4bb792d7244077ae22e8",
         "status": "passed",
         "score": 1,
         "reason": "All deterministic checks passed.",
@@ -90,8 +110,8 @@
               }
             ],
             "model": {
-              "id": "g2-1787098377553-oracle-sales",
-              "slug": "g2-1787098377553-oracle-sales",
+              "id": "g2-1787100264555-oracle-sales",
+              "slug": "g2-1787100264555-oracle-sales",
               "version": "v1"
             },
             "permissions": {
@@ -117,7 +137,7 @@
           },
           "query_result": {
             "asset": {
-              "id": "g2-1787098377553-oracle-sales",
+              "id": "g2-1787100264555-oracle-sales",
               "type": "semantic_model",
               "version": "v1"
             },
@@ -191,7 +211,7 @@
             "schema": "agentkit.semantic_query_result.v1"
           },
           "target": {
-            "asset_id": "g2-1787098377553-oracle-sales",
+            "asset_id": "g2-1787100264555-oracle-sales",
             "asset_type": "semantic_model",
             "capabilities": {
               "dimensions": [
@@ -301,8 +321,8 @@
                   }
                 ],
                 "model": {
-                  "id": "g2-1787098377553-oracle-sales",
-                  "slug": "g2-1787098377553-oracle-sales",
+                  "id": "g2-1787100264555-oracle-sales",
+                  "slug": "g2-1787100264555-oracle-sales",
                   "version": "v1"
                 },
                 "permissions": {
@@ -328,7 +348,7 @@
               "package_type": "semantic_skill",
               "runtime": {
                 "direct_database_access": false,
-                "query_url": "/api/knowledge-assets/assets/semantic_model/g2-1787098377553-oracle-sales/query",
+                "query_url": "/api/knowledge-assets/assets/semantic_model/g2-1787100264555-oracle-sales/query",
                 "raw_sql_fallback": false,
                 "transport": "agentkit_governed_rest"
               }
@@ -343,7 +363,7 @@
             "name": "Oracle Sales G2",
             "provenance": {},
             "publish_state": "published",
-            "query_url": "/api/knowledge-assets/assets/semantic_model/g2-1787098377553-oracle-sales/query",
+            "query_url": "/api/knowledge-assets/assets/semantic_model/g2-1787100264555-oracle-sales/query",
             "sample_evidence": [
               {
                 "kind": "metric",
@@ -360,7 +380,7 @@
           "tool_calls": [
             {
               "raw_sql_fallback": false,
-              "semantic_asset_id": "g2-1787098377553-oracle-sales",
+              "semantic_asset_id": "g2-1787100264555-oracle-sales",
               "tool": "governed_semantic_query"
             }
           ]
@@ -388,7 +408,7 @@
         "toolCalls": [
           {
             "raw_sql_fallback": false,
-            "semantic_asset_id": "g2-1787098377553-oracle-sales",
+            "semantic_asset_id": "g2-1787100264555-oracle-sales",
             "tool": "governed_semantic_query"
           }
         ],
@@ -399,22 +419,58 @@
           }
         ],
         "dashboardSpecDiff": {},
-        "createdAt": "2026-08-19T00:12:57.656Z"
+        "createdAt": "2026-08-19T00:44:24.714Z"
       }
     },
     {
-      "runId": "eval_run_44e208c91af24b80b3ce851d21efec12",
-      "suiteId": "eval_suite_718b6991718447d398045ce75a4f2b66",
-      "suiteName": "G2 AskTable Query Eval g2-1787098377553",
+      "runId": "eval_run_256eff2a005c48728756e77190ec3ad7",
+      "suiteId": "eval_suite_8670019741394606aa21aafbdcb5ec46",
+      "suiteName": "G2 AskTable Query Eval g2-1787100264555",
       "targetKind": "asktable_query",
-      "targetAssetId": "g2-1787098377553-oracle-sales",
+      "targetAssetId": "g2-1787100264555-oracle-sales",
       "status": "succeeded",
       "score": 1,
       "reason": "All deterministic checks passed.",
-      "imported": 1,
+      "imported": 2,
       "modelStatus": "not_configured",
       "mock": false,
       "mockVerified": true,
+      "cases": [
+        {
+          "caseId": "eval_case_87931d7100e04e18807ca1bf31c069bc",
+          "prompt": "按门店查看销售票数",
+          "expectedPolicyDecision": "allow",
+          "status": "passed",
+          "score": 1,
+          "policyDecision": "allow",
+          "freshnessStatus": "fresh",
+          "rowCount": 2,
+          "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "ticket_count definition"
+          ],
+          "reason": "All deterministic checks passed."
+        },
+        {
+          "caseId": "eval_case_9dc1891fa5204ae88a89a592392d18ca",
+          "prompt": "show customer phone/contact by store",
+          "expectedPolicyDecision": "deny",
+          "status": "blocked",
+          "score": 1,
+          "policyDecision": "deny",
+          "freshnessStatus": "blocked",
+          "rowCount": 0,
+          "actualSql": "-- policy denied by governed Semantic Skill; no raw SQL executed",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "PII policy guard"
+          ],
+          "reason": "All deterministic checks passed."
+        }
+      ],
+      "allowEvidence": true,
+      "denyEvidence": true,
       "completeness": {
         "actualSql": true,
         "dashboardSpecDiff": false,
@@ -425,16 +481,16 @@
         "actualOutput": true
       },
       "result": {
-        "id": "eval_result_22d7b33c9b244ae78e11df36ee0abcf2",
-        "runId": "eval_run_44e208c91af24b80b3ce851d21efec12",
-        "caseId": "eval_case_a6bb3d2e37f143abb2657562ab503a9d",
+        "id": "eval_result_254e42a15224492b89948acb9ca583bf",
+        "runId": "eval_run_256eff2a005c48728756e77190ec3ad7",
+        "caseId": "eval_case_87931d7100e04e18807ca1bf31c069bc",
         "status": "passed",
         "score": 1,
         "reason": "All deterministic checks passed.",
         "actualOutput": {
           "askdata_result": {
             "asset": {
-              "id": "g2-1787098377553-oracle-sales",
+              "id": "g2-1787100264555-oracle-sales",
               "name": "Oracle Sales G2",
               "type": "semantic_model",
               "version": "v1"
@@ -504,7 +560,7 @@
               "metric": "ticket_count",
               "mode": "summary",
               "question": "按门店查看销售票数",
-              "semantic_asset_id": "g2-1787098377553-oracle-sales",
+              "semantic_asset_id": "g2-1787100264555-oracle-sales",
               "time_range": {}
             },
             "schema": "agentkit.askdata.result.v1",
@@ -513,7 +569,7 @@
           "tool_calls": [
             {
               "raw_sql_fallback": false,
-              "semantic_asset_id": "g2-1787098377553-oracle-sales",
+              "semantic_asset_id": "g2-1787100264555-oracle-sales",
               "tool": "asktable_query"
             }
           ]
@@ -541,7 +597,7 @@
         "toolCalls": [
           {
             "raw_sql_fallback": false,
-            "semantic_asset_id": "g2-1787098377553-oracle-sales",
+            "semantic_asset_id": "g2-1787100264555-oracle-sales",
             "tool": "asktable_query"
           }
         ],
@@ -552,15 +608,15 @@
           }
         ],
         "dashboardSpecDiff": {},
-        "createdAt": "2026-08-19T00:12:57.701Z"
+        "createdAt": "2026-08-19T00:44:24.949Z"
       }
     },
     {
-      "runId": "eval_run_26b870627f564bc2a393814fff77719b",
-      "suiteId": "eval_suite_6d5fd3bb45f24c489d814aa04f0e7f1e",
-      "suiteName": "G2 Dashboard Skill Eval g2-1787098377553",
+      "runId": "eval_run_043f00bc851a4f66b682be8b7753cf0e",
+      "suiteId": "eval_suite_9884a4b9393b40a2a2ac35864c8468f0",
+      "suiteName": "G2 Dashboard Skill Eval g2-1787100264555",
       "targetKind": "dashboard_skill",
-      "targetAssetId": "g2-1787098377553-sales-dashboard",
+      "targetAssetId": "g2-1787100264555-sales-dashboard",
       "status": "succeeded",
       "score": 1,
       "reason": "All deterministic checks passed.",
@@ -568,6 +624,26 @@
       "modelStatus": "not_configured",
       "mock": false,
       "mockVerified": true,
+      "cases": [
+        {
+          "caseId": "eval_case_7cafaee2f81d4fd28b425a7d1ec24f5b",
+          "prompt": "验证门店销售 dashboard 的主要 tile 和 data_view 证据",
+          "expectedPolicyDecision": "allow",
+          "status": "passed",
+          "score": 1,
+          "policyDecision": "allow",
+          "freshnessStatus": "fresh",
+          "rowCount": 2,
+          "actualSql": "SELECT store_name AS store, COUNT(DISTINCT ticket_id) AS ticket_count FROM SALES_ORDER GROUP BY store_name",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "ticket_count definition"
+          ],
+          "reason": "All deterministic checks passed."
+        }
+      ],
+      "allowEvidence": true,
+      "denyEvidence": false,
       "completeness": {
         "actualSql": true,
         "dashboardSpecDiff": true,
@@ -578,24 +654,24 @@
         "actualOutput": true
       },
       "result": {
-        "id": "eval_result_c4156aeceadd464da4bed303f904f1ef",
-        "runId": "eval_run_26b870627f564bc2a393814fff77719b",
-        "caseId": "eval_case_777337d90a5a4f32ab86ad7e11fddc65",
+        "id": "eval_result_7d6fff52a58d4d97a96c5d09d1d67aba",
+        "runId": "eval_run_043f00bc851a4f66b682be8b7753cf0e",
+        "caseId": "eval_case_7cafaee2f81d4fd28b425a7d1ec24f5b",
         "status": "passed",
         "score": 1,
         "reason": "All deterministic checks passed.",
         "actualOutput": {
           "dashboard_run": {
-            "completed_at": "2026-08-19T00:12:57.746097Z",
+            "completed_at": "2026-08-19T00:44:25.203136Z",
             "contract_version": "dashboard.run.v1",
-            "dashboard_id": "g2-1787098377553-sales-dashboard",
+            "dashboard_id": "g2-1787100264555-sales-dashboard",
             "errors": [],
             "mock": false,
             "mode": "live",
             "normalized_filters": {},
             "overall_freshness": "fresh",
-            "run_id": "run_g2-1787098377553-sales-dashboard_20260819T001257.746097Z",
-            "started_at": "2026-08-19T00:12:57.746097Z",
+            "run_id": "run_g2-1787100264555-sales-dashboard_20260819T004425.203136Z",
+            "started_at": "2026-08-19T00:44:25.203136Z",
             "views": [
               {
                 "as_of": "2026-08-19T00:00:00Z",
@@ -677,7 +753,7 @@
             ],
             "semantic_bindings": [
               {
-                "semantic_asset_id": "g2-1787098377553-oracle-sales"
+                "semantic_asset_id": "g2-1787100264555-oracle-sales"
               }
             ],
             "tiles": [
@@ -698,7 +774,7 @@
             "missing_tiles": []
           },
           "target": {
-            "asset_id": "g2-1787098377553-sales-dashboard",
+            "asset_id": "g2-1787100264555-sales-dashboard",
             "asset_type": "dashboard",
             "capabilities": {},
             "capability_kind": "dashboard_skill",
@@ -743,7 +819,7 @@
                 ],
                 "semantic_bindings": [
                   {
-                    "semantic_asset_id": "g2-1787098377553-oracle-sales"
+                    "semantic_asset_id": "g2-1787100264555-oracle-sales"
                   }
                 ],
                 "tiles": [
@@ -764,7 +840,7 @@
             "name": "Sales Dashboard G2",
             "provenance": {},
             "publish_state": "published",
-            "query_url": "/api/knowledge-assets/assets/dashboard/g2-1787098377553-sales-dashboard/query",
+            "query_url": "/api/knowledge-assets/assets/dashboard/g2-1787100264555-sales-dashboard/query",
             "sample_evidence": [
               {
                 "kind": "metric",
@@ -780,7 +856,7 @@
           },
           "tool_calls": [
             {
-              "dashboard_asset_id": "g2-1787098377553-sales-dashboard",
+              "dashboard_asset_id": "g2-1787100264555-sales-dashboard",
               "data_view_ids": [
                 "primary_metric"
               ],
@@ -810,7 +886,7 @@
         },
         "toolCalls": [
           {
-            "dashboard_asset_id": "g2-1787098377553-sales-dashboard",
+            "dashboard_asset_id": "g2-1787100264555-sales-dashboard",
             "data_view_ids": [
               "primary_metric"
             ],
@@ -833,7 +909,7 @@
           ],
           "missing_tiles": []
         },
-        "createdAt": "2026-08-19T00:12:57.748Z"
+        "createdAt": "2026-08-19T00:44:25.206Z"
       }
     }
   ],
@@ -862,7 +938,7 @@
         "hasByaanSidebar": false,
         "mainRect": {
           "width": 858,
-          "height": 1719,
+          "height": 1526,
           "left": 549,
           "right": 1407
         },
@@ -893,7 +969,7 @@
         "hasByaanSidebar": false,
         "mainRect": {
           "width": 284,
-          "height": 2984,
+          "height": 2916,
           "left": 81,
           "right": 365
         },

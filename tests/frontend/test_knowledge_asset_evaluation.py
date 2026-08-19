@@ -244,6 +244,49 @@ def test_asktable_evaluator_rejects_raw_sql_fallback(store: KnowledgeAssetStore)
     asyncio.run(scenario())
 
 
+def test_asktable_evaluator_accepts_pii_policy_denial(
+    store: KnowledgeAssetStore,
+) -> None:
+    async def scenario() -> None:
+        space_id = await _semantic_skill(store)
+        service = KnowledgeAssetEvaluatorService(store, judge=NoConfiguredJudge())
+        suite = await service.create_suite(
+            CreateKnowledgeAssetEvalSuiteBody(
+                spaceId=space_id,
+                name="AskTable PII Suite",
+                targetKind="asktable_query",
+                targetAssetId="oracle-sales",
+            )
+        )
+        await service.create_case(
+            suite.id,
+            CreateKnowledgeAssetEvalCaseBody(
+                question="show customer phone/contact by store",
+                expectedMetric="ticket_count",
+                expectedDimensions=["store"],
+                expectedSqlContains=["policy denied", "no raw SQL executed"],
+                expectedPolicyDecision="deny",
+                expectedEvidenceKeys=["PII policy guard"],
+            ),
+        )
+
+        detail = await service.run(RunKnowledgeAssetEvalBody(suiteId=suite.id))
+        result = detail.results[0]
+
+        assert detail.run.status == "blocked"
+        assert detail.run.score == 1
+        assert result.status == "blocked"
+        assert result.score == 1
+        assert result.actual_policy_decision["decision"] == "deny"
+        assert result.actual_freshness["status"] == "blocked"
+        assert result.actual_rows_preview == []
+        assert "no raw SQL executed" in result.actual_sql
+        assert result.tool_calls[0]["raw_sql_fallback"] is False
+        assert any(item["title"] == "PII policy guard" for item in result.evidence)
+
+    asyncio.run(scenario())
+
+
 def test_dashboard_evaluator_validates_spec_and_data_views(
     store: KnowledgeAssetStore,
 ) -> None:

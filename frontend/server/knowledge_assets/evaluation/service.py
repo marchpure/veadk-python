@@ -573,6 +573,7 @@ class KnowledgeAssetEvaluatorService:
         )
         rows = data.get("rows") if isinstance(data.get("rows"), list) else []
         decision = str(policy.get("decision") or "").casefold()
+        expected_deny = case.expected_policy_decision.casefold() == "deny"
         checks = [
             (
                 _asset_id(query_result) == asset_id,
@@ -580,8 +581,8 @@ class KnowledgeAssetEvaluatorService:
             ),
             (not raw_fallback, "Raw SQL fallback was not used."),
             (
-                bool(rows) or decision == "deny",
-                "Rows are present or the request was correctly blocked.",
+                (decision == "deny" and not rows) if expected_deny else bool(rows),
+                "Rows are present unless an expected policy denial returned no rows.",
             ),
         ]
         checks.extend(_common_result_checks(case, query_result))
@@ -860,6 +861,11 @@ def _common_result_checks(
     policy = _dict(data.get("policyDecision"))
     freshness = _dict(data.get("freshness"))
     evidence = _list_of_dicts(data.get("evidence"))
+    rows = data.get("rows") if isinstance(data.get("rows"), list) else []
+    execution = _dict(data.get("execution"))
+    decision = str(policy.get("decision") or "").casefold()
+    expected_decision = case.expected_policy_decision.casefold()
+    expected_deny = expected_decision == "deny"
     checks: list[tuple[bool, str]] = [
         (bool(sql), "SQL evidence exists."),
         (bool(data.get("metricDefinition")), "Metric definition exists."),
@@ -867,6 +873,24 @@ def _common_result_checks(
         (bool(freshness), "Freshness evidence exists."),
         (bool(evidence), "Evidence exists."),
     ]
+    if expected_deny:
+        checks.extend(
+            [
+                (decision == "deny", "Expected policy denial was returned."),
+                (not rows, "Policy-denied request returned no rows."),
+                (
+                    freshness.get("status") == "blocked",
+                    "Policy-denied request has blocked freshness status.",
+                ),
+                (
+                    not bool(
+                        execution.get("raw_sql_fallback")
+                        or policy.get("raw_sql_fallback")
+                    ),
+                    "Policy-denied request did not use raw SQL fallback.",
+                ),
+            ]
+        )
     if case.expected_metric:
         expected = case.expected_metric.casefold()
         metric_values = {
