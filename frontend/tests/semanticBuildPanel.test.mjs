@@ -66,6 +66,8 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(panelSource, /relationshipFieldHighlights/);
   assert.match(panelSource, /is-join-field/);
   assert.match(panelSource, /kc-mobile-workbench-tabs/);
+  assert.match(panelSource, /mdlToModelingViewModel/);
+  assert.match(panelSource, /WrenTreeGroup/);
   assert.match(panelSource, /agent_status/);
   assert.doesNotMatch(panelSource, /<iframe/);
   assert.doesNotMatch(panelSource, /DATASTUDIO_API_KEY/);
@@ -116,6 +118,15 @@ test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence 
   assert.match(askDashboardSource, /AskTablePanel/);
   assert.match(askDashboardSource, /DashboardPreviewWorkspace/);
   assert.match(askDashboardSource, /DashboardQueryEvidencePanel/);
+  assert.match(askDashboardSource, /AskDashboardStatusStrip/);
+  assert.match(askDashboardSource, /askDashboardStatusModel/);
+  assert.match(askDashboardSource, /agentkit_native_asktable_dashboard/);
+  assert.match(askDashboardSource, /askDataToNotebookViewModel/);
+  assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
+  assert.match(askDashboardSource, /kc-byaan-query-editor/);
+  assert.match(askDashboardSource, /askdashboard-not-configured-blocked/);
+  assert.match(askDashboardSource, /blocked_no_semantic_skill/);
+  assert.match(askDashboardSource, /no published Semantic Skill/);
   assert.match(askDashboardSource, /Preview/);
   assert.match(askDashboardSource, /Code/);
   assert.match(askDashboardSource, /Queries/);
@@ -131,6 +142,8 @@ test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence 
   assert.match(askDashboardSource, /kc-dashboard-data-views/);
   assert.match(askDashboardSource, /beginSplitResize/);
   assert.match(askDashboardSource, /kc-askdash-resizer/);
+  assert.match(askDashboardSource, /Blocked/);
   assert.match(askDashboardSource, /title="后端导出能力尚未启用"/);
   assert.match(knowledgeCenterSource, /<AskDashboardWorkbench/);
+  assert.match(knowledgeCenterSource, /buildJobs=\{buildJobs\}/);
 });

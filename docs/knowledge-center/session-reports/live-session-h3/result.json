@@ -1,0 +1,273 @@
+{
+  "ok": true,
+  "generated_at": "2026-08-19T02:21:30.425Z",
+  "base_url": "http://127.0.0.1:57595",
+  "reference_urls": {
+    "wren_modeling": "http://127.0.0.1:3011/modeling",
+    "byaan_notebook": "http://127.0.0.1:15183/notebook/ebee0425-8079-4be7-bbe6-fdeeef29fbbf"
+  },
+  "checks": [
+    {
+      "name": "desktop-1440 reference wren-modeling loaded",
+      "pass": true,
+      "details": "Applications\nWorkflow\nDatabase\nKnowledge\nTools\nUndeployed changes\nDeploy\nModels\n(4)\nNew\ncustomers\norders\norder_items\nproducts\nViews\n(0)\nNew\nNo views\ncustomers\nColumns\ncustomer_id\nc"
+    },
+    {
+      "name": "mobile-390 reference wren-modeling loaded",
+      "pass": true,
+      "details": "Applications\nWorkflow\nDatabase\nKnowledge\nTools\nUndeployed changes\nDeploy\nModels\n(4)\nNew\ncustomers\norders\norder_items\nproducts\nViews\n(0)\nNew\nNo views\ncustomers\nColumns\ncustomer_id\nc"
+    },
+    {
+      "name": "desktop-1440 reference byaan-notebook loaded",
+      "pass": true,
+      "details": "Byaan\nWelcome back\n\nSign in to your account\n\nInvitation Only\n\nAccess is by invitation only. Please contact your administrator if you need an invitation.\n\nEmail\nPassword\nForgot pass"
+    },
+    {
+      "name": "mobile-390 reference byaan-notebook loaded",
+      "pass": true,
+      "details": "Byaan\nWelcome back\n\nSign in to your account\n\nInvitation Only\n\nAccess is by invitation only. Please contact your administrator if you need an invitation.\n\nEmail\nPassword\nForgot pass"
+    },
+    {
+      "name": "semantic includes Models",
+      "pass": true,
+      "details": "Models"
+    },
+    {
+      "name": "semantic includes Views",
+      "pass": true,
+      "details": "Views"
+    },
+    {
+      "name": "semantic includes Relationships",
+      "pass": true,
+      "details": "Relationships"
+    },
+    {
+      "name": "semantic includes Metrics",
+      "pass": true,
+      "details": "Metrics"
+    },
+    {
+      "name": "semantic includes React Flow",
+      "pass": true,
+      "details": "React Flow"
+    },
+    {
+      "name": "semantic includes H2 Sales Semantic Skill",
+      "pass": true,
+      "details": "H2 Sales Semantic Skill"
+    },
+    {
+      "name": "semantic Wren tree group models renders",
+      "pass": true,
+      "details": "models(3) | views(0) | relationships(2) | metrics(3)"
+    },
+    {
+      "name": "semantic Wren tree group views renders",
+      "pass": true,
+      "details": "models(3) | views(0) | relationships(2) | metrics(3)"
+    },
+    {
+      "name": "semantic Wren tree group relationships renders",
+      "pass": true,
+      "details": "models(3) | views(0) | relationships(2) | metrics(3)"
+    },
+    {
+      "name": "semantic Wren tree group metrics renders",
+      "pass": true,
+      "details": "models(3) | views(0) | relationships(2) | metrics(3)"
+    },
+    {
+      "name": "semantic React Flow nodes render",
+      "pass": true,
+      "details": "3"
+    },
+    {
+      "name": "semantic graph has no iframe",
+      "pass": true,
+      "details": "iframe count"
+    },
+    {
+      "name": "desktop semantic page has no horizontal overflow",
+      "pass": true,
+      "details": "{\"body\":0,\"document\":0}"
+    },
+    {
+      "name": "askdashboard includes Query Editor",
+      "pass": true,
+      "details": "Query Editor"
+    },
+    {
+      "name": "askdashboard includes Dashboard builder",
+      "pass": true,
+      "details": "Dashboard builder"
+    },
+    {
+      "name": "askdashboard includes Preview",
+      "pass": true,
+      "details": "Preview"
+    },
+    {
+      "name": "askdashboard includes Code",
+      "pass": true,
+      "details": "Code"
+    },
+    {
+      "name": "askdashboard includes Queries",
+      "pass": true,
+      "details": "Queries"
+    },
+    {
+      "name": "askdashboard includes H2 Sales Dashboard Skill",
+      "pass": true,
+      "details": "H2 Sales Dashboard Skill"
+    },
+    {
+      "name": "dashboard build disabled before query result",
+      "pass": true,
+      "details": "before Execute"
+    },
+    {
+      "name": "askdashboard has no iframe",
+      "pass": true,
+      "details": "iframe count"
+    },
+    {
+      "name": "query notebook includes Results",
+      "pass": true,
+      "details": "Results"
+    },
+    {
+      "name": "query notebook includes SQL",
+      "pass": true,
+      "details": "SQL"
+    },
+    {
+      "name": "query notebook includes Metric",
+      "pass": true,
+      "details": "Metric"
+    },
+    {
+      "name": "query notebook includes Policy",
+      "pass": true,
+      "details": "Policy"
+    },
+    {
+      "name": "query notebook includes Freshness",
+      "pass": true,
+      "details": "Freshness"
+    },
+    {
+      "name": "query notebook includes Evidence",
+      "pass": true,
+      "details": "Evidence"
+    },
+    {
+      "name": "dashboard build enabled after governed query",
+      "pass": true,
+      "details": "after Execute"
+    },
+    {
+      "name": "query tab SQL activates",
+      "pass": true,
+      "details": "SQL"
+    },
+    {
+      "name": "query tab Metric activates",
+      "pass": true,
+      "details": "Metric"
+    },
+    {
+      "name": "query tab Policy activates",
+      "pass": true,
+      "details": "Policy"
+    },
+    {
+      "name": "query tab Freshness activates",
+      "pass": true,
+      "details": "Freshness"
+    },
+    {
+      "name": "query tab Evidence activates",
+      "pass": true,
+      "details": "Evidence"
+    },
+    {
+      "name": "dashboard evidence includes policyDecision",
+      "pass": true,
+      "details": "policyDecision"
+    },
+    {
+      "name": "dashboard evidence includes freshness",
+      "pass": true,
+      "details": "freshness"
+    },
+    {
+      "name": "dashboard evidence includes lineage",
+      "pass": true,
+      "details": "lineage"
+    },
+    {
+      "name": "dashboard evidence includes evidence",
+      "pass": true,
+      "details": "evidence"
+    },
+    {
+      "name": "desktop askdashboard page has no horizontal overflow",
+      "pass": true,
+      "details": "{\"body\":0,\"document\":0}"
+    },
+    {
+      "name": "mobile semantic tabs visible",
+      "pass": true,
+      "details": "mobile semantic tabs"
+    },
+    {
+      "name": "mobile semantic native view has no iframe",
+      "pass": true,
+      "details": "iframe count"
+    },
+    {
+      "name": "mobile semantic page has no horizontal overflow",
+      "pass": true,
+      "details": "{\"body\":0,\"document\":0}"
+    },
+    {
+      "name": "mobile askdashboard page has no horizontal overflow",
+      "pass": true,
+      "details": "{\"body\":0,\"document\":0}"
+    },
+    {
+      "name": "mobile query evidence visible",
+      "pass": true,
+      "details": "query evidence panel"
+    },
+    {
+      "name": "no unexpected page errors",
+      "pass": true,
+      "details": "[]"
+    },
+    {
+      "name": "no unexpected HTTP 4xx/5xx responses except oauth probe",
+      "pass": true,
+      "details": "[]"
+    }
+  ],
+  "screenshots": [
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/desktop-1440-reference-wren-modeling.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/mobile-390-reference-wren-modeling.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/desktop-1440-reference-byaan-notebook.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/mobile-390-reference-byaan-notebook.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/desktop-1440-agentkit-semantic-h3.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/desktop-1440-agentkit-askdashboard-h3.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/desktop-1440-agentkit-askdashboard-query-tabs-h3.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/mobile-390-agentkit-semantic-h3.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/mobile-390-agentkit-askdashboard-h3.png",
+    "docs/knowledge-center/session-reports/live-session-h3/screenshots/mobile-390-agentkit-askdashboard-query-tabs-h3.png"
+  ],
+  "pageErrors": [],
+  "unexpectedHttpErrors": [],
+  "notes": [
+    "BYAAN fresh browser context reached invitation-only auth gate; screenshots still capture the reachable reference shell, while implementation mapping used BYAAN source files."
+  ]
+}

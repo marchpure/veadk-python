@@ -11,6 +11,8 @@ import test from "node:test";
 import { build } from "esbuild";
 
 const require = createRequire(import.meta.url);
+const React = require("react");
+const { renderToStaticMarkup } = require("react-dom/server");
 const semanticSource = readFileSync(
   new URL("../src/knowledge-center/SemanticModelingWorkbench.tsx", import.meta.url),
   "utf8",
@@ -32,6 +34,15 @@ async function loadTsxModule(relativePath) {
     platform: "node",
     target: "node20",
     plugins: [
+      {
+        name: "external-react",
+        setup(pluginBuild) {
+          pluginBuild.onResolve({ filter: /^react(\/jsx-runtime)?$/ }, (args) => ({
+            path: require.resolve(args.path),
+            external: true,
+          }));
+        },
+      },
       {
         name: "ignore-css",
         setup(pluginBuild) {
@@ -96,11 +107,25 @@ test("semantic graph helper renders fixture MDL and exposes join hover metadata"
   assert.match(semanticSource, /onEdgeMouseEnter/);
   assert.match(semanticSource, /is-join-field/);
   assert.match(semanticSource, /relationshipHoverLabel/);
+  assert.match(semanticSource, /mdlToModelingViewModel/);
+  assert.match(semanticSource, /WrenTreeGroup/);
+  assert.match(semanticSource, /onSelectField/);
 });
 
 test("AskDashboard workspace exposes query evidence preview code tabs and disabled honest actions", () => {
   assert.match(askDashboardSource, /DashboardPreviewWorkspace/);
   assert.match(askDashboardSource, /DashboardQueryEvidencePanel/);
+  assert.match(askDashboardSource, /AskDashboardStatusStrip/);
+  assert.match(askDashboardSource, /askDashboardStatusModel/);
+  assert.match(askDashboardSource, /agentkit_native_asktable_dashboard/);
+  assert.match(askDashboardSource, /agentkit_governed_rest/);
+  assert.match(askDashboardSource, /askDataToNotebookViewModel/);
+  assert.match(askDashboardSource, /dashboardSpecToByaanViewModel/);
+  assert.match(askDashboardSource, /kc-byaan-query-editor/);
+  assert.match(askDashboardSource, /askdashboard-not-configured-blocked/);
+  assert.match(askDashboardSource, /blocked_no_semantic_skill/);
+  assert.match(askDashboardSource, /no published Semantic Skill/);
+  assert.match(askDashboardSource, /不会伪造 query 或 dashboard 成功/);
   assert.match(askDashboardSource, /Preview/);
   assert.match(askDashboardSource, /Code/);
   assert.match(askDashboardSource, /Queries/);
@@ -120,8 +145,30 @@ test("AskDashboard workspace exposes query evidence preview code tabs and disabl
   assert.match(askDashboardSource, /aria-valuenow/);
   assert.match(askDashboardSource, /DashboardSparkline/);
   assert.match(askDashboardSource, /kc-dashboard-data-views/);
+  assert.match(askDashboardSource, /Blocked/);
   assert.match(askDashboardSource, /disabled title="后端导出能力尚未启用"/);
   assert.match(askDashboardSource, /disabled title="分享链接需要后端签名能力"/);
+});
+
+test("AskDashboard no-model path renders blocked native notebook shell", async () => {
+  const { AskDashboardWorkbench } = await loadTsxModule("../src/knowledge-center/AskDashboardWorkbench.tsx");
+  const markup = renderToStaticMarkup(
+    React.createElement(AskDashboardWorkbench, {
+      activeSpace: null,
+      semanticSkills: [],
+      dashboardSkills: [],
+      buildJobs: [],
+      onRefresh: () => {},
+    }),
+  );
+
+  assert.match(markup, /data-testid="askdashboard-not-configured-blocked"/);
+  assert.match(markup, /blocked_no_semantic_skill/);
+  assert.match(markup, /not_configured/);
+  assert.match(markup, /Blocked: no published Semantic Skill/);
+  assert.match(markup, /不会伪造 query 或 dashboard 成功/);
+  assert.match(markup, /<button type="button" disabled="">[^<]*<svg[\s\S]*?Execute/);
+  assert.match(markup, /<button type="button" disabled="">[^<]*<svg[\s\S]*?生成 Dashboard Skill/);
 });
 
 test("workbench CSS avoids horizontal page overflow and nested card shells on mobile", () => {
@@ -133,9 +180,12 @@ test("workbench CSS avoids horizontal page overflow and nested card shells on mo
   assert.match(cssSource, /\.kc-query-notebook/);
   assert.match(cssSource, /\.kc-dashboard-sparkline/);
   assert.match(cssSource, /\.kc-dashboard-data-views/);
+  assert.match(cssSource, /\.kc-askdash-blocked/);
+  assert.match(cssSource, /\.kc-askdash-blocked__editor/);
   assert.match(cssSource, /\.kc-mobile-workbench-tabs\s*\{[\s\S]*?display:\s*none;/);
   assert.match(cssSource, /\.kc-semantic-layout\.is-tree-collapsed \.kc-semantic-tree/);
   assert.match(cssSource, /@media \(max-width: 980px\)[\s\S]*?\.kc-semantic-layout,[\s\S]*?\.kc-askdash-split\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(cssSource, /\.kc-semantic-canvas\s*\{[\s\S]*?overflow:\s*hidden;/);
-  assert.doesNotMatch(cssSource, /byaan|wrenai|iframe/);
+  assert.match(cssSource, /\.kc-byaan-query-editor/);
+  assert.doesNotMatch(cssSource, /iframe|wren-ui|wrenai-legacy|byaan-knowledge-center|localhost:15183|localhost:3011/);
 });

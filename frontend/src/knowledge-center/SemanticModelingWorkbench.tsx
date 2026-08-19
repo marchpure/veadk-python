@@ -44,8 +44,14 @@ import {
   arrayValue,
   formatJson,
   labelFrom,
+  mdlToModelingViewModel,
   objectValue,
   semanticMdl,
+  type WrenModelingField,
+  type WrenModelingMetric,
+  type WrenModelingModel,
+  type WrenModelingRelationship,
+  type WrenModelingViewModel,
 } from "./knowledgeWorkbenchUtils";
 
 type SemanticNodeData = {
@@ -65,7 +71,10 @@ type SemanticGraphEdgeType = Edge<Record<string, unknown>>;
 
 type SelectedGraphItem =
   | { type: "node"; id: string; data: SemanticNodeData }
-  | { type: "edge"; id: string; data: Record<string, unknown> };
+  | { type: "edge"; id: string; data: Record<string, unknown> }
+  | { type: "field"; id: string; data: WrenModelingField; model: WrenModelingModel }
+  | { type: "metric"; id: string; data: WrenModelingMetric }
+  | { type: "relationship"; id: string; data: WrenModelingRelationship };
 
 export function SemanticModelingWorkbench({
   spaceId,
@@ -112,6 +121,7 @@ export function SemanticModelingWorkbench({
     [sources],
   );
   const mdl = useMemo(() => semanticMdl(selectedAsset), [selectedAsset]);
+  const modelingView = useMemo(() => mdlToModelingViewModel(mdl), [mdl]);
   const graph = useMemo(() => buildSemanticGraph(mdl), [mdl]);
   const hasMdl = Boolean(Object.keys(mdl).length);
   const latestJob =
@@ -320,7 +330,14 @@ export function SemanticModelingWorkbench({
             const node = graph.nodes.find((item) => item.id === id);
             if (node) setSelectedItem({ type: "node", id: node.id, data: node.data });
           }}
-          mdl={mdl}
+          onSelectField={(model, field) =>
+            setSelectedItem({ type: "field", id: `${model.id}:${field.id}`, data: field, model })
+          }
+          onSelectMetric={(metric) => setSelectedItem({ type: "metric", id: metric.id, data: metric })}
+          onSelectRelationship={(relationship) =>
+            setSelectedItem({ type: "relationship", id: relationship.id, data: relationship })
+          }
+          modelingView={modelingView}
         />
         <SemanticGraphCanvas
           graph={graph}
@@ -337,6 +354,7 @@ export function SemanticModelingWorkbench({
           selectedItem={selectedItem}
           asset={selectedAsset}
           mdl={mdl}
+          modelingView={modelingView}
           inspector={inspector}
           onInspectorChange={setInspector}
           intent={intent}
@@ -487,7 +505,10 @@ function SemanticModelTree({
   selectedAssetId,
   onSelectAsset,
   onSelectGraphNode,
-  mdl,
+  onSelectField,
+  onSelectMetric,
+  onSelectRelationship,
+  modelingView,
 }: {
   mode: "source" | "snapshot" | "semantic";
   onModeChange: (mode: "source" | "snapshot" | "semantic") => void;
@@ -499,59 +520,40 @@ function SemanticModelTree({
   selectedAssetId: string;
   onSelectAsset: (id: string) => void;
   onSelectGraphNode: (id: string) => void;
-  mdl: Record<string, unknown>;
+  onSelectField: (model: WrenModelingModel, field: WrenModelingField) => void;
+  onSelectMetric: (metric: WrenModelingMetric) => void;
+  onSelectRelationship: (relationship: WrenModelingRelationship) => void;
+  modelingView: WrenModelingViewModel;
 }) {
-  const entities = arrayValue(mdl.entities).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
-  const metrics = arrayValue(mdl.metrics).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
-  const dimensions = arrayValue(mdl.dimensions).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
   type TreeRow = {
     id: string;
     label: string;
     detail: string;
-    kind: "source" | "snapshot" | "asset" | "entity" | "field" | "metric" | "dimension";
+    kind: "source" | "snapshot" | "asset" | "model" | "view" | "field" | "relationship" | "metric";
     parentId?: string;
+    model?: WrenModelingModel;
+    field?: WrenModelingField;
+    relationship?: WrenModelingRelationship;
+    metric?: WrenModelingMetric;
   };
   const filtered = (items: TreeRow[]) =>
     items.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(query.toLowerCase()));
-  const entityRows: TreeRow[] = entities.flatMap((entity) => {
-    const id = String(entity.id || entity.table || labelFrom(entity));
-    const fields = arrayValue(entity.fields).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
-    return [
-      {
-        id,
-        label: labelFrom(entity),
-        detail: `${String(entity.table || "entity")} · ${fields.length} fields`,
-        kind: "entity" as const,
-      },
-      ...fields.slice(0, 5).map((field) => ({
-        id: `${id}:${labelFrom(field)}`,
-        label: labelFrom(field),
-        detail: String(field.type ?? field.data_type ?? "field"),
-        kind: "field" as const,
-        parentId: id,
-      })),
-      ...metrics
-        .filter((metric) => String(metric.entity || metric.entityId || "") === id)
-        .slice(0, 3)
-        .map((metric) => ({
-          id: `${id}:metric:${labelFrom(metric)}`,
-          label: labelFrom(metric),
-          detail: "metric",
-          kind: "metric" as const,
-          parentId: id,
-        })),
-      ...dimensions
-        .filter((dimension) => String(dimension.entity || dimension.entityId || "") === id)
-        .slice(0, 3)
-        .map((dimension) => ({
-          id: `${id}:dimension:${labelFrom(dimension)}`,
-          label: labelFrom(dimension),
-          detail: "dimension",
-          kind: "dimension" as const,
-          parentId: id,
-        })),
-    ];
-  });
+  const modelRows = wrenModelRows(modelingView.models, "model");
+  const viewRows = wrenModelRows(modelingView.views, "view");
+  const relationshipRows = modelingView.relationships.map((relationship) => ({
+    id: relationship.id,
+    label: relationship.displayName,
+    detail: `${relationship.fromModelId}.${relationship.fromField || "*"} -> ${relationship.toModelId}.${relationship.toField || "*"}`,
+    kind: "relationship" as const,
+    relationship,
+  }));
+  const metricRows = modelingView.metrics.map((metric) => ({
+    id: metric.id,
+    label: metric.displayName,
+    detail: metric.modelId || "metric",
+    kind: "metric" as const,
+    metric,
+  }));
   const rows =
     mode === "source"
       ? filtered(sources.map((source) => ({ id: source.id, label: source.name, detail: source.source_type, kind: "source" as const })))
@@ -559,7 +561,10 @@ function SemanticModelTree({
         ? filtered(snapshots.map((snapshot) => ({ id: snapshot.id, label: snapshot.metadata?.name || snapshot.id, detail: snapshot.kind || "snapshot", kind: "snapshot" as const })))
         : filtered([
             ...assets.map((asset) => ({ id: asset.asset_id, label: asset.name, detail: `${asset.publish_state} · ${asset.version || "v1"}`, kind: "asset" as const })),
-            ...entityRows,
+            ...modelRows,
+            ...viewRows,
+            ...relationshipRows,
+            ...metricRows,
           ]);
   return (
     <aside className="kc-semantic-tree">
@@ -580,35 +585,168 @@ function SemanticModelTree({
         <input value={query} placeholder="搜索模型、表、字段" onChange={(event) => onQueryChange(event.target.value)} />
       </label>
       <div className="kc-tree-list">
-        <div className="kc-tree-group-title">
-          {mode === "source" ? "Sources" : mode === "snapshot" ? "Snapshots" : "Models / Views"}
-          <span>{rows.length}</span>
-        </div>
-        {rows.map((row) => (
-          <button
-            key={row.id}
-            type="button"
-            className={`${row.id === selectedAssetId ? "is-active" : ""}${row.parentId ? " is-child" : ""}`}
-            onClick={() => {
-              if (assets.some((asset) => asset.asset_id === row.id)) onSelectAsset(row.id);
-              if (row.kind === "entity") onSelectGraphNode(row.id);
-            }}
-          >
-            {row.kind === "source" || row.kind === "entity" ? (
-              <Table2 className="kc-native-icon" />
-            ) : row.kind === "field" ? (
-              <CircleDot className="kc-native-icon" />
-            ) : (
-              <GitBranch className="kc-native-icon" />
-            )}
-            <span>
-              <strong>{row.label}</strong>
-              <small>{row.detail}</small>
-            </span>
-          </button>
-        ))}
+        {mode === "semantic" ? (
+          <>
+            <WrenTreeGroup title="Models" count={modelRows.filter((row) => !row.parentId).length} rows={filtered(modelRows)} selectedAssetId={selectedAssetId} assets={assets} onSelectAsset={onSelectAsset} onSelectGraphNode={onSelectGraphNode} onSelectField={onSelectField} onSelectMetric={onSelectMetric} onSelectRelationship={onSelectRelationship} />
+            <WrenTreeGroup title="Views" count={viewRows.filter((row) => !row.parentId).length} rows={filtered(viewRows)} selectedAssetId={selectedAssetId} assets={assets} onSelectAsset={onSelectAsset} onSelectGraphNode={onSelectGraphNode} onSelectField={onSelectField} onSelectMetric={onSelectMetric} onSelectRelationship={onSelectRelationship} />
+            <WrenTreeGroup title="Relationships" count={relationshipRows.length} rows={filtered(relationshipRows)} selectedAssetId={selectedAssetId} assets={assets} onSelectAsset={onSelectAsset} onSelectGraphNode={onSelectGraphNode} onSelectField={onSelectField} onSelectMetric={onSelectMetric} onSelectRelationship={onSelectRelationship} />
+            <WrenTreeGroup title="Metrics" count={metricRows.length} rows={filtered(metricRows)} selectedAssetId={selectedAssetId} assets={assets} onSelectAsset={onSelectAsset} onSelectGraphNode={onSelectGraphNode} onSelectField={onSelectField} onSelectMetric={onSelectMetric} onSelectRelationship={onSelectRelationship} />
+          </>
+        ) : (
+          <>
+            <div className="kc-tree-group-title">
+              {mode === "source" ? "Sources" : "Snapshots"}
+              <span>{rows.length}</span>
+            </div>
+            {rows.map((row) => (
+              <WrenTreeRow
+                key={row.id}
+                row={row}
+                selectedAssetId={selectedAssetId}
+                assets={assets}
+                onSelectAsset={onSelectAsset}
+                onSelectGraphNode={onSelectGraphNode}
+                onSelectField={onSelectField}
+                onSelectMetric={onSelectMetric}
+                onSelectRelationship={onSelectRelationship}
+              />
+            ))}
+          </>
+        )}
       </div>
     </aside>
+  );
+}
+
+function wrenModelRows(models: WrenModelingModel[], kind: "model" | "view"): Array<{
+  id: string;
+  label: string;
+  detail: string;
+  kind: "model" | "view" | "field" | "metric";
+  parentId?: string;
+  model?: WrenModelingModel;
+  field?: WrenModelingField;
+  metric?: WrenModelingMetric;
+}> {
+  return models.flatMap((model) => [
+    {
+      id: model.id,
+      label: model.displayName,
+      detail: `${model.table} · ${model.fields.length} columns`,
+      kind,
+      model,
+    },
+    ...model.fields.slice(0, 8).map((field) => ({
+      id: `${model.id}:${field.id}`,
+      label: field.name,
+      detail: field.type,
+      kind: "field" as const,
+      parentId: model.id,
+      model,
+      field,
+    })),
+    ...model.calculatedFields.slice(0, 4).map((field) => ({
+      id: `${model.id}:calc:${field.id}`,
+      label: field.name,
+      detail: "calculated field",
+      kind: "field" as const,
+      parentId: model.id,
+      model,
+      field,
+    })),
+    ...model.relationFields.slice(0, 4).map((field) => ({
+      id: `${model.id}:rel:${field.id}`,
+      label: field.name,
+      detail: field.type,
+      kind: "field" as const,
+      parentId: model.id,
+      model,
+      field,
+    })),
+  ]);
+}
+
+function WrenTreeGroup({
+  title,
+  count,
+  rows,
+  ...handlers
+}: {
+  title: string;
+  count: number;
+  rows: Parameters<typeof WrenTreeRow>[0]["row"][];
+  selectedAssetId: string;
+  assets: KnowledgeAssetMetadata[];
+  onSelectAsset: (id: string) => void;
+  onSelectGraphNode: (id: string) => void;
+  onSelectField: (model: WrenModelingModel, field: WrenModelingField) => void;
+  onSelectMetric: (metric: WrenModelingMetric) => void;
+  onSelectRelationship: (relationship: WrenModelingRelationship) => void;
+}) {
+  return (
+    <section className="kc-wren-tree-group">
+      <div className="kc-tree-group-title">
+        {title}
+        <span>({count})</span>
+      </div>
+      {rows.length ? rows.map((row) => <WrenTreeRow key={row.id} row={row} {...handlers} />) : <p className="kc-muted-line">Empty</p>}
+    </section>
+  );
+}
+
+function WrenTreeRow({
+  row,
+  selectedAssetId,
+  assets,
+  onSelectAsset,
+  onSelectGraphNode,
+  onSelectField,
+  onSelectMetric,
+  onSelectRelationship,
+}: {
+  row: {
+    id: string;
+    label: string;
+    detail: string;
+    kind: "source" | "snapshot" | "asset" | "model" | "view" | "field" | "relationship" | "metric";
+    parentId?: string;
+    model?: WrenModelingModel;
+    field?: WrenModelingField;
+    relationship?: WrenModelingRelationship;
+    metric?: WrenModelingMetric;
+  };
+  selectedAssetId: string;
+  assets: KnowledgeAssetMetadata[];
+  onSelectAsset: (id: string) => void;
+  onSelectGraphNode: (id: string) => void;
+  onSelectField: (model: WrenModelingModel, field: WrenModelingField) => void;
+  onSelectMetric: (metric: WrenModelingMetric) => void;
+  onSelectRelationship: (relationship: WrenModelingRelationship) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`${row.id === selectedAssetId ? "is-active" : ""}${row.parentId ? " is-child" : ""}`}
+      onClick={() => {
+        if (assets.some((asset) => asset.asset_id === row.id)) onSelectAsset(row.id);
+        if ((row.kind === "model" || row.kind === "view") && row.model) onSelectGraphNode(row.model.id);
+        if (row.kind === "field" && row.model && row.field) onSelectField(row.model, row.field);
+        if (row.kind === "metric" && row.metric) onSelectMetric(row.metric);
+        if (row.kind === "relationship" && row.relationship) onSelectRelationship(row.relationship);
+      }}
+    >
+      {row.kind === "model" || row.kind === "view" || row.kind === "source" ? (
+        <Table2 className="kc-native-icon" />
+      ) : row.kind === "field" ? (
+        <CircleDot className="kc-native-icon" />
+      ) : (
+        <GitBranch className="kc-native-icon" />
+      )}
+      <span>
+        <strong>{row.label}</strong>
+        <small>{row.detail}</small>
+      </span>
+    </button>
   );
 }
 
@@ -616,6 +754,7 @@ function SemanticMetadataDrawer({
   selectedItem,
   asset,
   mdl,
+  modelingView,
   inspector,
   onInspectorChange,
   intent,
@@ -628,6 +767,7 @@ function SemanticMetadataDrawer({
   selectedItem: SelectedGraphItem | null;
   asset: KnowledgeAssetMetadata | null;
   mdl: Record<string, unknown>;
+  modelingView: WrenModelingViewModel;
   inspector: "metadata" | "mdl" | "evals";
   onInspectorChange: (value: "metadata" | "mdl" | "evals") => void;
   intent: string;
@@ -641,6 +781,28 @@ function SemanticMetadataDrawer({
   const dimensions = arrayValue(mdl.dimensions);
   const relationships = arrayValue(mdl.relationships);
   const evidence = arrayValue(mdl.evidence);
+  const selectedTitle =
+    selectedItem?.type === "node"
+      ? selectedItem.data.label
+      : selectedItem?.type === "field"
+        ? `${selectedItem.model.displayName}.${selectedItem.data.name}`
+        : selectedItem?.type === "metric"
+          ? selectedItem.data.displayName
+          : selectedItem?.type === "relationship"
+            ? selectedItem.data.displayName
+            : selectedItem?.id || asset?.name || "未选择";
+  const selectedRaw =
+    selectedItem?.type === "node"
+      ? selectedItem.data.source
+      : selectedItem?.type === "edge"
+        ? selectedItem.data
+        : selectedItem?.type === "field"
+          ? selectedItem.data.raw
+          : selectedItem?.type === "metric"
+            ? selectedItem.data.raw
+            : selectedItem?.type === "relationship"
+              ? selectedItem.data.raw
+              : {};
   const selectedConfidence =
     selectedItem?.type === "edge"
       ? selectedItem.data.confidence
@@ -659,17 +821,21 @@ function SemanticMetadataDrawer({
       {inspector === "metadata" ? (
         <div className="kc-inspector-stack">
           <section>
-            <h3>{selectedItem?.type === "edge" ? "关系边" : "节点元数据"}</h3>
+            <h3>{selectedItem?.type === "edge" || selectedItem?.type === "relationship" ? "关系边" : selectedItem?.type === "field" ? "字段元数据" : selectedItem?.type === "metric" ? "指标元数据" : "节点元数据"}</h3>
             <dl>
-              <div><dt>名称</dt><dd>{selectedItem?.type === "node" ? selectedItem.data.label : selectedItem?.id || asset?.name || "未选择"}</dd></div>
+              <div><dt>名称</dt><dd>{selectedTitle}</dd></div>
               <div><dt>版本</dt><dd>{asset?.version || "v1"}</dd></div>
               <div><dt>来源</dt><dd>{String(asset?.provenance?.runner_backend || "unknown")}</dd></div>
               <div><dt>置信度</dt><dd>{String(selectedConfidence || asset?.gate?.score || "n/a")}</dd></div>
             </dl>
           </section>
           <section>
+            <h3>当前选择</h3>
+            <InspectorList items={[selectedRaw].filter((item) => Object.keys(objectValue(item)).length)} />
+          </section>
+          <section>
             <h3>字段</h3>
-            <InspectorList items={selectedItem?.type === "node" ? selectedItem.data.fields : []} />
+            <InspectorList items={selectedItem?.type === "node" ? selectedItem.data.fields : modelingView.models.flatMap((model) => model.fields).slice(0, 6).map((field) => field.raw)} />
           </section>
           <section>
             <h3>指标与维度</h3>

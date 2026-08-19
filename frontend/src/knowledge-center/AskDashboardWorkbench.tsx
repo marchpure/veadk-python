@@ -2,6 +2,7 @@ import {
   AlertCircle,
   BarChart3,
   CheckCircle2,
+  Clock,
   Code2,
   Copy,
   Database,
@@ -13,6 +14,7 @@ import {
   Search,
   Share2,
   ShieldCheck,
+  Square,
   Table2,
   Wand2,
 } from "lucide-react";
@@ -31,15 +33,20 @@ import {
   queryAskData,
   type AskDataQueryResult,
   type DashboardSkillBuildResult,
+  type KnowledgeAssetBuildJob,
   type KnowledgeAssetMetadata,
   type KnowledgeAssetSpace,
 } from "../adk/knowledgeAssets";
 import {
+  askDataToNotebookViewModel,
   capabilityValues,
   dashboardSpec,
+  dashboardSpecToByaanViewModel,
   formatJson,
   objectValue,
   rowsFromSpec,
+  type ByaanDashboardViewModel,
+  type ByaanNotebookViewModel,
 } from "./knowledgeWorkbenchUtils";
 
 type DashboardTab = "preview" | "code" | "queries";
@@ -49,11 +56,13 @@ export function AskDashboardWorkbench({
   activeSpace,
   semanticSkills,
   dashboardSkills,
+  buildJobs,
   onRefresh,
 }: {
   activeSpace: KnowledgeAssetSpace | null;
   semanticSkills: KnowledgeAssetMetadata[];
   dashboardSkills: KnowledgeAssetMetadata[];
+  buildJobs: KnowledgeAssetBuildJob[];
   onRefresh: () => void | Promise<void>;
 }) {
   const [assetId, setAssetId] = useState(semanticSkills[0]?.asset_id || "");
@@ -85,8 +94,28 @@ export function AskDashboardWorkbench({
     [buildResult, selectedDashboard],
   );
   const previewRows = queryResult?.data.rows?.length ? queryResult.data.rows : rowsFromSpec(spec);
+  const notebookView = useMemo(
+    () => askDataToNotebookViewModel(queryResult, question, busyQuery),
+    [queryResult, question, busyQuery],
+  );
+  const dashboardView = useMemo(
+    () => dashboardSpecToByaanViewModel(spec, selectedDashboard),
+    [spec, selectedDashboard],
+  );
   const metrics = capabilityValues(selectedSkill, "metrics");
   const dimensions = capabilityValues(selectedSkill, "dimensions");
+  const latestDashboardJob =
+    (buildResult?.job_id ? buildJobs.find((job) => job.id === buildResult.job_id) : null) ??
+    buildJobs.find((job) => job.job_type.includes("dashboard") && job.asset_id === selectedDashboard?.asset_id) ??
+    buildJobs.find((job) => job.job_type.includes("dashboard")) ??
+    null;
+  const askDashboardStatus = askDashboardStatusModel({
+    selectedSkill,
+    selectedDashboard,
+    latestDashboardJob,
+    queryResult,
+    buildResult,
+  });
 
   useEffect(() => {
     setAssetId((current) => current || semanticSkills[0]?.asset_id || "");
@@ -182,10 +211,93 @@ export function AskDashboardWorkbench({
 
   if (!semanticSkills.length) {
     return (
-      <section className="kc-askdash-empty">
-        <Table2 className="kc-native-state-icon" />
-        <strong>需要已发布 Semantic Skill</strong>
-        <span>AskTable 和 Dashboard 只通过受治理语义能力查询，不直接读取数据库。</span>
+      <section className="kc-askdash-workbench is-blocked" data-testid="ask-dashboard-workbench">
+        <header className="kc-workbench-toolbar">
+          <div>
+            <h2>AskTable / Dashboard</h2>
+            <span>自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路</span>
+          </div>
+          <div className="kc-workbench-toolbar__controls">
+            <button type="button" onClick={() => void onRefresh()}>
+              <RefreshCw className="kc-native-icon" />
+              刷新
+            </button>
+          </div>
+        </header>
+        <AskDashboardStatusStrip
+          status={{
+            jobStatus: "blocked",
+            agentStatus: "blocked_no_semantic_skill",
+            runnerBackend: "agentkit_governed_rest",
+            generationMode: "not_configured",
+            blockedReason: "no published Semantic Skill",
+          }}
+        />
+        <section className="kc-askdash-blocked" data-testid="askdashboard-not-configured-blocked" role="status">
+          <div className="kc-byaan-query-editor kc-askdash-blocked__editor">
+            <div className="kc-asktable-head">
+              <Search className="kc-native-icon" />
+              <div>
+                <h3>Query Editor</h3>
+                <span>Blocked: no published Semantic Skill</span>
+              </div>
+              <span className="kc-byaan-run-state is-blocked">blocked</span>
+            </div>
+            <div className="kc-byaan-editor-toolbar">
+              <label>
+                <span>Semantic Skill</span>
+                <select disabled>
+                  <option>not configured</option>
+                </select>
+              </label>
+              <label>
+                <span>Metric</span>
+                <select disabled>
+                  <option>blocked</option>
+                </select>
+              </label>
+              <label>
+                <span>Dimension</span>
+                <select disabled>
+                  <option>blocked</option>
+                </select>
+              </label>
+            </div>
+            <label className="kc-byaan-editor-shell">
+              <span>Natural language governed query</span>
+              <textarea value="Select a published Semantic Skill before asking governed data questions." disabled readOnly />
+              <em>blocked · no model</em>
+            </label>
+            <div className="kc-byaan-editor-actions">
+              <button type="button" disabled>
+                <Play className="kc-native-icon" />
+                Execute
+              </button>
+              <button type="button" disabled>
+                <Square className="kc-native-icon" />
+                Stop
+              </button>
+            </div>
+          </div>
+          <section className="kc-query-notebook-empty">
+            <Table2 className="kc-native-icon" />
+            <strong>需要已发布 Semantic Skill</strong>
+            <span>AskTable 和 Dashboard 只通过受治理语义能力查询；当前状态为 blocked，不会伪造 query 或 dashboard 成功。</span>
+          </section>
+          <section className="kc-dashboard-builder">
+            <div className="kc-asktable-head">
+              <BarChart3 className="kc-native-icon" />
+              <div>
+                <h3>Dashboard builder</h3>
+                <span>Blocked until a real AskTable query returns evidence</span>
+              </div>
+            </div>
+            <button type="button" disabled>
+              <Wand2 className="kc-native-icon" />
+              生成 Dashboard Skill
+            </button>
+          </section>
+        </section>
       </section>
     );
   }
@@ -230,6 +342,7 @@ export function AskDashboardWorkbench({
           <span>{error}</span>
         </div>
       ) : null}
+      <AskDashboardStatusStrip status={askDashboardStatus} />
       <div
         ref={splitRef}
         className="kc-askdash-split"
@@ -251,6 +364,7 @@ export function AskDashboardWorkbench({
           busyQuery={busyQuery}
           busyBuild={busyBuild}
           queryResult={queryResult}
+          notebookView={notebookView}
           onQuery={submitQuery}
           dashboardName={dashboardName}
           dashboardIntent={dashboardIntent}
@@ -283,6 +397,7 @@ export function AskDashboardWorkbench({
           tab={activeTab}
           onTabChange={setActiveTab}
           spec={spec}
+          dashboardView={dashboardView}
           queryResult={queryResult}
           buildResult={buildResult}
           selectedDashboard={selectedDashboard}
@@ -290,6 +405,86 @@ export function AskDashboardWorkbench({
         />
       </div>
     </section>
+  );
+}
+
+type AskDashboardStatusModel = {
+  jobStatus: string;
+  agentStatus: string;
+  runnerBackend: string;
+  generationMode: string;
+  blockedReason: string;
+};
+
+function askDashboardStatusModel({
+  selectedSkill,
+  selectedDashboard,
+  latestDashboardJob,
+  queryResult,
+  buildResult,
+}: {
+  selectedSkill: KnowledgeAssetMetadata | null;
+  selectedDashboard: KnowledgeAssetMetadata | null;
+  latestDashboardJob: KnowledgeAssetBuildJob | null;
+  queryResult: AskDataQueryResult | null;
+  buildResult: DashboardSkillBuildResult | null;
+}): AskDashboardStatusModel {
+  const dashboardRuntime = objectValue(selectedDashboard?.capability_package?.runtime);
+  const queryExecution = objectValue((queryResult?.data as unknown as Record<string, unknown> | undefined)?.execution);
+  const buildOutput = objectValue(latestDashboardJob?.output);
+  const blockedReasons = latestDashboardJob?.output?.blocked_reasons;
+  const gateBlockers = selectedDashboard?.gate?.blockers;
+  return {
+    jobStatus: buildResult?.status || latestDashboardJob?.status || queryResult?.status || "idle",
+    agentStatus: String(
+      buildOutput.agent_status ||
+        selectedDashboard?.provenance?.agent_status ||
+        selectedSkill?.provenance?.agent_status ||
+        "agentkit_native_asktable_dashboard",
+    ),
+    runnerBackend: String(
+      buildOutput.runner_backend ||
+        selectedDashboard?.provenance?.runner_backend ||
+        dashboardRuntime.transport ||
+        (queryExecution.governed_rest ? "agentkit_governed_rest" : "") ||
+        "agentkit_governed_rest",
+    ),
+    generationMode: String(
+      buildOutput.generation_mode ||
+        buildOutput.askdata_status ||
+        queryExecution.mode ||
+        selectedDashboard?.capabilities?.generation_mode ||
+        selectedSkill?.capabilities?.generation_mode ||
+        "governed_semantic_query",
+    ),
+    blockedReason: String(
+      latestDashboardJob?.error?.message ||
+        (Array.isArray(blockedReasons) && blockedReasons.length ? blockedReasons.map(String).join(", ") : "") ||
+        (Array.isArray(gateBlockers) && gateBlockers.length ? gateBlockers.join(", ") : "") ||
+        (queryResult?.status === "blocked" ? queryResult.data.policyDecision?.reason : "") ||
+        "none",
+    ),
+  };
+}
+
+function AskDashboardStatusStrip({ status }: { status: AskDashboardStatusModel }) {
+  return (
+    <div className="kc-agent-status-strip" data-testid="askdashboard-agent-status-strip">
+      <StatusChip label="Job" value={status.jobStatus} />
+      <StatusChip label="Agent" value={status.agentStatus} />
+      <StatusChip label="Runner" value={status.runnerBackend} />
+      <StatusChip label="Mode" value={status.generationMode} />
+      <StatusChip label="Blocked" value={status.blockedReason} />
+    </div>
+  );
+}
+
+function StatusChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span>
+      <strong>{label}</strong>
+      <em>{value}</em>
+    </span>
   );
 }
 
@@ -309,6 +504,7 @@ export function AskTablePanel({
   busyQuery,
   busyBuild,
   queryResult,
+  notebookView,
   onQuery,
   dashboardName,
   dashboardIntent,
@@ -331,6 +527,7 @@ export function AskTablePanel({
   busyQuery: boolean;
   busyBuild: boolean;
   queryResult: AskDataQueryResult | null;
+  notebookView: ByaanNotebookViewModel;
   onQuery: (event: FormEvent<HTMLFormElement>) => void;
   dashboardName: string;
   dashboardIntent: string;
@@ -342,31 +539,28 @@ export function AskTablePanel({
   const queryExecution = objectValue((queryResult?.data as unknown as Record<string, unknown> | undefined)?.execution);
   return (
     <aside className="kc-asktable-panel">
-      <form className="kc-asktable-query" onSubmit={onQuery}>
+      <form className="kc-asktable-query kc-byaan-query-editor" onSubmit={onQuery}>
         <div className="kc-asktable-head">
           <Search className="kc-native-icon" />
           <div>
-            <h3>AskTable</h3>
-            <span>{selectedSkill?.name || "未选择 Semantic Skill"}</span>
+            <h3>Query Editor</h3>
+            <span>{selectedSkill?.name || "Blocked: no published Semantic Skill"}</span>
           </div>
+          <span className={`kc-byaan-run-state is-${notebookView.status}`}>{notebookView.status}</span>
         </div>
-        <label>
-          <span>Semantic Skill</span>
-          <select value={assetId} onChange={(event) => onAssetIdChange(event.target.value)}>
-            {semanticSkills.map((asset) => (
-              <option key={asset.asset_id} value={asset.asset_id}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>自然语言问题</span>
-          <textarea value={question} onChange={(event) => onQuestionChange(event.target.value)} />
-        </label>
-        <div className="kc-asktable-fields">
+        <div className="kc-byaan-editor-toolbar">
           <label>
-            <span>指标</span>
+            <span>Semantic Skill</span>
+            <select value={assetId} onChange={(event) => onAssetIdChange(event.target.value)}>
+              {semanticSkills.map((asset) => (
+                <option key={asset.asset_id} value={asset.asset_id}>
+                  {asset.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Metric</span>
             <select value={metric} onChange={(event) => onMetricChange(event.target.value)}>
               <option value="">Agent 选择</option>
               {metrics.map((value) => (
@@ -375,7 +569,7 @@ export function AskTablePanel({
             </select>
           </label>
           <label>
-            <span>维度</span>
+            <span>Dimension</span>
             <select value={dimension} onChange={(event) => onDimensionChange(event.target.value)}>
               <option value="">不拆解</option>
               {dimensions.map((value) => (
@@ -384,13 +578,24 @@ export function AskTablePanel({
             </select>
           </label>
         </div>
-        <button type="submit" disabled={busyQuery}>
-          {busyQuery ? <Loader2 className="kc-native-icon kc-spin" /> : <Play className="kc-native-icon" />}
-          执行 governed query
-        </button>
+        <label className="kc-byaan-editor-shell">
+          <span>Natural language governed query</span>
+          <textarea value={question} onChange={(event) => onQuestionChange(event.target.value)} />
+          <em>{question.split(/\n/).length} lines · {question.length} chars</em>
+        </label>
+        <div className="kc-byaan-editor-actions">
+          <button type="submit" disabled={busyQuery || !selectedSkill}>
+            {busyQuery ? <Loader2 className="kc-native-icon kc-spin" /> : <Play className="kc-native-icon" />}
+            Execute
+          </button>
+          <button type="button" disabled={!busyQuery}>
+            <Square className="kc-native-icon" />
+            Stop
+          </button>
+        </div>
       </form>
       {queryResult ? (
-        <AskTableNotebookResult result={queryResult} tab={resultTab} onTabChange={setResultTab} />
+        <AskTableNotebookResult result={queryResult} notebookView={notebookView} tab={resultTab} onTabChange={setResultTab} />
       ) : (
         <section className="kc-query-notebook-empty">
           <Database className="kc-native-icon" />
@@ -414,7 +619,7 @@ export function AskTablePanel({
           <span>Dashboard intent</span>
           <textarea value={dashboardIntent} onChange={(event) => onDashboardIntentChange(event.target.value)} />
         </label>
-        <button type="submit" disabled={busyBuild}>
+        <button type="submit" disabled={busyBuild || !queryResult}>
           {busyBuild ? <Loader2 className="kc-native-icon kc-spin" /> : <Wand2 className="kc-native-icon" />}
           生成 Dashboard Skill
         </button>
@@ -430,21 +635,25 @@ export function AskTablePanel({
   );
 }
 
-function AskTableStatusBar({ result }: { result: AskDataQueryResult }) {
-  const data = result.data;
-  const execution = objectValue((data as unknown as Record<string, unknown>).execution);
+function AskTableStatusBar({
+  result,
+  notebookView,
+}: {
+  result: AskDataQueryResult;
+  notebookView: ByaanNotebookViewModel;
+}) {
   return (
     <section className={`kc-query-status-bar is-${result.status}`}>
       <div>
         <span className={`kc-native-badge ${result.status === "completed" ? "is-success" : "is-danger"}`}>
           {result.status}
         </span>
-        <strong>{String(data.returnedCount ?? data.rows.length)} rows</strong>
-        <em>{String(execution.elapsed_ms ?? execution.elapsedMs ?? "n/a")} ms</em>
+        <strong>{String(notebookView.returnedCount)} rows</strong>
+        <em><Clock className="kc-native-icon" /> {notebookView.executionTime} ms</em>
       </div>
       <dl>
-        <div><dt>Policy</dt><dd>{String(data.policyDecision?.decision || "unknown")}</dd></div>
-        <div><dt>Freshness</dt><dd>{String(data.freshness?.status || "unknown")}</dd></div>
+        <div><dt>Policy</dt><dd>{String(notebookView.policyDecision.decision || "unknown")}</dd></div>
+        <div><dt>Freshness</dt><dd>{String(notebookView.freshness.status || "unknown")}</dd></div>
         <div><dt>Agent</dt><dd>{String((result as { agent_status?: string }).agent_status || "unknown")}</dd></div>
       </dl>
     </section>
@@ -453,14 +662,15 @@ function AskTableStatusBar({ result }: { result: AskDataQueryResult }) {
 
 function AskTableNotebookResult({
   result,
+  notebookView,
   tab,
   onTabChange,
 }: {
   result: AskDataQueryResult;
+  notebookView: ByaanNotebookViewModel;
   tab: QueryResultTab;
   onTabChange: (value: QueryResultTab) => void;
 }) {
-  const data = result.data;
   const tabs: Array<{ id: QueryResultTab; label: string }> = [
     { id: "results", label: "Results" },
     { id: "sql", label: "SQL" },
@@ -471,7 +681,7 @@ function AskTableNotebookResult({
   ];
   return (
     <section className="kc-query-notebook" data-testid="asktable-query-notebook">
-      <AskTableStatusBar result={result} />
+      <AskTableStatusBar result={result} notebookView={notebookView} />
       <div className="kc-query-tabs" role="tablist" aria-label="AskTable query results">
         {tabs.map((item) => (
           <button
@@ -486,17 +696,17 @@ function AskTableNotebookResult({
       </div>
       <div className="kc-query-tabpanel">
         {tab === "results" ? (
-          <ResultTable rows={data.rows} dense />
+          <ResultTable rows={notebookView.rows} dense />
         ) : tab === "sql" ? (
-          <pre><code>{data.sql || "-- no SQL executed"}</code></pre>
+          <pre><code>{notebookView.sql || "-- no SQL executed"}</code></pre>
         ) : tab === "metric" ? (
-          <pre><code>{formatJson(data.metricDefinition || data.metric || {})}</code></pre>
+          <pre><code>{formatJson(notebookView.metricDefinition)}</code></pre>
         ) : tab === "policy" ? (
-          <pre><code>{formatJson(data.policyDecision)}</code></pre>
+          <pre><code>{formatJson(notebookView.policyDecision)}</code></pre>
         ) : tab === "freshness" ? (
-          <pre><code>{formatJson(data.freshness)}</code></pre>
+          <pre><code>{formatJson(notebookView.freshness)}</code></pre>
         ) : (
-          <pre><code>{formatJson({ evidence: data.evidence ?? [], lineage: data.lineage ?? [] })}</code></pre>
+          <pre><code>{formatJson({ evidence: notebookView.evidence, lineage: notebookView.lineage })}</code></pre>
         )}
       </div>
     </section>
@@ -507,6 +717,7 @@ export function DashboardPreviewWorkspace({
   tab,
   onTabChange,
   spec,
+  dashboardView,
   queryResult,
   buildResult,
   selectedDashboard,
@@ -515,6 +726,7 @@ export function DashboardPreviewWorkspace({
   tab: DashboardTab;
   onTabChange: (value: DashboardTab) => void;
   spec: Record<string, unknown>;
+  dashboardView: ByaanDashboardViewModel;
   queryResult: AskDataQueryResult | null;
   buildResult: DashboardSkillBuildResult | null;
   selectedDashboard: KnowledgeAssetMetadata | null;
@@ -531,7 +743,7 @@ export function DashboardPreviewWorkspace({
         ))}
       </div>
       {tab === "preview" ? (
-        <DashboardPreview spec={spec} rows={previewRows} selectedDashboard={selectedDashboard} />
+        <DashboardPreview spec={spec} dashboardView={dashboardView} rows={previewRows} selectedDashboard={selectedDashboard} />
       ) : tab === "code" ? (
         <DashboardCodePanel spec={spec} buildResult={buildResult} selectedDashboard={selectedDashboard} />
       ) : (
@@ -543,22 +755,24 @@ export function DashboardPreviewWorkspace({
 
 function DashboardPreview({
   spec,
+  dashboardView,
   rows,
   selectedDashboard,
 }: {
   spec: Record<string, unknown>;
+  dashboardView: ByaanDashboardViewModel;
   rows: Array<Record<string, unknown>>;
   selectedDashboard: KnowledgeAssetMetadata | null;
 }) {
-  const tiles = Array.isArray(spec.tiles) ? spec.tiles : [];
-  const filters = Array.isArray(spec.filters) ? spec.filters : [];
-  const dataViews = Array.isArray(spec.data_views) ? spec.data_views : [];
+  const tiles = dashboardView.tiles;
+  const filters = dashboardView.filters;
+  const dataViews = dashboardView.dataViews;
   return (
     <div className="kc-dashboard-preview-pane" data-testid="dashboard-preview-pane">
       <header>
         <div>
-          <h3>{String(spec.title || selectedDashboard?.name || "Dashboard preview")}</h3>
-          <span>{String(spec.description || selectedDashboard?.description || "dashboard_spec preview")}</span>
+          <h3>{dashboardView.title || String(spec.title || selectedDashboard?.name || "Dashboard preview")}</h3>
+          <span>{dashboardView.description}</span>
         </div>
         <span className="kc-native-badge is-success">
           <CheckCircle2 className="kc-native-icon" />

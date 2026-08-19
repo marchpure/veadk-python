@@ -1019,6 +1019,7 @@ export function KnowledgeCenterView() {
                 activeSpace={activeSpace}
                 semanticSkills={semanticSkills}
                 dashboardSkills={dashboardSkills}
+                buildJobs={buildJobs}
                 onRefresh={() => refresh(activeSpaceIdRef.current)}
               />
             </div>

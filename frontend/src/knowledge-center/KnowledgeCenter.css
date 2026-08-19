@@ -1412,7 +1412,7 @@
 
 .kc-agent-status-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -1550,9 +1550,15 @@
 .kc-tree-list {
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
   overflow-y: auto;
+}
+
+.kc-wren-tree-group {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
 }
 
 .kc-tree-group-title {
@@ -1578,16 +1584,17 @@
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
   justify-content: start;
-  min-height: 44px;
-  padding: 8px;
+  min-height: 36px;
+  padding: 6px 8px;
   text-align: left;
 }
 
 .kc-tree-list button.is-child {
-  min-height: 34px;
-  margin-left: 16px;
-  padding-block: 6px;
-  border-style: dashed;
+  min-height: 30px;
+  margin-left: 14px;
+  padding-block: 4px;
+  border-style: solid;
+  background: hsl(var(--canvas));
 }
 
 .kc-tree-list button.is-active {
@@ -1651,13 +1658,14 @@
 }
 
 .kc-semantic-node {
-  width: 260px;
-  min-height: 184px;
-  padding: 12px;
+  width: 220px;
+  min-height: 174px;
+  padding: 0;
   border: 1px solid hsl(var(--border));
-  border-radius: 8px;
+  border-radius: 7px;
   background: hsl(var(--panel));
   box-shadow: 0 10px 28px hsl(0 0% 0% / 0.06);
+  overflow: hidden;
 }
 
 .kc-semantic-node header {
@@ -1665,6 +1673,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.45);
 }
 
 .kc-semantic-node strong,
@@ -1674,24 +1686,26 @@
 }
 
 .kc-semantic-node p {
-  margin: 5px 0 8px;
+  margin: 6px 8px;
   color: hsl(var(--muted-foreground));
   font-size: 11.5px;
 }
 
 .kc-semantic-node__section {
   display: grid;
-  gap: 4px;
+  gap: 0;
+  padding: 0 6px 6px;
 }
 
 .kc-semantic-node__section span {
   display: flex;
   align-items: center;
   gap: 4px;
-  min-height: 22px;
-  padding: 3px 6px;
-  border-radius: 6px;
-  background: hsl(var(--muted) / 0.55);
+  min-height: 26px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border-bottom: 1px solid hsl(var(--border) / 0.75);
+  background: transparent;
   font-size: 11px;
 }
 
@@ -1707,7 +1721,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-top: 8px;
+  margin: 6px 8px 0;
 }
 
 .kc-semantic-node__facts strong,
@@ -1732,7 +1746,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin: 6px 8px 8px;
   color: hsl(var(--muted-foreground));
   font-size: 11px;
 }
@@ -1920,6 +1934,31 @@
   min-height: 660px;
 }
 
+.kc-askdash-blocked {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(280px, 0.72fr) minmax(260px, 0.58fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.kc-askdash-blocked__editor {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.kc-askdash-workbench.is-blocked .kc-agent-status-strip {
+  border-color: hsl(0 70% 46% / 0.18);
+  background: hsl(0 70% 46% / 0.05);
+}
+
+.kc-askdash-workbench.is-blocked .kc-query-notebook-empty,
+.kc-askdash-workbench.is-blocked .kc-dashboard-builder {
+  min-width: 0;
+}
+
 .kc-askdash-resizer {
   grid-column: 2;
   width: 8px;
@@ -1966,6 +2005,106 @@
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
   background: hsl(var(--canvas));
+}
+
+.kc-byaan-query-editor {
+  border-color: hsl(0 0% 24%);
+  background: hsl(0 0% 12%);
+  color: hsl(0 0% 86%);
+}
+
+.kc-byaan-query-editor .kc-asktable-head {
+  padding-bottom: 2px;
+  color: hsl(0 0% 96%);
+}
+
+.kc-byaan-query-editor .kc-asktable-head > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.kc-byaan-run-state {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1px solid hsl(0 0% 28%);
+  border-radius: 999px;
+  background: hsl(0 0% 18%);
+  color: hsl(0 0% 78%) !important;
+  font-size: 10.5px !important;
+}
+
+.kc-byaan-run-state.is-success {
+  border-color: hsl(155 55% 36% / 0.45);
+  background: hsl(155 55% 16%);
+  color: hsl(155 50% 72%) !important;
+}
+
+.kc-byaan-run-state.is-blocked,
+.kc-byaan-run-state.is-error {
+  border-color: hsl(0 70% 46% / 0.5);
+  background: hsl(0 58% 17%);
+  color: hsl(0 70% 76%) !important;
+}
+
+.kc-byaan-editor-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kc-byaan-query-editor label {
+  color: hsl(0 0% 68%);
+}
+
+.kc-byaan-query-editor select,
+.kc-byaan-query-editor textarea {
+  border-color: hsl(0 0% 26%);
+  background: hsl(0 0% 18%);
+  color: hsl(0 0% 88%);
+}
+
+.kc-byaan-editor-shell {
+  position: relative;
+}
+
+.kc-byaan-editor-shell textarea {
+  min-height: 170px;
+  padding: 14px;
+  border-radius: 8px;
+  background: hsl(0 0% 11%);
+  color: hsl(0 0% 86%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.kc-byaan-editor-shell em {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: hsl(0 0% 12%);
+  color: hsl(0 0% 52%);
+  font-size: 10.5px;
+  font-style: normal;
+}
+
+.kc-byaan-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.kc-byaan-editor-actions button {
+  flex: 0 0 auto;
+  min-width: 92px;
+}
+
+.kc-byaan-editor-actions button + button {
+  border-color: hsl(0 0% 28%);
+  background: hsl(0 0% 18%);
+  color: hsl(0 0% 82%);
 }
 
 .kc-asktable-head {
@@ -2395,6 +2534,10 @@
   .kc-askdash-split {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;
+  }
+
+  .kc-askdash-blocked {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .kc-askdash-resizer {
