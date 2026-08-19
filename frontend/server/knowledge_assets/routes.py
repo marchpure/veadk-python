@@ -169,6 +169,10 @@ def mount_knowledge_asset_routes(
             "mock": False,
         }
 
+    @app.get("/api/knowledge-assets/connectors")
+    async def connectors() -> dict[str, Any]:
+        return await sidecars()
+
     @app.post("/api/knowledge-assets/spaces", status_code=status.HTTP_201_CREATED)
     async def create_space(body: CreateSpaceBody) -> dict[str, Any]:
         return await invoke(lambda: store.create_space(body))
@@ -435,6 +439,27 @@ def mount_knowledge_asset_routes(
         )
         return {"items": items, "total": len(items), "mock": False}
 
+    @app.get("/api/knowledge-assets/semantic-builds")
+    async def list_semantic_builds(
+        space_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+        source_id: Annotated[str | None, Query(min_length=1, max_length=128)] = None,
+        asset_id: Annotated[str | None, Query(min_length=1, max_length=256)] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    ) -> dict[str, Any]:
+        result = await list_build_jobs(
+            space_id=space_id,
+            source_id=source_id,
+            asset_id=asset_id,
+            limit=limit,
+        )
+        result["items"] = [
+            item
+            for item in result["items"]
+            if item.get("job_type") in {"semantic_skill", "semantic_builder"}
+        ]
+        result["total"] = len(result["items"])
+        return result
+
     @app.get("/api/knowledge-assets/build-jobs/{job_id}")
     async def get_build_job(job_id: str) -> dict[str, Any]:
         return await invoke(lambda: store.get_build_job(job_id))
@@ -605,6 +630,10 @@ def mount_knowledge_asset_routes(
     async def askdata_query(body: AskDataQueryBody) -> dict[str, Any]:
         return await invoke(lambda: ask_dashboard_agent.query(body))
 
+    @app.post("/api/knowledge-assets/asktable/query")
+    async def asktable_query(body: AskDataQueryBody) -> dict[str, Any]:
+        return await askdata_query(body)
+
     @app.post("/api/knowledge-assets/askdata/stream")
     async def askdata_stream(body: AskDataStreamBody) -> StreamingResponse:
         async def events() -> Any:
@@ -622,9 +651,17 @@ def mount_knowledge_asset_routes(
 
         return StreamingResponse(events(), media_type="text/event-stream")
 
+    @app.post("/api/knowledge-assets/asktable/stream")
+    async def asktable_stream(body: AskDataStreamBody) -> StreamingResponse:
+        return await askdata_stream(body)
+
     @app.get("/api/knowledge-assets/askdata/conversations/{conversation_id}")
     async def get_askdata_conversation(conversation_id: str) -> dict[str, Any]:
         return await invoke(lambda: store.get_askdata_conversation(conversation_id))
+
+    @app.get("/api/knowledge-assets/asktable/conversations/{conversation_id}")
+    async def get_asktable_conversation(conversation_id: str) -> dict[str, Any]:
+        return await get_askdata_conversation(conversation_id)
 
     @app.post(
         "/api/knowledge-assets/build/dashboard-skill",

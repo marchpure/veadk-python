@@ -144,6 +144,22 @@ def test_sidecar_status_is_safe_when_datastudio_is_unconfigured(
     assert "DATASTUDIO_API_KEY" not in response.text
 
 
+def test_connector_compatibility_route_matches_sidecars(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DATASTUDIO_API_KEY", raising=False)
+    monkeypatch.delenv("DATASTUDIO_BASE_URL", raising=False)
+    monkeypatch.delenv("DATASTUDIO_EMBED_URL", raising=False)
+    monkeypatch.setenv("DATASTUDIO_AUTO_DISCOVER", "0")
+
+    sidecars = client.get("/api/knowledge-assets/sidecars")
+    connectors = client.get("/api/knowledge-assets/connectors")
+
+    assert connectors.status_code == 200
+    assert connectors.json() == sidecars.json()
+
+
 def test_build_job_routes_record_state_without_echoing_secrets(
     client: TestClient,
 ) -> None:
@@ -192,6 +208,53 @@ def test_build_job_routes_record_state_without_echoing_secrets(
     ).json()
     assert listed["total"] == 1
     assert listed["items"][0]["id"] == job["id"]
+
+
+def test_semantic_builds_compatibility_route_lists_only_semantic_jobs(
+    client: TestClient,
+) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "web",
+            "name": "Docs",
+        },
+    ).json()
+    semantic_response = client.post(
+        "/api/knowledge-assets/build-jobs",
+        json={
+            "space_id": space["id"],
+            "source_id": source["id"],
+            "asset_type": "semantic_model",
+            "asset_id": "sales-semantic",
+            "job_type": "semantic_skill",
+            "status": "succeeded",
+        },
+    )
+    assert semantic_response.status_code == 201
+    semantic = semantic_response.json()
+    retrieval_response = client.post(
+        "/api/knowledge-assets/build-jobs",
+        json={
+            "space_id": space["id"],
+            "source_id": source["id"],
+            "asset_type": "knowledge_resource",
+            "asset_id": "docs-retrieval",
+            "job_type": "retrieval_binding",
+            "status": "succeeded",
+        },
+    )
+    assert retrieval_response.status_code == 201
+
+    response = client.get(f"/api/knowledge-assets/semantic-builds?space_id={space['id']}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mock"] is False
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == semantic["id"]
 
 
 def test_import_route_records_metadata_only_database_without_fake_success(

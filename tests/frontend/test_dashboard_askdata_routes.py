@@ -160,6 +160,35 @@ def test_askdata_query_returns_required_evidence(tmp_path, monkeypatch) -> None:
     assert "secret" not in response.text.lower()
 
 
+def test_asktable_query_compatibility_route_returns_required_evidence(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client(tmp_path, monkeypatch)
+    _semantic_skill(client)
+
+    response = client.post(
+        "/api/knowledge-assets/asktable/query",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "metric": "ticket_count",
+            "dimension": "store",
+            "question": "按门店查看销售票数",
+            "mode": "offline",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    data = body["data"]
+    assert "SALES_ORDER" in data["sql"]
+    assert data["metricDefinition"] == "Count distinct tickets."
+    assert data["policyDecision"]["decision"] == "allow"
+    assert data["freshness"]["status"] == "fresh"
+    assert data["execution"]["governed_rest"] is True
+
+
 def test_askdata_uses_e2_schema_only_governed_query_without_fixture_result(
     tmp_path,
     monkeypatch,
@@ -748,6 +777,47 @@ def test_askdata_stream_emits_tool_result_final_answer_and_persists_events(
     assert body["semantic_asset_id"] == "oracle-sales"
     assert body["messages"][0]["role"] == "user"
     assert body["tool_events"][0]["tool_name"] == "query_semantic_skill"
+    assert body["tool_events"][0]["response"]["sql"]
+
+
+def test_asktable_stream_compatibility_route_persists_conversation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    client = _client_with_streaming_runner(
+        tmp_path,
+        monkeypatch,
+        FakeAskTableStreamingRunner(),
+    )
+    _semantic_skill(client)
+
+    response = client.post(
+        "/api/knowledge-assets/asktable/stream",
+        json={
+            "semantic_asset_id": "oracle-sales",
+            "message": "列出异常波动，并给出 SQL 和口径证据",
+            "metric": "ticket_count",
+            "dimensions": ["store"],
+        },
+    )
+
+    assert response.status_code == 200
+    events = _sse_events(response)
+    response_event = next(
+        event
+        for event in events
+        if event["content"]["parts"][0].get("functionResponse", {}).get("name")
+        == "query_semantic_skill"
+    )
+    conversation_id = response_event["conversation_id"]
+
+    persisted = client.get(
+        f"/api/knowledge-assets/asktable/conversations/{conversation_id}"
+    )
+
+    assert persisted.status_code == 200
+    body = persisted.json()
+    assert body["semantic_asset_id"] == "oracle-sales"
     assert body["tool_events"][0]["response"]["sql"]
 
 
