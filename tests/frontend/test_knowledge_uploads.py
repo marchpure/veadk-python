@@ -1853,7 +1853,8 @@ def test_studio_mount_shares_knowledge_asset_store_for_connector_registry() -> N
     source = Path("veadk/cli/cli_frontend.py").read_text(encoding="utf-8")
     assert "knowledge_asset_store = KnowledgeAssetStore()" in source
     assert "asset_registry=KnowledgeAssetCredentialRegistry(knowledge_asset_store)" in source
-    assert "mount_knowledge_asset_routes(app, service=knowledge_asset_store)" in source
+    assert "mount_knowledge_asset_routes(" in source
+    assert "service=knowledge_asset_store" in source
 
 
 def test_agent_search_does_not_supply_source_metadata_filter() -> None:

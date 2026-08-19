@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_VERSION = 5
+_SCHEMA_VERSION = 6
 
 
 class KnowledgeAssetRepositoryError(RuntimeError):
@@ -177,6 +177,151 @@ class KnowledgeAssetRepository:
             if cursor.rowcount == 0:
                 raise KnowledgeAssetNotFound("Knowledge asset source not found.")
             return self.get_source(source_id, conn=conn)
+
+    def create_source_resource(self, row: dict[str, Any]) -> dict[str, Any]:
+        with self._write() as conn:
+            self.get_space(row["asset_space_id"], conn=conn)
+            source = self.get_source(row["source_id"], conn=conn)
+            if source["space_id"] != row["asset_space_id"]:
+                raise KnowledgeAssetConflict(
+                    "Knowledge asset source resource must belong to the source space."
+                )
+            conn.execute(
+                """
+                INSERT INTO source_resources (
+                    id, asset_space_id, source_id, resource_id, source_type,
+                    provider, uri, provider_ref, content_hash, tags_json,
+                    permission_scope, freshness_json, sync_status, last_synced_at,
+                    error_summary, metadata_json
+                )
+                VALUES (
+                    :id, :asset_space_id, :source_id, :resource_id, :source_type,
+                    :provider, :uri, :provider_ref, :content_hash, :tags_json,
+                    :permission_scope, :freshness_json, :sync_status,
+                    :last_synced_at, :error_summary, :metadata_json
+                )
+                ON CONFLICT(source_id, resource_id) DO UPDATE SET
+                    asset_space_id = excluded.asset_space_id,
+                    source_type = excluded.source_type,
+                    provider = excluded.provider,
+                    uri = excluded.uri,
+                    provider_ref = excluded.provider_ref,
+                    content_hash = excluded.content_hash,
+                    tags_json = excluded.tags_json,
+                    permission_scope = excluded.permission_scope,
+                    freshness_json = excluded.freshness_json,
+                    sync_status = excluded.sync_status,
+                    last_synced_at = excluded.last_synced_at,
+                    error_summary = excluded.error_summary,
+                    metadata_json = excluded.metadata_json,
+                    deleted_at = NULL,
+                    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+                """,
+                row,
+            )
+            return self.get_source_resource_by_key(
+                row["source_id"],
+                row["resource_id"],
+                conn=conn,
+            )
+
+    def list_source_resources(
+        self,
+        *,
+        asset_space_id: str | None = None,
+        source_id: str | None = None,
+        sync_status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses = ["deleted_at IS NULL"]
+        params: list[str] = []
+        if asset_space_id:
+            clauses.append("asset_space_id = ?")
+            params.append(asset_space_id)
+        if source_id:
+            clauses.append("source_id = ?")
+            params.append(source_id)
+        if sync_status:
+            clauses.append("sync_status = ?")
+            params.append(sync_status)
+        where = f"WHERE {' AND '.join(clauses)}"
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    f"SELECT * FROM source_resources {where} "
+                    "ORDER BY updated_at DESC, id",
+                    tuple(params),
+                )
+            )
+
+    def get_source_resource(
+        self,
+        resource_id: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM source_resources WHERE id = ? AND deleted_at IS NULL",
+                (resource_id,),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Knowledge asset source resource not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def get_source_resource_by_key(
+        self,
+        source_id: str,
+        resource_id: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        active = conn or self._connect()
+        try:
+            row = active.execute(
+                "SELECT * FROM source_resources "
+                "WHERE source_id = ? AND resource_id = ? AND deleted_at IS NULL",
+                (source_id, resource_id),
+            ).fetchone()
+            if row is None:
+                raise KnowledgeAssetNotFound("Knowledge asset source resource not found.")
+            return dict(row)
+        finally:
+            if conn is None:
+                active.close()
+
+    def update_source_resource(
+        self,
+        resource_id: str,
+        patch: dict[str, Any],
+    ) -> dict[str, Any]:
+        if not patch:
+            return self.get_source_resource(resource_id)
+        fields = ", ".join(f"{key} = :{key}" for key in patch)
+        params = {**patch, "id": resource_id}
+        with self._write() as conn:
+            cursor = conn.execute(
+                f"UPDATE source_resources SET {fields}, updated_at = {utc_now_sql()} "
+                "WHERE id = :id AND deleted_at IS NULL",
+                params,
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Knowledge asset source resource not found.")
+            return self.get_source_resource(resource_id, conn=conn)
+
+    def delete_source_resource(self, resource_id: str) -> None:
+        with self._write() as conn:
+            cursor = conn.execute(
+                "UPDATE source_resources SET deleted_at = "
+                f"{utc_now_sql()}, updated_at = {utc_now_sql()} "
+                "WHERE id = ? AND deleted_at IS NULL",
+                (resource_id,),
+            )
+            if cursor.rowcount == 0:
+                raise KnowledgeAssetNotFound("Knowledge asset source resource not found.")
 
     def save_credential(self, row: dict[str, Any]) -> dict[str, Any]:
         with self._write() as conn:
@@ -881,6 +1026,35 @@ def _create_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_sources_space ON sources(space_id, updated_at);
         CREATE INDEX IF NOT EXISTS idx_sources_status ON sources(status);
 
+        CREATE TABLE IF NOT EXISTS source_resources (
+            id TEXT PRIMARY KEY,
+            asset_space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+            source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+            resource_id TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            provider TEXT,
+            uri TEXT,
+            provider_ref TEXT,
+            content_hash TEXT,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            permission_scope TEXT NOT NULL DEFAULT 'private',
+            freshness_json TEXT NOT NULL DEFAULT '{}',
+            sync_status TEXT NOT NULL DEFAULT 'registered',
+            last_synced_at TEXT,
+            error_summary TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            deleted_at TEXT,
+            UNIQUE(source_id, resource_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_source_resources_space
+            ON source_resources(asset_space_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_source_resources_source
+            ON source_resources(source_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_source_resources_status
+            ON source_resources(sync_status, updated_at);
+
         CREATE TABLE IF NOT EXISTS credentials (
             id TEXT,
             source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
@@ -1239,6 +1413,38 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             "logs_ref": "TEXT",
             "result_skill_id": "TEXT",
         },
+    )
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS source_resources (
+            id TEXT PRIMARY KEY,
+            asset_space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+            source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+            resource_id TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            provider TEXT,
+            uri TEXT,
+            provider_ref TEXT,
+            content_hash TEXT,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            permission_scope TEXT NOT NULL DEFAULT 'private',
+            freshness_json TEXT NOT NULL DEFAULT '{}',
+            sync_status TEXT NOT NULL DEFAULT 'registered',
+            last_synced_at TEXT,
+            error_summary TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            deleted_at TEXT,
+            UNIQUE(source_id, resource_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_source_resources_space
+            ON source_resources(asset_space_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_source_resources_source
+            ON source_resources(source_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_source_resources_status
+            ON source_resources(sync_status, updated_at);
+        """
     )
 
 

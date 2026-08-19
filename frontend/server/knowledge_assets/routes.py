@@ -18,6 +18,7 @@ from .contract import KnowledgeAssetType, KnowledgeCapabilityKind
 from .crypto import CredentialCryptoError
 from .models import (
     BuildSemanticSkillBody,
+    CreateSourceResourceBody,
     CreateSourceBody,
     CreateSpaceBody,
     ImportSourceBody,
@@ -28,6 +29,7 @@ from .models import (
     SaveCredentialBody,
     ShareDashboardBody,
     UpdateBuildJobBody,
+    UpdateSourceResourceBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
 )
@@ -114,7 +116,9 @@ def mount_knowledge_asset_routes(
             },
             "capabilities": [
                 "spaces",
+                "connector_registry",
                 "sources",
+                "source_resources",
                 "retrieval_binding",
                 "semantic_skill",
                 "dashboard_skill",
@@ -158,6 +162,18 @@ def mount_knowledge_asset_routes(
             ],
             "mock": False,
         }
+
+    @app.get("/api/knowledge-assets/connectors")
+    async def list_connectors(
+        category: Annotated[
+            str | None, Query(min_length=1, max_length=40)
+        ] = None,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.list_connector_definitions(category=category))
+
+    @app.get("/api/knowledge-assets/connectors/{connector_id}")
+    async def get_connector(connector_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.get_connector_definition(connector_id))
 
     @app.post("/api/knowledge-assets/spaces", status_code=status.HTTP_201_CREATED)
     async def create_space(body: CreateSpaceBody) -> dict[str, Any]:
@@ -220,6 +236,54 @@ def mount_knowledge_asset_routes(
         body: UpdateSourceStatusBody,
     ) -> dict[str, Any]:
         return await invoke(lambda: store.update_source_status(source_id, body))
+
+    @app.post(
+        "/api/knowledge-assets/source-resources",
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_source_resource(
+        body: CreateSourceResourceBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.create_source_resource(body))
+
+    @app.get("/api/knowledge-assets/source-resources")
+    async def list_source_resources(
+        asset_space_id: Annotated[
+            str | None, Query(min_length=1, max_length=128)
+        ] = None,
+        source_id: Annotated[
+            str | None, Query(min_length=1, max_length=128)
+        ] = None,
+        sync_status: Annotated[
+            str | None, Query(min_length=1, max_length=80)
+        ] = None,
+    ) -> dict[str, Any]:
+        items = await invoke(
+            lambda: store.list_source_resources(
+                asset_space_id=asset_space_id,
+                source_id=source_id,
+                sync_status=sync_status,
+            )
+        )
+        return {"items": items, "total": len(items), "mock": False}
+
+    @app.get("/api/knowledge-assets/source-resources/{resource_row_id}")
+    async def get_source_resource(resource_row_id: str) -> dict[str, Any]:
+        return await invoke(lambda: store.get_source_resource(resource_row_id))
+
+    @app.patch("/api/knowledge-assets/source-resources/{resource_row_id}")
+    async def update_source_resource(
+        resource_row_id: str,
+        body: UpdateSourceResourceBody,
+    ) -> dict[str, Any]:
+        return await invoke(lambda: store.update_source_resource(resource_row_id, body))
+
+    @app.delete(
+        "/api/knowledge-assets/source-resources/{resource_row_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def delete_source_resource(resource_row_id: str) -> None:
+        await invoke(lambda: store.delete_source_resource(resource_row_id))
 
     @app.put("/api/knowledge-assets/sources/{source_id}/credential")
     async def save_credential(

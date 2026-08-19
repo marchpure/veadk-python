@@ -36,8 +36,11 @@ def test_routes_mount_on_fastapi_app(tmp_path, monkeypatch) -> None:
     paths = {getattr(route, "path", "") for route in app.router.routes}
 
     assert "/api/knowledge-assets/spaces" in paths
+    assert "/api/knowledge-assets/connectors" in paths
     assert "/api/knowledge-assets/sources" in paths
     assert "/api/knowledge-assets/sources/import" in paths
+    assert "/api/knowledge-assets/source-resources" in paths
+    assert "/api/knowledge-assets/source-resources/{resource_row_id}" in paths
     assert "/api/knowledge-assets/sources/{source_id}/credential" in paths
     assert "/api/knowledge-assets/build/semantic-skill" in paths
     assert "/api/knowledge-assets/build-jobs" in paths
@@ -72,6 +75,9 @@ def test_routes_create_store_and_never_echo_credentials(client: TestClient) -> N
     assert response.status_code == 200
     body = response.json()
     assert body["configured"] is True
+    assert body["status"] == "connected"
+    assert "algorithm" not in body
+    assert "key_id" not in body
     assert "redact-me-route-alpha" not in json.dumps(body)
     assert "redact-me-route-beta" not in json.dumps(body)
 
@@ -79,6 +85,7 @@ def test_routes_create_store_and_never_echo_credentials(client: TestClient) -> N
         f"/api/knowledge-assets/sources/{source['id']}/credential"
     ).json()
     assert status["configured"] is True
+    assert status["status"] == "connected"
     assert "redact-me-route-alpha" not in json.dumps(status)
 
     delete = client.delete(f"/api/knowledge-assets/sources/{source['id']}/credential")
@@ -212,6 +219,8 @@ def test_import_route_records_metadata_only_database_without_fake_success(
     payload = response.json()
     assert payload["source"]["status"] == "needs_configuration"
     assert payload["job"]["status"] == "blocked"
+    assert payload["resource"]["sync_status"] == "needs_configuration"
+    assert payload["resource"]["source_type"] == "database_schema"
     assert "redact-me-db" not in response.text
 
 
@@ -234,6 +243,7 @@ def test_import_route_feishu_requires_configuration_without_fake_success(
     assert payload["source"]["status"] == "needs_configuration"
     assert payload["job"]["status"] == "blocked"
     assert "OAuth" in payload["source"]["status_reason"]
+    assert payload["resource"]["sync_status"] == "needs_configuration"
 
 
 def test_schema_snapshot_import_route_registers_ready_source(
@@ -257,12 +267,86 @@ def test_schema_snapshot_import_route_registers_ready_source(
     assert payload["source"]["status"] == "ready"
     assert payload["job"]["status"] == "succeeded"
     assert payload["document"]["kind"] == "schema_snapshot"
+    assert payload["resource"]["source_type"] == "database_schema"
+    assert payload["resource"]["sync_status"] == "ready"
 
     snapshots = client.get(
         f"/api/knowledge-assets/snapshots?source_id={payload['source']['id']}"
     ).json()
     assert snapshots["total"] == 1
     assert snapshots["items"][0]["schema"]["models"][0]["name"] == "orders"
+
+
+def test_connector_registry_route_returns_manifest_contract(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/knowledge-assets/connectors")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["schema_version"] == "knowledge_asset.connector_registry.v1"
+    assert payload["mock"] is False
+    by_id = {item["id"]: item for item in payload["items"]}
+    assert by_id["web"]["availability"] == "available"
+    assert by_id["web"]["category"] == "document"
+    assert "import_resource" in by_id["web"]["capabilities"]
+    assert by_id["feishu_doc"]["availability"] == "needs_auth"
+    assert by_id["postgres"]["availability"] == "preview"
+    assert by_id["custom_rest"]["availability"] == "planned"
+
+    database = client.get("/api/knowledge-assets/connectors?category=database")
+    assert database.status_code == 200
+    assert {item["category"] for item in database.json()["items"]} == {"database"}
+
+
+def test_source_resource_routes_crud_and_redaction(client: TestClient) -> None:
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "web",
+            "name": "Docs",
+        },
+    ).json()
+    created = client.post(
+        "/api/knowledge-assets/source-resources",
+        json={
+            "asset_space_id": space["id"],
+            "source_id": source["id"],
+            "resource_id": "doc-1",
+            "source_type": "web_page",
+            "provider": "web",
+            "uri": "https://example.com/docs",
+            "content_hash": "sha256:abc",
+            "tags": ["docs"],
+            "permission_scope": "public",
+            "sync_status": "indexed",
+            "metadata": {"cookie": "redact-me-resource"},
+        },
+    )
+    assert created.status_code == 201
+    resource = created.json()
+    assert resource["metadata"]["cookie"] == "[REDACTED]"
+    assert "redact-me-resource" not in created.text
+
+    listed = client.get(
+        f"/api/knowledge-assets/source-resources?asset_space_id={space['id']}"
+    ).json()
+    assert listed["total"] == 1
+    assert listed["items"][0]["id"] == resource["id"]
+
+    updated = client.patch(
+        f"/api/knowledge-assets/source-resources/{resource['id']}",
+        json={"sync_status": "stale", "freshness": {"state": "stale"}},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["sync_status"] == "stale"
+
+    deleted = client.delete(f"/api/knowledge-assets/source-resources/{resource['id']}")
+    assert deleted.status_code == 204
+    assert client.get(
+        f"/api/knowledge-assets/source-resources?asset_space_id={space['id']}"
+    ).json()["total"] == 0
 
 
 def test_semantic_build_route_reports_missing_space_without_fake_success(

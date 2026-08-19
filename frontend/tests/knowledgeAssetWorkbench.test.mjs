@@ -66,19 +66,31 @@ async function loadTypeScriptModule(relativePath) {
   return require(outFile);
 }
 
-test("native workbench uses first-level tabs and type-card source flow", () => {
+test("native workbench uses first-level tabs and manifest-driven connector wizard", () => {
   for (const label of ["概览", "数据源", "语义构建", "AskTable / Dashboard", "测评", "能力", "构建任务", "设置"]) {
     assert.match(workbenchSource, new RegExp(`label: "${label}"`));
   }
-  assert.match(workbenchSource, /SourceFlow/);
-  assert.match(workbenchSource, /sourceTypeGroups/);
+  assert.match(workbenchSource, /AddContentWizard/);
+  assert.match(workbenchSource, /Connector Gallery/);
+  assert.match(workbenchSource, /listKnowledgeConnectorDefinitions/);
+  assert.match(workbenchSource, /listKnowledgeSourceResources/);
+  assert.match(workbenchSource, /enabledConnectorStates/);
+  assert.match(workbenchSource, /"content" \| "auth" \| "scope" \| "governance" \| "publish"/);
+  assert.match(workbenchSource, /选择内容/);
+  assert.match(workbenchSource, /连接与授权/);
+  assert.match(workbenchSource, /选择范围/);
+  assert.match(workbenchSource, /预览与治理/);
+  assert.match(workbenchSource, /同步并发布能力/);
   assert.match(workbenchSource, /Schema Snapshot/);
-  assert.match(workbenchSource, /飞书 OAuth/);
+  assert.match(workbenchSource, /需要 OAuth/);
   assert.match(workbenchSource, /type="file"/);
   assert.match(workbenchSource, /readSourceFile/);
   assert.match(workbenchSource, /metadata JSON/);
   assert.match(workbenchSource, /Metadata JSON 无效/);
   assert.match(workbenchSource, /客户端预检查检测到疑似浏览器凭据/);
+  assert.match(clientSource, /\/api\/knowledge-assets\/connectors/);
+  assert.match(clientSource, /\/api\/knowledge-assets\/source-resources/);
+  assert.doesNotMatch(workbenchSource, /sourceTypeGroups/);
   assert.doesNotMatch(workbenchSource, /<select\b|<option\b/);
 });
 
@@ -104,10 +116,14 @@ test("workbench failures are styled Chinese states with diagnostics", () => {
 test("workbench uses import orchestration and source-level build jobs", () => {
   assert.match(clientSource, /\/api\/knowledge-assets\/sources\/import/);
   assert.match(workbenchSource, /importKnowledgeAssetSource/);
+  assert.match(workbenchSource, /ConnectedContentRow/);
+  assert.match(workbenchSource, /Connected Content/);
+  assert.match(workbenchSource, /ConnectedContentDrawer/);
+  assert.match(workbenchSource, /Resource Picker/);
+  assert.match(workbenchSource, /Advanced/);
   assert.match(workbenchSource, /listKnowledgeAssetBuildJobs\(spaceId \|\| undefined\)/);
-  assert.match(workbenchSource, /latestJobForSource\(jobs, source\.id\)/);
-  assert.match(workbenchSource, /kc-source-job-history/);
-  assert.match(workbenchSource, /jobs\.filter\(\(job\) => job\.source_id === source\.id\)/);
+  assert.match(workbenchSource, /latestJobForSource\(jobs, resource\.source_id\)/);
+  assert.match(workbenchSource, /kc-connected-content-table/);
   assert.doesNotMatch(workbenchSource, /\/api\/knowledge-assets\/build\/semantic-skill/);
   assert.doesNotMatch(workbenchSource, /buildKnowledgeAssetSemanticSkill/);
 });

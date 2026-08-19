@@ -27,8 +27,13 @@ from .contract import (
     KnowledgeAssetType,
     KnowledgeCapabilityKind,
 )
+from .connector_registry import (
+    get_connector_definition,
+    list_connector_definitions,
+)
 from .crypto import CredentialCipher, CredentialCryptoError
 from .models import (
+    CreateSourceResourceBody,
     CreateSourceBody,
     CreateSpaceBody,
     ImportSourceBody,
@@ -39,6 +44,7 @@ from .models import (
     SaveCredentialBody,
     ShareDashboardBody,
     UpdateBuildJobBody,
+    UpdateSourceResourceBody,
     UpdateSourceStatusBody,
     UpdateSpaceBody,
 )
@@ -80,6 +86,20 @@ _BUILD_JOB_STATUSES = {
     "cancelled",
 }
 _SCHEMA_SOURCE_TYPES = {"schema_snapshot", "database", "oracle", "mysql", "postgres"}
+_RESOURCE_SYNC_STATUSES = {
+    "registered",
+    "needs_configuration",
+    "auth_required",
+    "importing",
+    "syncing",
+    "indexed",
+    "ready",
+    "failed",
+    "credential_expired",
+    "stale",
+    "blocked",
+    "skipped",
+}
 
 
 class KnowledgeAssetServiceError(RuntimeError):
@@ -244,7 +264,22 @@ class KnowledgeAssetStore:
                     output={"source_status": failed_source["status"]},
                 ),
             )
-            return {"source": failed_source, "job": failed_job, "document": None}
+            failed_resource = await self._record_import_resource(
+                failed_source,
+                body,
+                {
+                    "status": "failed",
+                    "status_reason": str(error),
+                    "error": {"code": error.code},
+                },
+                target_knowledge_base_id=target_kb,
+            )
+            return {
+                "source": failed_source,
+                "job": failed_job,
+                "document": None,
+                "resource": failed_resource,
+            }
 
         if result["status"] in {"needs_configuration", "auth_required", "registered"}:
             final_job_status = "blocked"
@@ -271,11 +306,76 @@ class KnowledgeAssetStore:
                 error=result.get("error"),
             ),
         )
+        resource = await self._record_import_resource(
+            updated_source,
+            body,
+            result,
+            target_knowledge_base_id=target_kb,
+        )
         return {
             "source": updated_source,
             "job": updated_job,
             "document": result.get("document"),
+            "resource": resource,
         }
+
+    async def _record_import_resource(
+        self,
+        source: dict[str, Any],
+        body: ImportSourceBody,
+        result: Mapping[str, Any],
+        *,
+        target_knowledge_base_id: str,
+    ) -> dict[str, Any]:
+        status = _resource_status_for_import(str(result.get("status") or source["status"]))
+        metadata = {
+            "next_action": result.get("next_action", ""),
+            "target_knowledge_base_id": target_knowledge_base_id,
+            "connection_status": source.get("status"),
+            **redact_sensitive(body.metadata),
+        }
+        source_metadata = result.get("source_metadata")
+        if isinstance(source_metadata, Mapping):
+            metadata.update(redact_sensitive(dict(source_metadata)))
+        document = result.get("document")
+        document_id = ""
+        if isinstance(document, Mapping):
+            document_id = _sanitize_text(str(document.get("id") or ""))
+        resource_id = _source_resource_external_id(
+            source,
+            body,
+            content_hash=str(result.get("content_hash") or metadata.get("content_hash") or ""),
+            document_id=document_id,
+        )
+        resource = await self.create_source_resource(
+            CreateSourceResourceBody(
+                asset_space_id=source["space_id"],
+                source_id=source["id"],
+                resource_id=resource_id,
+                source_type=_resource_type_for_source(source["source_type"]),
+                provider=body.provider or source.get("provider") or source["source_type"],
+                uri=body.uri or source.get("uri"),
+                provider_ref=document_id
+                or _sanitize_text(str(body.locator.get("provider_ref") or "")),
+                content_hash=str(
+                    result.get("content_hash") or metadata.get("content_hash") or ""
+                )
+                or None,
+                tags=_source_resource_tags(source["source_type"], body),
+                permission_scope=_permission_scope_for_source(source["source_type"]),
+                freshness=_freshness_for_import(result),
+                sync_status=status,
+                last_synced_at=str(metadata.get("last_synced_at") or "") or None,
+                error_summary=(
+                    str(result.get("status_reason") or "") or None
+                    if status
+                    in {"failed", "blocked", "needs_configuration", "auth_required"}
+                    else None
+                ),
+                metadata=metadata,
+            )
+        )
+        return resource
 
     async def _execute_source_import(
         self,
@@ -336,6 +436,7 @@ class KnowledgeAssetStore:
                 "status_reason": "Schema Snapshot 已登记，可用于生成语义 Skill。",
                 "next_action": "build_semantic_skill",
                 "document": {"id": snapshot["id"], "kind": "schema_snapshot"},
+                "content_hash": content_hash,
                 "source_metadata": {
                     "schema_status": "ready",
                     "schema_version": content_hash,
@@ -405,6 +506,7 @@ class KnowledgeAssetStore:
             "status_reason": "内容已写入 Viking 并完成双写登记。",
             "next_action": "create_retrieval_binding",
             "document": {**indexed, "provider_result": redact_sensitive(document)},
+            "content_hash": content_hash,
             "source_metadata": {
                 "target_knowledge_base_id": target_knowledge_base_id,
                 "content_hash": content_hash,
@@ -440,6 +542,113 @@ class KnowledgeAssetStore:
             self._repository.update_source_status, source_id, patch
         )
         return _source_payload(row)
+
+    async def list_connector_definitions(
+        self,
+        *,
+        category: str | None = None,
+    ) -> dict[str, Any]:
+        items = [
+            _connector_definition_payload(item)
+            for item in list_connector_definitions(category=category)
+        ]
+        return {
+            "schema_version": "knowledge_asset.connector_registry.v1",
+            "items": items,
+            "total": len(items),
+            "mock": False,
+        }
+
+    async def get_connector_definition(self, connector_id: str) -> dict[str, Any]:
+        try:
+            definition = get_connector_definition(connector_id)
+        except KeyError as error:
+            raise KnowledgeAssetNotFound("Knowledge asset connector not found.") from error
+        return _connector_definition_payload(definition)
+
+    async def create_source_resource(
+        self,
+        body: CreateSourceResourceBody,
+    ) -> dict[str, Any]:
+        source = await asyncio.to_thread(self._repository.get_source, body.source_id)
+        row = _source_resource_row(_new_id("res"), body, source=source)
+        return _source_resource_payload(
+            await asyncio.to_thread(self._repository.create_source_resource, row)
+        )
+
+    async def list_source_resources(
+        self,
+        *,
+        asset_space_id: str | None = None,
+        source_id: str | None = None,
+        sync_status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = await asyncio.to_thread(
+            self._repository.list_source_resources,
+            asset_space_id=asset_space_id,
+            source_id=source_id,
+            sync_status=_normalize_resource_sync_status(sync_status)
+            if sync_status
+            else None,
+        )
+        return [_source_resource_payload(row) for row in rows]
+
+    async def get_source_resource(self, resource_row_id: str) -> dict[str, Any]:
+        return _source_resource_payload(
+            await asyncio.to_thread(
+                self._repository.get_source_resource,
+                resource_row_id,
+            )
+        )
+
+    async def update_source_resource(
+        self,
+        resource_row_id: str,
+        body: UpdateSourceResourceBody,
+    ) -> dict[str, Any]:
+        patch: dict[str, Any] = {}
+        if body.uri is not None:
+            patch["uri"] = _sanitize_text(body.uri) or None
+        if body.provider_ref is not None:
+            patch["provider_ref"] = _sanitize_text(body.provider_ref) or None
+        if body.content_hash is not None:
+            patch["content_hash"] = _sanitize_text(body.content_hash) or None
+        if body.tags is not None:
+            patch["tags_json"] = dumps_json(redact_sensitive(body.tags))
+        if body.permission_scope is not None:
+            patch["permission_scope"] = _sanitize_text(body.permission_scope) or "private"
+        if body.freshness is not None:
+            patch["freshness_json"] = dumps_json(redact_sensitive(body.freshness))
+        if body.sync_status is not None:
+            patch["sync_status"] = _normalize_resource_sync_status(body.sync_status)
+        if body.last_synced_at is not None:
+            patch["last_synced_at"] = _sanitize_text(body.last_synced_at) or None
+        if body.error_summary is not None:
+            patch["error_summary"] = _sanitize_text(body.error_summary) or None
+        if body.metadata is not None:
+            existing = await asyncio.to_thread(
+                self._repository.get_source_resource,
+                resource_row_id,
+            )
+            patch["metadata_json"] = dumps_json(
+                {
+                    **loads_json(existing.get("metadata_json"), {}),
+                    **redact_sensitive(body.metadata),
+                }
+            )
+        return _source_resource_payload(
+            await asyncio.to_thread(
+                self._repository.update_source_resource,
+                resource_row_id,
+                patch,
+            )
+        )
+
+    async def delete_source_resource(self, resource_row_id: str) -> None:
+        await asyncio.to_thread(
+            self._repository.delete_source_resource,
+            resource_row_id,
+        )
 
     async def save_credential(
         self, source_id: str, body: SaveCredentialBody
@@ -918,6 +1127,65 @@ def _source_payload(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _connector_definition_payload(row: Mapping[str, Any]) -> dict[str, Any]:
+    return redact_sensitive(dict(row))
+
+
+def _source_resource_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "asset_space_id": row["asset_space_id"],
+        "source_id": row["source_id"],
+        "resource_id": row["resource_id"],
+        "source_type": row["source_type"],
+        "provider": row.get("provider"),
+        "uri": row.get("uri"),
+        "provider_ref": row.get("provider_ref"),
+        "content_hash": row.get("content_hash"),
+        "tags": loads_json(row.get("tags_json"), []),
+        "permission_scope": row.get("permission_scope") or "private",
+        "freshness": loads_json(row.get("freshness_json"), {}),
+        "sync_status": row.get("sync_status") or "registered",
+        "last_synced_at": row.get("last_synced_at"),
+        "error_summary": row.get("error_summary"),
+        "metadata": loads_json(row.get("metadata_json"), {}),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+def _source_resource_row(
+    record_id: str,
+    body: CreateSourceResourceBody,
+    *,
+    source: Mapping[str, Any],
+) -> dict[str, Any]:
+    source_type = _sanitize_text(body.source_type.strip())
+    resource_id = _sanitize_text(body.resource_id or "") or _source_resource_external_id(
+        source,
+        body,
+        content_hash=body.content_hash or "",
+    )
+    return {
+        "id": record_id,
+        "asset_space_id": _sanitize_text(body.asset_space_id),
+        "source_id": _sanitize_text(body.source_id),
+        "resource_id": resource_id,
+        "source_type": source_type,
+        "provider": _sanitize_text(body.provider or source.get("provider") or "") or None,
+        "uri": _sanitize_text(body.uri or "") or None,
+        "provider_ref": _sanitize_text(body.provider_ref or "") or None,
+        "content_hash": _sanitize_text(body.content_hash or "") or None,
+        "tags_json": dumps_json(redact_sensitive(body.tags)),
+        "permission_scope": _sanitize_text(body.permission_scope or "private") or "private",
+        "freshness_json": dumps_json(redact_sensitive(body.freshness)),
+        "sync_status": _normalize_resource_sync_status(body.sync_status),
+        "last_synced_at": _sanitize_text(body.last_synced_at or "") or None,
+        "error_summary": _sanitize_text(body.error_summary or "") or None,
+        "metadata_json": dumps_json(redact_sensitive(body.metadata)),
+    }
+
+
 def _credential_status_payload(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "source_id": row["source_id"],
@@ -925,11 +1193,8 @@ def _credential_status_payload(row: dict[str, Any]) -> dict[str, Any]:
         "provider": row.get("provider"),
         "auth_mode": row.get("auth_mode"),
         "configured": True,
-        "status": row["status"],
+        "status": _normalize_credential_status(row["status"]),
         "expires_at": row.get("expires_at"),
-        "algorithm": row["algorithm"],
-        "version": row["version"],
-        "key_id": row["key_id"],
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
     }
@@ -1072,6 +1337,10 @@ def _normalize_source_status(
     allow_pending: bool = True,
 ) -> str:
     candidate = (status or "").strip().casefold()
+    if candidate in {"active", "connected", "valid"}:
+        return "ready"
+    if candidate in {"not_configured", "missing"}:
+        return "needs_configuration"
     if candidate == "pending":
         if not allow_pending:
             raise KnowledgeAssetServiceError("数据源状态不能再写入 pending。")
@@ -1090,6 +1359,128 @@ def _normalize_build_job_status(status: str) -> str:
     if candidate in _BUILD_JOB_STATUSES:
         return candidate
     raise KnowledgeAssetServiceError("Build job 状态无效。")
+
+
+def _normalize_resource_sync_status(status: str) -> str:
+    candidate = (status or "").strip().casefold()
+    if candidate == "pending":
+        return "registered"
+    if candidate in {"success", "succeeded"}:
+        return "ready"
+    if candidate in {"error", "errored"}:
+        return "failed"
+    if candidate in _RESOURCE_SYNC_STATUSES:
+        return candidate
+    raise KnowledgeAssetServiceError("Source resource 同步状态无效。")
+
+
+def _normalize_credential_status(status: str) -> str:
+    candidate = (status or "").strip().casefold()
+    if candidate in {"active", "connected", "valid"}:
+        return "connected"
+    if candidate in {"expired", "credential_expired"}:
+        return "expired"
+    if candidate in {"auth_required", "needs_auth", "reauthorization_required"}:
+        return "needs_auth"
+    if candidate in {"missing", "deleted", "revoked"}:
+        return "missing"
+    return _sanitize_text(candidate or "missing")
+
+
+def _resource_status_for_import(status: str) -> str:
+    normalized = status.strip().casefold()
+    if normalized in {"indexed", "ready"}:
+        return normalized
+    if normalized == "auth_required":
+        return "auth_required"
+    if normalized == "credential_expired":
+        return "credential_expired"
+    if normalized == "failed":
+        return "failed"
+    if normalized == "needs_configuration":
+        return "needs_configuration"
+    if normalized == "importing":
+        return "syncing"
+    return "registered"
+
+
+def _resource_type_for_source(source_type: str) -> str:
+    normalized = source_type.strip().casefold()
+    mapping = {
+        "database": "database_schema",
+        "postgres": "database_schema",
+        "mysql": "database_schema",
+        "oracle": "database_schema",
+        "schema_snapshot": "database_schema",
+        "web": "web_page",
+        "local_web": "local_web_page",
+        "intranet_web": "intranet_web_page",
+        "feishu_doc": "feishu_doc",
+        "feishu_sheet": "feishu_sheet",
+        "text": "text",
+    }
+    return mapping.get(normalized, normalized or "document")
+
+
+def _source_resource_external_id(
+    source: Mapping[str, Any],
+    body: object,
+    *,
+    content_hash: str = "",
+    document_id: str = "",
+) -> str:
+    explicit = getattr(body, "resource_id", None)
+    if explicit:
+        return _sanitize_text(str(explicit))[:256]
+    locator = getattr(body, "locator", None)
+    if isinstance(locator, Mapping):
+        for key in ("resource_id", "provider_ref", "document_id", "path"):
+            value = locator.get(key)
+            if value:
+                return _sanitize_text(str(value))[:256]
+    if document_id:
+        return document_id[:256]
+    uri = getattr(body, "uri", None) or source.get("uri") or ""
+    if uri:
+        digest = hashlib.sha256(str(uri).encode("utf-8")).hexdigest()[:16]
+        return f"{_resource_type_for_source(str(source.get('source_type') or 'source'))}:{digest}"
+    if content_hash:
+        return content_hash.replace(":", "_")[:256]
+    return str(source["id"])
+
+
+def _source_resource_tags(
+    source_type: str,
+    body: ImportSourceBody,
+) -> list[str]:
+    tags = ["agentkit", "knowledge_asset", _resource_type_for_source(source_type)]
+    if body.target_knowledge_base_id:
+        tags.append("retrieval_index")
+    if source_type in _SCHEMA_SOURCE_TYPES:
+        tags.append("semantic_seed")
+    return tags
+
+
+def _permission_scope_for_source(source_type: str) -> str:
+    normalized = source_type.strip().casefold()
+    if normalized == "web":
+        return "public"
+    if normalized in {"local_web", "intranet_web"}:
+        return "sensitive_local_context"
+    if normalized == "feishu_doc":
+        return "follow_source"
+    return "private"
+
+
+def _freshness_for_import(result: Mapping[str, Any]) -> dict[str, Any]:
+    status = str(result.get("status") or "")
+    if status in {"indexed", "ready"}:
+        return {"state": "fresh", "captured_at": _utc_now()}
+    if status in {"needs_configuration", "auth_required", "registered"}:
+        return {"state": "unknown", "reason": result.get("next_action", "")}
+    if status == "failed":
+        return {"state": "unknown", "reason": "last_sync_failed"}
+    return {"state": "stale"}
 
 
 def _normalize_share_visibility(value: str) -> str:
@@ -1339,15 +1730,17 @@ async def _source_markdown(body: ImportSourceBody) -> tuple[str, str, str]:
         if not markdown:
             raise KnowledgeAssetServiceError("网页没有可导入正文。")
         return markdown, title[:256], imported.final_url
-    if source_type in {"local_web", "intranet_web", "file", "pdf", "image"}:
+    if source_type in {"text", "local_web", "intranet_web", "file", "pdf", "image"}:
         content = (body.content or "").strip()
         if not content:
             if source_type in {"file", "pdf", "image"}:
                 raise KnowledgeAssetServiceError("文件导入需要上传内容或接入文件上传链路。")
+            if source_type == "text":
+                raise KnowledgeAssetServiceError("文本导入需要粘贴可索引正文。")
             raise KnowledgeAssetServiceError("本地/内网页面导入需要粘贴已清洗内容。")
         _assert_no_browser_secrets(content)
         title = (body.name or "本地资料").strip()
-        safe_url = _sanitize_text(body.uri or f"local://{_slug(title)}")
+        safe_url = _sanitize_text(body.uri or f"{source_type}://{_slug(title)}")
         return content, title[:256], safe_url
     raise KnowledgeAssetServiceError(f"暂不支持导入的数据源类型：{source_type}")
 

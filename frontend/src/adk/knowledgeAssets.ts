@@ -44,6 +44,66 @@ export interface KnowledgeAssetSource {
   updated_at?: string;
 }
 
+export type ConnectorCategory =
+  | "document"
+  | "database"
+  | "local"
+  | "saas"
+  | "mcp"
+  | "custom";
+
+export type ConnectorAvailability =
+  | "available"
+  | "needs_auth"
+  | "needs_helper"
+  | "preview"
+  | "planned"
+  | "unsupported";
+
+export interface KnowledgeConnectorDefinition {
+  id: string;
+  version: string;
+  display_name: string;
+  category: ConnectorCategory;
+  availability: ConnectorAvailability;
+  auth_modes: string[];
+  required_scopes: string[];
+  capabilities: string[];
+  form_schema: Record<string, unknown>;
+  resource_picker_schema: Record<string, unknown>;
+  safety_notice: string;
+  docs_url?: string;
+  help_text?: string;
+}
+
+export interface KnowledgeConnectorRegistryResponse {
+  schema_version: "knowledge_asset.connector_registry.v1";
+  items: KnowledgeConnectorDefinition[];
+  total: number;
+  mock?: boolean;
+}
+
+export interface KnowledgeSourceResource {
+  id: string;
+  asset_space_id: string;
+  source_id: string;
+  resource_id: string;
+  source_type: string;
+  provider?: string | null;
+  uri?: string | null;
+  provider_ref?: string | null;
+  content_hash?: string | null;
+  tags: string[];
+  permission_scope: string;
+  freshness: Record<string, unknown>;
+  sync_status: string;
+  last_synced_at?: string | null;
+  error_summary?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface KnowledgeAssetGate {
   score?: number;
   passed?: number;
@@ -134,6 +194,7 @@ export interface KnowledgeAssetImportResult {
   source: KnowledgeAssetSource;
   job: KnowledgeAssetBuildJob;
   document?: Record<string, unknown> | null;
+  resource?: KnowledgeSourceResource | null;
 }
 
 export interface AskDataQueryResult {
@@ -458,6 +519,38 @@ export async function listKnowledgeAssetSources(
     `/api/knowledge-assets/sources${suffix}`,
     undefined,
     "读取数据源失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function listKnowledgeConnectorDefinitions(
+  category?: ConnectorCategory,
+): Promise<KnowledgeConnectorDefinition[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<KnowledgeConnectorRegistryResponse>(
+    `/api/knowledge-assets/connectors${suffix}`,
+    undefined,
+    "读取 Connector Registry 失败",
+  );
+  return payload.items ?? [];
+}
+
+export async function listKnowledgeSourceResources(input: {
+  assetSpaceId?: string;
+  sourceId?: string;
+  syncStatus?: string;
+} = {}): Promise<KnowledgeSourceResource[]> {
+  const params = new URLSearchParams();
+  if (input.assetSpaceId) params.set("asset_space_id", input.assetSpaceId);
+  if (input.sourceId) params.set("source_id", input.sourceId);
+  if (input.syncStatus) params.set("sync_status", input.syncStatus);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson<{ items?: KnowledgeSourceResource[] }>(
+    `/api/knowledge-assets/source-resources${suffix}`,
+    undefined,
+    "读取已连接内容失败",
   );
   return payload.items ?? [];
 }
