@@ -289,8 +289,16 @@ def test_connector_registry_route_returns_manifest_contract(
     assert by_id["web"]["availability"] == "available"
     assert by_id["web"]["category"] == "document"
     assert "import_resource" in by_id["web"]["capabilities"]
+    assert by_id["web"]["provider_name"] == "Public Web"
+    assert by_id["web"]["purpose"]
+    assert by_id["web"]["copies_data"] is True
+    assert by_id["web"]["requires_helper"] is False
+    assert by_id["web"]["cost_hint"]
+    assert "资料" in by_id["web"]["intent_groups"]
     assert by_id["feishu_doc"]["availability"] == "needs_auth"
+    assert "需要授权" in by_id["feishu_doc"]["intent_groups"]
     assert by_id["postgres"]["availability"] == "preview"
+    assert "预览中" in by_id["postgres"]["intent_groups"]
     assert by_id["custom_rest"]["availability"] == "planned"
 
     database = client.get("/api/knowledge-assets/connectors?category=database")

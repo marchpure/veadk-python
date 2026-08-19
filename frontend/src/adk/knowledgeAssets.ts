@@ -66,6 +66,12 @@ export interface KnowledgeConnectorDefinition {
   display_name: string;
   category: ConnectorCategory;
   availability: ConnectorAvailability;
+  provider_name?: string;
+  purpose?: string;
+  copies_data?: boolean;
+  requires_helper?: boolean;
+  cost_hint?: string;
+  intent_groups?: string[];
   auth_modes: string[];
   required_scopes: string[];
   capabilities: string[];

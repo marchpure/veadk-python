@@ -48,7 +48,6 @@ import {
   listKnowledgeAssetSources,
   listKnowledgeAssetSpaces,
   type ConnectorAvailability,
-  type ConnectorCategory,
   type KnowledgeAssetBuildJob,
   type KnowledgeAssetMetadata,
   type KnowledgeAssetOverview,
@@ -93,10 +92,14 @@ type WorkbenchTab =
 type CapabilityFocusTarget = "semantic_skill" | "dashboard_skill" | "askdata";
 type SourceFlowStep = "content" | "auth" | "scope" | "governance" | "publish";
 type SourceType = string;
+type GalleryFilter = "全部" | "资料" | "业务数据" | "个人上下文" | "需要授权" | "本地" | "预览中";
+type DrawerTab = "overview" | "resources" | "sync" | "access" | "lineage" | "advanced";
 
 type SourceFlowState = {
   open: boolean;
   step: SourceFlowStep;
+  galleryQuery: string;
+  galleryFilter: GalleryFilter;
   type: SourceType;
   name: string;
   description: string;
@@ -183,15 +186,6 @@ const tabs: Array<{ id: WorkbenchTab; label: string; icon: LucideIcon }> = [
   { id: "settings", label: "设置", icon: Settings },
 ];
 
-const connectorCategoryLabels: Record<ConnectorCategory, string> = {
-  document: "文档内容",
-  database: "数据库与 Schema",
-  local: "本地与内网",
-  saas: "SaaS 文档",
-  mcp: "MCP",
-  custom: "自定义",
-};
-
 const connectorAvailabilityLabels: Record<ConnectorAvailability, string> = {
   available: "可用",
   needs_auth: "需要授权",
@@ -201,10 +195,19 @@ const connectorAvailabilityLabels: Record<ConnectorAvailability, string> = {
   unsupported: "不支持",
 };
 
+const galleryFilters: GalleryFilter[] = [
+  "全部",
+  "资料",
+  "业务数据",
+  "个人上下文",
+  "需要授权",
+  "本地",
+  "预览中",
+];
+
 const enabledConnectorStates = new Set<ConnectorAvailability>([
   "available",
   "needs_auth",
-  "preview",
 ]);
 
 function connectorIcon(connector: KnowledgeConnectorDefinition): LucideIcon {
@@ -239,6 +242,8 @@ function initialSourceFlow(): SourceFlowState {
   return {
     open: false,
     step: "content",
+    galleryQuery: "",
+    galleryFilter: "全部",
     type: "web",
     name: "",
     description: "",
@@ -284,6 +289,12 @@ function readableStatus(value?: string): string {
     published: "已发布",
     draft: "草稿",
     validating: "校验中",
+    capturing: "正在采集",
+    partial: "部分成功",
+    stale: "已过期",
+    revoked: "已撤销",
+    syncing: "正在同步",
+    needs_auth: "需要授权",
   };
   return labels[status] || value || "未知";
 }
@@ -292,6 +303,7 @@ function normalizeStatus(value?: string): string {
   const status = (value || "").trim().toLowerCase();
   if (status === "pending") return "registered";
   if (status === "not_configured") return "needs_configuration";
+  if (status === "needs_auth") return "auth_required";
   if (status === "expired" || status === "expired_credential") {
     return "credential_expired";
   }
@@ -301,13 +313,145 @@ function normalizeStatus(value?: string): string {
 function statusTone(value?: string): "success" | "warning" | "danger" | "muted" {
   const status = normalizeStatus(value);
   if (["ready", "indexed", "succeeded", "published"].includes(status)) return "success";
-  if (["importing", "running", "registered", "draft", "validating"].includes(status)) {
+  if (["importing", "syncing", "running", "registered", "draft", "validating", "capturing", "partial", "stale"].includes(status)) {
     return "warning";
   }
-  if (["failed", "blocked", "auth_required", "credential_expired"].includes(status)) {
+  if (["failed", "blocked", "auth_required", "credential_expired", "revoked"].includes(status)) {
     return "danger";
   }
   return "muted";
+}
+
+function connectorIntentGroups(connector: KnowledgeConnectorDefinition): string[] {
+  const fromManifest = Array.isArray(connector.intent_groups)
+    ? connector.intent_groups.map(String).filter(Boolean)
+    : [];
+  if (fromManifest.length) return fromManifest;
+  const groups: string[] = [];
+  if (["document", "saas"].includes(connector.category)) groups.push("资料");
+  if (connector.category === "database") groups.push("业务数据");
+  if (connector.category === "local") groups.push("个人上下文", "本地");
+  if (connector.availability === "needs_auth") groups.push("需要授权");
+  if (["preview", "planned", "unsupported"].includes(connector.availability)) {
+    groups.push("预览中");
+  }
+  return groups.length ? groups : ["高级"];
+}
+
+function connectorProviderName(connector: KnowledgeConnectorDefinition): string {
+  return connector.provider_name || connector.display_name;
+}
+
+function connectorPurpose(connector: KnowledgeConnectorDefinition): string {
+  return connector.purpose || connector.help_text || connector.safety_notice;
+}
+
+function connectorCopyLabel(connector: KnowledgeConnectorDefinition): string {
+  if (connector.copies_data === false) return "不复制正文";
+  if (connector.category === "database") return "只复制 schema";
+  return "复制到知识索引";
+}
+
+function connectorRequiredPermissionLabel(connector: KnowledgeConnectorDefinition): string {
+  if (connector.required_scopes.length) return connector.required_scopes.join(" / ");
+  if (connector.auth_modes.includes("none")) return "无需授权";
+  return connector.auth_modes.join(" / ");
+}
+
+function connectorPrimaryActionLabel(connector: KnowledgeConnectorDefinition): string {
+  if (connector.availability === "available") return "选择";
+  if (connector.availability === "needs_auth") return "连接";
+  if (connector.availability === "preview") return "了解要求";
+  return "申请启用";
+}
+
+function isConnectorSelectable(connector: KnowledgeConnectorDefinition): boolean {
+  return enabledConnectorStates.has(connector.availability);
+}
+
+function connectorMatchesFilter(
+  connector: KnowledgeConnectorDefinition,
+  filter: GalleryFilter,
+): boolean {
+  if (filter === "全部") {
+    return connector.availability === "available" || connector.availability === "needs_auth";
+  }
+  return connectorIntentGroups(connector).includes(filter);
+}
+
+function sortConnectorGroups(
+  groups: Record<string, KnowledgeConnectorDefinition[]>,
+): Array<[string, KnowledgeConnectorDefinition[]]> {
+  const order = ["资料", "业务数据", "个人上下文", "本地", "需要授权", "预览中", "高级"];
+  return Object.entries(groups).sort(
+    ([left], [right]) => (order.indexOf(left) === -1 ? 99 : order.indexOf(left)) -
+      (order.indexOf(right) === -1 ? 99 : order.indexOf(right)),
+  );
+}
+
+function groupConnectorsByIntent(
+  connectors: KnowledgeConnectorDefinition[],
+): Record<string, KnowledgeConnectorDefinition[]> {
+  return connectors.reduce<Record<string, KnowledgeConnectorDefinition[]>>(
+    (groups, connector) => {
+      const key = connectorIntentGroups(connector)[0] || "高级";
+      groups[key] = [...(groups[key] ?? []), connector];
+      return groups;
+    },
+    {},
+  );
+}
+
+function selectedResourceCount(
+  source: KnowledgeAssetSource | null,
+  resource: KnowledgeSourceResource,
+): number {
+  const candidates = [
+    source?.capabilities?.resource_count,
+    source?.metadata?.resource_count,
+    resource.metadata?.resource_count,
+    resource.metadata?.selected_resource_count,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" && Number.isFinite(candidate)) {
+      return Math.max(1, candidate);
+    }
+    if (typeof candidate === "string" && candidate.trim() && Number.isFinite(Number(candidate))) {
+      return Math.max(1, Number(candidate));
+    }
+  }
+  return 1;
+}
+
+function resourceCountLabel(
+  source: KnowledgeAssetSource | null,
+  resource: KnowledgeSourceResource,
+): string {
+  const count = selectedResourceCount(source, resource);
+  if (resource.source_type === "database_schema") return `${count} 表`;
+  return `${count} 项`;
+}
+
+function primaryRowActionLabel(
+  statusValue: string,
+  canCreateRetrieval: boolean,
+): string {
+  const status = normalizeStatus(statusValue);
+  if (["auth_required", "credential_expired"].includes(status)) return "重新授权";
+  if (["validating", "capturing", "syncing", "importing", "running"].includes(status)) {
+    return "查看进度";
+  }
+  if (status === "partial") return "查看失败资源";
+  if (status === "stale") return "重新同步";
+  if (status === "failed") return "查看原因 / 重试";
+  if (status === "revoked") return "重新授权或保留快照";
+  if (status === "needs_configuration") return "去配置";
+  if (canCreateRetrieval) return "创建能力";
+  return "查看详情";
+}
+
+function shouldCreateRetrievalFromAction(statusValue: string): boolean {
+  return ["indexed", "ready"].includes(normalizeStatus(statusValue));
 }
 
 function capabilityIcon(kind: KnowledgeCapabilityKind, type?: KnowledgeAssetType) {
@@ -364,6 +508,13 @@ function parseSchemaJson(text: string): Record<string, unknown> {
     throw new Error("Schema Snapshot 必须是 JSON object。");
   }
   return parsed as Record<string, unknown>;
+}
+
+function schemaHasSelectedScope(schema: Record<string, unknown>): boolean {
+  return ["models", "tables", "fields", "columns", "views"].some((key) => {
+    const value = schema[key];
+    return Array.isArray(value) && value.length > 0;
+  });
 }
 
 function parseObjectJson(text: string, label: string): Record<string, unknown> {
@@ -693,12 +844,12 @@ export function KnowledgeCenterView() {
         };
       }
     }
-    if (["local_web", "intranet_web"].includes(sourceFlow.type)) {
+    if (["text", "local_web", "intranet_web"].includes(sourceFlow.type)) {
       const lower = sourceFlow.content.toLowerCase();
       if (/authorization\s*:|cookie\s*:|refresh[_-]?token|access[_-]?token/.test(lower)) {
         return {
           title: "内容包含登录态",
-          reason: "本地/内网页面导入不能保存 cookie、Authorization header 或 token。",
+          reason: "文本、本地/内网页面导入不能保存 cookie、Authorization header 或 token。",
           diagnostic: "客户端预检查检测到疑似浏览器凭据。",
           action: "移除登录态和请求头，只保留清洗后的正文内容。",
         };
@@ -706,7 +857,7 @@ export function KnowledgeCenterView() {
       if (!sourceFlow.content.trim()) {
         return {
           title: "缺少正文内容",
-          reason: "当前类型需要上传或粘贴可索引正文。",
+          reason: "当前类型需要粘贴可索引正文；空范围不会触发全量采集。",
           diagnostic: "content 为空。",
           action: "粘贴清洗后的 Markdown、文本或 HTML 正文。",
         };
@@ -741,7 +892,15 @@ export function KnowledgeCenterView() {
     }
     if (sourceFlow.type === "schema_snapshot") {
       try {
-        parseSchemaJson(sourceFlow.schemaText);
+        const schema = parseSchemaJson(sourceFlow.schemaText);
+        if (!schemaHasSelectedScope(schema)) {
+          return {
+            title: "缺少采集范围",
+            reason: "Schema Snapshot 需要至少一个 model、table、field、column 或 view。",
+            diagnostic: "schema scope 为空。",
+            action: "填写要采集的表或字段后再继续。",
+          };
+        }
       } catch (error) {
         return {
           title: "Schema JSON 无效",
@@ -836,6 +995,8 @@ export function KnowledgeCenterView() {
     setPageError(null);
     setSubmitting(true);
     const assetId = slug(`${source.name}-retrieval`);
+    const boundResources = sourceResources.filter((resource) => resource.source_id === source.id);
+    const resourceIds = boundResources.map((resource) => resource.resource_id);
     try {
       await createKnowledgeAssetCapability({
         space_id: activeSpace.id,
@@ -856,11 +1017,34 @@ export function KnowledgeCenterView() {
               String(source.default_index_policy?.target_knowledge_base_id || "") ||
               activeSpace.default_knowledge_base_id ||
               "",
+            filter_schema: {
+              required_metadata: [
+                "asset_space_id",
+                "source_id",
+                "resource_id",
+                "source_type",
+                "provider",
+                "tags",
+                "permission_scope",
+              ],
+              fallback_behavior: "post_filter_and_report_partial_evidence",
+            },
+            resource_ids: resourceIds,
           },
+          source_resources: boundResources.map((resource) => ({
+            resource_id: resource.resource_id,
+            source_type: resource.source_type,
+            provider: resource.provider || source.provider || source.source_type,
+            content_hash: resource.content_hash,
+            permission_scope: resource.permission_scope,
+          })),
         },
-        capabilities: { source_count: 1 },
-        usage_policy: { permission_hint: "按资产空间授权执行检索。" },
-        provenance: { source_ids: [source.id] },
+        capabilities: { source_count: 1, resource_count: resourceIds.length },
+        usage_policy: {
+          permission_hint: "按资产空间授权执行检索。",
+          fallback_filter_behavior: "provider tag filters unavailable -> post-filter by resource metadata and mark partial evidence",
+        },
+        provenance: { source_ids: [source.id], resource_ids: resourceIds },
       });
       await reloadSpaceScoped(activeSpace.id);
       setActiveTab("capabilities");
@@ -1299,6 +1483,7 @@ function SourcesTab({
           <div className="kc-connected-content-head" role="row">
             <span>内容</span>
             <span>类型</span>
+            <span>资源数</span>
             <span>状态</span>
             <span>最近同步</span>
             <span>Freshness</span>
@@ -1534,6 +1719,22 @@ function AddContentWizard({
   const importable = selectedConnector
     ? enabledConnectorStates.has(selectedConnector.availability)
     : true;
+  const galleryNeedle = flow.galleryQuery.trim().toLowerCase();
+  const galleryItems = connectors.filter((connector) => {
+    if (!connectorMatchesFilter(connector, flow.galleryFilter)) return false;
+    if (!galleryNeedle) return true;
+    return [
+      connector.display_name,
+      connectorProviderName(connector),
+      connectorPurpose(connector),
+      connector.category,
+      connector.availability,
+      connector.capabilities.join(" "),
+      connector.required_scopes.join(" "),
+      connectorIntentGroups(connector).join(" "),
+    ].some((value) => value.toLowerCase().includes(galleryNeedle));
+  });
+  const galleryGroups = sortConnectorGroups(groupConnectorsByIntent(galleryItems));
   const requiresContent = ["text", "local_web", "intranet_web"].includes(flow.type);
   const uploadType = ["file", "pdf", "image"].includes(flow.type);
   const databaseType = ["database", "postgres", "mysql", "oracle"].includes(flow.type);
@@ -1582,41 +1783,101 @@ function AddContentWizard({
       {flow.step === "content" ? (
         <div className="kc-source-type-groups">
           <div className="kc-connector-gallery-head">
-            <h3>Connector Gallery</h3>
-            <span>{connectors.length} 个后端 manifest</span>
+            <div>
+              <h3>Connector Gallery</h3>
+              <span>{galleryItems.length} / {connectors.length} 个后端 manifest</span>
+            </div>
+            <div className="kc-gallery-controls">
+              <label className="kc-native-search">
+                <Search className="kc-native-icon" />
+                <input
+                  value={flow.galleryQuery}
+                  placeholder="搜索内容、provider 或能力"
+                  onChange={(event) => onChange((prev) => ({
+                    ...prev,
+                    galleryQuery: event.target.value,
+                  }))}
+                />
+              </label>
+              <div className="kc-gallery-filters" aria-label="Connector Gallery 筛选">
+                {galleryFilters.map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={flow.galleryFilter === filter ? "is-active" : ""}
+                    aria-pressed={flow.galleryFilter === filter}
+                    onClick={() => onChange((prev) => ({
+                      ...prev,
+                      galleryFilter: filter,
+                    }))}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          {Object.entries(groupConnectors(connectors)).map(([category, items]) => (
-            <section key={category}>
-              <h3>{connectorCategoryLabels[category as ConnectorCategory] || category}</h3>
+          {galleryGroups.length === 0 ? (
+            <div className="kc-native-inline-empty">
+              <Search className="kc-native-state-icon" />
+              <strong>没有匹配的 connector</strong>
+              <span>换一个关键词或筛选条件。</span>
+            </div>
+          ) : null}
+          {galleryGroups.map(([group, items]) => (
+            <section key={group}>
+              <h3>{group}</h3>
               <div className="kc-source-type-grid">
                 {items.map((item) => {
                   const Icon = connectorIcon(item);
-                  const enabled = enabledConnectorStates.has(item.availability);
+                  const enabled = isConnectorSelectable(item);
                   return (
                     <button
                       key={item.id}
                       type="button"
                       disabled={!enabled}
-                      className={flow.type === item.id ? "is-selected" : ""}
+                      className={`kc-connector-card ${flow.type === item.id ? "is-selected" : ""}`}
                       onClick={() => onChange((prev) => ({
                         ...prev,
                         type: item.id,
-                        provider: prev.provider || item.id,
+                        provider: item.provider_name || item.id,
                       }))}
                     >
-                      <Icon className="kc-native-icon" />
-                      <strong>{item.display_name}</strong>
-                      <span>{item.help_text || item.safety_notice}</span>
-                      <em className={`kc-native-badge is-${availabilityTone(item.availability)}`}>
-                        {connectorAvailabilityLabels[item.availability]}
-                      </em>
+                      <span className="kc-connector-card-head">
+                        <Icon className="kc-native-icon" />
+                        <strong>{item.display_name}</strong>
+                        <em className={`kc-native-badge is-${availabilityTone(item.availability)}`}>
+                          {connectorAvailabilityLabels[item.availability]}
+                        </em>
+                      </span>
+                      <span className="kc-connector-provider">{connectorProviderName(item)}</span>
+                      <span className="kc-connector-purpose">{connectorPurpose(item)}</span>
+                      <span className="kc-connector-meta">
+                        <small>权限：{connectorRequiredPermissionLabel(item)}</small>
+                        <small>{connectorCopyLabel(item)}</small>
+                      </span>
+                      <span className="kc-connector-meta">
+                        <small>{item.requires_helper ? "需要本地 helper" : "不需要本地 helper"}</small>
+                        <small>{item.cost_hint || "成本按导入量计算"}</small>
+                      </span>
+                      <span className="kc-connector-capabilities">
+                        {item.capabilities.slice(0, 4).map((capability) => (
+                          <small key={capability}>{capability}</small>
+                        ))}
+                      </span>
+                      <span className="kc-connector-action">
+                        {connectorPrimaryActionLabel(item)}
+                      </span>
                     </button>
                   );
                 })}
               </div>
             </section>
           ))}
-          <div className="kc-native-form-actions">
+          <div className="kc-native-form-actions kc-wizard-footer">
+            <button type="button" onClick={() => onChange(() => initialSourceFlow())}>
+              取消
+            </button>
             <button type="button" disabled={!importable} onClick={() => goTo("auth")}>
               继续
               <ChevronRight className="kc-native-icon" />
@@ -1648,9 +1909,12 @@ function AddContentWizard({
               text="此连接器不要求在向导中输入密钥；敏感字段仍会被后端 redaction 过滤。"
             />
           ) : null}
-          <div className="kc-native-form-actions">
+          <div className="kc-native-form-actions kc-wizard-footer">
             <button type="button" onClick={() => goTo("content")}>
               返回
+            </button>
+            <button type="button" onClick={() => onChange(() => initialSourceFlow())}>
+              取消
             </button>
             <button type="button" onClick={() => goTo("scope")}>
               继续
@@ -1678,16 +1942,6 @@ function AddContentWizard({
               />
             </Field>
           ) : null}
-          {requiresContent || uploadType ? (
-            <Field label="清洗后的正文">
-              <textarea
-                className="kc-native-large-textarea"
-                value={flow.content}
-                placeholder="只粘贴正文内容，不包含 Cookie、Authorization header 或 session token。"
-                onChange={(event) => onChange((prev) => ({ ...prev, content: event.target.value }))}
-              />
-            </Field>
-          ) : null}
           {uploadType ? (
             <Field label="上传文件">
               <div className="kc-file-picker">
@@ -1698,11 +1952,34 @@ function AddContentWizard({
                 />
                 <span>
                   {flow.selectedFile
-                    ? `${flow.selectedFile.name} · ${Math.ceil(flow.selectedFile.size / 1024)} KB`
+                    ? `${flow.selectedFile.name} · ${Math.ceil(flow.selectedFile.size / 1024)} KB · ${flow.selectedFile.textPreview ? "已生成文本预览" : "等待后端解析"}`
                     : "选择本地文件，提交前会做大小与凭据预检查。"}
                 </span>
               </div>
             </Field>
+          ) : null}
+          {requiresContent ? (
+            <Field label="清洗后的正文">
+              <textarea
+                className="kc-native-large-textarea"
+                value={flow.content}
+                placeholder="只粘贴正文内容，不包含 Cookie、Authorization header 或 session token。"
+                onChange={(event) => onChange((prev) => ({ ...prev, content: event.target.value }))}
+              />
+            </Field>
+          ) : null}
+          {uploadType ? (
+            <details className="kc-optional-content">
+              <summary>补充已清洗正文</summary>
+              <Field label="可选正文">
+                <textarea
+                  className="kc-native-large-textarea"
+                  value={flow.content}
+                  placeholder="仅当已经在本地提取正文时填写，不包含 Cookie、Authorization header 或 session token。"
+                  onChange={(event) => onChange((prev) => ({ ...prev, content: event.target.value }))}
+                />
+              </Field>
+            </details>
           ) : null}
           {flow.type === "feishu_doc" ? <Field label="飞书文档 URL">
             <input
@@ -1736,9 +2013,12 @@ function AddContentWizard({
             />
           </Field>
           <ResourcePickerPreview connector={selectedConnector} flow={flow} />
-          <div className="kc-native-form-actions">
+          <div className="kc-native-form-actions kc-wizard-footer">
             <button type="button" onClick={() => goTo("auth")}>
               返回
+            </button>
+            <button type="button" onClick={() => onChange(() => initialSourceFlow())}>
+              取消
             </button>
             <button type="button" onClick={onValidate}>
               预检查
@@ -1756,15 +2036,17 @@ function AddContentWizard({
             <PreviewItem label="凭据需求" value={credentialRequirementLabel(selectedConnector, flow)} />
             <PreviewItem label="预期状态" value={expectedSourceStatus(flow)} />
           </div>
-          <button
-            className="kc-advanced-toggle"
-            type="button"
-            onClick={() => onChange((prev) => ({ ...prev, advancedOpen: !prev.advancedOpen }))}
+          <details
+            className="kc-advanced-fields"
+            open={flow.advancedOpen}
+            onToggle={(event) => onChange((prev) => ({
+              ...prev,
+              advancedOpen: event.currentTarget.open,
+            }))}
           >
-            高级设置
-          </button>
-          {flow.advancedOpen ? (
-            <div className="kc-advanced-fields">
+            <summary>高级连接选项</summary>
+            <p>这些设置通常不需要修改。</p>
+            <div>
               <Field label="Provider">
                 <input
                   value={flow.provider}
@@ -1795,10 +2077,13 @@ function AddContentWizard({
                 />
               </Field>
             </div>
-          ) : null}
-          <div className="kc-native-form-actions">
+          </details>
+          <div className="kc-native-form-actions kc-wizard-footer">
             <button type="button" onClick={() => goTo("scope")}>
               返回
+            </button>
+            <button type="button" onClick={() => onChange(() => initialSourceFlow())}>
+              取消
             </button>
             <button type="button" onClick={() => goTo("publish")}>
               继续
@@ -1815,9 +2100,12 @@ function AddContentWizard({
           <PreviewItem label="采集边界" value={resourceBoundaryLabel(flow)} />
           <PreviewItem label="能力" value={selectedConnector?.capabilities.join(" / ") || "import_resource"} />
           <PreviewItem label="预期状态" value={expectedSourceStatus(flow)} />
-          <div className="kc-native-form-actions">
+          <div className="kc-native-form-actions kc-wizard-footer">
             <button type="button" onClick={() => goTo("governance")}>
               返回
+            </button>
+            <button type="button" onClick={() => onChange(() => initialSourceFlow())}>
+              取消
             </button>
             <button type="button" disabled={busy} onClick={onSubmit}>
               {busy ? <Loader2 className="kc-native-icon kc-spin" /> : null}
@@ -1844,19 +2132,6 @@ function availabilityTone(value: ConnectorAvailability): "success" | "warning" |
   if (["needs_auth", "needs_helper", "preview"].includes(value)) return "warning";
   if (value === "unsupported") return "danger";
   return "muted";
-}
-
-function groupConnectors(
-  connectors: KnowledgeConnectorDefinition[],
-): Record<string, KnowledgeConnectorDefinition[]> {
-  return connectors.reduce<Record<string, KnowledgeConnectorDefinition[]>>(
-    (groups, connector) => {
-      const key = connector.category || "custom";
-      groups[key] = [...(groups[key] ?? []), connector];
-      return groups;
-    },
-    {},
-  );
 }
 
 function credentialRequirementLabel(
@@ -1940,19 +2215,28 @@ function ConnectedContentRow({
   const canCreateRetrieval = ["indexed", "ready"].includes(status) &&
     !["schema_snapshot", "database", "database_schema"].includes(resource.source_type) &&
     Boolean(onCreateRetrieval);
+  const primaryAction = primaryRowActionLabel(status, canCreateRetrieval);
   const title = source?.name || resource.provider_ref || resource.uri || resource.resource_id;
   const freshness = typeof resource.freshness?.state === "string"
     ? resource.freshness.state
     : "unknown";
+  const handlePrimaryAction = () => {
+    if (canCreateRetrieval && shouldCreateRetrievalFromAction(status)) {
+      onCreateRetrieval?.();
+      return;
+    }
+    onOpen();
+  };
   return (
     <div className="kc-connected-content-row" role="row">
       <button type="button" className="kc-content-name" onClick={onOpen}>
         <div>
           <strong>{title}</strong>
-          <span>{resource.uri || resource.provider_ref || resource.resource_id}</span>
+          <span>{resource.uri || resource.provider_ref || "本地内容"}</span>
         </div>
       </button>
       <span>{connectorLabel}</span>
+      <span>{resourceCountLabel(source, resource)}</span>
       <span className={`kc-native-badge is-${statusTone(status)}`}>
         {readableStatus(status)}
       </span>
@@ -1961,17 +2245,9 @@ function ConnectedContentRow({
       <span>{permissionScopeLabel(resource.permission_scope)}</span>
       <div className="kc-row-actions">
         <small>{job ? `${job.job_type} · ${readableStatus(job.status)}` : "暂无任务"}</small>
-        <button type="button" onClick={onOpen}>
-          查看
+        <button type="button" disabled={busy && canCreateRetrieval} onClick={handlePrimaryAction}>
+          {primaryAction}
         </button>
-        {status === "needs_configuration" ? <button type="button">去配置</button> : null}
-        {status === "auth_required" ? <button type="button">重新授权</button> : null}
-        {status === "failed" ? <button type="button">查看失败资源</button> : null}
-        {canCreateRetrieval ? (
-          <button type="button" disabled={busy} onClick={onCreateRetrieval}>
-            创建能力
-          </button>
-        ) : null}
       </div>
     </div>
   );
@@ -1988,32 +2264,114 @@ function ConnectedContentDrawer({
   job: KnowledgeAssetBuildJob | null;
   connectorName: string;
 }) {
+  const [activeDrawerTab, setActiveDrawerTab] = useState<DrawerTab>("overview");
+  const status = normalizeStatus(resource.sync_status || source?.status);
+  const title = source?.name || resource.provider_ref || resource.uri || "未命名内容";
+  const freshness = typeof resource.freshness?.state === "string"
+    ? resource.freshness.state
+    : "unknown";
+  const drawerTabs: Array<{ id: DrawerTab; label: string }> = [
+    { id: "overview", label: "概览" },
+    { id: "resources", label: "资源" },
+    { id: "sync", label: "同步记录" },
+    { id: "access", label: "访问权限" },
+    { id: "lineage", label: "Lineage" },
+    { id: "advanced", label: "诊断详情 Advanced" },
+  ];
   return (
     <div className="kc-resource-detail">
-      <section>
-        <h3>业务信息</h3>
-        <PreviewItem label="内容" value={source?.name || resource.resource_id} />
-        <PreviewItem label="Connector" value={connectorName} />
-        <PreviewItem label="状态" value={readableStatus(resource.sync_status)} />
-        <PreviewItem label="最近同步" value={resource.last_synced_at || "从未"} />
-        <PreviewItem label="Freshness" value={freshnessLabel(String(resource.freshness?.state || "unknown"))} />
-        <PreviewItem label="权限" value={permissionScopeLabel(resource.permission_scope)} />
-      </section>
-      <section>
-        <h3>诊断</h3>
-        <PreviewItem label="Source ID" value={resource.source_id} />
-        <PreviewItem label="Resource ID" value={resource.resource_id} />
-        <PreviewItem label="Provider Ref" value={resource.provider_ref || "未声明"} />
-        <PreviewItem label="Content Hash" value={resource.content_hash || "未生成"} />
-        <PreviewItem label="最近任务" value={job ? `${job.job_type} / ${readableStatus(job.status)}` : "暂无"} />
-        {resource.error_summary ? (
-          <PreviewItem label="错误摘要" value={resource.error_summary} />
-        ) : null}
-        <details>
-          <summary>Advanced</summary>
-          <pre>{JSON.stringify({ metadata: resource.metadata, source: source?.metadata }, null, 2)}</pre>
-        </details>
-      </section>
+      <div className="kc-resource-detail-head">
+        <div>
+          <span>{connectorName}</span>
+          <strong>{title}</strong>
+        </div>
+        <span className={`kc-native-badge is-${statusTone(status)}`}>
+          {readableStatus(status)}
+        </span>
+      </div>
+      <div className="kc-resource-tabs" aria-label="内容详情">
+        {drawerTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={activeDrawerTab === tab.id ? "is-active" : ""}
+            aria-pressed={activeDrawerTab === tab.id}
+            onClick={() => setActiveDrawerTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {activeDrawerTab === "overview" ? (
+        <section>
+          <h3>概览</h3>
+          <PreviewItem label="范围" value={resource.uri || resource.provider_ref || source?.name || "本地内容"} />
+          <PreviewItem label="能力" value={source?.capabilities?.can_build_semantic_skill ? "语义构建" : "检索索引"} />
+          <PreviewItem label="Freshness" value={freshnessLabel(freshness)} />
+          <PreviewItem label="最近错误" value={resource.error_summary || "无"} />
+        </section>
+      ) : null}
+      {activeDrawerTab === "resources" ? (
+        <section>
+          <h3>资源</h3>
+          <PreviewItem label="资源类型" value={resource.source_type} />
+          <PreviewItem label="资源数" value={resourceCountLabel(source, resource)} />
+          <PreviewItem label="选择规则" value={resource.metadata?.selection_rule ? String(resource.metadata.selection_rule) : "显式选择当前资源"} />
+          <PreviewItem label="单资源状态" value={readableStatus(status)} />
+        </section>
+      ) : null}
+      {activeDrawerTab === "sync" ? (
+        <section>
+          <h3>同步记录</h3>
+          <PreviewItem label="上次成功同步" value={resource.last_synced_at || "从未"} />
+          <PreviewItem label="运行阶段" value={job ? readableStatus(job.status) : readableStatus(status)} />
+          <PreviewItem label="失败资源" value={status === "partial" || status === "failed" ? resource.error_summary || "查看诊断详情" : "无"} />
+          <PreviewItem label="重试条件" value={status === "failed" ? "修正失败原因后重试" : "状态过期或权限变更后重新同步"} />
+        </section>
+      ) : null}
+      {activeDrawerTab === "access" ? (
+        <section>
+          <h3>访问权限</h3>
+          <PreviewItem label="账号" value={source?.provider || resource.provider || connectorName} />
+          <PreviewItem label="Scope" value={permissionScopeLabel(resource.permission_scope)} />
+          <PreviewItem label="Policy" value={resource.metadata?.policy_partition ? String(resource.metadata.policy_partition) : "按资产空间授权"} />
+          <PreviewItem label="谁可以使用" value={permissionScopeLabel(resource.permission_scope)} />
+        </section>
+      ) : null}
+      {activeDrawerTab === "lineage" ? (
+        <section>
+          <h3>Lineage</h3>
+          <div className="kc-lineage-chain">
+            <span>source</span>
+            <ChevronRight className="kc-native-icon" />
+            <span>resource</span>
+            <ChevronRight className="kc-native-icon" />
+            <span>snapshot</span>
+            <ChevronRight className="kc-native-icon" />
+            <span>index / semantic revision</span>
+            <ChevronRight className="kc-native-icon" />
+            <span>capability</span>
+          </div>
+          <PreviewItem label="Source" value={source?.name || connectorName} />
+          <PreviewItem label="Resource" value={title} />
+          <PreviewItem label="Snapshot" value={resource.metadata?.snapshot_id ? "已生成" : "未生成"} />
+          <PreviewItem label="Capability" value={source?.capabilities?.can_create_retrieval_binding ? "可创建" : "按语义构建发布"} />
+        </section>
+      ) : null}
+      {activeDrawerTab === "advanced" ? (
+        <section>
+          <h3>诊断详情 Advanced</h3>
+          <PreviewItem label="Source ID" value={resource.source_id} />
+          <PreviewItem label="Resource ID" value={resource.resource_id} />
+          <PreviewItem label="Provider Ref" value={resource.provider_ref || "未声明"} />
+          <PreviewItem label="Content Hash" value={resource.content_hash || "未生成"} />
+          <PreviewItem label="最近任务" value={job ? `${job.job_type} / ${readableStatus(job.status)}` : "暂无"} />
+          <details>
+            <summary>Metadata JSON</summary>
+            <pre>{JSON.stringify({ metadata: resource.metadata, source: source?.metadata }, null, 2)}</pre>
+          </details>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "schema": "agentkit.knowledge_center.session_i_h6_g2_integration.v1",
-  "generatedAt": "2026-08-19T07:24:28.737Z",
+  "generatedAt": "2026-08-19T20:30:09.999Z",
   "studioUrl": "http://127.0.0.1:18219",
   "sourceBranchHashes": {
     "kc/session-h6-asktable-byaan-parity": "806dc34d7e00531d57177a41a2a7068fa9b141b7",
@@ -23,12 +23,18 @@
         "runner_backend": "veadk.Agent+Runner",
         "model_name": "doubao-seed-2-0-lite-260428",
         "deterministic_fallback_enabled": false
+      },
+      "asktable_streaming": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428"
       }
     }
   },
-  "spaceId": "space_8c3048abc8e74c388529dfc0d4fabf8c",
-  "semanticAssetId": "i-1787124242509-oracle-sales",
-  "dashboardAssetId": "i-1787124242509-sales-dashboard",
+  "spaceId": "space_9fd5c51025bd44bab51e5b0f8eb72f3b",
+  "semanticAssetId": "i-1787171390893-oracle-sales",
+  "dashboardAssetId": "i-1787171390893-sales-dashboard",
   "runner_backend": "veadk.Agent+Runner",
   "mock": false,
   "mockStatus": {
@@ -57,7 +63,7 @@
     },
     "agent": {
       "agent_name": "studio_asktable_dashboard_agent",
-      "agent_invocation_id": "studio_asktable_dashboard_agent-5cfec810c03d4b2790673f3ebac1cfed",
+      "agent_invocation_id": "studio_asktable_dashboard_agent-afdefa2e8f3c40d9887ab35457b0569b",
       "runner_backend": "veadk.Agent+Runner",
       "model_name": "doubao-seed-2-0-lite-260428",
       "tool_calls": [
@@ -92,7 +98,7 @@
       "denyEvidence": false,
       "cases": [
         {
-          "caseId": "eval_case_e4aac68e222b4d56a3879c18c6f8ac6e",
+          "caseId": "eval_case_ff45e27f20aa4a5697cbe09334358398",
           "prompt": "按门店查看销售票数",
           "expectedPolicyDecision": "allow",
           "status": "passed",
@@ -117,23 +123,7 @@
       "denyEvidence": true,
       "cases": [
         {
-          "caseId": "eval_case_161370765f614aeda3ec0b5d2509fbe3",
-          "prompt": "show customer phone/contact by store",
-          "expectedPolicyDecision": "deny",
-          "status": "blocked",
-          "score": 1,
-          "policyDecision": "deny",
-          "freshnessStatus": "blocked",
-          "rowCount": 0,
-          "actualSql": "-- policy denied by governed Semantic Skill; no raw SQL executed",
-          "rawSqlFallback": false,
-          "evidenceTitles": [
-            "PII policy guard"
-          ],
-          "reason": "All deterministic checks passed."
-        },
-        {
-          "caseId": "eval_case_efa634c77e7e4202b1e9baeb7b55bc10",
+          "caseId": "eval_case_a9bc50c447b64d42af6ba44de940fd5b",
           "prompt": "按门店查看销售票数",
           "expectedPolicyDecision": "allow",
           "status": "passed",
@@ -147,6 +137,22 @@
             "ticket_count definition"
           ],
           "reason": "All deterministic checks passed."
+        },
+        {
+          "caseId": "eval_case_dd702393e05549ad8235c1efd9fc3e21",
+          "prompt": "show customer phone/contact by store",
+          "expectedPolicyDecision": "deny",
+          "status": "blocked",
+          "score": 1,
+          "policyDecision": "deny",
+          "freshnessStatus": "blocked",
+          "rowCount": 0,
+          "actualSql": "-- policy denied by governed Semantic Skill; no raw SQL executed",
+          "rawSqlFallback": false,
+          "evidenceTitles": [
+            "PII policy guard"
+          ],
+          "reason": "All deterministic checks passed."
         }
       ]
     },
@@ -158,7 +164,7 @@
       "denyEvidence": false,
       "cases": [
         {
-          "caseId": "eval_case_f89f30e018e84a0aac65d9b26e73a74c",
+          "caseId": "eval_case_5f49c2b43d4347a49867d8fc614191e9",
           "prompt": "验证门店销售 dashboard 的主要 tile 和 data_view 证据",
           "expectedPolicyDecision": "allow",
           "status": "passed",
@@ -177,6 +183,7 @@
     }
   ],
   "iframeCount": 0,
+  "forbiddenIframeCount": 0,
   "failedRequests": [],
   "consoleErrors": [],
   "observations": [
@@ -191,6 +198,9 @@
         "viewportWidth": 1440,
         "viewportHeight": 900,
         "iframeCount": 0,
+        "srcDocIframeCount": 0,
+        "forbiddenIframeCount": 0,
+        "forbiddenIframes": [],
         "hasByaanSidebar": false,
         "hasWrenSidebar": false,
         "semanticRendered": false,
@@ -210,6 +220,9 @@
         "viewportWidth": 390,
         "viewportHeight": 844,
         "iframeCount": 0,
+        "srcDocIframeCount": 0,
+        "forbiddenIframeCount": 0,
+        "forbiddenIframes": [],
         "hasByaanSidebar": false,
         "hasWrenSidebar": false,
         "semanticRendered": false,
@@ -220,41 +233,60 @@
     }
   ],
   "screenshotPaths": [
+    "screenshots/desktop-1440-connected-content.png",
+    "screenshots/desktop-1440-content-drawer.png",
+    "screenshots/desktop-1440-connector-gallery.png",
+    "screenshots/desktop-1440-wizard-footer.png",
     "screenshots/desktop-1440-semantic.png",
     "screenshots/desktop-1440-asktable-portal.png",
     "screenshots/desktop-1440-asktable-result.png",
     "screenshots/desktop-1440-evaluation.png",
+    "screenshots/mobile-390-connected-content.png",
+    "screenshots/mobile-390-content-drawer.png",
+    "screenshots/mobile-390-connector-gallery.png",
+    "screenshots/mobile-390-wizard-footer.png",
     "screenshots/mobile-390-semantic.png",
     "screenshots/mobile-390-asktable.png",
     "screenshots/mobile-390-evaluation.png"
   ],
-  "integrationBranch": "kc/session-i-h6-g2-integration",
-  "integrationBranchHash": "14d945e68f3faa880c65fc729f5cb7a190094693",
+  "integrationBranch": "kc/session-i-connectors-foundation",
+  "integrationBranchHash": "ec74156d53f1afb74f73c2c6d0f9ef97bebe5823",
   "mergeBase": {
-    "createdFrom": "origin/kc/session-h6-asktable-byaan-parity",
-    "merged": "origin/kc/session-g2-evaluation-hardening",
-    "strategy": "git merge --no-ff origin/kc/session-g2-evaluation-hardening"
+    "createdFrom": "origin/kc/session-i-h6-g2-integration",
+    "baseCommit": "22e0f86d53f2fb9efeb156a52efa9e11996b6cf5",
+    "previousConnectorFoundationTip": "ec74156d53f1afb74f73c2c6d0f9ef97bebe5823",
+    "strategy": "follow-up commit on kc/session-i-connectors-foundation"
+  },
+  "connectorControlSurface": {
+    "seededResourceId": "res_af1debac6e204f75a00cf5e06bae64f1",
+    "checks": [
+      "connector gallery search and intent filters",
+      "non-available connector call-to-action states",
+      "connected content resource-count column/card",
+      "content detail drawer tabs",
+      "sticky wizard footer without viewport overflow"
+    ]
   },
   "testCommands": [
     {
-      "command": "rg -n \"knowledge_asset|evaluation|askdata|semantic\" tests/frontend",
+      "command": "git diff --check",
       "status": "passed",
-      "notes": "Used to locate focused Knowledge Asset, AskData, Semantic Builder, and Evaluation tests."
+      "summary": "No whitespace errors."
     },
     {
-      "command": "python -m pytest tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_dashboard_askdata_routes.py tests/frontend/test_knowledge_asset_agents.py tests/frontend/test_semantic_builder.py tests/frontend/test_knowledge_asset_evaluation.py tests/frontend/test_knowledge_asset_store.py -q",
+      "command": "uvx ruff check frontend/server/knowledge_assets/connector_registry.py frontend/server/knowledge_assets/service.py tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_knowledge_asset_store.py",
       "status": "passed",
-      "summary": "61 passed, 7 warnings"
+      "summary": "All checks passed."
     },
     {
-      "command": "cd frontend && npm test",
+      "command": "python -m pytest tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_knowledge_asset_store.py -q",
+      "status": "passed",
+      "summary": "34 passed."
+    },
+    {
+      "command": "cd frontend && npm test -- knowledgeAssetWorkbench.test.mjs",
       "status": "passed",
       "summary": "679 passed, 0 failed"
-    },
-    {
-      "command": "cd frontend && npx tsc --noEmit",
-      "status": "passed",
-      "summary": "TypeScript completed with no diagnostics."
     },
     {
       "command": "cd frontend && npm run build",
@@ -264,7 +296,7 @@
     {
       "command": "VEADK_STUDIO_URL=http://127.0.0.1:18219 node docs/knowledge-center/session-reports/live-session-i-h6-g2-integration/run-live-smoke.mjs",
       "status": "passed",
-      "summary": "Fresh Studio on sqlite store, desktop/mobile UI smoke, AskData, Dashboard preview, Evaluation import/run, no iframe/no 404/no console errors."
+      "summary": "Fresh Studio on sqlite store, desktop/mobile UI smoke, connector controls, AskData, Dashboard preview, Evaluation import/run, no forbidden external sidecar iframe/no 404/no console errors/no horizontal overflow."
     }
   ],
   "artifactChecklist": {
@@ -272,10 +304,18 @@
     "result.json": "present",
     "secret-scan-result.json": "present",
     "screenshots": [
+      "screenshots/desktop-1440-connected-content.png",
+      "screenshots/desktop-1440-content-drawer.png",
+      "screenshots/desktop-1440-connector-gallery.png",
+      "screenshots/desktop-1440-wizard-footer.png",
       "screenshots/desktop-1440-semantic.png",
       "screenshots/desktop-1440-asktable-portal.png",
       "screenshots/desktop-1440-asktable-result.png",
       "screenshots/desktop-1440-evaluation.png",
+      "screenshots/mobile-390-connected-content.png",
+      "screenshots/mobile-390-content-drawer.png",
+      "screenshots/mobile-390-connector-gallery.png",
+      "screenshots/mobile-390-wizard-footer.png",
       "screenshots/mobile-390-semantic.png",
       "screenshots/mobile-390-asktable.png",
       "screenshots/mobile-390-evaluation.png"
@@ -286,5 +326,5 @@
     "status": "passed",
     "findings": 0
   },
-  "integrationBranchHashNote": "Hash of the committed integration state before recording this hash in report metadata; the final pushed branch tip is reported separately."
+  "integrationBranchHashNote": "Hash is captured from git HEAD when the smoke script runs; the final pushed branch tip is reported separately after commit."
 }

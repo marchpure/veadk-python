@@ -14,8 +14,8 @@ from frontend.server.knowledge_assets.crypto import (
     default_key_path,
 )
 from frontend.server.knowledge_assets.models import (
-    CreateSourceResourceBody,
     CreateSourceBody,
+    CreateSourceResourceBody,
     CreateSpaceBody,
     ImportSourceBody,
     RecordBuildJobBody,
@@ -199,13 +199,33 @@ def test_import_source_writes_indexed_document_and_terminal_job(store_env) -> No
         assert docs[0]["knowledge_base_id"] == "kb-docs"
         assert docs[0]["metadata"]["_veadk_source_url"] == "https://internal.example/policy"
         assert docs[0]["metadata"]["_veadk_source_title"] == "政策页面"
+        assert docs[0]["metadata"]["asset_space_id"] == space["id"]
+        assert docs[0]["metadata"]["source_id"] == result["source"]["id"]
+        assert docs[0]["metadata"]["source_connection_id"] == result["source"]["id"]
+        assert docs[0]["metadata"]["resource_id"].startswith("local_web_page:")
+        assert docs[0]["metadata"]["source_type"] == "local_web"
+        assert docs[0]["metadata"]["provider"] == "local_web"
+        assert "retrieval_index" in docs[0]["metadata"]["tags"]
+        assert docs[0]["metadata"]["permissions"] == {
+            "scope": "sensitive_local_context",
+            "policy_partition": "local-only",
+        }
+        assert docs[0]["metadata"]["permission_scope"] == "sensitive_local_context"
         resources = await store.list_source_resources(source_id=result["source"]["id"])
         assert len(resources) == 1
         assert resources[0]["asset_space_id"] == space["id"]
+        assert resources[0]["resource_id"] == docs[0]["metadata"]["resource_id"]
         assert resources[0]["source_type"] == "local_web_page"
         assert resources[0]["sync_status"] == "indexed"
         assert resources[0]["permission_scope"] == "sensitive_local_context"
+        assert resources[0]["metadata"]["asset_space_id"] == space["id"]
+        assert resources[0]["metadata"]["resource_id"] == docs[0]["metadata"]["resource_id"]
+        assert resources[0]["metadata"]["provider"] == "local_web"
+        assert resources[0]["metadata"]["tags"] == docs[0]["metadata"]["tags"]
+        assert resources[0]["metadata"]["permission_scope"] == "sensitive_local_context"
         assert knowledge_service.created[0]["knowledge_id"] == "kb-docs"
+        assert knowledge_service.created[0]["body"].metadata["resource_id"] == docs[0]["metadata"]["resource_id"]
+        assert knowledge_service.created[0]["body"].metadata["permissions"]["policy_partition"] == "local-only"
 
     asyncio.run(scenario())
 
@@ -307,6 +327,13 @@ def test_connector_registry_manifest_is_authoritative_and_safe(store_env) -> Non
         assert by_id["postgres"]["availability"] == "preview"
         assert by_id["custom_rest"]["availability"] == "planned"
         assert "password" in by_id["postgres"]["form_schema"]["secret_fields"]
+        assert by_id["web"]["provider_name"] == "Public Web"
+        assert by_id["web"]["copies_data"] is True
+        assert by_id["web"]["requires_helper"] is False
+        assert "资料" in by_id["web"]["intent_groups"]
+        assert "需要授权" in by_id["feishu_doc"]["intent_groups"]
+        assert "预览中" in by_id["postgres"]["intent_groups"]
+        assert by_id["postgres"]["cost_hint"]
         assert "redact-me" not in json.dumps(registry).lower()
 
         database = await store.list_connector_definitions(category="database")
@@ -348,14 +375,20 @@ def test_source_resource_crud_redacts_metadata(store_env) -> None:
         updated = await store.update_source_resource(
             resource["id"],
             UpdateSourceResourceBody(
-                sync_status="stale",
+                sync_status="partial",
                 freshness={"state": "stale", "reason": "manual"},
                 metadata={"password": "redact-me-update"},
             ),
         )
-        assert updated["sync_status"] == "stale"
+        assert updated["sync_status"] == "partial"
         assert updated["freshness"]["state"] == "stale"
         assert updated["metadata"]["password"] == "[REDACTED]"
+
+        revoked = await store.update_source_resource(
+            resource["id"],
+            UpdateSourceResourceBody(sync_status="revoked"),
+        )
+        assert revoked["sync_status"] == "revoked"
 
         listed = await store.list_source_resources(asset_space_id=space["id"])
         assert [item["id"] for item in listed] == [resource["id"]]

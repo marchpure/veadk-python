@@ -10,7 +10,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Literal, TypedDict
 
-
 ConnectorCategory = Literal["document", "database", "local", "saas", "mcp", "custom"]
 ConnectorAvailability = Literal[
     "available",
@@ -22,12 +21,18 @@ ConnectorAvailability = Literal[
 ]
 
 
-class ConnectorDefinition(TypedDict):
+class ConnectorDefinition(TypedDict, total=False):
     id: str
     version: str
     display_name: str
     category: ConnectorCategory
     availability: ConnectorAvailability
+    provider_name: str
+    purpose: str
+    copies_data: bool
+    requires_helper: bool
+    cost_hint: str
+    intent_groups: list[str]
     auth_modes: list[str]
     required_scopes: list[str]
     capabilities: list[str]
@@ -456,7 +461,7 @@ def list_connector_definitions(
     for connector in _CONNECTORS:
         if normalized_category and connector["category"] != normalized_category:
             continue
-        items.append(deepcopy(connector))
+        items.append(_with_manifest_defaults(connector))
     return items
 
 
@@ -464,8 +469,75 @@ def get_connector_definition(connector_id: str) -> ConnectorDefinition:
     normalized = connector_id.strip().casefold()
     for connector in _CONNECTORS:
         if connector["id"] == normalized:
-            return deepcopy(connector)
+            return _with_manifest_defaults(connector)
     raise KeyError(connector_id)
+
+
+def _with_manifest_defaults(
+    connector: ConnectorDefinition,
+) -> ConnectorDefinition:
+    item = deepcopy(connector)
+    connector_id = str(item["id"])
+    category = str(item["category"])
+    item.setdefault("provider_name", _provider_name(connector_id, item["display_name"]))
+    item.setdefault("purpose", item.get("help_text") or item["display_name"])
+    item.setdefault("copies_data", category in {"document", "local", "saas"})
+    item.setdefault("requires_helper", item["availability"] == "needs_helper")
+    item.setdefault("cost_hint", _cost_hint(connector_id, category))
+    item.setdefault("intent_groups", _intent_groups(connector_id, category, item["availability"]))
+    return item
+
+
+def _provider_name(connector_id: str, display_name: str) -> str:
+    labels = {
+        "file": "Local Files",
+        "text": "Local Text",
+        "pdf": "Local PDF",
+        "image": "Local Images",
+        "web": "Public Web",
+        "local_web": "Local Browser",
+        "intranet_web": "Intranet",
+        "schema_snapshot": "DuckDB / Wren MDL",
+        "feishu_doc": "Feishu",
+        "postgres": "PostgreSQL",
+        "mysql": "MySQL",
+        "oracle": "Oracle",
+        "saas_dlt": "dlt",
+        "mcp": "MCP",
+        "custom_rest": "OpenAPI",
+    }
+    return labels.get(connector_id, display_name)
+
+
+def _cost_hint(connector_id: str, category: str) -> str:
+    if connector_id == "schema_snapshot":
+        return "低，metadata snapshot only"
+    if category == "database":
+        return "中，schema discovery only in Phase 1"
+    if connector_id in {"image", "pdf"}:
+        return "中，文件上传与解析"
+    return "低，文本导入与索引"
+
+
+def _intent_groups(
+    connector_id: str,
+    category: str,
+    availability: str,
+) -> list[str]:
+    groups: list[str] = []
+    if category in {"document", "saas"}:
+        groups.append("资料")
+    if category == "database":
+        groups.append("业务数据")
+    if category == "local":
+        groups.extend(["个人上下文", "本地"])
+    if availability == "needs_auth":
+        groups.append("需要授权")
+    if availability in {"preview", "planned", "unsupported"}:
+        groups.append("预览中")
+    if not groups:
+        groups.append("高级")
+    return groups
 
 
 __all__ = [

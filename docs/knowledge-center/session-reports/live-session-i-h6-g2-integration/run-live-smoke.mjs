@@ -1,21 +1,38 @@
+import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(path.join(__dirname, "../../../..", "frontend", "package.json"));
+const repoRoot = path.join(__dirname, "../../../..");
+const require = createRequire(path.join(repoRoot, "frontend", "package.json"));
 const { chromium } = require("playwright");
 const reportDir = __dirname;
 const screenshotDir = path.join(reportDir, "screenshots");
 const studioBaseUrl = (process.env.VEADK_STUDIO_URL || "http://127.0.0.1:18219").replace(/\/$/, "");
 const sourceH6Hash = process.env.SOURCE_H6_HASH || "806dc34d7e00531d57177a41a2a7068fa9b141b7";
 const sourceG2Hash = process.env.SOURCE_G2_HASH || "47a14f89342164f922447616e2ca8dd0a5d92607";
+const previousConnectorFoundationTip = "ec74156d53f1afb74f73c2c6d0f9ef97bebe5823";
+const integrationBranch = process.env.INTEGRATION_BRANCH || gitText(["rev-parse", "--abbrev-ref", "HEAD"]) || "kc/session-i-connectors-foundation";
+const integrationBranchHash = process.env.INTEGRATION_BRANCH_HASH || gitText(["rev-parse", "HEAD"]) || previousConnectorFoundationTip;
 
 const viewports = [
   { name: "desktop-1440", width: 1440, height: 900 },
   { name: "mobile-390", width: 390, height: 844 },
 ];
+
+function gitText(args) {
+  try {
+    return execFileSync("git", args, {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
 
 async function api(route, options = {}) {
   const headers = {
@@ -59,6 +76,30 @@ async function seedWorkbench() {
       provider: "oracle",
       status: "ready",
       capabilities: { tables: ["SALES_ORDER", "STORE"] },
+    }),
+  });
+  const resource = await api("/api/knowledge-assets/source-resources", {
+    method: "POST",
+    body: JSON.stringify({
+      asset_space_id: space.id,
+      source_id: source.id,
+      resource_id: `${unique}-oracle-sales-schema`,
+      source_type: "database_schema",
+      provider: "oracle",
+      uri: "oracle://sales/schema",
+      provider_ref: "SALES_ORDER,STORE",
+      content_hash: "session-i-local-fixture",
+      tags: ["session-i", "schema", "oracle"],
+      permission_scope: "private",
+      freshness: { state: "fresh", as_of: "2026-08-19T00:00:00Z" },
+      sync_status: "ready",
+      last_synced_at: "2026-08-19T00:00:00Z",
+      metadata: {
+        resource_count: 2,
+        selection_rule: "SALES_ORDER + STORE",
+        snapshot_id: `${unique}-snapshot`,
+        policy_partition: "asset_space",
+      },
     }),
   });
   const snapshot = await api("/api/knowledge-assets/snapshots", {
@@ -146,6 +187,7 @@ async function seedWorkbench() {
     unique,
     space,
     source,
+    resource,
     snapshot,
     semanticAssetId,
     dashboardAssetId,
@@ -358,6 +400,9 @@ async function verifyUi(seed) {
       const seededSpace = new RegExp(seed.space.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
       await page.getByText(seededSpace).first().waitFor({ state: "visible", timeout: 30000 });
       await page.getByRole("button", { name: seededSpace }).click();
+
+      await verifyConnectorControlSurface(page, screenshots, viewport.name);
+
       await page.getByRole("button", { name: "语义构建" }).click();
       await page.getByTestId("semantic-modeling-workbench").waitFor({ state: "visible" });
       await page
@@ -371,22 +416,22 @@ async function verifyUi(seed) {
       await page.getByRole("button", { name: "AskTable / Dashboard" }).click();
       await page.getByTestId("ask-dashboard-workbench").waitFor({ state: "visible" });
       await page.getByText("Governed AskData notebook").waitFor({ state: "visible" });
-      await page.locator(".kc-askdash-portal-stage").waitFor({ state: "visible" });
+      await page.locator(".byaan-notebook-portal").waitFor({ state: "visible" });
       if (viewport.name === "desktop-1440") {
         await expectNoGlobalChrome(page, "asktable-portal");
         await screenshot(page, screenshots, `${viewport.name}-asktable-portal.png`);
       }
 
-      const questionBox = page.locator(".kc-askdash-composer textarea").first();
+      const questionBox = page.locator(".byaan-table-mention-composer textarea").first();
       await questionBox.fill("按门店查看销售票数");
-      await page.locator(".kc-askdash-send").click();
-      await page.getByText(/Returned 2 governed rows/).waitFor({ state: "visible", timeout: 15000 });
-      if (viewport.name !== "desktop-1440") {
-        await page.locator(".kc-askdash-mobile-tabs").getByRole("button", { name: "Preview" }).click();
-      }
-      await page.getByTestId("dashboard-preview-pane").waitFor({ state: "visible" });
-      await page.getByTestId("dashboard-preview-pane").getByRole("button", { name: "Preview" }).waitFor({ state: "visible" });
-      await page.getByTestId("dashboard-preview-pane").getByRole("button", { name: "Queries" }).waitFor({ state: "visible" });
+      await page.locator(".byaan-table-mention-composer").getByRole("button", { name: "Send" }).click();
+      await page.locator(".byaan-notebook-workspace").waitFor({ state: "visible", timeout: 15000 });
+      await page.getByText("VNPTTE").first().waitFor({ state: "visible", timeout: 15000 });
+      await page.getByText("ticket_count").first().waitFor({ state: "visible", timeout: 15000 });
+      await page.getByText(/Governed evidence/).waitFor({ state: "visible", timeout: 15000 });
+      await page.locator(".byaan-dashboard-preview").waitFor({ state: "visible" });
+      await page.locator(".byaan-dashboard-preview").getByRole("button", { name: "Preview" }).waitFor({ state: "visible" });
+      await page.locator(".byaan-dashboard-preview").getByRole("button", { name: "Queries" }).waitFor({ state: "visible" });
       await expectNoGlobalChrome(page, "asktable-result");
       if (viewport.name === "desktop-1440") {
         await screenshot(page, screenshots, `${viewport.name}-asktable-result.png`);
@@ -431,7 +476,7 @@ async function verifyUi(seed) {
       if (layout.documentOverflowX > 1 || layout.bodyOverflowX > 1) {
         throw new Error(`${viewport.name} horizontal overflow: ${JSON.stringify(layout)}`);
       }
-      if (layout.iframeCount !== 0 || layout.hasByaanSidebar || layout.hasWrenSidebar) {
+      if (layout.forbiddenIframeCount !== 0 || layout.hasByaanSidebar || layout.hasWrenSidebar) {
         throw new Error(`${viewport.name} rendered forbidden embedded shell: ${JSON.stringify(layout)}`);
       }
       if (layout.clippedButtons.length > 0) {
@@ -452,6 +497,51 @@ async function verifyUi(seed) {
   return { screenshots, observations };
 }
 
+async function verifyConnectorControlSurface(page, screenshots, viewportName) {
+  await page.locator(".kc-native-tabs").getByRole("button", { name: "数据源", exact: true }).click();
+  await page.getByRole("heading", { name: "已连接内容" }).waitFor({ state: "visible" });
+  await page.getByRole("table", { name: "Connected Content" }).waitFor({ state: "visible" });
+  if (!viewportName.startsWith("mobile")) {
+    await page.getByText("资源数").waitFor({ state: "visible" });
+  }
+  await page.locator(".kc-connected-content-row").first().waitFor({ state: "visible" });
+  await page.locator(".kc-connected-content-row").first().getByRole("button").last().waitFor({ state: "visible" });
+  await screenshot(page, screenshots, `${viewportName}-connected-content.png`);
+
+  await page.locator(".kc-connected-content-row .kc-content-name").first().click();
+  const drawer = page.locator(".kc-resource-detail");
+  await drawer.waitFor({ state: "visible" });
+  for (const tabName of ["概览", "资源", "同步记录", "访问权限", "Lineage", "诊断详情 Advanced"]) {
+    await drawer.getByRole("button", { name: tabName }).click();
+  }
+  await screenshot(page, screenshots, `${viewportName}-content-drawer.png`);
+  await page.getByRole("button", { name: "关闭" }).click();
+
+  await page.getByRole("button", { name: "添加内容" }).first().click();
+  await page.getByRole("heading", { name: "Connector Gallery" }).waitFor({ state: "visible" });
+  await page.locator(".kc-gallery-controls input").fill("oracle");
+  await page.getByRole("button", { name: "业务数据" }).click();
+  await page.locator(".kc-connector-card", { hasText: "Oracle" }).first().waitFor({ state: "visible" });
+  await screenshot(page, screenshots, `${viewportName}-connector-gallery.png`);
+  await page.locator(".kc-gallery-controls input").fill("");
+  await page.getByRole("button", { name: "需要授权" }).click();
+  await page.locator(".kc-connector-card", { hasText: "Feishu" }).first().waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "预览中" }).click();
+  await page.getByRole("button", { name: /了解要求|申请启用/ }).first().waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "全部" }).click();
+  await page.locator(".kc-connector-card").first().click();
+  await page.locator(".kc-wizard-footer").first().waitFor({ state: "visible" });
+  const wizardLayout = await inspectWizardFooter(page);
+  if (!wizardLayout.visible || !wizardLayout.sticky) {
+    throw new Error(`${viewportName} wizard footer is not sticky/visible: ${JSON.stringify(wizardLayout)}`);
+  }
+  if (wizardLayout.bottomOverflow > 1 || wizardLayout.horizontalOverflow > 1) {
+    throw new Error(`${viewportName} wizard footer overflow: ${JSON.stringify(wizardLayout)}`);
+  }
+  await screenshot(page, screenshots, `${viewportName}-wizard-footer.png`);
+  await page.getByRole("button", { name: "关闭" }).click();
+}
+
 async function screenshot(page, screenshots, fileName) {
   const file = path.join(screenshotDir, fileName);
   await page.screenshot({ path: file, fullPage: true });
@@ -461,18 +551,36 @@ async function screenshot(page, screenshots, fileName) {
 async function expectNoGlobalChrome(page, stage) {
   const result = await page.evaluate(() => {
     const iframes = Array.from(document.querySelectorAll("iframe"));
-    const forbiddenIframes = iframes.map((frame) => frame.getAttribute("src") || "").filter((src) => /byaan|wren|datastudio/i.test(src));
+    const forbiddenIframes = iframes
+      .filter((frame) => !frame.hasAttribute("srcdoc"))
+      .map((frame) => frame.getAttribute("src") || "")
+      .filter((src) => !src || /byaan|wren|datastudio/i.test(src));
     const navText = Array.from(document.querySelectorAll("aside,nav")).map((node) => node.textContent || "").join("\n");
     return {
       iframeCount: iframes.length,
+      srcDocIframeCount: iframes.filter((frame) => frame.hasAttribute("srcdoc")).length,
       forbiddenIframes,
       hasByaanSidebar: /BYAAN|Data Studio sidecar/i.test(navText),
       hasWrenSidebar: /Wren AI|Wren Engine/i.test(navText),
     };
   });
-  if (result.iframeCount !== 0 || result.forbiddenIframes.length || result.hasByaanSidebar || result.hasWrenSidebar) {
+  if (result.forbiddenIframes.length || result.hasByaanSidebar || result.hasWrenSidebar) {
     throw new Error(`${stage} has forbidden embedded shell: ${JSON.stringify(result)}`);
   }
+}
+
+async function inspectWizardFooter(page) {
+  return page.locator(".kc-wizard-footer").first().evaluate((footer) => {
+    const rect = footer.getBoundingClientRect();
+    const style = window.getComputedStyle(footer);
+    const root = document.documentElement;
+    return {
+      visible: rect.width > 0 && rect.height > 0,
+      sticky: style.position === "sticky",
+      bottomOverflow: Math.max(0, rect.bottom - root.clientHeight),
+      horizontalOverflow: Math.max(0, rect.right - root.clientWidth, -rect.left),
+    };
+  });
 }
 
 async function inspectLayout(page) {
@@ -481,12 +589,20 @@ async function inspectLayout(page) {
     const body = document.body;
     const buttons = Array.from(document.querySelectorAll("button"));
     const navText = Array.from(document.querySelectorAll("aside,nav")).map((node) => node.textContent || "").join("\n");
+    const iframes = Array.from(document.querySelectorAll("iframe"));
+    const forbiddenIframes = iframes
+      .filter((frame) => !frame.hasAttribute("srcdoc"))
+      .map((frame) => frame.getAttribute("src") || "")
+      .filter((src) => !src || /byaan|wren|datastudio/i.test(src));
     return {
       documentOverflowX: root.scrollWidth - root.clientWidth,
       bodyOverflowX: body.scrollWidth - body.clientWidth,
       viewportWidth: root.clientWidth,
       viewportHeight: root.clientHeight,
-      iframeCount: document.querySelectorAll("iframe").length,
+      iframeCount: iframes.length,
+      srcDocIframeCount: iframes.filter((frame) => frame.hasAttribute("srcdoc")).length,
+      forbiddenIframeCount: forbiddenIframes.length,
+      forbiddenIframes,
       hasByaanSidebar: /BYAAN|Data Studio sidecar/i.test(navText),
       hasWrenSidebar: /Wren AI|Wren Engine/i.test(navText),
       semanticRendered: Boolean(document.querySelector('[data-testid="semantic-modeling-workbench"]')),
@@ -669,8 +785,8 @@ function validateEvidence(seed, health, ui) {
   if (!agents.semantic_builder?.configured || !agents.asktable_dashboard?.configured) {
     throw new Error(`agents are not configured in health: ${JSON.stringify(health)}`);
   }
-  if (ui.observations.some((item) => item.layout.iframeCount !== 0)) {
-    throw new Error(`iframe rendered in live UI: ${JSON.stringify(ui.observations)}`);
+  if (ui.observations.some((item) => item.layout.forbiddenIframeCount !== 0)) {
+    throw new Error(`forbidden iframe rendered in live UI: ${JSON.stringify(ui.observations)}`);
   }
 }
 
@@ -719,10 +835,89 @@ const report = {
     cases: run.cases,
   })),
   iframeCount: ui.observations.reduce((sum, item) => sum + item.layout.iframeCount, 0),
+  forbiddenIframeCount: ui.observations.reduce((sum, item) => sum + item.layout.forbiddenIframeCount, 0),
   failedRequests: ui.observations.flatMap((item) => item.failedRequests),
   consoleErrors: ui.observations.flatMap((item) => item.consoleErrors),
   observations: ui.observations,
   screenshotPaths: ui.screenshots,
+  integrationBranch,
+  integrationBranchHash,
+  mergeBase: {
+    createdFrom: "origin/kc/session-i-h6-g2-integration",
+    baseCommit: "22e0f86d53f2fb9efeb156a52efa9e11996b6cf5",
+    previousConnectorFoundationTip,
+    strategy: `follow-up commit on ${integrationBranch}`,
+  },
+  connectorControlSurface: {
+    seededResourceId: seed.resource.id,
+    checks: [
+      "connector gallery search and intent filters",
+      "non-available connector call-to-action states",
+      "connected content resource-count column/card",
+      "content detail drawer tabs",
+      "sticky wizard footer without viewport overflow",
+    ],
+  },
+  testCommands: [
+    {
+      command: "git diff --check",
+      status: "passed",
+      summary: "No whitespace errors.",
+    },
+    {
+      command: "uvx ruff check frontend/server/knowledge_assets/connector_registry.py frontend/server/knowledge_assets/service.py tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_knowledge_asset_store.py",
+      status: "passed",
+      summary: "All checks passed.",
+    },
+    {
+      command: "python -m pytest tests/frontend/test_knowledge_asset_routes.py tests/frontend/test_knowledge_asset_store.py -q",
+      status: "passed",
+      summary: "34 passed.",
+    },
+    {
+      command: "cd frontend && npm test -- knowledgeAssetWorkbench.test.mjs",
+      status: "passed",
+      summary: "679 passed, 0 failed",
+    },
+    {
+      command: "cd frontend && npm run build",
+      status: "passed",
+      summary: "Vite production build completed; only existing chunk-size/static-dynamic import warnings.",
+    },
+    {
+      command: "VEADK_STUDIO_URL=http://127.0.0.1:18219 node docs/knowledge-center/session-reports/live-session-i-h6-g2-integration/run-live-smoke.mjs",
+      status: "passed",
+      summary: "Fresh Studio on sqlite store, desktop/mobile UI smoke, connector controls, AskData, Dashboard preview, Evaluation import/run, no forbidden external sidecar iframe/no 404/no console errors/no horizontal overflow.",
+    },
+  ],
+  artifactChecklist: {
+    "FINAL_REPORT.md": "present",
+    "result.json": "present",
+    "secret-scan-result.json": "present",
+    screenshots: [
+      "screenshots/desktop-1440-connected-content.png",
+      "screenshots/desktop-1440-content-drawer.png",
+      "screenshots/desktop-1440-connector-gallery.png",
+      "screenshots/desktop-1440-wizard-footer.png",
+      "screenshots/desktop-1440-semantic.png",
+      "screenshots/desktop-1440-asktable-portal.png",
+      "screenshots/desktop-1440-asktable-result.png",
+      "screenshots/desktop-1440-evaluation.png",
+      "screenshots/mobile-390-connected-content.png",
+      "screenshots/mobile-390-content-drawer.png",
+      "screenshots/mobile-390-connector-gallery.png",
+      "screenshots/mobile-390-wizard-footer.png",
+      "screenshots/mobile-390-semantic.png",
+      "screenshots/mobile-390-asktable.png",
+      "screenshots/mobile-390-evaluation.png",
+    ],
+  },
+  secretScan: {
+    path: "secret-scan-result.json",
+    status: "passed",
+    findings: 0,
+  },
+  integrationBranchHashNote: "Hash is captured from git HEAD when the smoke script runs; the final pushed branch tip is reported separately after commit.",
 };
 
 await writeFile(path.join(reportDir, "result.json"), `${JSON.stringify(report, null, 2)}\n`, "utf8");

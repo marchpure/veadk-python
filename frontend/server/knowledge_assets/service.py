@@ -13,28 +13,28 @@ import binascii
 import hashlib
 import html
 import re
+import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-import tempfile
 from typing import Any
 from urllib.parse import parse_qsl, urlsplit
 from uuid import uuid4
 
+from .connector_registry import (
+    get_connector_definition,
+    list_connector_definitions,
+)
 from .contract import (
     KnowledgeAssetListEnvelope,
     KnowledgeAssetMetadataEnvelope,
     KnowledgeAssetType,
     KnowledgeCapabilityKind,
 )
-from .connector_registry import (
-    get_connector_definition,
-    list_connector_definitions,
-)
 from .crypto import CredentialCipher, CredentialCryptoError
 from .models import (
-    CreateSourceResourceBody,
     CreateSourceBody,
+    CreateSourceResourceBody,
     CreateSpaceBody,
     ImportSourceBody,
     RecordBuildJobBody,
@@ -92,11 +92,15 @@ _RESOURCE_SYNC_STATUSES = {
     "auth_required",
     "importing",
     "syncing",
+    "validating",
+    "capturing",
     "indexed",
     "ready",
+    "partial",
     "failed",
     "credential_expired",
     "stale",
+    "revoked",
     "blocked",
     "skipped",
 }
@@ -328,7 +332,23 @@ class KnowledgeAssetStore:
         target_knowledge_base_id: str,
     ) -> dict[str, Any]:
         status = _resource_status_for_import(str(result.get("status") or source["status"]))
+        provider = body.provider or source.get("provider") or source["source_type"]
+        source_type = str(source["source_type"])
+        resource_type = _resource_type_for_source(source_type)
+        tags = _source_resource_tags(
+            source_type,
+            body,
+            target_knowledge_base_id=target_knowledge_base_id,
+        )
+        permission_scope = _permission_scope_for_source(source_type)
         metadata = {
+            "asset_space_id": source["space_id"],
+            "space_id": source["space_id"],
+            "source_id": source["id"],
+            "source_type": source_type,
+            "provider": provider,
+            "tags": tags,
+            "permission_scope": permission_scope,
             "next_action": result.get("next_action", ""),
             "target_knowledge_base_id": target_knowledge_base_id,
             "connection_status": source.get("status"),
@@ -341,19 +361,23 @@ class KnowledgeAssetStore:
         document_id = ""
         if isinstance(document, Mapping):
             document_id = _sanitize_text(str(document.get("id") or ""))
-        resource_id = _source_resource_external_id(
+        resource_id = _sanitize_text(str(metadata.get("resource_id") or "")) or _source_resource_external_id(
             source,
             body,
             content_hash=str(result.get("content_hash") or metadata.get("content_hash") or ""),
             document_id=document_id,
         )
+        metadata["resource_id"] = resource_id
+        metadata["resource_type"] = resource_type
+        if document_id:
+            metadata.setdefault("document_id", document_id)
         resource = await self.create_source_resource(
             CreateSourceResourceBody(
                 asset_space_id=source["space_id"],
                 source_id=source["id"],
                 resource_id=resource_id,
-                source_type=_resource_type_for_source(source["source_type"]),
-                provider=body.provider or source.get("provider") or source["source_type"],
+                source_type=resource_type,
+                provider=provider,
                 uri=body.uri or source.get("uri"),
                 provider_ref=document_id
                 or _sanitize_text(str(body.locator.get("provider_ref") or "")),
@@ -361,8 +385,8 @@ class KnowledgeAssetStore:
                     result.get("content_hash") or metadata.get("content_hash") or ""
                 )
                 or None,
-                tags=_source_resource_tags(source["source_type"], body),
-                permission_scope=_permission_scope_for_source(source["source_type"]),
+                tags=tags,
+                permission_scope=permission_scope,
                 freshness=_freshness_for_import(result),
                 sync_status=status,
                 last_synced_at=str(metadata.get("last_synced_at") or "") or None,
@@ -459,13 +483,38 @@ class KnowledgeAssetStore:
             }
         markdown, title, safe_url = await _source_markdown(body)
         content_hash = _content_hash(markdown)
+        resource_id = _source_resource_external_id(
+            source,
+            body,
+            content_hash=content_hash,
+        )
+        source_type = str(source_type)
+        provider = body.provider or source.get("provider") or source_type
+        tags = _source_resource_tags(
+            source_type,
+            body,
+            target_knowledge_base_id=target_knowledge_base_id,
+        )
+        permission_scope = _permission_scope_for_source(source_type)
         metadata = {
             **redact_sensitive(body.metadata),
+            "asset_space_id": source["space_id"],
             "space_id": source["space_id"],
             "source_id": source["id"],
+            "source_connection_id": source["id"],
+            "resource_id": resource_id,
             "source_type": source_type,
+            "provider": provider,
+            "tags": tags,
+            "permissions": {
+                "scope": permission_scope,
+                "policy_partition": _policy_partition_for_scope(permission_scope),
+            },
+            "permission_scope": permission_scope,
             "content_hash": content_hash,
             "captured_at": _utc_now(),
+            "parser_version": "agentkit-source-import@1",
+            "embedding_profile": "default",
             "_veadk_source_url": safe_url,
             "_veadk_source_title": title,
         }
@@ -511,6 +560,11 @@ class KnowledgeAssetStore:
                 "target_knowledge_base_id": target_knowledge_base_id,
                 "content_hash": content_hash,
                 "last_synced_at": indexed["last_synced_at"],
+                "resource_id": resource_id,
+                "provider": provider,
+                "tags": tags,
+                "permissions": metadata["permissions"],
+                "permission_scope": permission_scope,
             },
         }
 
@@ -1389,7 +1443,7 @@ def _normalize_credential_status(status: str) -> str:
 
 def _resource_status_for_import(status: str) -> str:
     normalized = status.strip().casefold()
-    if normalized in {"indexed", "ready"}:
+    if normalized in {"indexed", "ready", "validating", "capturing", "partial", "stale", "revoked"}:
         return normalized
     if normalized == "auth_required":
         return "auth_required"
@@ -1452,9 +1506,11 @@ def _source_resource_external_id(
 def _source_resource_tags(
     source_type: str,
     body: ImportSourceBody,
+    *,
+    target_knowledge_base_id: str = "",
 ) -> list[str]:
     tags = ["agentkit", "knowledge_asset", _resource_type_for_source(source_type)]
-    if body.target_knowledge_base_id:
+    if body.target_knowledge_base_id or target_knowledge_base_id:
         tags.append("retrieval_index")
     if source_type in _SCHEMA_SOURCE_TYPES:
         tags.append("semantic_seed")
@@ -1470,6 +1526,16 @@ def _permission_scope_for_source(source_type: str) -> str:
     if normalized == "feishu_doc":
         return "follow_source"
     return "private"
+
+
+def _policy_partition_for_scope(permission_scope: str) -> str:
+    mapping = {
+        "public": "public",
+        "private": "space-private",
+        "follow_source": "source-permissions",
+        "sensitive_local_context": "local-only",
+    }
+    return mapping.get(permission_scope, "space-private")
 
 
 def _freshness_for_import(result: Mapping[str, Any]) -> dict[str, Any]:
