@@ -1,0 +1,745 @@
+{
+  "schema": "agentkit.knowledge_center.session_h2_native_ui_smoke.v1",
+  "base_url": "http://127.0.0.1:57595",
+  "started_at": "2026-08-19T01:39:48.221Z",
+  "ok": true,
+  "viewports": [
+    {
+      "name": "desktop-1440",
+      "semantic": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 3826,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 1921
+          }
+        ],
+        "semanticCanvas": true,
+        "askWorkbench": false,
+        "dashboardPreview": false,
+        "queryNotebook": false,
+        "reactFlowNodes": 3,
+        "dashboardTiles": 0
+      },
+      "askdashboard": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 1457,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 997
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": true,
+        "queryNotebook": false,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 4
+      },
+      "query": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 2477,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 1271
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": false,
+        "queryNotebook": true,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 0
+      }
+    },
+    {
+      "name": "mobile-390",
+      "semantic": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 1222,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 1328
+          }
+        ],
+        "semanticCanvas": true,
+        "askWorkbench": false,
+        "dashboardPreview": false,
+        "queryNotebook": false,
+        "reactFlowNodes": 3,
+        "dashboardTiles": 0
+      },
+      "askdashboard": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 1387,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 2495
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": true,
+        "queryNotebook": false,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 4
+      },
+      "query": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 2407,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 3321
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": false,
+        "queryNotebook": true,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 0
+      }
+    }
+  ],
+  "screenshots": [
+    "screenshots/desktop-1440-semantic-h2.png",
+    "screenshots/desktop-1440-askdashboard-h2.png",
+    "screenshots/desktop-1440-askdashboard-query-tabs-h2.png",
+    "screenshots/mobile-390-semantic-h2.png",
+    "screenshots/mobile-390-askdashboard-h2.png",
+    "screenshots/mobile-390-askdashboard-query-tabs-h2.png"
+  ],
+  "responses": [
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/assets/index-D7S3HySP.css"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/assets/index-DRV-jwU1.js"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 404,
+      "url": "http://127.0.0.1:57595/oauth2/userinfo"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/ui-config"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/runtime-config"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/sandbox/capabilities"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/deepseek-harness/capabilities"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/access"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/skill-workbench/capabilities"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/assets/logo-DCsNZy-k.svg"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/studio-update"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/sidecars"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/spaces"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/assets?limit=100"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/build-jobs?space_id=space_a4ad66e561b242ea988fa54ce7b19d33"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/sources?space_id=space_a4ad66e561b242ea988fa54ce7b19d33"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/workbench/overview?space_id=space_a4ad66e561b242ea988fa54ce7b19d33"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/snapshots?source_id=src_63511449eae64fc98c7689a67fda903a"
+    },
+    {
+      "viewport": "desktop-1440",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/askdata/query"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/assets/index-D7S3HySP.css"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/assets/index-DRV-jwU1.js"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 404,
+      "url": "http://127.0.0.1:57595/oauth2/userinfo"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/ui-config"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/runtime-config"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/sandbox/capabilities"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/deepseek-harness/capabilities"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/access"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/skill-workbench/capabilities"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/assets/logo-DCsNZy-k.svg"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/web/studio-update"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/sidecars"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/spaces"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/assets?limit=100"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/build-jobs?space_id=space_a4ad66e561b242ea988fa54ce7b19d33"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/sources?space_id=space_a4ad66e561b242ea988fa54ce7b19d33"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/workbench/overview?space_id=space_a4ad66e561b242ea988fa54ce7b19d33"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/snapshots?source_id=src_63511449eae64fc98c7689a67fda903a"
+    },
+    {
+      "viewport": "mobile-390",
+      "status": 200,
+      "url": "http://127.0.0.1:57595/api/knowledge-assets/askdata/query"
+    }
+  ],
+  "console_errors": [
+    {
+      "viewport": "desktop-1440",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "viewport": "mobile-390",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    }
+  ],
+  "checks": [
+    {
+      "name": "desktop-1440: semantic no iframe",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "desktop-1440: semantic native canvas",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 3826,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 1921
+          }
+        ],
+        "semanticCanvas": true,
+        "askWorkbench": false,
+        "dashboardPreview": false,
+        "queryNotebook": false,
+        "reactFlowNodes": 3,
+        "dashboardTiles": 0
+      }
+    },
+    {
+      "name": "desktop-1440: semantic model tree content",
+      "pass": true,
+      "detail": {
+        "sample": "AgentKit Studio\n新会话\n智能体\n库\n知识资产\n搜索\n自动化\nBeta\n历史会话\n暂无会话\n问题反馈\nH\nh2smoke\n管理员\n资产空间\n1 个空间\nSession H2 Native Knowledge Workbench\nSeeded workspace for H2 native semantic modeling and AskTable/Dashboard smoke verification.\nSession H2 Native Knowledge Workbench\n\n在 Studio 内管理数据源和 Agent 可运行能力。\n\n刷新\n添加数据源\n概览\n数据源\n语义构建\nAskTable / Dashboard\n能力\n构建任务\n设置\n语义构建\n模型树、关系图、MDL 和评测证据在同一原生工作台内联动\nSemantic Skill\nH2 Sales Semantic Skill · h2.1\nSource\nH2 Sales Warehouse Snapshot\nSnapshot\nH2 Sales Warehouse Snapshot Schema Snaps"
+      }
+    },
+    {
+      "name": "desktop-1440: semantic horizontal overflow",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 3826,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 1921
+          }
+        ],
+        "semanticCanvas": true,
+        "askWorkbench": false,
+        "dashboardPreview": false,
+        "queryNotebook": false,
+        "reactFlowNodes": 3,
+        "dashboardTiles": 0
+      }
+    },
+    {
+      "name": "desktop-1440: askdashboard no iframe",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "desktop-1440: askdashboard preview",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 1457,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 997
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": true,
+        "queryNotebook": false,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 4
+      }
+    },
+    {
+      "name": "desktop-1440: askdashboard tabs/evidence",
+      "pass": true,
+      "detail": {
+        "sample": "AgentKit Studio\n新会话\n智能体\n库\n知识资产\n搜索\n自动化\nBeta\n历史会话\n暂无会话\n问题反馈\nH\nh2smoke\n管理员\n资产空间\n1 个空间\nSession H2 Native Knowledge Workbench\nSeeded workspace for H2 native semantic modeling and AskTable/Dashboard smoke verification.\nSession H2 Native Knowledge Workbench\n\n在 Studio 内管理数据源和 Agent 可运行能力。\n\n刷新\n添加数据源\n概览\n数据源\n语义构建\nAskTable / Dashboard\n能力\n构建任务\n设置\nAskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nH2 Sales Dashboard Skill · h2.1\n刷新\n全屏预览\n导出\n分享\nAskTable\nH2 Sales Semantic Skill\nSemantic Skill\nH2 Sales Semantic Skill\n自然语言问题\n指标\nAgent 选择\nticket_count\nsales_order_count\nsales_order_amount_sum\n维度\n不拆解\nstore\nstore_region\nsell_date\nsales_order_status\nsales_week\nsales_month\n执行 governed query\nQuery notebook\n运行 governed query 后，这里展示结果表、SQL、指标口径、策略、新鲜度和证据。\nDashboard builder\n基于真实 AskTable 查询证据"
+      }
+    },
+    {
+      "name": "desktop-1440: askdashboard horizontal overflow",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "textLength": 1457,
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 737,
+            "scrollHeight": 997
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": true,
+        "queryNotebook": false,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 4
+      }
+    },
+    {
+      "name": "desktop-1440: query notebook tabs",
+      "pass": true,
+      "detail": {
+        "sample": "AgentKit Studio\n新会话\n智能体\n库\n知识资产\n搜索\n自动化\nBeta\n历史会话\n暂无会话\n问题反馈\nH\nh2smoke\n管理员\n资产空间\n1 个空间\nSession H2 Native Knowledge Workbench\nSeeded workspace for H2 native semantic modeling and AskTable/Dashboard smoke verification.\nSession H2 Native Knowledge Workbench\n\n在 Studio 内管理数据源和 Agent 可运行能力。\n\n刷新\n添加数据源\n概览\n数据源\n语义构建\nAskTable / Dashboard\n能力\n构建任务\n设置\nAskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nH2 Sales Dashboard Skill · h2.1\n刷新\n全屏预览\n导出\n分享\nAskTable\nH2 Sales Semantic Skill\nSemantic Skill\nH2 Sales Semantic Skill\n自然语言问题\n指标\nAgent 选择\nticket_count\nsales_order_count\nsales_order_amount_sum\n维度\n不拆解\nstore\nstore_region\nsell_date\nsales_order_status\nsales_week\nsales_month\n执行 governed query\ncompleted\n0 rows\nn/a ms\nPolicy\nallow\nFreshness\nsnapshot\nAgent\ncompleted\nResults\nSQL\nMetric\nPolicy\nFreshness\nEvidence\nSELECT \"store_name\" AS \"store\", SUM(\"ticket_count\") AS \"ticket_count\" FROM \"analytics\".\"sales_orders\" GROUP BY \"store_name\" LIMIT 100\nDashboard builder\n基于真实 AskTable 查询证据生成 Skill\nDas",
+        "metrics": {
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "textLength": 2477,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "iframes": [],
+          "overflowing": [],
+          "scrollables": [
+            {
+              "tag": "DIV",
+              "className": "kc-native-view",
+              "height": 737,
+              "scrollHeight": 1271
+            }
+          ],
+          "semanticCanvas": false,
+          "askWorkbench": true,
+          "dashboardPreview": false,
+          "queryNotebook": true,
+          "reactFlowNodes": 0,
+          "dashboardTiles": 0
+        }
+      }
+    },
+    {
+      "name": "mobile-390: semantic no iframe",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "mobile-390: semantic native canvas",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 1222,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 1328
+          }
+        ],
+        "semanticCanvas": true,
+        "askWorkbench": false,
+        "dashboardPreview": false,
+        "queryNotebook": false,
+        "reactFlowNodes": 3,
+        "dashboardTiles": 0
+      }
+    },
+    {
+      "name": "mobile-390: semantic model tree content",
+      "pass": true,
+      "detail": {
+        "sample": "H\n资产空间\n1 个空间\nSession H2 Native Knowledge Workbench\nSeeded workspace for H2 native semantic modeling and AskTable/Dashboard smoke verification.\nSession H2 Native Knowledge Workbench\n\n在 Studio 内管理数据源和 Agent 可运行能力。\n\n刷新\n添加数据源\n概览\n数据源\n语义构建\nAskTable / Dashboard\n能力\n构建任务\n设置\n语义构建\n模型树、关系图、MDL 和评测证据在同一原生工作台内联动\nSemantic Skill\nH2 Sales Semantic Skill · h2.1\nSource\nH2 Sales Warehouse Snapshot\nSnapshot\nH2 Sales Warehouse Snapshot Schema Snapshot\n生成语义\n发布\n刷新\n查看 MDL\n查看评测\n构建状态\nsucceeded\nAgent\ncompleted\nRunner\nveadk"
+      }
+    },
+    {
+      "name": "mobile-390: semantic horizontal overflow",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 1222,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 1328
+          }
+        ],
+        "semanticCanvas": true,
+        "askWorkbench": false,
+        "dashboardPreview": false,
+        "queryNotebook": false,
+        "reactFlowNodes": 3,
+        "dashboardTiles": 0
+      }
+    },
+    {
+      "name": "mobile-390: askdashboard no iframe",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "mobile-390: askdashboard preview",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 1387,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 2495
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": true,
+        "queryNotebook": false,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 4
+      }
+    },
+    {
+      "name": "mobile-390: askdashboard tabs/evidence",
+      "pass": true,
+      "detail": {
+        "sample": "H\n资产空间\n1 个空间\nSession H2 Native Knowledge Workbench\nSeeded workspace for H2 native semantic modeling and AskTable/Dashboard smoke verification.\nSession H2 Native Knowledge Workbench\n\n在 Studio 内管理数据源和 Agent 可运行能力。\n\n刷新\n添加数据源\n概览\n数据源\n语义构建\nAskTable / Dashboard\n能力\n构建任务\n设置\nAskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nH2 Sales Dashboard Skill · h2.1\n刷新\n全屏预览\n导出\n分享\nAskTable\nH2 Sales Semantic Skill\nSemantic Skill\nH2 Sales Semantic Skill\n自然语言问题\n指标\nAgent 选择\nticket_count\nsales_order_count\nsales_order_amount_sum\n维度\n不拆解\nstore\nstore_region\nsell_date\nsales_order_status\nsales_week\nsales_month\n执行 governed query\nQuery notebook\n运行 governed query 后，这里展示结果表、SQL、指标口径、策略、新鲜度和证据。\nDashboard builder\n基于真实 AskTable 查询证据生成 Skill\nDashboard 名称\nDashboard intent\n生成 Dashboard Skill\nPreview\nCode"
+      }
+    },
+    {
+      "name": "mobile-390: askdashboard horizontal overflow",
+      "pass": true,
+      "detail": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "textLength": 1387,
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "iframes": [],
+        "overflowing": [],
+        "scrollables": [
+          {
+            "tag": "DIV",
+            "className": "kc-native-view",
+            "height": 496,
+            "scrollHeight": 2495
+          }
+        ],
+        "semanticCanvas": false,
+        "askWorkbench": true,
+        "dashboardPreview": true,
+        "queryNotebook": false,
+        "reactFlowNodes": 0,
+        "dashboardTiles": 4
+      }
+    },
+    {
+      "name": "mobile-390: query notebook tabs",
+      "pass": true,
+      "detail": {
+        "sample": "H\n资产空间\n1 个空间\nSession H2 Native Knowledge Workbench\nSeeded workspace for H2 native semantic modeling and AskTable/Dashboard smoke verification.\nSession H2 Native Knowledge Workbench\n\n在 Studio 内管理数据源和 Agent 可运行能力。\n\n刷新\n添加数据源\n概览\n数据源\n语义构建\nAskTable / Dashboard\n能力\n构建任务\n设置\nAskTable / Dashboard\n自然语言问数、查询证据和 dashboard_spec 预览共用同一治理链路\nDashboard version\nH2 Sales Dashboard Skill · h2.1\n刷新\n全屏预览\n导出\n分享\nAskTable\nH2 Sales Semantic Skill\nSemantic Skill\nH2 Sales Semantic Skill\n自然语言问题\n指标\nAgent 选择\nticket_count\nsales_order_count\nsales_order_amount_sum\n维度\n不拆解\nstore\nstore_region\nsell_date\nsales_order_status\nsales_week\nsales_month\n执行 governed query\ncompleted\n0 rows\nn/a ms\nPolicy\nallow\nFreshness\nsnapshot\nAgent\ncompleted\nResults\nSQL\nMetric\nPolicy\nFreshness\nEvidence\nSELECT \"store_name\" AS \"store\", SUM(\"ticket_count\") AS \"ticket_count\" FROM \"analytics\".\"sales_orders\" GROUP BY \"store_name\" LIMIT 100\nDashboard builder\n基于真实 AskTable 查询证据生成 Skill\nDashboard 名称\nDashboard intent\n生成 Dashboard Skill\nRows\n0\nPolicy\nallow\nExec",
+        "metrics": {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "textLength": 2407,
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "iframes": [],
+          "overflowing": [],
+          "scrollables": [
+            {
+              "tag": "DIV",
+              "className": "kc-native-view",
+              "height": 496,
+              "scrollHeight": 3321
+            }
+          ],
+          "semanticCanvas": false,
+          "askWorkbench": true,
+          "dashboardPreview": false,
+          "queryNotebook": true,
+          "reactFlowNodes": 0,
+          "dashboardTiles": 0
+        }
+      }
+    },
+    {
+      "name": "http no unexpected 404/500",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "browser no runtime page errors",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "expected_bootstrap_404": 2,
+  "console_404_note": "Chromium logs expected /oauth2/userinfo 404 in local username mode as a generic failed resource message.",
+  "completed_at": "2026-08-19T01:40:24.526Z"
+}

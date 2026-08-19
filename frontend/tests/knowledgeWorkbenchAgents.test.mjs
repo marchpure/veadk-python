@@ -89,6 +89,10 @@ test("semantic graph helper renders fixture MDL and exposes join hover metadata"
   assert.match(semanticSource, /<MiniMap/);
   assert.match(semanticSource, /<Controls/);
   assert.match(semanticSource, /<Background/);
+  assert.match(semanticSource, /SemanticWorkbenchState/);
+  assert.match(semanticSource, /aria-label="Semantic Skill"/);
+  assert.match(semanticSource, /kc-semantic-node__facts/);
+  assert.match(semanticSource, /kc-tree-group-title/);
   assert.match(semanticSource, /onEdgeMouseEnter/);
   assert.match(semanticSource, /is-join-field/);
   assert.match(semanticSource, /relationshipHoverLabel/);
@@ -101,6 +105,12 @@ test("AskDashboard workspace exposes query evidence preview code tabs and disabl
   assert.match(askDashboardSource, /Code/);
   assert.match(askDashboardSource, /Queries/);
   assert.match(askDashboardSource, /SQL/);
+  assert.match(askDashboardSource, /AskTableNotebookResult/);
+  assert.match(askDashboardSource, /Results/);
+  assert.match(askDashboardSource, /Metric/);
+  assert.match(askDashboardSource, /Policy/);
+  assert.match(askDashboardSource, /Freshness/);
+  assert.match(askDashboardSource, /Evidence/);
   assert.match(askDashboardSource, /policyDecision/);
   assert.match(askDashboardSource, /freshness/);
   assert.match(askDashboardSource, /lineage/);
@@ -108,6 +118,8 @@ test("AskDashboard workspace exposes query evidence preview code tabs and disabl
   assert.match(askDashboardSource, /beginSplitResize/);
   assert.match(askDashboardSource, /kc-askdash-resizer/);
   assert.match(askDashboardSource, /aria-valuenow/);
+  assert.match(askDashboardSource, /DashboardSparkline/);
+  assert.match(askDashboardSource, /kc-dashboard-data-views/);
   assert.match(askDashboardSource, /disabled title="后端导出能力尚未启用"/);
   assert.match(askDashboardSource, /disabled title="分享链接需要后端签名能力"/);
 });
@@ -117,6 +129,10 @@ test("workbench CSS avoids horizontal page overflow and nested card shells on mo
   assert.match(cssSource, /\.kc-askdash-split\s*\{[\s\S]*?grid-template-columns: minmax\(280px, var\(--kc-askdash-left, 38%\)\) 8px minmax\(360px, 1fr\)/);
   assert.match(cssSource, /\.kc-askdash-resizer\s*\{[\s\S]*?cursor:\s*col-resize;/);
   assert.match(cssSource, /\.kc-semantic-node__section span\.is-join-field/);
+  assert.match(cssSource, /\.kc-query-tabs/);
+  assert.match(cssSource, /\.kc-query-notebook/);
+  assert.match(cssSource, /\.kc-dashboard-sparkline/);
+  assert.match(cssSource, /\.kc-dashboard-data-views/);
   assert.match(cssSource, /\.kc-mobile-workbench-tabs\s*\{[\s\S]*?display:\s*none;/);
   assert.match(cssSource, /\.kc-semantic-layout\.is-tree-collapsed \.kc-semantic-tree/);
   assert.match(cssSource, /@media \(max-width: 980px\)[\s\S]*?\.kc-semantic-layout,[\s\S]*?\.kc-askdash-split\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);

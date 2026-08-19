@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Code2,
   Copy,
+  Database,
   Download,
   ExternalLink,
   Loader2,
@@ -42,6 +43,7 @@ import {
 } from "./knowledgeWorkbenchUtils";
 
 type DashboardTab = "preview" | "code" | "queries";
+type QueryResultTab = "results" | "sql" | "metric" | "policy" | "freshness" | "evidence";
 
 export function AskDashboardWorkbench({
   activeSpace,
@@ -336,6 +338,8 @@ export function AskTablePanel({
   onDashboardIntentChange: (value: string) => void;
   onBuildDashboard: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [resultTab, setResultTab] = useState<QueryResultTab>("results");
+  const queryExecution = objectValue((queryResult?.data as unknown as Record<string, unknown> | undefined)?.execution);
   return (
     <aside className="kc-asktable-panel">
       <form className="kc-asktable-query" onSubmit={onQuery}>
@@ -385,7 +389,15 @@ export function AskTablePanel({
           执行 governed query
         </button>
       </form>
-      {queryResult ? <AskTableStatus result={queryResult} /> : null}
+      {queryResult ? (
+        <AskTableNotebookResult result={queryResult} tab={resultTab} onTabChange={setResultTab} />
+      ) : (
+        <section className="kc-query-notebook-empty">
+          <Database className="kc-native-icon" />
+          <strong>Query notebook</strong>
+          <span>运行 governed query 后，这里展示结果表、SQL、指标口径、策略、新鲜度和证据。</span>
+        </section>
+      )}
       <form className="kc-dashboard-builder" onSubmit={onBuildDashboard}>
         <div className="kc-asktable-head">
           <BarChart3 className="kc-native-icon" />
@@ -406,29 +418,87 @@ export function AskTablePanel({
           {busyBuild ? <Loader2 className="kc-native-icon kc-spin" /> : <Wand2 className="kc-native-icon" />}
           生成 Dashboard Skill
         </button>
+        {queryResult ? (
+          <dl className="kc-dashboard-build-evidence">
+            <div><dt>Rows</dt><dd>{String(queryResult.data.returnedCount ?? queryResult.data.rows.length)}</dd></div>
+            <div><dt>Policy</dt><dd>{String(queryResult.data.policyDecision?.decision || "unknown")}</dd></div>
+            <div><dt>Execution</dt><dd>{String(queryExecution.mode || "governed")}</dd></div>
+          </dl>
+        ) : null}
       </form>
     </aside>
   );
 }
 
-function AskTableStatus({ result }: { result: AskDataQueryResult }) {
+function AskTableStatusBar({ result }: { result: AskDataQueryResult }) {
   const data = result.data;
   const execution = objectValue((data as unknown as Record<string, unknown>).execution);
   return (
-    <section className={`kc-query-status is-${result.status}`}>
-      <header>
+    <section className={`kc-query-status-bar is-${result.status}`}>
+      <div>
         <span className={`kc-native-badge ${result.status === "completed" ? "is-success" : "is-danger"}`}>
           {result.status}
         </span>
         <strong>{String(data.returnedCount ?? data.rows.length)} rows</strong>
         <em>{String(execution.elapsed_ms ?? execution.elapsedMs ?? "n/a")} ms</em>
-      </header>
+      </div>
       <dl>
         <div><dt>Policy</dt><dd>{String(data.policyDecision?.decision || "unknown")}</dd></div>
         <div><dt>Freshness</dt><dd>{String(data.freshness?.status || "unknown")}</dd></div>
         <div><dt>Agent</dt><dd>{String((result as { agent_status?: string }).agent_status || "unknown")}</dd></div>
       </dl>
-      <pre><code>{data.sql || "-- no SQL executed"}</code></pre>
+    </section>
+  );
+}
+
+function AskTableNotebookResult({
+  result,
+  tab,
+  onTabChange,
+}: {
+  result: AskDataQueryResult;
+  tab: QueryResultTab;
+  onTabChange: (value: QueryResultTab) => void;
+}) {
+  const data = result.data;
+  const tabs: Array<{ id: QueryResultTab; label: string }> = [
+    { id: "results", label: "Results" },
+    { id: "sql", label: "SQL" },
+    { id: "metric", label: "Metric" },
+    { id: "policy", label: "Policy" },
+    { id: "freshness", label: "Freshness" },
+    { id: "evidence", label: "Evidence" },
+  ];
+  return (
+    <section className="kc-query-notebook" data-testid="asktable-query-notebook">
+      <AskTableStatusBar result={result} />
+      <div className="kc-query-tabs" role="tablist" aria-label="AskTable query results">
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={tab === item.id ? "is-active" : ""}
+            onClick={() => onTabChange(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className="kc-query-tabpanel">
+        {tab === "results" ? (
+          <ResultTable rows={data.rows} dense />
+        ) : tab === "sql" ? (
+          <pre><code>{data.sql || "-- no SQL executed"}</code></pre>
+        ) : tab === "metric" ? (
+          <pre><code>{formatJson(data.metricDefinition || data.metric || {})}</code></pre>
+        ) : tab === "policy" ? (
+          <pre><code>{formatJson(data.policyDecision)}</code></pre>
+        ) : tab === "freshness" ? (
+          <pre><code>{formatJson(data.freshness)}</code></pre>
+        ) : (
+          <pre><code>{formatJson({ evidence: data.evidence ?? [], lineage: data.lineage ?? [] })}</code></pre>
+        )}
+      </div>
     </section>
   );
 }
@@ -482,6 +552,7 @@ function DashboardPreview({
 }) {
   const tiles = Array.isArray(spec.tiles) ? spec.tiles : [];
   const filters = Array.isArray(spec.filters) ? spec.filters : [];
+  const dataViews = Array.isArray(spec.data_views) ? spec.data_views : [];
   return (
     <div className="kc-dashboard-preview-pane" data-testid="dashboard-preview-pane">
       <header>
@@ -502,11 +573,13 @@ function DashboardPreview({
       <div className="kc-dashboard-tiles">
         {tiles.length ? tiles.map((tile, index) => {
           const record = objectValue(tile);
+          const tileType = String(record.type || "tile").toLowerCase();
           return (
-            <article key={String(record.id || index)}>
-              <span>{String(record.type || "tile")}</span>
+            <article key={String(record.id || index)} className={`is-${tileType}`}>
+              <span>{tileType}</span>
               <strong>{String(record.title || record.id || "KPI")}</strong>
               <small>{String(record.data_view_id || "primary_metric")}</small>
+              {tileType.includes("chart") || tileType.includes("bar") || tileType.includes("line") ? <DashboardSparkline rows={rows} /> : null}
             </article>
           );
         }) : (
@@ -517,7 +590,34 @@ function DashboardPreview({
           </article>
         )}
       </div>
+      <div className="kc-dashboard-data-views">
+        {dataViews.slice(0, 4).map((view, index) => {
+          const record = objectValue(view);
+          return (
+            <section key={String(record.id || index)}>
+              <strong>{String(record.title || record.name || record.id || `view_${index + 1}`)}</strong>
+              <span>{String(record.metric || record.metric_id || record.kind || "governed data view")}</span>
+            </section>
+          );
+        })}
+      </div>
       <ResultTable rows={rows} />
+    </div>
+  );
+}
+
+function DashboardSparkline({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const values = rows
+    .slice(0, 8)
+    .map((row) => Object.values(row).find((value) => typeof value === "number"))
+    .filter((value): value is number => typeof value === "number");
+  const bars = values.length ? values : [8, 14, 11, 18, 16, 22];
+  const max = Math.max(...bars, 1);
+  return (
+    <div className="kc-dashboard-sparkline" aria-hidden="true">
+      {bars.map((value, index) => (
+        <span key={index} style={{ height: `${Math.max(14, (value / max) * 100)}%` }} />
+      ))}
     </div>
   );
 }
@@ -590,7 +690,7 @@ function EvidenceBlock({ title, value }: { title: string; value: string }) {
   );
 }
 
-function ResultTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+function ResultTable({ rows, dense = false }: { rows: Array<Record<string, unknown>>; dense?: boolean }) {
   const columns = Object.keys(rows[0] ?? {}).slice(0, 8);
   if (!rows.length || !columns.length) {
     return (
@@ -601,7 +701,7 @@ function ResultTable({ rows }: { rows: Array<Record<string, unknown>> }) {
     );
   }
   return (
-    <div className="kc-result-table">
+    <div className={`kc-result-table${dense ? " is-dense" : ""}`}>
       <table>
         <thead>
           <tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr>

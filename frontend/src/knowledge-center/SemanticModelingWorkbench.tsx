@@ -104,16 +104,28 @@ export function SemanticModelingWorkbench({
   const [mobilePane, setMobilePane] = useState<"tree" | "canvas" | "metadata">("canvas");
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
-  const databaseSources = sources.filter((source) =>
-    ["database", "schema_snapshot"].includes(String(source.source_type).toLowerCase()),
+  const databaseSources = useMemo(
+    () =>
+      sources.filter((source) =>
+        ["database", "schema_snapshot"].includes(String(source.source_type).toLowerCase()),
+      ),
+    [sources],
   );
   const mdl = useMemo(() => semanticMdl(selectedAsset), [selectedAsset]);
   const graph = useMemo(() => buildSemanticGraph(mdl), [mdl]);
+  const hasMdl = Boolean(Object.keys(mdl).length);
   const latestJob =
     lastJob ??
     buildJobs.find((job) => job.job_type.includes("semantic") && job.asset_id === selectedAsset?.asset_id) ??
     buildJobs.find((job) => job.job_type.includes("semantic")) ??
     null;
+
+  useEffect(() => {
+    setSelectedSourceId((current) => {
+      if (current && databaseSources.some((source) => source.id === current)) return current;
+      return databaseSources[0]?.id || "";
+    });
+  }, [databaseSources]);
 
   useEffect(() => {
     if (!selectedSourceId) {
@@ -194,6 +206,18 @@ export function SemanticModelingWorkbench({
           <span>模型树、关系图、MDL 和评测证据在同一原生工作台内联动</span>
         </div>
         <form className="kc-workbench-toolbar__controls" onSubmit={submit}>
+          <select
+            aria-label="Semantic Skill"
+            value={selectedAsset?.asset_id || ""}
+            onChange={(event) => setAssetId(event.target.value)}
+          >
+            <option value="">Semantic Skill</option>
+            {semanticAssets.map((asset) => (
+              <option key={asset.asset_id} value={asset.asset_id}>
+                {asset.name} · {asset.version || "v1"}
+              </option>
+            ))}
+          </select>
           <select value={selectedSourceId} onChange={(event) => setSelectedSourceId(event.target.value)}>
             <option value="">Source</option>
             {databaseSources.map((source) => (
@@ -242,7 +266,14 @@ export function SemanticModelingWorkbench({
         <StatusChip label="Agent" value={String(latestJob?.output?.agent_status || selectedAsset?.provenance?.agent_status || "unknown")} />
         <StatusChip label="Runner" value={String(latestJob?.output?.runner_backend || selectedAsset?.provenance?.runner_backend || "pending")} />
         <StatusChip label="Mode" value={String(latestJob?.output?.generation_mode || selectedAsset?.capabilities?.generation_mode || "unknown")} />
+        <StatusChip label="Blocked" value={blockedReason(latestJob, selectedAsset)} />
       </div>
+      {!databaseSources.length ? (
+        <SemanticWorkbenchState
+          title="需要数据库或 Schema Snapshot"
+          text="先在数据源页登记数据库 source 或导入 schema snapshot，之后可在这里生成 Semantic Skill。"
+        />
+      ) : null}
       {error || latestJob?.status === "blocked" ? (
         <div className="kc-workbench-alert" role="alert">
           <AlertCircle className="kc-native-icon" />
@@ -285,9 +316,23 @@ export function SemanticModelingWorkbench({
           assets={semanticAssets}
           selectedAssetId={selectedAsset?.asset_id || ""}
           onSelectAsset={setAssetId}
+          onSelectGraphNode={(id) => {
+            const node = graph.nodes.find((item) => item.id === id);
+            if (node) setSelectedItem({ type: "node", id: node.id, data: node.data });
+          }}
           mdl={mdl}
         />
-        <SemanticGraphCanvas graph={graph} onSelect={setSelectedItem} />
+        <SemanticGraphCanvas
+          graph={graph}
+          onSelect={setSelectedItem}
+          emptyState={
+            hasMdl
+              ? null
+              : selectedAsset
+                ? "当前 Semantic Skill 还没有可渲染 MDL。查看构建任务或重新生成。"
+                : "选择或生成 Semantic Skill 后，模型、表、字段和关系会在画布中渲染。"
+          }
+        />
         <SemanticMetadataDrawer
           selectedItem={selectedItem}
           asset={selectedAsset}
@@ -309,9 +354,11 @@ export function SemanticModelingWorkbench({
 function SemanticGraphCanvas({
   graph,
   onSelect,
+  emptyState,
 }: {
   graph: { nodes: SemanticGraphNodeType[]; edges: SemanticGraphEdgeType[] };
   onSelect: (item: SelectedGraphItem | null) => void;
+  emptyState: string | null;
 }) {
   const [hoveredEdgeId, setHoveredEdgeId] = useState("");
   const nodeTypes = useMemo(() => ({ semanticNode: SemanticGraphNode }), []);
@@ -339,6 +386,13 @@ function SemanticGraphCanvas({
   }));
   return (
     <div className="kc-semantic-canvas" data-testid="semantic-graph-canvas">
+      {emptyState ? (
+        <div className="kc-semantic-canvas-empty">
+          <GitBranch className="kc-native-state-icon" />
+          <strong>等待 MDL 图谱</strong>
+          <span>{emptyState}</span>
+        </div>
+      ) : null}
       <ReactFlowProvider>
         <SemanticCanvasFitButton />
         <ReactFlow<SemanticGraphNodeType, SemanticGraphEdgeType>
@@ -397,6 +451,22 @@ function SemanticGraphNode({ data }: NodeProps<Node<SemanticNodeData>>) {
           );
         })}
       </div>
+      {data.metrics.length ? (
+        <div className="kc-semantic-node__facts">
+          <strong>Metrics</strong>
+          {data.metrics.slice(0, 3).map((metric) => (
+            <span key={labelFrom(metric)} className="kc-node-metric-chip">{labelFrom(metric)}</span>
+          ))}
+        </div>
+      ) : null}
+      {data.dimensions.length ? (
+        <div className="kc-semantic-node__facts">
+          <strong>Dimensions</strong>
+          {data.dimensions.slice(0, 3).map((dimension) => (
+            <span key={labelFrom(dimension)}>{labelFrom(dimension)}</span>
+          ))}
+        </div>
+      ) : null}
       <footer>
         <small>{data.metrics.length} metrics</small>
         <small>{data.dimensions.length} dimensions</small>
@@ -416,6 +486,7 @@ function SemanticModelTree({
   assets,
   selectedAssetId,
   onSelectAsset,
+  onSelectGraphNode,
   mdl,
 }: {
   mode: "source" | "snapshot" | "semantic";
@@ -427,19 +498,68 @@ function SemanticModelTree({
   assets: KnowledgeAssetMetadata[];
   selectedAssetId: string;
   onSelectAsset: (id: string) => void;
+  onSelectGraphNode: (id: string) => void;
   mdl: Record<string, unknown>;
 }) {
   const entities = arrayValue(mdl.entities).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
-  const filtered = (items: Array<{ id: string; label: string; detail: string }>) =>
+  const metrics = arrayValue(mdl.metrics).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
+  const dimensions = arrayValue(mdl.dimensions).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
+  type TreeRow = {
+    id: string;
+    label: string;
+    detail: string;
+    kind: "source" | "snapshot" | "asset" | "entity" | "field" | "metric" | "dimension";
+    parentId?: string;
+  };
+  const filtered = (items: TreeRow[]) =>
     items.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(query.toLowerCase()));
+  const entityRows: TreeRow[] = entities.flatMap((entity) => {
+    const id = String(entity.id || entity.table || labelFrom(entity));
+    const fields = arrayValue(entity.fields).filter((item) => typeof item === "object") as Array<Record<string, unknown>>;
+    return [
+      {
+        id,
+        label: labelFrom(entity),
+        detail: `${String(entity.table || "entity")} · ${fields.length} fields`,
+        kind: "entity" as const,
+      },
+      ...fields.slice(0, 5).map((field) => ({
+        id: `${id}:${labelFrom(field)}`,
+        label: labelFrom(field),
+        detail: String(field.type ?? field.data_type ?? "field"),
+        kind: "field" as const,
+        parentId: id,
+      })),
+      ...metrics
+        .filter((metric) => String(metric.entity || metric.entityId || "") === id)
+        .slice(0, 3)
+        .map((metric) => ({
+          id: `${id}:metric:${labelFrom(metric)}`,
+          label: labelFrom(metric),
+          detail: "metric",
+          kind: "metric" as const,
+          parentId: id,
+        })),
+      ...dimensions
+        .filter((dimension) => String(dimension.entity || dimension.entityId || "") === id)
+        .slice(0, 3)
+        .map((dimension) => ({
+          id: `${id}:dimension:${labelFrom(dimension)}`,
+          label: labelFrom(dimension),
+          detail: "dimension",
+          kind: "dimension" as const,
+          parentId: id,
+        })),
+    ];
+  });
   const rows =
     mode === "source"
-      ? filtered(sources.map((source) => ({ id: source.id, label: source.name, detail: source.source_type })))
+      ? filtered(sources.map((source) => ({ id: source.id, label: source.name, detail: source.source_type, kind: "source" as const })))
       : mode === "snapshot"
-        ? filtered(snapshots.map((snapshot) => ({ id: snapshot.id, label: snapshot.metadata?.name || snapshot.id, detail: snapshot.kind || "snapshot" })))
+        ? filtered(snapshots.map((snapshot) => ({ id: snapshot.id, label: snapshot.metadata?.name || snapshot.id, detail: snapshot.kind || "snapshot", kind: "snapshot" as const })))
         : filtered([
-            ...assets.map((asset) => ({ id: asset.asset_id, label: asset.name, detail: asset.publish_state })),
-            ...entities.map((entity) => ({ id: String(entity.id || entity.table), label: labelFrom(entity), detail: String(entity.table || "entity") })),
+            ...assets.map((asset) => ({ id: asset.asset_id, label: asset.name, detail: `${asset.publish_state} · ${asset.version || "v1"}`, kind: "asset" as const })),
+            ...entityRows,
           ]);
   return (
     <aside className="kc-semantic-tree">
@@ -460,16 +580,27 @@ function SemanticModelTree({
         <input value={query} placeholder="搜索模型、表、字段" onChange={(event) => onQueryChange(event.target.value)} />
       </label>
       <div className="kc-tree-list">
+        <div className="kc-tree-group-title">
+          {mode === "source" ? "Sources" : mode === "snapshot" ? "Snapshots" : "Models / Views"}
+          <span>{rows.length}</span>
+        </div>
         {rows.map((row) => (
           <button
             key={row.id}
             type="button"
-            className={row.id === selectedAssetId ? "is-active" : ""}
+            className={`${row.id === selectedAssetId ? "is-active" : ""}${row.parentId ? " is-child" : ""}`}
             onClick={() => {
               if (assets.some((asset) => asset.asset_id === row.id)) onSelectAsset(row.id);
+              if (row.kind === "entity") onSelectGraphNode(row.id);
             }}
           >
-            <GitBranch className="kc-native-icon" />
+            {row.kind === "source" || row.kind === "entity" ? (
+              <Table2 className="kc-native-icon" />
+            ) : row.kind === "field" ? (
+              <CircleDot className="kc-native-icon" />
+            ) : (
+              <GitBranch className="kc-native-icon" />
+            )}
             <span>
               <strong>{row.label}</strong>
               <small>{row.detail}</small>
@@ -600,6 +731,29 @@ function StatusChip({ label, value }: { label: string; value: string }) {
       <em>{value}</em>
     </span>
   );
+}
+
+function SemanticWorkbenchState({ title, text }: { title: string; text: string }) {
+  return (
+    <section className="kc-workbench-state">
+      <Database className="kc-native-icon" />
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </section>
+  );
+}
+
+function blockedReason(
+  latestJob: KnowledgeAssetBuildJob | null,
+  selectedAsset: KnowledgeAssetMetadata | null,
+): string {
+  const errorMessage = latestJob?.error?.message;
+  if (typeof errorMessage === "string" && errorMessage.trim()) return errorMessage;
+  const jobBlockers = latestJob?.output?.blocked_reasons;
+  if (Array.isArray(jobBlockers) && jobBlockers.length) return jobBlockers.map(String).join(", ");
+  const blockers = selectedAsset?.gate?.blockers;
+  if (Array.isArray(blockers) && blockers.length) return blockers.join(", ");
+  return "none";
 }
 
 export function buildSemanticGraph(mdl: Record<string, unknown>): {

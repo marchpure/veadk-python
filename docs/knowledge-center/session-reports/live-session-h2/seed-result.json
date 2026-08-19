@@ -1,0 +1,15 @@
+{
+  "schema": "agentkit.knowledge_center.session_h2_seed.v1",
+  "asset_db": "/tmp/veadk-session-h2-native-ui.db",
+  "space_id": "space_a4ad66e561b242ea988fa54ce7b19d33",
+  "source_id": "src_63511449eae64fc98c7689a67fda903a",
+  "snapshot_id": "snap_783691f2e14a411e86edceb06ee41178",
+  "semantic_asset_id": "h2_sales_semantic",
+  "dashboard_asset_id": "h2_sales_dashboard",
+  "semantic_job_id": "job_2dadf5ef1ba544ecb3995f6c44ef9e46",
+  "dashboard_job_id": "job_197e0becb1b54ca781a294d3a1e2d1b5",
+  "asset_count": 2,
+  "mock": false,
+  "no_iframe": true,
+  "runtime_dependency": "AgentKit Studio API + KnowledgeAssetStore sqlite"
+}

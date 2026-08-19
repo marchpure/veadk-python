@@ -58,6 +58,11 @@ test("SemanticModelingWorkbench uses React Flow canvas and native build API", ()
   assert.match(panelSource, /SemanticMetadataDrawer/);
   assert.match(panelSource, /查看 MDL/);
   assert.match(panelSource, /查看评测/);
+  assert.match(panelSource, /aria-label="Semantic Skill"/);
+  assert.match(panelSource, /kc-semantic-canvas-empty/);
+  assert.match(panelSource, /kc-tree-group-title/);
+  assert.match(panelSource, /blockedReason/);
+  assert.match(panelSource, /kc-semantic-node__facts/);
   assert.match(panelSource, /relationshipFieldHighlights/);
   assert.match(panelSource, /is-join-field/);
   assert.match(panelSource, /kc-mobile-workbench-tabs/);
@@ -117,6 +122,13 @@ test("AskDashboardWorkbench renders BYAAN-style preview code and query evidence 
   assert.match(askDashboardSource, /policyDecision/);
   assert.match(askDashboardSource, /freshness/);
   assert.match(askDashboardSource, /metricDefinition/);
+  assert.match(askDashboardSource, /AskTableNotebookResult/);
+  assert.match(askDashboardSource, /QueryResultTab/);
+  assert.match(askDashboardSource, /Results/);
+  assert.match(askDashboardSource, /Metric/);
+  assert.match(askDashboardSource, /kc-query-tabs/);
+  assert.match(askDashboardSource, /DashboardSparkline/);
+  assert.match(askDashboardSource, /kc-dashboard-data-views/);
   assert.match(askDashboardSource, /beginSplitResize/);
   assert.match(askDashboardSource, /kc-askdash-resizer/);
   assert.match(askDashboardSource, /title="后端导出能力尚未启用"/);
