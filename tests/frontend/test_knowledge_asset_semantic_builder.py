@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from frontend.server.knowledge_assets import mount_knowledge_asset_routes
 from frontend.server.knowledge_assets.repository import KnowledgeAssetRepository
 from frontend.server.knowledge_assets.service import KnowledgeAssetStore
+from tests.frontend.test_knowledge_asset_agents import FakeAgentRunner
 
 
 def _schema() -> dict[str, object]:
@@ -38,7 +39,13 @@ def _schema() -> dict[str, object]:
     }
 
 
-def _client(tmp_path, monkeypatch, *, model_configured: bool = False) -> TestClient:
+def _client(
+    tmp_path,
+    monkeypatch,
+    *,
+    model_configured: bool = False,
+    runner: FakeAgentRunner | None = None,
+) -> TestClient:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("VEADK_STUDIO_ASSET_SECRET", "semantic local key material")
     for name in (
@@ -56,7 +63,7 @@ def _client(tmp_path, monkeypatch, *, model_configured: bool = False) -> TestCli
     service = KnowledgeAssetStore(
         repository=KnowledgeAssetRepository(tmp_path / "knowledge-assets.db")
     )
-    mount_knowledge_asset_routes(app, service=service)
+    mount_knowledge_asset_routes(app, service=service, internal_agent_runner=runner)
     return TestClient(app)
 
 
@@ -139,7 +146,8 @@ def test_semantic_stream_endpoint_emits_tool_events_and_blocks_publish_without_m
         "/api/knowledge-assets/semantic-build/stream",
         json={
             "space_id": space["id"],
-            "source_ids": [source["id"], doc["id"]],
+            "source_ids": [source["id"]],
+            "document_source_ids": [doc["id"]],
             "snapshot_ids": [snapshot["id"]],
             "name": "Sales Semantic",
             "intent": "build sales question answering semantics",
@@ -168,7 +176,9 @@ def test_semantic_stream_endpoint_emits_tool_events_and_blocks_publish_without_m
     assert job["status"] == "blocked"
     assert job["output"]["publish_state"] == "draft"
     assert job["output"]["validation_result"]["configured"] is False
-    assert "模型未配置" in json.dumps(job["output"]["gate"], ensure_ascii=False)
+    assert "AGENT_NOT_CONFIGURED" in json.dumps(
+        job["output"]["gate"], ensure_ascii=False
+    )
     persisted_events = client.get(
         f"/api/knowledge-assets/semantic-build/{job_id}/events"
     ).json()["items"]
@@ -185,7 +195,8 @@ def test_semantic_stream_endpoint_emits_tool_events_and_blocks_publish_without_m
 def test_semantic_stream_doc_only_creates_graph_pack_not_fake_metric(
     tmp_path, monkeypatch
 ) -> None:
-    client = _client(tmp_path, monkeypatch, model_configured=True)
+    runner = FakeAgentRunner()
+    client = _client(tmp_path, monkeypatch, runner=runner)
     space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
     doc = client.post(
         "/api/knowledge-assets/sources",
@@ -205,7 +216,8 @@ def test_semantic_stream_doc_only_creates_graph_pack_not_fake_metric(
         "/api/knowledge-assets/semantic-build/stream",
         json={
             "space_id": space["id"],
-            "source_ids": [doc["id"]],
+            "source_ids": [],
+            "document_source_ids": [doc["id"]],
             "name": "Policy Graph",
             "intent": "build document graph",
             "publish": True,
@@ -221,14 +233,17 @@ def test_semantic_stream_doc_only_creates_graph_pack_not_fake_metric(
     assert detail["structured_mdl"]["doc_only"] is True
     assert detail["structured_mdl"]["metrics"] == []
     assert detail["doc_graph"]["entities"]
-    assert detail["asset"]["publish_state"] == "published"
+    assert detail["asset"]["publish_state"] == "draft"
     assert detail["skill_runtime"]["readonly_query"]["status"] == "blocked"
+    assert runner.requests[0].payload["operation"] == "start"
+    assert runner.requests[0].payload["document_source_ids"] == [doc["id"]]
 
 
 def test_semantic_builder_conversation_refine_view_and_publish(
     tmp_path, monkeypatch
 ) -> None:
-    client = _client(tmp_path, monkeypatch, model_configured=True)
+    runner = FakeAgentRunner()
+    client = _client(tmp_path, monkeypatch, runner=runner)
     space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
     source = client.post(
         "/api/knowledge-assets/sources",
@@ -292,6 +307,7 @@ def test_semantic_builder_conversation_refine_view_and_publish(
     assert refined["semantic_pack_id"] == "sales_semantic"
     assert refined["latest_revision"]["revision_number"] == 2
     assert any(item["kind"] in {"metrics", "policy"} for item in refined["diff"])
+    assert runner.requests[1].payload["operation"] == "refine"
     refined_detail = client.get(
         "/api/knowledge-assets/semantic-packs/sales_semantic/detail"
     ).json()
@@ -314,10 +330,14 @@ def test_semantic_builder_conversation_refine_view_and_publish(
         },
     ).json()
     assert view["view"]["id"].startswith("view_")
+    assert view["revision"]["status"] == "draft"
     view_detail = client.get(
         "/api/knowledge-assets/semantic-packs/sales_semantic/detail"
     ).json()
-    assert view_detail["structured_mdl"]["views"][0]["business_name"] == "门店销售趋势"
+    assert any(
+        item.get("business_name") == "门店销售趋势"
+        for item in view_detail["structured_mdl"]["views"]
+    )
     assert any(
         entity.get("kind") == "view"
         for entity in view_detail["structured_mdl"]["entities"]
@@ -328,11 +348,97 @@ def test_semantic_builder_conversation_refine_view_and_publish(
         json={"publish": True},
     ).json()
     assert published["publish_state"] == "published"
+    assert published["revision"]["status"] == "published"
     final_detail = client.get(
         "/api/knowledge-assets/semantic-packs/sales_semantic/detail"
     ).json()
     assert final_detail["asset"]["status"] == "ready"
     assert final_detail["asset"]["publish_state"] == "published"
+    history = final_detail["asset"]["capability_package"]["draft_revision_history"]
+    assert any(item.get("operation") == "publish" for item in history)
+
+
+def test_semantic_builder_revision_accept_reject_revert_actions(
+    tmp_path, monkeypatch
+) -> None:
+    runner = FakeAgentRunner()
+    client = _client(tmp_path, monkeypatch, runner=runner)
+    space = client.post("/api/knowledge-assets/spaces", json={"name": "KC"}).json()
+    source = client.post(
+        "/api/knowledge-assets/sources",
+        json={
+            "space_id": space["id"],
+            "source_type": "database",
+            "provider": "duckdb",
+            "name": "Sales DB",
+        },
+    ).json()
+    snapshot = client.post(
+        "/api/knowledge-assets/snapshots",
+        json={
+            "space_id": space["id"],
+            "source_id": source["id"],
+            "asset_type": "knowledge_resource",
+            "asset_id": "sales-schema",
+            "capability_kind": "retrieval_binding",
+            "name": "Sales schema snapshot",
+            "kind": "schema_snapshot",
+            "schema": _schema(),
+        },
+    ).json()
+    response = client.post(
+        "/api/knowledge-assets/semantic-build/stream",
+        json={
+            "space_id": space["id"],
+            "source_ids": [source["id"]],
+            "snapshot_ids": [snapshot["id"]],
+            "name": "Sales Semantic",
+        },
+    )
+    final_status = [
+        event for event in _sse_events(response.text) if event["_event"] == "job_status"
+    ][-1]
+    conversation_id = final_status["payload"].get("conversation_id")
+    if not conversation_id:
+        job_id = final_status["payload"]["job_id"]
+        conversation_id = client.get(
+            f"/api/knowledge-assets/build-jobs/{job_id}"
+        ).json()["output"]["conversation_id"]
+    refined = client.post(
+        f"/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/messages",
+        json={
+            "semantic_pack_id": "sales_semantic",
+            "message": "把票数定义改成去重 billid",
+        },
+    ).json()
+    target_revision_id = refined["latest_revision"]["id"]
+
+    accepted = client.post(
+        f"/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/revisions/{target_revision_id}/accept",
+        json={"message": "确认这个 patch"},
+    ).json()
+    assert accepted["latest_revision"]["status"] == "accepted"
+
+    rejected = client.post(
+        f"/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/revisions/{target_revision_id}/reject",
+        json={"message": "不采用"},
+    ).json()
+    assert rejected["latest_revision"]["status"] == "rejected"
+
+    reverted = client.post(
+        f"/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/revisions/{target_revision_id}/revert",
+        json={"message": "撤销到上一版"},
+    ).json()
+    assert reverted["latest_revision"]["status"] == "reverted"
+    detail = client.get(
+        "/api/knowledge-assets/semantic-packs/sales_semantic/detail"
+    ).json()
+    history = detail["asset"]["capability_package"]["draft_revision_history"]
+    assert [item["operation"] for item in history[-3:]] == [
+        "accept",
+        "reject",
+        "revert",
+    ]
 
 
 def test_semantic_builder_publish_blocks_when_gate_has_blockers(

@@ -49,7 +49,10 @@ def store_env(tmp_path, monkeypatch):
 
 
 def test_default_paths_resolve_under_studio_home(store_env, monkeypatch) -> None:
-    assert default_key_path() == store_env / "home" / ".veadk" / "studio" / "asset-store.key"
+    assert (
+        default_key_path()
+        == store_env / "home" / ".veadk" / "studio" / "asset-store.key"
+    )
     from frontend.server.knowledge_assets.repository import default_db_path
 
     assert default_db_path() == store_env / "knowledge-assets.db"
@@ -200,7 +203,10 @@ def test_import_source_writes_indexed_document_and_terminal_job(store_env) -> No
         docs = await store.list_indexed_documents(source_id=result["source"]["id"])
         assert len(docs) == 1
         assert docs[0]["knowledge_base_id"] == "kb-docs"
-        assert docs[0]["metadata"]["_veadk_source_url"] == "https://internal.example/policy"
+        assert (
+            docs[0]["metadata"]["_veadk_source_url"]
+            == "https://internal.example/policy"
+        )
         assert docs[0]["metadata"]["_veadk_source_title"] == "政策页面"
         assert knowledge_service.created[0]["knowledge_id"] == "kb-docs"
 
@@ -284,8 +290,7 @@ def test_schema_contains_target_knowledge_asset_columns(store_env) -> None:
         conn.execute("SELECT 1 FROM spaces LIMIT 0")
         columns = {
             table: {
-                row[1]
-                for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+                row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
             }
             for table in (
                 "spaces",
@@ -739,8 +744,11 @@ def test_v1_database_is_migrated_to_target_schema(store_env) -> None:
     assert credential["id"].startswith("cred_")
     assert credential["space_id"] == "space_legacy"
     assert credential["auth_mode"] == "none"
-    assert credential["encrypted_credentials"] == '{"version":"knowledge_asset.credential.v1"}'
-    assert schema_version == "4"
+    assert (
+        credential["encrypted_credentials"]
+        == '{"version":"knowledge_asset.credential.v1"}'
+    )
+    assert schema_version == "5"
     assert "knowledge_asset_eval_suites" in tables
     assert "knowledge_asset_eval_results" in tables
     assert "semantic_question_sql_pairs" in tables
@@ -769,7 +777,9 @@ def test_semantic_few_shot_instruction_and_graph_records_persist(store_env) -> N
             UpdateSemanticQuestionSqlPairBody(notes="canonical store ranking"),
         )
         assert edited_pair["notes"] == "canonical store ranking"
-        assert (await store.list_question_sql_pairs(space_id=space["id"]))[0]["id"] == pair["id"]
+        assert (await store.list_question_sql_pairs(space_id=space["id"]))[0][
+            "id"
+        ] == pair["id"]
 
         instruction = await store.create_instruction(
             SemanticInstructionBody(
@@ -786,7 +796,9 @@ def test_semantic_few_shot_instruction_and_graph_records_persist(store_env) -> N
             UpdateSemanticInstructionBody(scope="global"),
         )
         assert edited_instruction["scope"] == "global"
-        assert (await store.list_instructions(space_id=space["id"]))[0]["is_default"] is True
+        assert (await store.list_instructions(space_id=space["id"]))[0][
+            "is_default"
+        ] is True
 
         obj = await store.upsert_graph_object(
             object_id="docobj_ticket",
@@ -821,8 +833,13 @@ def test_semantic_few_shot_instruction_and_graph_records_persist(store_env) -> N
             confidence=0.9,
         )
         assert alignment["status"] == "accepted"
-        assert len(await store.list_graph_objects(semantic_pack_id="sales_semantic")) == 1
-        assert len(await store.list_graph_relations(semantic_pack_id="sales_semantic")) == 1
+        assert (
+            len(await store.list_graph_objects(semantic_pack_id="sales_semantic")) == 1
+        )
+        assert (
+            len(await store.list_graph_relations(semantic_pack_id="sales_semantic"))
+            == 1
+        )
         assert len(await store.list_alignments(semantic_pack_id="sales_semantic")) == 1
 
         await store.delete_question_sql_pair(pair["id"])

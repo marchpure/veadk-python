@@ -147,14 +147,29 @@ test("Semantic builder exposes persisted few-shot, instruction, feedback, view, 
   assert.match(semanticBuildPanelSource, /aria-label="SQL"/);
   assert.match(semanticBuildPanelSource, /aria-label="Instruction"/);
   assert.match(semanticBuildPanelSource, /告诉 Agent 如何调整语义/);
+  assert.match(semanticBuildPanelSource, /data-testid="semantic-feedback-input"/);
   assert.match(semanticBuildPanelSource, /refineSemanticBuilderConversation/);
   assert.match(semanticBuildPanelSource, /data-testid="semantic-patch-diff"/);
   assert.match(semanticBuildPanelSource, /createSemanticBuilderViewDraft/);
   assert.match(semanticBuildPanelSource, /ViewDraftDialog/);
   assert.match(semanticBuildPanelSource, /publishSemanticBuilderDraft/);
+  assert.match(semanticBuildPanelSource, /getSemanticBuilderConversation/);
+  assert.match(semanticBuildPanelSource, /document_source_ids: selectedDocIds/);
+  assert.match(semanticBuildPanelSource, /source_ids: selectedSourceId \? \[selectedSourceId\] : \[\]/);
+  assert.match(semanticBuildPanelSource, /publish: false/);
+  assert.doesNotMatch(semanticBuildPanelSource, /source_ids: \[selectedSourceId, \.\.\.selectedDocIds\]/);
   assert.match(semanticBuildPanelSource, /setInspector\("review"\)/);
   assert.match(semanticBuildPanelSource, /教 Agent 问数口径/);
   assert.doesNotMatch(semanticBuildPanelSource, /Training & Governance/);
+});
+
+test("Semantic builder keeps publish policy explicit and internal status copy hidden", () => {
+  assert.match(semanticBuildPanelSource, /让 Agent 分析数据并生成语义草案/);
+  assert.match(semanticBuildPanelSource, /草案已生成，等待你确认/);
+  assert.match(wrenSourcePortSource, /Semantic Builder 高级设置/);
+  assert.match(wrenSourcePortSource, /发布策略：生成后仍保存为 Draft，发布必须在 Review 后显式确认/);
+  assert.doesNotMatch(wrenSourcePortSource, /Publish after build/);
+  assert.doesNotMatch(`${semanticBuildPanelSource}\n${wrenSourcePortSource}`, /Runner pending|agent_tool_stream|Build succeeded/);
 });
 
 test("Session J Playwright gate covers browser CRUD and reload persistence", () => {
@@ -244,10 +259,12 @@ test("knowledgeAssets client exposes semantic builder stream and draft endpoints
     const events = await streamSemanticBuild({
       space_id: "space_1",
       source_ids: ["src_1"],
+      document_source_ids: ["doc_1"],
       snapshot_ids: ["snap_1"],
       name: "Sales Semantic",
+      publish: false,
     }, (event) => observed.push(event));
-    await createSemanticBuilderConversation({ space_id: "space_1", semantic_pack_id: "sales_semantic" });
+    await createSemanticBuilderConversation({ space_id: "space_1", semantic_pack_id: "sales_semantic", document_source_ids: ["doc_1"] });
     await refineSemanticBuilderConversation("sbc_1", { message: "hide phone", semantic_pack_id: "sales_semantic" });
     await createSemanticBuilderViewDraft("sales_semantic", { name: "Monthly trend", base_metric: "gmv" });
     await publishSemanticBuilderDraft("sales_semantic");
@@ -259,8 +276,10 @@ test("knowledgeAssets client exposes semantic builder stream and draft endpoints
     assert.deepEqual(JSON.parse(calls[0].body), {
       space_id: "space_1",
       source_ids: ["src_1"],
+      document_source_ids: ["doc_1"],
       snapshot_ids: ["snap_1"],
       name: "Sales Semantic",
+      publish: false,
     });
     assert.equal(calls[1].url, "/api/knowledge-assets/semantic-builder/conversations");
     assert.match(calls[2].url, /\/api\/knowledge-assets\/semantic-builder\/conversations\/sbc_1\/messages/);

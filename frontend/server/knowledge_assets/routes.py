@@ -50,6 +50,7 @@ from .models import (
     SemanticBuilderConversationBody,
     SemanticBuilderMessageBody,
     SemanticBuilderPublishBody,
+    SemanticBuilderRevisionActionBody,
     SemanticBuilderViewDraftBody,
     SemanticInstructionBody,
     SemanticQuestionSqlPairBody,
@@ -264,6 +265,7 @@ def mount_knowledge_asset_routes(
         request = SemanticSkillBuildRequest(
             space_id=body.space_id,
             source_ids=body.source_ids,
+            document_source_ids=body.document_source_ids,
             snapshot_ids=body.snapshot_ids,
             name=body.name,
             description=body.description,
@@ -285,6 +287,7 @@ def mount_knowledge_asset_routes(
         request = SemanticSkillBuildRequest(
             space_id=body.space_id,
             source_ids=body.source_ids,
+            document_source_ids=body.document_source_ids,
             snapshot_ids=body.snapshot_ids,
             name=body.name,
             description=body.description,
@@ -342,7 +345,25 @@ def mount_knowledge_asset_routes(
         body: SemanticBuilderMessageBody,
     ) -> dict[str, Any]:
         return await invoke(
-            lambda: store.refine_semantic_builder_conversation(conversation_id, body)
+            lambda: semantic_agent.refine_conversation(conversation_id, body)
+        )
+
+    @app.post(
+        "/api/knowledge-assets/semantic-builder/conversations/{conversation_id}/revisions/{revision_id}/{action}"
+    )
+    async def apply_semantic_builder_revision_action(
+        conversation_id: str,
+        revision_id: str,
+        action: str,
+        body: SemanticBuilderRevisionActionBody,
+    ) -> dict[str, Any]:
+        return await invoke(
+            lambda: store.apply_semantic_builder_revision_action(
+                conversation_id,
+                revision_id,
+                action,
+                body,
+            )
         )
 
     @app.post("/api/knowledge-assets/semantic-builder/drafts/{asset_id}/views")
@@ -702,6 +723,8 @@ def _convert_error(error: Exception) -> HTTPException:
     if isinstance(error, KnowledgeAssetConflict):
         return _api_error(409, error.code, str(error))
     if isinstance(error, SemanticBuildBlocked):
+        if "AGENT_NOT_CONFIGURED" in str(error):
+            return _api_error(409, "AGENT_NOT_CONFIGURED", str(error))
         return _api_error(409, "SEMANTIC_BUILD_BLOCKED", str(error))
     if isinstance(error, (KnowledgeAssetServiceError, ValueError)):
         return _api_error(400, "KNOWLEDGE_ASSET_INVALID_REQUEST", str(error))

@@ -1113,11 +1113,13 @@ class KnowledgeAssetRepository:
                 """
                 INSERT INTO semantic_builder_conversations (
                     id, space_id, semantic_pack_id, draft_pack_id, title,
-                    source_ids_json, snapshot_ids_json, metadata_json
+                    source_ids_json, document_source_ids_json, snapshot_ids_json,
+                    metadata_json
                 )
                 VALUES (
                     :id, :space_id, :semantic_pack_id, :draft_pack_id, :title,
-                    :source_ids_json, :snapshot_ids_json, :metadata_json
+                    :source_ids_json, :document_source_ids_json, :snapshot_ids_json,
+                    :metadata_json
                 )
                 """,
                 row,
@@ -1216,6 +1218,20 @@ class KnowledgeAssetRepository:
                     "SELECT * FROM semantic_builder_revisions "
                     "WHERE conversation_id = ? ORDER BY revision_number ASC, created_at ASC",
                     (conversation_id,),
+                )
+            )
+
+    def list_semantic_conversations_for_pack(
+        self,
+        semantic_pack_id: str,
+    ) -> list[dict[str, Any]]:
+        with self._read() as conn:
+            return _rows(
+                conn.execute(
+                    "SELECT * FROM semantic_builder_conversations "
+                    "WHERE semantic_pack_id = ? OR draft_pack_id = ? "
+                    "ORDER BY updated_at DESC, created_at DESC",
+                    (semantic_pack_id, semantic_pack_id),
                 )
             )
 
@@ -1632,6 +1648,7 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             draft_pack_id TEXT,
             title TEXT NOT NULL,
             source_ids_json TEXT NOT NULL DEFAULT '[]',
+            document_source_ids_json TEXT NOT NULL DEFAULT '[]',
             snapshot_ids_json TEXT NOT NULL DEFAULT '[]',
             metadata_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -1747,6 +1764,13 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         {
             "logs_ref": "TEXT",
             "result_skill_id": "TEXT",
+        },
+    )
+    _ensure_columns(
+        conn,
+        "semantic_builder_conversations",
+        {
+            "document_source_ids_json": "TEXT NOT NULL DEFAULT '[]'",
         },
     )
 

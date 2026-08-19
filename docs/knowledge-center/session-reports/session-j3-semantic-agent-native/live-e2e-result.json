@@ -1,0 +1,114 @@
+{
+  "schema": "session-j3.semantic-builder.live-e2e.v1",
+  "base_url": "http://127.0.0.1:18765",
+  "runner_configured": true,
+  "health": {
+    "configured": true,
+    "mock": false,
+    "store": "sqlite",
+    "agents": {
+      "semantic_builder": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      },
+      "asktable_dashboard": {
+        "configured": true,
+        "status": "available",
+        "runner_backend": "veadk.Agent+Runner",
+        "model_name": "doubao-seed-2-0-lite-260428",
+        "deterministic_fallback_enabled": false
+      }
+    },
+    "capabilities": [
+      "spaces",
+      "sources",
+      "retrieval_binding",
+      "semantic_skill",
+      "dashboard_skill"
+    ]
+  },
+  "used_fallback": false,
+  "live_runner_unavailable": false,
+  "passed": true,
+  "seed": {
+    "space_id": "space_6857249669ab4c3ebcf859fb555e121e",
+    "source_id": "src_72ee8bcb73684b39975f1ef70f2bc622",
+    "document_source_id": "src_a25f5a0694d54e6095856198f4299664",
+    "snapshot_id": "snap_34dc34d3c6454ed8a07443ca4566c303"
+  },
+  "api_flow": {
+    "job_status": "succeeded",
+    "start_publish_state": "draft",
+    "final_publish_state": "published",
+    "conversation_id": "sbc_80fa6d24e4ab46ab94f2d3c730db2dc8",
+    "agent_run_id": "studio_semantic_builder_agent-90892adb8ec041c087638eb4cc9e6158",
+    "runner_backend": "veadk.Agent+Runner",
+    "refine_revision_status": "draft",
+    "accept_revision_status": "accepted",
+    "publish_revision_status": "published",
+    "views": 1,
+    "few_shot": 1,
+    "instructions": 1,
+    "event_types": [
+      "job_status",
+      "agent_message",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "agent_run",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "validation_result",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "artifact_preview",
+      "tool_call_start",
+      "tool_call_delta",
+      "tool_call_result",
+      "job_status"
+    ],
+    "history_operations": [
+      "refine",
+      "accept",
+      "create_view",
+      "publish"
+    ]
+  },
+  "mobile": {
+    "horizontal_overflow_px": 0
+  },
+  "screenshots": [
+    "screenshots/desktop-semantic-builder.png",
+    "screenshots/mobile-semantic-builder.png",
+    "screenshots/desktop-agent-run.png",
+    "screenshots/desktop-patch-diff.png"
+  ],
+  "duration_seconds": 167.57
+}

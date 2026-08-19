@@ -543,12 +543,6 @@ function MetadataDrawer({
             </div>
           </section>
           <section>
-            <h3>Semantic Builder</h3>
-            <label><span>Domain</span><input value={targetDomain} onChange={(event) => onTargetDomainChange(event.target.value)} /></label>
-            <label><span>Intent</span><textarea value={intent} onChange={(event) => onIntentChange(event.target.value)} /></label>
-            <label className="kc-native-checkbox"><input type="checkbox" checked={publish} onChange={(event) => onPublishChange(event.target.checked)} /><span>Publish after build</span></label>
-          </section>
-          <section>
             <h3>可发布检查</h3>
             {blockers.length ? (
               <CompactJsonList items={blockers} emptyText="" />
@@ -578,6 +572,12 @@ function MetadataDrawer({
         </div>
       ) : (
         <div className="adm-metadata-stack">
+          <section>
+            <h3>Semantic Builder 高级设置</h3>
+            <label><span>Domain</span><input value={targetDomain} onChange={(event) => onTargetDomainChange(event.target.value)} /></label>
+            <label><span>Intent</span><textarea value={intent} onChange={(event) => onIntentChange(event.target.value)} /></label>
+            <label className="kc-native-checkbox"><input type="checkbox" checked={publish} onChange={(event) => onPublishChange(event.target.checked)} /><span>发布策略：生成后仍保存为 Draft，发布必须在 Review 后显式确认</span></label>
+          </section>
           <section>
             <h3>Structured MDL</h3>
             <pre className="kc-json-view"><code>{formatJson(viewModel.mdl)}</code></pre>
@@ -988,7 +988,8 @@ function publishStatusText(viewModel: WrenSourcePortViewModel): string {
 
 function publishActionDisabledReason(viewModel: WrenSourcePortViewModel): string {
   if (viewModel.selectedAsset?.publish_state === "published") return "Already published by the validated Semantic Builder run.";
-  return "Publishing is controlled by the Semantic Builder quality gate. Enable Publish after build, then run 生成/重新生成语义.";
+  if (viewModel.selectedAsset?.gate?.blockers?.length) return "Resolve publish gate blockers before publishing.";
+  return "Review the draft, then publish explicitly from the Semantic Builder action.";
 }
 
 function selectedSummary(

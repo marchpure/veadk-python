@@ -163,6 +163,7 @@ class UpdateBuildJobBody(ApiModel):
 class BuildSemanticSkillBody(ApiModel):
     space_id: str | None = Field(default=None, max_length=128)
     source_ids: list[str] = Field(default_factory=list)
+    document_source_ids: list[str] = Field(default_factory=list)
     snapshot_ids: list[str] = Field(default_factory=list)
     name: str = Field(default="Generated Semantic Skill", min_length=1, max_length=300)
     description: str = Field(default="", max_length=2000)
@@ -170,7 +171,7 @@ class BuildSemanticSkillBody(ApiModel):
     target_domain: str = Field(default="", max_length=200)
     publish: bool = False
 
-    @field_validator("source_ids", "snapshot_ids")
+    @field_validator("source_ids", "document_source_ids", "snapshot_ids")
     @classmethod
     def _clean_ids(cls, value: list[str]) -> list[str]:
         return [item.strip() for item in value if item.strip()]
@@ -245,10 +246,11 @@ class SemanticBuilderConversationBody(ApiModel):
     draft_pack_id: str | None = Field(default=None, max_length=256)
     title: str = Field(default="Semantic Builder conversation", max_length=300)
     source_ids: list[str] = Field(default_factory=list)
+    document_source_ids: list[str] = Field(default_factory=list)
     snapshot_ids: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("source_ids", "snapshot_ids")
+    @field_validator("source_ids", "document_source_ids", "snapshot_ids")
     @classmethod
     def _clean_ids(cls, value: list[str]) -> list[str]:
         return [item.strip()[:256] for item in value if item.strip()]
@@ -257,10 +259,15 @@ class SemanticBuilderConversationBody(ApiModel):
 class SemanticBuilderMessageBody(ApiModel):
     message: str = Field(min_length=1, max_length=4000)
     semantic_pack_id: str | None = Field(default=None, max_length=256)
+    base_revision_id: str | None = Field(default=None, max_length=256)
 
 
 class SemanticBuilderPublishBody(ApiModel):
     publish: bool = True
+
+
+class SemanticBuilderRevisionActionBody(ApiModel):
+    message: str = Field(default="", max_length=2000)
 
 
 class SemanticBuilderViewDraftBody(ApiModel):
@@ -303,6 +310,7 @@ __all__ = [
     "SemanticBuilderConversationBody",
     "SemanticBuilderMessageBody",
     "SemanticBuilderPublishBody",
+    "SemanticBuilderRevisionActionBody",
     "SemanticBuilderViewDraftBody",
     "SemanticInstructionBody",
     "SemanticQuestionSqlPairBody",

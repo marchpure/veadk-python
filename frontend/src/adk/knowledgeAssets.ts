@@ -54,6 +54,8 @@ export interface KnowledgeAssetGate {
 
 export interface KnowledgeAssetMetadata {
   schema_version: "knowledge_asset.metadata.v1";
+  package_id?: string;
+  space_id?: string | null;
   asset_type: KnowledgeAssetType;
   asset_id: string;
   capability_kind: KnowledgeCapabilityKind;
@@ -386,6 +388,7 @@ export interface SemanticBuilderConversation {
   draft_pack_id?: string | null;
   title: string;
   source_ids: string[];
+  document_source_ids: string[];
   snapshot_ids: string[];
   metadata: Record<string, unknown>;
   revisions: SemanticBuilderRevision[];
@@ -405,6 +408,8 @@ export interface SemanticBuilderViewDraftResult {
   semantic_pack_id: string;
   view: Record<string, unknown>;
   diff: Array<Record<string, unknown>>;
+  conversation_id?: string;
+  revision?: SemanticBuilderRevision;
   draft: SemanticPackDetail;
   mock?: boolean;
 }
@@ -414,6 +419,8 @@ export interface SemanticBuilderPublishResult {
   semantic_pack_id: string;
   asset: KnowledgeAssetMetadata;
   publish_state: KnowledgePublishState;
+  conversation_id?: string;
+  revision?: SemanticBuilderRevision;
   mock?: boolean;
 }
 
@@ -705,6 +712,7 @@ export async function listKnowledgeAssetSnapshots(input: {
 export async function buildSemanticSkill(input: {
   space_id?: string;
   source_ids?: string[];
+  document_source_ids?: string[];
   snapshot_ids?: string[];
   name: string;
   description?: string;
@@ -723,6 +731,7 @@ export async function streamSemanticBuild(
   input: {
     space_id?: string;
     source_ids?: string[];
+    document_source_ids?: string[];
     snapshot_ids?: string[];
     name: string;
     description?: string;
@@ -839,6 +848,7 @@ export async function createSemanticBuilderConversation(input: {
   draft_pack_id?: string | null;
   title?: string;
   source_ids?: string[];
+  document_source_ids?: string[];
   snapshot_ids?: string[];
   metadata?: Record<string, unknown>;
 }): Promise<SemanticBuilderConversation> {
@@ -864,6 +874,7 @@ export async function refineSemanticBuilderConversation(
   input: {
     message: string;
     semantic_pack_id?: string | null;
+    base_revision_id?: string | null;
   },
 ): Promise<SemanticBuilderRefineResult> {
   return requestJson(
@@ -900,6 +911,19 @@ export async function publishSemanticBuilderDraft(
     `/api/knowledge-assets/semantic-builder/drafts/${encodeURIComponent(assetId)}/publish`,
     { method: "POST", body: JSON.stringify({ publish: true }) },
     "发布语义草案失败",
+  );
+}
+
+export async function applySemanticBuilderRevisionAction(
+  conversationId: string,
+  revisionId: string,
+  action: "accept" | "reject" | "revert",
+  input: { message?: string } = {},
+): Promise<SemanticBuilderRefineResult> {
+  return requestJson(
+    `/api/knowledge-assets/semantic-builder/conversations/${encodeURIComponent(conversationId)}/revisions/${encodeURIComponent(revisionId)}/${encodeURIComponent(action)}`,
+    { method: "POST", body: JSON.stringify(input) },
+    "更新语义草案 revision 失败",
   );
 }
 

@@ -38,6 +38,7 @@ from .models import (
     SaveCredentialBody,
     SemanticBuilderConversationBody,
     SemanticBuilderMessageBody,
+    SemanticBuilderRevisionActionBody,
     SemanticBuilderViewDraftBody,
     SemanticInstructionBody,
     SemanticQuestionSqlPairBody,
@@ -1076,6 +1077,9 @@ class KnowledgeAssetStore:
             or None,
             "title": _sanitize_text(body.title or "Semantic Builder conversation"),
             "source_ids_json": dumps_json(redact_sensitive(body.source_ids)),
+            "document_source_ids_json": dumps_json(
+                redact_sensitive(body.document_source_ids)
+            ),
             "snapshot_ids_json": dumps_json(redact_sensitive(body.snapshot_ids)),
             "metadata_json": dumps_json(redact_sensitive(body.metadata)),
         }
@@ -1134,14 +1138,39 @@ class KnowledgeAssetStore:
         if not semantic_pack_id:
             raise KnowledgeAssetServiceError("需要先生成或选择一个语义草案。")
         detail = await self.semantic_pack_detail(semantic_pack_id)
+        mdl = dict(detail.get("structured_mdl") or {})
+        message = _sanitize_text(body.message)
+        patch, diff = _semantic_refine_patch(message, mdl)
+        return await self.apply_semantic_builder_refinement(
+            conversation_id,
+            semantic_pack_id=semantic_pack_id,
+            message=message,
+            patch=patch,
+            diff=diff,
+            agent_run={},
+        )
+
+    async def apply_semantic_builder_refinement(
+        self,
+        conversation_id: str,
+        *,
+        semantic_pack_id: str,
+        message: str,
+        patch: Mapping[str, Any],
+        diff: Sequence[Mapping[str, Any]],
+        agent_run: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        detail = await self.semantic_pack_detail(semantic_pack_id)
         package = dict(detail["asset"].get("capability_package") or {})
         mdl = dict(detail.get("structured_mdl") or {})
         before = _mdl_summary(mdl)
-        message = _sanitize_text(body.message)
-        patch, diff = _semantic_refine_patch(message, mdl)
         _apply_semantic_refine_patch(mdl, patch)
         package["mdl"] = mdl
         package["structured_mdl"] = mdl
+        package["metrics"] = mdl.get("metrics", [])
+        package["dimensions"] = mdl.get("dimensions", [])
+        package["relationships"] = mdl.get("relationships", [])
+        package["views"] = mdl.get("views", [])
         history = list(package.get("revision_history") or [])
         revision = await self._append_semantic_builder_revision(
             conversation_id,
@@ -1152,20 +1181,33 @@ class KnowledgeAssetStore:
             diff=diff,
             status="draft",
         )
+        run = dict(redact_sensitive(dict(agent_run)))
         history.append(
             {
                 "revision_id": revision["id"],
                 "conversation_id": conversation_id,
+                "operation": "refine",
                 "message": message,
                 "patch": patch,
                 "diff": diff,
+                "status": "draft",
+                "agent_run": run,
+                "agent_run_id": run.get("agent_run_id")
+                or run.get("agent_invocation_id"),
                 "created_at": revision["created_at"],
             }
         )
         package["revision_history"] = history[-50:]
+        package["draft_revision_history"] = package["revision_history"]
+        package["agent_run"] = run or package.get("agent_run") or {}
         metadata = dict(detail["asset"].get("capabilities") or {})
         metadata["draft_revision_count"] = len(history)
         metadata["last_patch_summary"] = diff
+        if run:
+            metadata["last_agent_run_id"] = run.get("agent_run_id") or run.get(
+                "agent_invocation_id"
+            )
+            metadata["agent_status"] = run.get("agent_status")
         await self.patch_skill_package_asset(
             semantic_pack_id,
             {
@@ -1173,6 +1215,14 @@ class KnowledgeAssetStore:
                 "publish_state": "draft",
                 "capability_package_json": dumps_json(redact_sensitive(package)),
                 "capabilities_json": dumps_json(redact_sensitive(metadata)),
+                "metadata_json": dumps_json(
+                    redact_sensitive(
+                        {
+                            **dict(detail["asset"].get("metadata") or {}),
+                            "last_refine_agent_run": run,
+                        }
+                    )
+                ),
             },
         )
         updated = await self.semantic_pack_detail(semantic_pack_id)
@@ -1216,17 +1266,44 @@ class KnowledgeAssetStore:
         package["structured_mdl"] = mdl
         history = list(package.get("revision_history") or [])
         diff = [
-            {"kind": "views", "action": "added", "id": view["id"], "name": view["name"]}
+            {
+                "kind": "views",
+                "action": "added",
+                "id": view["id"],
+                "name": view["business_name"],
+            }
         ]
+        conversation = await self._semantic_builder_conversation_for_pack(
+            asset_id,
+            title=f"{detail['asset'].get('name') or asset_id} View draft",
+        )
+        revision = await self._append_semantic_builder_revision(
+            conversation["id"],
+            semantic_pack_id=asset_id,
+            author_role="user",
+            message=f"Create view draft: {view['business_name']}",
+            patch={
+                "operation": "add",
+                "object_type": "view",
+                "object_id": view["id"],
+                "after": view,
+            },
+            diff=diff,
+            status="draft",
+        )
         history.append(
             {
-                "revision_id": _new_id("rev"),
+                "revision_id": revision["id"],
+                "conversation_id": conversation["id"],
                 "operation": "create_view",
                 "view_id": view["id"],
+                "status": "draft",
                 "diff": diff,
+                "created_at": revision["created_at"],
             }
         )
         package["revision_history"] = history[-50:]
+        package["draft_revision_history"] = package["revision_history"]
         capabilities = dict(detail["asset"].get("capabilities") or {})
         capabilities["views"] = [
             str(item.get("id") or item.get("name"))
@@ -1247,6 +1324,8 @@ class KnowledgeAssetStore:
             "semantic_pack_id": asset_id,
             "view": view,
             "diff": diff,
+            "conversation_id": conversation["id"],
+            "revision": revision,
             "draft": await self.semantic_pack_detail(asset_id),
             "mock": False,
         }
@@ -1263,11 +1342,54 @@ class KnowledgeAssetStore:
             "published_from": "semantic_builder_draft",
             "published_at": _utc_now(),
         }
+        package = dict(asset.get("capability_package") or {})
+        conversation = await self._semantic_builder_conversation_for_pack(
+            asset_id,
+            title=f"{asset.get('name') or asset_id} Publish",
+        )
+        diff = [
+            {
+                "kind": "publish_state",
+                "action": "published",
+                "before": asset.get("publish_state"),
+                "after": "published",
+            }
+        ]
+        revision = await self._append_semantic_builder_revision(
+            conversation["id"],
+            semantic_pack_id=asset_id,
+            author_role="user",
+            message="Publish Semantic Builder draft.",
+            patch={
+                "operation": "publish",
+                "object_type": "semantic_pack",
+                "object_id": asset_id,
+                "before": {"publish_state": asset.get("publish_state")},
+                "after": {"publish_state": "published", "status": "ready"},
+            },
+            diff=diff,
+            status="published",
+        )
+        history = list(package.get("revision_history") or [])
+        history.append(
+            {
+                "revision_id": revision["id"],
+                "conversation_id": conversation["id"],
+                "operation": "publish",
+                "status": "published",
+                "diff": diff,
+                "created_at": revision["created_at"],
+            }
+        )
+        package["revision_history"] = history[-50:]
+        package["draft_revision_history"] = package["revision_history"]
+        package["publish_gate"] = gate
         updated = await self.patch_skill_package_asset(
             asset_id,
             {
                 "status": "ready",
                 "publish_state": "published",
+                "capability_package_json": dumps_json(redact_sensitive(package)),
                 "provenance_json": dumps_json(redact_sensitive(metadata)),
             },
         )
@@ -1276,6 +1398,107 @@ class KnowledgeAssetStore:
             "semantic_pack_id": asset_id,
             "asset": updated,
             "publish_state": updated["publish_state"],
+            "conversation_id": conversation["id"],
+            "revision": revision,
+            "mock": False,
+        }
+
+    async def apply_semantic_builder_revision_action(
+        self,
+        conversation_id: str,
+        revision_id: str,
+        action: str,
+        body: SemanticBuilderRevisionActionBody,
+    ) -> dict[str, Any]:
+        if action not in {"accept", "reject", "revert"}:
+            raise KnowledgeAssetServiceError("不支持的 revision 操作。")
+        conversation = await self.get_semantic_builder_conversation(conversation_id)
+        target = next(
+            (
+                revision
+                for revision in conversation.get("revisions", [])
+                if revision.get("id") == revision_id
+            ),
+            None,
+        )
+        if not isinstance(target, Mapping):
+            raise KnowledgeAssetServiceError("Semantic Builder revision 不存在。")
+        semantic_pack_id = _sanitize_text(
+            str(
+                target.get("semantic_pack_id")
+                or conversation.get("semantic_pack_id")
+                or conversation.get("draft_pack_id")
+                or ""
+            )
+        )
+        if not semantic_pack_id:
+            raise KnowledgeAssetServiceError("revision 未关联语义草案。")
+        detail = await self.semantic_pack_detail(semantic_pack_id)
+        package = dict(detail["asset"].get("capability_package") or {})
+        message = (
+            _sanitize_text(body.message or "") or f"{action} revision {revision_id}"
+        )
+        patch = {
+            "operation": action,
+            "object_type": "revision",
+            "object_id": revision_id,
+            "target_status": target.get("status"),
+        }
+        diff = [
+            {
+                "kind": "revision",
+                "action": action,
+                "id": revision_id,
+                "status": target.get("status"),
+            }
+        ]
+        status_by_action = {
+            "accept": "accepted",
+            "reject": "rejected",
+            "revert": "reverted",
+        }
+        action_revision = await self._append_semantic_builder_revision(
+            conversation_id,
+            semantic_pack_id=semantic_pack_id,
+            author_role="user",
+            message=message,
+            patch=patch,
+            diff=diff,
+            status=status_by_action[action],
+        )
+        history = list(package.get("revision_history") or [])
+        history.append(
+            {
+                "revision_id": action_revision["id"],
+                "conversation_id": conversation_id,
+                "operation": action,
+                "target_revision_id": revision_id,
+                "status": status_by_action[action],
+                "diff": diff,
+                "created_at": action_revision["created_at"],
+            }
+        )
+        package["revision_history"] = history[-50:]
+        package["draft_revision_history"] = package["revision_history"]
+        capabilities = dict(detail["asset"].get("capabilities") or {})
+        capabilities["draft_revision_count"] = len(history)
+        capabilities["last_revision_action"] = action
+        await self.patch_skill_package_asset(
+            semantic_pack_id,
+            {
+                "status": "draft",
+                "publish_state": "draft",
+                "capability_package_json": dumps_json(redact_sensitive(package)),
+                "capabilities_json": dumps_json(redact_sensitive(capabilities)),
+            },
+        )
+        return {
+            **await self.get_semantic_builder_conversation(conversation_id),
+            "semantic_pack_id": semantic_pack_id,
+            "action": action,
+            "target_revision_id": revision_id,
+            "latest_revision": action_revision,
+            "draft": await self.semantic_pack_detail(semantic_pack_id),
             "mock": False,
         }
 
@@ -1307,6 +1530,46 @@ class KnowledgeAssetStore:
         }
         return _semantic_revision_payload(
             await asyncio.to_thread(self._repository.append_semantic_revision, row)
+        )
+
+    async def _semantic_builder_conversation_for_pack(
+        self,
+        semantic_pack_id: str,
+        *,
+        title: str,
+    ) -> dict[str, Any]:
+        rows = await asyncio.to_thread(
+            self._repository.list_semantic_conversations_for_pack,
+            semantic_pack_id,
+        )
+        if rows:
+            return {
+                **_semantic_conversation_payload(rows[0]),
+                "revisions": [
+                    _semantic_revision_payload(row)
+                    for row in await asyncio.to_thread(
+                        self._repository.list_semantic_revisions,
+                        rows[0]["id"],
+                    )
+                ],
+            }
+        detail = await self.semantic_pack_detail(semantic_pack_id)
+        asset = detail["asset"]
+        space_id = str(asset.get("space_id") or "")
+        if not space_id:
+            raise KnowledgeAssetServiceError(
+                "语义草案缺少 space_id，无法创建 revision。"
+            )
+        return await self.create_semantic_builder_conversation(
+            SemanticBuilderConversationBody(
+                space_id=space_id,
+                semantic_pack_id=semantic_pack_id,
+                draft_pack_id=semantic_pack_id,
+                title=title,
+                source_ids=[],
+                snapshot_ids=[],
+                metadata={"created_for": "revision_action"},
+            )
         )
 
     async def semantic_pack_detail(self, asset_id: str) -> dict[str, Any]:
@@ -1605,6 +1868,7 @@ def _semantic_conversation_payload(row: dict[str, Any]) -> dict[str, Any]:
         "draft_pack_id": row.get("draft_pack_id"),
         "title": row.get("title") or "Semantic Builder conversation",
         "source_ids": loads_json(row.get("source_ids_json"), []),
+        "document_source_ids": loads_json(row.get("document_source_ids_json"), []),
         "snapshot_ids": loads_json(row.get("snapshot_ids_json"), []),
         "metadata": loads_json(row.get("metadata_json"), {}),
         "created_at": row.get("created_at"),
@@ -1646,6 +1910,8 @@ def _snapshot_payload(row: dict[str, Any]) -> dict[str, Any]:
 def _metadata_envelope(row: dict[str, Any]) -> KnowledgeAssetMetadataEnvelope:
     return {
         "schema_version": "knowledge_asset.metadata.v1",
+        "package_id": row.get("package_id"),
+        "space_id": row.get("space_id"),
         "asset_type": row["asset_type"],
         "asset_id": row["asset_id"],
         "capability_kind": row["capability_kind"],
@@ -1827,6 +2093,13 @@ def _semantic_refine_patch(
 
 
 def _apply_semantic_refine_patch(mdl: dict[str, Any], patch: Mapping[str, Any]) -> None:
+    operations = _mapping_list(patch.get("operations"))
+    if not operations and all(
+        key in patch for key in ("operation", "object_type", "object_id")
+    ):
+        operations = [dict(patch)]
+    _apply_structured_operations_patch(mdl, operations)
+
     raw_instructions = mdl.get("instructions")
     instructions = list(raw_instructions if isinstance(raw_instructions, list) else [])
     instruction = patch.get("instruction")
@@ -1892,6 +2165,131 @@ def _apply_semantic_refine_patch(mdl: dict[str, Any], patch: Mapping[str, Any]) 
     if view_suggestions:
         existing = _mapping_list(mdl.get("view_suggestions"))
         mdl["view_suggestions"] = [*existing, *view_suggestions][-50:]
+
+
+def _apply_structured_operations_patch(
+    mdl: dict[str, Any],
+    operations: Sequence[Mapping[str, Any]],
+) -> None:
+    for item in operations:
+        operation = str(item.get("operation") or "").strip().lower()
+        object_type = str(item.get("object_type") or "").strip().lower()
+        object_id = str(item.get("object_id") or "").strip()
+        after = item.get("after") if isinstance(item.get("after"), Mapping) else {}
+        if operation not in {"add", "update", "remove"} or not object_type:
+            continue
+        if object_type in {"metric", "measure"}:
+            _apply_list_object_operation(mdl, "metrics", operation, object_id, after)
+        elif object_type in {"dimension"}:
+            _apply_list_object_operation(mdl, "dimensions", operation, object_id, after)
+        elif object_type in {"model", "entity", "table"}:
+            _apply_list_object_operation(mdl, "entities", operation, object_id, after)
+        elif object_type in {"relationship", "relation"}:
+            _apply_list_object_operation(
+                mdl,
+                "relationships",
+                operation,
+                object_id,
+                after,
+            )
+        elif object_type == "view":
+            _apply_list_object_operation(mdl, "views", operation, object_id, after)
+        elif object_type in {"policy", "permissions"}:
+            _apply_permissions_operation(mdl, operation, after)
+        elif object_type in {"field", "entity_field", "model_field"}:
+            _apply_field_policy_operation(mdl, operation, object_id, after)
+
+
+def _apply_list_object_operation(
+    mdl: dict[str, Any],
+    key: str,
+    operation: str,
+    object_id: str,
+    after: Mapping[str, Any],
+) -> None:
+    items = _mapping_list(mdl.get(key))
+    if operation == "remove":
+        mdl[key] = [
+            item
+            for item in items
+            if str(item.get("id") or item.get("name") or "") != object_id
+        ]
+        return
+    if operation == "add":
+        candidate = dict(after)
+        if object_id and not candidate.get("id"):
+            candidate["id"] = object_id
+        if candidate:
+            items = [
+                item
+                for item in items
+                if str(item.get("id") or item.get("name") or "")
+                != str(candidate.get("id") or object_id)
+            ]
+            items.append(candidate)
+            mdl[key] = items
+        return
+    if operation == "update":
+        for item in items:
+            item_id = str(item.get("id") or item.get("name") or "")
+            if item_id != object_id:
+                continue
+            for field, value in after.items():
+                item[str(field)] = value
+            item.setdefault("review_status", "needs_review")
+            if key == "metrics":
+                item["certification"] = "draft"
+        if items:
+            mdl[key] = items
+
+
+def _apply_permissions_operation(
+    mdl: dict[str, Any],
+    operation: str,
+    after: Mapping[str, Any],
+) -> None:
+    if operation == "remove":
+        return
+    raw_permissions = mdl.get("permissions")
+    permissions = dict(raw_permissions if isinstance(raw_permissions, Mapping) else {})
+    for key, value in after.items():
+        permissions[str(key)] = value
+    permissions["raw_sql_fallback"] = False
+    mdl["permissions"] = permissions
+
+
+def _apply_field_policy_operation(
+    mdl: dict[str, Any],
+    operation: str,
+    object_id: str,
+    after: Mapping[str, Any],
+) -> None:
+    if operation == "remove":
+        return
+    field_name = object_id.split(".")[-1] if object_id else ""
+    hidden = bool(after.get("hidden") or after.get("role") == "hidden")
+    masked = bool(
+        hidden or after.get("pii") or after.get("role") in {"masked", "hidden"}
+    )
+    if not field_name or not masked:
+        return
+    raw_permissions = mdl.get("permissions")
+    permissions = dict(raw_permissions if isinstance(raw_permissions, Mapping) else {})
+    for key in ("masked_fields", "denied_fields"):
+        raw_items = permissions.get(key)
+        items = list(raw_items if isinstance(raw_items, list) else [])
+        if not any(field_name in str(item) for item in items):
+            items.append(
+                {
+                    "field": field_name,
+                    "object_id": object_id,
+                    "reason": "Semantic Builder refinement policy update.",
+                    "hidden": hidden,
+                }
+            )
+        permissions[key] = items
+    permissions["raw_sql_fallback"] = False
+    mdl["permissions"] = permissions
 
 
 def _semantic_view_draft(

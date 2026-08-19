@@ -22,6 +22,7 @@ import {
   deleteSemanticInstruction,
   deleteSemanticQuestionSqlPair,
   getKnowledgeAssetBuildJob,
+  getSemanticBuilderConversation,
   getSemanticPackDetail,
   listKnowledgeAssetEvalSuites,
   listKnowledgeAssetSnapshots,
@@ -69,13 +70,13 @@ type RunStageKey =
   | "publish_skill";
 
 const runStages: Array<{ key: RunStageKey; label: string }> = [
-  { key: "inspect_schema", label: "Inspect schema" },
-  { key: "read_context_docs", label: "Read context docs" },
-  { key: "propose_ontology", label: "Propose ontology" },
-  { key: "generate_mdl", label: "Generate MDL" },
-  { key: "validate_sql", label: "Validate SQL" },
-  { key: "link_evidence", label: "Link evidence" },
-  { key: "publish_skill", label: "Publish Skill" },
+  { key: "inspect_schema", label: "正在读取数据结构" },
+  { key: "read_context_docs", label: "正在阅读业务文档" },
+  { key: "propose_ontology", label: "正在提取实体、关系和指标候选" },
+  { key: "generate_mdl", label: "正在生成模型、关系、指标、维度和 View 候选" },
+  { key: "validate_sql", label: "正在校验示例查询" },
+  { key: "link_evidence", label: "正在关联证据和权限规则" },
+  { key: "publish_skill", label: "草案已生成，等待你确认" },
 ];
 
 function isStructuredSource(source: KnowledgeAssetSource): boolean {
@@ -113,11 +114,27 @@ function eventDetail(event: SemanticBuildEvent): string {
   return "";
 }
 
+function userFacingJobStatus(status: string): string {
+  if (status === "succeeded") return "草案已生成";
+  if (status === "blocked") return "需要处理";
+  if (status === "failed") return "生成失败";
+  if (["queued", "running", "pending", "building"].includes(status)) return "Agent 分析中";
+  return "待生成";
+}
+
 function uniqueSemanticAssets(assets: KnowledgeAssetMetadata[]): KnowledgeAssetMetadata[] {
   const seen = new Set<string>();
   return assets.filter((asset) => {
     if (asset.capability_kind !== "semantic_skill" && asset.asset_type !== "semantic_model") return false;
-    const key = `${asset.name.trim().toLowerCase()}:${asset.version || "v1"}`;
+    const sourceIds = Array.isArray(asset.provenance?.source_ids)
+      ? asset.provenance.source_ids.map(String).sort().join(",")
+      : "";
+    const key = [
+      asset.space_id || "default",
+      asset.name.trim().toLowerCase(),
+      asset.version || "v1",
+      sourceIds,
+    ].join(":");
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -226,7 +243,7 @@ export function SemanticBuildPanel({
   const [name, setName] = useState("销售语义问数 Skill");
   const [intent, setIntent] = useState("围绕销售票数、销售额、门店、时间趋势生成聚合问数能力");
   const [targetDomain, setTargetDomain] = useState("sales");
-  const [publish, setPublish] = useState(true);
+  const [publish, setPublish] = useState(false);
   const [events, setEvents] = useState<SemanticBuildEvent[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [lastJob, setLastJob] = useState<KnowledgeAssetBuildJob | null>(null);
@@ -397,12 +414,13 @@ export function SemanticBuildPanel({
       const streamEvents = await streamSemanticBuild(
         {
           space_id: spaceId,
-          source_ids: [selectedSourceId, ...selectedDocIds].filter(Boolean),
+          source_ids: selectedSourceId ? [selectedSourceId] : [],
+          document_source_ids: selectedDocIds,
           snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
           name,
           intent,
           target_domain: targetDomain,
-          publish,
+          publish: false,
         },
         (nextEvent) => setEvents((current) => [...current, nextEvent]),
       );
@@ -423,15 +441,19 @@ export function SemanticBuildPanel({
         const nextDetail = await getSemanticPackDetail(packId);
         setDetail(nextDetail);
         setInspector("review");
-        const nextConversation = await createSemanticBuilderConversation({
-          space_id: spaceId,
-          semantic_pack_id: packId,
-          draft_pack_id: packId,
-          title: `${name} 语义建模对话`,
-          source_ids: [selectedSourceId, ...selectedDocIds].filter(Boolean),
-          snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
-          metadata: { build_job_id: finalJob?.id || jobId },
-        });
+        const conversationId = String(finalJob?.output?.conversation_id || "");
+        const nextConversation = conversationId
+          ? await getSemanticBuilderConversation(conversationId)
+          : await createSemanticBuilderConversation({
+              space_id: spaceId,
+              semantic_pack_id: packId,
+              draft_pack_id: packId,
+              title: `${name} 语义建模对话`,
+              source_ids: selectedSourceId ? [selectedSourceId] : [],
+              document_source_ids: selectedDocIds,
+              snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
+              metadata: { build_job_id: finalJob?.id || jobId },
+            });
         setConversation(nextConversation);
       }
     } catch (caught) {
@@ -460,7 +482,8 @@ export function SemanticBuildPanel({
       semantic_pack_id: packId,
       draft_pack_id: packId,
       title: `${detail?.asset.name || viewModel.selectedAsset?.name || name} 语义建模对话`,
-      source_ids: [selectedSourceId, ...selectedDocIds].filter(Boolean),
+      source_ids: selectedSourceId ? [selectedSourceId] : [],
+      document_source_ids: selectedDocIds,
       snapshot_ids: selectedSnapshotId ? [selectedSnapshotId] : [],
     });
     setConversation(nextConversation);
@@ -650,9 +673,9 @@ export function SemanticBuildPanel({
         </label>
         <button className="is-primary" type="submit" disabled={submitting || mode === "unconfigured"}>
           {submitting ? <Loader2 className="kc-native-icon kc-spin" /> : <Sparkles className="kc-native-icon" />}
-          生成语义
+          让 Agent 分析数据并生成语义草案
         </button>
-        <span className={`kc-builder-chip is-${statusText}`}>{statusText}</span>
+        <span className={`kc-builder-chip is-${statusText}`}>{userFacingJobStatus(statusText)}</span>
         <span className="kc-builder-chip">{String(publishState)}</span>
         <button type="button" onClick={() => void onRefresh()} aria-label="Refresh Semantic workspace">
           <RefreshCw className="kc-native-icon" />
@@ -678,6 +701,7 @@ export function SemanticBuildPanel({
           <span>告诉 Agent 如何调整语义</span>
           <textarea
             value={feedback}
+            data-testid="semantic-feedback-input"
             onChange={(event) => setFeedback(event.target.value)}
             placeholder="例如：把票数定义改成去重 billid；隐藏客户手机号；增加按月份趋势的 view"
             disabled={!activeSemanticPackId || feedbackBusy}
