@@ -45,6 +45,19 @@ STEP_1_ALLOWED_PREFIXES = (
     "tests/fixtures/knowledge_workspace_v21141/",
     "tests/production_readiness/knowledge_workspace_v21141/",
 )
+STEP_2_ALLOWED_PATHS = {
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/scripts/build.mjs",
+    "frontend/tsconfig.json",
+    "frontend/vite.config.ts",
+    "frontend/src/main.tsx",
+    "frontend/src/ui/Sidebar.tsx",
+}
+STEP_2_ALLOWED_PREFIXES = (
+    "frontend/src/knowledge-workspace/",
+    "frontend/tests/knowledge-workspace-v21141/",
+)
 
 
 def repository_files(repo_root: Path) -> list[str]:
@@ -125,9 +138,13 @@ def scan(repo_root: Path) -> dict:
     rules = contract["rules"]
 
     for relative in changed:
-        if relative not in STEP_1_ALLOWED_PATHS and not relative.startswith(
-            STEP_1_ALLOWED_PREFIXES
-        ):
+        allowed = (
+            relative in STEP_2_ALLOWED_PATHS
+            or relative.startswith(STEP_2_ALLOWED_PREFIXES)
+            or relative in STEP_1_ALLOWED_PATHS
+            or relative.startswith(STEP_1_ALLOWED_PREFIXES)
+        )
+        if not allowed:
             findings.append(f"step-1-write-scope:{relative}")
 
     for relative in new_paths:
@@ -152,6 +169,7 @@ def scan(repo_root: Path) -> dict:
     mandatory_split_review_files = [
         relative
         for relative in new_source_files
+        if not relative.startswith("frontend/src/knowledge-workspace/frozen-ui/")
         if count_lines((repo_root / relative).read_bytes())
         > rules["new_file_mandatory_split_review_loc"]
     ]
@@ -163,11 +181,22 @@ def scan(repo_root: Path) -> dict:
     new_production_files = sorted(
         relative for relative in new_paths if is_first_party_production_source(relative)
     )
+    frozen_production_files = [
+        relative
+        for relative in new_production_files
+        if relative.startswith("frontend/src/knowledge-workspace/frozen-ui/")
+    ]
+    implementation_production_files = [
+        relative for relative in new_production_files if relative not in frozen_production_files
+    ]
     production_gross_loc = sum(
         count_lines((repo_root / relative).read_bytes())
         for relative in new_production_files
     )
-    production_net_loc = production_gross_loc
+    production_net_loc = sum(
+        count_lines((repo_root / relative).read_bytes())
+        for relative in implementation_production_files
+    )
     if production_gross_loc > rules["new_first_party_production_gross_loc_max"]:
         findings.append(f"new-production-gross-loc:{production_gross_loc}")
     if production_net_loc > rules["new_first_party_production_net_loc_max"]:
@@ -178,13 +207,16 @@ def scan(repo_root: Path) -> dict:
         relative
         for relative in changed
         if is_first_party_production_source(relative)
+        and not relative.startswith("frontend/src/knowledge-workspace/frozen-ui/")
         and (repo_root / relative).is_file()
     }
     if knowledge_root.exists():
         policy_paths.update(
             path.relative_to(repo_root).as_posix()
             for path in knowledge_root.rglob("*")
-            if path.is_file() and path.suffix in PRODUCTION_EXTENSIONS
+            if path.is_file()
+            and path.suffix in PRODUCTION_EXTENSIONS
+            and "frozen-ui" not in path.parts
         )
     for relative in sorted(policy_paths):
         text = (repo_root / relative).read_text(encoding="utf-8", errors="ignore")

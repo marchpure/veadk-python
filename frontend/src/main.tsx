@@ -5,6 +5,7 @@ import ReactDOM from "react-dom/client";
 import { MotionConfig } from "motion/react";
 import { PhotoProvider } from "react-photo-view";
 import App from "./App";
+import { KnowledgeWorkspaceHost } from "./knowledge-workspace/WorkspaceHost";
 import "react-photo-view/dist/react-photo-view.css";
 
 const PRELOAD_RECOVERY_KEY = "veadk.preloadRecoveryAt";
@@ -35,7 +36,7 @@ window.addEventListener("vite:preloadError", (event) => {
 // the popup. Detect that case *before* the app boots, hand the full callback
 // URL (with ?code=&state=) back to the opener, and close — so the user never
 // has to paste anything and the app never mounts in a throwaway window.
-(() => {
+const isOAuthCallback = (() => {
   const isCallback =
     window.opener &&
     window.opener !== window &&
@@ -51,15 +52,21 @@ window.addEventListener("vite:preloadError", (event) => {
   }
   window.close();
   return true;
-})() ||
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    {/* reducedMotion="user" makes all motion components honor the OS
-        prefers-reduced-motion setting (transforms/opacity are stilled). */}
-    <MotionConfig reducedMotion="user">
-      <PhotoProvider maskOpacity={0.9}>
-        <App />
-      </PhotoProvider>
-    </MotionConfig>
-  </React.StrictMode>,
-);
+})();
+
+const isKnowledgeWorkspaceRoute =
+  new URLSearchParams(window.location.search).get("studio") === "knowledge";
+
+if (!isOAuthCallback) {
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      {/* reducedMotion="user" makes all motion components honor the OS
+          prefers-reduced-motion setting (transforms/opacity are stilled). */}
+      <MotionConfig reducedMotion="user">
+        <PhotoProvider maskOpacity={0.9}>
+          {isKnowledgeWorkspaceRoute ? <KnowledgeWorkspaceHost /> : <App />}
+        </PhotoProvider>
+      </MotionConfig>
+    </React.StrictMode>,
+  );
+}

@@ -438,6 +438,19 @@ export function Sidebar({
             <span className="sidebar-nav-label">智能体</span>
           </button>
           <button
+            className="new-chat new-chat--library"
+            onClick={() => {
+              const url = new URL(window.location.href);
+              url.searchParams.set("studio", "knowledge");
+              window.location.assign(url.toString());
+            }}
+            aria-label="知识"
+            title="知识"
+          >
+            <ResourceLibraryIcon className="icon" />
+            <span className="sidebar-nav-label">知识</span>
+          </button>
+          <button
             className={`new-chat new-chat--library${
               activePage === "library" ? " is-active" : ""
             }`}

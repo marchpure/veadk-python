@@ -1,0 +1,31 @@
+{
+  "schema_version": "knowledge-workspace.adapter-changes.v1",
+  "frozen_source_count": 47,
+  "frozen_source_tree_sha256": "57e97670c6091219dcf1ac35d76dd174a45c9fa69841ce5b7887caef39b27c83",
+  "changes": [
+    {
+      "id": "ADAPTER-01",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-1",
+      "source_path": "prototype/codebase/src/lib/store.ts",
+      "target": "frontend/src/knowledge-workspace/production/store.ts",
+      "reason": "Replace browser persistence and prototype catalog with typed production store ports.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
+    },
+    {
+      "id": "ADAPTER-02",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-1",
+      "source_path": "prototype/codebase/src/lib/actionLoopStore.ts",
+      "target": "frontend/src/knowledge-workspace/production/actionLoop.ts",
+      "reason": "Route action mutations through the production command port.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/actionLoop.ts"
+    },
+    {
+      "id": "ADAPTER-03",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-1",
+      "source_path": "prototype/codebase/src/data/mockData.ts",
+      "target": "frontend/src/knowledge-workspace/production/data.ts",
+      "reason": "Production starts without static data and hydrates only from bootstrap.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/data.ts"
+    }
+  ]
+}

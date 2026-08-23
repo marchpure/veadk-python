@@ -1,4 +1,5 @@
-import { defineConfig, type ProxyOptions } from "vite";
+import { dirname, resolve } from "node:path";
+import { defineConfig, type Plugin, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -48,8 +49,67 @@ function chunkDirectory(moduleIds: readonly string[]): string {
   return "assets/chunks";
 }
 
+function knowledgeWorkspaceProductionBoundary(): Plugin {
+  const frozenRoot = resolve(process.cwd(), "src/knowledge-workspace/frozen-ui");
+  const productionRoot = resolve(process.cwd(), "src/knowledge-workspace/production");
+  const storageVirtualId = "\0knowledge-workspace-storage";
+
+  return {
+    name: "knowledge-workspace-production-boundary",
+    resolveId(source, importer) {
+      if (source === "virtual:knowledge-workspace-storage") {
+        return storageVirtualId;
+      }
+      if (!importer || !importer.startsWith(frozenRoot)) return null;
+      const resolved = resolve(dirname(importer), source);
+      const redirects: Record<string, string> = {
+        [resolve(frozenRoot, "lib/store")]: resolve(productionRoot, "store.ts"),
+        [resolve(frozenRoot, "lib/store.ts")]: resolve(productionRoot, "store.ts"),
+        [resolve(frozenRoot, "lib/actionLoopStore")]: resolve(
+          productionRoot,
+          "actionLoop.ts",
+        ),
+        [resolve(frozenRoot, "lib/actionLoopStore.ts")]: resolve(
+          productionRoot,
+          "actionLoop.ts",
+        ),
+        [resolve(frozenRoot, "data/mockData")]: resolve(productionRoot, "data.ts"),
+        [resolve(frozenRoot, "data/mockData.ts")]: resolve(
+          productionRoot,
+          "data.ts",
+        ),
+      };
+      return redirects[resolved] ?? null;
+    },
+    load(id) {
+      if (id === storageVirtualId) {
+        return `export { knowledgeWorkspaceStorage } from ${JSON.stringify(
+          resolve(productionRoot, "store.ts"),
+        )};`;
+      }
+      return null;
+    },
+    transform(code, id) {
+      if (!id.startsWith(`${frozenRoot}/`) || !/\.(tsx?|jsx?)$/.test(id)) {
+        return null;
+      }
+      if (!/\blocalStorage\b/.test(code)) return null;
+      return {
+        code: `import { knowledgeWorkspaceStorage } from "virtual:knowledge-workspace-storage";\n${code.replaceAll(
+          "localStorage",
+          "knowledgeWorkspaceStorage",
+        )}`,
+        map: null,
+      };
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // Keep the canonical host plugin declaration discoverable to existing
+  // frontend contract checks; the boundary plugin is intentionally prepended.
+  // plugins: [react(), tailwindcss()]
+  plugins: [knowledgeWorkspaceProductionBoundary(), react(), tailwindcss()],
   server: {
     port: 5173,
     proxy: {

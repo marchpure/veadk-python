@@ -1,0 +1,126 @@
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, MoreHorizontal, FileText, CheckCircle2, MessageSquare, PlusSquare, Share, Download, BadgeCheck, FilePlus2, ToyBrick, Filter, Info, Share2, RefreshCw, MousePointer2 } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { resourceStore } from '../../lib/store';
+
+export default function ArtifactHeader({
+  title, typeLabel, isTeam, version, fromTeamVersion, editTarget, onElementClick, setSearchParams, searchParams, showToast
+}: any) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
+    const handleClickOutside = (e: MouseEvent) => { if (moreOpen && !(e.target as Element).closest('.more-menu-container')) setMoreOpen(false); };
+    if (moreOpen) { window.addEventListener('keydown', handleEsc); window.addEventListener('click', handleClickOutside); }
+    return () => { window.removeEventListener('keydown', handleEsc); window.removeEventListener('click', handleClickOutside); };
+  }, [moreOpen]);
+
+  const handleReturn = () => {
+    const p = new URLSearchParams(searchParams);
+    p.set('file', 'welcome');
+    p.delete('custom_name'); p.delete('from_team_version'); p.delete('team_origin'); p.delete('version');
+    setSearchParams(p);
+  };
+
+  const isDoc = typeLabel === 'Document';
+  const isDash = typeLabel === 'Dashboard';
+  const isKB = typeLabel === 'Knowledge Base';
+
+  return (
+    <div className="flex flex-col mb-4 w-full select-none">
+      {/* Breadcrumb - weak info */}
+      <div className="flex items-center text-[11px] text-slate-400 mb-1">
+        <span className="hover:text-slate-600 cursor-pointer transition-colors" onClick={handleReturn}>工作区</span>
+        <span className="mx-1.5">/</span>
+        <span>{isTeam ? '团队资源' : '个人资源'}</span>
+        <span className="mx-1.5">/</span>
+        <span>{typeLabel}</span>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col min-w-0 pr-4">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-slate-900 tracking-tight truncate">{title}</h1>
+            <span className="text-[12px] font-mono text-slate-500 shrink-0 ml-1">{version}</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-400 shrink-0 bg-slate-50 ml-1">{isTeam ? '团队快照' : '个人草稿'}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 shrink-0">
+          <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
+            const currentResource = resourceStore.getState().find((r:any) => r.id === searchParams.get('file') || r.resourceId === searchParams.get('file'));
+            const item = { 
+              id: searchParams.get('file'), 
+              name: title, 
+              type: isTeam ? 'team_artifact' : 'personal_artifact', 
+              artifactType: currentResource?.subtype || currentResource?.artifactType || typeLabel, 
+              version: isTeam ? searchParams.get('version') || version : version, 
+              readonly: isTeam,
+              resourceKind: currentResource?.resourceKind,
+              subtype: currentResource?.subtype,
+              lineage: currentResource?.lineage
+            };
+            window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item } }));
+          }}>
+            <PlusSquare size={14} className="mr-1.5 text-slate-500"/>加入对话
+          </button>
+          
+          {!isTeam ? (
+            <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', 'publish'); setSearchParams(p); }}>
+              发布到团队
+            </button>
+          ) : (
+            <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
+              const p = new URLSearchParams(searchParams); p.set('action', 'reuse_modal'); p.set('reuse_title', title); setSearchParams(p);
+            }}>
+              <FilePlus2 size={14} className="mr-1.5 text-slate-500" /> 复用为草稿
+            </button>
+          )}
+
+          <div className="relative more-menu-container">
+            <button aria-label="更多操作" className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200 outline-none" onClick={() => setMoreOpen(!moreOpen)}>
+              <MoreHorizontal size={16}/>
+            </button>
+            {moreOpen && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 shadow-md rounded-xl py-1.5 z-50">
+                {!isDoc && (
+                  <>
+                    <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); if (p.get('select_mode') === 'true') p.delete('select_mode'); else p.set('select_mode', 'true'); setSearchParams(p); }}>
+                      <MousePointer2 size={14} className="mr-2 text-slate-400" /> 选择元素
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); showToast?.('刷新中...'); }}>
+                      <RefreshCw size={14} className="mr-2 text-slate-400" /> 刷新数据
+                    </button>
+                    <div className="h-px bg-slate-100 my-1"></div>
+                  </>
+                )}
+                <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'versions'); setSearchParams(p); }}>
+                  <Info size={14} className="mr-2 text-slate-400" /> 版本历史
+                </button>
+                {!isDoc && (
+                  <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); p.set('eval_target', searchParams.get('file') || 'dashboard_sales_east'); setSearchParams(p); }}>
+                    <BadgeCheck size={14} className="mr-2 text-slate-400" /> 评测中心
+                  </button>
+                )}
+                <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'export'); setSearchParams(p); }}>
+                  <Download size={14} className="mr-2 text-slate-400" /> 导出
+                </button>
+                <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'share'); setSearchParams(p); }}>
+                  <Share size={14} className="mr-2 text-slate-400" /> 分享
+                </button>
+                {(isDash || isKB || searchParams.get('file') === 'kb_sales') && (
+                  <>
+                    <div className="h-px bg-slate-100 my-1"></div>
+                    <button className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center outline-none font-medium" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'publish_agent'); setSearchParams(p); }}>
+                      <ToyBrick size={14} className="mr-2 text-blue-500" /> 发布到 Agent
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

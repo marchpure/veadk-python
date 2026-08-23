@@ -1,0 +1,2 @@
+# The frozen export must retain its source bytes for provenance verification.
+* -whitespace

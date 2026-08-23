@@ -1,0 +1,36 @@
+.knowledge-workspace-host {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  background: #fff;
+}
+
+.knowledge-workspace-host > :first-child {
+  height: 100%;
+}
+
+.knowledge-workspace-error {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 300;
+  display: grid;
+  gap: 4px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 12px 14px;
+  color: #7f1d1d;
+  background: #fff7f7;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 12%);
+  font-size: 12px;
+}
+
+.knowledge-workspace-error strong {
+  font-size: 13px;
+}
+
+.knowledge-workspace-error small {
+  color: #991b1b;
+}
