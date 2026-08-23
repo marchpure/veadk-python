@@ -4,6 +4,8 @@
   z-index: 40;
   overflow: hidden;
   background: #fff;
+  display: grid;
+  place-items: center;
 }
 
 .knowledge-workspace-host > :first-child {
@@ -25,6 +27,10 @@
   border-radius: 8px;
   box-shadow: 0 8px 24px rgb(15 23 42 / 12%);
   font-size: 12px;
+}
+
+.knowledge-workspace-host > .knowledge-workspace-error {
+  height: auto;
 }
 
 .knowledge-workspace-error strong {

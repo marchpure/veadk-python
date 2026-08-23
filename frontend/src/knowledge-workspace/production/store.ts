@@ -57,7 +57,18 @@ export class WorkspaceStore<T> {
     const adapter = getWorkspaceAdapter();
     void adapter
       .command("workspace.store-update", { store: this.key, value: next }, createRequestContext())
-      .then(() => {
+      .then((result) => {
+        if (!result.accepted) {
+          publishWorkspaceError(
+            new KnowledgeAdapterError({
+              code: "UNAVAILABLE",
+              message: "知识服务未确认此操作，未应用本地修改。",
+              retryable: true,
+              requestId: result.requestId,
+            }),
+          );
+          return;
+        }
         if (!adapter.allowOptimisticUpdates) return;
         this.state = next;
         this.listeners.forEach((listener) => listener());
@@ -210,9 +221,12 @@ export function getResourceDescriptor(
   };
 }
 
-export async function bootstrapWorkspace(signal?: AbortSignal): Promise<KnowledgeBootstrap> {
+export async function bootstrapWorkspace(
+  signal?: AbortSignal,
+  currentAdapter: WorkspaceAdapter = adapter,
+): Promise<KnowledgeBootstrap> {
   try {
-    const bootstrapped = await adapter.bootstrap(signal);
+    const bootstrapped = await currentAdapter.bootstrap(signal);
     resourceStore.replace(bootstrapped.resources as WorkspaceResource[]);
     connectionStore.replace(bootstrapped.connections as Record<string, unknown>[]);
     agentPublicationStore.replace(bootstrapped.publications);
@@ -220,5 +234,40 @@ export async function bootstrapWorkspace(signal?: AbortSignal): Promise<Knowledg
   } catch (error) {
     publishWorkspaceError(error);
     throw error;
+  }
+}
+
+export async function runProductionMutation(
+  intent: {
+    command: import("./ports").KnowledgeCommand;
+    sourcePath: string;
+    eventName: string;
+    handlerName?: string;
+  },
+  currentAdapter: WorkspaceAdapter = getWorkspaceAdapter(),
+): Promise<boolean> {
+  const context = createRequestContext();
+  try {
+    const result = await currentAdapter.command(intent.command, intent, context);
+    if (!result.accepted) {
+      publishWorkspaceError(
+        new KnowledgeAdapterError({
+          code: "UNAVAILABLE",
+          message: "知识服务未确认此操作，未应用本地修改。",
+          retryable: true,
+          requestId: context.requestId,
+        }),
+      );
+      return false;
+    }
+    try {
+      await bootstrapWorkspace(undefined, currentAdapter);
+    } catch {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    publishWorkspaceError(error);
+    return false;
   }
 }

@@ -8,15 +8,14 @@ import {
 import "./WorkspaceHost.css";
 
 export function KnowledgeWorkspaceHost() {
-  const [error, setError] = useState(() => getWorkspaceError());
+  const [error, setError] = useState(() => getWorkspaceError()); const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeWorkspaceError(setError);
     const controller = new AbortController();
-    void bootstrapWorkspace(controller.signal).catch(() => {
-      // The adapter publishes a typed, user-safe error. The frozen UI remains
-      // mounted so route/auth composition stays independent from backend state.
-    });
+    void bootstrapWorkspace(controller.signal)
+      .then(() => setReady(true))
+      .catch(() => setReady(false));
     return () => {
       unsubscribe();
       controller.abort();
@@ -25,12 +24,13 @@ export function KnowledgeWorkspaceHost() {
 
   return (
     <div className="knowledge-workspace-host">
-      <FrozenWorkspaceApp />
-      {error && (
+      {ready && !error ? <FrozenWorkspaceApp /> : (
         <div className="knowledge-workspace-error" role="alert">
-          <strong>知识工作区暂不可用</strong>
-          <span>{error.message}</span>
-          <small>请求 ID：{error.issue.requestId}</small>
+          <strong>{error ? "知识工作区暂不可用" : "正在连接知识工作区"}</strong>
+          <span>
+            {error?.message ?? "正在验证访问权限与工作区状态，请稍候。"}
+          </span>
+          {error && <small>请求 ID：{error.issue.requestId}</small>}
         </div>
       )}
     </div>

@@ -13,7 +13,7 @@ export type KnowledgeCommand =
   | "evaluation.apply"
   | "action.update"
   | "artifact.export"
-  | "workspace.store-update";
+  | "workspace.store-update" | "workspace.mutation";
 
 export type KnowledgeErrorCode =
   | "UNAVAILABLE"
@@ -248,7 +248,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
       });
     }
     return {
-      events: parseSse(response.body),
+      events: parseSse(response.body, context.requestId),
       cancel: async () => {
         controller.abort();
         await this.command(
@@ -274,14 +274,20 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
   ): Promise<Response> {
     const timeout = new AbortController();
     const timer = globalThis.setTimeout(() => timeout.abort(), this.timeoutMs);
-    const abort = () => timeout.abort();
+    let callerAborted = context.signal?.aborted ?? false;
+    const abort = () => {
+      callerAborted = true;
+      timeout.abort();
+    };
     context.signal?.addEventListener("abort", abort, { once: true });
+    if (callerAborted) timeout.abort();
     try {
       const response = await this.fetcher(`${this.basePath}${path}`, {
         method,
         signal: timeout.signal,
         headers: {
-          Accept: method === "GET" ? "application/json" : "application/json",
+          Accept:
+            path === "/v1/streams" ? "text/event-stream" : "application/json",
           ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
           "X-Request-ID": context.requestId,
           ...(method === "POST" ? { "Idempotency-Key": context.idempotencyKey } : {}),
@@ -299,11 +305,17 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     } catch (error) {
       if (error instanceof KnowledgeAdapterError) throw error;
       throw new KnowledgeAdapterError({
-        code: timeout.signal.aborted ? "TIMEOUT" : "NETWORK",
-        message: timeout.signal.aborted
-          ? "知识服务请求超时，请稍后重试。"
-          : "无法连接知识服务，请检查网络或服务状态。",
-        retryable: true,
+        code: callerAborted
+          ? "CANCELLED"
+          : timeout.signal.aborted
+            ? "TIMEOUT"
+            : "NETWORK",
+        message: callerAborted
+          ? "操作已取消。"
+          : timeout.signal.aborted
+            ? "知识服务请求超时，请稍后重试。"
+            : "无法连接知识服务，请检查网络或服务状态。",
+        retryable: !callerAborted,
         requestId: context.requestId,
       });
     } finally {
@@ -313,25 +325,63 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
   }
 }
 
-async function* parseSse(body: ReadableStream<Uint8Array>): AsyncIterable<KnowledgeStreamEvent> {
+async function* parseSse(body: ReadableStream<Uint8Array>, requestIdValue: string): AsyncIterable<KnowledgeStreamEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer = "", lastSequence = 0, started = false, terminal = false;
   try {
     while (true) {
       const next = await reader.read();
-      if (next.done) break;
-      buffer += decoder.decode(next.value, { stream: true });
-      const frames = buffer.split(/\r?\n\r?\n/);
-      buffer = frames.pop() ?? "";
+      buffer += next.done ? `${decoder.decode()}\n\n` : decoder.decode(next.value, { stream: true });
+      const frames = buffer.split(/\r?\n\r?\n/); buffer = frames.pop() ?? "";
       for (const frame of frames) {
-        const data = frame
-          .split(/\r?\n/)
-          .filter((line) => line.startsWith("data:"))
-          .map((line) => line.slice(5).trim())
-          .join("\n");
+        const data = frame.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join(
+          "\n",
+        );
         if (!data) continue;
-        yield JSON.parse(data) as KnowledgeStreamEvent;
+        let event: KnowledgeStreamEvent;
+        try {
+          event = JSON.parse(data) as KnowledgeStreamEvent;
+        } catch {
+          throw new KnowledgeAdapterError({
+            code: "INVALID_RESPONSE",
+            message: "知识服务 SSE 事件无法解析。",
+            retryable: false,
+            requestId: requestIdValue,
+          });
+        }
+        if (
+          !event ||
+          typeof event !== "object" ||
+          typeof event.schema_version !== "string" ||
+          typeof event.stream_id !== "string" ||
+          typeof event.event_id !== "string" ||
+          typeof event.terminal !== "boolean" ||
+          typeof event.sequence !== "number" ||
+          !Number.isInteger(event.sequence) ||
+          event.sequence < 1 ||
+          (started && event.sequence !== lastSequence + 1) ||
+          terminal
+        ) {
+          throw new KnowledgeAdapterError({
+            code: "INVALID_RESPONSE",
+            message: "知识服务 SSE 顺序或 terminal 无效。",
+            retryable: false,
+            requestId: requestIdValue,
+          });
+        }
+        started = true; lastSequence = event.sequence; terminal ||= event.terminal; yield event;
+      }
+      if (next.done) {
+        if (!terminal) {
+          throw new KnowledgeAdapterError({
+            code: "INVALID_RESPONSE",
+            message: "知识服务 SSE 缺少 terminal 事件。",
+            retryable: false,
+            requestId: requestIdValue,
+          });
+        }
+        break;
       }
     }
   } finally {

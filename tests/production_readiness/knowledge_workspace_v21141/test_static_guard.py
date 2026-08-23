@@ -16,9 +16,9 @@ def test_current_production_tree_passes_step_2_static_guard() -> None:
     result = scan(REPO_ROOT)
     assert result["status"] == "pass", result["findings"]
     assert result["frozen_production_copies"] <= 1
-    assert result["new_first_party_production_files"] == 47
-    assert result["new_first_party_production_gross_loc"] == 9708
-    assert result["new_first_party_production_net_loc"] == 760
+    assert result["new_first_party_production_files"] == 51
+    assert result["new_first_party_production_gross_loc"] == 10246
+    assert result["new_first_party_production_net_loc"] == 859
     assert result["oversized_new_source_files"] == []
     assert result["mandatory_split_review_files"] == []
     assert all(item["line_growth"] <= 0 for item in result["shared_hotspots"])
