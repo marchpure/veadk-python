@@ -1,0 +1,128 @@
+{
+  "state_name": "Unified Workspace Home",
+  "state_url": "/?file=welcome",
+  "children": [
+    {
+      "interaction": "Click Add Context / Data",
+      "state_name": "Connector Registry",
+      "state_url": "/?file=add_data&step=1",
+      "children": [
+        {
+          "interaction": "Select Lark Docs",
+          "state_name": "Feishu Docs Connection Wizard",
+          "state_url": "/?file=add_data&step=2&source=lark_doc"
+        },
+        {
+          "interaction": "Select Database (PostgreSQL)",
+          "state_name": "PostgreSQL Connection Wizard",
+          "state_url": "/?file=add_data&step=2&source=postgresql"
+        },
+        {
+          "interaction": "Create Custom Connector",
+          "state_name": "Custom Connector Form",
+          "state_url": "/?file=add_data&step=2&source=create_custom"
+        }
+      ]
+    },
+    {
+      "interaction": "View Financial Dashboard",
+      "state_name": "Financial Dashboard",
+      "state_url": "/?file=res_dash_finance",
+      "children": [
+        {
+          "interaction": "View Finance Action Policy Modal",
+          "state_name": "Finance Action Policy Modal",
+          "state_url": "/?file=res_dash_finance&modal=action_policy&policy_id=pol_finance"
+        }
+      ]
+    },
+    {
+      "interaction": "View Sales Dashboard",
+      "state_name": "Dashboard Viewer",
+      "state_url": "/?file=res_dash_east",
+      "children": [
+        {
+          "interaction": "Publish to Agent Action",
+          "state_name": "Publish Agent Modal",
+          "state_url": "/?file=res_dash_east&modal=publish_agent"
+        },
+        {
+          "interaction": "View Agent Selector Modal",
+          "state_name": "Agent Selector Modal",
+          "state_url": "/?file=res_dash_east&modal=agent_selector"
+        },
+        {
+          "interaction": "Open Evaluation",
+          "state_name": "Evaluation View",
+          "state_url": "/?file=evaluation_detail&eval_target=res_dash_east"
+        }
+      ]
+    },
+    {
+      "interaction": "View Knowledge Graph",
+      "state_name": "Knowledge Graph Studio",
+      "state_url": "/?file=kg_sales",
+      "children": [
+        {
+          "interaction": "Trigger AI Build",
+          "state_name": "AI Graph Build Plan (Right Pane)",
+          "state_url": "/?file=kg_sales&pane=open&chat=planning"
+        }
+      ]
+    },
+    {
+      "interaction": "View Recruitment Loop Scenario",
+      "state_name": "Recruitment Action Loop - Data",
+      "state_url": "/?file=res_dash_recruitment",
+      "children": [
+        {
+          "interaction": "Click Action Tab",
+          "state_name": "Recruitment Action Loop - Action Tab",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=action"
+        },
+        {
+          "interaction": "Click Review Tab",
+          "state_name": "Recruitment Action Loop - Review Tab",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=review"
+        },
+        {
+          "interaction": "Click Decision Tab",
+          "state_name": "Recruitment Action Loop - Decision Tab",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=decision"
+        },
+        {
+          "interaction": "View Evidence Highlight from Brief",
+          "state_name": "Recruitment Action Loop - Evidence Highlight",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=action&highlight_target=todo_vn_hc_1"
+        },
+        {
+          "interaction": "View Action Policy Modal",
+          "state_name": "Action Policy Modal",
+          "state_url": "/?file=res_dash_recruitment&modal=action_policy"
+        }
+      ]
+    },
+    {
+      "interaction": "View Semantic Model",
+      "state_name": "Semantic Model Viewer",
+      "state_url": "/?file=semantic_sales"
+    },
+    {
+      "interaction": "View Connection Detail",
+      "state_name": "Connection Detail Viewer",
+      "state_url": "/?file=res_sample_postgres"
+    },
+    {
+      "interaction": "View Knowledge Base",
+      "state_name": "Knowledge Base Viewer",
+      "state_url": "/?file=kb_sales",
+      "children": [
+        {
+          "interaction": "Publish to Agent Action",
+          "state_name": "Publish Agent Modal",
+          "state_url": "/?file=kb_sales&modal=publish_agent"
+        }
+      ]
+    }
+  ]
+}
