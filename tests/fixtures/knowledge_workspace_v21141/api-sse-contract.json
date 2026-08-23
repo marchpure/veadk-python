@@ -1,0 +1,26 @@
+{
+  "schema_version": "knowledge-workspace.transport.v1",
+  "http": {
+    "base_path": "/api/knowledge-assets",
+    "versioning": "schema and media-type compatible; breaking paths require a new major version",
+    "mutation_headers_required": ["Idempotency-Key", "X-Request-ID"],
+    "error_envelope_required": ["code", "message", "retryable", "request_id"],
+    "error_envelope_forbidden": ["credential", "token", "cookie", "raw SQL", "internal stack"]
+  },
+  "sse": {
+    "content_type": "text/event-stream",
+    "event_required": ["schema_version", "stream_id", "event_id", "sequence", "type", "occurred_at", "payload", "terminal"],
+    "sequence": "strictly-increasing",
+    "resume_header": "Last-Event-ID",
+    "terminal_event_count": 1,
+    "browser_abort_changes_job_state": false,
+    "explicit_cancel_is_durable": true,
+    "persist_before_first_event": true,
+    "duplicate_event_id_is_idempotent": true
+  },
+  "health": {
+    "startup": ["config", "secret-kms", "database-version", "migration-compatibility"],
+    "liveness": ["process-event-loop"],
+    "readiness": ["database", "migration-compatibility", "job-queue", "worker-capability", "object-storage", "mandatory-provider-config"]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": "knowledge-workspace.commercial-readiness.v1",
+  "minimum_ga_metrics": {
+    "concurrent_interactive_users": 100,
+    "concurrent_agent_turns": 20,
+    "concurrent_import_jobs": 10,
+    "read_api_p95_ms": 500,
+    "mutation_accept_p95_ms": 1000,
+    "sse_first_event_p95_ms": 2000,
+    "monthly_availability": 0.999,
+    "rpo_minutes": 15,
+    "rto_minutes": 60
+  },
+  "contracts": {
+    "topology": {
+      "required": ["Web/API", "durable DB", "durable job/worker/scheduler", "AgentKit Runner", "Provider", "Secret/KMS", "object storage", "observability", "backup/restore", "production deployment profile"],
+      "gate": "fresh environment production artifact only; no development server or in-memory durable state"
+    },
+    "configuration": {
+      "required": ["versioned schema", "required-value validation", "unknown-key rejection", "secret references", "environment/profile separation"],
+      "gate": "invalid, empty, plaintext, or default-secret Commercial configuration fails startup"
+    },
+    "migration": {
+      "required": ["version table", "repeatable check", "expand/contract", "forward compatibility window", "backup before destructive phase"],
+      "gate": "fresh install, upgrade, retry, and rollback drill produce machine evidence"
+    },
+    "health": {
+      "required": ["startup", "liveness", "readiness"],
+      "gate": "readiness checks DB, migration compatibility, durable queue/worker capability, object storage, and mandatory secret/provider configuration"
+    },
+    "api_sse": {
+      "required": ["versioned HTTP", "error envelope", "Idempotency-Key", "ordered durable SSE", "Last-Event-ID", "single terminal event", "explicit cancel"],
+      "gate": "compatibility, reconnect, replay, duplicate, cancellation, and bounded payload tests"
+    },
+    "rbac_tenant": {
+      "required": ["server Access Context", "personal/team role matrix", "resource authorization", "IDOR denial", "cache/queue/storage/export/share isolation"],
+      "gate": "cross-tenant attempts fail closed and are audited"
+    },
+    "secrets": {
+      "required": ["Secret Manager/KMS port", "envelope encryption", "rotation", "revocation", "least privilege", "redaction"],
+      "gate": "plaintext/default secret and leaked log/response tests fail closed"
+    },
+    "data_governance": {
+      "required": ["classification", "PII marking", "retention", "legal hold interface", "user/tenant export", "tracked delete", "connector revoke"],
+      "gate": "DB, object, index, cache, and derived data evidence reconciles"
+    },
+    "audit": {
+      "required": ["actor", "tenant/space", "action", "resource/revision", "result", "request/idempotency id", "timestamp"],
+      "gate": "append-only, tenant-isolated, queryable, retained, and secret-free"
+    },
+    "traffic_management": {
+      "required": ["per-tenant/user/connector/model rate limits", "quota", "concurrency budget", "payload limit", "queue backpressure", "429 Retry-After", "fair scheduling", "provider circuit breaker"],
+      "gate": "overload fails boundedly and does not starve another tenant"
+    },
+    "sli_slo": {
+      "required": ["availability", "API latency/error", "SSE first-event/disconnect/recovery", "queue depth/lag", "worker failure", "connector/provider errors", "scheduler lag", "notification failure", "DB pool", "storage capacity"],
+      "gate": "dashboards and alerts proven with correlated fault injection"
+    },
+    "capacity": {
+      "required": ["100 interactive users", "20 Agent turns", "10 Import Jobs", "hardware/data/provider profile", "cost and bottleneck report"],
+      "gate": "all latency limits measured with authorization and audit enabled"
+    },
+    "disaster_recovery": {
+      "required": ["automatic backup", "integrity verification", "isolated restore", "PITR or equivalent", "Web/Worker/Scheduler/DB restart"],
+      "gate": "measured RPO <=15m and RTO <=60m with object/domain/audit reconciliation"
+    },
+    "supply_chain": {
+      "required": ["locked dependencies", "SBOM", "license policy", "secret scan", "SAST", "dependency scan", "container scan", "frontend provenance"],
+      "gate": "no unresolved Critical/High, unknown license, bundle, notebook, or unreviewed >250KB source"
+    },
+    "release_rollback": {
+      "required": ["immutable artifact", "source/version/SBOM digest", "feature flag fail closed", "canary", "rolling or blue-green", "rollback", "support boundary"],
+      "gate": "upgrade and rollback drills preserve writes during expand/contract window"
+    }
+  },
+  "status": "contract-defined-evidence-pending"
+}

@@ -1,0 +1,560 @@
+{
+  "bytes": 607128,
+  "file_count": 47,
+  "files": [
+    {
+      "bytes": 594,
+      "lines_posix": 24,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "580f521551c68fac540edad3a868191df11ef43dda436bf62b0f77d7c6d00eba",
+      "source_path": "prototype/codebase/src/App.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/App.tsx"
+    },
+    {
+      "bytes": 27134,
+      "lines_posix": 408,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "7c1f2af56dadcdbec038a95aec8f093ce8d547ae26cd0c1034dc58e84d15a9e0",
+      "source_path": "prototype/codebase/src/components/Layout/FileTreePane.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Layout/FileTreePane.tsx"
+    },
+    {
+      "bytes": 5806,
+      "lines_posix": 88,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "df6a64cba4abc7de81fdc2c99997d68907e2d5ee895c61de2357c430aa093072",
+      "source_path": "prototype/codebase/src/components/Layout/MainAreaPane.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Layout/MainAreaPane.tsx"
+    },
+    {
+      "bytes": 2996,
+      "lines_posix": 60,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "6f7f076854c4eced104d0824e9835169415c04bd215a52af16f91adf8339028c",
+      "source_path": "prototype/codebase/src/components/Layout/RightPane.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Layout/RightPane.tsx"
+    },
+    {
+      "bytes": 4439,
+      "lines_posix": 59,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "0e3a2497e9aff6550522b3a5c9dd907fb778ca1c475426da7e2e63d7b00b148b",
+      "source_path": "prototype/codebase/src/components/Layout/TopNav.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Layout/TopNav.tsx"
+    },
+    {
+      "bytes": 18742,
+      "lines_posix": 396,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "ffae5d3d0946a0dc6b79cb07c0090efebb661cf8a88c5223262e12ee1ccadfb2",
+      "source_path": "prototype/codebase/src/components/Layout/WorkspaceLayout.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Layout/WorkspaceLayout.tsx"
+    },
+    {
+      "bytes": 26651,
+      "lines_posix": 433,
+      "routes": [
+        "/?file=add_data&step=*"
+      ],
+      "sha256": "b5c47936420fcd006ff196639aceb75b07507138787419cc9bfa8680ebc042bb",
+      "source_path": "prototype/codebase/src/components/MainArea/AddDataView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/AddDataView.tsx"
+    },
+    {
+      "bytes": 13632,
+      "lines_posix": 218,
+      "routes": [
+        "/?file=add_kb"
+      ],
+      "sha256": "6d3102b6ff95a51dcdd4324b788f4aa5a6a0617642d1c620e4606ece59a41ef3",
+      "source_path": "prototype/codebase/src/components/MainArea/AddKnowledgeBaseView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/AddKnowledgeBaseView.tsx"
+    },
+    {
+      "bytes": 8485,
+      "lines_posix": 125,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "c0ccd831aa02af22b4bf811b500f4fa135271227862325e43c03ef760a0c6bf4",
+      "source_path": "prototype/codebase/src/components/MainArea/ArtifactHeader.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/ArtifactHeader.tsx"
+    },
+    {
+      "bytes": 4475,
+      "lines_posix": 98,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "bf5d2f6a12557f6f729067dbf80f79ad027e85f8e4262dab6782528977fa68a8",
+      "source_path": "prototype/codebase/src/components/MainArea/ChartView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/ChartView.tsx"
+    },
+    {
+      "bytes": 8512,
+      "lines_posix": 143,
+      "routes": [
+        "/?file=res_sample_postgres"
+      ],
+      "sha256": "55c6250d81c83c80d44532302565cff70c430cf7ff2b21e653c38b1a654a7996",
+      "source_path": "prototype/codebase/src/components/MainArea/ConnectionDetailView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/ConnectionDetailView.tsx"
+    },
+    {
+      "bytes": 53542,
+      "lines_posix": 816,
+      "routes": [
+        "/?file=res_dash_east*",
+        "/?file=res_dash_finance*",
+        "/?file=res_dash_recruitment*"
+      ],
+      "sha256": "10209d57a98d04618ec0fdaa08f0281fa67e0e60c499bb4122013ecc38d26c23",
+      "source_path": "prototype/codebase/src/components/MainArea/DashboardView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/DashboardView.tsx"
+    },
+    {
+      "bytes": 11466,
+      "lines_posix": 175,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "73901f74da556ac03aa462eeb90982f04c537e046b0df1fb5c3e774c36cb8291",
+      "source_path": "prototype/codebase/src/components/MainArea/DataOverviewView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/DataOverviewView.tsx"
+    },
+    {
+      "bytes": 23660,
+      "lines_posix": 319,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "fe7f7f9392540ec05331882146ec31cd7e83b5e7896360a366f6533a1b26bc26",
+      "source_path": "prototype/codebase/src/components/MainArea/DatasetView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/DatasetView.tsx"
+    },
+    {
+      "bytes": 7131,
+      "lines_posix": 102,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "c3c4d678b1f5e6d8b4d2995aab41e8b3b2164b79aef7c5aed664312df4df077d",
+      "source_path": "prototype/codebase/src/components/MainArea/DocumentView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/DocumentView.tsx"
+    },
+    {
+      "bytes": 891,
+      "lines_posix": 18,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "73f9ae99bd78ac4b67399e00038e9032c7d5c15e5852f9ed83eb8aef0aff9867",
+      "source_path": "prototype/codebase/src/components/MainArea/EmptyState.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/EmptyState.tsx"
+    },
+    {
+      "bytes": 47429,
+      "lines_posix": 599,
+      "routes": [
+        "/?file=evaluation_detail*"
+      ],
+      "sha256": "ee7b05fb185358d1dc763276d65309a7b00c0a3acef287dc489d89cb9513c0c4",
+      "source_path": "prototype/codebase/src/components/MainArea/EvaluationCenterView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/EvaluationCenterView.tsx"
+    },
+    {
+      "bytes": 4748,
+      "lines_posix": 87,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "9559cd03dc76bbccbfe0cd95eca039c6d5934f48cb28ea247781fa116ef2dd34",
+      "source_path": "prototype/codebase/src/components/MainArea/ExploreView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/ExploreView.tsx"
+    },
+    {
+      "bytes": 17591,
+      "lines_posix": 259,
+      "routes": [
+        "/?file=kb_sales*"
+      ],
+      "sha256": "42721876f13bd7d92b2c24d69f589af8484cec12de6cf1a9849c22cde827eb91",
+      "source_path": "prototype/codebase/src/components/MainArea/KnowledgeBaseView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/KnowledgeBaseView.tsx"
+    },
+    {
+      "bytes": 26948,
+      "lines_posix": 329,
+      "routes": [
+        "/?file=kg_sales*"
+      ],
+      "sha256": "75cf838dcf88fb98eb34cbb63e77608486c88111b2422a09ae0fe6f8c17d1ad0",
+      "source_path": "prototype/codebase/src/components/MainArea/KnowledgeGraphView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/KnowledgeGraphView.tsx"
+    },
+    {
+      "bytes": 27349,
+      "lines_posix": 450,
+      "routes": [
+        "/?file=semantic_sales"
+      ],
+      "sha256": "22e6a7555bc8ff846bd2a7189b851f48f4adc07e71dbb12900a2fc6b3730e9d8",
+      "source_path": "prototype/codebase/src/components/MainArea/SemanticView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/SemanticView.tsx"
+    },
+    {
+      "bytes": 5660,
+      "lines_posix": 105,
+      "routes": [
+        "/?file=res_api_1_1"
+      ],
+      "sha256": "130cff5496a5fdc5491a2f8039af72c0ded02c7bf2e746110bc0bea5a077b519",
+      "source_path": "prototype/codebase/src/components/MainArea/SkillArtifactView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/SkillArtifactView.tsx"
+    },
+    {
+      "bytes": 11333,
+      "lines_posix": 181,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "6e6ab314e3819e085e334ed3728021b3b6902c06d1ff80b96813713e1c635946",
+      "source_path": "prototype/codebase/src/components/MainArea/SkillBuilderView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/SkillBuilderView.tsx"
+    },
+    {
+      "bytes": 11375,
+      "lines_posix": 182,
+      "routes": [
+        "/?file=upload_doc"
+      ],
+      "sha256": "7fdc9a08b09f96971ecc21023da6321e160d4e466f25419eb27e442e8f6a049c",
+      "source_path": "prototype/codebase/src/components/MainArea/UploadDocView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/UploadDocView.tsx"
+    },
+    {
+      "bytes": 267,
+      "lines_posix": 6,
+      "routes": [
+        "/?file=welcome"
+      ],
+      "sha256": "127137dc1d082771453e54c022ce873b4b9810f1df4bf3e5697a1a0096777bc8",
+      "source_path": "prototype/codebase/src/components/MainArea/WelcomeView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/WelcomeView.tsx"
+    },
+    {
+      "bytes": 6532,
+      "lines_posix": 110,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "a87b6bd5b303c22a24da329f5dfaf34bf9911ce06719657709e2a0d56eb3dd8c",
+      "source_path": "prototype/codebase/src/components/MainArea/WorkspaceEmptyView.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/MainArea/WorkspaceEmptyView.tsx"
+    },
+    {
+      "bytes": 7446,
+      "lines_posix": 113,
+      "routes": [
+        "*modal=action_policy*"
+      ],
+      "sha256": "555bb1264a82d44b2eeef36edebc2ac8b3e7ad7870576d94b0fc98ea4105c5cc",
+      "source_path": "prototype/codebase/src/components/Modals/ActionPolicyModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/ActionPolicyModal.tsx"
+    },
+    {
+      "bytes": 5083,
+      "lines_posix": 74,
+      "routes": [
+        "*modal=agent_selector*"
+      ],
+      "sha256": "4e5a56a8cfb21fd9964e7dfc3f1565710049b40565a62bf32516725cf9f79cef",
+      "source_path": "prototype/codebase/src/components/Modals/AgentResourceSelectorModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/AgentResourceSelectorModal.tsx"
+    },
+    {
+      "bytes": 14987,
+      "lines_posix": 240,
+      "routes": [
+        "*modal=alert*"
+      ],
+      "sha256": "d393ad7ff642cf7b930fbc7530e20ff940e093bcf1a658c514b93a41fa6f364b",
+      "source_path": "prototype/codebase/src/components/Modals/AlertModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/AlertModal.tsx"
+    },
+    {
+      "bytes": 4832,
+      "lines_posix": 128,
+      "routes": [
+        "*modal=create_resource*"
+      ],
+      "sha256": "47551b3e57a98d8bc0973fa988c438881180071d350012efb0f1a6515dd2ec40",
+      "source_path": "prototype/codebase/src/components/Modals/CreateResourceModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/CreateResourceModal.tsx"
+    },
+    {
+      "bytes": 7258,
+      "lines_posix": 127,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "fcaa8c594df8e1a5cf16dff009276d2dc9b5043379c11fd82f5a591cdb361824",
+      "source_path": "prototype/codebase/src/components/Modals/ExportModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/ExportModal.tsx"
+    },
+    {
+      "bytes": 4803,
+      "lines_posix": 94,
+      "routes": [
+        "*modal=publish_agent*"
+      ],
+      "sha256": "9ee416e6884b697ef74e6bd57cfbaf08f66175e07b9711add54bb3eb58ec8ba9",
+      "source_path": "prototype/codebase/src/components/Modals/PublishAgentModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/PublishAgentModal.tsx"
+    },
+    {
+      "bytes": 5525,
+      "lines_posix": 89,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "d7f215f4f9010c217b8b1add38ffdffc9959bd3e5b7c1d4a0c9d54937ead1ef1",
+      "source_path": "prototype/codebase/src/components/Modals/PublishModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/PublishModal.tsx"
+    },
+    {
+      "bytes": 36423,
+      "lines_posix": 471,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "4f3b5c814ed58ff1d61ee7ab8cd3f36ba8116f4a105321d29d0b62ef98814d6d",
+      "source_path": "prototype/codebase/src/components/Modals/ShareModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/ShareModal.tsx"
+    },
+    {
+      "bytes": 4860,
+      "lines_posix": 76,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "cbf6aa261161fec58250a5f184ae9aaeee6ff956a4f73635a875ea5429289266",
+      "source_path": "prototype/codebase/src/components/Modals/VersionHistoryModal.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/Modals/VersionHistoryModal.tsx"
+    },
+    {
+      "bytes": 54509,
+      "lines_posix": 878,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "79c955d5b9ccb7bb5cd135918d501aa5e30a14f0c703004b4fa596d2024f125a",
+      "source_path": "prototype/codebase/src/components/RightPane/ChatAssistant.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/RightPane/ChatAssistant.tsx"
+    },
+    {
+      "bytes": 21779,
+      "lines_posix": 361,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "ec91865cf49c90ae50775ecca3a3165f6e952261833256bd3089484502c0a478",
+      "source_path": "prototype/codebase/src/components/RightPane/CommentThread.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/RightPane/CommentThread.tsx"
+    },
+    {
+      "bytes": 15155,
+      "lines_posix": 247,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "c37acc1a9e0a49641ccc2486753edc5d55345b4f297f56ec8311c1d72b2632d6",
+      "source_path": "prototype/codebase/src/components/RightPane/EvaluationDrawer.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/RightPane/EvaluationDrawer.tsx"
+    },
+    {
+      "bytes": 8968,
+      "lines_posix": 170,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "72ea18afb644468c5ef39f004eafb3fcd7960913cfc94c36a40343871a4e61b2",
+      "source_path": "prototype/codebase/src/components/RightPane/PropertyEditor.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/RightPane/PropertyEditor.tsx"
+    },
+    {
+      "bytes": 585,
+      "lines_posix": 22,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "9387b292a1db277329248565ab30f81d22ed9abd55abd98560952a9af4d52f96",
+      "source_path": "prototype/codebase/src/components/mobile-shell/home-indicator.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/mobile-shell/home-indicator.tsx"
+    },
+    {
+      "bytes": 6174,
+      "lines_posix": 44,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "ebfccf7b0b9440ab0b6f59dce162152062938cca26be7de19b56f4bbdcae7a8b",
+      "source_path": "prototype/codebase/src/components/mobile-shell/status-bar.tsx",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/components/mobile-shell/status-bar.tsx"
+    },
+    {
+      "bytes": 1108,
+      "lines_posix": 24,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "45800bb712309026e31f692a368f729b4b89dcff940bf9672b70825652e88f43",
+      "source_path": "prototype/codebase/src/data/mockData.ts",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/data/mockData.ts"
+    },
+    {
+      "bytes": 3852,
+      "lines_posix": 142,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "666ba2ac65b681e5cdc1b1ef5d5b1228b9febb030eed443acc7abdf4bc546288",
+      "source_path": "prototype/codebase/src/lib/actionLoopStore.ts",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/lib/actionLoopStore.ts"
+    },
+    {
+      "bytes": 1091,
+      "lines_posix": 43,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "787e0a1a83ddecd1e436ae82a72833c8501ea34c18336304eb98b911fbcced9b",
+      "source_path": "prototype/codebase/src/lib/dragStore.ts",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/lib/dragStore.ts"
+    },
+    {
+      "bytes": 20889,
+      "lines_posix": 249,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "1a289189af40f19cd468742efade6f2cdbf4f498b7764adf2fed488f18195b2d",
+      "source_path": "prototype/codebase/src/lib/store.ts",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/lib/store.ts"
+    },
+    {
+      "bytes": 168,
+      "lines_posix": 5,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "982bf16c5d13d9ab58c3d3a6485c39fe44f3796f8f5163d880f8818432b22ee0",
+      "source_path": "prototype/codebase/src/lib/utils.ts",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/lib/utils.ts"
+    },
+    {
+      "bytes": 4245,
+      "lines_posix": 127,
+      "routes": [
+        "root-manifest:*",
+        "complete-manifest:*"
+      ],
+      "sha256": "51a972c437e0580384249cc183cc7ec70d3292f416b5a4986e12bc32e5b8c92b",
+      "source_path": "prototype/codebase/src/prototype-route.json",
+      "status": "frozen",
+      "target_path": "frontend/src/knowledge-workspace/frozen-ui/prototype-route.json"
+    }
+  ],
+  "lines_posix": 9514,
+  "schema_version": "knowledge-workspace.source-files.v1",
+  "tree_hash_algorithm": "sha256(sorted(relative_posix_path + NUL + raw_bytes + NUL))",
+  "tree_sha256": "57e97670c6091219dcf1ac35d76dd174a45c9fa69841ce5b7887caef39b27c83"
+}

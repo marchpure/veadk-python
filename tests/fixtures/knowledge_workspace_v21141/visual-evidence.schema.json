@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veadk.volcengine.com/schemas/knowledge-workspace-visual-evidence-v2.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario_id",
+    "viewport",
+    "snapshots",
+    "screenshotDimensionsEqual",
+    "semanticMissing",
+    "interactionMissing",
+    "maxCriticalAnchorDeltaPx",
+    "maxOtherBoundaryDeltaPx",
+    "pixelMismatchRatio",
+    "consoleErrors",
+    "pageErrors",
+    "accessibility",
+    "keyboard",
+    "ime",
+    "mobile",
+    "iframeCount",
+    "productionFixtureReferences",
+    "masks",
+    "artifactHashes",
+    "evidence_hashes"
+  ],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^GM-(0[1-9]|1[0-9]|20)$"
+    },
+    "viewport": {
+      "enum": ["1920x1080", "1440x900", "1024x768", "390x844"]
+    },
+    "snapshots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dom", "class", "text", "event", "computedStyle"],
+      "properties": {
+        "dom": {"$ref": "#/$defs/comparison"},
+        "class": {"$ref": "#/$defs/comparison"},
+        "text": {"$ref": "#/$defs/comparison"},
+        "event": {"$ref": "#/$defs/comparison"},
+        "computedStyle": {"$ref": "#/$defs/comparison"}
+      }
+    },
+    "screenshotDimensionsEqual": {"const": true},
+    "semanticMissing": {"const": 0},
+    "interactionMissing": {"const": 0},
+    "maxCriticalAnchorDeltaPx": {"const": 0},
+    "maxOtherBoundaryDeltaPx": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "pixelMismatchRatio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.001
+    },
+    "consoleErrors": {"type": "array", "maxItems": 0},
+    "pageErrors": {"type": "array", "maxItems": 0},
+    "accessibility": {"$ref": "#/$defs/pass"},
+    "keyboard": {"$ref": "#/$defs/pass"},
+    "ime": {"$ref": "#/$defs/pass"},
+    "mobile": {"$ref": "#/$defs/pass"},
+    "iframeCount": {"const": 0},
+    "productionFixtureReferences": {"const": 0},
+    "masks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "selector",
+          "rectangle",
+          "reason",
+          "owner",
+          "coversBusinessComponent"
+        ],
+        "properties": {
+          "selector": {"type": "string", "minLength": 1},
+          "rectangle": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "prefixItems": [
+              {"type": "number"},
+              {"type": "number"},
+              {"type": "number", "exclusiveMinimum": 0},
+              {"type": "number", "exclusiveMinimum": 0}
+            ],
+            "items": false
+          },
+          "reason": {"enum": ["font-antialiasing"]},
+          "owner": {"type": "string", "minLength": 1},
+          "coversBusinessComponent": {"const": false}
+        }
+      }
+    },
+    "artifactHashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "candidate"],
+      "properties": {
+        "reference": {"$ref": "#/$defs/artifactHashes"},
+        "candidate": {"$ref": "#/$defs/artifactHashes"}
+      }
+    },
+    "evidence_hashes": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    }
+  },
+  "$defs": {
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["equal", "reference_sha256", "candidate_sha256"],
+      "properties": {
+        "equal": {"const": true},
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "pass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reference_sha256", "candidate_sha256"],
+      "properties": {
+        "status": {"const": "pass"},
+        "reference_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "candidate_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "artifactHashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "screenshot.png",
+        "dom.json",
+        "class.json",
+        "text.json",
+        "event.json",
+        "geometry.json",
+        "computed-style.json",
+        "runtime.json",
+        "accessibility.json",
+        "keyboard.json",
+        "ime.json",
+        "mobile.json"
+      ],
+      "properties": {
+        "screenshot.png": {"$ref": "#/$defs/sha256"},
+        "dom.json": {"$ref": "#/$defs/sha256"},
+        "class.json": {"$ref": "#/$defs/sha256"},
+        "text.json": {"$ref": "#/$defs/sha256"},
+        "event.json": {"$ref": "#/$defs/sha256"},
+        "geometry.json": {"$ref": "#/$defs/sha256"},
+        "computed-style.json": {"$ref": "#/$defs/sha256"},
+        "runtime.json": {"$ref": "#/$defs/sha256"},
+        "accessibility.json": {"$ref": "#/$defs/sha256"},
+        "keyboard.json": {"$ref": "#/$defs/sha256"},
+        "ime.json": {"$ref": "#/$defs/sha256"},
+        "mobile.json": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

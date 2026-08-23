@@ -1,0 +1,80 @@
+{
+  "schema_version": "knowledge-workspace.visual-contract.v1",
+  "environment": {
+    "browser": "Playwright Chromium 140.0.7339.16",
+    "color_scheme": "light",
+    "chromium_revision": "1187",
+    "device_scale_factor": 1,
+    "font_wait": "document.fonts.ready",
+    "locale": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "playwright_version": "1.55.0",
+    "viewports": [[1920, 1080], [1440, 900], [1024, 768], [390, 844]]
+  },
+  "thresholds": {
+    "critical_anchor_px": 0,
+    "other_boundary_px": 1,
+    "pixel_mismatch_ratio": 0.001
+  },
+  "critical_anchors": {
+    "desktop_resource_tree_grid_column_px": 248,
+    "desktop_resource_tree_inner_width_px": 260,
+    "desktop_right_pane_open_px": 380,
+    "desktop_right_pane_closed_px": 0,
+    "desktop_main_column": "minmax(0, 1fr)"
+  },
+  "gates": [
+    "screenshot",
+    "dom",
+    "class",
+    "text",
+    "event",
+    "bounding-box",
+    "computed-style",
+    "pixel-diff",
+    "console-error",
+    "page-error",
+    "accessibility",
+    "keyboard",
+    "ime",
+    "mobile",
+    "no-iframe",
+    "no-production-fixture"
+  ],
+  "semantic_and_interaction_missing_allowed": 0,
+  "console_errors_allowed": 0,
+  "page_errors_allowed": 0,
+  "mask_policy": {
+    "allowed_reasons": ["font-antialiasing"],
+    "business_component_masks_allowed": false,
+    "required_fields": ["selector", "rectangle", "reason", "owner"]
+  },
+  "evidence_output": {
+    "location": "runtime-only",
+    "identity_before_browser": true,
+    "pair_artifacts": [
+      "screenshot.png",
+      "dom.json",
+      "class.json",
+      "text.json",
+      "event.json",
+      "geometry.json",
+      "computed-style.json",
+      "runtime.json",
+      "accessibility.json",
+      "keyboard.json",
+      "ime.json",
+      "mobile.json"
+    ],
+    "computed_by": "frontend/tests/knowledge-workspace-v21141/visualGate.mjs",
+    "required": [
+      "reference",
+      "candidate",
+      "diff",
+      "trace.json",
+      "provenance.json",
+      "report.json"
+    ],
+    "committed_artifacts": ["scripts", "manifests", "thresholds", "evidence-hashes"]
+  }
+}

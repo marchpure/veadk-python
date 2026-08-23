@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veadk.volcengine.com/schemas/knowledge-workspace-performance-evidence-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "environment",
+    "load",
+    "measurements",
+    "recovery",
+    "evidence_hashes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "knowledge-workspace.performance-evidence.v1"
+    },
+    "status": {"const": "pass"},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "topology_sha256", "artifact_sha256"],
+      "properties": {
+        "profile": {"const": "production-equivalent"},
+        "topology_sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "load": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concurrent_interactive_users",
+        "concurrent_agent_turns",
+        "concurrent_import_jobs",
+        "duration_seconds"
+      ],
+      "properties": {
+        "concurrent_interactive_users": {"type": "integer", "minimum": 100},
+        "concurrent_agent_turns": {"type": "integer", "minimum": 20},
+        "concurrent_import_jobs": {"type": "integer", "minimum": 10},
+        "duration_seconds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read_api_p95_ms",
+        "mutation_accept_p95_ms",
+        "sse_first_event_p95_ms",
+        "monthly_availability"
+      ],
+      "properties": {
+        "read_api_p95_ms": {"type": "number", "minimum": 0, "maximum": 500},
+        "mutation_accept_p95_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "sse_first_event_p95_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "monthly_availability": {
+          "type": "number",
+          "minimum": 0.999,
+          "maximum": 1
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rpo_minutes", "rto_minutes", "restore_reconciled"],
+      "properties": {
+        "rpo_minutes": {"type": "number", "minimum": 0, "maximum": 15},
+        "rto_minutes": {"type": "number", "minimum": 0, "maximum": 60},
+        "restore_reconciled": {"const": true}
+      }
+    },
+    "evidence_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/sha256"}
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

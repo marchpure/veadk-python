@@ -1,0 +1,96 @@
+{
+  "schema_version": "knowledge-workspace.trace-suite.v1",
+  "drivers": ["reference", "candidate"],
+  "shared_pipeline": [
+    "verify-baseline-identity",
+    "load-seed",
+    "set-viewport",
+    "navigate",
+    "execute-actions",
+    "wait-for-fonts-and-ready-selector",
+    "collect-pair-artifacts",
+    "compare-visual-evidence",
+    "write-runtime-only-report"
+  ],
+  "collections": [
+    {
+      "id": "frozen-source-files",
+      "manifest": "source-files.json",
+      "json_pointer": "/files",
+      "key": "source_path",
+      "expected_count": 47,
+      "required_fields": [
+        "source_path",
+        "target_path",
+        "sha256",
+        "lines_posix",
+        "routes",
+        "status"
+      ],
+      "operation": "verify-provenance"
+    },
+    {
+      "id": "frozen-captures",
+      "manifest": "captures.json",
+      "json_pointer": "/captures",
+      "key": "id",
+      "expected_count": 13,
+      "route_field": "state_url",
+      "expected_artifact_field": "png_sha256",
+      "operation": "navigate-and-compare"
+    },
+    {
+      "id": "root-route-nodes",
+      "manifest": "route-manifests.json",
+      "json_pointer": "/manifests/root/nodes",
+      "key": "state_url",
+      "expected_count": 13,
+      "route_field": "state_url",
+      "operation": "navigate-and-collect"
+    },
+    {
+      "id": "complete-route-nodes",
+      "manifest": "route-manifests.json",
+      "json_pointer": "/manifests/complete/nodes",
+      "key": "state_url",
+      "expected_count": 23,
+      "route_field": "state_url",
+      "operation": "navigate-and-collect"
+    },
+    {
+      "id": "golden-masters",
+      "manifest": "golden-master.json",
+      "json_pointer": "/scenarios",
+      "key": "id",
+      "expected_count": 20,
+      "route_field": "route",
+      "operation": "execute-declarative-scenario"
+    }
+  ],
+  "pair_artifacts": [
+    "screenshot.png",
+    "dom.json",
+    "class.json",
+    "text.json",
+    "event.json",
+    "geometry.json",
+    "computed-style.json",
+    "runtime.json",
+    "accessibility.json",
+    "keyboard.json",
+    "ime.json",
+    "mobile.json"
+  ],
+  "fail_closed_on": [
+    "identity-mismatch",
+    "missing-collection-row",
+    "duplicate-key",
+    "unknown-driver",
+    "missing-artifact",
+    "comparison-failure",
+    "console-or-page-error",
+    "unapproved-mask",
+    "production-fixture-reference"
+  ],
+  "output_location": "runtime-only"
+}

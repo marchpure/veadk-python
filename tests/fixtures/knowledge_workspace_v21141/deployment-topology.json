@@ -1,0 +1,37 @@
+{
+  "schema_version": "knowledge-workspace.deployment-topology.v1",
+  "profile": "commercial",
+  "nodes": [
+    {"id": "web-api", "durable": false, "state": "stateless", "required_probes": ["startup", "liveness", "readiness"]},
+    {"id": "worker", "durable": false, "state": "lease-based", "required_probes": ["liveness", "readiness"]},
+    {"id": "scheduler", "durable": false, "state": "lease-based", "required_probes": ["liveness", "readiness"]},
+    {"id": "database", "durable": true, "state": "authoritative", "backup_required": true},
+    {"id": "job-queue", "durable": true, "state": "authoritative", "dead_letter_required": true},
+    {"id": "object-storage", "durable": true, "state": "authoritative", "tenant_partition_required": true},
+    {"id": "agentkit-runner", "durable": false, "state": "external-execution"},
+    {"id": "provider", "durable": false, "state": "external", "circuit_breaker_required": true},
+    {"id": "secret-kms", "durable": true, "state": "external-authority", "plaintext_fallback_allowed": false},
+    {"id": "observability", "durable": true, "state": "logs-metrics-traces"},
+    {"id": "backup-restore", "durable": true, "state": "isolated-recovery"}
+  ],
+  "required_edges": [
+    ["web-api", "database"],
+    ["web-api", "job-queue"],
+    ["web-api", "object-storage"],
+    ["web-api", "secret-kms"],
+    ["web-api", "observability"],
+    ["worker", "job-queue"],
+    ["worker", "database"],
+    ["worker", "object-storage"],
+    ["worker", "agentkit-runner"],
+    ["worker", "provider"],
+    ["worker", "secret-kms"],
+    ["worker", "observability"],
+    ["scheduler", "job-queue"],
+    ["scheduler", "database"],
+    ["scheduler", "observability"],
+    ["backup-restore", "database"],
+    ["backup-restore", "object-storage"]
+  ],
+  "forbidden": ["development-server", "in-memory-durable-state", "default-secret", "test-fixture", "mock-provider"]
+}
