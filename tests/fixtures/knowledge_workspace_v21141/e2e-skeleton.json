@@ -1,0 +1,116 @@
+{
+  "schema_version": "knowledge-workspace.e2e-skeleton.v1",
+  "policy": {
+    "allowed_statuses": ["blocked"],
+    "pass_requires": "A later step must replace status with pass only after recording current-run production-equivalent evidence hashes.",
+    "mock_or_fixture_evidence_allowed_for_ga": false
+  },
+  "cases": [
+    {
+      "id": "E2E-J1",
+      "kind": "product-journey",
+      "name": "File or Feishu document to Knowledge Base to Agent",
+      "status": "blocked",
+      "requires": ["real file and Feishu tenant", "durable import", "AgentKit target Agent", "refresh recovery"],
+      "evidence": ["BLOCKED:production implementation and real external tenant are not part of STEP 1"]
+    },
+    {
+      "id": "E2E-J2",
+      "kind": "product-journey",
+      "name": "Oracle to Semantic to team plus Excel to Dashboard and share",
+      "status": "blocked",
+      "requires": ["real Oracle", "real Excel", "durable Semantic/Artifact", "team permissions"],
+      "evidence": ["BLOCKED:production implementation and real Oracle tenant are not part of STEP 1"]
+    },
+    {
+      "id": "E2E-J3",
+      "kind": "product-journey",
+      "name": "Web or REST API to Capability to safe HTML report and share",
+      "status": "blocked",
+      "requires": ["real web/API target", "real auth", "safe artifact host", "evaluation and sharing"],
+      "evidence": ["BLOCKED:production implementation and real web/API target are not part of STEP 1"]
+    },
+    {
+      "id": "E2E-J4",
+      "kind": "product-journey",
+      "name": "Finance Capability to Dashboard to minute Cron and KPI alert",
+      "status": "blocked",
+      "requires": ["real finance source", "durable scheduler", "real notification channel"],
+      "evidence": ["BLOCKED:production scheduler and notification environment are not part of STEP 1"]
+    },
+    {
+      "id": "E2E-J5",
+      "kind": "product-journey",
+      "name": "Recruitment anomaly to Todo to Review to Decision Brief to approval",
+      "status": "blocked",
+      "requires": ["durable action state", "evidence lineage", "authorized human approver", "audit"],
+      "evidence": ["BLOCKED:production implementation and authorized test identities are not part of STEP 1"]
+    },
+    {
+      "id": "E2E-CONNECTOR-REQUIRED",
+      "kind": "required-connector",
+      "name": "All mandatory GA connectors",
+      "status": "blocked",
+      "requires": ["test", "discover", "preview", "import", "incremental refresh", "failure recovery", "revoke", "tenant isolation"],
+      "connector_ids": ["postgresql", "mysql", "oracle", "csv", "excel", "json", "doc_txt", "web_discovery", "rest_api", "openapi_spec", "lark_doc", "lark_wiki", "lark_drive", "lark_sheet", "lark_base", "lark_minutes", "lark_meeting", "lark_group", "lark_chat"],
+      "certification_subjects": ["postgresql", "mysql", "oracle", "csv", "excel", "json", "doc_txt:pdf", "doc_txt:markdown", "doc_txt:txt", "doc_txt:html", "web_discovery", "rest_api", "openapi_spec", "lark_doc", "lark_wiki", "lark_drive", "lark_sheet", "lark_base", "lark_minutes", "lark_meeting", "lark_group", "lark_chat"],
+      "evidence": ["BLOCKED:no mandatory connector has real-system full-lifecycle evidence in STEP 1"]
+    },
+    {
+      "id": "E2E-TENANT-ISOLATION",
+      "kind": "tenant-isolation",
+      "name": "Cross-tenant and IDOR denial",
+      "status": "blocked",
+      "requires": ["API", "SSE", "cache", "queue", "object storage", "export", "share", "backup restore"],
+      "evidence": ["BLOCKED:no production-equivalent multi-tenant topology exists in STEP 1"]
+    },
+    {
+      "id": "E2E-RESTART",
+      "kind": "restart-recovery",
+      "name": "Web, Worker, Scheduler, and DB restart recovery",
+      "status": "blocked",
+      "requires": ["durable session", "durable jobs", "ordered SSE replay", "idempotent terminal state"],
+      "evidence": ["BLOCKED:no production Web/Worker/Scheduler/DB topology exists in STEP 1"]
+    },
+    {
+      "id": "E2E-WORKER-CRASH",
+      "kind": "worker-crash",
+      "name": "Worker crash and lease recovery",
+      "status": "blocked",
+      "requires": ["claim lease", "retry budget", "dead-letter", "no duplicate side effects"],
+      "evidence": ["BLOCKED:no durable production Worker or job backend exists in STEP 1"]
+    },
+    {
+      "id": "E2E-BACKUP-RESTORE",
+      "kind": "backup-restore",
+      "name": "Backup, PITR or equivalent, and isolated restore",
+      "status": "blocked",
+      "requires": ["RPO measurement", "RTO measurement", "database/object/index/audit reconciliation"],
+      "evidence": ["BLOCKED:no production backup/PITR target exists in STEP 1; require RPO <=15m and RTO <=60m"]
+    },
+    {
+      "id": "E2E-SECRET-ROTATION",
+      "kind": "secret-rotation",
+      "name": "KMS and connector credential rotation",
+      "status": "blocked",
+      "requires": ["new version activation", "old version revoke", "in-flight behavior", "redaction"],
+      "evidence": ["BLOCKED:no production-equivalent Secret Manager/KMS exists in STEP 1"]
+    },
+    {
+      "id": "E2E-UPGRADE-ROLLBACK",
+      "kind": "upgrade-rollback",
+      "name": "Migration upgrade, canary, and rollback",
+      "status": "blocked",
+      "requires": ["expand/contract", "old-version read compatibility", "new write preservation", "J1/J2 smoke"],
+      "evidence": ["BLOCKED:no production migration or immutable release artifact exists in STEP 1"]
+    },
+    {
+      "id": "E2E-FRESH-INSTALL",
+      "kind": "fresh-install",
+      "name": "Fresh production-profile installation",
+      "status": "blocked",
+      "requires": ["empty DB migration", "Web/API", "Worker/Scheduler", "object storage", "Secret/KMS", "observability"],
+      "evidence": ["BLOCKED:no production implementation or immutable artifact exists in STEP 1"]
+    }
+  ]
+}

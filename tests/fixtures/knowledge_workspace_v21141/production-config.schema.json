@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veadk.volcengine.com/schemas/knowledge-workspace-commercial-v1.json",
+  "title": "Knowledge Workspace Commercial Production Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile", "version", "public_base_url", "database", "jobs", "object_storage", "secrets", "runner", "observability", "limits", "backup"],
+  "properties": {
+    "profile": {"const": "commercial"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$"},
+    "public_base_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dsn_secret_ref", "migration_policy", "pool_max"],
+      "properties": {
+        "dsn_secret_ref": {"$ref": "#/$defs/secretRef"},
+        "migration_policy": {"const": "expand-contract"},
+        "pool_max": {"type": "integer", "minimum": 20}
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "endpoint_secret_ref", "worker_concurrency", "scheduler_enabled", "lease_seconds", "dead_letter_enabled"],
+      "properties": {
+        "backend": {"enum": ["postgres", "redis-streams", "managed-queue"]},
+        "endpoint_secret_ref": {"$ref": "#/$defs/secretRef"},
+        "worker_concurrency": {"type": "integer", "minimum": 10},
+        "scheduler_enabled": {"const": true},
+        "lease_seconds": {"type": "integer", "minimum": 10},
+        "dead_letter_enabled": {"const": true}
+      }
+    },
+    "object_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "bucket", "credential_secret_ref", "tenant_prefix_required"],
+      "properties": {
+        "endpoint": {"type": "string", "format": "uri"},
+        "bucket": {"type": "string", "minLength": 1},
+        "credential_secret_ref": {"$ref": "#/$defs/secretRef"},
+        "tenant_prefix_required": {"const": true}
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "kms_key_ref", "plaintext_allowed", "rotation_days"],
+      "properties": {
+        "provider": {"enum": ["cloud-kms", "vault", "enterprise-secret-manager"]},
+        "kms_key_ref": {"$ref": "#/$defs/secretRef"},
+        "plaintext_allowed": {"const": false},
+        "rotation_days": {"type": "integer", "minimum": 1, "maximum": 90}
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "credential_secret_ref", "max_concurrent_turns"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "credential_secret_ref": {"$ref": "#/$defs/secretRef"},
+        "max_concurrent_turns": {"type": "integer", "minimum": 20}
+      }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["otlp_endpoint", "metrics_endpoint", "structured_logs", "pii_redaction"],
+      "properties": {
+        "otlp_endpoint": {"type": "string", "format": "uri"},
+        "metrics_endpoint": {"type": "string", "format": "uri"},
+        "structured_logs": {"const": true},
+        "pii_redaction": {"const": true}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interactive_users", "agent_turns", "import_jobs", "request_bytes", "tenant_rate_per_second"],
+      "properties": {
+        "interactive_users": {"type": "integer", "minimum": 100},
+        "agent_turns": {"type": "integer", "minimum": 20},
+        "import_jobs": {"type": "integer", "minimum": 10},
+        "request_bytes": {"type": "integer", "minimum": 1},
+        "tenant_rate_per_second": {"type": "integer", "minimum": 1}
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "rpo_minutes", "rto_minutes", "restore_verification"],
+      "properties": {
+        "enabled": {"const": true},
+        "rpo_minutes": {"type": "integer", "maximum": 15, "minimum": 1},
+        "rto_minutes": {"type": "integer", "maximum": 60, "minimum": 1},
+        "restore_verification": {"const": "isolated-environment"}
+      }
+    }
+  },
+  "$defs": {
+    "secretRef": {
+      "type": "string",
+      "pattern": "^(kms|vault|secret-manager)://[^\\s]+$"
+    }
+  }
+}

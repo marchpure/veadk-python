@@ -1,0 +1,150 @@
+{
+  "captures": [
+    {
+      "id": "CAP-01",
+      "png_sha256": "91f747776193a5a31a1723feb69fd6bc390ed33854c21874a1a0e232a2011c92",
+      "state_url": "/?file=welcome",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/91f747776193a5a31a1723feb69fd6bc390ed33854c21874a1a0e232a2011c92.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-02",
+      "png_sha256": "05611b96f87b604c5ba89e1bfffe0433b788f4018725a90f97a02b28099f252e",
+      "state_url": "/?file=welcome&pane=open&chat=planning&use_tpl=true",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/05611b96f87b604c5ba89e1bfffe0433b788f4018725a90f97a02b28099f252e.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-03",
+      "png_sha256": "bfce94eb07a92468f9b449d3b02d07f3f542a589dc10e66cb820370d89008f4e",
+      "state_url": "/?file=res_artifact_gen_fixture&custom_name=通用业务看板&alert_saved=true",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/bfce94eb07a92468f9b449d3b02d07f3f542a589dc10e66cb820370d89008f4e.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-04",
+      "png_sha256": "b18a3b45fca2d983609f8c781f3a0d54b8d07caf4cc1a4b97403e470a23676ca",
+      "state_url": "/?modal=create_resource",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/b18a3b45fca2d983609f8c781f3a0d54b8d07caf4cc1a4b97403e470a23676ca.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-05",
+      "png_sha256": "f31676ff4a15672a84346be90c5a676b8bc23ea9eabc148203eaa384764e599e",
+      "state_url": "/?file=add_data&step=1",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/f31676ff4a15672a84346be90c5a676b8bc23ea9eabc148203eaa384764e599e.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-06",
+      "png_sha256": "5f88fa1ba6513b3784ea008438303675c05032d027b5f70c029b45053dba36f9",
+      "state_url": "/?file=add_data&step=2&source=web_discovery",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/5f88fa1ba6513b3784ea008438303675c05032d027b5f70c029b45053dba36f9.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-07",
+      "png_sha256": "bca90a753589f461b069cef27a78389802bd1094ecced3341fd19b33b5e56235",
+      "state_url": "/?file=add_data&step=2&source=mcp_custom",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/bca90a753589f461b069cef27a78389802bd1094ecced3341fd19b33b5e56235.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-08",
+      "png_sha256": "82a1db7677a6e22bae12026855e401b6483eacfb7075eba48d26d6b45da2edad",
+      "state_url": "/?file=add_data&step=2&source=oracle",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/82a1db7677a6e22bae12026855e401b6483eacfb7075eba48d26d6b45da2edad.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-09",
+      "png_sha256": "53ed8cd7866c28671c509278e9e5cc9218d908f8e11646e4f44e04c900d55012",
+      "state_url": "/?file=upload_doc",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/53ed8cd7866c28671c509278e9e5cc9218d908f8e11646e4f44e04c900d55012.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-10",
+      "png_sha256": "dcdf9c0b9735e15ea02b3bdfc300e6b9792eb0ab69812b49ac312cb382faae7b",
+      "state_url": "/?file=add_kb",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/dcdf9c0b9735e15ea02b3bdfc300e6b9792eb0ab69812b49ac312cb382faae7b.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-11",
+      "png_sha256": "433bd105b42365ab57317dd30973f0b2b87e7775550dc1078492caa96aba5214",
+      "state_url": "/?file=res_dash_east",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/433bd105b42365ab57317dd30973f0b2b87e7775550dc1078492caa96aba5214.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-12",
+      "png_sha256": "433bd105b42365ab57317dd30973f0b2b87e7775550dc1078492caa96aba5214",
+      "state_url": "/?file=res_dash_east&modal=alert&alert_metric=指标A",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/433bd105b42365ab57317dd30973f0b2b87e7775550dc1078492caa96aba5214.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "id": "CAP-13",
+      "png_sha256": "df7611e78ecb4c93213b081115de97c94fd94e4db0698a32ea4ed526361f4cdd",
+      "state_url": "/?file=res_api_1_1",
+      "status": "frozen",
+      "tos_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/df7611e78ecb4c93213b081115de97c94fd94e4db0698a32ea4ed526361f4cdd.png",
+      "viewport": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "schema_version": "knowledge-workspace.captures.v1",
+  "sha256": "83f05bb57e7039bbe715078dd0e818074b30de3f45e2a85349c21af090fe5199",
+  "source_path": "prototype/captures.json"
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "knowledge-workspace.ga-gates.v1",
+  "policy": "No gate may pass without a current evidence hash whose scope equals the requirement.",
+  "gates": [
+    {"id": "frozen-identity", "status": "pass", "evidence": ["baseline-identity.json", "contract_harness.py verify-archive"]},
+    {"id": "source-provenance-47", "status": "pass", "evidence": ["source-files.json"]},
+    {"id": "captures-13-png-12", "status": "pass", "evidence": ["captures.json", "runtime capture hash and dimension verification"]},
+    {"id": "route-manifests-all-nodes", "status": "pass", "evidence": ["route-manifests.json"]},
+    {"id": "gm-01-through-gm-20-contract", "status": "pass", "evidence": ["golden-master.json", "visual-contract.json"]},
+    {"id": "single-production-ui", "status": "blocked", "evidence": ["BLOCKED:STEP 2 must provide production dependency graph and provenance"]},
+    {"id": "visual-interaction-a11y", "status": "blocked", "evidence": ["BLOCKED:STEP 2 must provide four-viewport reference/candidate evidence"]},
+    {"id": "production-fixture-isolation", "status": "blocked", "evidence": ["BLOCKED:STEP 2 must provide static and runtime production dependency evidence"]},
+    {"id": "mandatory-connectors", "status": "blocked", "evidence": ["BLOCKED:connector-certification-matrix.json has no real-system E2E in STEP 1"]},
+    {"id": "five-product-journeys", "status": "blocked", "evidence": ["BLOCKED:e2e-skeleton.json records missing production implementation and external environments"]},
+    {"id": "tenant-isolation", "status": "blocked", "evidence": ["BLOCKED:E2E-TENANT-ISOLATION requires a production-equivalent multi-tenant topology"]},
+    {"id": "restart-and-worker-crash", "status": "blocked", "evidence": ["BLOCKED:E2E-RESTART and E2E-WORKER-CRASH require durable production services"]},
+    {"id": "secret-rotation", "status": "blocked", "evidence": ["BLOCKED:E2E-SECRET-ROTATION requires production-equivalent Secret Manager/KMS"]},
+    {"id": "backup-restore-rpo-rto", "status": "blocked", "evidence": ["BLOCKED:E2E-BACKUP-RESTORE requires a production backup/PITR target", "RPO <=15m", "RTO <=60m"]},
+    {"id": "fresh-install", "status": "blocked", "evidence": ["BLOCKED:E2E-FRESH-INSTALL requires an immutable production artifact"]},
+    {"id": "upgrade-rollback", "status": "blocked", "evidence": ["BLOCKED:E2E-UPGRADE-ROLLBACK requires a supported prior version and immutable artifacts"]},
+    {"id": "capacity-and-latency", "status": "blocked", "evidence": ["BLOCKED:production-equivalent load environment is unavailable in STEP 1", "100 users", "20 Agent turns", "10 Import Jobs", "read p95 <=500ms", "mutation p95 <=1s", "SSE first event p95 <=2s"]},
+    {"id": "availability", "status": "blocked", "evidence": ["BLOCKED:no production service window exists in STEP 1", "monthly availability objective 99.9%"]},
+    {"id": "observability-alerts", "status": "blocked", "evidence": ["BLOCKED:production-equivalent observability backend is unavailable in STEP 1"]},
+    {"id": "data-governance-audit", "status": "blocked", "evidence": ["BLOCKED:production durable stores and audit backend are unavailable in STEP 1"]},
+    {"id": "supply-chain-security", "status": "blocked", "evidence": ["BLOCKED:production image and release artifact do not exist in STEP 1"]},
+    {"id": "loc-package-hotspots", "status": "pass", "evidence": ["hotspot-guard.json", "static_guard.py"]},
+    {"id": "commercial-ga", "status": "blocked", "evidence": ["BLOCKED:all non-pass gates above must pass in current production-equivalent environment"]}
+  ]
+}

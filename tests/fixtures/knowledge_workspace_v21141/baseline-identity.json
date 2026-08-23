@@ -1,0 +1,35 @@
+{
+  "schema_version": "knowledge-workspace.baseline-identity.v1",
+  "repository": "https://github.com/volcengine/veadk-python",
+  "baseline_commit": "3dbee406d2be8eea5efe1b7fe18199a193f8f25e",
+  "oracle_commit": "7595864d723cbf510ecaf16e3f22626085c0f2d6",
+  "prototype": "知识资产工作区 v2.11.4.1 Final",
+  "frozen_export": {
+    "url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/b5c172e6b1d79d5617ff49bfb11875507e25d33a5ee32af3ef90be4aa32ef773.tar.gz",
+    "tar_sha256": "b5c172e6b1d79d5617ff49bfb11875507e25d33a5ee32af3ef90be4aa32ef773",
+    "source_tree_sha256": "57e97670c6091219dcf1ac35d76dd174a45c9fa69841ce5b7887caef39b27c83",
+    "source_file_count": 47,
+    "source_lines_posix": 9514,
+    "source_bytes": 607128,
+    "readme_sha256": "9c7570ba151c2f3c64a85276202450bebe217f5f1f886134b2258288bc7313d8",
+    "captures_sha256": "83f05bb57e7039bbe715078dd0e818074b30de3f45e2a85349c21af090fe5199",
+    "capture_state_count": 13,
+    "unique_png_count": 12,
+    "root_route_manifest_sha256": "339670643d53423e28850a0a6babff31a1042bdf6937897ac26ad35f8e4b5746",
+    "complete_route_manifest_sha256": "51a972c437e0580384249cc183cc7ec70d3292f416b5a4986e12bc32e5b8c92b",
+    "dependencies_sha256": "04a91782d6cd93dad26da3e529ac414ab29e6654063cf1655f5aebeae8e0c716"
+  },
+  "verification_order": [
+    "url",
+    "tar_sha256",
+    "archive_path_safety",
+    "read_prototype_readme",
+    "source_tree_sha256",
+    "captures_sha256",
+    "root_route_manifest_sha256",
+    "complete_route_manifest_sha256",
+    "dependencies_sha256",
+    "screenshots_or_candidate_implementation"
+  ],
+  "line_count_definition": "Count LF bytes in each frozen source file; sum in relative POSIX path order."
+}

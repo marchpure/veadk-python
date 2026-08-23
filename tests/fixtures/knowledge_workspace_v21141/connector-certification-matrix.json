@@ -1,0 +1,1317 @@
+{
+  "allowed_statuses": [
+    "ga-certified",
+    "available-unconfigured",
+    "preview",
+    "unsupported"
+  ],
+  "connectors": [
+    {
+      "adapter": "connector:lark_doc",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "抓取内容块",
+        "分段提取"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_doc",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书文档"
+    },
+    {
+      "adapter": "connector:lark_wiki",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "遍历目录树",
+        "分段提取"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_wiki",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书知识库 Wiki"
+    },
+    {
+      "adapter": "connector:lark_drive",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "遍历文件列表",
+        "文件类型识别"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_drive",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书云盘"
+    },
+    {
+      "adapter": "connector:lark_meeting",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "检索会议纪要",
+        "提取文本与总结"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_meeting",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书会议"
+    },
+    {
+      "adapter": "connector:lark_minutes",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "抓取文本",
+        "解析时间轴"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_minutes",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书妙记"
+    },
+    {
+      "adapter": "connector:lark_group",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "抓取消息记录",
+        "过滤有效信息"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_group",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书群聊/话题消息"
+    },
+    {
+      "adapter": "connector:lark_chat",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "抓取消息"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_chat",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "单聊记录"
+    },
+    {
+      "adapter": "connector:lark_sheet",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "解析行列结构",
+        "类型推断"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_sheet",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书电子表格"
+    },
+    {
+      "adapter": "connector:lark_base",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "获取表元数据",
+        "读取记录"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_base",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书多维表格 Base"
+    },
+    {
+      "adapter": "connector:lark_mail",
+      "auth": "oauth",
+      "certification_status": "preview",
+      "discovery": [
+        "检查权限",
+        "检索邮件",
+        "提取正文与附件元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "lark_mail",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "飞书邮件"
+    },
+    {
+      "adapter": "connector:csv",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "上传并切片",
+        "解析元数据",
+        "识别列类型"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "csv",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "CSV"
+    },
+    {
+      "adapter": "connector:excel",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "上传并解析",
+        "Sheet选择",
+        "列类型推断"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "excel",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Excel"
+    },
+    {
+      "adapter": "connector:json",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "上传",
+        "解析层级",
+        "拍平字段"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "json",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "JSON"
+    },
+    {
+      "adapter": "connector:parquet",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "上传",
+        "读取 Schema",
+        "验证格式"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "parquet",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Parquet"
+    },
+    {
+      "adapter": "connector:doc_txt",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "上传",
+        "文本提取",
+        "结构化分块"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "doc_txt",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "PDF/Markdown/TXT/HTML"
+    },
+    {
+      "adapter": "connector:local_file",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "上传",
+        "格式检测"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "local_file",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "本地文件"
+    },
+    {
+      "adapter": "connector:s3",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "遍历对象列表"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "s3",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "AWS S3"
+    },
+    {
+      "adapter": "connector:oss",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "遍历对象列表"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "oss",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Aliyun OSS"
+    },
+    {
+      "adapter": "connector:postgresql",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "抓取库表",
+        "采样校验"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "postgresql",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "PostgreSQL"
+    },
+    {
+      "adapter": "connector:mysql",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "抓取库表",
+        "采样校验"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "mysql",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "MySQL"
+    },
+    {
+      "adapter": "connector:oracle",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "抓取库表",
+        "采样校验"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "oracle",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Oracle"
+    },
+    {
+      "adapter": "connector:sqlserver",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "抓取库表",
+        "采样校验"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "sqlserver",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "SQL Server"
+    },
+    {
+      "adapter": "connector:sqlite",
+      "auth": "none",
+      "certification_status": "preview",
+      "discovery": [
+        "加载文件",
+        "读取列表"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "sqlite",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "SQLite"
+    },
+    {
+      "adapter": "connector:clickhouse",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "同步元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "clickhouse",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "ClickHouse"
+    },
+    {
+      "adapter": "connector:doris",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "同步元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "doris",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Doris"
+    },
+    {
+      "adapter": "connector:starrocks",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "同步元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "starrocks",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "StarRocks"
+    },
+    {
+      "adapter": "connector:snowflake",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "抓取元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "snowflake",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Snowflake"
+    },
+    {
+      "adapter": "connector:bigquery",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "鉴权测试",
+        "抓取元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "bigquery",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "BigQuery"
+    },
+    {
+      "adapter": "connector:hive",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接测试",
+        "抓取元数据"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "hive",
+      "import": "required-durable-import-job",
+      "incremental_sync": true,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Hive"
+    },
+    {
+      "adapter": "connector:rest_api",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "校验地址",
+        "解析定义",
+        "推断操作"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "rest_api",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "REST / OpenAPI"
+    },
+    {
+      "adapter": "connector:graphql",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "获取结构",
+        "构建节点树"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "graphql",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "GraphQL"
+    },
+    {
+      "adapter": "connector:web_discovery",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "模拟访问",
+        "捕获请求",
+        "推断接口定义"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "web_discovery",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Web API Discovery"
+    },
+    {
+      "adapter": "connector:webhook",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "生成接收地址",
+        "等待请求",
+        "推断格式"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "webhook",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Webhook"
+    },
+    {
+      "adapter": "connector:kafka",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "连接集群",
+        "订阅流",
+        "解析消息定义"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "kafka",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "Kafka"
+    },
+    {
+      "adapter": "connector:mcp_custom",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "握手校验",
+        "发现可用工具"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "mcp_custom",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "MCP Server"
+    },
+    {
+      "adapter": "connector:custom_http",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "保存定义",
+        "测试连接"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "custom_http",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "preview",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "自定义 HTTP Connector"
+    },
+    {
+      "adapter": "connector:openapi_spec",
+      "auth": "credential",
+      "certification_status": "preview",
+      "discovery": [
+        "解析定义",
+        "列出操作"
+      ],
+      "evidence": [
+        "BLOCKED:no-real-system-auth-e2e-in-step-1"
+      ],
+      "ga_gate": "blocked",
+      "id": "openapi_spec",
+      "import": "required-durable-import-job",
+      "incremental_sync": false,
+      "last_verified": "never",
+      "limits": {
+        "required_controls": [
+          "payload",
+          "rate",
+          "pagination",
+          "timeout"
+        ],
+        "status": "contract-required"
+      },
+      "owner": "knowledge-workspace-connectors",
+      "preview": "required-safe-bounded-preview",
+      "support_tier": "required-ga",
+      "tenant_isolation": "required-and-unverified",
+      "ui_name": "上传 OpenAPI Spec"
+    }
+  ],
+  "ga_decision": {
+    "reason": "No Connector has real-system Commercial GA E2E evidence in STEP 1.",
+    "status": "blocked"
+  },
+  "required_ga_certifications": [
+    {
+      "connector_id": "csv",
+      "profile": "default",
+      "subject": "csv"
+    },
+    {
+      "connector_id": "excel",
+      "profile": "default",
+      "subject": "excel"
+    },
+    {
+      "connector_id": "json",
+      "profile": "default",
+      "subject": "json"
+    },
+    {
+      "connector_id": "lark_base",
+      "profile": "default",
+      "subject": "lark_base"
+    },
+    {
+      "connector_id": "lark_chat",
+      "profile": "default",
+      "subject": "lark_chat"
+    },
+    {
+      "connector_id": "lark_doc",
+      "profile": "default",
+      "subject": "lark_doc"
+    },
+    {
+      "connector_id": "lark_drive",
+      "profile": "default",
+      "subject": "lark_drive"
+    },
+    {
+      "connector_id": "lark_group",
+      "profile": "default",
+      "subject": "lark_group"
+    },
+    {
+      "connector_id": "lark_meeting",
+      "profile": "default",
+      "subject": "lark_meeting"
+    },
+    {
+      "connector_id": "lark_minutes",
+      "profile": "default",
+      "subject": "lark_minutes"
+    },
+    {
+      "connector_id": "lark_sheet",
+      "profile": "default",
+      "subject": "lark_sheet"
+    },
+    {
+      "connector_id": "lark_wiki",
+      "profile": "default",
+      "subject": "lark_wiki"
+    },
+    {
+      "connector_id": "mysql",
+      "profile": "default",
+      "subject": "mysql"
+    },
+    {
+      "connector_id": "oracle",
+      "profile": "default",
+      "subject": "oracle"
+    },
+    {
+      "connector_id": "postgresql",
+      "profile": "default",
+      "subject": "postgresql"
+    },
+    {
+      "connector_id": "rest_api",
+      "profile": "default",
+      "subject": "rest_api"
+    },
+    {
+      "connector_id": "openapi_spec",
+      "profile": "default",
+      "subject": "openapi_spec"
+    },
+    {
+      "connector_id": "web_discovery",
+      "profile": "default",
+      "subject": "web_discovery"
+    },
+    {
+      "connector_id": "doc_txt",
+      "profile": "pdf",
+      "subject": "doc_txt:pdf"
+    },
+    {
+      "connector_id": "doc_txt",
+      "profile": "markdown",
+      "subject": "doc_txt:markdown"
+    },
+    {
+      "connector_id": "doc_txt",
+      "profile": "txt",
+      "subject": "doc_txt:txt"
+    },
+    {
+      "connector_id": "doc_txt",
+      "profile": "html",
+      "subject": "doc_txt:html"
+    }
+  ],
+  "required_ga_connector_ids": [
+    "csv",
+    "doc_txt",
+    "excel",
+    "json",
+    "lark_base",
+    "lark_chat",
+    "lark_doc",
+    "lark_drive",
+    "lark_group",
+    "lark_meeting",
+    "lark_minutes",
+    "lark_sheet",
+    "lark_wiki",
+    "mysql",
+    "oracle",
+    "openapi_spec",
+    "postgresql",
+    "rest_api",
+    "web_discovery"
+  ],
+  "schema_version": "knowledge-workspace.connector-certification.v1"
+}

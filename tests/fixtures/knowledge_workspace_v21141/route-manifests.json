@@ -1,0 +1,269 @@
+{
+  "manifests": {
+    "complete": {
+      "nodes": [
+        {
+          "interaction": "root",
+          "parent_state_url": null,
+          "state_name": "Unified Workspace Home",
+          "state_url": "/?file=welcome",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Click Add Context / Data",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Connector Registry",
+          "state_url": "/?file=add_data&step=1",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Select Lark Docs",
+          "parent_state_url": "/?file=add_data&step=1",
+          "state_name": "Feishu Docs Connection Wizard",
+          "state_url": "/?file=add_data&step=2&source=lark_doc",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Select Database (PostgreSQL)",
+          "parent_state_url": "/?file=add_data&step=1",
+          "state_name": "PostgreSQL Connection Wizard",
+          "state_url": "/?file=add_data&step=2&source=postgresql",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Create Custom Connector",
+          "parent_state_url": "/?file=add_data&step=1",
+          "state_name": "Custom Connector Form",
+          "state_url": "/?file=add_data&step=2&source=create_custom",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Financial Dashboard",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Financial Dashboard",
+          "state_url": "/?file=res_dash_finance",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Finance Action Policy Modal",
+          "parent_state_url": "/?file=res_dash_finance",
+          "state_name": "Finance Action Policy Modal",
+          "state_url": "/?file=res_dash_finance&modal=action_policy&policy_id=pol_finance",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Sales Dashboard",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Dashboard Viewer",
+          "state_url": "/?file=res_dash_east",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Publish to Agent Action",
+          "parent_state_url": "/?file=res_dash_east",
+          "state_name": "Publish Agent Modal",
+          "state_url": "/?file=res_dash_east&modal=publish_agent",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Agent Selector Modal",
+          "parent_state_url": "/?file=res_dash_east",
+          "state_name": "Agent Selector Modal",
+          "state_url": "/?file=res_dash_east&modal=agent_selector",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Open Evaluation",
+          "parent_state_url": "/?file=res_dash_east",
+          "state_name": "Evaluation View",
+          "state_url": "/?file=evaluation_detail&eval_target=res_dash_east",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Knowledge Graph",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Knowledge Graph Studio",
+          "state_url": "/?file=kg_sales",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Trigger AI Build",
+          "parent_state_url": "/?file=kg_sales",
+          "state_name": "AI Graph Build Plan (Right Pane)",
+          "state_url": "/?file=kg_sales&pane=open&chat=planning",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Recruitment Loop Scenario",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Recruitment Action Loop - Data",
+          "state_url": "/?file=res_dash_recruitment",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Click Action Tab",
+          "parent_state_url": "/?file=res_dash_recruitment",
+          "state_name": "Recruitment Action Loop - Action Tab",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=action",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Click Review Tab",
+          "parent_state_url": "/?file=res_dash_recruitment",
+          "state_name": "Recruitment Action Loop - Review Tab",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=review",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Click Decision Tab",
+          "parent_state_url": "/?file=res_dash_recruitment",
+          "state_name": "Recruitment Action Loop - Decision Tab",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=decision",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Evidence Highlight from Brief",
+          "parent_state_url": "/?file=res_dash_recruitment",
+          "state_name": "Recruitment Action Loop - Evidence Highlight",
+          "state_url": "/?file=res_dash_recruitment&dash_tab=action&highlight_target=todo_vn_hc_1",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Action Policy Modal",
+          "parent_state_url": "/?file=res_dash_recruitment",
+          "state_name": "Action Policy Modal",
+          "state_url": "/?file=res_dash_recruitment&modal=action_policy",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Semantic Model",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Semantic Model Viewer",
+          "state_url": "/?file=semantic_sales",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Connection Detail",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Connection Detail Viewer",
+          "state_url": "/?file=res_sample_postgres",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Knowledge Base",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Knowledge Base Viewer",
+          "state_url": "/?file=kb_sales",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Publish to Agent Action",
+          "parent_state_url": "/?file=kb_sales",
+          "state_name": "Publish Agent Modal",
+          "state_url": "/?file=kb_sales&modal=publish_agent",
+          "status": "frozen"
+        }
+      ],
+      "sha256": "51a972c437e0580384249cc183cc7ec70d3292f416b5a4986e12bc32e5b8c92b",
+      "source_path": "prototype/codebase/src/prototype-route.json"
+    },
+    "root": {
+      "nodes": [
+        {
+          "interaction": "root",
+          "parent_state_url": null,
+          "state_name": "Generic Workspace / Unified Chat",
+          "state_url": "/?file=welcome",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Select a Fixture/Template to prefill Plan",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Multi-stage Editable Plan",
+          "state_url": "/?file=welcome&pane=open&chat=planning&use_tpl=true",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Confirm Multi-stage Pipeline execution",
+          "parent_state_url": "/?file=welcome&pane=open&chat=planning&use_tpl=true",
+          "state_name": "Generic Dashboard Artifact Generated",
+          "state_url": "/?file=res_artifact_gen_fixture&custom_name=通用业务看板&alert_saved=true",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Start from Empty: Create Universal Resource",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Create Resource Actions",
+          "state_url": "/?modal=create_resource",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Select Connect Source",
+          "parent_state_url": "/?modal=create_resource",
+          "state_name": "Universal Skill/Connector Registry",
+          "state_url": "/?file=add_data&step=1",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Configure Web API Discovery",
+          "parent_state_url": "/?file=add_data&step=1",
+          "state_name": "API Skill Builder Job",
+          "state_url": "/?file=add_data&step=2&source=web_discovery",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Configure Custom MCP Server",
+          "parent_state_url": "/?file=add_data&step=1",
+          "state_name": "MCP Skill Job",
+          "state_url": "/?file=add_data&step=2&source=mcp_custom",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Configure Oracle DB",
+          "parent_state_url": "/?file=add_data&step=1",
+          "state_name": "Oracle Connection Job",
+          "state_url": "/?file=add_data&step=2&source=oracle",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Upload Multi-source Docs",
+          "parent_state_url": "/?modal=create_resource",
+          "state_name": "Knowledge Tool Document Ingestion",
+          "state_url": "/?file=upload_doc",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Create Agent KB Tool",
+          "parent_state_url": "/?modal=create_resource",
+          "state_name": "Agent Knowledge Builder",
+          "state_url": "/?file=add_kb",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Existing Dashboard",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Dashboard Viewer",
+          "state_url": "/?file=res_dash_east",
+          "status": "frozen"
+        },
+        {
+          "interaction": "Open Generic Alert Rule Modal",
+          "parent_state_url": "/?file=res_dash_east",
+          "state_name": "Alert Policy Form",
+          "state_url": "/?file=res_dash_east&modal=alert&alert_metric=指标A",
+          "status": "frozen"
+        },
+        {
+          "interaction": "View Skill Artifact Component",
+          "parent_state_url": "/?file=welcome",
+          "state_name": "Skill Overview Viewer",
+          "state_url": "/?file=res_api_1_1",
+          "status": "frozen"
+        }
+      ],
+      "sha256": "339670643d53423e28850a0a6babff31a1042bdf6937897ac26ad35f8e4b5746",
+      "source_path": "prototype/codebase/prototype-route.json"
+    }
+  },
+  "schema_version": "knowledge-workspace.routes.v1"
+}
