@@ -226,6 +226,13 @@ class SkillDraftRunResult(CommandResultBase):
     skill_result: SkillResult | None = None
     view_intent: ViewIntent | None = None
     skill_view_revision: SkillViewRevision | None = None
+    execution_state: Literal[
+        "ok", "no_data", "unable_to_answer", "permission_denied",
+        "schema_drift", "validation_failed", "timeout", "over_budget",
+        "cancelled", "credential_blocked", "awaiting_input"
+    ] | None = None
+    trace_ref: StorageRef | None = None
+    evidence_ref: StorageRef | None = None
 
 
 class AssistantTurnResult(CommandResultBase):
