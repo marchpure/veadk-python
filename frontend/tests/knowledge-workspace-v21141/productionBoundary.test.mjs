@@ -109,6 +109,26 @@ test("adapter changes preserve all 47 frozen provenance rows", () => {
   assert.ok(changes.changes.length >= 3);
 });
 
+test("production route availability accepts only Capability Matrix deep links", () => {
+  const source = readFileSync(join(productionRoot, "store.ts"), "utf8");
+  assert.match(source, /const CAPABILITY_MATRIX_ROUTE_IDS = new Set\(\[/);
+  for (const routeId of [
+    "journey_knowledge",
+    "journey_oracle_excel",
+    "res_dash_finance",
+    "kg_sales",
+    "semantic_sales",
+    "kb_sales",
+  ]) {
+    assert.match(source, new RegExp(`"${routeId}"`));
+  }
+  assert.match(
+    source,
+    /CAPABILITY_MATRIX_ROUTE_IDS\.has\(fileId\)/,
+  );
+  assert.doesNotMatch(source, /CAPABILITY_MATRIX_ROUTE_IDS\.add\(fileId\)/);
+});
+
 test("all 47 frozen provenance targets are tracked in the checkout", () => {
   const manifest = JSON.parse(
     readFileSync(
