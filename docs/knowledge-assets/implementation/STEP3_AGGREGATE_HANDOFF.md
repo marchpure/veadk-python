@@ -11,8 +11,7 @@ Date: 2026-08-25
 - checkpoint metadata: `31a26a6f`
 - worker registration: `62029e91`
 - current Main shell integration: `aa0cf00b`
-- current corrective integration: `52ee8869` plus pending Main evaluation
-  composition fix
+- current corrective integration: `a4a258e6`
 - checkpoint tag: `knowledge-skill-factory-step-3-v2131-checkpoint-31a26a6f`
 - migration head: `004_step3_shares`
 - core contract digest: `108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12`
@@ -34,6 +33,8 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   `/tmp/knowledge-step3-evidence-final-20260825/vertical-chain.json`.
 - W4 candidate-gate regression: passed; unconfirmed Agent candidates return
   `failed` with `AGENT_CANDIDATE_CONFIRMATION_REQUIRED`.
+- Read-only Worker checks: W1 Source/Golden `2 passed`; W3 hardening `23
+  passed`.
 - Prototype archive SHA-256: `ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571`
 - Runtime evidence remains outside the repository.
 

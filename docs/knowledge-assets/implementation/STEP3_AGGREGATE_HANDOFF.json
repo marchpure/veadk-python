@@ -2,7 +2,7 @@
   "status": "INTEGRATING",
   "step4Ready": false,
   "date": "2026-08-25",
-  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869"],
+  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869", "a4a258e6"],
   "workerCommits": {"W1": ["85b8a19c"], "W2": ["65037a4b", "bdb1573d", "a03cb607"], "W3": ["96b7d10b"], "W4": ["308f1022", "45e44eb6", "6ee81405"]},
   "finalTag": null,
   "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
@@ -14,6 +14,9 @@
   "tests": {
     "backendFocused": "29 passed",
     "frontendFocused": "75 passed",
+    "w1ReadOnly": "2 passed",
+    "w3ReadOnly": "23 passed",
+    "w4CandidateGateRegression": "35 passed in combined focused run",
     "build": "passed",
     "staticGuard": "passed"
   },
