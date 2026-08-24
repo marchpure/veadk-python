@@ -86,6 +86,14 @@ from .contracts import (
 from .policies import validate_manifest_policy
 from .ports import AuditRecorderPort
 from .workers import JobFramework, JobLeaseError, PostgresJobFramework
+from .kind_runtime import (
+    ContentAddressedStore,
+    ExecutionBudget,
+    KindExecutionRequest,
+    KindRuntime,
+)
+from .kind_runtime.adapters import LocalGoldenAssetContentAdapter
+from .contract_data import SkillDraftRevision
 from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import (
     KnowledgeAssetRepositoryError,
@@ -130,6 +138,12 @@ class KnowledgeAssetApplication:
             else "test"
         )
         self._builder_job_ids: dict[str, str] = {}
+        self._kind_runtime = KindRuntime(
+            ContentAddressedStore(".veadk/knowledge-assets/kind-runtime")
+        )
+        self._golden_content = LocalGoldenAssetContentAdapter(
+            ".veadk/knowledge-assets/artifacts"
+        )
 
     def bootstrap(self, workspace_id: str, role: str):
         return self.repository.bootstrap(workspace_id, role)
@@ -606,13 +620,27 @@ class KnowledgeAssetApplication:
                     request_id=request_id,
                 ),
             )
-        if draft.manifest.spec.kind not in {
-            "semantic",
-            "analysis",
-            "knowledge",
-            "graph_ontology",
-            "monitoring",
-        }:
+        return self._run_kind_runtime(
+            draft=draft,
+            golden=golden,
+            payload=payload,
+            request_id=request_id,
+            cancelled=cancelled,
+            cancelled_result=cancelled_result,
+        )
+
+    def _run_kind_runtime(
+        self,
+        *,
+        draft: SkillDraft,
+        golden: GoldenAssetRevision,
+        payload: SkillDraftRunPayload,
+        request_id: str,
+        cancelled,
+        cancelled_result,
+    ) -> SkillDraftRunResult:
+        """Execute the five typed kinds through Worker 3's explicit runtime."""
+        if draft.manifest.spec.kind not in KindRuntime.supported_kinds:
             self.repository.update_skill_draft_revision_status(
                 draft.id, payload.revision, "failed"
             )
@@ -627,6 +655,93 @@ class KnowledgeAssetApplication:
                     request_id=request_id,
                 ),
             )
+        if cancelled():
+            return cancelled_result(golden)
+        content = self._golden_content.read_many([golden])
+        draft_revision = SkillDraftRevision(
+            id=f"{draft.id}:{payload.revision}",
+            skill_id=draft.id,
+            revision=payload.revision,
+            manifest=draft.manifest,
+            source_revision_refs=golden.source_revision_refs,
+            golden_asset_revision_refs=[golden.id],
+            status="running",
+            created_at=draft.updated_at,
+        )
+        execution = self._kind_runtime.execute(
+            KindExecutionRequest(
+                draft_revision=draft_revision,
+                caller_id="studio-build",
+                workspace_id=draft.workspace_id,
+                golden_asset_revisions=[golden],
+                golden_asset_contents=content,
+                data_access_revision_refs=golden.source_revision_refs,
+                budget=ExecutionBudget(
+                    max_steps=payload.max_steps,
+                    max_bytes=payload.budget,
+                ),
+                freshness_at=golden.freshness_at,
+                idempotency_key=f"{draft.id}:{payload.revision}:{payload.trace_id}",
+                trace_id=payload.trace_id,
+                cancel_requested=cancelled(),
+                now=now_iso(),
+            )
+        )
+        if execution.status == "cancelled":
+            return cancelled_result(golden)
+        if execution.skill_result is None or execution.view_intent is None or execution.skill_view_revision is None:
+            status = (
+                "partially_succeeded"
+                if execution.state == "over_budget"
+                else "failed"
+                if execution.status == "failed"
+                else "awaiting_input"
+            )
+            self.repository.update_skill_draft_revision_status(
+                draft.id, payload.revision, status
+            )
+            return SkillDraftRunResult(
+                draft_id=draft.id,
+                status=status,
+                golden_asset_revision=golden,
+                error=ErrorEnvelope(
+                    code=execution.state.upper(),
+                    message=execution.message or "Typed Skill execution did not produce a view.",
+                    retryable=execution.state in {"over_budget", "timeout", "no_data"},
+                    request_id=request_id,
+                ),
+            )
+        view = execution.skill_view_revision
+        invocation_id = f"invocation-{hashlib.sha256(f'{draft.id}:{payload.revision}:{payload.trace_id}'.encode()).hexdigest()[:24]}"
+        view = view.model_copy(update={"invocation_id": invocation_id})
+        invocation = Invocation(
+            id=invocation_id,
+            skill_version_id=f"draft://{draft.id}:{payload.revision}",
+            skill_view_revision_id=view.id,
+            caller_id="studio-build",
+            workspace_id=draft.workspace_id,
+            status="succeeded",
+            input_ref=golden.storage_ref,
+            result_ref=execution.skill_result.result_ref,
+            trace_id=payload.trace_id,
+            actual_data_revision_refs=[golden.id],
+            started_at=now_iso(),
+            finished_at=now_iso(),
+        )
+        self.repository.save_skill_result(execution.skill_result)
+        self.repository.save_skill_view_revision(view)
+        self.repository.save_invocation(invocation)
+        self.repository.update_skill_draft_revision_status(
+            draft.id, payload.revision, "ready_for_evaluation"
+        )
+        return SkillDraftRunResult(
+            draft_id=draft.id,
+            status="ready_for_evaluation",
+            golden_asset_revision=golden,
+            skill_result=execution.skill_result,
+            view_intent=execution.view_intent,
+            skill_view_revision=view,
+        )
         try:
             artifact = self._artifact_path(golden.storage_ref.sha256)
             source = artifact.read_text(encoding="utf-8").rstrip()

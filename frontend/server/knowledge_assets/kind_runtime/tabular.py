@@ -20,7 +20,21 @@ def parse_rows(content: str) -> list[dict[str, Any]]:
     if not stripped:
         return []
     if stripped.startswith("[") or stripped.startswith("{"):
-        parsed = json.loads(stripped)
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            records = []
+            for line in stripped.splitlines():
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(item, dict):
+                    records.append(item)
+            return [
+                {str(key): _coerce(value) for key, value in item.items()}
+                for item in records
+            ]
         if isinstance(parsed, dict):
             records = parsed.get("rows") or parsed.get("data") or [parsed]
         else:
@@ -28,7 +42,7 @@ def parse_rows(content: str) -> list[dict[str, Any]]:
         if not isinstance(records, list):
             return []
         return [
-            {str(key): value for key, value in item.items()}
+            {str(key): _coerce(value) for key, value in item.items()}
             for item in records
             if isinstance(item, dict)
         ]
@@ -98,7 +112,7 @@ def aggregate_sum(
         if not isinstance(value, (int, float)):
             continue
         grouped[label] = grouped.get(label, 0.0) + float(value)
-    return sorted(grouped.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    return list(grouped.items())[:limit]
 
 
 def first_content(request_contents: dict[str, str]) -> tuple[str, str]:

@@ -73,7 +73,7 @@ class KnowledgeHandler(KindHandler):
                 request,
                 source_revision_id,
                 golden.id,
-                f"local://golden/{golden.storage_ref.sha256}#chunk={index}",
+                f"local://golden/{golden.storage_ref.sha256}",
             )
             for index, source_revision_id in enumerate(golden.source_revision_refs or [golden.id])
         ][: max(1, len(matched))]
