@@ -42,9 +42,10 @@ export default function TopNav({ searchParams, setSearchParams, onOpenMenu, onOp
           <button aria-label="重置演示" title="重置演示" className="flex items-center px-2 py-1.5 space-x-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-xs font-medium transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500">
             <RefreshCcw size={12} /><span>重置演示</span>
           </button>
-          <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
             <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 transition-colors rounded-t-lg outline-none focus:bg-slate-100" onClick={() => onResetDemo('empty')}>切换为空工作区</button>
             <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 transition-colors rounded-b-lg outline-none focus:bg-slate-100" onClick={() => onResetDemo('full')}>恢复完整演示</button>
+            <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 transition-colors rounded-b-lg outline-none focus:bg-slate-100" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', 'v212_entry'); setSearchParams(p); }}>打开验收入口</button>
           </div>
         </div>
         <button aria-label="通知" title="通知" className="hidden md:flex w-8 h-8 items-center justify-center rounded hover:bg-slate-100 transition-colors"><Bell size={18} /></button>
