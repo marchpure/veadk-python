@@ -1,4 +1,3 @@
-import React from 'react';
 import React, { useEffect } from 'react';
 import WelcomeView from '../MainArea/WelcomeView';
 import DatasetView from '../MainArea/DatasetView';
@@ -17,6 +16,7 @@ import KnowledgeBaseView from '../MainArea/KnowledgeBaseView';
 import SkillBuilderView from '../MainArea/SkillBuilderView';
 import SkillArtifactView from '../MainArea/SkillArtifactView';
 import ConnectionDetailView from '../MainArea/ConnectionDetailView';
+import JourneyDetailView from '../MainArea/JourneyDetailView';
 import { resourceStore } from '../../lib/store';
 
 export default function MainAreaPane({ fileId, errorState, searchParams, setSearchParams, showToast, isWorkspaceEmpty }: any) {
@@ -26,6 +26,7 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     if (errorState === 'no_permission' || fileId === 'dataset_no_permission') return <EmptyState type="no_permission" />;
     
     if (fileId === 'evaluation_detail') return <EvaluationCenterView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    if (fileId.startsWith('journey_')) return <JourneyDetailView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} />;
     if (fileId === 'kg_sales') return <KnowledgeGraphView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
 
     if (fileId === 'data_overview') return <DataOverviewView searchParams={searchParams} setSearchParams={setSearchParams} />;

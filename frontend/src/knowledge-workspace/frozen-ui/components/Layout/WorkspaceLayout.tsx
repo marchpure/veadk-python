@@ -379,6 +379,15 @@ export default function WorkspaceLayout() {
       {modal === 'create_resource' && <CreateResourceModal onClose={closeModal} searchParams={searchParams} setSearchParams={setSearchParams} />}
       {modal === 'agent_selector' && <AgentResourceSelectorModal onClose={closeModal} />}
       {modal === 'publish_agent' && <PublishAgentModal onClose={closeModal} showToast={showToast} fileId={fileId} />}
+      {modal === 'v212_entry' && (
+        <div role="dialog" aria-modal="true" aria-label="验收入口" className="fixed inset-0 z-[80] bg-slate-900/30 flex justify-end">
+          <div className="w-full max-w-md bg-white h-full shadow-2xl p-6">
+            <div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">Skill 工作区入口</h2><button className="text-slate-400 hover:text-slate-800" onClick={closeModal}>×</button></div>
+            <p className="text-sm text-slate-500 mt-3">从真实数据与知识开始，经过草稿执行和评测，再进入发布边界。</p>
+            <button className="mt-6 w-full rounded-lg bg-blue-600 text-white py-2 text-sm font-medium" onClick={() => { const p = new URLSearchParams(searchParams); p.delete('modal'); p.set('file', 'journey_knowledge'); p.set('step', '1'); setSearchParams(p); }}>进入企业知识旅程</button>
+          </div>
+        </div>
+      )}
 
       <div role="status" aria-live="polite" className={`fixed top-16 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${toast.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
         <div className="bg-white border border-slate-200 shadow-lg rounded-full px-4 py-2.5 flex items-center space-x-3">
