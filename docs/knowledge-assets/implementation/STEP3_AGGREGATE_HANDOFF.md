@@ -18,7 +18,7 @@ Date: 2026-08-25
 - real SkillViewRevision → production Workspace Dashboard integration:
   `4aa377fe`
 - checkpoint tag: `knowledge-skill-factory-step-3-v2131-checkpoint-31a26a6f`
-- migration head: `004_step3_shares`
+- migration head: `006_skill_authoring`
 - core contract digest: `108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12`
 - command registry digest: `bcd6f4d1ca7c3f7e52b1ced95de410cbc843c68397ca9f45b799e427a5718d18`
 
