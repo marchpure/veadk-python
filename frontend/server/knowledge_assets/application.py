@@ -1293,7 +1293,11 @@ class KnowledgeAssetApplication:
         return EvaluationRunResult(
             result_type=result_type,
             target_id=draft.id,
-            status="succeeded" if score >= suite.pass_threshold else "failed",
+            status=(
+                "succeeded"
+                if not candidate_blocked and score >= suite.pass_threshold
+                else "failed"
+            ),
             evaluation_suite=suite,
             evaluation_run=run,
             policy_gate_result=gate,

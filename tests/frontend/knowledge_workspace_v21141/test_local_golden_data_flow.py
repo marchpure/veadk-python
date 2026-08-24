@@ -656,7 +656,7 @@ def test_evaluation_sources_are_content_addressed_and_candidates_block_gate(
     )
     assert evaluated.result.policy_gate_result.decision == "blocked"
     assert evaluated.result.policy_gate_result.machine_reasons == [
-        "EVAL_SCORE_BELOW_THRESHOLD"
+        "AGENT_CANDIDATE_CONFIRMATION_REQUIRED"
     ]
 
 
