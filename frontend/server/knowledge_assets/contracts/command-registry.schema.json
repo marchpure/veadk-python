@@ -246,6 +246,34 @@
         "title": "AssistantTurnPayload",
         "type": "object"
       },
+      "CaseCategory": {
+        "enum": [
+          "normal",
+          "refusal",
+          "unauthorized",
+          "empty_data",
+          "ambiguity",
+          "metric_definition",
+          "citation",
+          "chart_consistency",
+          "interaction",
+          "performance_budget"
+        ],
+        "title": "CaseCategory",
+        "type": "string"
+      },
+      "CaseSource": {
+        "enum": [
+          "manual",
+          "historical_conversation",
+          "historical_run",
+          "csv_import",
+          "json_import",
+          "agent_candidate"
+        ],
+        "title": "CaseSource",
+        "type": "string"
+      },
       "CompatibilityTargets": {
         "additionalProperties": false,
         "properties": {
@@ -473,44 +501,230 @@
         "title": "DataAccessKindSpec",
         "type": "object"
       },
-      "EvaluationCase": {
+      "EvaluationCaseAdoptHistoryCommand": {
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "title": "Id",
+          "command": {
+            "const": "evaluation-case.adopt-history",
+            "title": "Command",
             "type": "string"
           },
-          "inputRef": {
-            "$ref": "#/$defs/StorageRef"
+          "payload": {
+            "$ref": "#/$defs/EvaluationCaseAdoptHistoryPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationCaseAdoptHistoryCommand",
+        "type": "object"
+      },
+      "EvaluationCaseAdoptHistoryPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Caseid",
+            "type": "string"
           },
-          "expectedOutputRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/StorageRef"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
+          "category": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "provenanceRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Provenanceref",
+            "type": "string"
           },
           "source": {
-            "default": "manual",
             "enum": [
-              "manual",
-              "historical",
-              "batch",
-              "agent_candidate"
+              "historical_conversation",
+              "historical_run"
             ],
             "title": "Source",
             "type": "string"
           }
         },
         "required": [
-          "id",
-          "inputRef"
+          "caseId",
+          "category",
+          "input",
+          "expected",
+          "provenanceRef",
+          "source"
         ],
-        "title": "EvaluationCase",
+        "title": "EvaluationCaseAdoptHistoryPayload",
+        "type": "object"
+      },
+      "EvaluationCaseConfirmCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-case.confirm-candidates",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationCaseConfirmPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationCaseConfirmCommand",
+        "type": "object"
+      },
+      "EvaluationCaseConfirmPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "suiteId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "caseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Caseids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suiteId",
+          "version",
+          "caseIds"
+        ],
+        "title": "EvaluationCaseConfirmPayload",
+        "type": "object"
+      },
+      "EvaluationCaseGenerateCandidateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-case.generate-candidates",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationCaseGenerateCandidatePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationCaseGenerateCandidateCommand",
+        "type": "object"
+      },
+      "EvaluationCaseGenerateCandidatePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Caseid",
+            "type": "string"
+          },
+          "category": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "provenanceRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Provenanceref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "caseId",
+          "category",
+          "input",
+          "expected",
+          "provenanceRef"
+        ],
+        "title": "EvaluationCaseGenerateCandidatePayload",
+        "type": "object"
+      },
+      "EvaluationCaseImportCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-case.import",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationCaseImportPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationCaseImportCommand",
+        "type": "object"
+      },
+      "EvaluationCaseImportPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 10000000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "mediaType": {
+            "enum": [
+              "application/json",
+              "text/csv"
+            ],
+            "title": "Mediatype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "mediaType"
+        ],
+        "title": "EvaluationCaseImportPayload",
         "type": "object"
       },
       "EvaluationCommand": {
@@ -533,6 +747,184 @@
           "payload"
         ],
         "title": "EvaluationCommand",
+        "type": "object"
+      },
+      "EvaluationFixActionPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "planId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Planid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "planId"
+        ],
+        "title": "EvaluationFixActionPayload",
+        "type": "object"
+      },
+      "EvaluationFixApplyCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-fix.apply",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationFixActionPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationFixApplyCommand",
+        "type": "object"
+      },
+      "EvaluationFixProposeAllCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-fix.propose-all-unresolved",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationFixProposeAllPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationFixProposeAllCommand",
+        "type": "object"
+      },
+      "EvaluationFixProposeAllPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          },
+          "affectedCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Affectedcaseids",
+            "type": "array"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "patch": {
+            "$ref": "#/$defs/TypedPatch"
+          }
+        },
+        "required": [
+          "runId",
+          "affectedCaseIds",
+          "patch"
+        ],
+        "title": "EvaluationFixProposeAllPayload",
+        "type": "object"
+      },
+      "EvaluationFixProposeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-fix.propose",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationFixProposePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationFixProposeCommand",
+        "type": "object"
+      },
+      "EvaluationFixProposePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          },
+          "issueCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Issuecaseids",
+            "type": "array"
+          },
+          "affectedCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Affectedcaseids",
+            "type": "array"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "patch": {
+            "$ref": "#/$defs/TypedPatch"
+          }
+        },
+        "required": [
+          "runId",
+          "issueCaseIds",
+          "affectedCaseIds",
+          "patch"
+        ],
+        "title": "EvaluationFixProposePayload",
+        "type": "object"
+      },
+      "EvaluationFixUndoCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-fix.undo",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationFixActionPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationFixUndoCommand",
         "type": "object"
       },
       "EvaluationPayload": {
@@ -571,7 +963,7 @@
           },
           "cases": {
             "items": {
-              "$ref": "#/$defs/EvaluationCase"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_views__EvaluationCase"
             },
             "maxItems": 1000,
             "title": "Cases",
@@ -582,6 +974,258 @@
           "targetId"
         ],
         "title": "EvaluationPayload",
+        "type": "object"
+      },
+      "EvaluationRunActionPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "title": "EvaluationRunActionPayload",
+        "type": "object"
+      },
+      "EvaluationRunCancelCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-run.cancel",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationRunActionPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationRunCancelCommand",
+        "type": "object"
+      },
+      "EvaluationRunResumeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-run.resume",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationRunActionPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationRunResumeCommand",
+        "type": "object"
+      },
+      "EvaluationRunRetryCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-run.retry",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationRunRetryPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationRunRetryCommand",
+        "type": "object"
+      },
+      "EvaluationRunRetryPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "title": "EvaluationRunRetryPayload",
+        "type": "object"
+      },
+      "EvaluationRunStartCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-run.start",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationRunStartPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationRunStartCommand",
+        "type": "object"
+      },
+      "EvaluationRunStartPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "suiteId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "suiteVersion": {
+            "minimum": 1,
+            "title": "Suiteversion",
+            "type": "integer"
+          },
+          "provenance": {
+            "$ref": "#/$defs/RunProvenance"
+          },
+          "selectedCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Selectedcaseids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suiteId",
+          "suiteVersion",
+          "provenance"
+        ],
+        "title": "EvaluationRunStartPayload",
+        "type": "object"
+      },
+      "EvaluationSuiteCreateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-suite.create",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationSuiteCreatePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationSuiteCreateCommand",
+        "type": "object"
+      },
+      "EvaluationSuiteCreatePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "suiteId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "skillId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Skillid",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/$defs/frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "passThreshold": {
+            "default": 1.0,
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Passthreshold",
+            "type": "number"
+          }
+        },
+        "required": [
+          "suiteId",
+          "skillId",
+          "cases"
+        ],
+        "title": "EvaluationSuiteCreatePayload",
+        "type": "object"
+      },
+      "EvaluationSuiteReviseCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "evaluation-suite.revise",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationSuiteRevisePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationSuiteReviseCommand",
+        "type": "object"
+      },
+      "EvaluationSuiteRevisePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "suiteId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "additions": {
+            "items": {
+              "$ref": "#/$defs/frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Additions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suiteId",
+          "version",
+          "additions"
+        ],
+        "title": "EvaluationSuiteRevisePayload",
         "type": "object"
       },
       "GraphOntologyKindSpec": {
@@ -944,6 +1588,42 @@
         "title": "OwnerRef",
         "type": "object"
       },
+      "PatchOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "replace_query",
+              "replace_metric",
+              "replace_retrieval_policy",
+              "replace_view_binding",
+              "replace_interaction",
+              "replace_budget"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^/(query|metrics|retrieval|view|interaction|budget)/",
+            "title": "Path",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "after": {
+            "title": "After"
+          }
+        },
+        "required": [
+          "op",
+          "path",
+          "before",
+          "after"
+        ],
+        "title": "PatchOperation",
+        "type": "object"
+      },
       "PermissionRef": {
         "additionalProperties": false,
         "properties": {
@@ -965,6 +1645,92 @@
           "version"
         ],
         "title": "PermissionRef",
+        "type": "object"
+      },
+      "PolicyCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "dimension": {
+            "enum": [
+              "schema",
+              "data_quality",
+              "freshness",
+              "permission",
+              "security",
+              "evaluation",
+              "visual_interaction",
+              "compatibility",
+              "budget"
+            ],
+            "title": "Dimension",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "machineReason": {
+            "title": "Machinereason",
+            "type": "string"
+          },
+          "evidenceRefs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidencerefs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dimension",
+          "passed",
+          "machineReason"
+        ],
+        "title": "PolicyCheck",
+        "type": "object"
+      },
+      "PolicyGateEvaluateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "policy-gate.evaluate",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/PolicyGateEvaluatePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "PolicyGateEvaluateCommand",
+        "type": "object"
+      },
+      "PolicyGateEvaluatePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Runid",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/$defs/PolicyCheck"
+            },
+            "maxItems": 32,
+            "title": "Checks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "title": "PolicyGateEvaluatePayload",
         "type": "object"
       },
       "PublicationPublishCommand": {
@@ -1105,6 +1871,82 @@
           "resourceId"
         ],
         "title": "ResourcePayload",
+        "type": "object"
+      },
+      "RunProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "suiteId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "suiteVersion": {
+            "minimum": 1,
+            "title": "Suiteversion",
+            "type": "integer"
+          },
+          "environment": {
+            "enum": [
+              "test",
+              "staging",
+              "production"
+            ],
+            "title": "Environment",
+            "type": "string"
+          },
+          "skillDraftRevision": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Skilldraftrevision",
+            "type": "string"
+          },
+          "dependencyRevisionRefs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencyrevisionrefs",
+            "type": "array"
+          },
+          "goldenRevisionRefs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Goldenrevisionrefs",
+            "type": "array"
+          },
+          "executorVersion": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Executorversion",
+            "type": "string"
+          },
+          "rendererVersion": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Rendererversion",
+            "type": "string"
+          },
+          "dataAsOf": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Dataasof",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suiteId",
+          "suiteVersion",
+          "environment",
+          "skillDraftRevision",
+          "executorVersion",
+          "rendererVersion",
+          "dataAsOf"
+        ],
+        "title": "RunProvenance",
         "type": "object"
       },
       "SaveManifestCommand": {
@@ -1955,6 +2797,136 @@
         ],
         "title": "StreamCancelPayload",
         "type": "object"
+      },
+      "TypedPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "baseDraftRevision": {
+            "title": "Basedraftrevision",
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/$defs/PatchOperation"
+            },
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "baseDraftRevision",
+          "operations"
+        ],
+        "title": "TypedPatch",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__contract_views__EvaluationCase": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inputRef": {
+            "$ref": "#/$defs/StorageRef"
+          },
+          "expectedOutputRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "source": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "historical",
+              "batch",
+              "agent_candidate"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "inputRef"
+        ],
+        "title": "EvaluationCase",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/CaseSource"
+          },
+          "category": {
+            "$ref": "#/$defs/CaseCategory"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "grading": {
+            "additionalProperties": true,
+            "title": "Grading",
+            "type": "object"
+          },
+          "provenanceRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provenanceref"
+          },
+          "candidateConfirmed": {
+            "default": false,
+            "title": "Candidateconfirmed",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "category",
+          "input",
+          "expected"
+        ],
+        "title": "EvaluationCase",
+        "type": "object"
       }
     },
     "discriminator": {
@@ -1964,11 +2936,26 @@
         "assistant.turn": "#/$defs/AssistantCommand",
         "connector.create": "#/$defs/ConnectorCommand",
         "connector.test": "#/$defs/ConnectorCommand",
+        "evaluation-case.adopt-history": "#/$defs/EvaluationCaseAdoptHistoryCommand",
+        "evaluation-case.confirm-candidates": "#/$defs/EvaluationCaseConfirmCommand",
+        "evaluation-case.generate-candidates": "#/$defs/EvaluationCaseGenerateCandidateCommand",
+        "evaluation-case.import": "#/$defs/EvaluationCaseImportCommand",
+        "evaluation-fix.apply": "#/$defs/EvaluationFixApplyCommand",
+        "evaluation-fix.propose": "#/$defs/EvaluationFixProposeCommand",
+        "evaluation-fix.propose-all-unresolved": "#/$defs/EvaluationFixProposeAllCommand",
+        "evaluation-fix.undo": "#/$defs/EvaluationFixUndoCommand",
+        "evaluation-run.cancel": "#/$defs/EvaluationRunCancelCommand",
+        "evaluation-run.resume": "#/$defs/EvaluationRunResumeCommand",
+        "evaluation-run.retry": "#/$defs/EvaluationRunRetryCommand",
+        "evaluation-run.start": "#/$defs/EvaluationRunStartCommand",
+        "evaluation-suite.create": "#/$defs/EvaluationSuiteCreateCommand",
+        "evaluation-suite.revise": "#/$defs/EvaluationSuiteReviseCommand",
         "evaluation.apply": "#/$defs/EvaluationCommand",
         "evaluation.run": "#/$defs/EvaluationCommand",
         "import.cancel": "#/$defs/ImportCommand",
         "import.start": "#/$defs/ImportCommand",
         "invocation.start": "#/$defs/InvocationStartCommand",
+        "policy-gate.evaluate": "#/$defs/PolicyGateEvaluateCommand",
         "publication.publish": "#/$defs/PublicationPublishCommand",
         "refresh.run": "#/$defs/RefreshRunCommand",
         "resource.create": "#/$defs/ResourceCommand",
@@ -2010,6 +2997,51 @@
       },
       {
         "$ref": "#/$defs/EvaluationCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationSuiteCreateCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationSuiteReviseCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationCaseImportCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationCaseAdoptHistoryCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationCaseGenerateCandidateCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationCaseConfirmCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationRunStartCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationRunCancelCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationRunResumeCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationRunRetryCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationFixProposeCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationFixProposeAllCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationFixApplyCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationFixUndoCommand"
+      },
+      {
+        "$ref": "#/$defs/PolicyGateEvaluateCommand"
       },
       {
         "$ref": "#/$defs/ActionCommand"
@@ -2259,6 +3291,34 @@
         ],
         "title": "AssistantTurnResult",
         "type": "object"
+      },
+      "CaseCategory": {
+        "enum": [
+          "normal",
+          "refusal",
+          "unauthorized",
+          "empty_data",
+          "ambiguity",
+          "metric_definition",
+          "citation",
+          "chart_consistency",
+          "interaction",
+          "performance_budget"
+        ],
+        "title": "CaseCategory",
+        "type": "string"
+      },
+      "CaseSource": {
+        "enum": [
+          "manual",
+          "historical_conversation",
+          "historical_run",
+          "csv_import",
+          "json_import",
+          "agent_candidate"
+        ],
+        "title": "CaseSource",
+        "type": "string"
       },
       "ChartSeries": {
         "additionalProperties": false,
@@ -2728,165 +3788,37 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
-      "EvaluationCaseResult": {
-        "additionalProperties": false,
-        "properties": {
-          "caseId": {
-            "title": "Caseid",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "passed",
-              "failed",
-              "skipped"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "score": {
-            "maximum": 1,
-            "minimum": 0,
-            "title": "Score",
-            "type": "number"
-          },
-          "evidenceRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/StorageRef"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "regressionDiffRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/StorageRef"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          }
-        },
-        "required": [
-          "caseId",
-          "status",
-          "score"
-        ],
-        "title": "EvaluationCaseResult",
-        "type": "object"
-      },
-      "EvaluationRun": {
+      "EvaluationCase": {
         "additionalProperties": false,
         "properties": {
           "id": {
+            "maxLength": 128,
+            "minLength": 1,
             "title": "Id",
             "type": "string"
           },
-          "suiteId": {
-            "title": "Suiteid",
-            "type": "string"
+          "source": {
+            "$ref": "#/$defs/CaseSource"
           },
-          "suiteVersion": {
-            "minimum": 1,
-            "title": "Suiteversion",
-            "type": "integer"
+          "category": {
+            "$ref": "#/$defs/CaseCategory"
           },
-          "skillRevisionId": {
-            "title": "Skillrevisionid",
-            "type": "string"
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
           },
-          "status": {
-            "enum": [
-              "queued",
-              "running",
-              "succeeded",
-              "failed",
-              "cancelled"
-            ],
-            "title": "Status",
-            "type": "string"
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
           },
-          "score": {
-            "anyOf": [
-              {
-                "maximum": 1,
-                "minimum": 0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Score"
+          "grading": {
+            "additionalProperties": true,
+            "title": "Grading",
+            "type": "object"
           },
-          "evidenceRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/StorageRef"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "regressionRef": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/StorageRef"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "environment": {
-            "default": "test",
-            "enum": [
-              "production",
-              "demo",
-              "test"
-            ],
-            "title": "Environment",
-            "type": "string"
-          },
-          "dependencyRevisionRefs": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 100,
-            "title": "Dependencyrevisionrefs",
-            "type": "array"
-          },
-          "dataRevisionRefs": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 100,
-            "title": "Datarevisionrefs",
-            "type": "array"
-          },
-          "caseResults": {
-            "items": {
-              "$ref": "#/$defs/EvaluationCaseResult"
-            },
-            "maxItems": 1000,
-            "title": "Caseresults",
-            "type": "array"
-          },
-          "startedAt": {
-            "title": "Startedat",
-            "type": "string"
-          },
-          "finishedAt": {
+          "provenanceRef": {
             "anyOf": [
               {
                 "type": "string"
@@ -2896,18 +3828,143 @@
               }
             ],
             "default": null,
-            "title": "Finishedat"
+            "title": "Provenanceref"
+          },
+          "candidateConfirmed": {
+            "default": false,
+            "title": "Candidateconfirmed",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "suiteId",
-          "suiteVersion",
-          "skillRevisionId",
-          "status",
-          "startedAt"
+          "source",
+          "category",
+          "input",
+          "expected"
         ],
-        "title": "EvaluationRun",
+        "title": "EvaluationCase",
+        "type": "object"
+      },
+      "EvaluationQualityCommandResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "enum": [
+              "evaluation-suite.create",
+              "evaluation-suite.revise",
+              "evaluation-case.import",
+              "evaluation-case.adopt-history",
+              "evaluation-case.generate-candidates",
+              "evaluation-case.confirm-candidates",
+              "evaluation-run.start",
+              "evaluation-run.cancel",
+              "evaluation-run.resume",
+              "evaluation-run.retry",
+              "evaluation-fix.propose",
+              "evaluation-fix.propose-all-unresolved",
+              "evaluation-fix.apply",
+              "evaluation-fix.undo",
+              "policy-gate.evaluate"
+            ],
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "default": "not_ready",
+            "enum": [
+              "not_ready",
+              "succeeded",
+              "failed",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suite": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "fixPlan": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FixPlan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/$defs/EvaluationCase"
+            },
+            "maxItems": 1000,
+            "title": "Cases",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "resultType"
+        ],
+        "title": "EvaluationQualityCommandResult",
         "type": "object"
       },
       "EvaluationRunResult": {
@@ -2949,7 +4006,7 @@
           "evaluationSuite": {
             "anyOf": [
               {
-                "$ref": "#/$defs/EvaluationSuite"
+                "$ref": "#/$defs/frontend__server__knowledge_assets__contract_views__EvaluationSuite"
               },
               {
                 "type": "null"
@@ -2960,7 +4017,7 @@
           "evaluationRun": {
             "anyOf": [
               {
-                "$ref": "#/$defs/EvaluationRun"
+                "$ref": "#/$defs/frontend__server__knowledge_assets__contract_views__EvaluationRun"
               },
               {
                 "type": "null"
@@ -2971,7 +4028,7 @@
           "policyGateResult": {
             "anyOf": [
               {
-                "$ref": "#/$defs/PolicyGateResult"
+                "$ref": "#/$defs/frontend__server__knowledge_assets__contract_views__PolicyGateResult"
               },
               {
                 "type": "null"
@@ -2987,64 +4044,99 @@
         "title": "EvaluationRunResult",
         "type": "object"
       },
-      "EvaluationSuite": {
+      "FixPlan": {
         "additionalProperties": false,
         "properties": {
           "id": {
             "title": "Id",
             "type": "string"
           },
-          "version": {
-            "minimum": 1,
-            "title": "Version",
-            "type": "integer"
-          },
-          "skillId": {
-            "title": "Skillid",
+          "runId": {
+            "title": "Runid",
             "type": "string"
           },
-          "caseCount": {
-            "minimum": 0,
-            "title": "Casecount",
-            "type": "integer"
-          },
-          "casesRef": {
-            "$ref": "#/$defs/StorageRef"
-          },
-          "passThreshold": {
-            "maximum": 1,
-            "minimum": 0,
-            "title": "Passthreshold",
-            "type": "number"
-          },
-          "environment": {
-            "default": "test",
-            "enum": [
-              "production",
-              "demo",
-              "test"
-            ],
-            "title": "Environment",
-            "type": "string"
-          },
-          "caseIds": {
+          "issueCaseIds": {
             "items": {
               "type": "string"
             },
-            "maxItems": 1000,
-            "title": "Caseids",
+            "minItems": 1,
+            "title": "Issuecaseids",
             "type": "array"
+          },
+          "affectedCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affectedcaseids",
+            "type": "array"
+          },
+          "conflicts": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "patch": {
+            "$ref": "#/$defs/TypedPatch"
+          },
+          "status": {
+            "default": "proposed",
+            "enum": [
+              "proposed",
+              "applied",
+              "undone"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "newDraftRevision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Newdraftrevision"
+          },
+          "rerunId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rerunid"
+          },
+          "undoToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Undotoken"
           }
         },
         "required": [
           "id",
-          "version",
-          "skillId",
-          "caseCount",
-          "casesRef",
-          "passThreshold"
+          "runId",
+          "issueCaseIds",
+          "affectedCaseIds",
+          "patch"
         ],
-        "title": "EvaluationSuite",
+        "title": "FixPlan",
         "type": "object"
       },
       "GoldenAssetRevision": {
@@ -3718,6 +4810,42 @@
         "title": "OwnerRef",
         "type": "object"
       },
+      "PatchOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "replace_query",
+              "replace_metric",
+              "replace_retrieval_policy",
+              "replace_view_binding",
+              "replace_interaction",
+              "replace_budget"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^/(query|metrics|retrieval|view|interaction|budget)/",
+            "title": "Path",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "after": {
+            "title": "After"
+          }
+        },
+        "required": [
+          "op",
+          "path",
+          "before",
+          "after"
+        ],
+        "title": "PatchOperation",
+        "type": "object"
+      },
       "PermissionRef": {
         "additionalProperties": false,
         "properties": {
@@ -3741,56 +4869,47 @@
         "title": "PermissionRef",
         "type": "object"
       },
-      "PolicyGateResult": {
+      "PolicyCheck": {
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "skillRevisionId": {
-            "title": "Skillrevisionid",
-            "type": "string"
-          },
-          "evaluationRunId": {
-            "title": "Evaluationrunid",
-            "type": "string"
-          },
-          "decision": {
+          "dimension": {
             "enum": [
-              "publishable",
-              "blocked"
+              "schema",
+              "data_quality",
+              "freshness",
+              "permission",
+              "security",
+              "evaluation",
+              "visual_interaction",
+              "compatibility",
+              "budget"
             ],
-            "title": "Decision",
+            "title": "Dimension",
             "type": "string"
           },
-          "reasons": {
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "machineReason": {
+            "title": "Machinereason",
+            "type": "string"
+          },
+          "evidenceRefs": {
+            "default": [],
             "items": {
               "type": "string"
             },
-            "title": "Reasons",
+            "title": "Evidencerefs",
             "type": "array"
-          },
-          "machineReasons": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Machinereasons",
-            "type": "array"
-          },
-          "checkedAt": {
-            "title": "Checkedat",
-            "type": "string"
           }
         },
         "required": [
-          "id",
-          "skillRevisionId",
-          "evaluationRunId",
-          "decision",
-          "checkedAt"
+          "dimension",
+          "passed",
+          "machineReason"
         ],
-        "title": "PolicyGateResult",
+        "title": "PolicyCheck",
         "type": "object"
       },
       "ProfileRun": {
@@ -4166,6 +5285,82 @@
           "resourceId"
         ],
         "title": "ResourceShareResult",
+        "type": "object"
+      },
+      "RunProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "suiteId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "suiteVersion": {
+            "minimum": 1,
+            "title": "Suiteversion",
+            "type": "integer"
+          },
+          "environment": {
+            "enum": [
+              "test",
+              "staging",
+              "production"
+            ],
+            "title": "Environment",
+            "type": "string"
+          },
+          "skillDraftRevision": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Skilldraftrevision",
+            "type": "string"
+          },
+          "dependencyRevisionRefs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencyrevisionrefs",
+            "type": "array"
+          },
+          "goldenRevisionRefs": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Goldenrevisionrefs",
+            "type": "array"
+          },
+          "executorVersion": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Executorversion",
+            "type": "string"
+          },
+          "rendererVersion": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Rendererversion",
+            "type": "string"
+          },
+          "dataAsOf": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Dataasof",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suiteId",
+          "suiteVersion",
+          "environment",
+          "skillDraftRevision",
+          "executorVersion",
+          "rendererVersion",
+          "dataAsOf"
+        ],
+        "title": "RunProvenance",
         "type": "object"
       },
       "SchemaRef": {
@@ -5321,6 +6516,34 @@
         "title": "StorageRef",
         "type": "object"
       },
+      "TypedPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "baseDraftRevision": {
+            "title": "Basedraftrevision",
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/$defs/PatchOperation"
+            },
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "baseDraftRevision",
+          "operations"
+        ],
+        "title": "TypedPatch",
+        "type": "object"
+      },
       "ViewCell": {
         "additionalProperties": false,
         "properties": {
@@ -5442,6 +6665,598 @@
         ],
         "title": "ViewIntent",
         "type": "object"
+      },
+      "frontend__server__knowledge_assets__contract_views__EvaluationCaseResult": {
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "title": "Caseid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Score",
+            "type": "number"
+          },
+          "evidenceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "regressionDiffRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "caseId",
+          "status",
+          "score"
+        ],
+        "title": "EvaluationCaseResult",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__contract_views__EvaluationRun": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "suiteId": {
+            "title": "Suiteid",
+            "type": "string"
+          },
+          "suiteVersion": {
+            "minimum": 1,
+            "title": "Suiteversion",
+            "type": "integer"
+          },
+          "skillRevisionId": {
+            "title": "Skillrevisionid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Score"
+          },
+          "evidenceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "regressionRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "environment": {
+            "default": "test",
+            "enum": [
+              "production",
+              "demo",
+              "test"
+            ],
+            "title": "Environment",
+            "type": "string"
+          },
+          "dependencyRevisionRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Dependencyrevisionrefs",
+            "type": "array"
+          },
+          "dataRevisionRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Datarevisionrefs",
+            "type": "array"
+          },
+          "caseResults": {
+            "items": {
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_views__EvaluationCaseResult"
+            },
+            "maxItems": 1000,
+            "title": "Caseresults",
+            "type": "array"
+          },
+          "startedAt": {
+            "title": "Startedat",
+            "type": "string"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finishedat"
+          }
+        },
+        "required": [
+          "id",
+          "suiteId",
+          "suiteVersion",
+          "skillRevisionId",
+          "status",
+          "startedAt"
+        ],
+        "title": "EvaluationRun",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__contract_views__EvaluationSuite": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "skillId": {
+            "title": "Skillid",
+            "type": "string"
+          },
+          "caseCount": {
+            "minimum": 0,
+            "title": "Casecount",
+            "type": "integer"
+          },
+          "casesRef": {
+            "$ref": "#/$defs/StorageRef"
+          },
+          "passThreshold": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Passthreshold",
+            "type": "number"
+          },
+          "environment": {
+            "default": "test",
+            "enum": [
+              "production",
+              "demo",
+              "test"
+            ],
+            "title": "Environment",
+            "type": "string"
+          },
+          "caseIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Caseids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "skillId",
+          "caseCount",
+          "casesRef",
+          "passThreshold"
+        ],
+        "title": "EvaluationSuite",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__contract_views__PolicyGateResult": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "skillRevisionId": {
+            "title": "Skillrevisionid",
+            "type": "string"
+          },
+          "evaluationRunId": {
+            "title": "Evaluationrunid",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "publishable",
+              "blocked"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "machineReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Machinereasons",
+            "type": "array"
+          },
+          "checkedAt": {
+            "title": "Checkedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "skillRevisionId",
+          "evaluationRunId",
+          "decision",
+          "checkedAt"
+        ],
+        "title": "PolicyGateResult",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCaseResult": {
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "title": "Caseid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Score",
+            "type": "number"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "actual": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Actual"
+          },
+          "grading": {
+            "additionalProperties": true,
+            "title": "Grading",
+            "type": "object"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "traceRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traceref"
+          },
+          "regressionDiff": {
+            "additionalProperties": true,
+            "title": "Regressiondiff",
+            "type": "object"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Durationms"
+          }
+        },
+        "required": [
+          "caseId",
+          "status",
+          "score",
+          "input",
+          "expected"
+        ],
+        "title": "EvaluationCaseResult",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/$defs/RunProvenance"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "selectedCaseIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Selectedcaseids",
+            "type": "array"
+          },
+          "caseResults": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCaseResult"
+            },
+            "title": "Caseresults",
+            "type": "array"
+          },
+          "attempt": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "retryOf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Retryof"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Startedat"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finishedat"
+          }
+        },
+        "required": [
+          "id",
+          "provenance",
+          "status",
+          "selectedCaseIds"
+        ],
+        "title": "EvaluationRun",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "skillId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Skillid",
+            "type": "string"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/$defs/EvaluationCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "passThreshold": {
+            "default": 1.0,
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Passthreshold",
+            "type": "number"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "skillId",
+          "cases",
+          "digest"
+        ],
+        "title": "EvaluationSuite",
+        "type": "object"
+      },
+      "frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "skillDraftRevision": {
+            "title": "Skilldraftrevision",
+            "type": "string"
+          },
+          "evaluationRunId": {
+            "title": "Evaluationrunid",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "publishable",
+              "blocked"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/$defs/PolicyCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "machineReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Machinereasons",
+            "type": "array"
+          },
+          "checkedAt": {
+            "title": "Checkedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "skillDraftRevision",
+          "evaluationRunId",
+          "decision",
+          "checks",
+          "machineReasons"
+        ],
+        "title": "PolicyGateResult",
+        "type": "object"
       }
     },
     "additionalProperties": false,
@@ -5474,9 +7289,24 @@
                 "artifact.export": "#/$defs/ArtifactExportResult",
                 "assistant.turn": "#/$defs/AssistantTurnResult",
                 "command.not-ready": "#/$defs/NotReadyCommandResult",
+                "evaluation-case.adopt-history": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-case.confirm-candidates": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-case.generate-candidates": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-case.import": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-fix.apply": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-fix.propose": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-fix.propose-all-unresolved": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-fix.undo": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-run.cancel": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-run.resume": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-run.retry": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-run.start": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-suite.create": "#/$defs/EvaluationQualityCommandResult",
+                "evaluation-suite.revise": "#/$defs/EvaluationQualityCommandResult",
                 "evaluation.apply": "#/$defs/EvaluationRunResult",
                 "evaluation.run": "#/$defs/EvaluationRunResult",
                 "invocation.start": "#/$defs/InvocationStartResult",
+                "policy-gate.evaluate": "#/$defs/EvaluationQualityCommandResult",
                 "publication.publish": "#/$defs/PublicationPublishResult",
                 "refresh.run": "#/$defs/RefreshRunResult",
                 "resource.share": "#/$defs/ResourceShareResult",
@@ -5524,6 +7354,9 @@
               },
               {
                 "$ref": "#/$defs/EvaluationRunResult"
+              },
+              {
+                "$ref": "#/$defs/EvaluationQualityCommandResult"
               }
             ]
           },

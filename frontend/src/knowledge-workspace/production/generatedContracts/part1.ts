@@ -1,6 +1,6 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationRunResult, InvocationStartResult } from "./part2";
+import type { EvaluationQualityCommandResult, EvaluationRunResult, InvocationStartResult } from "./part2";
 import type { NotReadyCommandResult, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, SecretRef, SkillDraft } from "./part3";
 import type { SkillDraftRunResult, SkillPatch, SourceCleanResult, SourceProfileResult, StorageRef, ViewCell, ViewField } from "./part4";
 
@@ -111,6 +111,10 @@ export interface Audit {
   occurredAt: string;
 }
 
+export type CaseCategory = "normal" | "refusal" | "unauthorized" | "empty_data" | "ambiguity" | "metric_definition" | "citation" | "chart_consistency" | "interaction" | "performance_budget";
+
+export type CaseSource = "manual" | "historical_conversation" | "historical_run" | "csv_import" | "json_import" | "agent_candidate";
+
 export interface ChartSeries {
   name: string;
   points?: Array<[string, number]>;
@@ -150,7 +154,7 @@ export interface CommandResponse {
   accepted: boolean;
   requestId: string;
   operationId?: string | null;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | null;
 }
 
 export interface CompatibilityTargets {
@@ -229,4 +233,52 @@ export interface ErrorEnvelope {
   retryable: boolean;
   requestId: string;
   details?: Record<string, string> | null;
+}
+
+export interface EvaluationCaseAdoptHistoryCommand {
+  command: "evaluation-case.adopt-history";
+  payload: EvaluationCaseAdoptHistoryPayload;
+}
+
+export interface EvaluationCaseAdoptHistoryPayload {
+  caseId: string;
+  category: string;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  provenanceRef: string;
+  source: "historical_conversation" | "historical_run";
+}
+
+export interface EvaluationCaseConfirmCommand {
+  command: "evaluation-case.confirm-candidates";
+  payload: EvaluationCaseConfirmPayload;
+}
+
+export interface EvaluationCaseConfirmPayload {
+  suiteId: string;
+  version: number;
+  caseIds: Array<string>;
+}
+
+export interface EvaluationCaseGenerateCandidateCommand {
+  command: "evaluation-case.generate-candidates";
+  payload: EvaluationCaseGenerateCandidatePayload;
+}
+
+export interface EvaluationCaseGenerateCandidatePayload {
+  caseId: string;
+  category: string;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  provenanceRef: string;
+}
+
+export interface EvaluationCaseImportCommand {
+  command: "evaluation-case.import";
+  payload: EvaluationCaseImportPayload;
+}
+
+export interface EvaluationCaseImportPayload {
+  content: string;
+  mediaType: "application/json" | "text/csv";
 }

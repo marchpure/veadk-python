@@ -1,8 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { AnalysisKindSpec, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GraphOntologyKindSpec, GraphOntologyViewModel, KnowledgeKindSpec, KnowledgeViewModel, MonitoringKindSpec } from "./part2";
-import type { MonitoringViewModel, OwnerRef, PermissionRef, ProfileRun, SchemaRef, SecretRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+import type { AnalysisKindSpec, CaseCategory, CaseSource, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
+import type { GoldenAssetRevision, GraphOntologyKindSpec, GraphOntologyViewModel, KnowledgeKindSpec } from "./part2";
+import type { KnowledgeViewModel, MonitoringKindSpec, MonitoringViewModel, OwnerRef, PatchOperation, PermissionRef, PolicyCheck, ProfileRun, RunProvenance, SchemaRef, SecretRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
 
 export interface SkillDraftRetryPayload {
   draftId: string;
@@ -211,6 +211,12 @@ export interface StreamCancelPayload {
   sourceCommand: "import.start" | "assistant.turn";
 }
 
+export interface TypedPatch {
+  id: string;
+  baseDraftRevision: string;
+  operations: Array<PatchOperation>;
+}
+
 export interface ViewCell {
   field: string;
   value: string | number | boolean | null;
@@ -240,4 +246,116 @@ export interface WebConnectorConfig {
   pageSize?: number;
   rateLimitPerMinute?: number;
   timeoutSeconds?: number;
+}
+
+export interface frontend__server__knowledge_assets__contract_views__EvaluationCase {
+  id: string;
+  inputRef: StorageRef;
+  expectedOutputRef?: StorageRef | null;
+  source?: "manual" | "historical" | "batch" | "agent_candidate";
+}
+
+export interface frontend__server__knowledge_assets__contract_views__EvaluationCaseResult {
+  caseId: string;
+  status: "passed" | "failed" | "skipped";
+  score: number;
+  evidenceRef?: StorageRef | null;
+  regressionDiffRef?: StorageRef | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_views__EvaluationRun {
+  id: string;
+  suiteId: string;
+  suiteVersion: number;
+  skillRevisionId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  score?: number | null;
+  evidenceRef?: StorageRef | null;
+  regressionRef?: StorageRef | null;
+  environment?: "production" | "demo" | "test";
+  dependencyRevisionRefs?: Array<string>;
+  dataRevisionRefs?: Array<string>;
+  caseResults?: Array<frontend__server__knowledge_assets__contract_views__EvaluationCaseResult>;
+  startedAt: string;
+  finishedAt?: string | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_views__EvaluationSuite {
+  id: string;
+  version: number;
+  skillId: string;
+  caseCount: number;
+  casesRef: StorageRef;
+  passThreshold: number;
+  environment?: "production" | "demo" | "test";
+  caseIds?: Array<string>;
+}
+
+export interface frontend__server__knowledge_assets__contract_views__PolicyGateResult {
+  id: string;
+  skillRevisionId: string;
+  evaluationRunId: string;
+  decision: "publishable" | "blocked";
+  reasons?: Array<string>;
+  machineReasons?: Array<string>;
+  checkedAt: string;
+}
+
+export interface frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase {
+  id: string;
+  source: CaseSource;
+  category: CaseCategory;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  grading?: Record<string, unknown>;
+  provenanceRef?: string | null;
+  candidateConfirmed?: boolean;
+  createdAt?: string;
+}
+
+export interface frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCaseResult {
+  caseId: string;
+  status: "passed" | "failed" | "cancelled";
+  score: number;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  actual?: Record<string, unknown> | null;
+  grading?: Record<string, unknown>;
+  evidence?: Array<string>;
+  traceRef?: string | null;
+  regressionDiff?: Record<string, unknown>;
+  durationMs?: number | null;
+}
+
+export interface frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun {
+  id: string;
+  provenance: RunProvenance;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  selectedCaseIds: Array<string>;
+  caseResults?: Array<frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCaseResult>;
+  attempt?: number;
+  retryOf?: string | null;
+  createdAt?: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+}
+
+export interface frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite {
+  id: string;
+  version: number;
+  skillId: string;
+  cases: Array<frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase>;
+  passThreshold?: number;
+  createdAt?: string;
+  digest: string;
+}
+
+export interface frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult {
+  id: string;
+  skillDraftRevision: string;
+  evaluationRunId: string;
+  decision: "publishable" | "blocked";
+  checks: Array<PolicyCheck>;
+  machineReasons: Array<string>;
+  checkedAt?: string;
 }
