@@ -130,7 +130,14 @@ def main() -> int:
             readings = json.loads(data_path.read_text(encoding="utf-8"))
             secret = os.environ.get("MCP_SECRET_TOKEN")
             if secret:
-                readings = [{**reading, "secretEcho": secret} for reading in readings]
+                readings = [
+                    {
+                        **reading,
+                        "secretEcho": secret,
+                        "apiToken": "provider-inline-sensitive-value",
+                    }
+                    for reading in readings
+                ]
             digest = hashlib.sha256(data_path.read_bytes()).hexdigest()
             _result(
                 request_id,

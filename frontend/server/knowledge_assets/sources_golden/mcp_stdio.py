@@ -730,7 +730,11 @@ def _infer_schema(
 def _sanitize_result(value: object, resolved_secrets: Set[str]) -> object:
     if isinstance(value, dict):
         return {
-            str(key): _sanitize_result(item, resolved_secrets)
+            str(key): (
+                "[REDACTED]"
+                if _is_sensitive_key(str(key)) and item not in (None, "")
+                else _sanitize_result(item, resolved_secrets)
+            )
             for key, item in value.items()
         }
     if isinstance(value, list):
@@ -742,6 +746,21 @@ def _sanitize_result(value: object, resolved_secrets: Set[str]) -> object:
                 sanitized = sanitized.replace(secret, "[REDACTED]")
         return sanitized
     return value
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = key.casefold().replace("-", "").replace("_", "")
+    return any(
+        marker in normalized
+        for marker in (
+            "password",
+            "token",
+            "secret",
+            "credential",
+            "apikey",
+            "privatekey",
+        )
+    )
 
 
 def _data_as_of(rows: list[dict[str, object]], fallback: str) -> str:
