@@ -13,6 +13,8 @@ Date: 2026-08-25
 - current Main shell integration: `aa0cf00b`
 - current corrective integration: `a4a258e6`
 - W2 real Agent/Runner integration: `7949f452`
+- real SkillViewRevision → production Workspace Dashboard integration:
+  `4aa377fe`
 - checkpoint tag: `knowledge-skill-factory-step-3-v2131-checkpoint-31a26a6f`
 - migration head: `004_step3_shares`
 - core contract digest: `108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12`
@@ -32,7 +34,7 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   `/tmp/knowledge-step3-evidence-final-20260825/route-audit.json`.
 - P0-1/P0-2/P0-3 runtime evidence is recorded outside the repository in
   `/tmp/knowledge-step3-evidence-final-20260825/`; these gates have evidence,
-  but the overall STEP 3 status remains blocked by worker and production
+  but the overall STEP 3 status remains blocked by worker and final browser
   integration gates.
 - W4 candidate-gate regression: passed; unconfirmed Agent candidates return
   `failed` with `AGENT_CANDIDATE_CONFIRMATION_REQUIRED`.
@@ -72,9 +74,11 @@ The three newly explicit P0 gates have runtime evidence:
   `dashboard-artifact-workspace/`, `dashboard-after.png`, and
   `vertical-chain.json`.
 
-These are evidence records, not a completion declaration. The frozen
-production `DashboardView.tsx` prototype path has not been promoted based on
-the temporary artifact alone.
+These are evidence records, not a completion declaration. Production now
+consumes a workspace-scoped typed `SkillViewRevision` through bootstrap and
+routes matching chart/dashboard drafts into the existing high-fidelity
+Dashboard. The temporary artifact evidence is not being used as a substitute
+for the remaining browser proof.
 
 ## Known debt and next gate
 
@@ -83,5 +87,5 @@ Publication, Registry, Scheduler, and cross-Agent calling remain
 `STEP4_DEFERRED`; no PublishedSkill ID/revision is claimed. W1 still must
 provide its real Source/Golden Data commit and `W1.status.json`; all Worker
 worktrees must then be clean and W4 must perform read-only verification.
-Production Dashboard integration and full Capability Matrix/browser regression
-also remain required before any closeout decision. `STEP4_READY` remains false.
+Full Capability Matrix/browser regression against the real production chain
+remains required before any closeout decision. `STEP4_READY` remains false.
