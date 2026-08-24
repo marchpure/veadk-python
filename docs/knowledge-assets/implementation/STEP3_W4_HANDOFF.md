@@ -24,13 +24,15 @@ Status: `READY_FOR_INTEGRATION`
 - Single and all-unresolved typed fix planning, conflict gate, new draft
   revision, affected-only rerun, and undo.
 - Nine-dimension automatic Policy Gate with persisted machine reasons.
+- Idempotent run start, cancellation-wins semantics, unique policy dimensions,
+  and complete issue-to-affected fix scope.
 - Provider/consumer contract tests and exact 43/23 route audit tests.
 - Contract and UI integration proposals for Main.
 
 ## Verification
 
-- Focused Worker 4: `16 passed`.
-- Worker 4 plus existing STEP 3 backend regression: `31 passed`.
+- Focused Worker 4: `20 passed`.
+- Worker 4 plus existing STEP 3 backend regression: `41 passed`.
 - Python compile: passed.
 - `git diff --check`: passed.
 - `uv run ruff`: blocked by the Main-created checkpoint tag not parsing as a

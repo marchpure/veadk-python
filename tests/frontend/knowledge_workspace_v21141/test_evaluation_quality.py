@@ -38,6 +38,20 @@ class RecordingEvaluator:
         )
 
 
+class CancellingEvaluator(RecordingEvaluator):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cancel = None
+
+    def evaluate(
+        self, case: EvaluationCase, provenance: RunProvenance
+    ) -> EvaluationActual:
+        actual = super().evaluate(case, provenance)
+        assert self.cancel is not None
+        self.cancel()
+        return actual
+
+
 class ExactGrader:
     def grade(
         self, case: EvaluationCase, actual: EvaluationActual
@@ -277,6 +291,49 @@ def test_cancel_and_retry_preserve_original_suite_and_only_retry_unresolved() ->
     assert evaluator.calls == ["pass"]
 
 
+def test_replayed_start_does_not_reset_persisted_progress() -> None:
+    app, _, _, _ = service()
+    suite = app.create_suite(
+        suite_id="suite-1",
+        skill_id="skill-1",
+        cases=[case("one"), case("two")],
+    )
+    first = app.start_run(
+        suite_id=suite.id,
+        suite_version=suite.version,
+        provenance=provenance(),
+    )
+    partial = app.execute(first.id, max_cases=1)
+    replay = app.start_run(
+        suite_id=suite.id,
+        suite_version=suite.version,
+        provenance=provenance(),
+    )
+    assert replay == partial
+    assert len(replay.case_results) == 1
+
+
+def test_cancellation_during_evaluation_wins_over_late_case_result() -> None:
+    repository = SqliteEvaluationRepository()
+    evaluator = CancellingEvaluator()
+    app = EvaluationQualityService(repository, evaluator, ExactGrader())
+    suite = app.create_suite(
+        suite_id="suite-1",
+        skill_id="skill-1",
+        cases=[case("one")],
+    )
+    run = app.start_run(
+        suite_id=suite.id,
+        suite_version=suite.version,
+        provenance=provenance(),
+    )
+    evaluator.cancel = lambda: app.cancel(run.id)
+    result = app.execute(run.id)
+    assert result.status == "cancelled"
+    assert result.case_results == ()
+    assert repository.run(run.id).status == "cancelled"
+
+
 def test_policy_gate_requires_all_dimensions_and_returns_machine_reasons() -> None:
     app, repository, _, _ = service()
     checks = tuple(
@@ -357,6 +414,29 @@ def test_policy_gate_derives_evaluation_check_from_persisted_run() -> None:
     gate = app.evaluate_run_policy(completed.id, non_evaluation_checks)
     assert gate.decision == "publishable"
     assert next(check for check in gate.checks if check.dimension == "evaluation").passed
+
+
+def test_policy_gate_rejects_duplicate_dimensions() -> None:
+    app, _, _, _ = service()
+    with pytest.raises(ValueError, match="unique"):
+        app.evaluate_policy(
+            PolicyGateInput(
+                skill_draft_revision="skill-1:revision-7",
+                evaluation_run_id="run-1",
+                checks=(
+                    PolicyCheck(
+                        dimension="schema",
+                        passed=True,
+                        machine_reason="SCHEMA_PASSED",
+                    ),
+                    PolicyCheck(
+                        dimension="schema",
+                        passed=True,
+                        machine_reason="SCHEMA_PASSED_AGAIN",
+                    ),
+                ),
+            )
+        )
 
 
 def test_fix_plan_shows_scope_conflicts_applies_new_revision_and_scoped_rerun() -> None:
@@ -449,6 +529,41 @@ def test_fix_all_unresolved_derives_issue_scope_from_run() -> None:
         patch=patch,
     )
     assert plan.issue_case_ids == ("two",)
+
+
+def test_fix_scope_must_include_every_issue() -> None:
+    app, _, _, _ = service()
+    suite = app.create_suite(
+        suite_id="suite-1",
+        skill_id="skill-1",
+        cases=[case("one", answer="wrong"), case("two", answer="wrong")],
+    )
+    run = app.start_run(
+        suite_id=suite.id,
+        suite_version=suite.version,
+        provenance=provenance(),
+    )
+    failed = app.execute(run.id)
+    patch = TypedPatch(
+        id="patch-incomplete",
+        base_draft_revision="skill-1:revision-7",
+        operations=(
+            PatchOperation(
+                op="replace_query",
+                path="/query/guard",
+                before="unsafe",
+                after="safe",
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="include every issue"):
+        app.propose_fix(
+            run_id=failed.id,
+            issue_case_ids=["one", "two"],
+            affected_case_ids=["one"],
+            conflicts=[],
+            patch=patch,
+        )
 
 
 def test_provider_and_consumer_contracts_reject_unknown_fields() -> None:

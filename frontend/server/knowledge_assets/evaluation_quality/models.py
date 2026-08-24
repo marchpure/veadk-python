@@ -70,21 +70,21 @@ class EvaluationSuite(StrictModel):
 
 
 class RunProvenance(StrictModel):
-    suite_id: str
+    suite_id: str = Field(min_length=1, max_length=128)
     suite_version: int = Field(ge=1)
     environment: Literal["test", "staging", "production"]
-    skill_draft_revision: str
+    skill_draft_revision: str = Field(min_length=1, max_length=512)
     dependency_revision_refs: tuple[str, ...] = ()
     golden_revision_refs: tuple[str, ...] = ()
-    executor_version: str
-    renderer_version: str
-    data_as_of: str
+    executor_version: str = Field(min_length=1, max_length=256)
+    renderer_version: str = Field(min_length=1, max_length=256)
+    data_as_of: str = Field(min_length=1, max_length=128)
 
 
 class EvaluationActual(StrictModel):
     output: dict[str, object]
     duration_ms: int = Field(ge=0)
-    trace_ref: str
+    trace_ref: str = Field(min_length=1, max_length=2048)
     evidence: tuple[str, ...] = ()
 
 
@@ -168,6 +168,12 @@ class PatchOperation(StrictModel):
     path: str = Field(pattern=r"^/(query|metrics|retrieval|view|interaction|budget)/")
     before: object
     after: object
+
+    @model_validator(mode="after")
+    def requires_a_real_change(self) -> "PatchOperation":
+        if self.before == self.after:
+            raise ValueError("patch operation must change the draft")
+        return self
 
 
 class TypedPatch(StrictModel):
