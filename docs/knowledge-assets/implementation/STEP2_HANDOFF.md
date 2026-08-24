@@ -4,7 +4,7 @@ Date: 2026-08-24
 
 ## Result
 
-`READY_WITH_STEP2_LIMITATIONS`
+`READY_WITH_BASELINE_DEBT`
 
 This handoff freezes the STEP 2 integration boundary for the real
 `data_access` Skill plus Golden Data chain. The Skill remains the only
@@ -21,8 +21,8 @@ STEP 3 Skill View generation and STEP 4 publishing were not started.
 - `62a086ea` — append-only Golden Data revisions and tombstones.
 - `26de3274` — authenticated-workspace permission revocation through BFF.
 
-Frozen implementation commit: `74ad5437b300c0914f1c99adbfb188335eaa080b`
-Handoff commit: `06d68dea6a6b35bf22d192404f0571f415ddc33c`
+Frozen implementation baseline: `74ad5437b300c0914f1c99adbfb188335eaa080b`
+This final corrective handoff is committed separately after verification.
 
 ## Worker status
 
@@ -34,18 +34,21 @@ Handoff commit: `06d68dea6a6b35bf22d192404f0571f415ddc33c`
 | D | runtime composition and connector/security boundaries | PASS |
 | E | static guard, migration, focused contract/security evidence | PASS |
 
+These are final integration ownership lanes in this worktree; no additional
+worker worktrees or independent external connector implementations are implied.
+
 ## Evidence
 
 - `pytest -q tests/frontend/knowledge_workspace_v21141
   tests/frontend/test_knowledge_asset_bff.py` — 50 passed, 13 skipped
   external-E2E cases.
-- Combined static-guard and relevant regression tests — 54 passed, 13 skipped.
-- Local/BFF/connector/runtime focused suite — passed.
+- Refresh/schema-drift/last-good subset — 9 passed.
+- SQLite migration replay subset — 1 passed; 21 tables verified.
 - `python tests/production_readiness/knowledge_workspace_v21141/static_guard.py --repo-root .`
   — `status: pass`, zero findings.
-- Schema export and `git diff --check` — passed.
-- Python compile and SQLite migration replay — passed; 21 tables and
-  upgrade-in-place coverage passed.
+- Schema generation — passed; generated artifacts had no diff.
+- `git diff --check` — passed.
+- Secret-leak scan — no findings.
 - Production-boundary evidence — 18 passed with the temporary same-version
   dependency link removed afterward.
 - Refresh matrix — staging success, source-read failure preserving last-good,
@@ -61,13 +64,26 @@ historical production-file count.
 
 Local Markdown and CSV complete the real source revision → profile → clean →
 artifact → Golden Data revision → draft run path without external credentials.
+The persisted lifecycle includes `SourceRevision`, `ProfileRun`, `CleanRun`,
+and `GoldenAssetRevision`; refresh uses staging, publishes same-schema
+success, rejects schema drift, and preserves the last-good revision after
+source-read failure.
 Oracle, Web API, MCP, and published Skill connectors return
 `credential_blocked` until real configuration is supplied. No credentials are
 stored in manifests, logs, frontend state, or Git, and no external connector
 success is simulated.
 
+## Explicit baseline debt
+
+Oracle, Web API, MCP, and published Skill real-credential E2E tests remain
+skipped/`credential_blocked`; complete production connectivity is not claimed.
+The connector SPI is implemented, but these are not credentialed production
+integrations. Durable queue deployment, broader file formats
+(PDF/Office/Excel/archive), full downstream revocation propagation,
+MCP prompt-injection defenses, SQL row/byte/time quotas, and the inherited
+STEP 0 visual waiver remain follow-up debt.
+
 ## Immutable handoff tag
 
-The existing tag `knowledge-v2.11.4.1-commercial-step-2` was not moved or
-overwritten. This quality checkpoint uses the new non-conflicting tag
-`knowledge-skill-factory-step-2-quality`.
+The existing tag `knowledge-skill-factory-step-2-integration` was not moved or
+overwritten. A new corrective immutable tag is created after final commit.

@@ -8,5 +8,8 @@
 | D | Runtime | `/Users/bytedance/.codex/worktrees/knowledge-skill-factory-step-1-corrective-quality` | `knowledge-skill-factory-step-1-corrective-quality` | `3a7304dc` | authenticated BFF composition and connector SPI | `STEP2_HANDOFF.md` | STEP 2 | PASS |
 | E | Quality / Release | `/Users/bytedance/.codex/worktrees/knowledge-skill-factory-step-1-corrective-quality` | `knowledge-skill-factory-step-1-corrective-quality` | `74ad5437` | static guard, migration, focused evidence, handoff | `STEP2_HANDOFF.md` | STEP 2 | PASS |
 
-The STEP 0 and original STEP 1 worktrees remain read-only at their handoff
-commits. No existing semantic tag is moved.
+This table records final integration ownership in the corrective worktree.
+No separate worker worktrees were created for this closeout, and no claim of
+independent worker artifacts is made. The STEP 0 and original STEP 1
+worktrees remain read-only at their handoff commits. No existing semantic tag
+is moved.
