@@ -411,6 +411,87 @@ def test_bff_skill_draft_run_builds_typed_knowledge_view_from_golden_asset(
     assert rejected.json()["result"]["error"]["code"] == "SKILL_VIEW_REVISION_NOT_FOUND"
 
 
+def test_knowledge_view_preserves_markdown_body_when_heading_is_the_match(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "heading-match.md"
+    source.write_text(
+        "# Reliability Policy\n\nThe approved threshold is 99.95 percent.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    draft, _ = repository.create_skill_draft(
+        workspace_id="ws",
+        name="Reliability",
+        description="Reliability Policy",
+        source_refs=[str(source)],
+        request_id="heading-create",
+        idempotency_key="heading-create",
+    )
+    source_revision = application._register_local_source(
+        str(source), workspace_id="ws", request_id="heading-source"
+    )
+    assert source_revision is not None
+    cleaned = application._run_clean(
+        SourceCleanPayload(
+            source_revision_id=source_revision.id,
+            recipe_id="heading-clean",
+        ),
+        "ws",
+    )
+    assert cleaned.golden_asset_revision is not None
+    manifest = draft.manifest.model_copy(
+        update={
+            "spec": draft.manifest.spec.model_copy(
+                update={
+                    "dependencies": draft.manifest.spec.dependencies.model_copy(
+                        update={
+                            "golden_assets": [cleaned.golden_asset_revision.id],
+                        }
+                    )
+                }
+            )
+        }
+    )
+    draft, _ = repository.save_manifest(
+        draft_id=draft.id,
+        base_revision=draft.revision,
+        manifest=manifest,
+        request_id="heading-save",
+        idempotency_key="heading-save",
+    )
+    result = application._run_skill_draft(
+        SkillDraftRunPayload(
+            draft_id=draft.id,
+            revision=draft.revision,
+            trace_id="trace-heading-body",
+            max_steps=3,
+            budget=10_000,
+        ),
+        request_id="heading-run",
+    )
+    assert result.status == "ready_for_evaluation"
+    assert result.skill_view_revision is not None
+    view_model = result.skill_view_revision.view_model
+    assert view_model is not None
+    assert "The approved threshold is 99.95 percent." in view_model.answer
+    html_ref = result.skill_view_revision.result_ref
+    assert html_ref is not None
+    html_candidates = list(
+        (
+            tmp_path
+            / ".veadk/knowledge-assets"
+            / "kind-runtime/views"
+        ).glob(f"{html_ref.sha256}.*")
+    )
+    assert len(html_candidates) == 1
+    html_path = html_candidates[0]
+    html = html_path.read_text(encoding="utf-8")
+    assert "The approved threshold is 99.95 percent." in html
+
+
 def test_assistant_turn_validates_context_returns_diff_and_reruns(
     tmp_path: Path, monkeypatch
 ) -> None:
