@@ -3459,14 +3459,29 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "draftId": {
           "title": "Draftid",
           "type": "string"
+        },
+        "goldenAssetRevision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GoldenAssetRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -4003,8 +4018,12 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
@@ -4015,6 +4034,28 @@
         "recipeId": {
           "title": "Recipeid",
           "type": "string"
+        },
+        "cleanRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CleanRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goldenAssetRevision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GoldenAssetRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -4087,14 +4128,29 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "sourceRevisionId": {
           "title": "Sourcerevisionid",
           "type": "string"
+        },
+        "profileRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -4113,6 +4169,8 @@
         "sourceType": {
           "enum": [
             "local_file",
+            "markdown",
+            "csv",
             "pdf",
             "document",
             "database",

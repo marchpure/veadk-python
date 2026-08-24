@@ -599,8 +599,9 @@ export interface SkillDraftRunPayload {
 export interface SkillDraftRunResult {
   resultType?: "skill-draft.run";
   error?: ErrorEnvelope | null;
-  status?: "not_ready";
+  status?: "not_ready" | "succeeded" | "failed";
   draftId: string;
+  goldenAssetRevision?: GoldenAssetRevision | null;
 }
 
 export interface SkillManifest {
@@ -691,9 +692,11 @@ export interface SourceCleanPayload {
 export interface SourceCleanResult {
   resultType?: "source.clean";
   error?: ErrorEnvelope | null;
-  status?: "not_ready";
+  status?: "not_ready" | "succeeded" | "failed";
   sourceRevisionId: string;
   recipeId: string;
+  cleanRun?: CleanRun | null;
+  goldenAssetRevision?: GoldenAssetRevision | null;
 }
 
 export interface SourceProfileCommand {
@@ -709,13 +712,14 @@ export interface SourceProfilePayload {
 export interface SourceProfileResult {
   resultType?: "source.profile";
   error?: ErrorEnvelope | null;
-  status?: "not_ready";
+  status?: "not_ready" | "succeeded" | "failed";
   sourceRevisionId: string;
+  profileRun?: ProfileRun | null;
 }
 
 export interface SourceRevision {
   id: string;
-  sourceType: "local_file" | "pdf" | "document" | "database" | "excel" | "web_api" | "mcp";
+  sourceType: "local_file" | "markdown" | "csv" | "pdf" | "document" | "database" | "excel" | "web_api" | "mcp";
   contentRef: StorageRef;
   schemaRef?: SchemaRef | null;
   permissionRef: PermissionRef;

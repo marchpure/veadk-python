@@ -123,6 +123,71 @@ CREATE TABLE IF NOT EXISTS outbox_events (
   UNIQUE(aggregate_type, aggregate_id, sequence)
 );
 
+CREATE TABLE IF NOT EXISTS source_revisions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  content_ref_json TEXT NOT NULL,
+  schema_ref_json TEXT,
+  permission_ref_json TEXT NOT NULL,
+  source_digest TEXT NOT NULL,
+  source_path TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS profile_runs (
+  id TEXT PRIMARY KEY,
+  source_revision_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  sample_ref_json TEXT,
+  report_ref_json TEXT,
+  quality_score REAL,
+  error_code TEXT,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  FOREIGN KEY (source_revision_id) REFERENCES source_revisions(id)
+);
+
+CREATE TABLE IF NOT EXISTS cleaning_recipes (
+  id TEXT PRIMARY KEY,
+  version INTEGER NOT NULL,
+  operations_json TEXT NOT NULL,
+  source_revision_id TEXT NOT NULL,
+  recipe_digest TEXT NOT NULL,
+  FOREIGN KEY (source_revision_id) REFERENCES source_revisions(id)
+);
+
+CREATE TABLE IF NOT EXISTS clean_runs (
+  id TEXT PRIMARY KEY,
+  source_revision_id TEXT NOT NULL,
+  recipe_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  output_ref_json TEXT,
+  quality_report_ref_json TEXT,
+  error_code TEXT,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  FOREIGN KEY (source_revision_id) REFERENCES source_revisions(id),
+  FOREIGN KEY (recipe_id) REFERENCES cleaning_recipes(id)
+);
+
+CREATE TABLE IF NOT EXISTS golden_asset_revisions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  asset_kind TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  schema_ref_json TEXT NOT NULL,
+  storage_ref_json TEXT NOT NULL,
+  source_revision_refs_json TEXT NOT NULL,
+  recipe_ref TEXT,
+  quality_run_ref TEXT,
+  owner_json TEXT NOT NULL,
+  permissions_ref_json TEXT NOT NULL,
+  lineage_digest TEXT NOT NULL,
+  freshness_at TEXT NOT NULL,
+  last_good INTEGER NOT NULL DEFAULT 1
+);
+
 INSERT OR IGNORE INTO schema_migrations(version, applied_at)
 VALUES ('001_knowledge_assets', CURRENT_TIMESTAMP);
 

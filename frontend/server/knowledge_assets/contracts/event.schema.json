@@ -55,6 +55,93 @@
       "title": "AnalysisKindSpec",
       "type": "object"
     },
+    "CleanRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "recipeId": {
+          "title": "Recipeid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "outputRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "qualityReportRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Errorcode"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "sourceRevisionId",
+        "recipeId",
+        "status",
+        "startedAt"
+      ],
+      "title": "CleanRun",
+      "type": "object"
+    },
     "CompatibilityTargets": {
       "additionalProperties": false,
       "properties": {
@@ -257,6 +344,101 @@
         "requestId"
       ],
       "title": "ErrorEnvelope",
+      "type": "object"
+    },
+    "GoldenAssetRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "assetKind": {
+          "enum": [
+            "dataset",
+            "knowledge",
+            "semantic",
+            "graph"
+          ],
+          "title": "Assetkind",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "storageRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "sourceRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerevisionrefs",
+          "type": "array"
+        },
+        "recipeRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reciperef"
+        },
+        "qualityRunRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qualityrunref"
+        },
+        "owner": {
+          "$ref": "#/$defs/OwnerRef"
+        },
+        "permissionsRef": {
+          "$ref": "#/$defs/PermissionRef"
+        },
+        "lineageDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lineagedigest",
+          "type": "string"
+        },
+        "freshnessAt": {
+          "title": "Freshnessat",
+          "type": "string"
+        },
+        "lastGood": {
+          "default": true,
+          "title": "Lastgood",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "assetKind",
+        "revision",
+        "schemaRef",
+        "storageRef",
+        "owner",
+        "permissionsRef",
+        "lineageDigest",
+        "freshnessAt"
+      ],
+      "title": "GoldenAssetRevision",
       "type": "object"
     },
     "GraphOntologyKindSpec": {
@@ -509,6 +691,102 @@
         "version"
       ],
       "title": "PermissionRef",
+      "type": "object"
+    },
+    "ProfileRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "sampleRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reportRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "qualityScore": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qualityscore"
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Errorcode"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "sourceRevisionId",
+        "status",
+        "startedAt"
+      ],
+      "title": "ProfileRun",
       "type": "object"
     },
     "PublicationPublishResult": {
@@ -842,14 +1120,29 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "draftId": {
           "title": "Draftid",
           "type": "string"
+        },
+        "goldenAssetRevision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GoldenAssetRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1105,8 +1398,12 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
@@ -1117,6 +1414,28 @@
         "recipeId": {
           "title": "Recipeid",
           "type": "string"
+        },
+        "cleanRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CleanRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goldenAssetRevision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GoldenAssetRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1147,14 +1466,29 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "sourceRevisionId": {
           "title": "Sourcerevisionid",
           "type": "string"
+        },
+        "profileRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProfileRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
