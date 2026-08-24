@@ -6,7 +6,8 @@
   "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring",
   "branch": "feat/knowledge-step3-worker2-agent-authoring",
   "baseCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
-  "workerCommit": "5caa33d8cd144422c4909351073e8e6037208a37",
+  "workerCommit": "65037a4b98838ae467fec223b4e1e45d56b9dfd2",
+  "followUpCommit": "pending",
   "mainCheckpointCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
   "mainCheckpointTag": "knowledge-skill-factory-step-3-v2131-checkpoint-a34383cc",
   "migrationHead": "004_step3_shares",
@@ -28,9 +29,12 @@
     "composer.context_refs",
     "assistant.typed_patch",
     "assistant.undo_conflict",
+    "assistant.comment_repair",
     "team.reuse",
+    "team.pre_publish_evaluation",
     "model.credentials",
-    "worker3.execution"
+    "worker3.execution",
+    "execution.reauthorization"
   ],
   "operations": [
     "skill_draft.create",
@@ -38,6 +42,8 @@
     "skill_draft.patch.propose",
     "skill_draft.patch.accept",
     "skill_draft.patch.reject",
+    "skill_draft.comment.repair",
+    "skill_draft.team.review",
     "skill_draft.undo",
     "skill_draft.execute",
     "skill_draft.cancel",
@@ -64,7 +70,7 @@
     ]
   },
   "tests": {
-    "focused": "14 passed",
+    "focused": "20 passed",
     "compileall": "passed",
     "diffCheck": "passed",
     "prototypeArchive": "sha256 and readme passed"

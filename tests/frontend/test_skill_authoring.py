@@ -10,18 +10,23 @@ from frontend.server.skill_authoring.models import (
     AuthoringStatus,
     ContextEnvelope,
     ContextMutation,
+    CommentRepairBatchRequest,
+    CommentRepairRequest,
     FreshnessPolicy,
     KnowledgeKindSpec,
     ResourceRef,
     ResolvedResource,
     Scope,
+    SetDescriptionPatch,
     SetPermissionScopePatch,
     SetQueryPlanPatch,
     SetTitlePatch,
+    SetPermissionScopePatch,
     SkillKind,
     QueryPlan,
     SkillAuthoringError,
     TeamReuseRequest,
+    TeamReviewRequest,
 )
 from frontend.server.skill_authoring.ports import (
     CredentialBlockedGateway,
@@ -173,6 +178,182 @@ async def test_credential_blocked_is_typed_and_persisted(setup_authoring):
 
 
 @pytest.mark.asyncio
+async def test_awaiting_input_and_permission_patch_are_fail_closed(setup_authoring):
+    service, _, ref = setup_authoring
+    class ClarifyingGateway:
+        async def propose_plan(self, context, *, requested_kind):
+            plan = await LocalPlanningHarness().propose_plan(
+                context, requested_kind=requested_kind
+            )
+            return plan.model_copy(
+                update={"clarification_questions": ("Which date range?",)}
+            )
+
+    service.model_gateway = ClarifyingGateway()
+    awaiting = await service.create_draft(
+        envelope(ref, "[analysis] ambiguous request"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert awaiting.operation.status == AuthoringStatus.AWAITING_INPUT
+    assert awaiting.operation.clarification_questions == ("Which date range?",)
+
+    service.model_gateway = LocalPlanningHarness()
+    created = await service.create_draft(
+        envelope(ref, "[analysis] permission test"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert created.draft is not None
+    with pytest.raises(SkillAuthoringError) as error:
+        await service.propose_patch(
+            created.draft.draft_id,
+            base_revision=1,
+            patch=SetPermissionScopePatch(permissions=("admin:all",)),
+            proposed_by="user_1",
+        )
+    assert error.value.code == AuthoringErrorCode.PERMISSION_DENIED
+
+
+@pytest.mark.asyncio
+async def test_fixed_context_and_model_input_are_server_authorized(setup_authoring):
+    service, _, ref = setup_authoring
+    duplicate = envelope(ref, "[analysis] duplicate refs").model_copy(
+        update={
+            "resource_refs": (ref, ref),
+            "fixed_revisions": (ref.revision,),
+            "permissions": ("admin:all",),
+        }
+    )
+    result = await service.create_draft(
+        duplicate,
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert result.draft is not None
+    assert result.draft.lineage == (ref,)
+    assert result.draft.authorized_permissions == ("profile", "read")
+    assert result.draft.manifest.permissions == ("profile", "read")
+
+    unpinned = duplicate.model_copy(update={"fixed_revisions": ()})
+    failed = await service.create_draft(
+        unpinned,
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert failed.operation.error_code == AuthoringErrorCode.INVALID_CONTEXT
+
+    with pytest.raises(SkillAuthoringError) as error:
+        await service.propose_patch(
+            result.draft.draft_id,
+            base_revision=1,
+            patch=SetQueryPlanPatch(
+                query_plan=QueryPlan(
+                    source_revision="rev_future",
+                    selected_fields=("amount",),
+                    limit=10,
+                )
+            ),
+            proposed_by="user_1",
+        )
+    assert error.value.code == AuthoringErrorCode.INVALID_CONTEXT
+
+
+@pytest.mark.asyncio
+async def test_agentkit_gateway_only_accepts_typed_build_plan(setup_authoring):
+    service, _, ref = setup_authoring
+    captured = {}
+
+    class Provider:
+        async def propose_plan(self, model_input, *, requested_kind):
+            captured.update(model_input)
+            captured["requested_kind"] = requested_kind
+            return await LocalPlanningHarness().propose_plan(
+                type(
+                    "Context",
+                    (),
+                    {
+                        "envelope": envelope(ref, "[analysis] provider plan"),
+                        "resources": (resource(),),
+                        "context_digest": "provider_context",
+                        "model_input": model_input,
+                    },
+                )(),
+                requested_kind=SkillKind.ANALYSIS,
+            )
+
+    from frontend.server.skill_authoring.ports import AgentKitModelGateway
+
+    service.model_gateway = AgentKitModelGateway(Provider())
+    result = await service.create_draft(
+        envelope(ref, "[analysis] provider plan"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert result.draft is not None
+    assert captured["requested_kind"] == SkillKind.ANALYSIS.value
+    assert "prompt" in captured
+    assert "resources" in captured
+    assert captured["permissions"] == ("profile", "read")
+    assert "admin:all" not in str(captured)
+
+
+@pytest.mark.asyncio
+async def test_model_timeout_is_typed(setup_authoring):
+    service, _, ref = setup_authoring
+
+    class SlowGateway:
+        async def propose_plan(self, context, *, requested_kind):
+            await asyncio.sleep(0.05)
+            return await LocalPlanningHarness().propose_plan(
+                context, requested_kind=requested_kind
+            )
+
+    service.model_gateway = SlowGateway()
+    short = envelope(ref, "[analysis] timeout").model_copy(
+        update={"budget": envelope(ref).budget.model_copy(update={"timeout_ms": 1})}
+    )
+    result = await service.create_draft(short, requested_kind=SkillKind.ANALYSIS)
+    assert result.operation.error_code == AuthoringErrorCode.MODEL_TIMEOUT
+
+
+@pytest.mark.asyncio
+async def test_concurrent_accept_has_one_winner_and_execution_rechecks_revoke(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[analysis] concurrent edit"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert created.draft is not None
+    proposal = await service.propose_patch(
+        created.draft.draft_id,
+        base_revision=1,
+        patch=SetTitlePatch(title="winner"),
+        proposed_by="user_1",
+    )
+    results = await asyncio.gather(
+        service.accept_patch(proposal, caller_id="user_1"),
+        service.accept_patch(proposal, caller_id="user_1"),
+    )
+    statuses = {result.operation.status for result in results}
+    assert AuthoringStatus.SUCCEEDED in statuses
+    assert AuthoringStatus.FAILED in statuses
+    assert any(
+        result.operation.error_code == AuthoringErrorCode.CONFLICT
+        for result in results
+    )
+
+    service.resolver._resources[(  # noqa: SLF001 - revoke fixture resource
+        ref.scope,
+        ref.kind,
+        ref.object_id,
+        ref.revision,
+    )] = resource().model_copy(update={"authorized": False})
+    with pytest.raises(SkillAuthoringError) as error:
+        await service.request_execution(
+            created.draft.draft_id, caller_id="user_1", revision=1
+        )
+    assert error.value.code == AuthoringErrorCode.PERMISSION_DENIED
+
+
+@pytest.mark.asyncio
 async def test_failed_create_can_replay_durable_request(setup_authoring):
     service, _, ref = setup_authoring
     blocked = SkillAuthoringService(
@@ -212,6 +393,10 @@ async def test_patch_impact_accept_undo_and_refresh_recovery(setup_authoring):
         patch=SetTitlePatch(title="订单分析"),
         proposed_by="user_1",
     )
+    assert title.operation_id is not None
+    proposed_read = await service.read_operation(title.operation_id)
+    assert proposed_read.latest_patch is not None
+    assert proposed_read.latest_patch.status == "proposed"
     assert title.impact.requires_rerun is False
     changed = await service.accept_patch(title, caller_id="user_1")
     assert changed.draft is not None and changed.draft.revision == 2
@@ -250,6 +435,63 @@ async def test_patch_impact_accept_undo_and_refresh_recovery(setup_authoring):
     restored = await recovered.read_operation(undone.operation.operation_id)
     assert restored.operation.current_revision == 4
     assert restored.draft is not None and restored.draft.undo_of_revision == 1
+
+
+@pytest.mark.asyncio
+async def test_comment_repairs_are_auditable_and_team_review_is_new_revision(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[knowledge] answer from docs"),
+        requested_kind=SkillKind.KNOWLEDGE,
+    )
+    assert created.draft is not None
+    single = await service.repair_comment(
+        CommentRepairRequest(
+            draft_id=created.draft.draft_id,
+            base_revision=1,
+            comment_id="comment_1",
+            patch=SetTitlePatch(title="repaired"),
+            proposed_by="user_1",
+        )
+    )
+    assert single.source_comment_ids == ("comment_1",)
+    batch = await service.repair_comments(
+        CommentRepairBatchRequest(
+            requests=(
+                CommentRepairRequest(
+                    draft_id=created.draft.draft_id,
+                    base_revision=1,
+                    comment_id="comment_2",
+                    patch=SetDescriptionPatch(description="clarified"),
+                    proposed_by="user_1",
+                ),
+                CommentRepairRequest(
+                    draft_id=created.draft.draft_id,
+                    base_revision=1,
+                    comment_id="comment_3",
+                    patch=SetTitlePatch(title="clarified title"),
+                    proposed_by="user_1",
+                ),
+            )
+        )
+    )
+    assert len(batch.proposals) == 2
+    assert all(item.operation_id is not None for item in batch.proposals)
+
+    reviewed = await service.submit_team_review(
+        TeamReviewRequest(
+            draft_id=created.draft.draft_id,
+            base_revision=1,
+            team_id="team_1",
+            caller_id="user_1",
+        )
+    )
+    assert reviewed.draft is not None
+    assert reviewed.draft.promotion_state == "pre_publish_evaluation"
+    assert reviewed.draft.revision == 2
+    assert reviewed.draft.parent_revision == 1
 
 
 @pytest.mark.asyncio

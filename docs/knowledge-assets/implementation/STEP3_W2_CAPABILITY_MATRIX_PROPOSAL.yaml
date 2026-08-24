@@ -25,12 +25,24 @@ rows:
     command: skill_draft.undo
     read_model: AuthoringReadModel
     test: tests/frontend/test_skill_authoring.py::test_stale_patch_returns_conflict_and_team_object_is_read_only
+  - id: assistant.comment_repair
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.comment.repair
+    read_model: CommentRepairBatchResult
+    test: tests/frontend/test_skill_authoring.py::test_comment_repairs_are_auditable_and_team_review_is_new_revision
   - id: team.reuse
     owner: W2
     status: STEP3_REAL
     command: skill_draft.team.reuse
     read_model: DraftRevision
     test: tests/frontend/test_skill_authoring.py::test_context_add_remove_cancel_and_team_lineage
+  - id: team.pre_publish_evaluation
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.team.review
+    read_model: AuthoringReadModel
+    test: tests/frontend/test_skill_authoring.py::test_comment_repairs_are_auditable_and_team_review_is_new_revision
   - id: model.credentials
     owner: W2
     status: EXTERNAL_CREDENTIAL_BLOCKED
