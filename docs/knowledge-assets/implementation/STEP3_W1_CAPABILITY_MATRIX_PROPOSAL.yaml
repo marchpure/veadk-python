@@ -1,0 +1,91 @@
+schemaVersion: knowledge-assets.step3.w1-capability-proposal.v1
+worker: W1
+domain: sources_connectors_golden_data
+catalog:
+  total: 37
+  categoryCounts:
+    office: 10
+    file: 8
+    db: 11
+    api: 5
+    custom: 3
+  stateCounts:
+    available: 5
+    configurable: 3
+    credential_blocked: 26
+    unsupported: 3
+connectors:
+  - {key: lark_doc, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [documentRef, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_wiki, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [wikiRef, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_drive, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [folderRef, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_meeting, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [calendarRef, dateFrom, dateTo, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_minutes, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [minutesRef, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_group, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [chatRef, timeRange, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_chat, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [userRef, timeRange, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_sheet, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [sheetRef, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_base, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [appRef, tableRef, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: lark_mail, category: office, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [folder, scopeRef], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: csv, category: file, capabilityState: available, reasonCode: AVAILABLE, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, introspect, sample], syncModes: [full]}
+  - {key: excel, category: file, capabilityState: available, reasonCode: AVAILABLE, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, discover, introspect, sample], syncModes: [full]}
+  - {key: json, category: file, capabilityState: unsupported, reasonCode: ADAPTER_NOT_IMPLEMENTED, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, discover, introspect], syncModes: [full]}
+  - {key: parquet, category: file, capabilityState: unsupported, reasonCode: ADAPTER_NOT_IMPLEMENTED, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, discover, introspect], syncModes: [full]}
+  - {key: doc_txt, category: file, capabilityState: available, reasonCode: PDF_ADAPTER_AVAILABLE, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, introspect, sample], syncModes: [full], note: "PDF only; Markdown uses local_file; TXT/HTML unsupported"}
+  - {key: local_file, category: file, capabilityState: available, reasonCode: AVAILABLE, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, introspect, sample], syncModes: [full], note: "Markdown only"}
+  - {key: s3, category: file, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [bucket], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: oss, category: file, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [bucket], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: postgresql, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [full, incremental]}
+  - {key: mysql, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [full, incremental]}
+  - {key: oracle, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, serviceName], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [full, incremental]}
+  - {key: sqlserver, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [full, incremental]}
+  - {key: sqlite, category: db, capabilityState: available, reasonCode: AVAILABLE, requiredInput: [sourceRef], credentialFields: [], discoveryModes: [validate, discover, introspect, sample], syncModes: [full]}
+  - {key: clickhouse, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: doris, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: starrocks, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: snowflake, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [account, warehouse, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: bigquery, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [projectId, datasetId], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: hive, category: db, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [host, port, database], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [incremental]}
+  - {key: rest_api, category: api, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [endpoint], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [realtime]}
+  - {key: graphql, category: api, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [endpoint, query], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [realtime]}
+  - {key: web_discovery, category: api, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [endpoint], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [realtime]}
+  - {key: webhook, category: api, capabilityState: configurable, reasonCode: CONFIG_REQUIRED, requiredInput: [listenPath, schemaRef], credentialFields: [secretRef], discoveryModes: [validate], syncModes: [realtime]}
+  - {key: kafka, category: api, capabilityState: credential_blocked, reasonCode: CREDENTIAL_REQUIRED, requiredInput: [bootstrapServers, topics, consumerGroup], credentialFields: [secretRef], discoveryModes: [validate, discover, introspect], syncModes: [realtime]}
+  - {key: mcp_custom, category: custom, capabilityState: configurable, reasonCode: CONFIG_REQUIRED, requiredInput: [transport, toolAllowlist], credentialFields: [], discoveryModes: [validate, discover_tools], syncModes: [realtime], note: "local stdio is STEP3_REAL after valid config; remote transports remain credential_blocked"}
+  - {key: custom_http, category: custom, capabilityState: configurable, reasonCode: CONFIG_REQUIRED, requiredInput: [name, endpoint], credentialFields: [secretRef], discoveryModes: [validate], syncModes: [realtime]}
+  - {key: openapi_spec, category: custom, capabilityState: unsupported, reasonCode: ADAPTER_NOT_IMPLEMENTED, requiredInput: [specRef], credentialFields: [secretRef], discoveryModes: [parse, list_operations], syncModes: [realtime]}
+runtimeRows:
+  - id: source.local.markdown
+    status: STEP3_REAL
+    adapter: local_file
+    lifecycle: SourceRevision/ProfileRun/CleanRun/GoldenAssetRevision
+  - id: source.local.csv
+    status: STEP3_REAL
+    adapter: csv
+    lifecycle: SourceRevision/ProfileRun/CleanRun/GoldenAssetRevision
+  - id: source.local.sqlite
+    status: STEP3_REAL
+    adapter: sqlite
+    lifecycle: SourceRevision/ProfileRun/CleanRun/GoldenAssetRevision
+  - id: source.local.excel
+    status: STEP3_REAL
+    adapter: excel
+    lifecycle: SourceRevision/ProfileRun/CleanRun/GoldenAssetRevision
+  - id: source.local.pdf
+    status: STEP3_REAL
+    adapter: doc_txt
+    lifecycle: SourceRevision/ProfileRun/CleanRun/GoldenAssetRevision
+  - id: source.mcp.local_stdio
+    status: STEP3_REAL
+    adapter: mcp_custom
+    evidence: docs/knowledge-assets/implementation/STEP3_W1_MCP_EVIDENCE.json
+  - id: source.external.oracle_postgresql_lark_web_api
+    status: EXTERNAL_CREDENTIAL_BLOCKED
+    behavior: "validated typed adapter contracts; no provider success claimed"
+  - id: source.mcp.remote
+    status: EXTERNAL_CREDENTIAL_BLOCKED
+    behavior: "SSRF-checked endpoint and OAuth/secret reference contract; no remote success claimed"
+  - id: source.json_parquet_openapi_spec
+    status: UNSUPPORTED
+    behavior: "visible catalog entries with ADAPTER_NOT_IMPLEMENTED"
+tests:
+  focused: tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py
+  consumerContract: tests/fixtures/knowledge_workspace_v21141/step3-w1-ui-consumer-contract.json

@@ -1,0 +1,1215 @@
+{
+  "commit": "bcc084d43eb056daf64f45fedca1a41d1f67086b",
+  "faultScenarios": [
+    {
+      "errorCode": "MCP_TIMEOUT",
+      "message": "MCP initialize timed out",
+      "phase": "initialize_or_discovery",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-c687e5dc4280cb611fa8ae10",
+        "correlationId": "trace-hang_initialize",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-hang_initialize",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": "MCP_TIMEOUT",
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": null,
+            "sequence": 1,
+            "status": "failed"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.089848+00:00",
+        "id": "mcp-trace-0245058ea2b93b90855a4ea3",
+        "pid": 89453,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": null,
+        "serverName": null,
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.033321+00:00",
+        "status": "timed_out",
+        "workspaceId": "workspace-a"
+      },
+      "scenario": "hang_initialize"
+    },
+    {
+      "errorCode": "MCP_PROCESS_EXITED",
+      "message": "MCP process exited before initialize response",
+      "phase": "initialize_or_discovery",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-eb67ab37b6d169a659c66938",
+        "correlationId": "trace-exit_initialize",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-exit_initialize",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": "MCP_PROCESS_EXITED",
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": null,
+            "sequence": 1,
+            "status": "failed"
+          }
+        ],
+        "exitCode": 23,
+        "finishedAt": "2026-08-24T23:25:41.201949+00:00",
+        "id": "mcp-trace-dd83a361e2a3cf7e16db7950",
+        "pid": 89454,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": null,
+        "serverName": null,
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.107862+00:00",
+        "status": "failed",
+        "workspaceId": "workspace-a"
+      },
+      "scenario": "exit_initialize"
+    },
+    {
+      "errorCode": "MCP_INVALID_MESSAGE",
+      "message": "MCP returned an invalid JSON message",
+      "phase": "initialize_or_discovery",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-823c0415f65e6f9da07dde49",
+        "correlationId": "trace-invalid_initialize",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-invalid_initialize",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": "MCP_INVALID_MESSAGE",
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": null,
+            "sequence": 1,
+            "status": "failed"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.259239+00:00",
+        "id": "mcp-trace-fdb4f691162e87248a9c9a79",
+        "pid": 89455,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": null,
+        "serverName": null,
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.224283+00:00",
+        "status": "failed",
+        "workspaceId": "workspace-a"
+      },
+      "scenario": "invalid_initialize"
+    },
+    {
+      "errorCode": "MCP_OUTPUT_LIMIT",
+      "message": "MCP process output exceeds output budget",
+      "phase": "initialize_or_discovery",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-82737eecdb8be2c283107d72",
+        "correlationId": "trace-oversize_stderr",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-oversize_stderr",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": "MCP_OUTPUT_LIMIT",
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": null,
+            "sequence": 1,
+            "status": "failed"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.315119+00:00",
+        "id": "mcp-trace-e65aceccece986b02f714386",
+        "pid": 89456,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": null,
+        "serverName": null,
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.280159+00:00",
+        "status": "failed",
+        "workspaceId": "workspace-a"
+      },
+      "scenario": "oversize_stderr"
+    },
+    {
+      "errorCode": "MCP_TOOL_NOT_ALLOWED",
+      "message": "MCP server exposed a tool outside the allowlist",
+      "phase": "initialize_or_discovery",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-55604d06f21adcb5a1234c4e",
+        "correlationId": "trace-outside_allowlist",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-outside_allowlist",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.378029+00:00",
+        "id": "mcp-trace-72a976982dd0de7914917668",
+        "pid": 89457,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.340148+00:00",
+        "status": "failed",
+        "workspaceId": "workspace-a"
+      },
+      "scenario": "outside_allowlist"
+    },
+    {
+      "errorCode": "MCP_TIMEOUT",
+      "message": "Command '['/Users/bytedance/.pyenv/versions/3.13.7/bin/python3', '/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py']' timed out after 0.05 seconds",
+      "phase": "initialize_or_discovery",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-871bd64eb398e55a002ba65a",
+        "correlationId": "trace-hang_after_shutdown",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-hang_after_shutdown",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "shutdown",
+            "requestId": 3,
+            "responseDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "sequence": 4,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.487952+00:00",
+        "id": "mcp-trace-49b600bfffa78fb44e67711d",
+        "pid": 89458,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "jsonrpc",
+        "startedAt": "2026-08-24T23:25:41.395880+00:00",
+        "status": "timed_out",
+        "workspaceId": "workspace-a"
+      },
+      "scenario": "hang_after_shutdown"
+    },
+    {
+      "errorCode": "MCP_TIMEOUT",
+      "message": "MCP tools/call timed out",
+      "phase": "tools/call",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-740fe5cebd322003d1ca1293",
+        "correlationId": "trace-call-hang_tool",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-hang_tool",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": "MCP_TIMEOUT",
+            "method": "tools/call",
+            "requestId": 3,
+            "responseDigest": null,
+            "sequence": 4,
+            "status": "failed"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.651746+00:00",
+        "id": "mcp-trace-4472e21775f79af216f806f2",
+        "pid": 89460,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.563314+00:00",
+        "status": "timed_out",
+        "workspaceId": "workspace-a"
+      },
+      "revisionCreated": false,
+      "scenario": "hang_tool"
+    },
+    {
+      "errorCode": "MCP_TOOL_FAILED",
+      "message": "MCP tool reported failure",
+      "phase": "tools/call",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-17d7b5d2e8bb2e3a687e9fd4",
+        "correlationId": "trace-call-tool_error",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-tool_error",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": "MCP_TOOL_FAILED",
+            "method": "tools/call",
+            "requestId": 3,
+            "responseDigest": "3d1f1867c03d54d3a4cd67ffad4f5ab089a5cd91eed4df1eccf1304e67070993",
+            "sequence": 4,
+            "status": "failed"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.762565+00:00",
+        "id": "mcp-trace-19b5cef29db6323cc8169e8b",
+        "pid": 89462,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.727255+00:00",
+        "status": "failed",
+        "workspaceId": "workspace-a"
+      },
+      "revisionCreated": false,
+      "scenario": "tool_error"
+    },
+    {
+      "errorCode": "MCP_OUTPUT_LIMIT",
+      "message": "MCP process output exceeds output budget",
+      "phase": "tools/call",
+      "process": {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-64dde0004d26fc338523c4ed",
+        "correlationId": "trace-call-oversize_tool",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/failure-oversize_tool",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": "MCP_OUTPUT_LIMIT",
+            "method": "tools/call",
+            "requestId": 3,
+            "responseDigest": null,
+            "sequence": 4,
+            "status": "failed"
+          }
+        ],
+        "exitCode": -9,
+        "finishedAt": "2026-08-24T23:25:41.868886+00:00",
+        "id": "mcp-trace-f55bc0e836976b629d18f93b",
+        "pid": 89464,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "forced_termination",
+        "startedAt": "2026-08-24T23:25:41.836785+00:00",
+        "status": "failed",
+        "workspaceId": "workspace-a"
+      },
+      "revisionCreated": false,
+      "scenario": "oversize_tool"
+    },
+    {
+      "errorCode": "MCP_PROCESS_START_FAILED",
+      "message": "stdio MCP process could not be started.",
+      "phase": "before_spawn",
+      "processTraceCount": 0,
+      "scenario": "missing_command"
+    },
+    {
+      "errorCode": "MCP_CONFIGURATION_INVALID",
+      "message": "stdio MCP configuration is invalid.",
+      "phase": "before_spawn",
+      "processTraceCount": 0,
+      "scenario": "relative_cwd"
+    },
+    {
+      "errorCode": "MCP_CONFIGURATION_INVALID",
+      "message": "stdio MCP configuration is invalid.",
+      "phase": "before_spawn",
+      "processTraceCount": 0,
+      "scenario": "plaintext_sensitive_env"
+    },
+    {
+      "errorCode": "MCP_CONFIGURATION_INVALID",
+      "message": "stdio MCP configuration is invalid.",
+      "phase": "before_spawn",
+      "processTraceCount": 0,
+      "scenario": "plaintext_sensitive_args"
+    }
+  ],
+  "fixtureServer": {
+    "discoveredTools": [
+      {
+        "fields": [],
+        "id": "mcp-tool-ce6940d4b6085de810895d2d",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "region": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "name": "habitat.readings",
+        "outputSchema": null,
+        "permission": "read",
+        "resourceType": "tool",
+        "rowCount": null,
+        "schemaName": null
+      }
+    ],
+    "goldenRevision": {
+      "assetId": "golden-e35acd21eda8d50027a47f82",
+      "assetKind": "dataset",
+      "dataAsOf": "2026-08-25T08:00:00Z",
+      "freshnessAt": "2026-08-24T23:25:35.700222+00:00",
+      "id": "golden-e35acd21eda8d50027a47f82-r1-420f7fe5",
+      "lastGood": true,
+      "lineage": {
+        "adapterRunId": "mcp-trace-4b60ee95bfe63ce103d5dd48",
+        "cleanRunId": "clean-e35acd21eda8d50027a47f82-v1-420f7fe5",
+        "connectionId": "connection-601956a1ef22bfa36accd1ea",
+        "contentDigest": "74f91b95483e78d7a2a5d21a7432de240d89f728fd7399edacadd130c22c10eb",
+        "correlationId": "fixture-tools-call",
+        "lineageDigest": "7916e7834b2729016c7b0af2d6f2dfddc45f73038f794c19c973b302b0fcbc9d",
+        "profileRunId": "profile-ed31dbda02647728720faaa7-64dcf97c",
+        "recipeId": "recipe-e35acd21eda8d50027a47f82",
+        "recipeVersion": 1,
+        "resourceId": "mcp-tool-ce6940d4b6085de810895d2d",
+        "sourceRevisionId": "source-ed31dbda02647728720faaa7",
+        "toolArguments": {
+          "region": "all"
+        }
+      },
+      "owner": {
+        "principalId": "w1-evidence-runner",
+        "workspaceId": "workspace-a"
+      },
+      "permissions": {
+        "canRead": true,
+        "canWrite": true,
+        "inheritedFromConnectionId": "connection-601956a1ef22bfa36accd1ea",
+        "scope": "team",
+        "version": 1,
+        "workspaceId": "workspace-a"
+      },
+      "qualityScore": 1.0,
+      "revision": 1,
+      "schemaDigest": "70423224a73f1012cd381080b9abe544d9c0d8a2e3421685e336bb26fb4040d6",
+      "storageRef": {
+        "bytes": 271,
+        "mediaType": "application/x-ndjson",
+        "sha256": "420f7fe53db70352ba1bbb21434888c730b82ba423ec4c922d99730b1c2ba5da",
+        "uri": "artifact://sha256/420f7fe53db70352ba1bbb21434888c730b82ba423ec4c922d99730b1c2ba5da"
+      },
+      "traceId": "fixture-tools-call"
+    },
+    "implementation": "repository fault-injection JSON-RPC server",
+    "processes": [
+      {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-601956a1ef22bfa36accd1ea",
+        "correlationId": "fixture-initialize",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "shutdown",
+            "requestId": 3,
+            "responseDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "sequence": 4,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-08-24T23:25:35.694249+00:00",
+        "id": "mcp-trace-cf4988fab2cf722cf0a961d7",
+        "pid": 89428,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "jsonrpc",
+        "startedAt": "2026-08-24T23:25:35.519607+00:00",
+        "status": "succeeded",
+        "workspaceId": "workspace-a"
+      },
+      {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-601956a1ef22bfa36accd1ea",
+        "correlationId": "fixture-tools-call",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+        "environmentCount": 3,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "acbf0178db2846fd9d1442c3c6933c54077918342e67e08ba401a5c662f0bdb5",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "4319ab34a5b9b6e89394b989ea899ae09e051b190f1fe589655856c7bdf439de",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/call",
+            "requestId": 3,
+            "responseDigest": "700b1ec1b7ada602b931bfba5ef11dbbdedb3dfc6e9ae769fb19b449b1af39b1",
+            "sequence": 4,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "shutdown",
+            "requestId": 4,
+            "responseDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "sequence": 5,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-08-24T23:25:35.743074+00:00",
+        "id": "mcp-trace-4b60ee95bfe63ce103d5dd48",
+        "pid": 89429,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-06-18",
+        "serverName": "repository-habitat-test-server",
+        "shell": false,
+        "shutdownMode": "jsonrpc",
+        "startedAt": "2026-08-24T23:25:35.700430+00:00",
+        "status": "succeeded",
+        "workspaceId": "workspace-a"
+      }
+    ],
+    "server": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py",
+    "sourceRevision": {
+      "connectionId": "connection-601956a1ef22bfa36accd1ea",
+      "contentRef": {
+        "bytes": 254,
+        "mediaType": "application/json",
+        "sha256": "74f91b95483e78d7a2a5d21a7432de240d89f728fd7399edacadd130c22c10eb",
+        "uri": "artifact://sha256/74f91b95483e78d7a2a5d21a7432de240d89f728fd7399edacadd130c22c10eb"
+      },
+      "createdAt": "2026-08-24T23:25:35.700222+00:00",
+      "id": "source-ed31dbda02647728720faaa7",
+      "permissionVersion": 1,
+      "resourceId": "mcp-tool-ce6940d4b6085de810895d2d",
+      "schemaDigest": "70423224a73f1012cd381080b9abe544d9c0d8a2e3421685e336bb26fb4040d6",
+      "sourceDigest": "74f91b95483e78d7a2a5d21a7432de240d89f728fd7399edacadd130c22c10eb",
+      "sourceLocator": "mcp://tool/habitat.readings",
+      "sourceType": "mcp",
+      "traceId": "fixture-tools-call",
+      "workspaceId": "workspace-a"
+    },
+    "startup": {
+      "argv": [
+        "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py"
+      ],
+      "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+      "env": {
+        "MCP_FIXTURE_DATA_PATH": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/habitat-readings.json",
+        "MCP_FIXTURE_MODE": "normal",
+        "MCP_SECRET_TOKEN": "secret://workspace-a/mcp-evidence"
+      },
+      "shell": false
+    },
+    "toolCallOutput": [
+      {
+        "apiToken": "[REDACTED]",
+        "dataAsOf": "2026-08-25T08:00:00Z",
+        "secretEcho": "[REDACTED]",
+        "station": "wetland-a",
+        "temperature": 18.2
+      },
+      {
+        "apiToken": "[REDACTED]",
+        "dataAsOf": "2026-08-25T08:00:00Z",
+        "secretEcho": "[REDACTED]",
+        "station": "forest-b",
+        "temperature": 16.7
+      }
+    ]
+  },
+  "generatedAt": "2026-08-24T23:25:41.933540+00:00",
+  "officialSdkServer": {
+    "changed": {
+      "contentDigest": true,
+      "dataAsOf": true,
+      "freshness": true,
+      "goldenOutputDigest": true,
+      "goldenRevision": true,
+      "sourceRevision": true,
+      "toolsCallOutput": true
+    },
+    "first": {
+      "goldenRevision": {
+        "assetId": "golden-e67e5096fe82adebeb7e2ecb",
+        "assetKind": "dataset",
+        "dataAsOf": "2026-08-25T08:00:00Z",
+        "freshnessAt": "2026-08-24T23:25:37.510977+00:00",
+        "id": "golden-e67e5096fe82adebeb7e2ecb-r1-866d7fa7",
+        "lastGood": true,
+        "lineage": {
+          "adapterRunId": "mcp-trace-4a9a69f75514fa81d6fdd22d",
+          "cleanRunId": "clean-e67e5096fe82adebeb7e2ecb-v1-866d7fa7",
+          "connectionId": "connection-361754d9d044e9692b86444e",
+          "contentDigest": "0c88b9bcb59fba3bd9c0b8289fc63b5c2c8a692da078b6cf7e883efcd10d4535",
+          "correlationId": "sdk-tools-call-one",
+          "lineageDigest": "042b712402ce4b94b88d70987e2a341af112e41d07a99f3368cea163c2acd140",
+          "profileRunId": "profile-d54deed0f9d9c3a5aa6b8c6a-1e24e306",
+          "recipeId": "recipe-e67e5096fe82adebeb7e2ecb",
+          "recipeVersion": 1,
+          "resourceId": "mcp-tool-42d01c0892083109e8ef4d27",
+          "sourceRevisionId": "source-d54deed0f9d9c3a5aa6b8c6a",
+          "toolArguments": {
+            "service": "all"
+          }
+        },
+        "owner": {
+          "principalId": "w1-evidence-runner",
+          "workspaceId": "workspace-a"
+        },
+        "permissions": {
+          "canRead": true,
+          "canWrite": true,
+          "inheritedFromConnectionId": "connection-361754d9d044e9692b86444e",
+          "scope": "team",
+          "version": 1,
+          "workspaceId": "workspace-a"
+        },
+        "qualityScore": 1.0,
+        "revision": 1,
+        "schemaDigest": "b58a69025646435ddeac7acf8923fd564f8bc22837dda7b77f0717589499568d",
+        "storageRef": {
+          "bytes": 157,
+          "mediaType": "application/x-ndjson",
+          "sha256": "866d7fa7add621202468a00257f12fb870d870236e838b4221484803e4a2c8ac",
+          "uri": "artifact://sha256/866d7fa7add621202468a00257f12fb870d870236e838b4221484803e4a2c8ac"
+        },
+        "traceId": "sdk-tools-call-one"
+      },
+      "sourceRevision": {
+        "connectionId": "connection-361754d9d044e9692b86444e",
+        "contentRef": {
+          "bytes": 148,
+          "mediaType": "application/json",
+          "sha256": "0c88b9bcb59fba3bd9c0b8289fc63b5c2c8a692da078b6cf7e883efcd10d4535",
+          "uri": "artifact://sha256/0c88b9bcb59fba3bd9c0b8289fc63b5c2c8a692da078b6cf7e883efcd10d4535"
+        },
+        "createdAt": "2026-08-24T23:25:37.510977+00:00",
+        "id": "source-d54deed0f9d9c3a5aa6b8c6a",
+        "permissionVersion": 1,
+        "resourceId": "mcp-tool-42d01c0892083109e8ef4d27",
+        "schemaDigest": "b58a69025646435ddeac7acf8923fd564f8bc22837dda7b77f0717589499568d",
+        "sourceDigest": "0c88b9bcb59fba3bd9c0b8289fc63b5c2c8a692da078b6cf7e883efcd10d4535",
+        "sourceLocator": "mcp://tool/infrastructure.metrics",
+        "sourceType": "mcp",
+        "traceId": "sdk-tools-call-one",
+        "workspaceId": "workspace-a"
+      },
+      "toolsCallOutput": [
+        {
+          "cpuPercent": 41.2,
+          "dataAsOf": "2026-08-25T08:00:00Z",
+          "service": "search"
+        },
+        {
+          "cpuPercent": 63.1,
+          "dataAsOf": "2026-08-25T08:00:00Z",
+          "service": "indexer"
+        }
+      ]
+    },
+    "implementation": "official MCP Python SDK FastMCP",
+    "processes": [
+      {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-361754d9d044e9692b86444e",
+        "correlationId": "sdk-initialize",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+        "environmentCount": 1,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "e048483d642c8ed5a6ca8c8b218c79fc7828988def54116280019298e60e7f14",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "e6b3e255729d7d28bf3c4085aa73c90fe77b6ed25030d8fca56a066c386db71c",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": "MCP_SHUTDOWN_UNSUPPORTED",
+            "method": "shutdown",
+            "requestId": 3,
+            "responseDigest": null,
+            "sequence": 4,
+            "status": "failed"
+          },
+          {
+            "errorCode": null,
+            "method": "stdio/eof",
+            "requestId": null,
+            "responseDigest": "dc78713a143bb9aaa556c7b2f7ff27da1f406ab3b1615b3c139496a7a11eaed6",
+            "sequence": 5,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-08-24T23:25:37.499225+00:00",
+        "id": "mcp-trace-7e84a106ded08e0a29f0d557",
+        "pid": 89430,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-11-25",
+        "serverName": "repository-infrastructure-metrics",
+        "shell": false,
+        "shutdownMode": "stdio_eof",
+        "startedAt": "2026-08-24T23:25:35.770012+00:00",
+        "status": "succeeded",
+        "workspaceId": "workspace-a"
+      },
+      {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-361754d9d044e9692b86444e",
+        "correlationId": "sdk-tools-call-one",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+        "environmentCount": 1,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "e048483d642c8ed5a6ca8c8b218c79fc7828988def54116280019298e60e7f14",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "e6b3e255729d7d28bf3c4085aa73c90fe77b6ed25030d8fca56a066c386db71c",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/call",
+            "requestId": 3,
+            "responseDigest": "a721478c22560bdff89b5cf91abf91966dc0a5b8ba8c17cb0f115743a7c5e3c6",
+            "sequence": 4,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": "MCP_SHUTDOWN_UNSUPPORTED",
+            "method": "shutdown",
+            "requestId": 4,
+            "responseDigest": null,
+            "sequence": 5,
+            "status": "failed"
+          },
+          {
+            "errorCode": null,
+            "method": "stdio/eof",
+            "requestId": null,
+            "responseDigest": "dc78713a143bb9aaa556c7b2f7ff27da1f406ab3b1615b3c139496a7a11eaed6",
+            "sequence": 6,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-08-24T23:25:39.230296+00:00",
+        "id": "mcp-trace-4a9a69f75514fa81d6fdd22d",
+        "pid": 89431,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-11-25",
+        "serverName": "repository-infrastructure-metrics",
+        "shell": false,
+        "shutdownMode": "stdio_eof",
+        "startedAt": "2026-08-24T23:25:37.511189+00:00",
+        "status": "succeeded",
+        "workspaceId": "workspace-a"
+      },
+      {
+        "args": [
+          "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py"
+        ],
+        "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "connectionId": "connection-361754d9d044e9692b86444e",
+        "correlationId": "sdk-tools-call-two",
+        "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+        "environmentCount": 1,
+        "exchanges": [
+          {
+            "errorCode": null,
+            "method": "initialize",
+            "requestId": 1,
+            "responseDigest": "e048483d642c8ed5a6ca8c8b218c79fc7828988def54116280019298e60e7f14",
+            "sequence": 1,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "notifications/initialized",
+            "requestId": null,
+            "responseDigest": null,
+            "sequence": 2,
+            "status": "sent"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/list",
+            "requestId": 2,
+            "responseDigest": "e6b3e255729d7d28bf3c4085aa73c90fe77b6ed25030d8fca56a066c386db71c",
+            "sequence": 3,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": null,
+            "method": "tools/call",
+            "requestId": 3,
+            "responseDigest": "fa1f1290997f043825bfeda4124e64eed8e70c5c92e07cddc0f4e2757fd0997a",
+            "sequence": 4,
+            "status": "succeeded"
+          },
+          {
+            "errorCode": "MCP_SHUTDOWN_UNSUPPORTED",
+            "method": "shutdown",
+            "requestId": 4,
+            "responseDigest": null,
+            "sequence": 5,
+            "status": "failed"
+          },
+          {
+            "errorCode": null,
+            "method": "stdio/eof",
+            "requestId": null,
+            "responseDigest": "dc78713a143bb9aaa556c7b2f7ff27da1f406ab3b1615b3c139496a7a11eaed6",
+            "sequence": 6,
+            "status": "succeeded"
+          }
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-08-24T23:25:40.998683+00:00",
+        "id": "mcp-trace-213cbb6de40e1f31abc3a4f8",
+        "pid": 89452,
+        "pidAliveAfterRun": false,
+        "principalId": "w1-evidence-runner",
+        "processReaped": true,
+        "protocolVersion": "2025-11-25",
+        "serverName": "repository-infrastructure-metrics",
+        "shell": false,
+        "shutdownMode": "stdio_eof",
+        "startedAt": "2026-08-24T23:25:39.245106+00:00",
+        "status": "succeeded",
+        "workspaceId": "workspace-a"
+      }
+    ],
+    "sdkPackage": "mcp",
+    "sdkVersion": "1.26.0",
+    "second": {
+      "goldenRevision": {
+        "assetId": "golden-e67e5096fe82adebeb7e2ecb",
+        "assetKind": "dataset",
+        "dataAsOf": "2026-08-25T08:05:00Z",
+        "freshnessAt": "2026-08-24T23:25:39.244916+00:00",
+        "id": "golden-e67e5096fe82adebeb7e2ecb-r2-765185b8",
+        "lastGood": true,
+        "lineage": {
+          "adapterRunId": "mcp-trace-213cbb6de40e1f31abc3a4f8",
+          "cleanRunId": "clean-e67e5096fe82adebeb7e2ecb-v2-765185b8",
+          "connectionId": "connection-361754d9d044e9692b86444e",
+          "contentDigest": "faf2db64f718b699f7b6623df8fc8d07b2179a5b3bbbe992cd820c038fa8113a",
+          "correlationId": "sdk-tools-call-two",
+          "lineageDigest": "e4a2c3074db7092e8335b620a737fb1ee1476dddbddc49b732ec4174c9f44a9e",
+          "profileRunId": "profile-521784eda0522458df49a136-485e3355",
+          "recipeId": "recipe-e67e5096fe82adebeb7e2ecb",
+          "recipeVersion": 2,
+          "resourceId": "mcp-tool-42d01c0892083109e8ef4d27",
+          "sourceRevisionId": "source-521784eda0522458df49a136",
+          "toolArguments": {
+            "service": "all"
+          }
+        },
+        "owner": {
+          "principalId": "w1-evidence-runner",
+          "workspaceId": "workspace-a"
+        },
+        "permissions": {
+          "canRead": true,
+          "canWrite": true,
+          "inheritedFromConnectionId": "connection-361754d9d044e9692b86444e",
+          "scope": "team",
+          "version": 1,
+          "workspaceId": "workspace-a"
+        },
+        "qualityScore": 1.0,
+        "revision": 2,
+        "schemaDigest": "b58a69025646435ddeac7acf8923fd564f8bc22837dda7b77f0717589499568d",
+        "storageRef": {
+          "bytes": 157,
+          "mediaType": "application/x-ndjson",
+          "sha256": "765185b869a9a72abb76048a6bca87b96f9e094b659701cdffea697ef02d71da",
+          "uri": "artifact://sha256/765185b869a9a72abb76048a6bca87b96f9e094b659701cdffea697ef02d71da"
+        },
+        "traceId": "sdk-tools-call-two"
+      },
+      "sourceRevision": {
+        "connectionId": "connection-361754d9d044e9692b86444e",
+        "contentRef": {
+          "bytes": 148,
+          "mediaType": "application/json",
+          "sha256": "faf2db64f718b699f7b6623df8fc8d07b2179a5b3bbbe992cd820c038fa8113a",
+          "uri": "artifact://sha256/faf2db64f718b699f7b6623df8fc8d07b2179a5b3bbbe992cd820c038fa8113a"
+        },
+        "createdAt": "2026-08-24T23:25:39.244916+00:00",
+        "id": "source-521784eda0522458df49a136",
+        "permissionVersion": 1,
+        "resourceId": "mcp-tool-42d01c0892083109e8ef4d27",
+        "schemaDigest": "b58a69025646435ddeac7acf8923fd564f8bc22837dda7b77f0717589499568d",
+        "sourceDigest": "faf2db64f718b699f7b6623df8fc8d07b2179a5b3bbbe992cd820c038fa8113a",
+        "sourceLocator": "mcp://tool/infrastructure.metrics",
+        "sourceType": "mcp",
+        "traceId": "sdk-tools-call-two",
+        "workspaceId": "workspace-a"
+      },
+      "toolsCallOutput": [
+        {
+          "cpuPercent": 52.8,
+          "dataAsOf": "2026-08-25T08:05:00Z",
+          "service": "search"
+        },
+        {
+          "cpuPercent": 63.1,
+          "dataAsOf": "2026-08-25T08:05:00Z",
+          "service": "indexer"
+        }
+      ]
+    },
+    "server": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py",
+    "startup": {
+      "argv": [
+        "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+        "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py"
+      ],
+      "cwd": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+      "env": {
+        "MCP_FIXTURE_DATA_PATH": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4/infrastructure-metrics.json"
+      },
+      "shell": false
+    },
+    "toolsListOutput": [
+      {
+        "fields": [],
+        "id": "mcp-tool-42d01c0892083109e8ef4d27",
+        "inputSchema": {
+          "properties": {
+            "service": {
+              "default": "all",
+              "title": "Service",
+              "type": "string"
+            }
+          },
+          "title": "infrastructure_metricsArguments",
+          "type": "object"
+        },
+        "name": "infrastructure.metrics",
+        "outputSchema": {
+          "additionalProperties": true,
+          "title": "infrastructure_metricsDictOutput",
+          "type": "object"
+        },
+        "permission": "read",
+        "resourceType": "tool",
+        "rowCount": null,
+        "schemaName": null
+      }
+    ]
+  },
+  "repository": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden",
+  "reproduce": {
+    "command": [
+      "/Users/bytedance/.pyenv/versions/3.13.7/bin/python3",
+      "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden/tests/fixtures/knowledge_workspace_v21141/generate_step3_w1_mcp_evidence.py",
+      "--output",
+      "<output-json>",
+      "--runtime-dir",
+      "<new-empty-runtime-directory>"
+    ]
+  },
+  "runtime": {
+    "mcpSdkVersion": "1.26.0",
+    "platform": "macOS-26.3-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7 (main, Mar  6 2026, 17:02:22) [Clang 17.0.0 (clang-1700.6.4.2)]"
+  },
+  "runtimeDirectory": "/Users/bytedance/.codex/coordination/knowledge-step3/w1-mcp-evidence/runtime-bcc084d4",
+  "schemaVersion": "knowledge-assets.step3.w1-mcp-evidence.v1",
+  "secretLeakCheck": {
+    "matchingPaths": [],
+    "secretReferencePersistedOnly": true,
+    "sentinelPersisted": false
+  },
+  "stableErrorCodes": [
+    "MCP_CONFIGURATION_INVALID",
+    "MCP_INVALID_MESSAGE",
+    "MCP_OUTPUT_LIMIT",
+    "MCP_PROCESS_EXITED",
+    "MCP_PROCESS_START_FAILED",
+    "MCP_TIMEOUT",
+    "MCP_TOOL_FAILED",
+    "MCP_TOOL_NOT_ALLOWED"
+  ],
+  "status": "PASS"
+}
