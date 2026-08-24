@@ -454,12 +454,14 @@ class PatchProposal(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     patch_id: str = Field(default_factory=lambda: f"patch_{uuid4().hex}")
+    operation_id: str | None = None
     draft_id: str
     base_revision: int = Field(ge=1)
     patch: TypedPatch
     impact: PatchImpact
     status: Literal["proposed", "accepted", "rejected", "undone", "conflicted"] = "proposed"
     proposed_by: str
+    source_comment_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=32)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -517,12 +519,16 @@ class AuthoringOperation(BaseModel):
     operation_id: str
     operation_type: Literal[
         "create_draft",
+        "propose_patch",
         "accept_patch",
+        "patch_reject",
         "undo",
         "comment_repair",
+        "comment_repair_batch",
         "retry",
         "cancel",
         "copy_team_draft",
+        "submit_team_review",
         "update_context",
     ]
     status: AuthoringStatus
@@ -534,6 +540,7 @@ class AuthoringOperation(BaseModel):
     error_message: str | None = None
     trace_id: str
     retry_of_operation_id: str | None = None
+    clarification_questions: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -545,6 +552,38 @@ class AuthoringReadModel(BaseModel):
     draft: DraftRevision | None = None
     latest_patch: PatchProposal | None = None
     events: tuple[AuthoringEvent, ...] = Field(default_factory=tuple)
+
+
+class CommentRepairRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    draft_id: str
+    base_revision: int = Field(ge=1)
+    comment_id: str = Field(min_length=1, max_length=160)
+    patch: TypedPatch
+    proposed_by: str = Field(min_length=1, max_length=160)
+
+
+class CommentRepairBatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    requests: tuple[CommentRepairRequest, ...] = Field(min_length=1, max_length=32)
+
+
+class CommentRepairBatchResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: str
+    proposals: tuple[PatchProposal, ...]
+
+
+class TeamReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    draft_id: str
+    base_revision: int = Field(ge=1)
+    team_id: str = Field(min_length=1, max_length=160)
+    caller_id: str = Field(min_length=1, max_length=160)
 
 
 class CreateDraftRequest(BaseModel):
