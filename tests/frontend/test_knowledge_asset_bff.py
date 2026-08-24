@@ -389,9 +389,19 @@ def test_registered_not_ready_commands_return_typed_failure(
     assert response.status_code == 200
     body = response.json()
     assert body["accepted"] is False
-    expected_status = "failed" if command == "refresh.run" else "not_ready"
+    expected_status = (
+        "failed"
+        if command in {"refresh.run", "skill-draft.run"}
+        else "not_ready"
+    )
     assert body["result"]["status"] == expected_status
-    expected_code = "SKILL_NOT_FOUND" if command == "refresh.run" else "COMMAND_NOT_READY"
+    expected_code = (
+        "SKILL_NOT_FOUND"
+        if command == "refresh.run"
+        else "SKILL_DRAFT_NOT_FOUND"
+        if command == "skill-draft.run"
+        else "COMMAND_NOT_READY"
+    )
     assert body["result"]["error"]["code"] == expected_code
 
 
@@ -449,6 +459,41 @@ def test_job_framework_enforces_idempotency_lease_retry_dead_letter_and_outbox()
         range(1, len(framework.events(first.job_id)) + 1)
     )
     assert len(framework.outbox()) == len(framework.events(first.job_id))
+
+
+def test_bff_prefer_async_builder_returns_and_persists_terminal_operation() -> None:
+    client = build_client()
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-draft.run",
+            "payload": {
+                "draftId": "missing-async-draft",
+                "revision": 1,
+                "traceId": "async-http",
+            },
+        },
+        headers={
+            "X-Request-ID": "async-http-request",
+            "Idempotency-Key": "async-http-key",
+            "Prefer": "respond-async",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["accepted"] is True
+    assert body["result"] is None
+    operation_id = body["operationId"]
+    for _ in range(100):
+        operation = client.get(
+            f"/api/knowledge-assets/v1/operations/{operation_id}",
+            headers={"X-Request-ID": "async-http-poll"},
+        ).json()
+        if operation["status"] in {"failed", "cancelled", "succeeded"}:
+            break
+    assert operation["status"] == "failed"
+    assert operation["events"][-1]["terminal"] is True
+    assert operation["events"][-1]["type"] == "failed"
 
 
 def test_production_adapters_fail_closed() -> None:

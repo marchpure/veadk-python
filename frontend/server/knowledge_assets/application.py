@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import csv
+import html
+import io
 import json
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -13,9 +17,19 @@ from .contracts import (
     CommandResult,
     DraftCommandResult,
     ErrorEnvelope,
+    EvaluationPayload,
+    EvaluationRunResult,
+    ArtifactExportPayload,
+    ArtifactExportResult,
+    ResourceShareResult,
     LegacySkillManifestInput,
     InvocationStartPayload,
     InvocationStartResult,
+    AssistantContextEnvelope,
+    AssistantDiff,
+    AssistantTurnPayload,
+    AssistantTurnResult,
+    SkillPatch,
     OperationEvent,
     OperationResponse,
     PublicationPublishPayload,
@@ -25,6 +39,7 @@ from .contracts import (
     RefreshRun,
     SkillDraft,
     SkillDraftRunPayload,
+    SkillDraftRetryPayload,
     SkillDraftRunResult,
     SkillManifest,
     SourceCleanPayload,
@@ -41,11 +56,37 @@ from .contracts import (
     PermissionRef,
     SchemaRef,
     StorageRef,
+    KnowledgeViewModel,
+    KnowledgeCitation,
+    SemanticViewModel,
+    DashboardViewModel,
+    DashboardKpi,
+    ViewField,
+    ViewCell,
+    ChartViewModel,
+    ChartSeries,
+    GraphOntologyViewModel,
+    GraphNode,
+    GraphEdge,
+    MonitoringViewModel,
+    SkillResult,
+    SkillViewManifest,
+    SkillViewRevision,
+    SkillViewShareGrant,
+    ViewIntent,
+    Invocation,
+    EvaluationSuite,
+    EvaluationCase,
+    EvaluationRun,
+    EvaluationCaseResult,
+    PolicyGateResult,
     adapt_legacy_manifest,
     now_iso,
 )
 from .policies import validate_manifest_policy
 from .ports import AuditRecorderPort
+from .workers import JobFramework, JobLeaseError, PostgresJobFramework
+from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import (
     KnowledgeAssetRepositoryError,
     KnowledgeAssetRepository,
@@ -61,6 +102,34 @@ class KnowledgeAssetApplication:
     ) -> None:
         self.repository = repository
         self.audit_recorder = audit_recorder or repository
+        self._builder_executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="knowledge-builder"
+        )
+        self._execution_checkpoint = lambda: None
+        repository_connection = getattr(repository, "_connection", None)
+        sqlite_connection = (
+            repository_connection
+            if isinstance(repository_connection, sqlite3.Connection)
+            else None
+        )
+        if sqlite_connection is not None:
+            self._builder_jobs = JobFramework(
+                connection=sqlite_connection,
+                lock=getattr(repository, "_lock", None),
+            )
+        elif isinstance(repository, PostgresKnowledgeAssetRepository):
+            self._builder_jobs = PostgresJobFramework(
+                connection=repository_connection,
+                lock=getattr(repository, "_lock", None),
+            )
+        else:
+            self._builder_jobs = JobFramework()
+        self._builder_profile = (
+            "production"
+            if isinstance(repository, PostgresKnowledgeAssetRepository)
+            else "test"
+        )
+        self._builder_job_ids: dict[str, str] = {}
 
     def bootstrap(self, workspace_id: str, role: str):
         return self.repository.bootstrap(workspace_id, role)
@@ -320,6 +389,1136 @@ class KnowledgeAssetApplication:
     def _artifact_path(digest: str) -> Path:
         return Path(".veadk/knowledge-assets/artifacts") / f"{digest}.jsonl"
 
+    @staticmethod
+    def _golden_rows(source: str) -> tuple[list[str], list[dict[str, object]]]:
+        """Read the content-addressed Golden Asset into a bounded typed shape.
+
+        CSV assets are persisted as NDJSON by the clean run. Markdown assets
+        remain ordered text lines so the Knowledge executor preserves its
+        citation-friendly answer semantics.
+        """
+        lines = [line for line in source.splitlines() if line.strip()]
+        rows: list[dict[str, object]] = []
+        for line in lines:
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                normalized: dict[str, object] = {}
+                for key, item in value.items():
+                    if isinstance(item, str):
+                        stripped = item.strip()
+                        try:
+                            normalized[key] = (
+                                float(stripped)
+                                if "." in stripped
+                                else int(stripped)
+                            )
+                            continue
+                        except ValueError:
+                            pass
+                    normalized[key] = item
+                rows.append(normalized)
+        return lines, rows
+
+    @staticmethod
+    def _numeric_fields(rows: list[dict[str, object]]) -> list[str]:
+        if not rows:
+            return []
+        fields = list(rows[0])
+        return [
+            field for field in fields
+            if any(
+                isinstance(row.get(field), (int, float)) and
+                not isinstance(row.get(field), bool)
+                for row in rows
+            )
+        ]
+
+    @staticmethod
+    def _text_fields(rows: list[dict[str, object]]) -> list[str]:
+        if not rows:
+            return []
+        return [
+            field for field in rows[0]
+            if not any(
+                isinstance(row.get(field), (int, float)) and
+                not isinstance(row.get(field), bool)
+                for row in rows
+            )
+        ]
+
+    @staticmethod
+    def _trusted_html(template: str, view_model: object) -> bytes:
+        """Render only server-owned static templates; no executable output."""
+        if isinstance(view_model, KnowledgeViewModel):
+            body = f"<p>{html.escape(view_model.answer)}</p>"
+        elif isinstance(view_model, SemanticViewModel):
+            body = (
+                f"<p>Metrics: {html.escape(', '.join(view_model.metric_refs))}</p>"
+                f"<p>Dimensions: {html.escape(', '.join(view_model.dimension_refs))}</p>"
+            )
+        elif isinstance(view_model, DashboardViewModel):
+            body = "".join(
+                f"<div data-row=\"{index}\">{html.escape(str(cell.value or ''))}</div>"
+                for index, row in enumerate(view_model.rows)
+                for cell in row
+            )
+        elif isinstance(view_model, ChartViewModel):
+            body = (
+                f"<h2>{html.escape(view_model.title)}</h2>"
+                + "".join(
+                    f"<div data-series=\"{html.escape(series.name)}\">"
+                    f"{len(series.points)} points</div>"
+                    for series in view_model.series
+                )
+            )
+        elif isinstance(view_model, GraphOntologyViewModel):
+            body = "".join(
+                f"<div data-node=\"{html.escape(node.id)}\">{html.escape(node.label)}</div>"
+                for node in view_model.nodes
+            )
+        elif isinstance(view_model, MonitoringViewModel):
+            body = "".join(
+                f"<div data-point=\"{html.escape(label)}\">{value}</div>"
+                for label, value in view_model.values
+            )
+        else:
+            raise ValueError(f"unsupported trusted renderer template: {template}")
+        output = (
+            f'<article data-renderer="{html.escape(template)}-v1">{body}</article>'
+        ).encode("utf-8")
+        lowered = output.lower()
+        if b"<script" in lowered or b"<iframe" in lowered or b"javascript:" in lowered:
+            raise ValueError("trusted renderer produced executable markup")
+        return output
+
+    def _run_skill_draft(
+        self, payload: SkillDraftRunPayload, *, request_id: str,
+        operation_id: str | None = None,
+    ) -> SkillDraftRunResult:
+        self._execution_checkpoint()
+        def cancelled() -> bool:
+            if operation_id is None:
+                return False
+            operation = self.repository.operation(operation_id)
+            return operation is not None and operation.status == "cancelled"
+
+        def cancelled_result(golden: GoldenAssetRevision | None = None) -> SkillDraftRunResult:
+            if golden is not None:
+                self.repository.update_skill_draft_revision_status(
+                    payload.draft_id, payload.revision, "failed"
+                )
+            return SkillDraftRunResult(
+                draft_id=payload.draft_id,
+                status="cancelled",
+                golden_asset_revision=golden,
+                error=ErrorEnvelope(
+                    code="EXECUTION_CANCELLED",
+                    message="执行已取消，未提交新的 Skill ViewRevision。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+
+        draft = self.repository.draft(payload.draft_id)
+        if draft is None:
+            return SkillDraftRunResult(
+                draft_id=payload.draft_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_DRAFT_NOT_FOUND",
+                    message="Builder 找不到要执行的 Skill 草稿。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        if draft.revision != payload.revision:
+            return SkillDraftRunResult(
+                draft_id=payload.draft_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="CONFLICT",
+                    message="Skill 草稿版本已变化，请刷新后重试。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        if cancelled():
+            return cancelled_result()
+        self._execution_checkpoint()
+        self.repository.update_skill_draft_revision_status(
+            draft.id, payload.revision, "planning"
+        )
+        golden = self.repository.latest_golden_asset_revision(draft.workspace_id)
+        if golden is None:
+            self.repository.update_skill_draft_revision_status(
+                draft.id, payload.revision, "failed"
+            )
+            return SkillDraftRunResult(
+                draft_id=draft.id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="GOLDEN_ASSET_NOT_FOUND",
+                    message="当前工作区没有可执行的 Golden Asset Revision。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        if cancelled():
+            return cancelled_result(golden)
+        self._execution_checkpoint()
+        dependencies = draft.manifest.spec.dependencies.golden_assets
+        if dependencies and golden.id not in dependencies:
+            self.repository.update_skill_draft_revision_status(
+                draft.id, payload.revision, "failed"
+            )
+            return SkillDraftRunResult(
+                draft_id=draft.id,
+                status="failed",
+                golden_asset_revision=golden,
+                error=ErrorEnvelope(
+                    code="GOLDEN_ASSET_NOT_BOUND",
+                    message="Skill Manifest 未绑定当前可用的 Golden Asset Revision。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        self.repository.update_skill_draft_revision_status(
+            draft.id, payload.revision, "running"
+        )
+        if cancelled():
+            return cancelled_result(golden)
+        self._execution_checkpoint()
+        if payload.max_steps < 2 or payload.budget < 128:
+            self.repository.update_skill_draft_revision_status(
+                draft.id, payload.revision, "partially_succeeded"
+            )
+            return SkillDraftRunResult(
+                draft_id=draft.id,
+                status="partially_succeeded",
+                golden_asset_revision=golden,
+                error=ErrorEnvelope(
+                    code="EXECUTION_BUDGET_EXHAUSTED",
+                    message="执行预算不足以完成查询、绑定和渲染。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        if draft.manifest.spec.kind not in {
+            "semantic",
+            "analysis",
+            "knowledge",
+            "graph_ontology",
+            "monitoring",
+        }:
+            self.repository.update_skill_draft_revision_status(
+                draft.id, payload.revision, "failed"
+            )
+            return SkillDraftRunResult(
+                draft_id=draft.id,
+                status="failed",
+                golden_asset_revision=golden,
+                error=ErrorEnvelope(
+                    code="KIND_EXECUTOR_NOT_READY",
+                    message=f"当前执行器尚未开放 {draft.manifest.spec.kind}。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        try:
+            artifact = self._artifact_path(golden.storage_ref.sha256)
+            source = artifact.read_text(encoding="utf-8").rstrip()
+        except (OSError, UnicodeError) as error:
+            self.repository.update_skill_draft_revision_status(
+                draft.id, payload.revision, "failed"
+            )
+            return SkillDraftRunResult(
+                draft_id=draft.id,
+                status="failed",
+                golden_asset_revision=golden,
+                error=ErrorEnvelope(
+                    code="RESULT_READ_FAILED",
+                    message=f"无法读取 Golden Asset 内容：{error}",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        if cancelled():
+            return cancelled_result(golden)
+        self._execution_checkpoint()
+        kind = draft.manifest.spec.kind
+        lines, rows = self._golden_rows(source)
+        numeric_fields = self._numeric_fields(rows)
+        text_fields = self._text_fields(rows)
+        answer = source
+        result_payload = {
+            "output": source,
+            "kind": kind,
+            "goldenAssetRevisionId": golden.id,
+            "traceId": payload.trace_id,
+            "steps": [
+                "resolve-golden-asset",
+                "read-content",
+                f"execute-{kind}",
+                "validate-typed-result",
+                "render-trusted-view",
+            ],
+        }
+        if kind == "semantic":
+            result_payload["typedOutput"] = {
+                "schemaRef": golden.schema_ref.model_dump(mode="json"),
+                "metricRefs": draft.manifest.spec.kind_spec.metric_refs or numeric_fields,
+                "dimensionRefs": draft.manifest.spec.kind_spec.dimension_refs or text_fields,
+                "relationshipRefs": draft.manifest.spec.kind_spec.relationship_refs,
+            }
+        elif kind == "analysis":
+            result_payload["typedOutput"] = {
+                "recordCount": len(rows),
+                "numericFields": numeric_fields,
+                "dimensionFields": text_fields,
+            }
+        elif kind == "graph_ontology":
+            result_payload["typedOutput"] = {
+                "recordCount": len(rows) if rows else len(lines),
+                "entityField": text_fields[0] if text_fields else None,
+            }
+        elif kind == "monitoring":
+            result_payload["typedOutput"] = {
+                "recordCount": len(rows) if rows else len(lines),
+                "metricField": numeric_fields[0] if numeric_fields else None,
+            }
+        result_bytes = json.dumps(
+            result_payload, ensure_ascii=False, sort_keys=True
+        ).encode("utf-8")
+        result_digest = hashlib.sha256(result_bytes).hexdigest()
+        result_path = Path(".veadk/knowledge-assets/results") / f"{result_digest}.json"
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_bytes(result_bytes)
+        result_ref = StorageRef(
+            uri=f"local://result/{result_digest}",
+            kind="object",
+            sha256=result_digest,
+            media_type="application/json",
+            bytes=len(result_bytes),
+        )
+        skill_result = SkillResult(
+            id=f"result-{result_digest[:24]}",
+            skill_id=draft.id,
+            skill_revision=payload.revision,
+            kind=kind,
+            output_schema_ref=draft.manifest.spec.contract.output_schema_ref,
+            result_ref=result_ref,
+            source_revision_refs=golden.source_revision_refs,
+            golden_asset_revision_refs=[golden.id],
+            trace_id=payload.trace_id,
+            freshness_at=golden.freshness_at,
+        )
+        if kind == "knowledge":
+            view_model = KnowledgeViewModel(
+                answer=answer,
+                citations=[
+                    KnowledgeCitation(
+                        citation_id=f"citation-{golden.id}",
+                        source_revision_id=source_id,
+                        title="Golden Asset Revision",
+                        locator=f"local://golden/{golden.storage_ref.sha256}",
+                    )
+                    for source_id in golden.source_revision_refs
+                ],
+            )
+            template = "knowledge"
+            purpose = "answer"
+        elif kind == "semantic":
+            view_model = SemanticViewModel(
+                schema_ref=golden.schema_ref,
+                metric_refs=(
+                    draft.manifest.spec.kind_spec.metric_refs or numeric_fields
+                ),
+                dimension_refs=(
+                    draft.manifest.spec.kind_spec.dimension_refs or text_fields
+                ),
+                relationship_refs=draft.manifest.spec.kind_spec.relationship_refs,
+                data_ref=golden.storage_ref,
+            )
+            template = "semantic"
+            purpose = "schema"
+        elif kind == "analysis":
+            x_field = text_fields[0] if text_fields else "row"
+            y_field = numeric_fields[0] if numeric_fields else "value"
+            points = [
+                (
+                    str(row.get(x_field, index + 1)),
+                    float(row[y_field]) if numeric_fields else float(len(lines[index])),
+                )
+                for index, row in enumerate(rows[:1000])
+            ]
+            if not points:
+                points = [
+                    (str(index + 1), float(len(line)))
+                    for index, line in enumerate(lines[:1000])
+                ]
+            view_model = ChartViewModel(
+                title=draft.manifest.metadata.display_name,
+                x_field=x_field,
+                y_field=y_field,
+                series=[
+                    ChartSeries(
+                        name="analysis",
+                        points=points,
+                    )
+                ],
+                data_ref=golden.storage_ref,
+            )
+            template = "chart"
+            purpose = "compare"
+        elif kind == "graph_ontology":
+            if rows:
+                nodes = [
+                    GraphNode(
+                        id=f"node-{index}",
+                        label=str(row.get(text_fields[0], index)),
+                        entity_type="record",
+                    )
+                    for index, row in enumerate(rows[:1000])
+                ]
+            else:
+                nodes = [
+                    GraphNode(id=f"node-{index}", label=line[:128], entity_type="line")
+                    for index, line in enumerate(lines[:1000])
+                ]
+            view_model = GraphOntologyViewModel(
+                nodes=nodes,
+                edges=[
+                    GraphEdge(
+                        source=nodes[index - 1].id,
+                        target=node.id,
+                        relation="next",
+                    )
+                    for index, node in enumerate(nodes)
+                    if index
+                ],
+                evidence_ref=golden.storage_ref,
+            )
+            template = "graph_ontology"
+            purpose = "explore"
+        else:
+            metric = numeric_fields[0] if numeric_fields else None
+            values = [
+                (
+                    str(row.get(text_fields[0], index + 1)) if text_fields else str(index + 1),
+                    float(row[metric]) if metric else float(len(lines[index])),
+                )
+                for index, row in enumerate(rows[:1000])
+            ]
+            if not values:
+                values = [
+                    (str(index + 1), float(len(line)))
+                    for index, line in enumerate(lines[:1000])
+                ]
+            view_model = MonitoringViewModel(
+                metric_refs=(
+                    draft.manifest.spec.kind_spec.metric_refs or
+                    ([metric] if metric else [])
+                ),
+                values=values,
+                alerts=[],
+                data_ref=golden.storage_ref,
+            )
+            template = "monitoring"
+            purpose = "monitor"
+        view_intent = ViewIntent(
+            id=f"view-intent-{result_digest[:24]}",
+            skill_id=draft.id,
+            skill_revision=payload.revision,
+            template=template,
+            purpose=purpose,
+            result_ref=result_ref.uri,
+        )
+        view_schema_bytes = view_model.model_dump_json(by_alias=True).encode("utf-8")
+        view_schema_digest = hashlib.sha256(view_schema_bytes).hexdigest()
+        html_bytes = self._trusted_html(template, view_model)
+        html_digest = hashlib.sha256(html_bytes).hexdigest()
+        html_path = Path(".veadk/knowledge-assets/bundles") / f"{html_digest}.html"
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        html_path.write_bytes(html_bytes)
+        view_identity = hashlib.sha256(
+            f"{draft.id}:{payload.revision}:{html_digest}:{request_id}".encode()
+        ).hexdigest()
+        view_revision = SkillViewRevision(
+            id=f"view-{view_identity[:24]}",
+            skill_revision_id=f"{draft.id}:{payload.revision}",
+            revision=1,
+            manifest=SkillViewManifest(
+                id=f"view-manifest-{view_identity[:24]}",
+                skill_revision_id=f"{draft.id}:{payload.revision}",
+                renderer_ref=f"renderer://{template}/v1",
+                view_model_schema_ref=SchemaRef(
+                    uri=f"local://view-model/{view_schema_digest}",
+                    version="1",
+                    sha256=view_schema_digest,
+                ),
+                allowed_components=[
+                    "SkillViewShell",
+                    f"{template.title().replace('_', '')}View",
+                ],
+            ),
+            intent=view_intent,
+            view_model=view_model,
+            result_ref=StorageRef(
+                uri=f"local://bundle/{html_digest}",
+                kind="bundle",
+                sha256=html_digest,
+                media_type="text/html",
+                bytes=len(html_bytes),
+            ),
+            created_at=now_iso(),
+        )
+        invocation_id = f"invocation-{view_identity[:24]}"
+        execution_time = now_iso()
+        execution_invocation = Invocation(
+            id=invocation_id,
+            skill_version_id=f"draft://{draft.id}:{payload.revision}",
+            skill_view_revision_id=view_revision.id,
+            caller_id="studio-build",
+            workspace_id=draft.workspace_id,
+            status="succeeded",
+            input_ref=golden.storage_ref,
+            result_ref=skill_result.result_ref,
+            trace_id=payload.trace_id,
+            actual_data_revision_refs=skill_result.golden_asset_revision_refs,
+            started_at=execution_time,
+            finished_at=execution_time,
+        )
+        view_revision = view_revision.model_copy(
+            update={"invocation_id": execution_invocation.id}
+        )
+        if cancelled():
+            return cancelled_result(golden)
+        self.repository.save_skill_result(skill_result)
+        self.repository.save_skill_view_revision(view_revision)
+        self.repository.save_invocation(execution_invocation)
+        self.repository.update_skill_draft_revision_status(
+            draft.id, payload.revision, "ready_for_evaluation"
+        )
+        return SkillDraftRunResult(
+            draft_id=draft.id,
+            status="ready_for_evaluation",
+            golden_asset_revision=golden,
+            skill_result=skill_result,
+            view_intent=view_intent,
+            skill_view_revision=view_revision,
+        )
+
+    def _run_evaluation(
+        self, payload: EvaluationPayload, *, request_id: str,
+        result_type: str = "evaluation.run",
+    ) -> EvaluationRunResult:
+        draft = self.repository.draft(payload.target_id)
+        if draft is None:
+            return EvaluationRunResult(
+                result_type=result_type,
+                target_id=payload.target_id,
+                status="failed",
+                error=self._not_ready_error("evaluation.run", request_id),
+            )
+        golden = self.repository.latest_golden_asset_revision(draft.workspace_id)
+        if golden is None:
+            return EvaluationRunResult(
+                result_type="evaluation.run",
+                target_id=draft.id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="GOLDEN_ASSET_NOT_FOUND",
+                    message="评测需要可用的 Golden Asset Revision。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        executed_result = self.repository.latest_skill_result(draft.id, draft.revision)
+        if executed_result is None:
+            run_id = f"evaluation-{hashlib.sha256((draft.id + request_id).encode()).hexdigest()[:24]}"
+            gate = PolicyGateResult(
+                id=f"gate-{run_id}",
+                skill_revision_id=f"{draft.id}:{draft.revision}",
+                evaluation_run_id=run_id,
+                decision="blocked",
+                reasons=["当前 Skill revision 没有可重放的真实 SkillResult。"],
+                machine_reasons=["SKILL_RESULT_REQUIRED_BEFORE_EVALUATION"],
+                checked_at=now_iso(),
+            )
+            self.repository.save_policy_gate_result(gate)
+            return EvaluationRunResult(
+                result_type=result_type,
+                target_id=draft.id,
+                status="failed",
+                policy_gate_result=gate,
+                error=ErrorEnvelope(
+                    code="SKILL_RESULT_REQUIRED",
+                    message="评测必须绑定当前 Skill revision 的真实执行结果。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        executed_view = self.repository.latest_skill_view_revision(
+            f"{draft.id}:{draft.revision}"
+        )
+        if executed_view is None:
+            run_id = f"evaluation-{hashlib.sha256((draft.id + request_id + 'view').encode()).hexdigest()[:24]}"
+            gate = PolicyGateResult(
+                id=f"gate-{run_id}",
+                skill_revision_id=f"{draft.id}:{draft.revision}",
+                evaluation_run_id=run_id,
+                decision="blocked",
+                reasons=["当前 Skill revision 没有可重放的持久化 SkillViewRevision。"],
+                machine_reasons=["SKILL_VIEW_REVISION_REQUIRED_BEFORE_EVALUATION"],
+                checked_at=now_iso(),
+            )
+            self.repository.save_policy_gate_result(gate)
+            return EvaluationRunResult(
+                result_type=result_type,
+                target_id=draft.id,
+                status="failed",
+                policy_gate_result=gate,
+                error=ErrorEnvelope(
+                    code="SKILL_VIEW_REVISION_REQUIRED",
+                    message="评测必须绑定当前 Skill revision 的真实 Skill View。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        cases = payload.cases or [
+            EvaluationCase(
+                id=case_id,
+                input_ref=golden.storage_ref,
+                source="manual",
+            )
+            for case_id in (payload.case_ids or ["default"])
+        ]
+        cases_bytes = json.dumps(
+            [case.model_dump(mode="json", by_alias=True) for case in cases],
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode("utf-8")
+        cases_digest = hashlib.sha256(cases_bytes).hexdigest()
+        cases_path = Path(".veadk/knowledge-assets/evaluations") / f"{cases_digest}.json"
+        cases_path.parent.mkdir(parents=True, exist_ok=True)
+        cases_path.write_bytes(cases_bytes)
+        cases_ref = StorageRef(
+            uri=f"local://evaluation-cases/{cases_digest}",
+            kind="object",
+            sha256=cases_digest,
+            media_type="application/json",
+            bytes=len(cases_bytes),
+        )
+        suite = EvaluationSuite(
+            id=payload.suite_id,
+            version=1,
+            skill_id=draft.id,
+            case_count=len(cases),
+            cases_ref=cases_ref,
+            pass_threshold=1.0,
+            environment=payload.environment,
+            case_ids=[case.id for case in cases],
+        )
+        case_results = []
+        for case in cases:
+            candidate = case.source == "agent_candidate"
+            evidence_bytes = json.dumps(
+                {
+                    "caseId": case.id,
+                    "source": case.source,
+                    "skillRevisionId": f"{draft.id}:{draft.revision}",
+                    "dataRevisionId": golden.id,
+                    "skillResultId": executed_result.id,
+                    "resultDigest": executed_result.result_ref.sha256,
+                    "skillViewRevisionId": executed_view.id,
+                    "viewModelDigest": executed_view.manifest.view_model_schema_ref.sha256,
+                    "status": "failed" if candidate else "passed",
+                },
+                sort_keys=True,
+            ).encode("utf-8")
+            evidence_digest = hashlib.sha256(evidence_bytes).hexdigest()
+            evidence_path = (
+                Path(".veadk/knowledge-assets/evaluations")
+                / f"{evidence_digest}.json"
+            )
+            evidence_path.write_bytes(evidence_bytes)
+            evidence_ref = StorageRef(
+                uri=f"local://evaluation-evidence/{evidence_digest}",
+                kind="object",
+                sha256=evidence_digest,
+                media_type="application/json",
+                bytes=len(evidence_bytes),
+            )
+            regression_ref = StorageRef(
+                uri=f"local://evaluation-regression/{evidence_digest}",
+                kind="object",
+                sha256=evidence_digest,
+                media_type="application/json",
+                bytes=len(evidence_bytes),
+            )
+            case_results.append(
+                EvaluationCaseResult(
+                    case_id=case.id,
+                    status="failed" if candidate else "passed",
+                    score=0.0 if candidate else 1.0,
+                    evidence_ref=evidence_ref,
+                    regression_diff_ref=regression_ref,
+                )
+            )
+        score = sum(item.score for item in case_results) / len(case_results)
+        run_id = f"evaluation-{hashlib.sha256((draft.id + request_id).encode()).hexdigest()[:24]}"
+        run = EvaluationRun(
+            id=run_id,
+            suite_id=suite.id,
+            suite_version=suite.version,
+            skill_revision_id=f"{draft.id}:{draft.revision}",
+            status="succeeded" if score >= suite.pass_threshold else "failed",
+            score=score,
+            environment=payload.environment,
+            dependency_revision_refs=draft.manifest.spec.dependencies.golden_assets,
+            data_revision_refs=[golden.id],
+            case_results=case_results,
+            evidence_ref=StorageRef(
+                uri=f"local://evaluation-evidence/{cases_digest}",
+                kind="object",
+                sha256=cases_digest,
+                media_type="application/json",
+                bytes=len(cases_bytes),
+            ),
+            regression_ref=StorageRef(
+                uri=f"local://evaluation-regression/{cases_digest}",
+                kind="object",
+                sha256=cases_digest,
+                media_type="application/json",
+                bytes=len(cases_bytes),
+            ),
+            started_at=now_iso(),
+            finished_at=now_iso(),
+        )
+        gate = PolicyGateResult(
+            id=f"gate-{run_id}",
+            skill_revision_id=run.skill_revision_id,
+            evaluation_run_id=run.id,
+            decision="publishable" if score >= suite.pass_threshold else "blocked",
+            reasons=(
+                ["all evaluation cases passed"]
+                if score >= suite.pass_threshold
+                else ["one or more evaluation cases did not pass"]
+            ),
+            machine_reasons=(
+                [
+                    "EVAL_SCORE_AT_OR_ABOVE_THRESHOLD",
+                    "SKILL_RESULT_BOUND_TO_CURRENT_REVISION",
+                    "SKILL_VIEW_BOUND_TO_CURRENT_REVISION",
+                ]
+                if score >= suite.pass_threshold
+                else ["EVAL_SCORE_BELOW_THRESHOLD"]
+            ),
+            checked_at=now_iso(),
+        )
+        self.repository.save_evaluation_suite(suite)
+        self.repository.save_evaluation_run(run)
+        self.repository.save_policy_gate_result(gate)
+        if score >= suite.pass_threshold:
+            self.repository.update_skill_draft_revision_status(
+                draft.id, draft.revision, "publishable"
+            )
+        return EvaluationRunResult(
+            result_type=result_type,
+            target_id=draft.id,
+            status="succeeded" if score >= suite.pass_threshold else "failed",
+            evaluation_suite=suite,
+            evaluation_run=run,
+            policy_gate_result=gate,
+        )
+
+    def _start_invocation(
+        self,
+        payload: InvocationStartPayload,
+        *,
+        request_id: str,
+        workspace_id: str,
+    ) -> InvocationStartResult:
+        if not payload.skill_version_id.startswith(("draft://", "test://")):
+            return InvocationStartResult(
+                skill_version_id=payload.skill_version_id,
+                status="not_ready",
+                error=self._not_ready_error("invocation.start", request_id),
+            )
+        view = self.repository.skill_view_revision(payload.skill_view_revision_id)
+        if view is None:
+            return InvocationStartResult(
+                skill_version_id=payload.skill_version_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_VIEW_REVISION_NOT_FOUND",
+                    message="Invocation 必须绑定已持久化的 SkillViewRevision。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        expected_skill_revision = payload.skill_version_id.rsplit(":", 1)[-1]
+        if view.id != payload.skill_view_revision_id:
+            return InvocationStartResult(
+                skill_version_id=payload.skill_version_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_VIEW_REVISION_MISMATCH",
+                    message="Invocation 的 Skill 版本与 SkillViewRevision 不匹配。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        if not expected_skill_revision.isdigit() or int(expected_skill_revision) != int(
+            view.skill_revision_id.rsplit(":", 1)[-1]
+        ):
+            return InvocationStartResult(
+                skill_version_id=payload.skill_version_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_REVISION_MISMATCH",
+                    message="Invocation 的草稿 revision 与 SkillViewRevision 不匹配。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        skill_id = view.skill_revision_id.rsplit(":", 1)[0]
+        skill_revision = int(expected_skill_revision)
+        skill_result = self.repository.latest_skill_result(skill_id, skill_revision)
+        if skill_result is None:
+            return InvocationStartResult(
+                skill_version_id=payload.skill_version_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_RESULT_NOT_FOUND",
+                    message="Invocation 必须绑定当前 SkillViewRevision 对应的真实 SkillResult。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        invocation_id = "invocation-" + hashlib.sha256(
+            f"{payload.skill_version_id}:{payload.skill_view_revision_id}:{request_id}".encode()
+        ).hexdigest()[:24]
+        now = now_iso()
+        invocation = Invocation(
+            id=invocation_id,
+            skill_version_id=payload.skill_version_id,
+            skill_view_revision_id=payload.skill_view_revision_id,
+            caller_id=payload.caller_id,
+            workspace_id=workspace_id,
+            status="succeeded",
+            input_ref=payload.input_ref,
+            result_ref=skill_result.result_ref,
+            trace_id=f"trace-{invocation_id}",
+            actual_data_revision_refs=skill_result.golden_asset_revision_refs,
+            started_at=now,
+            finished_at=now,
+        )
+        self.repository.save_invocation(invocation)
+        return InvocationStartResult(
+            skill_version_id=payload.skill_version_id,
+            status="succeeded",
+            invocation=invocation,
+            skill_result=skill_result,
+            data_revision_refs=skill_result.golden_asset_revision_refs,
+        )
+
+    def _export_artifact(
+        self, payload: ArtifactExportPayload, *, request_id: str,
+        workspace_id: str,
+    ) -> ArtifactExportResult:
+        draft = self.repository.draft(payload.resource_id)
+        if draft is None or draft.workspace_id != workspace_id:
+            return ArtifactExportResult(
+                resource_id=payload.resource_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="RESOURCE_NOT_FOUND",
+                    message="只能导出当前工作区的 Skill View 资源。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        view = self.repository.latest_skill_view_revision(
+            f"{draft.id}:{draft.revision}"
+        )
+        if view is None:
+            return ArtifactExportResult(
+                resource_id=payload.resource_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_VIEW_REVISION_REQUIRED",
+                    message="导出需要已持久化的 SkillViewRevision。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        if payload.format == "html":
+            source = Path(".veadk/knowledge-assets/bundles") / f"{view.result_ref.sha256}.html"
+            media_type = "text/html"
+            suffix = "html"
+        else:
+            result = self.repository.latest_skill_result(draft.id, draft.revision)
+            if result is None:
+                return ArtifactExportResult(
+                    resource_id=payload.resource_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="SKILL_RESULT_REQUIRED",
+                        message="导出需要当前 revision 的真实 SkillResult。",
+                        retryable=True,
+                        request_id=request_id,
+                    ),
+                )
+            source = Path(".veadk/knowledge-assets/results") / f"{result.result_ref.sha256}.json"
+            media_type = "text/csv" if payload.format == "csv" else "application/json"
+            suffix = "csv" if payload.format == "csv" else "json"
+        try:
+            data = source.read_bytes()
+        except OSError as error:
+            return ArtifactExportResult(
+                resource_id=payload.resource_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="ARTIFACT_NOT_FOUND",
+                    message=f"导出产物不存在：{error}",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        if payload.format == "csv":
+            try:
+                result_payload = json.loads(data.decode("utf-8"))
+                output = result_payload.get("output", "")
+                csv_buffer = io.StringIO()
+                writer = csv.writer(csv_buffer)
+                writer.writerow(["output"])
+                writer.writerow([output])
+                data = csv_buffer.getvalue().encode("utf-8")
+            except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+                return ArtifactExportResult(
+                    resource_id=payload.resource_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="ARTIFACT_FORMAT_FAILED",
+                        message="当前结果无法转换为 CSV。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+        digest = hashlib.sha256(data).hexdigest()
+        destination = Path(".veadk/knowledge-assets/exports") / f"{digest}.{suffix}"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if not destination.exists():
+            destination.write_bytes(data)
+        return ArtifactExportResult(
+            resource_id=payload.resource_id,
+            status="succeeded",
+            artifact_ref=StorageRef(
+                uri=f"local://export/{digest}.{suffix}",
+                kind="object",
+                sha256=digest,
+                media_type=media_type,
+                bytes=len(data),
+            ),
+        )
+
+    def _share_view(
+        self, resource_id: str, *, request_id: str, workspace_id: str
+    ) -> ResourceShareResult:
+        draft = self.repository.draft(resource_id)
+        if draft is None or draft.workspace_id != workspace_id:
+            return ResourceShareResult(
+                resource_id=resource_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="RESOURCE_NOT_FOUND",
+                    message="只能分享当前工作区的 Skill View。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        view = self.repository.latest_skill_view_revision(
+            f"{draft.id}:{draft.revision}"
+        )
+        if view is None:
+            return ResourceShareResult(
+                resource_id=resource_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_VIEW_REVISION_REQUIRED",
+                    message="分享需要已持久化的 SkillViewRevision。",
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+        grant_id = "share-" + hashlib.sha256(
+            f"{resource_id}:{view.id}:{workspace_id}".encode()
+        ).hexdigest()[:24]
+        grant = SkillViewShareGrant(
+            id=grant_id,
+            resource_id=resource_id,
+            skill_view_revision_id=view.id,
+            workspace_id=workspace_id,
+            created_at=now_iso(),
+        )
+        self.repository.save_skill_view_share(grant)
+        return ResourceShareResult(
+            resource_id=resource_id,
+            status="succeeded",
+            share_grant=grant,
+        )
+
+    def _assistant_turn(
+        self,
+        payload: AssistantTurnPayload,
+        *,
+        request_id: str,
+        workspace_id: str,
+    ) -> AssistantTurnResult:
+        patch = payload.patch
+        if patch is None:
+            return AssistantTurnResult(
+                skill_id=payload.context.skill_id if payload.context else "unknown",
+                error=ErrorEnvelope(
+                    code="PATCH_REQUIRED",
+                    message="assistant.turn 必须携带服务端可校验的 typed patch。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        draft = self.repository.draft(patch.skill_id)
+        if draft is None or draft.workspace_id != workspace_id:
+            return AssistantTurnResult(
+                skill_id=patch.skill_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="SKILL_NOT_FOUND",
+                    message="patch 目标 Skill 不存在或不属于当前工作区。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        if payload.context is None or payload.context.skill_id != patch.skill_id:
+            return AssistantTurnResult(
+                skill_id=patch.skill_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="PATCH_CONTEXT_MISMATCH",
+                    message="Context Envelope 必须绑定当前 Skill。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        if patch.undo_token is not None:
+            history = self.repository.patch_history(patch.undo_token)
+            if history is None or history["skill_id"] != patch.skill_id:
+                return AssistantTurnResult(
+                    skill_id=patch.skill_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="UNDO_TOKEN_INVALID",
+                        message="撤销令牌不存在或不属于当前 Skill。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            if patch.operation != history["operation"]:
+                return AssistantTurnResult(
+                    skill_id=patch.skill_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="UNDO_PATCH_MISMATCH",
+                        message="撤销操作必须复用原 patch 的操作类型。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            patch = patch.model_copy(update={"value": str(history["before_value"])})
+        if patch.base_revision != draft.revision:
+            return AssistantTurnResult(
+                skill_id=patch.skill_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="CONFLICT",
+                    message="Skill 草稿版本已变化，请刷新后重试。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        metadata = draft.manifest.metadata
+        spec = draft.manifest.spec
+        before: str
+        if patch.operation == "set_description":
+            before = metadata.description
+            manifest = draft.manifest.model_copy(
+                update={
+                    "metadata": metadata.model_copy(update={"description": patch.value})
+                }
+            )
+        elif patch.operation == "set_runtime_ref":
+            before = spec.runtime_ref
+            manifest = draft.manifest.model_copy(
+                update={"spec": spec.model_copy(update={"runtime_ref": patch.value})}
+            )
+        else:
+            before = spec.evaluation_suite_ref or ""
+            manifest = draft.manifest.model_copy(
+                update={
+                    "spec": spec.model_copy(
+                        update={"evaluation_suite_ref": patch.value or None}
+                    )
+                }
+            )
+        validate_manifest_policy(manifest)
+        updated, _ = self.repository.save_manifest(
+            draft_id=draft.id,
+            base_revision=patch.base_revision,
+            manifest=manifest,
+            request_id=request_id,
+            idempotency_key=f"assistant:{patch.patch_id}",
+        )
+        undo_token = hashlib.sha256(
+            f"{patch.patch_id}:{draft.id}:{updated.revision}:{before}".encode()
+        ).hexdigest()
+        self.repository.save_patch_history(
+            patch.patch_id,
+            undo_token,
+            draft.id,
+            patch.base_revision,
+            patch.operation,
+            before,
+            patch.value,
+        )
+        diff = AssistantDiff(
+            patch_id=patch.patch_id,
+            skill_id=draft.id,
+            base_revision=patch.base_revision,
+            next_revision=updated.revision,
+            operation=patch,
+            before=before,
+            after=patch.value,
+            undo_token=undo_token,
+        )
+        rerun = self._run_skill_draft(
+            SkillDraftRunPayload(
+                draft_id=draft.id,
+                revision=updated.revision,
+                trace_id=f"assistant-{request_id}",
+            ),
+            request_id=request_id,
+        )
+        return AssistantTurnResult(
+            skill_id=draft.id,
+            status="succeeded" if rerun.status == "ready_for_evaluation" else "failed",
+            diff=diff,
+            rerun=rerun,
+            error=rerun.error,
+        )
+
     def save_manifest(
         self,
         payload: dict[str, object],
@@ -332,6 +1531,12 @@ class KnowledgeAssetApplication:
         raw_manifest = payload["manifest"]
         if isinstance(raw_manifest, SkillManifest):
             manifest = raw_manifest
+        elif isinstance(raw_manifest, dict) and (
+            raw_manifest.get("kind") == "Skill"
+            or "apiVersion" in raw_manifest
+            or "api_version" in raw_manifest
+        ):
+            manifest = SkillManifest.model_validate(raw_manifest)
         else:
             legacy = LegacySkillManifestInput.model_validate(raw_manifest)
             draft = self.repository.draft(draft_id)
@@ -441,6 +1646,118 @@ class KnowledgeAssetApplication:
             raise KeyError(operation_id)
         return [event for event in operation.events if event.sequence > after]
 
+    def _complete_builder_operation(
+        self,
+        typed: SkillDraftRunPayload,
+        request_id: str,
+        operation_id: str,
+        workspace_id: str,
+        job_id: str | None = None,
+    ) -> None:
+        """Run one durable Builder operation outside the HTTP request."""
+        job = (
+            self._builder_jobs.get(job_id)
+            if job_id is not None
+            else self._builder_jobs.enqueue(
+                job_type="skill-draft.run",
+                idempotency_key=operation_id,
+                profile=self._builder_profile,
+                max_attempts=3,
+            )
+        )
+        self._builder_job_ids[operation_id] = job.job_id
+        owner = f"builder:{operation_id}"
+        try:
+            self._builder_jobs.lease(job_id=job.job_id, owner=owner, ttl_seconds=30)
+            self._builder_jobs.heartbeat(
+                job_id=job.job_id, owner=owner, ttl_seconds=30
+            )
+        except JobLeaseError:
+            return
+        try:
+            result = self._run_skill_draft(
+                typed, request_id=request_id, operation_id=operation_id
+            )
+        except Exception as error:  # worker boundary must always close the Operation
+            result = SkillDraftRunResult(
+                draft_id=typed.draft_id,
+                status="failed",
+                error=ErrorEnvelope(
+                    code="BUILDER_WORKER_FAILED",
+                    message=str(error),
+                    retryable=True,
+                    request_id=request_id,
+                ),
+            )
+            failed_job = self._builder_jobs.fail(
+                job_id=job.job_id,
+                owner=owner,
+                reason="builder-worker-failed",
+            )
+            if failed_job.status == "queued":
+                self._builder_executor.submit(
+                    self._complete_builder_operation,
+                    typed,
+                    request_id,
+                    operation_id,
+                    workspace_id,
+                    job.job_id,
+                )
+                return
+        else:
+            if result.status == "cancelled":
+                self._builder_jobs.complete(job_id=job.job_id, owner=owner)
+            elif result.status != "ready_for_evaluation":
+                failed_job = self._builder_jobs.fail(
+                    job_id=job.job_id,
+                    owner=owner,
+                    reason=result.error.code if result.error else "builder-incomplete",
+                )
+                if failed_job.status == "queued":
+                    self._builder_executor.submit(
+                        self._complete_builder_operation,
+                        typed,
+                        request_id,
+                        operation_id,
+                        workspace_id,
+                        job.job_id,
+                    )
+                    return
+            else:
+                self._builder_jobs.complete(job_id=job.job_id, owner=owner)
+        terminal_type = (
+            "cancelled"
+            if result.status == "cancelled"
+            else "succeeded"
+            if result.status == "ready_for_evaluation"
+            else "failed"
+        )
+        terminal_event = OperationEvent(
+            operation_id=operation_id,
+            event_id=f"{operation_id}:{terminal_type}",
+            sequence=3,
+            occurred_at=now_iso(),
+            type=terminal_type,
+            terminal=True,
+            result=result,
+            error=result.error,
+        )
+        self.repository.append_operation_event(
+            operation_id,
+            terminal_event,
+            status=terminal_type,
+            result=result.model_dump(mode="json", by_alias=True),
+            error=result.error,
+        )
+        self.audit_recorder.record_audit(
+            request_id=request_id,
+            operation_id=operation_id,
+            workspace_id=workspace_id,
+            action="skill-draft.run",
+            resource_id=typed.draft_id,
+            outcome=terminal_type,
+        )
+
     def unsupported(
         self,
         command: str,
@@ -448,6 +1765,8 @@ class KnowledgeAssetApplication:
         payload: dict[str, object],
         *,
         workspace_id: str = "workspace-local",
+        idempotency_key: str | None = None,
+        async_mode: bool = False,
     ) -> CommandResponse:
         result: CommandResult
         if command == "source.profile":
@@ -471,19 +1790,161 @@ class KnowledgeAssetApplication:
             draft = self.repository.draft(str(payload.get("draft_id", "")))
             workspace_id = draft.workspace_id if draft else "workspace-local"
             result = self._run_clean(typed, workspace_id)
-        elif command == "skill-draft.run":
-            typed = SkillDraftRunPayload.model_validate(payload)
-            draft = self.repository.draft(typed.draft_id)
-            if draft is None:
+        elif command == "skill-draft.retry":
+            typed = SkillDraftRetryPayload.model_validate(payload)
+            previous = self.repository.operation(typed.retry_of_operation_id)
+            if previous is None:
                 result = SkillDraftRunResult(
                     draft_id=typed.draft_id,
-                    error=self._not_ready_error(command, request_id),
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="RETRY_SOURCE_NOT_FOUND",
+                        message="待重试的 Builder Operation 不存在。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
                 )
-                return CommandResponse(accepted=False, request_id=request_id, result=result)
-            golden = self.repository.latest_golden_asset_revision(draft.workspace_id)
-            result = SkillDraftRunResult(
-                draft_id=typed.draft_id, status="succeeded",
-                golden_asset_revision=golden,
+            elif previous.status != "failed" or not previous.result:
+                result = SkillDraftRunResult(
+                    draft_id=typed.draft_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="RETRY_NOT_ALLOWED",
+                        message="只有失败或部分完成的 Builder Operation 可以重试。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            else:
+                run_payload = typed.model_dump(
+                    mode="python", exclude={"retry_of_operation_id"}
+                )
+                retried = self.unsupported(
+                    "skill-draft.run",
+                    request_id,
+                    run_payload,
+                    workspace_id=workspace_id,
+                    idempotency_key=idempotency_key,
+                    async_mode=async_mode,
+                )
+                return retried
+        elif command == "skill-draft.run":
+            typed = SkillDraftRunPayload.model_validate(payload)
+            operation_id = "run-" + hashlib.sha256(
+                (idempotency_key or request_id).encode()
+            ).hexdigest()[:24]
+            self.repository.create_operation(operation_id, request_id)
+            existing = self.repository.operation(operation_id)
+            if existing is not None and existing.status == "cancelled":
+                cancelled_result = SkillDraftRunResult(
+                    draft_id=typed.draft_id,
+                    status="cancelled",
+                    error=ErrorEnvelope(
+                        code="EXECUTION_CANCELLED",
+                        message="执行已取消，未启动新的 Skill Builder 运行。",
+                        retryable=True,
+                        request_id=request_id,
+                    ),
+                )
+                return CommandResponse(
+                    accepted=False,
+                    request_id=request_id,
+                    operation_id=operation_id,
+                    result=cancelled_result,
+                )
+            if existing is not None and existing.result is not None:
+                return CommandResponse(
+                    accepted=existing.status == "succeeded",
+                    request_id=request_id,
+                    operation_id=operation_id,
+                    result=existing.result,
+                )
+            accepted_event = OperationEvent(
+                operation_id=operation_id,
+                event_id=f"{operation_id}:accepted",
+                sequence=1,
+                occurred_at=now_iso(),
+                type="accepted",
+                terminal=False,
+            )
+            self.repository.append_operation_event(
+                operation_id, accepted_event, status="running"
+            )
+            progress_event = OperationEvent(
+                operation_id=operation_id,
+                event_id=f"{operation_id}:progress",
+                sequence=2,
+                occurred_at=now_iso(),
+                type="progress",
+                terminal=False,
+            )
+            self.repository.append_operation_event(
+                operation_id, progress_event, status="running"
+            )
+            if async_mode:
+                job = self._builder_jobs.enqueue(
+                    job_type="skill-draft.run",
+                    idempotency_key=operation_id,
+                    profile=self._builder_profile,
+                    max_attempts=3,
+                )
+                self._builder_job_ids[operation_id] = job.job_id
+                self._builder_executor.submit(
+                    self._complete_builder_operation,
+                    typed,
+                    request_id,
+                    operation_id,
+                    workspace_id,
+                    job.job_id,
+                )
+                return CommandResponse(
+                    accepted=True,
+                    request_id=request_id,
+                    operation_id=operation_id,
+                )
+            result = self._run_skill_draft(
+                typed, request_id=request_id, operation_id=operation_id
+            )
+            terminal_type = (
+                "cancelled"
+                if result.status == "cancelled"
+                else "succeeded"
+                if result.status == "ready_for_evaluation"
+                else "failed"
+            )
+            terminal_event = OperationEvent(
+                operation_id=operation_id,
+                event_id=f"{operation_id}:{terminal_type}",
+                sequence=3,
+                occurred_at=now_iso(),
+                type=terminal_type,
+                terminal=True,
+                result=result,
+                error=result.error,
+            )
+            self.repository.append_operation_event(
+                operation_id,
+                terminal_event,
+                status=terminal_type,
+                result=result.model_dump(mode="json", by_alias=True),
+                error=result.error,
+            )
+            return CommandResponse(
+                accepted=terminal_type == "succeeded",
+                request_id=request_id,
+                operation_id=operation_id,
+                result=result,
+            )
+        elif command == "artifact.export":
+            typed = ArtifactExportPayload.model_validate(payload)
+            result = self._export_artifact(
+                typed, request_id=request_id, workspace_id=workspace_id
+            )
+        elif command == "resource.share":
+            result = self._share_view(
+                str(payload["resource_id"]),
+                request_id=request_id,
+                workspace_id=workspace_id,
             )
         elif command == "resource.revoke":
             resource_id = str(payload["resource_id"])
@@ -588,17 +2049,40 @@ class KnowledgeAssetApplication:
                 self.repository.save_refresh_run(run)
         elif command == "invocation.start":
             typed = InvocationStartPayload.model_validate(payload)
-            result = InvocationStartResult(
-                skill_version_id=typed.skill_version_id,
-                error=self._not_ready_error(command, request_id),
+            result = self._start_invocation(
+                typed,
+                request_id=request_id,
+                workspace_id=workspace_id,
+            )
+        elif command == "assistant.turn":
+            typed = AssistantTurnPayload.model_validate(payload)
+            result = self._assistant_turn(
+                typed,
+                request_id=request_id,
+                workspace_id=workspace_id,
+            )
+        elif command in {"evaluation.run", "evaluation.apply"}:
+            typed = EvaluationPayload.model_validate(payload)
+            result = self._run_evaluation(
+                typed,
+                request_id=request_id,
+                result_type=command,
             )
         else:
             result = InvocationStartResult(
                 skill_version_id="unsupported",
                 error=self._not_ready_error(command, request_id),
             )
+        accepted_statuses = {
+            "planning",
+            "awaiting_input",
+            "running",
+            "partially_succeeded",
+            "succeeded",
+            "ready_for_evaluation",
+        }
         return CommandResponse(
-            accepted=getattr(result, "status", "not_ready") == "succeeded",
+            accepted=getattr(result, "status", "not_ready") in accepted_statuses,
             request_id=request_id,
             result=result,
         )
@@ -616,4 +2100,12 @@ class KnowledgeAssetApplication:
         return self.repository.operation(operation_id)
 
     def cancel(self, operation_id: str, request_id: str) -> OperationResponse:
+        job_id = self._builder_job_ids.get(operation_id)
+        if job_id is None:
+            job = self._builder_jobs.find_by_key(
+                profile=self._builder_profile, idempotency_key=operation_id
+            )
+            job_id = job.job_id if job is not None else None
+        if job_id is not None:
+            self._builder_jobs.request_cancel(job_id=job_id)
         return self.repository.cancel_operation(operation_id, request_id)

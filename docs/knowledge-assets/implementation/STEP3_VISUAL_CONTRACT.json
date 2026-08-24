@@ -1,0 +1,59 @@
+{
+  "schema_version": "knowledge-assets.step3-skill-view-visual.v1",
+  "route": "/?studio=knowledge&view=skill&skillId=skill-draft-0e1f9351-a8dc-42c0-b1b4-16ce19cd46f8&revision=1",
+  "state": "initial-debug-shell",
+  "environment": {
+    "browser": "Google Chrome",
+    "device_scale_factor": 1,
+    "locale": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "color_scheme": "light",
+    "reduced_motion": "reduce",
+    "font_wait": "document.fonts.ready",
+    "viewports": [[1440, 900], [390, 844]]
+  },
+  "thresholds": {
+    "critical_anchor_px": 0,
+    "other_boundary_px": 1,
+    "pixel_mismatch_ratio": 0
+  },
+  "required_artifacts": [
+    "screenshot.png",
+    "dom.json",
+    "class.json",
+    "text.json",
+    "event.json",
+    "geometry.json",
+    "computed-style.json",
+    "runtime.json",
+    "accessibility.json",
+    "keyboard.json",
+    "ime.json",
+    "mobile.json"
+  ],
+  "semantic_ids": [
+    "skill-view-shell",
+    "skill-view-header",
+    "skill-view-actions",
+    "skill-view-meta",
+    "skill-view-content",
+    "skill-view-chat",
+    "skill-assistant-input"
+  ],
+  "interaction_ids": [
+    "execute-skill",
+    "evaluate",
+    "export",
+    "share-to-human",
+    "evaluate-and-publish",
+    "assistant-input",
+    "assistant-patch"
+  ],
+  "forbidden_runtime": {
+    "iframes": 0,
+    "console_errors": 0,
+    "page_errors": 0,
+    "production_fixture_references": 0,
+    "custom_scripts": 0
+  }
+}

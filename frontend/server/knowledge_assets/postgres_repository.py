@@ -25,6 +25,13 @@ from .contracts import (
     ResourceSummary,
     SkillDraft,
     SkillManifest,
+    SkillResult,
+    SkillViewRevision,
+    SkillViewShareGrant,
+    EvaluationSuite,
+    EvaluationRun,
+    PolicyGateResult,
+    Invocation,
     empty_knowledge_manifest,
     now_iso,
 )
@@ -38,11 +45,227 @@ class PostgresKnowledgeAssetRepository:
         self._connection = psycopg.connect(dsn, row_factory=dict_row)
         self._connection.autocommit = True
         self._lock = threading.RLock()
-        migration = Path(__file__).with_name("migrations").joinpath(
-            "001_knowledge_assets.postgresql.sql"
-        )
+        migration_dir = Path(__file__).with_name("migrations")
         with self._connection.cursor() as cursor:
-            cursor.execute(migration.read_text(encoding="utf-8"))
+            cursor.execute(
+                (migration_dir / "001_knowledge_assets.postgresql.sql").read_text(
+                    encoding="utf-8"
+                )
+            )
+            cursor.execute("SELECT version FROM schema_migrations")
+            applied = {row["version"] for row in cursor.fetchall()}
+            for migration in sorted(
+                migration_dir.glob("[0-9][0-9][0-9]_*.postgresql.sql")
+            ):
+                version = migration.stem.removesuffix(".postgresql")
+                if version in applied:
+                    continue
+                cursor.execute(migration.read_text(encoding="utf-8"))
+
+    def save_skill_result(self, result: SkillResult) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO skill_results
+                (id, skill_id, skill_revision, result_json, result_ref_json, created_at)
+                VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s)
+                """,
+                (
+                    result.id,
+                    result.skill_id,
+                    result.skill_revision,
+                    result.model_dump_json(by_alias=True),
+                    result.result_ref.model_dump_json(by_alias=True),
+                    result.freshness_at or now_iso(),
+                ),
+            )
+
+    def latest_skill_result(
+        self, skill_id: str, skill_revision: int
+    ) -> SkillResult | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT result_json FROM skill_results
+                WHERE skill_id = %s AND skill_revision = %s
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (skill_id, skill_revision),
+            )
+            row = cursor.fetchone()
+        return (
+            SkillResult.model_validate(row["result_json"])
+            if row is not None
+            else None
+        )
+
+    def latest_skill_view_revision(
+        self, skill_revision_id: str
+    ) -> SkillViewRevision | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT view_json FROM skill_view_revisions
+                WHERE skill_revision_id = %s
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (skill_revision_id,),
+            )
+            row = cursor.fetchone()
+        return (
+            SkillViewRevision.model_validate(row["view_json"])
+            if row is not None
+            else None
+        )
+
+    def save_skill_view_revision(self, revision: SkillViewRevision) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO skill_view_revisions
+                (id, skill_revision_id, revision, view_json, created_at)
+                VALUES (%s, %s, %s, %s::jsonb, %s)
+                """,
+                (
+                    revision.id,
+                    revision.skill_revision_id,
+                    revision.revision,
+                    revision.model_dump_json(by_alias=True),
+                    revision.created_at,
+                ),
+            )
+
+    def skill_view_revision(self, revision_id: str) -> SkillViewRevision | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT view_json FROM skill_view_revisions WHERE id = %s",
+                (revision_id,),
+            )
+            row = cursor.fetchone()
+        return (
+            SkillViewRevision.model_validate(row["view_json"])
+            if row is not None
+            else None
+        )
+
+    def update_skill_draft_revision_status(
+        self, draft_id: str, revision: int, status: str
+    ) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE skill_draft_revisions
+                SET status = %s
+                WHERE draft_id = %s AND revision = %s
+                """,
+                (status, draft_id, revision),
+            )
+
+    def save_evaluation_suite(self, suite: EvaluationSuite) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO evaluation_suites (id, version, skill_id, suite_json)
+                VALUES (%s, %s, %s, %s::jsonb)
+                ON CONFLICT (id, version) DO UPDATE SET suite_json = EXCLUDED.suite_json
+                """,
+                (
+                    suite.id,
+                    suite.version,
+                    suite.skill_id,
+                    suite.model_dump_json(by_alias=True),
+                ),
+            )
+
+    def save_evaluation_run(self, run: EvaluationRun) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO evaluation_runs (id, skill_revision_id, run_json)
+                VALUES (%s, %s, %s::jsonb)
+                ON CONFLICT (id) DO UPDATE SET run_json = EXCLUDED.run_json
+                """,
+                (run.id, run.skill_revision_id, run.model_dump_json(by_alias=True)),
+            )
+
+    def save_policy_gate_result(self, result: PolicyGateResult) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO policy_gate_results (id, skill_revision_id, result_json)
+                VALUES (%s, %s, %s::jsonb)
+                ON CONFLICT (id) DO UPDATE SET result_json = EXCLUDED.result_json
+                """,
+                (
+                    result.id,
+                    result.skill_revision_id,
+                    result.model_dump_json(by_alias=True),
+                ),
+            )
+
+    def save_invocation(self, invocation: Invocation) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO invocations
+                (id, skill_version_id, skill_view_revision_id, workspace_id,
+                 invocation_json, created_at)
+                VALUES (%s, %s, %s, %s, %s::jsonb, %s)
+                ON CONFLICT (id) DO UPDATE SET invocation_json = EXCLUDED.invocation_json
+                """,
+                (
+                    invocation.id,
+                    invocation.skill_version_id,
+                    invocation.skill_view_revision_id,
+                    invocation.workspace_id,
+                    invocation.model_dump_json(by_alias=True),
+                    invocation.started_at,
+                ),
+            )
+
+    def save_skill_view_share(self, grant: SkillViewShareGrant) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO skill_view_shares
+                (id, resource_id, skill_view_revision_id, workspace_id, grant_json, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET grant_json = EXCLUDED.grant_json
+                """,
+                (
+                    grant.id,
+                    grant.resource_id,
+                    grant.skill_view_revision_id,
+                    grant.workspace_id,
+                    grant.model_dump_json(by_alias=True),
+                    grant.created_at,
+                ),
+            )
+
+    def save_patch_history(
+        self, patch_id: str, undo_token: str, skill_id: str, base_revision: int,
+        operation: str, before: str, after: str
+    ) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO assistant_patch_history
+                (patch_id, undo_token, skill_id, base_revision, operation, before_value, after_value)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (patch_id) DO UPDATE SET
+                  undo_token = EXCLUDED.undo_token,
+                  after_value = EXCLUDED.after_value
+                """,
+                (patch_id, undo_token, skill_id, base_revision, operation, before, after),
+            )
+
+    def patch_history(self, undo_token: str) -> dict[str, object] | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM assistant_patch_history WHERE undo_token = %s",
+                (undo_token,),
+            )
+            return cursor.fetchone()
 
     def bootstrap(self, workspace_id: str, role: str) -> BootstrapResponse:
         with self._connection.cursor() as cursor:
@@ -368,6 +591,15 @@ class PostgresKnowledgeAssetRepository:
                                result: dict[str, object] | None = None,
                                error: ErrorEnvelope | None = None) -> None:
         with self._connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status FROM operations WHERE operation_id = %s FOR UPDATE",
+                (operation_id,),
+            )
+            current = cursor.fetchone()
+            if current is None:
+                raise KeyError(operation_id)
+            if current["status"] in {"succeeded", "failed", "cancelled"}:
+                return
             cursor.execute(
                 """
                 INSERT INTO operation_events

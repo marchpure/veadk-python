@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 
 from .application import KnowledgeAssetApplication
+from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import SqliteKnowledgeAssetRepository
 from .routes import mount_knowledge_asset_routes
 
@@ -32,10 +33,19 @@ def create_app(
         docs_url=None,
         redoc_url=None,
     )
+    repository = (
+        PostgresKnowledgeAssetRepository(repository_path)
+        if isinstance(repository_path, str)
+        and (
+            repository_path.startswith("postgres://")
+            or repository_path.startswith("postgresql://")
+        )
+        else SqliteKnowledgeAssetRepository(repository_path)
+    )
     mount_knowledge_asset_routes(
         app,
         application=KnowledgeAssetApplication(
-            SqliteKnowledgeAssetRepository(repository_path)
+            repository
         ),
         identity_resolver=identity_resolver,
     )

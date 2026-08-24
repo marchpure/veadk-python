@@ -1,0 +1,231 @@
+.skill-view-shell {
+  min-height: 100%;
+  padding: 24px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-family: inherit;
+}
+
+.skill-view-header,
+.skill-view-meta,
+.skill-view-body {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.skill-view-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.skill-view-eyebrow {
+  margin: 0 0 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.skill-view-header h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.skill-view-header span,
+.skill-view-meta,
+.skill-view-chat p {
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+.skill-view-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-view-actions button,
+.skill-view-chat button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--panel));
+  cursor: pointer;
+}
+
+.skill-view-actions button:first-child {
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+
+.skill-view-actions button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.skill-view-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 12px 0;
+}
+
+.skill-view-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  min-height: 540px;
+}
+
+.skill-view-content,
+.skill-view-chat {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--panel));
+}
+
+.skill-view-chat {
+  align-self: start;
+}
+
+.skill-view-chat h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.skill-view-chat label {
+  display: block;
+  margin-top: 14px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.skill-view-chat textarea {
+  display: block;
+  width: 100%;
+  margin: 6px 0 8px;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font: inherit;
+  resize: vertical;
+}
+
+.skill-view-diff {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: hsl(var(--muted));
+  font-size: 12px;
+}
+
+.skill-view-answer {
+  white-space: pre-wrap;
+  line-height: 1.65;
+}
+
+.skill-view-typed-section {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-view-typed-section h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.skill-view-typed-section p {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+.skill-view-bars,
+.skill-view-node-list {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-view-bar {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.35fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.skill-view-bar strong {
+  display: block;
+  min-width: 32px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  font-weight: 500;
+}
+
+.skill-view-node-list {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.skill-view-node-list span {
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.skill-view-node-list small {
+  display: block;
+  margin-top: 3px;
+  color: hsl(var(--muted-foreground));
+}
+
+.skill-view-empty,
+.skill-view-status {
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+.skill-view-table {
+  overflow: auto;
+}
+
+.skill-view-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .skill-view-shell {
+    padding: 16px;
+  }
+
+  .skill-view-header,
+  .skill-view-body {
+    display: block;
+  }
+
+  .skill-view-actions {
+    margin-top: 12px;
+  }
+
+  .skill-view-chat {
+    margin-top: 12px;
+  }
+}

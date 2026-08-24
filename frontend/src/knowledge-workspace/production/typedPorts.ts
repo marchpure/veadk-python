@@ -20,6 +20,10 @@ import type {
   GeneratedLegacyManifest,
   GeneratedManifest,
 } from "./generated";
+import type {
+  AssistantContextEnvelope,
+  SkillPatch,
+} from "./generatedContracts";
 
 export type KnowledgeCommandName =
   | "resource.create"
@@ -41,6 +45,7 @@ export type KnowledgeCommandName =
   | "skill-draft.save-manifest"
   | "source.profile"
   | "source.clean"
+  | "skill-draft.retry"
   | "skill-draft.run"
   | "publication.publish"
   | "refresh.run"
@@ -72,9 +77,14 @@ export interface ImportCommandPayload {
 export interface AssistantTurnPayload {
   text: string;
   contextIds: string[];
+  context?: AssistantContextEnvelope | null;
+  patch?: SkillPatch | null;
 }
 export interface EvaluationPayload {
   targetId: string;
+  suiteId: string;
+  environment: "production" | "demo" | "test";
+  caseIds: string[];
 }
 export interface ArtifactExportPayload {
   resourceId: string;
@@ -96,6 +106,11 @@ export interface SkillDraftRunPayload {
   draftId: string;
   revision: number;
   traceId: string;
+  maxSteps: number;
+  budget: number;
+}
+export interface SkillDraftRetryPayload extends SkillDraftRunPayload {
+  retryOfOperationId: string;
 }
 export interface PublicationPublishPayload {
   draftId: string;
@@ -108,6 +123,7 @@ export interface RefreshRunPayload {
 }
 export interface InvocationStartPayload {
   skillVersionId: string;
+  skillViewRevisionId: string;
   inputRef: import("./generatedContracts").StorageRef;
   callerId: string;
 }
@@ -127,6 +143,7 @@ export type KnowledgeCommand =
   | { command: "artifact.export"; payload: ArtifactExportPayload }
   | { command: "source.profile"; payload: SourceProfilePayload }
   | { command: "source.clean"; payload: SourceCleanPayload }
+  | { command: "skill-draft.retry"; payload: SkillDraftRetryPayload }
   | { command: "skill-draft.run"; payload: SkillDraftRunPayload }
   | { command: "publication.publish"; payload: PublicationPublishPayload }
   | { command: "refresh.run"; payload: RefreshRunPayload }
@@ -178,10 +195,7 @@ export interface KnowledgeCommandResult {
   requestId: string;
   operationId?: string;
   version?: string;
-  result?: {
-    draft?: Record<string, string | number>;
-    replayed?: boolean;
-  };
+  result?: Record<string, unknown>;
 }
 export interface KnowledgeStreamEvent {
   schema_version: string;

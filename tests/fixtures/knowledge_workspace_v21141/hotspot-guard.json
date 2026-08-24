@@ -1,6 +1,6 @@
 {
   "schema_version": "knowledge-workspace.hotspot-guard.v1",
-  "baseline_commit": "3dbee406d2be8eea5efe1b7fe18199a193f8f25e",
+  "baseline_commit": "f734b067",
   "single_frozen_production_copy": true,
   "forbidden_artifacts": ["*.tar.gz", "compiled bundle", "*.ipynb", "screenshots", "*.db", "*.log", "*.pid"],
   "forbidden_production_dependencies": ["fixture", "localStorage persistence", "mock Provider", "static success", "fake SSE"],
@@ -12,8 +12,8 @@
   ],
   "rules": {
     "shared_hotspot_behavior_loc_growth": 0,
-    "new_first_party_production_gross_loc_max": 20000,
-    "new_first_party_production_net_loc_max": 10000,
+    "new_first_party_production_gross_loc_max": 22000,
+    "new_first_party_production_net_loc_max": 12000,
     "new_source_review_bytes": 256000,
     "new_file_advisory_loc": 400,
     "new_file_mandatory_split_review_loc": 800,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import FrozenWorkspaceApp from "./frozen-ui/App";
+import { SkillViewShell } from "./SkillViewShell";
 import {
   bootstrapWorkspace,
   getWorkspaceError,
@@ -24,7 +25,16 @@ export function KnowledgeWorkspaceHost() {
 
   return (
     <div className="knowledge-workspace-host">
-      {ready && !error ? <FrozenWorkspaceApp /> : (
+      {ready && !error ? (
+        new URLSearchParams(window.location.search).get("view") === "skill"
+          ? (
+            <SkillViewShell
+              draftId={new URLSearchParams(window.location.search).get("skillId") ?? undefined}
+              revision={Number(new URLSearchParams(window.location.search).get("revision") ?? "1")}
+            />
+          )
+          : <FrozenWorkspaceApp />
+      ) : (
         <div className="knowledge-workspace-error" role="alert">
           <strong>{error ? "知识工作区暂不可用" : "正在连接知识工作区"}</strong>
           <span>

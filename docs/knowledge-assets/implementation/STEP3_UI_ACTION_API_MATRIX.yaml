@@ -1,0 +1,64 @@
+schemaVersion: knowledge-assets.step3.ui-action-api-matrix.v1
+owner: Lane I/Q
+browserBoundary: /api/knowledge-assets/v1/*
+actions:
+  - actionId: skill-view.execute
+    label: 执行 Skill
+    command: skill-draft.run
+    payloadSchema: "#/$defs/SkillDraftRunPayload"
+    transport: typed-bff-command
+    projection: [SkillResult, ViewIntent, SkillViewRevision, Operation]
+    events: [operation.accepted, operation.progress, operation.terminal]
+    cancel: operation-cancel
+  - actionId: skill-view.evaluate
+    label: Evaluate
+    command: evaluation.run
+    payloadSchema: "#/$defs/EvaluationPayload"
+    transport: typed-bff-command
+    projection: [EvaluationSuite, EvaluationRun, PolicyGateResult, Operation]
+    events: [operation.accepted, operation.progress, operation.terminal]
+    cancel: operation-cancel
+  - actionId: skill-view.retry
+    label: Retry Builder
+    command: skill-draft.retry
+    payloadSchema: "#/$defs/SkillDraftRetryPayload"
+    transport: typed-bff-command
+    projection: [SkillResult, ViewIntent, SkillViewRevision, Operation]
+    precondition: source-operation-status-failed-or-partial
+    cancel: operation-cancel
+  - actionId: skill-view.assistant.patch
+    label: 提议修改
+    command: assistant.turn
+    payloadSchema: "#/$defs/AssistantTurnPayload"
+    transport: typed-bff-command
+    projection: [Operation, Audit]
+    validation: typed-patch-validator-before-rerun
+  - actionId: skill-view.export
+    label: Export
+    command: artifact.export
+    payloadSchema: "#/$defs/ArtifactExportPayload"
+    transport: typed-bff-command
+    projection: [Operation, ArtifactExportResult]
+    status: verified
+    note: Server creates a content-addressed export artifact; browser does not create a local Blob/download.
+  - actionId: skill-view.share
+    label: Share to human
+    command: resource.share
+    payloadSchema: "#/$defs/ResourcePayload"
+    transport: typed-bff-command
+    projection: [Operation, ResourceShareResult]
+    status: verified
+    note: Server persists a read-only Skill View share grant; this does not publish or create Agent access.
+  - actionId: skill-view.evaluate-and-publish
+    label: Evaluate & publish
+    command: evaluation.run
+    payloadSchema: "#/$defs/EvaluationPayload"
+    transport: typed-bff-command
+    projection: [EvaluationSuite, EvaluationRun, PolicyGateResult, Operation]
+    status: evaluation-only
+    note: The UI action is wired to typed evaluation; publication.publish remains an explicit STEP 4 gate.
+    owner: STEP 4 publication lane
+coverage:
+  mappedActions: 7
+  unmappedActions: 0
+  percent: 100

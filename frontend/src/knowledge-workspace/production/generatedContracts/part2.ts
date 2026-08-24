@@ -1,11 +1,35 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, SchemaRef, SecretRef } from "./part3";
-import type { SkillDraftRunResult, SkillManifestAction, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+import type { ArtifactExportResult, AssistantTurnResult, DraftCommandResult, ErrorEnvelope } from "./part1";
+import type { NotReadyCommandResult, OwnerRef, PermissionRef, PolicyGateResult, PublicationPublishResult, RefreshRunResult, ResourceShareResult, SchemaRef, SecretRef } from "./part3";
+import type { SkillDraftRunResult, SkillManifestAction, SkillResult, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+
+export interface EvaluationCase {
+  id: string;
+  inputRef: StorageRef;
+  expectedOutputRef?: StorageRef | null;
+  source?: "manual" | "historical" | "batch" | "agent_candidate";
+}
+
+export interface EvaluationCaseResult {
+  caseId: string;
+  status: "passed" | "failed" | "skipped";
+  score: number;
+  evidenceRef?: StorageRef | null;
+  regressionDiffRef?: StorageRef | null;
+}
+
+export interface EvaluationCommand {
+  command: "evaluation.run" | "evaluation.apply";
+  payload: EvaluationPayload;
+}
 
 export interface EvaluationPayload {
   targetId: string;
+  suiteId?: string;
+  environment?: "production" | "demo" | "test";
+  caseIds?: Array<string>;
+  cases?: Array<EvaluationCase>;
 }
 
 export interface EvaluationRun {
@@ -17,8 +41,22 @@ export interface EvaluationRun {
   score?: number | null;
   evidenceRef?: StorageRef | null;
   regressionRef?: StorageRef | null;
+  environment?: "production" | "demo" | "test";
+  dependencyRevisionRefs?: Array<string>;
+  dataRevisionRefs?: Array<string>;
+  caseResults?: Array<EvaluationCaseResult>;
   startedAt: string;
   finishedAt?: string | null;
+}
+
+export interface EvaluationRunResult {
+  resultType: "evaluation.run" | "evaluation.apply";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "succeeded" | "failed";
+  targetId: string;
+  evaluationSuite?: EvaluationSuite | null;
+  evaluationRun?: EvaluationRun | null;
+  policyGateResult?: PolicyGateResult | null;
 }
 
 export interface EvaluationSuite {
@@ -28,6 +66,8 @@ export interface EvaluationSuite {
   caseCount: number;
   casesRef: StorageRef;
   passThreshold: number;
+  environment?: "production" | "demo" | "test";
+  caseIds?: Array<string>;
 }
 
 export interface Event {
@@ -38,7 +78,7 @@ export interface Event {
   occurredAt: string;
   type: "accepted" | "progress" | "succeeded" | "failed" | "cancelled";
   terminal: boolean;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | null;
   error?: ErrorEnvelope | null;
 }
 
@@ -106,6 +146,7 @@ export interface ImportPayload {
 export interface Invocation {
   id: string;
   skillVersionId: string;
+  skillViewRevisionId: string;
   callerId: string;
   workspaceId: string;
   status: "accepted" | "resolving" | "running" | "awaiting_confirmation" | "succeeded" | "failed" | "cancelled";
@@ -124,6 +165,7 @@ export interface InvocationStartCommand {
 
 export interface InvocationStartPayload {
   skillVersionId: string;
+  skillViewRevisionId?: string;
   inputRef: StorageRef;
   callerId: string;
 }
@@ -131,8 +173,11 @@ export interface InvocationStartPayload {
 export interface InvocationStartResult {
   resultType?: "invocation.start";
   error?: ErrorEnvelope | null;
-  status?: "not_ready";
+  status?: "not_ready" | "succeeded" | "failed";
   skillVersionId: string;
+  invocation?: Invocation | null;
+  skillResult?: SkillResult | null;
+  dataRevisionRefs?: Array<string>;
 }
 
 export interface JobEvent {
@@ -218,12 +263,4 @@ export interface MonitoringKindSpec {
   refreshScheduleRef: string;
   alertPolicyRef: string;
   actionPolicyRef?: PermissionRef | null;
-}
-
-export interface MonitoringViewModel {
-  template?: "monitoring";
-  metricRefs?: Array<string>;
-  values?: Array<[string, number]>;
-  alerts?: Array<string>;
-  dataRef?: StorageRef | null;
 }

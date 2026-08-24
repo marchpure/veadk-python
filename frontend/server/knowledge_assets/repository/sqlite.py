@@ -28,6 +28,13 @@ from ..contracts import (
     GoldenAssetRevision,
     ProfileRun,
     RefreshRun,
+    SkillResult,
+    SkillViewRevision,
+    SkillViewShareGrant,
+    EvaluationSuite,
+    EvaluationRun,
+    PolicyGateResult,
+    Invocation,
     SourceRevision,
     empty_knowledge_manifest,
     now_iso,
@@ -120,6 +127,28 @@ class KnowledgeAssetRepository(Protocol):
     def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None: ...
     def revoke_asset(self, asset_id: str, workspace_id: str, request_id: str, reason: str) -> None: ...
     def save_refresh_run(self, run: RefreshRun) -> None: ...
+    def save_skill_result(self, result: SkillResult) -> None: ...
+    def latest_skill_result(
+        self, skill_id: str, skill_revision: int
+    ) -> SkillResult | None: ...
+    def latest_skill_view_revision(
+        self, skill_revision_id: str
+    ) -> SkillViewRevision | None: ...
+    def save_skill_view_revision(self, revision: SkillViewRevision) -> None: ...
+    def skill_view_revision(self, revision_id: str) -> SkillViewRevision | None: ...
+    def update_skill_draft_revision_status(
+        self, draft_id: str, revision: int, status: str
+    ) -> None: ...
+    def save_evaluation_suite(self, suite: EvaluationSuite) -> None: ...
+    def save_evaluation_run(self, run: EvaluationRun) -> None: ...
+    def save_policy_gate_result(self, result: PolicyGateResult) -> None: ...
+    def save_invocation(self, invocation: Invocation) -> None: ...
+    def save_skill_view_share(self, grant: SkillViewShareGrant) -> None: ...
+    def save_patch_history(
+        self, patch_id: str, undo_token: str, skill_id: str, base_revision: int,
+        operation: str, before: str, after: str
+    ) -> None: ...
+    def patch_history(self, undo_token: str) -> dict[str, object] | None: ...
 
 
 class SqliteKnowledgeAssetRepository:
@@ -139,10 +168,23 @@ class SqliteKnowledgeAssetRepository:
         self._migrate()
 
     def _migrate(self) -> None:
-        migration = Path(__file__).parents[1].joinpath("migrations").joinpath(
-            "001_knowledge_assets.sql"
+        migration_dir = Path(__file__).parents[1].joinpath("migrations")
+        self._connection.executescript(
+            (migration_dir / "001_knowledge_assets.sql").read_text(encoding="utf-8")
         )
-        self._connection.executescript(migration.read_text(encoding="utf-8"))
+        applied = {
+            row["version"]
+            for row in self._connection.execute(
+                "SELECT version FROM schema_migrations"
+            )
+        }
+        for migration in sorted(migration_dir.glob("[0-9][0-9][0-9]_*.sql")):
+            if migration.name.endswith(".postgresql.sql"):
+                continue
+            version = migration.stem
+            if version in applied:
+                continue
+            self._connection.executescript(migration.read_text(encoding="utf-8"))
         columns = {
             row["name"]
             for row in self._connection.execute("PRAGMA table_info(profile_runs)")
@@ -399,6 +441,201 @@ class SqliteKnowledgeAssetRepository:
                     run.started_at, run.finished_at,
                 ),
             )
+
+    def save_skill_result(self, result: SkillResult) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT INTO skill_results
+                (id, skill_id, skill_revision, result_json, result_ref_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    result.id,
+                    result.skill_id,
+                    result.skill_revision,
+                    result.model_dump_json(by_alias=True),
+                    result.result_ref.model_dump_json(by_alias=True),
+                    result.freshness_at or now_iso(),
+                ),
+            )
+
+    def latest_skill_result(
+        self, skill_id: str, skill_revision: int
+    ) -> SkillResult | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT result_json FROM skill_results
+                WHERE skill_id = ? AND skill_revision = ?
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (skill_id, skill_revision),
+            ).fetchone()
+        return (
+            SkillResult.model_validate(json.loads(row["result_json"]))
+            if row is not None
+            else None
+        )
+
+    def latest_skill_view_revision(
+        self, skill_revision_id: str
+    ) -> SkillViewRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT view_json FROM skill_view_revisions
+                WHERE skill_revision_id = ?
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (skill_revision_id,),
+            ).fetchone()
+        return (
+            SkillViewRevision.model_validate(json.loads(row["view_json"]))
+            if row is not None
+            else None
+        )
+
+    def save_skill_view_revision(self, revision: SkillViewRevision) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT INTO skill_view_revisions
+                (id, skill_revision_id, revision, view_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    revision.id,
+                    revision.skill_revision_id,
+                    revision.revision,
+                    revision.model_dump_json(by_alias=True),
+                    revision.created_at,
+                ),
+            )
+
+    def update_skill_draft_revision_status(
+        self, draft_id: str, revision: int, status: str
+    ) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                UPDATE skill_draft_revisions
+                SET status = ?
+                WHERE draft_id = ? AND revision = ?
+                """,
+                (status, draft_id, revision),
+            )
+
+    def save_evaluation_suite(self, suite: EvaluationSuite) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO evaluation_suites
+                (id, version, skill_id, suite_json)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    suite.id,
+                    suite.version,
+                    suite.skill_id,
+                    suite.model_dump_json(by_alias=True),
+                ),
+            )
+
+    def save_evaluation_run(self, run: EvaluationRun) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO evaluation_runs
+                (id, skill_revision_id, run_json)
+                VALUES (?, ?, ?)
+                """,
+                (run.id, run.skill_revision_id, run.model_dump_json(by_alias=True)),
+            )
+
+    def save_policy_gate_result(self, result: PolicyGateResult) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO policy_gate_results
+                (id, skill_revision_id, result_json)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    result.id,
+                    result.skill_revision_id,
+                    result.model_dump_json(by_alias=True),
+                ),
+            )
+
+    def save_invocation(self, invocation: Invocation) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO invocations
+                (id, skill_version_id, skill_view_revision_id, workspace_id,
+                 invocation_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    invocation.id,
+                    invocation.skill_version_id,
+                    invocation.skill_view_revision_id,
+                    invocation.workspace_id,
+                    invocation.model_dump_json(by_alias=True),
+                    invocation.started_at,
+                ),
+            )
+
+    def save_skill_view_share(self, grant: SkillViewShareGrant) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO skill_view_shares
+                (id, resource_id, skill_view_revision_id, workspace_id, grant_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    grant.id,
+                    grant.resource_id,
+                    grant.skill_view_revision_id,
+                    grant.workspace_id,
+                    grant.model_dump_json(by_alias=True),
+                    grant.created_at,
+                ),
+            )
+
+    def skill_view_revision(self, revision_id: str) -> SkillViewRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT view_json FROM skill_view_revisions WHERE id = ?",
+                (revision_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SkillViewRevision.model_validate(json.loads(row["view_json"]))
+
+    def save_patch_history(
+        self, patch_id: str, undo_token: str, skill_id: str, base_revision: int,
+        operation: str, before: str, after: str
+    ) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO assistant_patch_history
+                (patch_id, undo_token, skill_id, base_revision, operation, before_value, after_value)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (patch_id, undo_token, skill_id, base_revision, operation, before, after),
+            )
+
+    def patch_history(self, undo_token: str) -> dict[str, object] | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM assistant_patch_history WHERE undo_token = ?",
+                (undo_token,),
+            ).fetchone()
+        return dict(row) if row is not None else None
 
     def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None:
         with self._lock:
@@ -747,6 +984,14 @@ class SqliteKnowledgeAssetRepository:
         error: ErrorEnvelope | None = None,
     ) -> None:
         with self._lock:
+            current = self._connection.execute(
+                "SELECT status FROM operations WHERE operation_id = ?",
+                (operation_id,),
+            ).fetchone()
+            if current is None:
+                raise KeyError(operation_id)
+            if current["status"] in {"succeeded", "failed", "cancelled"}:
+                return
             self._connection.execute(
                 """
                 INSERT INTO operation_events

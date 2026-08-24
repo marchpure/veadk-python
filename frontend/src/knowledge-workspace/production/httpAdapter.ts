@@ -83,6 +83,18 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
         normalized.command as GeneratedCommand,
         context,
       );
+      if (
+        (normalized.command.command === "skill-draft.run" ||
+          normalized.command.command === "skill-draft.retry") &&
+        generated.operationId &&
+        !generated.result
+      ) {
+        return await this.waitForBuilderOperation(
+          generated.operationId,
+          context.requestId,
+          context.signal,
+        );
+      }
       return parseCommandResult(generated, context.requestId);
     } catch (error) {
       if (error instanceof GeneratedClientHttpError) {
@@ -90,6 +102,45 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
       }
       throw error;
     }
+  }
+  private async waitForBuilderOperation(
+    operationId: string,
+    requestIdValue: string,
+    signal?: AbortSignal,
+  ): Promise<KnowledgeCommandResult> {
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      if (signal?.aborted) {
+        throw new KnowledgeAdapterError({
+          code: "CANCELLED",
+          message: "Builder Operation 已取消。",
+          retryable: true,
+          requestId: requestIdValue,
+        });
+      }
+      const operation = await this.generatedClient.operation(operationId, signal);
+      if (
+        operation.status === "succeeded" ||
+        operation.status === "failed" ||
+        operation.status === "cancelled"
+      ) {
+        return parseCommandResult(
+          {
+            accepted: operation.status === "succeeded",
+            requestId: requestIdValue,
+            operationId,
+            result: operation.result,
+          },
+          requestIdValue,
+        );
+      }
+      await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 100));
+    }
+    throw new KnowledgeAdapterError({
+      code: "TIMEOUT",
+      message: "Builder Operation 等待超时。",
+      retryable: true,
+      requestId: requestIdValue,
+    });
   }
   async stream(
     command: Extract<
@@ -403,7 +454,15 @@ function legacyCommand(
       return { command, payload: { connectorKey: "legacy" } };
     case "evaluation.run":
     case "evaluation.apply":
-      return { command, payload: { targetId: "legacy" } };
+      return {
+        command,
+        payload: {
+          targetId: "legacy",
+          suiteId: "default-step3",
+          environment: "test",
+          caseIds: [],
+        },
+      };
     case "source.profile":
       return {
         command,
@@ -417,7 +476,25 @@ function legacyCommand(
     case "skill-draft.run":
       return {
         command,
-        payload: { draftId: "legacy", revision: 1, traceId: "legacy" },
+        payload: {
+          draftId: "legacy",
+          revision: 1,
+          traceId: "legacy",
+          maxSteps: 10,
+          budget: 10_000,
+        },
+      };
+    case "skill-draft.retry":
+      return {
+        command,
+        payload: {
+          draftId: "legacy",
+          revision: 1,
+          traceId: "legacy",
+          maxSteps: 10,
+          budget: 10_000,
+          retryOfOperationId: "legacy",
+        },
       };
     case "publication.publish":
       return {
