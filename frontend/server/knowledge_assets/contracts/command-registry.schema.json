@@ -1,0 +1,690 @@
+{
+  "commandRequest": {
+    "$defs": {
+      "ActionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "action.update",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ActionUpdatePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "ActionCommand",
+        "type": "object"
+      },
+      "ActionUpdatePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "actionId": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Actionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actionId"
+        ],
+        "title": "ActionUpdatePayload",
+        "type": "object"
+      },
+      "ArtifactExportCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "artifact.export",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ArtifactExportPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "ArtifactExportCommand",
+        "type": "object"
+      },
+      "ArtifactExportPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "resourceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Resourceid",
+            "type": "string"
+          },
+          "format": {
+            "enum": [
+              "json",
+              "csv",
+              "html"
+            ],
+            "title": "Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resourceId",
+          "format"
+        ],
+        "title": "ArtifactExportPayload",
+        "type": "object"
+      },
+      "AssistantCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "assistant.turn",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/AssistantTurnPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "AssistantCommand",
+        "type": "object"
+      },
+      "AssistantTurnPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "contextIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Contextids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AssistantTurnPayload",
+        "type": "object"
+      },
+      "ConnectorCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "connector.create",
+              "connector.test"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ConnectorPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "ConnectorCommand",
+        "type": "object"
+      },
+      "ConnectorPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "connectorKey": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Connectorkey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connectorKey"
+        ],
+        "title": "ConnectorPayload",
+        "type": "object"
+      },
+      "CreateSkillDraftCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "skill-draft.create",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/CreateSkillDraftPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "CreateSkillDraftCommand",
+        "type": "object"
+      },
+      "CreateSkillDraftPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "workspaceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Workspaceid",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Description",
+            "type": "string"
+          },
+          "sourceRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Sourcerefs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "name"
+        ],
+        "title": "CreateSkillDraftPayload",
+        "type": "object"
+      },
+      "EmptyCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "source.profile",
+              "source.clean",
+              "skill-draft.run",
+              "publication.publish",
+              "refresh.run",
+              "invocation.start"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EmptyPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EmptyCommand",
+        "type": "object"
+      },
+      "EmptyPayload": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyPayload",
+        "type": "object"
+      },
+      "EvaluationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "evaluation.run",
+              "evaluation.apply"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EvaluationPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "EvaluationCommand",
+        "type": "object"
+      },
+      "EvaluationPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "targetId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Targetid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId"
+        ],
+        "title": "EvaluationPayload",
+        "type": "object"
+      },
+      "ImportCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "import.start",
+              "import.cancel"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ImportPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "ImportCommand",
+        "type": "object"
+      },
+      "ImportPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "sourceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Sourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceId"
+        ],
+        "title": "ImportPayload",
+        "type": "object"
+      },
+      "ManifestInputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "object",
+            "default": "object",
+            "title": "Type",
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/ManifestProperty"
+            },
+            "title": "Properties"
+          },
+          "required": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Required",
+            "type": "array"
+          },
+          "additionalProperties": {
+            "default": false,
+            "title": "Additionalproperties",
+            "type": "boolean"
+          }
+        },
+        "title": "ManifestInputSchema",
+        "type": "object"
+      },
+      "ManifestProperty": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "string",
+              "number",
+              "boolean",
+              "object",
+              "array"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 512,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "ManifestProperty",
+        "type": "object"
+      },
+      "ResourceCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "enum": [
+              "resource.create",
+              "resource.update",
+              "resource.publish",
+              "resource.share",
+              "resource.revoke"
+            ],
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ResourcePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "ResourceCommand",
+        "type": "object"
+      },
+      "ResourcePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "resourceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Resourceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resourceId"
+        ],
+        "title": "ResourcePayload",
+        "type": "object"
+      },
+      "SaveManifestCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "skill-draft.save-manifest",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/SaveManifestPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "SaveManifestCommand",
+        "type": "object"
+      },
+      "SaveManifestPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "draftId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Draftid",
+            "type": "string"
+          },
+          "baseRevision": {
+            "minimum": 1,
+            "title": "Baserevision",
+            "type": "integer"
+          },
+          "manifest": {
+            "$ref": "#/$defs/SkillManifest"
+          }
+        },
+        "required": [
+          "draftId",
+          "baseRevision",
+          "manifest"
+        ],
+        "title": "SaveManifestPayload",
+        "type": "object"
+      },
+      "SkillManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "title": "Version",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Description",
+            "type": "string"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/$defs/SkillManifestAction"
+            },
+            "maxItems": 64,
+            "title": "Actions",
+            "type": "array"
+          },
+          "schema": {
+            "$ref": "#/$defs/ManifestInputSchema"
+          }
+        },
+        "required": [
+          "name",
+          "version"
+        ],
+        "title": "SkillManifest",
+        "type": "object"
+      },
+      "SkillManifestAction": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SkillManifestAction",
+        "type": "object"
+      },
+      "StreamCancelCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "stream.cancel",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/StreamCancelPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "StreamCancelCommand",
+        "type": "object"
+      },
+      "StreamCancelPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "streamId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Streamid",
+            "type": "string"
+          },
+          "sourceCommand": {
+            "enum": [
+              "import.start",
+              "assistant.turn"
+            ],
+            "title": "Sourcecommand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "streamId",
+          "sourceCommand"
+        ],
+        "title": "StreamCancelPayload",
+        "type": "object"
+      }
+    },
+    "discriminator": {
+      "mapping": {
+        "action.update": "#/$defs/ActionCommand",
+        "artifact.export": "#/$defs/ArtifactExportCommand",
+        "assistant.turn": "#/$defs/AssistantCommand",
+        "connector.create": "#/$defs/ConnectorCommand",
+        "connector.test": "#/$defs/ConnectorCommand",
+        "evaluation.apply": "#/$defs/EvaluationCommand",
+        "evaluation.run": "#/$defs/EvaluationCommand",
+        "import.cancel": "#/$defs/ImportCommand",
+        "import.start": "#/$defs/ImportCommand",
+        "invocation.start": "#/$defs/EmptyCommand",
+        "publication.publish": "#/$defs/EmptyCommand",
+        "refresh.run": "#/$defs/EmptyCommand",
+        "resource.create": "#/$defs/ResourceCommand",
+        "resource.publish": "#/$defs/ResourceCommand",
+        "resource.revoke": "#/$defs/ResourceCommand",
+        "resource.share": "#/$defs/ResourceCommand",
+        "resource.update": "#/$defs/ResourceCommand",
+        "skill-draft.create": "#/$defs/CreateSkillDraftCommand",
+        "skill-draft.run": "#/$defs/EmptyCommand",
+        "skill-draft.save-manifest": "#/$defs/SaveManifestCommand",
+        "source.clean": "#/$defs/EmptyCommand",
+        "source.profile": "#/$defs/EmptyCommand",
+        "stream.cancel": "#/$defs/StreamCancelCommand"
+      },
+      "propertyName": "command"
+    },
+    "oneOf": [
+      {
+        "$ref": "#/$defs/CreateSkillDraftCommand"
+      },
+      {
+        "$ref": "#/$defs/SaveManifestCommand"
+      },
+      {
+        "$ref": "#/$defs/ResourceCommand"
+      },
+      {
+        "$ref": "#/$defs/ConnectorCommand"
+      },
+      {
+        "$ref": "#/$defs/ImportCommand"
+      },
+      {
+        "$ref": "#/$defs/StreamCancelCommand"
+      },
+      {
+        "$ref": "#/$defs/AssistantCommand"
+      },
+      {
+        "$ref": "#/$defs/EvaluationCommand"
+      },
+      {
+        "$ref": "#/$defs/ActionCommand"
+      },
+      {
+        "$ref": "#/$defs/ArtifactExportCommand"
+      },
+      {
+        "$ref": "#/$defs/EmptyCommand"
+      }
+    ]
+  },
+  "commandResponse": {
+    "additionalProperties": false,
+    "properties": {
+      "accepted": {
+        "title": "Accepted",
+        "type": "boolean"
+      },
+      "requestId": {
+        "title": "Requestid",
+        "type": "string"
+      },
+      "operationId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Operationid"
+      },
+      "result": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Result"
+      }
+    },
+    "required": [
+      "accepted",
+      "requestId"
+    ],
+    "title": "CommandResponse",
+    "type": "object"
+  }
+}

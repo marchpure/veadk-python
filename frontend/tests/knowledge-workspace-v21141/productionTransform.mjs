@@ -13,6 +13,8 @@ const MUTATING_INTENT_TEXT =
 const TIMER = /\b(?:setTimeout|setInterval)\s*\(/;
 const EVENT_NAME = /^on[A-Z]/;
 const NON_MUTATING_HANDLERS = new Set([
+  "handleNext",
+  "handlePrev",
   "handleResize",
   "handleKey",
   "handleEsc",
@@ -30,6 +32,11 @@ const NON_MUTATING_HANDLERS = new Set([
   "handleAddStage",
   "handleRemoveStage",
   "handleStageChange",
+]);
+const LOCAL_COMPOSITION_HANDLERS = new Set([
+  "handleLocalUpload",
+  "handleFeishuCheck",
+  "handleFeishuSync",
 ]);
 
 function nodeText(source, node) {
@@ -76,6 +83,7 @@ function containsJsx(node) {
 
 function mutationLike(name, body) {
   if (name && NON_MUTATING_HANDLERS.has(name)) return false;
+  if (name && LOCAL_COMPOSITION_HANDLERS.has(name)) return false;
   if (
     name &&
     /^(?:handleSend|handleSuggestionClick|handleRealFileUpload|handleUpload|handleNext|handlePublish|handleConfirm|confirm|apply|startReEval|applySuggestions|generate|request|approve|save|submit|create|publish|share|revoke|test|sync|refresh|retry|delete|remove)/.test(
@@ -150,6 +158,9 @@ function handlerIsMutation(expression, eventName, source, mutationNames) {
     return false;
   }
   const body = nodeText(source, expression.body);
+  if ([...LOCAL_COMPOSITION_HANDLERS].some((name) =>
+    new RegExp(`\\b${name}\\s*\\(`).test(body)
+  )) return false;
   if (mutationLike(undefined, body)) return true;
   return [...mutationNames].some((name) =>
     new RegExp(`\\b${name}\\s*\\(`).test(body),
@@ -295,8 +306,20 @@ function neutralizePrototypeSuccessMessages(code) {
   return output;
 }
 
-function commandForHandler(handlerName, source) {
+function commandForHandler(handlerName, source, filePath) {
   const value = `${handlerName ?? ""} ${source}`.toLowerCase();
+  if (
+    filePath?.endsWith("/components/MainArea/AddKnowledgeBaseView.tsx") &&
+    handlerName === "handleCreate"
+  ) {
+    return "skill-draft.create";
+  }
+  if (
+    filePath?.endsWith("/components/MainArea/SkillBuilderView.tsx") &&
+    value.includes("handlepublish")
+  ) {
+    return "skill-draft.save-manifest";
+  }
   if (value.includes("publish") || value.includes("bind") || value.includes("发布") || value.includes("授权")) return "resource.publish";
   if (value.includes("share") || value.includes("分享")) return "resource.share";
   if (value.includes("revoke") || value.includes("rollback") || value.includes("撤销") || value.includes("回滚")) return "resource.revoke";
@@ -315,7 +338,7 @@ function commandForHandler(handlerName, source) {
     value.includes("助手") ||
     value.includes("对话")
   ) return "assistant.turn";
-  return "workspace.mutation";
+  return "action.update";
 }
 
 function preserveHandler(handlerName, source) {
@@ -393,6 +416,7 @@ export function transformFrozenProductionMutations(
       if (
         name &&
         directPrototypeMutationNames.has(name) &&
+        !LOCAL_COMPOSITION_HANDLERS.has(name) &&
         !containsJsx(node.body)
       ) {
         functionReplacements.push({
@@ -441,7 +465,11 @@ export function transformFrozenProductionMutations(
       end: expression.end,
       value: keepOriginal
         ? `(...__kwArgs${index}) => { ${preventDefault} void __runProductionMutation(${JSON.stringify({
-          command: commandForHandler(handlerName, nodeText(productionCode, expression)),
+          command: commandForHandler(
+            handlerName,
+            nodeText(productionCode, expression),
+            filePath,
+          ),
           sourcePath: filePath.slice(frozenRoot.length + 1).replaceAll("\\", "/"),
           eventName: node.name.text,
           ...(handlerName ? { handlerName } : {}),
@@ -450,7 +478,11 @@ export function transformFrozenProductionMutations(
             sourcePath: filePath.slice(frozenRoot.length + 1).replaceAll("\\", "/"),
             eventName: node.name.text,
             handlerName,
-            command: commandForHandler(handlerName, nodeText(productionCode, expression)),
+            command: commandForHandler(
+              handlerName,
+              nodeText(productionCode, expression),
+              filePath,
+            ),
             index,
           }),
     });

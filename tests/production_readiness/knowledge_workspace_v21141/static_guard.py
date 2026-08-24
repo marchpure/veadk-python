@@ -37,10 +37,16 @@ STEP_1_ALLOWED_PATHS = {
     "frontend/knowledgeWorkspaceV21141GlobalSetup.mjs",
     "frontend/playwright.knowledge-workspace-v21141.config.mjs",
     "frontend/tests/knowledgeWorkspaceV21141Contracts.test.mjs",
+    "scripts/generate_knowledge_asset_seam.py",
+    "tests/frontend/test_knowledge_asset_bff.py",
+    "veadk/cli/cli_frontend.py",
 }
 STEP_1_ALLOWED_PREFIXES = (
     "docs/productization/v2.11.4.1/",
+    "docs/knowledge-assets/implementation/",
     "frontend/tests/knowledge-workspace-v21141/",
+    "frontend/server/knowledge_assets/",
+    "frontend/src/knowledge-workspace/production/",
     "tests/frontend/knowledge_workspace_v21141/",
     "tests/fixtures/knowledge_workspace_v21141/",
     "tests/production_readiness/knowledge_workspace_v21141/",

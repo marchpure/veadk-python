@@ -1,0 +1,193 @@
+openapi: 3.1.0
+info:
+  title: Knowledge Asset Studio BFF
+  version: 1.0.0
+  description: Typed Browser-to-BFF contract for STEP 1A.
+servers:
+  - url: /
+security:
+  - studioSession: []
+paths:
+  /api/knowledge-assets/v1/bootstrap:
+    get:
+      operationId: getKnowledgeAssetBootstrap
+      responses:
+        "200":
+          description: Caller-scoped bootstrap projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapResponse"
+  /api/knowledge-assets/v1/commands:
+    post:
+      operationId: dispatchKnowledgeAssetCommand
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandRequest"
+      responses:
+        "200":
+          description: Synchronous command result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponse"
+        "202":
+          description: Accepted operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/knowledge-assets/v1/streams:
+    post:
+      operationId: startKnowledgeAssetStream
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/LastEventId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StreamCommandRequest"
+      responses:
+        "200":
+          description: Ordered resumable SSE
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/knowledge-assets/v1/operations/{operationId}:
+    get:
+      operationId: getKnowledgeAssetOperation
+      parameters:
+        - $ref: "#/components/parameters/OperationId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Persistent operation projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/knowledge-assets/v1/operations/{operationId}/audit:
+    get:
+      operationId: getKnowledgeAssetOperationAudit
+      parameters:
+        - $ref: "#/components/parameters/OperationId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Durable audit projection for the operation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [operationId, items]
+                properties:
+                  operationId: { type: string }
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditItem"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/knowledge-assets/v1/operations/{operationId}/events:
+    get:
+      operationId: replayKnowledgeAssetOperationEvents
+      parameters:
+        - $ref: "#/components/parameters/OperationId"
+        - $ref: "#/components/parameters/RequestId"
+        - $ref: "#/components/parameters/LastEventId"
+      responses:
+        "200":
+          description: Events after the supplied sequence
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/knowledge-assets/v1/operations/{operationId}:cancel:
+    post:
+      operationId: cancelKnowledgeAssetOperation
+      parameters:
+        - $ref: "#/components/parameters/OperationId"
+        - $ref: "#/components/parameters/RequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Durable cancellation projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationResponse"
+components:
+  securitySchemes:
+    studioSession:
+      type: apiKey
+      in: cookie
+      name: studio_session
+  parameters:
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: true
+      schema: { type: string, minLength: 1 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 1 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema: { type: string }
+    LastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      schema: { type: string }
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+  responses:
+    Error:
+      description: Typed error
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    ErrorEnvelope:
+      $ref: "./contracts/error.schema.json"
+    BootstrapResponse:
+      $ref: "./contracts/bootstrap.schema.json"
+    OperationResponse:
+      $ref: "./contracts/operation.schema.json"
+    AuditItem:
+      $ref: "./contracts/audit.schema.json#/$defs/AuditItem"
+    CommandResponse:
+      $ref: "./contracts/command-registry.schema.json#/commandResponse"
+    CommandRequest:
+      $ref: "./contracts/command-registry.schema.json#/commandRequest"
+    StreamCommandRequest:
+      $ref: "./contracts/command-registry.schema.json#/commandRequest"

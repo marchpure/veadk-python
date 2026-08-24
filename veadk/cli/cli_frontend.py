@@ -1897,6 +1897,44 @@ def _run_frontend_server(
         create_region_candidates_resolver=_knowledge_create_regions,
     )
 
+    from frontend.server.knowledge_assets import mount_knowledge_asset_routes
+    from frontend.server.knowledge_assets.application import (
+        KnowledgeAssetApplication,
+    )
+    from frontend.server.knowledge_assets.repository import (
+        SqliteKnowledgeAssetRepository,
+    )
+    from frontend.server.knowledge_assets.postgres_repository import (
+        PostgresKnowledgeAssetRepository,
+    )
+
+    def _knowledge_asset_identity(request: Request) -> tuple[str, str]:
+        principal = _current_principal(request)
+        if access_policy.enabled and principal is None:
+            raise HTTPException(status_code=401, detail="Studio identity is required")
+        return (
+            principal.owner_id if principal is not None else "local",
+            "admin" if access_policy.role_for(principal) == StudioRole.ADMIN else "editor",
+        )
+
+    knowledge_asset_dsn = os.getenv("VEADK_STUDIO_KNOWLEDGE_ASSET_DATABASE_URL")
+    knowledge_asset_repository = (
+        PostgresKnowledgeAssetRepository(knowledge_asset_dsn)
+        if knowledge_asset_dsn
+        else SqliteKnowledgeAssetRepository(
+            os.getenv(
+                "VEADK_STUDIO_KNOWLEDGE_ASSET_DB",
+                ".veadk/knowledge-assets.sqlite3",
+            )
+        )
+    )
+
+    mount_knowledge_asset_routes(
+        app,
+        application=KnowledgeAssetApplication(knowledge_asset_repository),
+        identity_resolver=_knowledge_asset_identity,
+    )
+
     from frontend.server.video.routes import (
         build_video_service,
         mount_video_routes,

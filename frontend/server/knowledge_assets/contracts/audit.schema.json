@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "AuditItem": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "occurredAt": {
+          "title": "Occurredat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requestId",
+        "operationId",
+        "workspaceId",
+        "action",
+        "resourceId",
+        "outcome",
+        "occurredAt"
+      ],
+      "title": "AuditItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "operationId": {
+      "title": "Operationid",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/AuditItem"
+      },
+      "title": "Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "operationId"
+  ],
+  "title": "OperationAuditResponse",
+  "type": "object"
+}

@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "ResourceSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "displayName": {
+          "title": "Displayname",
+          "type": "string"
+        },
+        "resourceKind": {
+          "const": "skill_draft",
+          "default": "skill_draft",
+          "title": "Resourcekind",
+          "type": "string"
+        },
+        "subtype": {
+          "const": "skill",
+          "default": "skill",
+          "title": "Subtype",
+          "type": "string"
+        },
+        "space": {
+          "enum": [
+            "personal",
+            "team"
+          ],
+          "title": "Space",
+          "type": "string"
+        },
+        "lifecycle": {
+          "const": "draft",
+          "default": "draft",
+          "title": "Lifecycle",
+          "type": "string"
+        },
+        "version": {
+          "default": "DRAFT",
+          "title": "Version",
+          "type": "string"
+        },
+        "revision": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "permission": {
+          "default": true,
+          "title": "Permission",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "space"
+      ],
+      "title": "ResourceSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/ResourceSummary"
+      },
+      "title": "Resources",
+      "type": "array"
+    },
+    "connections": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Connections",
+      "type": "array"
+    },
+    "publications": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Publications",
+      "type": "array"
+    },
+    "routes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Routes",
+      "type": "array"
+    },
+    "workspaceData": {
+      "additionalProperties": true,
+      "title": "Workspacedata",
+      "type": "object"
+    },
+    "actionLoop": {
+      "additionalProperties": {
+        "items": {},
+        "type": "array"
+      },
+      "title": "Actionloop",
+      "type": "object"
+    },
+    "access": {
+      "additionalProperties": true,
+      "title": "Access",
+      "type": "object"
+    },
+    "serverTime": {
+      "title": "Servertime",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resources",
+    "connections",
+    "publications",
+    "routes",
+    "workspaceData",
+    "actionLoop",
+    "access",
+    "serverTime"
+  ],
+  "title": "BootstrapResponse",
+  "type": "object"
+}
