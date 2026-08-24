@@ -38,6 +38,7 @@ KindExecutionState = Literal[
     "permission_denied",
     "schema_drift",
     "validation_failed",
+    "awaiting_input",
     "timeout",
     "over_budget",
     "cancelled",

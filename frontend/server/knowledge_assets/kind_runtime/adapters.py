@@ -16,7 +16,12 @@ class LocalGoldenAssetContentAdapter:
     def read_many(self, revisions: list[GoldenAssetRevision]) -> dict[str, str]:
         contents: dict[str, str] = {}
         for revision in revisions:
-            path = self.artifact_root / revision.storage_ref.sha256
-            if path.exists():
-                contents[revision.id] = path.read_text(encoding="utf-8")
+            candidates = (
+                self.artifact_root / revision.storage_ref.sha256,
+                self.artifact_root / f"{revision.storage_ref.sha256}.jsonl",
+            )
+            for path in candidates:
+                if path.exists():
+                    contents[revision.id] = path.read_text(encoding="utf-8")
+                    break
         return contents
