@@ -119,6 +119,99 @@ CREATE TABLE IF NOT EXISTS outbox_events (
   UNIQUE(aggregate_type, aggregate_id, sequence)
 );
 
+CREATE TABLE IF NOT EXISTS source_revisions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  content_ref_json JSONB NOT NULL,
+  schema_ref_json JSONB,
+  permission_ref_json JSONB NOT NULL,
+  source_digest TEXT NOT NULL,
+  source_path TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS profile_runs (
+  id TEXT PRIMARY KEY,
+  source_revision_id TEXT NOT NULL REFERENCES source_revisions(id),
+  status TEXT NOT NULL,
+  sample_ref_json JSONB,
+  report_ref_json JSONB,
+  structure_ref_json JSONB,
+  quality_score DOUBLE PRECISION,
+  sensitive_classification_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  estimated_cost_ref_json JSONB,
+  error_code TEXT,
+  started_at TIMESTAMPTZ NOT NULL,
+  finished_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS cleaning_recipes (
+  id TEXT PRIMARY KEY,
+  version INTEGER NOT NULL,
+  operations_json JSONB NOT NULL,
+  source_revision_id TEXT NOT NULL REFERENCES source_revisions(id),
+  recipe_digest TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS clean_runs (
+  id TEXT PRIMARY KEY,
+  source_revision_id TEXT NOT NULL REFERENCES source_revisions(id),
+  recipe_id TEXT NOT NULL REFERENCES cleaning_recipes(id),
+  status TEXT NOT NULL,
+  output_ref_json JSONB,
+  quality_report_ref_json JSONB,
+  error_code TEXT,
+  started_at TIMESTAMPTZ NOT NULL,
+  finished_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS golden_asset_revisions (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  asset_kind TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  schema_ref_json JSONB NOT NULL,
+  storage_ref_json JSONB NOT NULL,
+  source_revision_refs_json JSONB NOT NULL,
+  recipe_ref TEXT,
+  quality_run_ref TEXT,
+  owner_json JSONB NOT NULL,
+  permissions_ref_json JSONB NOT NULL,
+  lineage_digest TEXT NOT NULL,
+  freshness_at TIMESTAMPTZ NOT NULL,
+  last_good BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE(workspace_id, asset_kind, revision)
+);
+
+CREATE TABLE IF NOT EXISTS asset_tombstones (
+  asset_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  revoked_at TIMESTAMPTZ NOT NULL,
+  request_id TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS refresh_runs (
+  id TEXT PRIMARY KEY,
+  skill_id TEXT NOT NULL,
+  trigger TEXT NOT NULL,
+  status TEXT NOT NULL,
+  staging_ref_json JSONB,
+  current_revision INTEGER,
+  last_good_revision INTEGER,
+  error_code TEXT,
+  started_at TIMESTAMPTZ NOT NULL,
+  finished_at TIMESTAMPTZ
+);
+
+ALTER TABLE profile_runs
+  ADD COLUMN IF NOT EXISTS structure_ref_json JSONB;
+ALTER TABLE profile_runs
+  ADD COLUMN IF NOT EXISTS sensitive_classification_json JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE profile_runs
+  ADD COLUMN IF NOT EXISTS estimated_cost_ref_json JSONB;
+
 CREATE INDEX IF NOT EXISTS audit_events_operation_idx
   ON audit_events(operation_id, id);
 

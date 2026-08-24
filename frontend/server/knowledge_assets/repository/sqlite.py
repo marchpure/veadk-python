@@ -27,6 +27,7 @@ from ..contracts import (
     CleaningRecipe,
     GoldenAssetRevision,
     ProfileRun,
+    RefreshRun,
     SourceRevision,
     empty_knowledge_manifest,
     now_iso,
@@ -111,12 +112,14 @@ class KnowledgeAssetRepository(Protocol):
 
     def source_revision(self, source_revision_id: str) -> SourceRevision | None: ...
     def save_source_revision(self, revision: SourceRevision, workspace_id: str, source_path: str) -> None: ...
+    def source_revisions_for_workspace(self, workspace_id: str) -> list[SourceRevision]: ...
     def save_profile_run(self, run: ProfileRun) -> None: ...
     def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None: ...
     def save_clean_run(self, run: CleanRun) -> None: ...
     def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> GoldenAssetRevision: ...
     def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None: ...
     def revoke_asset(self, asset_id: str, workspace_id: str, request_id: str, reason: str) -> None: ...
+    def save_refresh_run(self, run: RefreshRun) -> None: ...
 
 
 class SqliteKnowledgeAssetRepository:
@@ -140,6 +143,20 @@ class SqliteKnowledgeAssetRepository:
             "001_knowledge_assets.sql"
         )
         self._connection.executescript(migration.read_text(encoding="utf-8"))
+        columns = {
+            row["name"]
+            for row in self._connection.execute("PRAGMA table_info(profile_runs)")
+        }
+        additions = {
+            "structure_ref_json": "TEXT",
+            "sensitive_classification_json": "TEXT NOT NULL DEFAULT '[]'",
+            "estimated_cost_ref_json": "TEXT",
+        }
+        for name, definition in additions.items():
+            if name not in columns:
+                self._connection.execute(
+                    f"ALTER TABLE profile_runs ADD COLUMN {name} {definition}"
+                )
 
     def bootstrap(self, workspace_id: str, role: str) -> BootstrapResponse:
         with self._lock:
@@ -331,17 +348,55 @@ class SqliteKnowledgeAssetRepository:
             ).fetchone()
         return row["workspace_id"] if row else None
 
+    def source_revisions_for_workspace(self, workspace_id: str) -> list[SourceRevision]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT * FROM source_revisions WHERE workspace_id = ? ORDER BY created_at",
+                (workspace_id,),
+            ).fetchall()
+        return [
+            SourceRevision(
+                id=row["id"], source_type=row["source_type"],
+                content_ref=json.loads(row["content_ref_json"]),
+                schema_ref=json.loads(row["schema_ref_json"]) if row["schema_ref_json"] else None,
+                permission_ref=json.loads(row["permission_ref_json"]),
+                source_digest=row["source_digest"], created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
     def save_profile_run(self, run: ProfileRun) -> None:
         with self._lock:
             self._connection.execute(
                 """INSERT OR REPLACE INTO profile_runs
                 (id, source_revision_id, status, sample_ref_json, report_ref_json,
-                 quality_score, error_code, started_at, finished_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 structure_ref_json, quality_score, sensitive_classification_json,
+                 estimated_cost_ref_json, error_code, started_at, finished_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (run.id, run.source_revision_id, run.status,
                  run.sample_ref.model_dump_json(by_alias=True) if run.sample_ref else None,
                  run.report_ref.model_dump_json(by_alias=True) if run.report_ref else None,
-                 run.quality_score, run.error_code, run.started_at, run.finished_at),
+                 run.structure_ref.model_dump_json(by_alias=True) if run.structure_ref else None,
+                 run.quality_score, json.dumps(run.sensitive_classification),
+                 run.estimated_cost_ref.model_dump_json(by_alias=True)
+                 if run.estimated_cost_ref else None,
+                 run.error_code, run.started_at, run.finished_at),
+            )
+
+    def save_refresh_run(self, run: RefreshRun) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO refresh_runs
+                (id, skill_id, trigger, status, staging_ref_json, current_revision,
+                 last_good_revision, error_code, started_at, finished_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    run.id, run.skill_id, run.trigger, run.status,
+                    run.staging_ref.model_dump_json(by_alias=True)
+                    if run.staging_ref else None,
+                    run.current_revision, run.last_good_revision, run.error_code,
+                    run.started_at, run.finished_at,
+                ),
             )
 
     def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None:

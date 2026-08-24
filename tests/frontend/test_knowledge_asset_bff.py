@@ -389,8 +389,10 @@ def test_registered_not_ready_commands_return_typed_failure(
     assert response.status_code == 200
     body = response.json()
     assert body["accepted"] is False
-    assert body["result"]["status"] == "not_ready"
-    assert body["result"]["error"]["code"] == "COMMAND_NOT_READY"
+    expected_status = "failed" if command == "refresh.run" else "not_ready"
+    assert body["result"]["status"] == expected_status
+    expected_code = "SKILL_NOT_FOUND" if command == "refresh.run" else "COMMAND_NOT_READY"
+    assert body["result"]["error"]["code"] == expected_code
 
 
 def test_sqlite_migration_replay_and_revision_pointers() -> None:

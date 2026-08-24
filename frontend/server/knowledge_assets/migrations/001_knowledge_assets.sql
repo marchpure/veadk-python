@@ -141,7 +141,10 @@ CREATE TABLE IF NOT EXISTS profile_runs (
   status TEXT NOT NULL,
   sample_ref_json TEXT,
   report_ref_json TEXT,
+  structure_ref_json TEXT,
   quality_score REAL,
+  sensitive_classification_json TEXT NOT NULL DEFAULT '[]',
+  estimated_cost_ref_json TEXT,
   error_code TEXT,
   started_at TEXT NOT NULL,
   finished_at TEXT,
@@ -194,6 +197,19 @@ CREATE TABLE IF NOT EXISTS asset_tombstones (
   reason TEXT NOT NULL,
   revoked_at TEXT NOT NULL,
   request_id TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS refresh_runs (
+  id TEXT PRIMARY KEY,
+  skill_id TEXT NOT NULL,
+  trigger TEXT NOT NULL,
+  status TEXT NOT NULL,
+  staging_ref_json TEXT,
+  current_revision INTEGER,
+  last_good_revision INTEGER,
+  error_code TEXT,
+  started_at TEXT NOT NULL,
+  finished_at TEXT
 );
 
 INSERT OR IGNORE INTO schema_migrations(version, applied_at)

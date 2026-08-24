@@ -20,7 +20,9 @@ def test_local_connector_reads_markdown_and_csv_with_typed_events(tmp_path: Path
     for name in ("notes.md", "rows.csv"):
         config = ConnectorConfig(kind="markdown" if name.endswith("md") else "csv", endpoint=name)
         assert connector.test_connection(context(), config).status == "succeeded"
-        assert connector.introspect(context(), config).status == "succeeded"
+        introspection = connector.introspect(context(), config)
+        assert introspection.status == "succeeded"
+        assert introspection.details["schemaDigest"]
 
 
 def test_local_connector_rejects_escape_unsupported_and_oversize(tmp_path: Path) -> None:
@@ -42,3 +44,12 @@ def test_external_connector_is_explicitly_credential_blocked() -> None:
     )
     assert event.status == "credential_blocked"
     assert event.details["kind"] == "oracle"
+
+
+def test_external_connector_rejects_missing_secret_reference_without_inline_secret() -> None:
+    adapter = connector_for("web_api")
+    event = adapter.test_connection(
+        context(), ConnectorConfig(kind="web_api", endpoint="https://example.invalid")
+    )
+    assert event.status == "credential_blocked"
+    assert "secretRef" in event.details["reason"]

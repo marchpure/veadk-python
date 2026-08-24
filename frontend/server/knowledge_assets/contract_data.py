@@ -34,7 +34,10 @@ class ProfileRun(ContractModel):
     status: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     sample_ref: StorageRef | None = None
     report_ref: StorageRef | None = None
+    structure_ref: StorageRef | None = None
     quality_score: float | None = Field(default=None, ge=0, le=1)
+    sensitive_classification: list[str] = Field(default_factory=list, max_length=100)
+    estimated_cost_ref: StorageRef | None = None
     error_code: str | None = None
     started_at: str
     finished_at: str | None = None
@@ -113,4 +116,3 @@ class SkillResult(ContractModel):
     golden_asset_revision_refs: list[str] = Field(default_factory=list, max_length=100)
     trace_id: str
     freshness_at: str | None = None
-

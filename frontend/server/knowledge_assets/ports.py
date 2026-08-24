@@ -120,11 +120,16 @@ class CredentialBlockedConnector:
         self.kind = kind
 
     def _blocked(self, context: ConnectorContext, operation: str) -> ConnectorEvent:
+        reason = (
+            "secretRef is required; credentials are never accepted inline"
+            if not context.secret_ref
+            else "usable credentials/configuration required"
+        )
         return ConnectorEvent(
             operation=operation,
             status="credential_blocked",
             trace_id=context.trace_id,
-            details={"kind": self.kind, "reason": "usable credentials/configuration required"},
+            details={"kind": self.kind, "reason": reason},
         )
 
     def discover(self, context, config): return self._blocked(context, "discover")

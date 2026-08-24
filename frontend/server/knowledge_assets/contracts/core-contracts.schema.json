@@ -2537,6 +2537,17 @@
           ],
           "default": null
         },
+        "structureRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "qualityScore": {
           "anyOf": [
             {
@@ -2550,6 +2561,25 @@
           ],
           "default": null,
           "title": "Qualityscore"
+        },
+        "sensitiveClassification": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sensitiveclassification",
+          "type": "array"
+        },
+        "estimatedCostRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "errorCode": {
           "anyOf": [
@@ -2925,14 +2955,29 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "skillId": {
           "title": "Skillid",
           "type": "string"
+        },
+        "refreshRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RefreshRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
