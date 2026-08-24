@@ -473,3 +473,31 @@ test("neutralized success handlers still dispatch a typed production command", a
   assert.match(publishHandler ?? "", /resource\.publish/);
   assert.doesNotMatch(publishHandler ?? "", /已成功发布/);
 });
+
+test("assistant composer keeps the frozen Enter transition behind adapter acceptance", async () => {
+  const { transformFrozenProductionMutations } = await import(
+    "./productionTransform.mjs"
+  );
+  const filePath = join(
+    frozenRoot,
+    "components/RightPane/ChatAssistant.tsx",
+  );
+  const transformed = transformFrozenProductionMutations(
+    readFileSync(filePath, "utf8"),
+    filePath,
+    frozenRoot,
+    productionRoot,
+  );
+  assert.ok(transformed);
+  assert.match(transformed.code, /"command":"assistant\.turn"/);
+  assert.match(transformed.code, /__kwAccepted/);
+  assert.match(
+    transformed.code,
+    /key !== "Enter"[\s\S]{0,120}shiftKey/,
+  );
+  assert.doesNotMatch(transformed.code, /isComposing/);
+  assert.doesNotMatch(
+    transformed.code,
+    /onKeyDown=\{\(\.\.\.__kwArgs\d+\) => \{ void __runProductionMutation\(/,
+  );
+});

@@ -366,8 +366,25 @@ function kwCommandForHandler(
   ) {
     return "action.update";
   }
-  if (value.includes("assistant") || value.includes("chat") || value.includes("助手") || value.includes("对话")) return "assistant.turn";
+  if (
+    value.includes("assistant") ||
+    value.includes("chat") ||
+    value.includes("handlesend") ||
+    value.includes("助手") ||
+    value.includes("对话")
+  ) return "assistant.turn";
   return "workspace.mutation";
+}
+
+function kwPreserveHandler(
+  handlerName: string | undefined,
+  source: string,
+): boolean {
+  // The frozen welcome composer uses handleSend for a local URL/state
+  // transition. Keep that interaction intact, but gate it behind the typed
+  // assistant.turn acknowledgement so a rejected production command cannot
+  // appear as a successful UI mutation.
+  return handlerName === "handleSend" || /\bhandleSend\s*\(/.test(source);
 }
 
 export function transformFrozenProductionMutations(
@@ -450,10 +467,21 @@ export function transformFrozenProductionMutations(
     if (!kwHandlerIsMutation(expression, node.name.text, productionCode, mutationNames)) {
       return;
     }
+    const preserveHandler = kwPreserveHandler(
+      handlerName,
+      kwNodeText(productionCode, expression),
+    );
+    const original = kwNodeText(productionCode, expression);
+    const invokeOriginal = preserveHandler
+      ? `if (__kwAccepted) { (${original})(...__kwArgs${index}); }`
+      : "";
+    const preventDefault = preserveHandler && node.name.text === "onKeyDown"
+      ? `if (__kwArgs${index}[0]?.key !== "Enter" || __kwArgs${index}[0]?.shiftKey) { return; } __kwArgs${index}[0].preventDefault();`
+      : "";
     replacements.push({
       start: expression.getStart(sourceFile),
       end: expression.end,
-      value: `(...__kwArgs${index++}) => { void __runProductionMutation(${JSON.stringify(
+      value: `(...__kwArgs${index}) => { ${preventDefault} void __runProductionMutation(${JSON.stringify(
         {
           command: kwCommandForHandler(
             handlerName,
@@ -465,8 +493,9 @@ export function transformFrozenProductionMutations(
           eventName: node.name.text,
           ...(handlerName ? { handlerName } : {}),
         },
-      )}); }`,
+      )}).then((__kwAccepted) => { ${invokeOriginal} }); }`,
     });
+    index += 1;
   });
   const allReplacements = [
     ...replacements,
