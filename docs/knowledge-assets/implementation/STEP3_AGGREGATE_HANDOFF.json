@@ -2,7 +2,7 @@
   "status": "BLOCKED",
   "step4Ready": false,
   "date": "2026-08-25",
-  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869", "a4a258e6", "906ca828", "7949f452"],
+  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869", "a4a258e6", "906ca828", "7949f452", "a35220b6", "4aa377fe"],
   "workerCommits": {"W1": ["85b8a19c"], "W2": ["65037a4b", "bdb1573d", "a03cb607", "bffeeb88"], "W3": ["d7cb4cb2", "0e2462d8"], "W4": ["308f1022", "45e44eb6", "6ee81405"]},
   "finalTag": null,
   "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
@@ -20,7 +20,7 @@
     "mainKnowledgeGoldenRegression": "25 passed in focused compatibility run",
     "mainBackendRegression": "104 passed, 13 skipped",
     "w4Audit": "6 passed",
-    "build": "passed",
+    "build": "passed after real-view integration",
     "staticGuard": "passed"
   },
   "studioUrl": "http://127.0.0.1:4173/?studio=knowledge",
@@ -28,6 +28,7 @@
   "knownDebt": [
     "W1 real Source/Golden Data commit and W1.status.json are pending; W1 worktree has untracked files",
     "W4 read-only final verification is pending until all Worker worktrees are clean and the unified real chain passes",
+    "production Dashboard now consumes workspace-scoped SkillViewRevision through typed bootstrap; full browser proof is still pending",
     "external credential connectors remain blocked",
     "formal publication, Registry, Scheduler, and cross-Agent calling are STEP 4",
     "STEP4_READY remains false pending completion of STEP 3 and a separate release decision"
