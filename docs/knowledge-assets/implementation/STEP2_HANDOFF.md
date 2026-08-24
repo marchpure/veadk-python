@@ -21,7 +21,7 @@ STEP 3 Skill View generation and STEP 4 publishing were not started.
 - `62a086ea` — append-only Golden Data revisions and tombstones.
 - `26de3274` — authenticated-workspace permission revocation through BFF.
 
-Frozen source commit: `26de3274120db4178f56e76a9a74662c3755133e`
+Frozen source commit: `74ad5437b300c0914f1c99adbfb188335eaa080b`
 
 ## Worker status
 
@@ -30,24 +30,31 @@ Frozen source commit: `26de3274120db4178f56e76a9a74662c3755133e`
 | A | contracts, generated client, `/api/knowledge-assets/v1/*` seam | PASS |
 | B | local Markdown/CSV source, profile, clean, Golden Data lifecycle | PASS |
 | C | browser seam and action wiring | PASS |
-| D | runtime composition and connector boundaries | PASS |
-| E | static guard, migration, focused contract evidence | PASS with limitation |
+| D | runtime composition and connector/security boundaries | PASS |
+| E | static guard, migration, focused contract/security evidence | PASS |
 
 ## Evidence
 
-- `pytest -q tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py`
-  — 5 passed.
+- `pytest -q tests/frontend/knowledge_workspace_v21141
+  tests/frontend/test_knowledge_asset_bff.py` — 50 passed, 13 skipped
+  external-E2E cases.
+- Combined static-guard and relevant regression tests — 54 passed, 13 skipped.
 - Local/BFF/connector/runtime focused suite — passed.
 - `python tests/production_readiness/knowledge_workspace_v21141/static_guard.py --repo-root .`
   — `status: pass`, zero findings.
 - Schema export and `git diff --check` — passed.
-- Python compile and SQLite migration replay — passed.
+- Python compile and SQLite migration replay — passed; 21 tables and
+  upgrade-in-place coverage passed.
 - Production-boundary evidence — 18 passed with the temporary same-version
   dependency link removed afterward.
+- Refresh matrix — staging success, source-read failure preserving last-good,
+  and schema-drift rejection passed.
+- Security matrix — SSRF/DNS rebinding, inline-secret rejection, read-only
+  parameterized SQL, MCP allowlist, and output budget passed.
 
-The historical `test_static_guard.py` still contains a stale assertion for
-47–60 production files; the current tree is 83. It is recorded as a test
-limitation and was not “fixed” by changing guard rules or thresholds.
+The authoritative static guard owns scope, split, and gross/net budget checks;
+the historical test wrapper now delegates those checks instead of pinning a
+historical production-file count.
 
 ## Credential and data boundary
 
@@ -61,5 +68,5 @@ success is simulated.
 ## Immutable handoff tag
 
 The existing tag `knowledge-v2.11.4.1-commercial-step-2` was not moved or
-overwritten. This integration checkpoint uses the new non-conflicting tag
-`knowledge-skill-factory-step-2-integration`.
+overwritten. This quality checkpoint uses the new non-conflicting tag
+`knowledge-skill-factory-step-2-quality`.

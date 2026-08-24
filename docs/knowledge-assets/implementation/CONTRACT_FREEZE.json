@@ -1,8 +1,8 @@
 {
   "schemaVersion": "knowledge-assets.contract-freeze.v2",
   "step": "STEP_2_INTEGRATION",
-  "sourceCommit": "26de3274120db4178f56e76a9a74662c3755133e",
-  "immutableTag": "knowledge-skill-factory-step-2-integration",
+  "sourceCommit": "74ad5437b300c0914f1c99adbfb188335eaa080b",
+  "immutableTag": "knowledge-skill-factory-step-2-quality",
   "branch": "knowledge-skill-factory-step-1-corrective-quality",
   "result": "READY_WITH_STEP2_LIMITATIONS",
   "canonicalObject": "Skill",
@@ -50,7 +50,7 @@
   ],
   "verification": {
     "schemaGeneration": "passed; generated artifacts are clean",
-    "focusedPython": "16 passed",
+    "focusedPython": "54 passed, 13 skipped external-E2E cases",
     "migrationGateway": "13 passed",
     "combinedPython": "29 passed",
     "frontendProductionBoundary": "18 passed",
@@ -65,7 +65,10 @@
     "externalConnectors": "Oracle, Web API, MCP, and published Skill are credential_blocked",
     "runtimeComposition": "authenticated FastAPI BFF composition passed",
     "permissionRevocation": "authenticated-workspace BFF tombstone path passed",
-    "historicalStaticGuardTest": "blocked by stale 47-60 production-file-count assertion; authoritative guard passes",
+    "historicalStaticGuardTest": "scope/budget wrapper updated; authoritative guard unchanged",
+    "refresh": "staging success, source-read failure last-good preservation, and schema-drift rejection passed",
+    "security": "SSRF/DNS rebinding, inline-secret, read-only SQL, MCP allowlist/output budget passed",
+    "migrationUpgrade": "SQLite upgrade-in-place and replay passed with 21 tables",
     "step3": "not started",
     "step4": "not started"
   },
@@ -84,9 +87,10 @@
       "frontend/server/knowledge_assets/runtime.py",
       "frontend/server/knowledge_assets/routes/http.py"
     ],
-    "generatedContractSha256": "b03eba014265e14881ce87a8ebcf8b59bbb281c7b13d624ed8cc0e04c49e44dc",
-    "generatedTypeScriptSha256": "7c5c05be80d3dec36bdc23969a4f727fb2e6c52af5c4433c4949706e1e5bb508",
-    "migrationSha256": "4018795c83d4d4826ef22ef982cfdd2cf88e5dd33dd0351a688a61d379754e95"
+    "generatedContractSha256": "f53c10267435a1b3e0459cbbbc6f4a038aec95065d08cd100a90bebb52f3b1d8",
+    "generatedTypeScriptSha256": "8701ed10d71db33b9642c4c47bf4b76932a976670e22bde1f45b9126091e1a85",
+    "migrationSha256": "2f96c6a3bd997f406f68d722f040d1cd81e5f64d99c95c3466d09adb97bf159f",
+    "postgresMigrationSha256": "163267b576e6af3eb45980fe4eccb5f985a25cda97f20f8de6181ae94a1de7b0"
   },
   "files": [
     "frontend/server/knowledge_assets/contracts.py",
