@@ -1,8 +1,38 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactExportResult, AssistantTurnResult, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SkillAuthoringStartResult, SkillDraftRunResult } from "./part3";
-import type { SkillManifestAction, SkillResult, SourceCleanResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
+import type { ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, DraftCommandResult, ErrorEnvelope } from "./part1";
+import type { ManifestInputSchema, NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SkillAuthoringStartResult, SkillDraftRunResult } from "./part3";
+import type { SkillManifestAction, SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
+
+export interface EvaluationCaseAdoptHistoryCommand {
+  command: "evaluation-case.adopt-history";
+  payload: EvaluationCaseAdoptHistoryPayload;
+}
+
+export interface EvaluationCaseAdoptHistoryPayload {
+  caseId: string;
+  category: string;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  provenanceRef: string;
+  source: "historical_conversation" | "historical_run";
+}
+
+export interface EvaluationCaseConfirmCommand {
+  command: "evaluation-case.confirm-candidates";
+  payload: EvaluationCaseConfirmPayload;
+}
+
+export interface EvaluationCaseConfirmPayload {
+  suiteId: string;
+  version: number;
+  caseIds: Array<string>;
+}
+
+export interface EvaluationCaseGenerateCandidateCommand {
+  command: "evaluation-case.generate-candidates";
+  payload: EvaluationCaseGenerateCandidatePayload;
+}
 
 export interface EvaluationCaseGenerateCandidatePayload {
   caseId: string;
@@ -162,7 +192,7 @@ export interface Event {
   occurredAt: string;
   type: "accepted" | "progress" | "succeeded" | "failed" | "cancelled";
   terminal: boolean;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
   error?: ErrorEnvelope | null;
 }
 
@@ -208,6 +238,38 @@ export interface GoldenAssetRevision {
   lineageDigest: string;
   freshnessAt: string;
   lastGood?: boolean;
+}
+
+export interface GoldenAssetRevisionRecord {
+  id: string;
+  assetId: string;
+  revision: number;
+  assetKind: "dataset" | "knowledge";
+  schemaDigest: string;
+  storageRef: ArtifactRef;
+  owner: AssetOwner;
+  permissions: AssetPermission;
+  lineage: GoldenLineage;
+  qualityScore: number;
+  freshnessAt: string;
+  dataAsOf: string;
+  lastGood?: boolean;
+  traceId: string;
+}
+
+export interface GoldenLineage {
+  connectionId: string;
+  resourceId: string;
+  sourceRevisionId: string;
+  profileRunId: string;
+  recipeId: string;
+  recipeVersion: number;
+  cleanRunId: string;
+  contentDigest: string;
+  correlationId: string;
+  adapterRunId?: string | null;
+  lineageDigest: string;
+  toolArguments?: Record<string, unknown>;
 }
 
 export interface GraphEdge {
@@ -326,16 +388,4 @@ export interface LegacySkillManifestInput {
   description?: string;
   actions?: Array<SkillManifestAction>;
   schema?: ManifestInputSchema;
-}
-
-export interface ManifestInputSchema {
-  type?: "object";
-  properties?: Record<string, ManifestProperty>;
-  required?: Array<string>;
-  additionalProperties?: boolean;
-}
-
-export interface ManifestProperty {
-  type: "string" | "number" | "boolean" | "object" | "array";
-  description?: string;
 }

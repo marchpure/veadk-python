@@ -1,10 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { CaseCategory, CaseSource, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GraphOntologyViewModel, KnowledgeViewModel } from "./part2";
-import type { MonitoringViewModel, OwnerRef, PatchOperation, PermissionRef, PolicyCheck, ProfileRun, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
-
-export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";
+import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionInstance, ConnectorOperation, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
+import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, KnowledgeViewModel } from "./part2";
+import type { MonitoringViewModel, OwnerRef, PatchOperation, PermissionRef, PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
 
 export interface SkillManifest {
   apiVersion?: "knowledge.veadk.io/v1alpha1";
@@ -120,6 +118,49 @@ export interface SourceCleanResult {
   goldenAssetRevision?: GoldenAssetRevision | null;
 }
 
+export interface SourceGoldenConnectionCreateCommand {
+  command: "source-golden.connection.create";
+  payload: SourceGoldenConnectionCreatePayload;
+}
+
+export interface SourceGoldenConnectionCreatePayload {
+  connectorKey: string;
+  displayName: string;
+  scope?: "personal" | "team";
+  configuration?: Record<string, unknown>;
+  secretRef?: string | null;
+}
+
+export interface SourceGoldenConnectionResult {
+  resultType?: "source_golden.connection";
+  connection: ConnectionInstance;
+  validation: ConnectorOperation;
+  discovery: ConnectorOperation;
+  replayed?: boolean;
+}
+
+export interface SourceGoldenIngestCommand {
+  command: "source-golden.ingest";
+  payload: SourceGoldenIngestPayload;
+}
+
+export interface SourceGoldenIngestPayload {
+  connectionId: string;
+  resourceId?: string | null;
+  recipeOperations?: Array<"trim" | "deduplicate" | "normalize" | "redact">;
+  toolArguments?: Record<string, unknown>;
+}
+
+export interface SourceGoldenIngestResult {
+  resultType?: "source_golden.ingest";
+  sourceRevision: SourceRevisionRecord;
+  profileRun: ProfileRunRecord;
+  cleaningRecipe: CleaningRecipeRecord;
+  cleanRun: CleanRunRecord;
+  goldenAssetRevision: GoldenAssetRevisionRecord;
+  replayed?: boolean;
+}
+
 export interface SourceProfileCommand {
   command: "source.profile";
   payload: SourceProfilePayload;
@@ -146,6 +187,21 @@ export interface SourceRevision {
   permissionRef: PermissionRef;
   sourceDigest: string;
   createdAt: string;
+}
+
+export interface SourceRevisionRecord {
+  id: string;
+  workspaceId: string;
+  connectionId: string;
+  resourceId: string;
+  sourceType: "markdown" | "csv" | "excel" | "pdf" | "sqlite" | "mcp";
+  contentRef: ArtifactRef;
+  sourceDigest: string;
+  schemaDigest: string;
+  sourceLocator: string;
+  permissionVersion: number;
+  createdAt: string;
+  traceId: string;
 }
 
 export interface StorageRef {
