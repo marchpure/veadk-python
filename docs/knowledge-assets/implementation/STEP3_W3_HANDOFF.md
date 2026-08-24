@@ -4,7 +4,8 @@ Status: `STEP3_W3_FROZEN`
 
 Date: 2026-08-25
 
-Worker: Backend Worker 3 — Multi-kind Skill Execution & View Projection
+Worker: Backend Worker 3 — Multi-kind Skill Execution, View Projection &
+Dashboard Artifact Generation
 
 Branch/worktree:
 
@@ -63,6 +64,15 @@ Branch/worktree:
   - Worker 3-owned SQLite operation repository for operation lifecycle,
     idempotency replay, cancellation flags, retry records, and incomplete
     operation discovery after process restart
+- `frontend/server/knowledge_assets/kind_runtime/dashboard_artifacts.py`
+  - W3-owned Dashboard artifact generation contract
+  - consumes W2 `DashboardBuildPlan` plus W1 `GoldenAssetRevision` and Golden
+    Data content
+  - creates an independent frontend artifact workspace with source, data config,
+    dependency manifest, build output, revision, lineage, and publish-ready
+    handoff metadata
+  - runs the generated workspace's real `npm run build` and validates browser
+    rendering through the generated `npm run serve` path
 - `frontend/server/knowledge_assets/kind_runtime/projector.py`
   - typed `SkillResult`, `ViewIntent`, `SkillViewRevision`
   - content-addressed result, evidence, trace, view-model, and trusted HTML refs
@@ -88,6 +98,7 @@ Branch/worktree:
 | Graph ontology evidence-backed relations | `GraphMappingProvider`; graph edges come from schema/mapping/evidence relationships, not positional `related_to` links. |
 | Monitoring action loop lifecycle | `MonitoringHandler` plus `MonitoringLifecycle`; observations, alerts, last-good revision, duration, and preview-only action candidates are persisted with `externalActionsExecuted=false`. |
 | Trusted lifecycle/safe renderer alternative | `trusted_html`; test checks CSP marker, a11y region, text alternative, and no script/iframe. |
+| Dashboard artifact generation | `DashboardArtifactRequest` + `DashboardBuildPlan` in `dashboard_artifacts.py`; creates a standalone frontend workspace and build output from real Golden Data, with data-sensitive KPI/chart/table/HTML digests and Chrome screenshot verification. |
 
 ## Corrective hardening after `96b7d10b`
 
@@ -117,6 +128,95 @@ freezes W3 after correcting the hardening gaps:
 - Monitoring stores lifecycle observations, alerts, last-good revision,
   duration, and preview action candidates, with no STEP 4 Scheduler execution.
 
+## Dashboard artifact generation freeze
+
+W3 now owns only the Dashboard generation/build/render artifact boundary. It
+does not implement or simulate MCP, `veadk.Agent`, `veadk.Runner`, Skill
+publication, or reinvocation.
+
+Input contract:
+
+- W2 `DashboardBuildPlan`: user goal, title, `dataQueryRef`, `invocationRef`,
+  KPI definitions, chart plan, table fields, insight templates, and layout.
+- W1 `GoldenAssetRevision` plus Golden Data content.
+- typed `SkillManifest`, caller/workspace, generation time, and artifact id.
+
+Output contract:
+
+- independent artifact workspace;
+- `skill-manifest.json`, `build-plan.json`, `data/golden.json`,
+  `package.json`, `package-lock.json`, and `artifact-manifest.json`;
+- `src/index.html`, `src/styles.css`, `src/dashboard.js`,
+  `src/dashboard-data.json`, `src/chart-config.json`, `src/build.mjs`,
+  `src/serve.mjs`;
+- built `dist/index.html`, `dist/styles.css`, `dist/dashboard.js`,
+  `dist/dashboard-data.json`, `dist/chart-config.json`;
+- `revision.json`, `lineage.json`, `build.json`;
+- `publish-ready-artifact.json` with
+  `designSystemVersion=v2.13.1`, `artifactManifestRef`, and
+  `mainPublishAction=MAIN_PUBLISH_CHAIN_REQUIRED`.
+
+The generated dashboard is a browser-run HTML/CSS/JS artifact. It is not a
+`<pre>`/JSON replacement page and does not use frozen-ui `DashboardView`,
+`mockKpis`, `mockTrendData`, fixed sales copy, static screenshots, `setTimeout`,
+or `localStorage`. The refresh button emits a host integration event and stays
+in `refreshing` until Main's shell reports completion.
+
+Concrete acceptance evidence was generated with the repeatable command:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python scripts/knowledge_step3_w3_dashboard_evidence.py \
+  --chrome /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
+# succeeded; wrote evidence-summary.json
+```
+
+The evidence consumes W2's recorded BuildPlan fixture
+`/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring/tests/fixtures/w2_real_smoke_success.json`
+and W1/W2 Golden Data fixture
+`/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring/tests/fixtures/w2_infrastructure_metrics.json`.
+The current W2 smoke fixture exposes the structured planning fields available
+at the W2 boundary (`plan_id`, `metrics`, `dimensions`, `data_refs`,
+`refresh_policy`, and `lineage`); the evidence script records the normalized
+full `DashboardBuildPlan` consumed by W3, including title, KPI, chart, table,
+insight, and layout fields.
+
+Concrete acceptance evidence was generated at:
+
+- summary:
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/evidence-summary.json`
+- before workspace:
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-1abfed778bfb-0004`
+- after workspace:
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-b8502598d58b-0004`
+- before screenshot:
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/before.png`
+- after screenshot:
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/after.png`
+
+Evidence facts:
+
+- W2 BuildPlan id: `plan_req_296a684cb08f427a908b8fa033b644d2`;
+- W2 plan digest: `f3987e2e80398a4acc24`;
+- W1 Golden Data fixed revision id: `golden_rev_1`;
+- input domain: infrastructure service health, not sales;
+- before KPI `cpu_utilization`: `0.345`;
+- after KPI `cpu_utilization`: `0.565`;
+- before chart points: `edge=0.21`, `worker=0.48`;
+- after chart points: `edge=0.82`, `worker=0.31`;
+- table rows changed: `true`;
+- before HTML digest:
+  `4485d0c7e506494083afc29d4754f665140ad984ec450769c8c90fb3119b6c4d`;
+- after HTML digest:
+  `b724087e408e5288de6b3bb82907898c2f094ec47f1f3b6f43e5f5a7ece069ce`;
+- both screenshots succeeded using system Chrome
+  `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+  (`Google Chrome 151.0.7922.170`);
+- v2.13.1 visual checks passed for root rendering, hero/content/table regions,
+  no horizontal overflow, 12px panel radius/1px borders, title typography, and
+  34px-36px refresh control height;
+- browser interaction check clicked refresh and observed
+  `data-refresh-state="refreshing"` before host completion reset.
+
 ## Real IDs / digests / traces
 
 The focused replay tests generate deterministic local IDs and digests from
@@ -139,6 +239,7 @@ current input bytes. Representative tested IDs:
 Added:
 
 - `tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py`
+- `tests/frontend/knowledge_workspace_v21141/test_worker3_dashboard_artifacts.py`
 
 Executed:
 
@@ -153,11 +254,17 @@ pytest -q tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.p
 # 27 passed in 1.25s
 
 PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py \
+  tests/frontend/knowledge_workspace_v21141/test_worker3_dashboard_artifacts.py \
   tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py \
   tests/frontend/knowledge_workspace_v21141/test_step3_core.py \
   tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py \
   tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py
-# 50 passed in 1.65s
+# 54 passed in 6.57s
+# Latest verification on 2026-08-25: 57 passed in 10.83s
+
+PYTHONDONTWRITEBYTECODE=1 python scripts/knowledge_step3_w3_dashboard_evidence.py \
+  --chrome /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
+# succeeded; generated evidence-summary.json, two artifact workspaces, and two Chrome screenshots
 ```
 
 Coverage includes:
@@ -181,6 +288,13 @@ Coverage includes:
 - running cancellation and late-success suppression
 - retry linkage
 - monitoring lifecycle persistence
+- repeatable W3 Dashboard evidence script
+- Dashboard artifact workspaces for two real input datasets from W2/W1 fixtures
+- real `npm run build` and generated `npm run serve` commands
+- browser screenshot/interaction validation through system Chrome 151.0.7922.170
+- KPI/chart/table/HTML digest change after Golden Data changes
+- loading/empty/error/permission-denied/refreshing states
+- publish-ready artifact contract for Main integration
 - renderer XSS/CSP smoke and text alternative
 
 ## Integration proposals
@@ -192,8 +306,8 @@ Coverage includes:
 
 Worker 3 runtime/test surface at freeze:
 
-- runtime package: 2,374 lines
-- focused tests: 913 lines
+- runtime package: 3,757 lines
+- focused tests: 1,482 lines
 
 ## Known integration notes
 
@@ -203,3 +317,14 @@ Worker 3 runtime/test surface at freeze:
   Main should remove the duplicate during integration.
 - Formal BFF wiring, generated shared DTO updates, and root route changes are
   intentionally left to Main per Worker 3 scope.
+- W3 emits publish-ready artifact metadata only; Skill publication and
+  reinvocation remain Main-owned.
+
+
+## Frontend build note
+
+The repository-level `cd frontend && npm run build` was attempted on
+2026-08-25 and failed before compiling source because `vite` was not installed
+in `frontend/node_modules` (`spawnSync vite ENOENT`). W3 did not run `npm ci` or
+modify lockfiles. This is separate from the generated artifact workspaces, whose
+own `npm run build --prefix <workspace>` commands passed.

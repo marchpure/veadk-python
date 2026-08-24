@@ -72,6 +72,12 @@ Provider ports exported by `frontend.server.knowledge_assets.kind_runtime`:
   schema/mapping/evidence locators.
 - `KindRuntimeRepository`: persists operation lifecycle, idempotency replay,
   cancellation flags, retry records, and incomplete operation discovery.
+- `DashboardArtifactRequest`: W3 Dashboard generation input carrying W2
+  `DashboardBuildPlan`, W1 `GoldenAssetRevision` and Golden Data content,
+  `SkillManifest`, caller/workspace, and generation time.
+- `DashboardBuildResult`: W3 Dashboard artifact output carrying workspace
+  paths, build/serve commands, content refs, KPI/chart/table/insight values,
+  revision/lineage digests, and `PublishReadyArtifactContract`.
 
 `ExecutionBudget` contains:
 
@@ -125,6 +131,40 @@ Provider ports exported by `frontend.server.knowledge_assets.kind_runtime`:
   operation ids that have no terminal result JSON after process restart.
 - timeout is enforced by bounded future waits plus terminal `timeout` records.
 
+## Dashboard artifact contract for Main
+
+W3 exports `generate_dashboard_artifact(request)` and
+`capture_dashboard_screenshot(result, executable_path=...)`. The screenshot
+path must use Playwright with Chrome (`channel="chrome"` or an explicit Chrome
+executable path), not a static image fixture.
+
+Main-owned inputs:
+
+1. W2 produces `DashboardBuildPlan`.
+2. W1 provides authorized `GoldenAssetRevision` and Golden Data bytes.
+3. Main supplies caller/workspace identity and later connects the
+   publish-ready artifact to the canonical Skill publishing chain.
+
+W3-owned outputs:
+
+- independent frontend artifact workspace;
+- source files: `src/index.html`, `src/styles.css`, `src/dashboard.js`,
+  `src/dashboard-data.json`, `src/chart-config.json`, `src/build.mjs`,
+  `src/serve.mjs`;
+- metadata/config: `skill-manifest.json`, `build-plan.json`,
+  `data/golden.json`, `package.json`, `package-lock.json`,
+  `artifact-manifest.json`, `revision.json`, `lineage.json`, `build.json`;
+- build output: `dist/index.html`, `dist/styles.css`, `dist/dashboard.js`,
+  `dist/dashboard-data.json`, `dist/chart-config.json`;
+- commands: `npm run build --prefix <workspace>` and
+  `npm run serve --prefix <workspace>`;
+- publish-ready handoff: `publish-ready-artifact.json` with
+  `designSystemVersion=v2.13.1`, `artifactManifestRef`, and
+  `mainPublishAction=MAIN_PUBLISH_CHAIN_REQUIRED`.
+
+W3 explicitly does not define a second publish/reinvoke runtime. Publication,
+permission expansion, and invocation routing remain Main-owned.
+
 ## Shared contract changes requested from Main
 
 No generated/shared DTOs were changed by Worker 3. Main should consider these
@@ -148,3 +188,5 @@ non-blocking contract extensions:
    replayable tests and integration shape.
 7. Add public cancel/retry surfaces that map to `KindRuntime.cancel` and
    `KindRuntime.retry` without exposing raw provider internals.
+8. Wire `PublishReadyArtifactContract` into the existing Skill publication
+   pipeline; do not publish directly from the W3 artifact generator.

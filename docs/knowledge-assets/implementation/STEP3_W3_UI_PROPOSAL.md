@@ -58,6 +58,34 @@ not a transport failure. `cancelled`, `timeout`, `over_budget`,
 `permission_denied`, `schema_drift`, and `validation_failed` are terminal
 operation outcomes.
 
+## Generated Dashboard artifact UI
+
+W3 now emits a standalone generated Dashboard workspace for publish-ready
+Dashboard artifacts. This is separate from frozen-ui and does not replace
+Main-owned `SkillViewShell` wiring.
+
+- `src/index.html` is the generated entry template.
+- `src/dashboard.js` renders title, KPI cards, bar chart, table, insights,
+  lineage, and status states from `src/dashboard-data.json`.
+- `src/styles.css` applies the v2.13.1-aligned restrained Studio visual style:
+  neutral canvas, white panels, one-pixel borders, 12px panel radius, clear
+  hierarchy, bounded table scroll, and responsive single-column layout.
+- `package.json`, `package-lock.json`, and `artifact-manifest.json` make the
+  generated workspace independently buildable and auditable before Main
+  publishes it.
+- `npm run build --prefix <workspace>` produces the browser-openable `dist/`
+  artifact.
+- `npm run serve --prefix <workspace>` serves the built artifact for browser
+  screenshot and interaction validation through system Chrome.
+
+The generated Dashboard is not a `<pre>`/JSON replacement page and does not
+use frozen-ui `DashboardView`, `mockKpis`, `mockTrendData`, fixed sales copy,
+or static screenshots. The refresh control does not fake success with
+`setTimeout` or `localStorage`; it emits `dashboard-refresh-requested` with
+`dataQueryRef` and `invocationRef` so Main can connect the canonical refresh
+chain, then returns to idle only after the host dispatches
+`dashboard-refresh-complete`.
+
 ## Renderer safety expectations
 
 `kind_runtime.projector.trusted_html` produces a text alternative for every
