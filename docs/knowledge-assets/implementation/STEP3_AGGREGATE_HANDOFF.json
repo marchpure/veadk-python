@@ -2,8 +2,8 @@
   "status": "INTEGRATING",
   "step4Ready": false,
   "date": "2026-08-25",
-  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "42b733ec"],
-  "workerCommits": {"W1": null, "W2": null, "W3": null, "W4": null},
+  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869"],
+  "workerCommits": {"W1": ["85b8a19c"], "W2": ["65037a4b", "bdb1573d", "a03cb607"], "W3": ["96b7d10b"], "W4": ["308f1022", "45e44eb6", "6ee81405"]},
   "finalTag": null,
   "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
   "commandRegistryDigest": "bcd6f4d1ca7c3f7e52b1ced95de410cbc843c68397ca9f45b799e427a5718d18",
@@ -20,10 +20,12 @@
   "studioUrl": "http://127.0.0.1:4173/?studio=knowledge",
   "apiUrl": "http://127.0.0.1:8793",
   "knownDebt": [
-    "worker proposals not yet committed/reviewed",
-    "43-state browser evidence not yet complete",
-    "fresh aggregate vertical IDs/evidence not yet recorded",
+    "W1 real Source/Golden Data commit and W1.status.json are pending",
+    "W3 hardening commit and clean worktree are pending",
+    "knowledge body-preservation regression awaits W3 hardening",
+    "W4 read-only final verification is pending",
     "external credential connectors remain blocked",
-    "formal publication, Registry, Scheduler, and cross-Agent calling are STEP 4"
+    "formal publication, Registry, Scheduler, and cross-Agent calling are STEP 4",
+    "STEP4_READY remains false pending a separate release decision"
   ]
 }
