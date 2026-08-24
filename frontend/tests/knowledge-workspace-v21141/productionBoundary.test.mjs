@@ -351,6 +351,12 @@ test("prototype catalog and seed data are stripped from production modules", asy
   assert.doesNotMatch(tree, /dashboard_sales_east|team_dashboard_monthly|semantic_sales/);
   assert.match(tree, /const defaultPersonal = \[\];/);
   assert.match(tree, /const defaultTeam = \[\];/);
+  assert.match(
+    tree,
+    /r\.resourceKind === 'artifact' \? \(r\.space === 'team' \? 'team_artifact' : 'personal_artifact'\) : r\.resourceKind/,
+  );
+  assert.match(tree, /r\.subtype === 'chart' \? FilePieChart/);
+  assert.match(tree, /r\.subtype === 'knowledge_base' \? Library/);
 
   const graph = stripPrototypeProductionDefaults(
     readFileSync(
@@ -383,7 +389,7 @@ test("prototype catalog and seed data are stripped from production modules", asy
 
   const store = readFileSync(join(productionRoot, "store.ts"), "utf8");
   assert.match(store, /SERVER_FEATURE_ROUTES/);
-  assert.match(store, /resourceStore\.getState\(\)\.some/);
+  assert.match(store, /resourceStore\s*\.getState\(\)\s*\.some/);
   assert.match(store, /SERVER_FEATURE_ROUTES\.has\(fileId\) && workspaceRoutes\.has\(fileId\)/);
 });
 

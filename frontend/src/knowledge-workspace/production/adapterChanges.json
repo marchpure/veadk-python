@@ -42,6 +42,14 @@
       "target": "frontend/vite.config.ts",
       "reason": "Strip prototype catalog defaults from the production module graph while preserving the frozen source archive.",
       "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
+    },
+    {
+      "id": "ADAPTER-06",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-2-corrective-3",
+      "source_path": "prototype/codebase/src/components/Layout/FileTreePane.tsx",
+      "target": "frontend/vite.config.ts",
+      "reason": "Map server-authorized artifact subtypes back to the frozen tree's semantic node types and icons so chart, dashboard, semantic, knowledge-base, and graph resources retain their real interaction and visual contracts.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
     }
   ]
 }
