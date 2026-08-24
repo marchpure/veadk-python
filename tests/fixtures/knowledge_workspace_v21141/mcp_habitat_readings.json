@@ -1,0 +1,12 @@
+[
+  {
+    "station": "wetland-a",
+    "temperature": 18.2,
+    "dataAsOf": "2026-08-25T08:00:00Z"
+  },
+  {
+    "station": "forest-b",
+    "temperature": 16.7,
+    "dataAsOf": "2026-08-25T08:00:00Z"
+  }
+]

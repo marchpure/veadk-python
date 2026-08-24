@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "knowledge-assets.step3.w1-ui-consumer.v1",
+  "actions": [
+    {"actionId": "data.overview.read", "port": "data_overview"},
+    {"actionId": "data.add.open", "port": "add_data"},
+    {"actionId": "connector.catalog.search", "port": "connector_catalog"},
+    {"actionId": "connection.create", "port": "create_connection"},
+    {"actionId": "connection.read", "port": "connection_detail"},
+    {"actionId": "source.ingest", "port": "ingest"},
+    {"actionId": "source.refresh", "port": "refresh"},
+    {"actionId": "golden.read", "port": "golden_asset_detail"},
+    {"actionId": "golden.data.read", "port": "golden_data"},
+    {"actionId": "composer.context.add", "port": "golden_resource_binding"}
+  ],
+  "requiredFields": {
+    "bootstrap": [
+      "routes",
+      "workspaceData.connectorCatalog"
+    ],
+    "data_overview": [
+      "view",
+      "workspaceId",
+      "connections",
+      "goldenAssets",
+      "canCreate",
+      "addDataRoute"
+    ],
+    "add_data": [
+      "view",
+      "catalog.connectors",
+      "selectedConnector.inputSchema",
+      "steps",
+      "canCreate"
+    ],
+    "connection_detail": [
+      "view",
+      "connection.status",
+      "connector.capabilityState",
+      "connector.inputSchema",
+      "actions"
+    ],
+    "golden_asset_detail": [
+      "view",
+      "asset.id",
+      "asset.schemaDigest",
+      "overview.freshnessAt",
+      "preview",
+      "fields",
+      "lineage.sourceRevisionId",
+      "permissions.workspaceId"
+    ],
+    "golden_data": [
+      "view",
+      "binding.revision",
+      "binding.contentDigest",
+      "binding.dataAsOf",
+      "binding.lineage.lineageDigest",
+      "rows"
+    ],
+    "w2_resource_binding": [
+      "kind",
+      "objectId",
+      "revision",
+      "providerRevision",
+      "schemaDigest",
+      "contentDigest",
+      "semanticFields",
+      "capabilities",
+      "freshnessAt",
+      "dataAsOf",
+      "lineage",
+      "permissions"
+    ]
+  }
+}

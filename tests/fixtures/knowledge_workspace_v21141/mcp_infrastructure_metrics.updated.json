@@ -1,0 +1,12 @@
+[
+  {
+    "service": "search",
+    "cpuPercent": 52.8,
+    "dataAsOf": "2026-08-25T08:05:00Z"
+  },
+  {
+    "service": "indexer",
+    "cpuPercent": 63.1,
+    "dataAsOf": "2026-08-25T08:05:00Z"
+  }
+]
