@@ -1146,6 +1146,17 @@ class KnowledgeAssetApplication:
         case_results = []
         for case in cases:
             candidate = case.source == "agent_candidate"
+            actual_ref = executed_result.result_ref
+            expected_matches = (
+                case.expected_output_ref is None
+                or case.expected_output_ref.sha256 == actual_ref.sha256
+            )
+            bound_to_current_revision = (
+                executed_result.skill_id == draft.id
+                and executed_result.skill_revision == draft.revision
+                and executed_view.skill_revision_id == f"{draft.id}:{draft.revision}"
+            )
+            structural_pass = bound_to_current_revision and expected_matches
             evidence_bytes = json.dumps(
                 {
                     "caseId": case.id,
@@ -1156,7 +1167,16 @@ class KnowledgeAssetApplication:
                     "resultDigest": executed_result.result_ref.sha256,
                     "skillViewRevisionId": executed_view.id,
                     "viewModelDigest": executed_view.manifest.view_model_schema_ref.sha256,
-                    "status": "failed" if candidate else "passed",
+                    "actualResultRef": actual_ref.model_dump(mode="json"),
+                    "expectedOutputRef": (
+                        case.expected_output_ref.model_dump(mode="json")
+                        if case.expected_output_ref else None
+                    ),
+                    "boundToCurrentRevision": bound_to_current_revision,
+                    "expectedMatches": expected_matches,
+                    "status": "skipped" if candidate else (
+                        "passed" if structural_pass else "failed"
+                    ),
                 },
                 sort_keys=True,
             ).encode("utf-8")
@@ -1183,20 +1203,31 @@ class KnowledgeAssetApplication:
             case_results.append(
                 EvaluationCaseResult(
                     case_id=case.id,
-                    status="failed" if candidate else "passed",
-                    score=0.0 if candidate else 1.0,
+                    status="skipped" if candidate else (
+                        "passed" if structural_pass else "failed"
+                    ),
+                    score=0.0 if candidate else (1.0 if structural_pass else 0.0),
                     evidence_ref=evidence_ref,
                     regression_diff_ref=regression_ref,
                 )
             )
-        score = sum(item.score for item in case_results) / len(case_results)
+        runnable_results = [item for item in case_results if item.status != "skipped"]
+        score = (
+            sum(item.score for item in runnable_results) / len(runnable_results)
+            if runnable_results else 0.0
+        )
+        candidate_blocked = any(case.source == "agent_candidate" for case in cases)
         run_id = f"evaluation-{hashlib.sha256((draft.id + request_id).encode()).hexdigest()[:24]}"
         run = EvaluationRun(
             id=run_id,
             suite_id=suite.id,
             suite_version=suite.version,
             skill_revision_id=f"{draft.id}:{draft.revision}",
-            status="succeeded" if score >= suite.pass_threshold else "failed",
+            status=(
+                "failed"
+                if candidate_blocked or score < suite.pass_threshold
+                else "succeeded"
+            ),
             score=score,
             environment=payload.environment,
             dependency_revision_refs=draft.manifest.spec.dependencies.golden_assets,
@@ -1223,27 +1254,39 @@ class KnowledgeAssetApplication:
             id=f"gate-{run_id}",
             skill_revision_id=run.skill_revision_id,
             evaluation_run_id=run.id,
-            decision="publishable" if score >= suite.pass_threshold else "blocked",
+            decision=(
+                "publishable"
+                if not candidate_blocked and score >= suite.pass_threshold
+                else "blocked"
+            ),
             reasons=(
-                ["all evaluation cases passed"]
-                if score >= suite.pass_threshold
-                else ["one or more evaluation cases did not pass"]
+                ["all runnable evaluation cases bound to the current result"]
+                if not candidate_blocked and score >= suite.pass_threshold
+                else (
+                    ["agent candidate cases require explicit confirmation"]
+                    if candidate_blocked
+                    else ["one or more evaluation cases did not bind to the current result"]
+                )
             ),
             machine_reasons=(
                 [
-                    "EVAL_SCORE_AT_OR_ABOVE_THRESHOLD",
+                    "EVAL_FACTS_BOUND_TO_CURRENT_REVISION",
                     "SKILL_RESULT_BOUND_TO_CURRENT_REVISION",
                     "SKILL_VIEW_BOUND_TO_CURRENT_REVISION",
                 ]
-                if score >= suite.pass_threshold
-                else ["EVAL_SCORE_BELOW_THRESHOLD"]
+                if not candidate_blocked and score >= suite.pass_threshold
+                else (
+                    ["AGENT_CANDIDATE_CONFIRMATION_REQUIRED"]
+                    if candidate_blocked
+                    else ["EVAL_FACT_BINDING_FAILED"]
+                )
             ),
             checked_at=now_iso(),
         )
         self.repository.save_evaluation_suite(suite)
         self.repository.save_evaluation_run(run)
         self.repository.save_policy_gate_result(gate)
-        if score >= suite.pass_threshold:
+        if not candidate_blocked and score >= suite.pass_threshold:
             self.repository.update_skill_draft_revision_status(
                 draft.id, draft.revision, "publishable"
             )
