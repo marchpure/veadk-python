@@ -130,3 +130,50 @@ def test_golden_revisions_are_append_only_and_tombstones_hide_revoked_assets(
         "SELECT reason FROM asset_tombstones WHERE asset_id = ?", (second.id,)
     ).fetchone()
     assert tombstone["reason"] == "permission revoked"
+
+
+def test_bff_permission_revocation_tombstones_asset_in_authenticated_workspace(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "notes.md"
+    source.write_text("permissioned knowledge\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=KnowledgeAssetApplication(repository),
+        identity_resolver=lambda request: ("ws-authenticated", "editor"),
+    )
+    client = TestClient(app)
+    revision = KnowledgeAssetApplication(repository)._register_local_source(
+        str(source), workspace_id="ws-authenticated", request_id="source-1"
+    )
+    golden = KnowledgeAssetApplication(repository)._run_clean(
+        SourceCleanPayload(source_revision_id=revision.id, recipe_id="permission-recipe"),
+        "ws-authenticated",
+    ).golden_asset_revision
+
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "resource.revoke",
+            "payload": {
+                "resourceId": golden.id,
+                "reason": "permission revoked",
+            },
+        },
+        headers={"X-Request-ID": "revoke-1", "Idempotency-Key": "revoke-command"},
+    )
+
+    assert response.status_code == 200
+    assert repository.latest_golden_asset_revision("ws-authenticated") is None
+    tombstone = repository._connection.execute(
+        "SELECT workspace_id, reason, request_id FROM asset_tombstones WHERE asset_id = ?",
+        (golden.id,),
+    ).fetchone()
+    assert dict(tombstone) == {
+        "workspace_id": "ws-authenticated",
+        "reason": "permission revoked",
+        "request_id": "revoke-1",
+    }

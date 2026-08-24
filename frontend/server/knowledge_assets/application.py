@@ -392,6 +392,8 @@ class KnowledgeAssetApplication:
         command: str,
         request_id: str,
         payload: dict[str, object],
+        *,
+        workspace_id: str = "workspace-local",
     ) -> CommandResponse:
         result: CommandResult
         if command == "source.profile":
@@ -432,7 +434,6 @@ class KnowledgeAssetApplication:
         elif command == "resource.revoke":
             resource_id = str(payload["resource_id"])
             reason = str(payload.get("reason", "revoked"))
-            workspace_id = "workspace-local"
             golden = self.repository.latest_golden_asset_revision(workspace_id)
             if golden is not None and golden.id == resource_id:
                 self.repository.revoke_asset(resource_id, workspace_id, request_id, reason)
