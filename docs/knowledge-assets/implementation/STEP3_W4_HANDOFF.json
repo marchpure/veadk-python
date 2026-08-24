@@ -7,8 +7,8 @@
   "uiDeltaDigest": "dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30",
   "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
   "tests": {
-    "worker4": {"passed": 16, "failed": 0},
-    "backendCombined": {"passed": 31, "failed": 0},
+    "worker4": {"passed": 20, "failed": 0},
+    "backendCombined": {"passed": 41, "failed": 0},
     "compile": "PASS",
     "diffCheck": "PASS",
     "ruff": "BLOCKED_BY_CHECKPOINT_TAG_VERSION"

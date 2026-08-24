@@ -237,6 +237,9 @@ class EvaluationQualityService:
             attempt=attempt,
             retry_of=retry_of,
         )
+        existing = self.repository.run(run.id)
+        if existing is not None:
+            return existing
         self.repository.save_run(run)
         return run
 
@@ -261,6 +264,9 @@ class EvaluationQualityService:
                 return latest
             case = cases[case_id]
             actual = self.evaluator.evaluate(case, run.provenance)
+            latest = self._run(run_id)
+            if latest.status == "cancelled":
+                return latest
             score, grading = self.grader.grade(case, actual)
             results.append(
                 EvaluationCaseResult(
@@ -346,6 +352,8 @@ class EvaluationQualityService:
             "budget",
         }
         dimensions = {check.dimension for check in policy_input.checks}
+        if len(dimensions) != len(policy_input.checks):
+            raise ValueError("policy dimensions must be unique")
         missing = required - dimensions
         reasons = [check.machine_reason for check in policy_input.checks if not check.passed]
         reasons.extend(f"MISSING_{name.upper()}_CHECK" for name in sorted(missing))
@@ -410,6 +418,8 @@ class EvaluationQualityService:
             raise ValueError("fix issues must belong to the source run")
         if not affected_ids or not set(affected_ids) <= known:
             raise ValueError("affected cases must belong to the source run")
+        if not set(issue_ids) <= set(affected_ids):
+            raise ValueError("affected cases must include every issue being fixed")
         if patch.base_draft_revision != run.provenance.skill_draft_revision:
             raise ValueError("patch base revision must match the evaluated revision")
         plan = FixPlan(
