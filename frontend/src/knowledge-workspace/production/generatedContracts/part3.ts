@@ -1,8 +1,14 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { Event, InvocationStartResult, LegacySkillManifestInput, NotReadyCommandResult } from "./part2";
-import type { SkillDraftRunPayload, SkillDraftRunResult, SkillManifest, SkillOperation, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+import type { Event, InvocationStartResult, LegacySkillManifestInput } from "./part2";
+import type { SkillDraftRunResult, SkillManifest, SkillOperation, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+
+export interface NotReadyCommandResult {
+  resultType?: "command.not-ready";
+  error: ErrorEnvelope;
+  command: string;
+}
 
 export interface Operation {
   operationId: string;
@@ -49,6 +55,14 @@ export interface ProfileRun {
   finishedAt?: string | null;
 }
 
+export interface ProviderDocumentConfig {
+  kind: "lark_doc" | "lark_minutes" | "lark_group_chat";
+  documentRef: string;
+  secretRef: SecretRef;
+  scopeRef: string;
+  pageSize?: number;
+}
+
 export interface PublicationPublishCommand {
   command: "publication.publish";
   payload: PublicationPublishPayload;
@@ -65,6 +79,16 @@ export interface PublicationPublishResult {
   error?: ErrorEnvelope | null;
   status?: "not_ready";
   draftId: string;
+}
+
+export interface PublishedSkillConnectorConfig {
+  kind: "published_skill";
+  skillRef: string;
+  secretRef: SecretRef;
+  scopeRef: string;
+  dependencyAllowlist: Array<string>;
+  outputBytes?: number;
+  timeoutSeconds?: number;
 }
 
 export interface PublishedSkillVersion {
@@ -186,20 +210,4 @@ export interface SkillDraft {
   createdAt: string;
   updatedAt: string;
   manifest: SkillManifest;
-}
-
-export interface SkillDraftRevision {
-  id: string;
-  skillId: string;
-  revision: number;
-  manifest: SkillManifest;
-  sourceRevisionRefs?: Array<string>;
-  goldenAssetRevisionRefs?: Array<string>;
-  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
-  createdAt: string;
-}
-
-export interface SkillDraftRunCommand {
-  command: "skill-draft.run";
-  payload: SkillDraftRunPayload;
 }

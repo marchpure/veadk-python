@@ -2,7 +2,7 @@
   "schemaVersion": "knowledge-assets.contract-freeze.v2",
   "step": "STEP_2_INTEGRATION",
   "sourceCommit": "74ad5437b300c0914f1c99adbfb188335eaa080b",
-  "immutableTag": "knowledge-skill-factory-step-2-integration-corrective-1",
+  "immutableTag": "knowledge-skill-factory-step-2-integration-corrective-2",
   "branch": "knowledge-skill-factory-step-1-corrective-quality",
   "result": "READY_WITH_BASELINE_DEBT",
   "canonicalObject": "Skill",
@@ -49,10 +49,13 @@
     "frontend/src/knowledge-workspace/production/generatedContracts.ts"
   ],
   "verification": {
-    "focusedPython": "50 passed, 13 skipped external-E2E cases",
+    "focusedPython": "61 passed, 13 skipped external-E2E cases",
     "refreshSchemaDriftLastGood": "9 passed",
     "migrationReplay": "1 passed; 21 tables",
     "secretLeakScan": "passed; no findings",
+    "workerProposals": "A/B/C/D committed proposal-only from 88efe108",
+    "kindSpecificConnectorSchema": "17 discriminated kinds generated",
+    "appendOnlyReplay": "source and same-content Golden Asset history preserved",
     "migrationGateway": "13 passed",
     "combinedPython": "29 passed",
     "frontendProductionBoundary": "18 passed",
@@ -71,7 +74,8 @@
     "migrationUpgrade": "SQLite upgrade-in-place and replay passed with 21 tables",
     "step3": "not started",
     "step4": "not started",
-    "credentialBlocked": "Oracle, Web API, MCP, and published Skill real-credential E2E skipped/blocked; no complete production connectivity claim"
+    "credentialBlocked": "Oracle, Web API, MCP, and published Skill real-credential E2E skipped/blocked; no complete production connectivity claim",
+    "baselineDebt": "durable queue deployment, parser-backed Office/PDF/Excel, downstream revocation propagation, provider pagination/terms E2E, STEP 0 visual waiver"
   },
   "staticGuardResiduals": [],
   "integrationArtifacts": {

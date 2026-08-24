@@ -153,6 +153,63 @@ def test_golden_revisions_are_append_only_and_tombstones_hide_revoked_assets(
     assert tombstone["reason"] == "permission revoked"
 
 
+def test_source_revision_replay_cannot_replace_an_existing_revision(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "immutable.md"
+    source.write_text("first\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    first = application._register_local_source(
+        str(source), workspace_id="ws-immutable", request_id="r1"
+    )
+    assert first is not None
+    source.write_text("second\n", encoding="utf-8")
+    replay = first.model_copy(
+        update={
+            "source_digest": "f" * 64,
+            "content_ref": first.content_ref.model_copy(
+                update={"sha256": "f" * 64, "bytes": 7}
+            ),
+        }
+    )
+    repository.save_source_revision(replay, "ws-immutable", str(source))
+    stored = repository.source_revision(first.id)
+    assert stored is not None
+    assert stored.source_digest == first.source_digest
+
+
+def test_same_content_refresh_keeps_both_golden_asset_rows(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "repeat.md"
+    source.write_text("same\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    first_source = application._register_local_source(
+        str(source), workspace_id="ws-repeat", request_id="r1"
+    )
+    first = application._run_clean(
+        SourceCleanPayload(source_revision_id=first_source.id, recipe_id="recipe-1"),
+        "ws-repeat",
+    ).golden_asset_revision
+    second_source = application._register_local_source(
+        str(source), workspace_id="ws-repeat", request_id="r2"
+    )
+    second = application._run_clean(
+        SourceCleanPayload(source_revision_id=second_source.id, recipe_id="recipe-2"),
+        "ws-repeat",
+    ).golden_asset_revision
+    rows = repository._connection.execute(
+        "SELECT id FROM golden_asset_revisions WHERE workspace_id = ? ORDER BY revision",
+        ("ws-repeat",),
+    ).fetchall()
+    assert len(rows) == 2
+    assert first.id != second.id
+
+
 def test_bff_permission_revocation_tombstones_asset_in_authenticated_workspace(
     tmp_path: Path, monkeypatch
 ) -> None:

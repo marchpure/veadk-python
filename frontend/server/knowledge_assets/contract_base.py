@@ -91,8 +91,19 @@ class DataAccessKindSpec(ContractModel):
         "postgresql",
         "csv",
         "excel",
+        "markdown",
+        "pdf",
+        "office",
+        "lark_doc",
+        "lark_minutes",
+        "lark_group_chat",
         "web_api",
+        "web_url",
+        "rest_api",
+        "graphql",
+        "openapi",
         "mcp",
+        "published_skill",
         "local_file",
     ]
     endpoint_ref: str = Field(min_length=1, max_length=2048)
@@ -308,5 +319,4 @@ def empty_knowledge_manifest(
         draft_id=draft_id,
         workspace_id=workspace_id,
     )
-
 

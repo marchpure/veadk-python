@@ -1,7 +1,7 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationPayload, InvocationStartResult, NotReadyCommandResult } from "./part2";
-import type { PermissionRef, PublicationPublishResult, RefreshRunResult, SecretRef, SkillDraft } from "./part3";
+import type { EvaluationPayload, InvocationStartResult } from "./part2";
+import type { NotReadyCommandResult, PermissionRef, PublicationPublishResult, RefreshRunResult, SecretRef, SkillDraft } from "./part3";
 import type { SkillDraftRunResult, SourceCleanResult, SourceProfileResult, StorageRef, ViewCell, ViewField } from "./part4";
 
 export interface ActionCommand {
@@ -158,7 +158,7 @@ export interface DashboardViewModel {
 
 export interface DataAccessKindSpec {
   kind?: "data_access";
-  connectorType: "oracle" | "mysql" | "postgresql" | "csv" | "excel" | "web_api" | "mcp" | "local_file";
+  connectorType: "oracle" | "mysql" | "postgresql" | "csv" | "excel" | "markdown" | "pdf" | "office" | "lark_doc" | "lark_minutes" | "lark_group_chat" | "web_api" | "web_url" | "rest_api" | "graphql" | "openapi" | "mcp" | "published_skill" | "local_file";
   endpointRef: string;
   secretRef?: SecretRef | null;
   allowedSchemas?: Array<string>;
@@ -166,6 +166,16 @@ export interface DataAccessKindSpec {
   allowedOperations?: Array<"introspect" | "query" | "read" | "subscribe" | "search">;
   rowPolicyRef?: PermissionRef | null;
   columnPolicyRef?: PermissionRef | null;
+}
+
+export interface DatabaseConnectorConfig {
+  kind: "oracle" | "postgresql" | "mysql";
+  dsnRef: string;
+  secretRef: SecretRef;
+  schemaAllowlist?: Array<string>;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
 }
 
 export interface DraftCommandResult {

@@ -303,10 +303,11 @@ class SqliteKnowledgeAssetRepository:
     ) -> None:
         with self._lock:
             self._connection.execute(
-                """INSERT OR REPLACE INTO source_revisions
+                """INSERT INTO source_revisions
                 (id, workspace_id, source_type, content_ref_json, schema_ref_json,
                  permission_ref_json, source_digest, source_path, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO NOTHING""",
                 (
                     revision.id, workspace_id, revision.source_type,
                     revision.content_ref.model_dump_json(by_alias=True),
@@ -431,8 +432,15 @@ class SqliteKnowledgeAssetRepository:
                 (revision.owner.workspace_id, revision.asset_kind),
             ).fetchone()[0]
             revision = revision.model_copy(update={"revision": next_revision})
+            existing_id = self._connection.execute(
+                "SELECT 1 FROM golden_asset_revisions WHERE id = ?", (revision.id,)
+            ).fetchone()
+            if existing_id is not None:
+                revision = revision.model_copy(
+                    update={"id": f"{revision.id}-r{next_revision}"}
+                )
             self._connection.execute(
-                """INSERT OR REPLACE INTO golden_asset_revisions
+                """INSERT INTO golden_asset_revisions
                 (id, workspace_id, asset_kind, revision, schema_ref_json,
                  storage_ref_json, source_revision_refs_json, recipe_ref,
                  quality_run_ref, owner_json, permissions_ref_json, lineage_digest,

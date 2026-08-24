@@ -1,7 +1,7 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, SchemaRef } from "./part3";
+import type { NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, SchemaRef, SecretRef } from "./part3";
 import type { SkillDraftRunResult, SkillManifestAction, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
 
 export interface EvaluationPayload {
@@ -40,6 +40,15 @@ export interface Event {
   terminal: boolean;
   result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | null;
   error?: ErrorEnvelope | null;
+}
+
+export interface FileConnectorConfig {
+  kind: "markdown" | "csv" | "pdf" | "office" | "excel";
+  sourceRef: string;
+  maxBytes?: number;
+  maxFiles?: number;
+  followSymlinks?: false;
+  sheetAllowlist?: Array<string>;
 }
 
 export interface GoldenAssetRevision {
@@ -193,6 +202,16 @@ export interface ManifestProperty {
   description?: string;
 }
 
+export interface McpConnectorConfig {
+  kind: "mcp";
+  serverUrl: string;
+  secretRef: SecretRef;
+  oauthScopeRef: string;
+  toolAllowlist: Array<string>;
+  outputBytes?: number;
+  timeoutSeconds?: number;
+}
+
 export interface MonitoringKindSpec {
   kind?: "monitoring";
   metricRefs?: Array<string>;
@@ -207,10 +226,4 @@ export interface MonitoringViewModel {
   values?: Array<[string, number]>;
   alerts?: Array<string>;
   dataRef?: StorageRef | null;
-}
-
-export interface NotReadyCommandResult {
-  resultType?: "command.not-ready";
-  error: ErrorEnvelope;
-  command: string;
 }
