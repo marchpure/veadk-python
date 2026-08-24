@@ -308,8 +308,21 @@ function commandForHandler(handlerName, source) {
   if (value.includes("todo") || value.includes("review") || value.includes("brief") || value.includes("alert")) {
     return "action.update";
   }
-  if (value.includes("assistant") || value.includes("chat") || value.includes("助手") || value.includes("对话")) return "assistant.turn";
+  if (
+    value.includes("assistant") ||
+    value.includes("chat") ||
+    value.includes("handlesend") ||
+    value.includes("助手") ||
+    value.includes("对话")
+  ) return "assistant.turn";
   return "workspace.mutation";
+}
+
+function preserveHandler(handlerName, source) {
+  // handleSend owns the frozen welcome composer state transition. Preserve it
+  // only after the typed assistant.turn command is accepted; other mutation
+  // handlers remain fail-closed wrappers.
+  return handlerName === "handleSend" || /\bhandleSend\s*\(/.test(source);
 }
 
 function importPathFor(filePath, frozenRoot, productionRoot) {
@@ -412,17 +425,36 @@ export function transformFrozenProductionMutations(
     const expression = initializer.expression;
     const handlerName = ts.isIdentifier(expression) ? expression.text : undefined;
     if (!handlerIsMutation(expression, node.name.text, productionCode, mutationNames)) return;
+    const keepOriginal = preserveHandler(
+      handlerName,
+      nodeText(productionCode, expression),
+    );
+    const original = nodeText(productionCode, expression);
+    const invokeOriginal = keepOriginal
+      ? `if (__kwAccepted) { (${original})(...__kwArgs${index}); }`
+      : "";
+    const preventDefault = keepOriginal && node.name.text === "onKeyDown"
+      ? `if (__kwArgs${index}[0]?.key !== "Enter" || __kwArgs${index}[0]?.shiftKey) { return; } __kwArgs${index}[0].preventDefault();`
+      : "";
     replacements.push({
       start: expression.getStart(sourceFile),
       end: expression.end,
-      value: wrapperFor({
-        sourcePath: filePath.slice(frozenRoot.length + 1).replaceAll("\\", "/"),
-        eventName: node.name.text,
-        handlerName,
-        command: commandForHandler(handlerName, nodeText(productionCode, expression)),
-        index: index++,
-      }),
+      value: keepOriginal
+        ? `(...__kwArgs${index}) => { ${preventDefault} void __runProductionMutation(${JSON.stringify({
+          command: commandForHandler(handlerName, nodeText(productionCode, expression)),
+          sourcePath: filePath.slice(frozenRoot.length + 1).replaceAll("\\", "/"),
+          eventName: node.name.text,
+          ...(handlerName ? { handlerName } : {}),
+        })}).then((__kwAccepted) => { ${invokeOriginal} }); }`
+        : wrapperFor({
+            sourcePath: filePath.slice(frozenRoot.length + 1).replaceAll("\\", "/"),
+            eventName: node.name.text,
+            handlerName,
+            command: commandForHandler(handlerName, nodeText(productionCode, expression)),
+            index,
+          }),
     });
+    index += 1;
   });
 
   const allReplacements = [

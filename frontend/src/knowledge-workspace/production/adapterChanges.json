@@ -50,6 +50,14 @@
       "target": "frontend/vite.config.ts",
       "reason": "Map server-authorized artifact subtypes back to the frozen tree's semantic node types and icons so chart, dashboard, semantic, knowledge-base, and graph resources retain their real interaction and visual contracts.",
       "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
+    },
+    {
+      "id": "ADAPTER-07",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-2-corrective-4",
+      "source_path": "prototype/codebase/src/components/RightPane/ChatAssistant.tsx",
+      "target": "frontend/vite.config.ts",
+      "reason": "Preserve the frozen welcome composer Enter transition only after the typed assistant.turn command is accepted; keep ordinary editing and Shift+Enter local while preventing production mutation bypass.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
     }
   ]
 }
