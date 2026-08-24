@@ -2974,6 +2974,12 @@
           "minLength": 1,
           "title": "Resourceid",
           "type": "string"
+        },
+        "reason": {
+          "default": "revoked",
+          "maxLength": 256,
+          "title": "Reason",
+          "type": "string"
         }
       },
       "required": [

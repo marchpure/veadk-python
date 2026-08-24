@@ -31,6 +31,7 @@ from .contracts import (
     SourceProfilePayload,
     SourceProfileResult,
     SourceRevision,
+    NotReadyCommandResult,
     ProfileRun,
     CleaningRecipe,
     CleanRun,
@@ -255,7 +256,7 @@ class KnowledgeAssetApplication:
             permissions_ref=source.permission_ref, lineage_digest=lineage,
             freshness_at=now_iso(), last_good=True,
         )
-        self.repository.save_golden_asset_revision(golden)
+        golden = self.repository.save_golden_asset_revision(golden)
         return SourceCleanResult(
             source_revision_id=source.id, recipe_id=recipe.id, status="succeeded", clean_run=clean,
             golden_asset_revision=golden,
@@ -427,6 +428,17 @@ class KnowledgeAssetApplication:
             result = SkillDraftRunResult(
                 draft_id=typed.draft_id, status="succeeded",
                 golden_asset_revision=golden,
+            )
+        elif command == "resource.revoke":
+            resource_id = str(payload["resource_id"])
+            reason = str(payload.get("reason", "revoked"))
+            workspace_id = "workspace-local"
+            golden = self.repository.latest_golden_asset_revision(workspace_id)
+            if golden is not None and golden.id == resource_id:
+                self.repository.revoke_asset(resource_id, workspace_id, request_id, reason)
+            result = NotReadyCommandResult(
+                command=command,
+                error=self._not_ready_error(command, request_id),
             )
         elif command == "publication.publish":
             typed = PublicationPublishPayload.model_validate(payload)

@@ -188,6 +188,14 @@ CREATE TABLE IF NOT EXISTS golden_asset_revisions (
   last_good INTEGER NOT NULL DEFAULT 1
 );
 
+CREATE TABLE IF NOT EXISTS asset_tombstones (
+  asset_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  revoked_at TEXT NOT NULL,
+  request_id TEXT NOT NULL
+);
+
 INSERT OR IGNORE INTO schema_migrations(version, applied_at)
 VALUES ('001_knowledge_assets', CURRENT_TIMESTAMP);
 
