@@ -25,7 +25,6 @@ from frontend.server.skill_authoring.models import (
     SetPermissionScopePatch,
     SetQueryPlanPatch,
     SetTitlePatch,
-    SetPermissionScopePatch,
     SkillKind,
     QueryPlan,
     SkillAuthoringError,
