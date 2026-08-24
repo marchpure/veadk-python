@@ -112,6 +112,12 @@ workspace-scoped typed `SkillViewRevision` through bootstrap and routes
 matching chart/dashboard drafts into the existing high-fidelity Dashboard, but
 the W4 single-URL browser gate and formal P0 evidence are still required.
 
+The latest isolated browser scan against Main `ab80835c`, using the authoritative
+Capability Matrix, covered all 43 states: `unavailable=0`, `errors=0`.
+Evidence is `/tmp/step3-route-audit-ab80835c.json` with SHA-256
+`8ab36428047275ed88fd0a59b02238b6a4c0800fdfc373e58019c5f6bde65cc9`.
+This is diagnostic route evidence only and does not pass any P0 gate.
+
 ## Known debt and next gate
 
 Credentialed external connectors remain `EXTERNAL_CREDENTIAL_BLOCKED`.
@@ -120,5 +126,9 @@ Publication, Registry, Scheduler, and cross-Agent calling remain
 provide a non-null real Source/Golden Data commit and clean worktree; W2/W3
 follow-up changes must be committed or rejected; all Worker worktrees must
 then be clean and W4 must perform read-only verification.
+The W2 authoring module is present and its Main focused authoring/data suite
+passes 45 tests, but its Main-owned BFF command registration and durable
+production persistence seam are not yet complete; `skill-authoring.start`
+must not be treated as integrated.
 Full Capability Matrix/browser regression against the real production chain
 remains required before any closeout decision. `STEP4_READY` remains false.
