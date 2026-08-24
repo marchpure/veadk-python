@@ -174,9 +174,15 @@ class KnowledgeAssetApplication:
             ".veadk/knowledge-assets/artifacts"
         )
         self._evaluation_quality = None
-        if sqlite_connection is not None:
+        if sqlite_connection is not None or isinstance(
+            repository, PostgresKnowledgeAssetRepository
+        ):
             self._evaluation_quality = EvaluationQualityService(
-                MainEvaluationRepository(sqlite_connection),
+                MainEvaluationRepository(
+                    sqlite_connection
+                    if sqlite_connection is not None
+                    else repository_connection
+                ),
                 _UnavailableEvaluationExecutor(),
                 _UnavailableEvaluationGrader(),
             )

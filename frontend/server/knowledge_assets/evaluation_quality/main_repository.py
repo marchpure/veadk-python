@@ -14,39 +14,17 @@ class MainEvaluationRepository:
     connection, so suite/run/gate/fix records share the BFF transaction store.
     """
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(self, connection) -> None:
         self.connection = connection
         self._sqlite = isinstance(connection, sqlite3.Connection)
         self._placeholder = "?" if self._sqlite else "%s"
-        schema = """
-            CREATE TABLE IF NOT EXISTS evaluation_quality_suites (
-              suite_id TEXT NOT NULL,
-              version INTEGER NOT NULL,
-              payload_json TEXT NOT NULL,
-              PRIMARY KEY (suite_id, version)
-            );
-            CREATE TABLE IF NOT EXISTS evaluation_quality_runs (
-              run_id TEXT PRIMARY KEY,
-              status TEXT NOT NULL,
-              payload_json TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS evaluation_quality_gates (
-              gate_id TEXT PRIMARY KEY,
-              payload_json TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS evaluation_quality_fix_plans (
-              plan_id TEXT PRIMARY KEY,
-              payload_json TEXT NOT NULL
-            );
-            """
-        if self._sqlite:
-            self.connection.executescript(schema)
-        else:
-            with self.connection.cursor() as cursor:
-                cursor.execute(schema)
 
     def _query(self, sql: str, params: tuple[Any, ...] = ()):
-        return self.connection.execute(sql.replace("?", self._placeholder), params)
+        if self._sqlite:
+            return self.connection.execute(sql, params)
+        return self.connection.execute(
+            sql.replace("?", self._placeholder), params
+        )
 
     def _fetchone(self, sql: str, params: tuple[Any, ...] = ()):
         return self._query(sql, params).fetchone()
