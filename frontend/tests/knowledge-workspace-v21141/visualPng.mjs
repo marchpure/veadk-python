@@ -24,7 +24,7 @@ function crc32(content) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function decodePng(content) {
+export function decodePng(content) {
   if (!content.subarray(0, 8).equals(PNG_SIGNATURE)) {
     throw new Error("screenshot evidence is not a PNG");
   }
