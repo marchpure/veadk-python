@@ -35,6 +35,11 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   `failed` with `AGENT_CANDIDATE_CONFIRMATION_REQUIRED`.
 - Read-only Worker checks: W1 Source/Golden `2 passed`; W3 hardening `23
   passed`.
+- Main full backend regression: `107 passed, 13 skipped, 1 failed`; the
+  reproducible failure is knowledge Golden Asset body truncation (`# Policy`
+  is returned without `Revenue is stable.`). This remains pending the W3
+  hardening commit and is not hidden by W3's isolated pass.
+- W4 audit/evaluation check: `20 passed`.
 - Prototype archive SHA-256: `ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571`
 - Runtime evidence remains outside the repository.
 

@@ -17,6 +17,9 @@
     "w1ReadOnly": "2 passed",
     "w3ReadOnly": "23 passed",
     "w4CandidateGateRegression": "35 passed in combined focused run",
+    "mainKnowledgeGoldenRegression": "FAIL: body truncated to '# Policy'; W3 hardening not integrated",
+    "mainBackendRegression": "107 passed, 13 skipped, 1 failed",
+    "w4Audit": "20 passed",
     "build": "passed",
     "staticGuard": "passed"
   },
@@ -26,6 +29,7 @@
     "W1 real Source/Golden Data commit and W1.status.json are pending",
     "W3 hardening commit and clean worktree are pending",
     "knowledge body-preservation regression awaits W3 hardening",
+    "Main full backend regression currently has one reproducible knowledge body failure",
     "W4 read-only final verification is pending",
     "external credential connectors remain blocked",
     "formal publication, Registry, Scheduler, and cross-Agent calling are STEP 4",
