@@ -149,7 +149,12 @@ const capture = async (page, side, url, root) => {
   return snapshot;
 };
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.KNOWLEDGE_CHROMIUM_EXECUTABLE
+    ? { executablePath: process.env.KNOWLEDGE_CHROMIUM_EXECUTABLE }
+    : {}),
+});
 try {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },

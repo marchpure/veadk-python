@@ -163,6 +163,27 @@ function kwStripPrototypeProductionDefaults(code: string, filePath: string): str
         /if \(isSampleAdded\) datasetsChildren = \[[\s\S]*?\];/,
         "if (isSampleAdded) datasetsChildren = [];",
       );
+    // The production bootstrap carries the real resource catalog. Preserve
+    // the frozen tree's semantic node types and icon mapping when that
+    // catalog replaces the prototype defaults: an artifact is draggable and
+    // its subtype selects the same icon as the frozen catalog.
+    output = output
+      .replace(
+        "type: r.resourceKind, \n      artifactType: r.subtype,",
+        "type: r.resourceKind === 'artifact' ? (r.space === 'team' ? 'team_artifact' : 'personal_artifact') : r.resourceKind, \n      artifactType: r.subtype,",
+      )
+      .replace(
+        "icon: (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') ? FileText : LayoutDashboard, ",
+        "icon: r.subtype === 'chart' ? FilePieChart : r.subtype === 'dashboard' ? LayoutDashboard : r.subtype === 'semantic' ? FileText : r.subtype === 'knowledge_base' ? Library : r.subtype === 'kg' ? Globe : (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') ? FileText : LayoutDashboard, ",
+      )
+      .replace(
+        "type: r.resourceKind, \n      artifactType: r.subtype, \n      readonly: true,",
+        "type: r.resourceKind === 'artifact' ? 'team_artifact' : r.resourceKind, \n      artifactType: r.subtype, \n      readonly: true,",
+      )
+      .replace(
+        "icon: (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') ? FileText : LayoutDashboard, \n      isDocs:",
+        "icon: r.subtype === 'chart' ? FilePieChart : r.subtype === 'dashboard' ? LayoutDashboard : r.subtype === 'semantic' ? FileText : r.subtype === 'knowledge_base' ? Library : r.subtype === 'kg' ? Globe : (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') ? FileText : LayoutDashboard, \n      isDocs:",
+      );
   }
   if (name.endsWith("/components/Layout/MainAreaPane.tsx")) {
     if (!output.includes("isWorkspaceRouteAvailable as isProductionRouteAvailable")) {
