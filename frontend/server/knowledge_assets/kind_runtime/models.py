@@ -22,6 +22,15 @@ from frontend.server.knowledge_assets.contracts import (
     ViewModel,
 )
 
+OperationLifecycleState = Literal[
+    "queued",
+    "running",
+    "awaiting_input",
+    "succeeded",
+    "failed",
+    "cancelled",
+]
+
 KindExecutionStatus = Literal[
     "queued",
     "running",
@@ -60,6 +69,8 @@ class ExecutionTrace(ContractModel):
     trace_id: str = Field(min_length=1, max_length=256)
     steps: list[str] = Field(default_factory=list, max_length=100)
     warnings: list[str] = Field(default_factory=list, max_length=100)
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 class ExecutionEvidence(ContractModel):
@@ -90,6 +101,95 @@ class KindExecutionRequest(ContractModel):
     now: str
 
 
+class RetrievalHit(ContractModel):
+    source_revision_id: str = Field(min_length=1, max_length=256)
+    chunk_locator: str = Field(min_length=1, max_length=2048)
+    text: str = Field(min_length=1, max_length=16_384)
+    score: float = Field(ge=0, le=1)
+    permission_ref: str = Field(min_length=1, max_length=2048)
+
+
+class QueryPlan(ContractModel):
+    plan_id: str = Field(min_length=1, max_length=256)
+    metric: str = Field(min_length=1, max_length=256)
+    dimension: str | None = Field(default=None, max_length=256)
+    filters: dict[str, str | int | float | bool] = Field(default_factory=dict)
+    limit: int = Field(default=1_000, ge=1, le=100_000)
+    read_only: bool = True
+    timeout_ms: int | None = Field(default=None, ge=1, le=300_000)
+
+
+class SemanticField(ContractModel):
+    name: str
+    role: Literal["entity", "dimension", "measure", "time"]
+    aggregation: Literal["sum", "count", "avg", "min", "max", "none"] = "none"
+    unit: str = ""
+    source_field: str
+    permission_ref: str
+
+
+class SemanticRelationship(ContractModel):
+    source: str
+    target: str
+    relation: str
+    join_type: Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"] = "many_to_one"
+    evidence_locator: str
+
+
+class SemanticModelProjection(ContractModel):
+    entities: list[str] = Field(default_factory=list)
+    fields: list[SemanticField] = Field(default_factory=list)
+    relationships: list[SemanticRelationship] = Field(default_factory=list)
+    mdl: str
+    ambiguities: list[str] = Field(default_factory=list)
+    dependency_errors: list[str] = Field(default_factory=list)
+
+
+class GraphMapping(ContractModel):
+    entities: list[str] = Field(default_factory=list)
+    relationships: list[SemanticRelationship] = Field(default_factory=list)
+    evidence_locators: list[str] = Field(default_factory=list)
+
+
+class MonitoringObservation(ContractModel):
+    id: str
+    metric: str
+    value: float
+    previous_value: float | None = None
+    change_rate: float | None = None
+    duration_seconds: int = Field(ge=0)
+    freshness_at: str
+    last_good_revision_id: str | None = None
+    evidence_locator: str
+
+
+class MonitoringAlert(ContractModel):
+    id: str
+    observation_id: str
+    status: Literal["open", "acknowledged", "resolved"] = "open"
+    severity: Literal["info", "warning", "critical"] = "warning"
+    reason: str
+    opened_at: str
+    resolved_at: str | None = None
+
+
+class MonitoringActionCandidate(ContractModel):
+    id: str
+    alert_id: str
+    status: Literal["preview", "approved", "rejected", "superseded"] = "preview"
+    title: str
+    preview_only: bool = True
+    evidence_locator: str
+
+
+class MonitoringLifecycle(ContractModel):
+    operation_id: str
+    observations: list[MonitoringObservation] = Field(default_factory=list)
+    alerts: list[MonitoringAlert] = Field(default_factory=list)
+    action_candidates: list[MonitoringActionCandidate] = Field(default_factory=list)
+    external_actions_executed: bool = False
+
+
 class KindHandlerOutput(ContractModel):
     state: KindExecutionState
     template: Literal[
@@ -105,6 +205,7 @@ class KindHandlerOutput(ContractModel):
 
 
 class SkillKindExecutionRecord(ContractModel):
+    operation_id: str
     status: KindExecutionStatus
     state: KindExecutionState
     draft_revision_id: str
@@ -117,4 +218,6 @@ class SkillKindExecutionRecord(ContractModel):
     trace: ExecutionTrace
     handler: str
     idempotency_key: str
+    retry_of_operation_id: str | None = None
+    monitoring_lifecycle: MonitoringLifecycle | None = None
     message: str | None = None

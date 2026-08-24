@@ -1,6 +1,6 @@
 {
   "schemaVersion": "knowledge-assets.step3.worker3.handoff.v1",
-  "status": "READY_FOR_INTEGRATION",
+  "status": "STEP3_W3_FROZEN",
   "date": "2026-08-25",
   "worker": "Backend Worker 3 - Multi-kind Skill Execution & View Projection",
   "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker3-kind-runtime",
@@ -15,6 +15,8 @@
     "frontend/server/knowledge_assets/kind_runtime/models.py",
     "frontend/server/knowledge_assets/kind_runtime/runtime.py",
     "frontend/server/knowledge_assets/kind_runtime/handlers.py",
+    "frontend/server/knowledge_assets/kind_runtime/providers.py",
+    "frontend/server/knowledge_assets/kind_runtime/repository.py",
     "frontend/server/knowledge_assets/kind_runtime/projector.py",
     "frontend/server/knowledge_assets/kind_runtime/store.py",
     "frontend/server/knowledge_assets/kind_runtime/adapters.py"
@@ -33,7 +35,7 @@
     "analysis": {
       "handler": "AnalysisHandler",
       "template": "chart",
-      "states": ["ok", "no_data", "awaiting_input", "permission_denied", "over_budget"]
+      "states": ["ok", "no_data", "permission_denied", "validation_failed", "over_budget"]
     },
     "graph_ontology": {
       "handler": "GraphOntologyHandler",
@@ -43,8 +45,47 @@
     "monitoring": {
       "handler": "MonitoringHandler",
       "template": "monitoring",
-      "states": ["ok", "no_data", "awaiting_input"]
+      "states": ["ok", "no_data", "permission_denied", "validation_failed", "over_budget"]
     }
+  },
+  "hardening": {
+    "sourceCommit": "96b7d10b",
+    "sourceStatus": "READY_FOR_INTEGRATION_CANDIDATE",
+    "lifecycle": [
+      "operationId derived from idempotencyKey",
+      "durable SQLite lifecycle repository",
+      "completed-operation replay after runtime restart",
+      "concurrent same-key execution waits for persisted result",
+      "running cancellation via repository cancel flag polling",
+      "bounded future timeout",
+      "retryOfOperationId linkage",
+      "incomplete operation discovery for process restart recovery"
+    ],
+    "providers": [
+      "RetrievalProvider",
+      "SemanticProvider",
+      "QueryExecutor",
+      "GraphMappingProvider"
+    ],
+    "semanticValidation": [
+      "entities",
+      "joins",
+      "metrics",
+      "aggregations",
+      "units",
+      "ambiguities",
+      "cycles",
+      "declared-field dependency errors"
+    ],
+    "monitoringLifecycle": [
+      "observations",
+      "alerts",
+      "lastGoodRevisionId",
+      "durationSeconds",
+      "preview action candidates",
+      "externalActionsExecuted=false"
+    ],
+    "scheduler": "STEP 4 Scheduler not executed"
   },
   "readModel": {
     "result": "SkillResult",
@@ -60,12 +101,16 @@
   },
   "tests": [
     {
-      "command": "pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py",
-      "result": "10 passed in 0.67s"
+      "command": "PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py",
+      "result": "23 passed in 1.00s"
     },
     {
-      "command": "pytest -q tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py tests/frontend/knowledge_workspace_v21141/test_step3_core.py tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py",
-      "result": "27 passed in 1.26s"
+      "command": "PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py tests/frontend/knowledge_workspace_v21141/test_step3_core.py tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py",
+      "result": "27 passed in 1.25s"
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py tests/frontend/knowledge_workspace_v21141/test_step3_core.py tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py",
+      "result": "50 passed in 1.65s"
     }
   ],
   "proposals": [
