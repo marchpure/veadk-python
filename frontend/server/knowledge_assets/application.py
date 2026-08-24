@@ -6,11 +6,27 @@ import hashlib
 
 from .contracts import (
     CommandResponse,
+    CommandResult,
+    DraftCommandResult,
     ErrorEnvelope,
+    LegacySkillManifestInput,
+    InvocationStartPayload,
+    InvocationStartResult,
     OperationEvent,
     OperationResponse,
+    PublicationPublishPayload,
+    PublicationPublishResult,
+    RefreshRunPayload,
+    RefreshRunResult,
     SkillDraft,
+    SkillDraftRunPayload,
+    SkillDraftRunResult,
     SkillManifest,
+    SourceCleanPayload,
+    SourceCleanResult,
+    SourceProfilePayload,
+    SourceProfileResult,
+    adapt_legacy_manifest,
     now_iso,
 )
 from .policies import validate_manifest_policy
@@ -86,7 +102,23 @@ class KnowledgeAssetApplication:
     ) -> CommandResponse:
         draft_id = str(payload["draft_id"])
         base_revision = int(payload["base_revision"])
-        manifest = SkillManifest.model_validate(payload["manifest"])
+        raw_manifest = payload["manifest"]
+        if isinstance(raw_manifest, SkillManifest):
+            manifest = raw_manifest
+        else:
+            legacy = LegacySkillManifestInput.model_validate(raw_manifest)
+            draft = self.repository.draft(draft_id)
+            if draft is None:
+                raise KnowledgeAssetRepositoryError(
+                    "DRAFT_NOT_FOUND",
+                    "Skill 草稿不存在。",
+                    details={"draftId": draft_id},
+                )
+            manifest = adapt_legacy_manifest(
+                legacy,
+                draft_id=draft.id,
+                workspace_id=draft.workspace_id,
+            )
         validate_manifest_policy(manifest)
         draft, replayed = self.repository.save_manifest(
             draft_id=draft_id,
@@ -131,6 +163,11 @@ class KnowledgeAssetApplication:
         draft: SkillDraft,
         replayed: bool,
     ) -> CommandResponse:
+        typed_result = DraftCommandResult(
+            result_type=action,
+            draft=draft,
+            replayed=replayed,
+        )
         accepted = OperationEvent(
             operation_id=operation_id,
             event_id=f"{operation_id}:accepted",
@@ -146,18 +183,14 @@ class KnowledgeAssetApplication:
             occurred_at=now_iso(),
             type="succeeded",
             terminal=True,
-            result={"draft": draft.model_dump(mode="json", by_alias=True)},
+            result=typed_result,
         )
         self.repository.append_operation_event(operation_id, accepted, status="running")
-        result = {
-            "draft": draft.model_dump(mode="json", by_alias=True),
-            "replayed": replayed,
-        }
         self.repository.append_operation_event(
             operation_id,
             succeeded,
             status="succeeded",
-            result=result,
+            result=typed_result.model_dump(mode="json", by_alias=True),
         )
         self.audit_recorder.record_audit(
             request_id=request_id,
@@ -172,7 +205,7 @@ class KnowledgeAssetApplication:
             accepted=True,
             request_id=request_id,
             operation_id=operation_id,
-            result=result,
+            result=typed_result,
         )
 
     def stream_events(self, operation_id: str, after: int = 0) -> list[OperationEvent]:
@@ -181,18 +214,68 @@ class KnowledgeAssetApplication:
             raise KeyError(operation_id)
         return [event for event in operation.events if event.sequence > after]
 
-    def unsupported(self, command: str, request_id: str) -> CommandResponse:
+    def unsupported(
+        self,
+        command: str,
+        request_id: str,
+        payload: dict[str, object],
+    ) -> CommandResponse:
+        result: CommandResult
+        if command == "source.profile":
+            typed = SourceProfilePayload.model_validate(payload)
+            result = SourceProfileResult(
+                source_revision_id=typed.source_revision_id,
+                error=self._not_ready_error(command, request_id),
+            )
+        elif command == "source.clean":
+            typed = SourceCleanPayload.model_validate(payload)
+            result = SourceCleanResult(
+                source_revision_id=typed.source_revision_id,
+                recipe_id=typed.recipe_id,
+                error=self._not_ready_error(command, request_id),
+            )
+        elif command == "skill-draft.run":
+            typed = SkillDraftRunPayload.model_validate(payload)
+            result = SkillDraftRunResult(
+                draft_id=typed.draft_id,
+                error=self._not_ready_error(command, request_id),
+            )
+        elif command == "publication.publish":
+            typed = PublicationPublishPayload.model_validate(payload)
+            result = PublicationPublishResult(
+                draft_id=typed.draft_id,
+                error=self._not_ready_error(command, request_id),
+            )
+        elif command == "refresh.run":
+            typed = RefreshRunPayload.model_validate(payload)
+            result = RefreshRunResult(
+                skill_id=typed.skill_id,
+                error=self._not_ready_error(command, request_id),
+            )
+        elif command == "invocation.start":
+            typed = InvocationStartPayload.model_validate(payload)
+            result = InvocationStartResult(
+                skill_version_id=typed.skill_version_id,
+                error=self._not_ready_error(command, request_id),
+            )
+        else:
+            result = InvocationStartResult(
+                skill_version_id="unsupported",
+                error=self._not_ready_error(command, request_id),
+            )
         return CommandResponse(
             accepted=False,
             request_id=request_id,
-            result={
-                "error": ErrorEnvelope(
-                    code="COMMAND_NOT_READY",
-                    message=f"命令 {command} 尚未在当前 STEP 1 应用波次开放。",
-                    retryable=False,
-                    request_id=request_id,
-                ).model_dump(mode="json", by_alias=True)
-            },
+            result=result,
+        )
+
+    @staticmethod
+    def _not_ready_error(command: str, request_id: str) -> ErrorEnvelope:
+        return ErrorEnvelope(
+            code="COMMAND_NOT_READY",
+            message=f"命令 {command} 尚未在当前 STEP 1 应用波次开放。",
+            retryable=False,
+            request_id=request_id,
         )
 
     def operation(self, operation_id: str) -> OperationResponse | None:

@@ -7,24 +7,22 @@ from .repository import KnowledgeAssetRepositoryError
 
 
 def validate_manifest_policy(manifest: SkillManifest) -> None:
-    if not manifest.actions:
+    if not manifest.spec.contract.operations:
         raise KnowledgeAssetRepositoryError(
             "VALIDATION_ERROR",
-            "Manifest 至少需要一个 action。",
-            details={"field": "actions"},
+            "SkillManifest 至少需要一个 typed operation。",
+            details={"field": "spec.contract.operations"},
         )
-    names = [action.name for action in manifest.actions]
+    names = [operation.name for operation in manifest.spec.contract.operations]
     if len(names) != len(set(names)):
         raise KnowledgeAssetRepositoryError(
             "VALIDATION_ERROR",
-            "Manifest action 名称不能重复。",
-            details={"field": "actions"},
+            "SkillManifest operation 名称不能重复。",
+            details={"field": "spec.contract.operations"},
         )
-    required = set(manifest.schema.required)
-    properties = set(manifest.schema.properties)
-    if not required <= properties:
+    if manifest.metadata.id == "":
         raise KnowledgeAssetRepositoryError(
             "VALIDATION_ERROR",
-            "Manifest required 字段必须存在于 properties。",
-            details={"field": "schema.required"},
+            "SkillManifest metadata.id 不能为空。",
+            details={"field": "metadata.id"},
         )

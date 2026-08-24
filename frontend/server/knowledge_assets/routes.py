@@ -109,7 +109,11 @@ def mount_knowledge_asset_routes(
                 details=error.details,
                 retryable=error.retryable,
             )
-        return application.unsupported(body.command, request_id)
+        return application.unsupported(
+            body.command,
+            request_id,
+            body.payload.model_dump(mode="python"),
+        )
 
     @app.post("/api/knowledge-assets/v1/streams")
     async def streams(request: Request, body: CommandRequest) -> Response:
