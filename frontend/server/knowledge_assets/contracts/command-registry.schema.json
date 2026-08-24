@@ -36,6 +36,61 @@
         "title": "ActionUpdatePayload",
         "type": "object"
       },
+      "AnalysisKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "analysis",
+            "default": "analysis",
+            "title": "Kind",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "queryPlanRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Queryplanref",
+            "type": "string"
+          },
+          "refreshPolicyRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Refreshpolicyref"
+          },
+          "alertPolicyRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Alertpolicyref"
+          }
+        },
+        "required": [
+          "question",
+          "queryPlanRef"
+        ],
+        "title": "AnalysisKindSpec",
+        "type": "object"
+      },
       "ArtifactExportCommand": {
         "additionalProperties": false,
         "properties": {
@@ -122,6 +177,27 @@
           "text"
         ],
         "title": "AssistantTurnPayload",
+        "type": "object"
+      },
+      "CompatibilityTargets": {
+        "additionalProperties": false,
+        "properties": {
+          "targets": {
+            "items": {
+              "enum": [
+                "agentkit",
+                "mcp",
+                "openapi",
+                "codex"
+              ],
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "title": "CompatibilityTargets",
         "type": "object"
       },
       "ConnectorCommand": {
@@ -218,36 +294,105 @@
         "title": "CreateSkillDraftPayload",
         "type": "object"
       },
-      "EmptyCommand": {
+      "DataAccessKindSpec": {
         "additionalProperties": false,
         "properties": {
-          "command": {
-            "enum": [
-              "source.profile",
-              "source.clean",
-              "skill-draft.run",
-              "publication.publish",
-              "refresh.run",
-              "invocation.start"
-            ],
-            "title": "Command",
+          "kind": {
+            "const": "data_access",
+            "default": "data_access",
+            "title": "Kind",
             "type": "string"
           },
-          "payload": {
-            "$ref": "#/$defs/EmptyPayload"
+          "connectorType": {
+            "enum": [
+              "oracle",
+              "mysql",
+              "postgresql",
+              "csv",
+              "excel",
+              "web_api",
+              "mcp",
+              "local_file"
+            ],
+            "title": "Connectortype",
+            "type": "string"
+          },
+          "endpointRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Endpointref",
+            "type": "string"
+          },
+          "secretRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SecretRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "allowedSchemas": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Allowedschemas",
+            "type": "array"
+          },
+          "allowedTables": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Allowedtables",
+            "type": "array"
+          },
+          "allowedOperations": {
+            "items": {
+              "enum": [
+                "introspect",
+                "query",
+                "read",
+                "subscribe",
+                "search"
+              ],
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Allowedoperations",
+            "type": "array"
+          },
+          "rowPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "columnPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
-          "command",
-          "payload"
+          "connectorType",
+          "endpointRef"
         ],
-        "title": "EmptyCommand",
-        "type": "object"
-      },
-      "EmptyPayload": {
-        "additionalProperties": false,
-        "properties": {},
-        "title": "EmptyPayload",
+        "title": "DataAccessKindSpec",
         "type": "object"
       },
       "EvaluationCommand": {
@@ -288,6 +433,48 @@
         "title": "EvaluationPayload",
         "type": "object"
       },
+      "GraphOntologyKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "graph_ontology",
+            "default": "graph_ontology",
+            "title": "Kind",
+            "type": "string"
+          },
+          "entitySchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "relationshipSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "constraintRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Constraintrefs",
+            "type": "array"
+          },
+          "evidencePolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "entitySchemaRef",
+          "relationshipSchemaRef"
+        ],
+        "title": "GraphOntologyKindSpec",
+        "type": "object"
+      },
       "ImportCommand": {
         "additionalProperties": false,
         "properties": {
@@ -324,6 +511,148 @@
           "sourceId"
         ],
         "title": "ImportPayload",
+        "type": "object"
+      },
+      "InvocationStartCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "invocation.start",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/InvocationStartPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "InvocationStartCommand",
+        "type": "object"
+      },
+      "InvocationStartPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "skillVersionId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Skillversionid",
+            "type": "string"
+          },
+          "inputRef": {
+            "$ref": "#/$defs/StorageRef"
+          },
+          "callerId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Callerid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillVersionId",
+          "inputRef",
+          "callerId"
+        ],
+        "title": "InvocationStartPayload",
+        "type": "object"
+      },
+      "KnowledgeKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "knowledge",
+            "default": "knowledge",
+            "title": "Kind",
+            "type": "string"
+          },
+          "retrievalMode": {
+            "default": "hybrid",
+            "enum": [
+              "hybrid",
+              "vector",
+              "keyword"
+            ],
+            "title": "Retrievalmode",
+            "type": "string"
+          },
+          "sourceRevisionRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Sourcerevisionrefs",
+            "type": "array"
+          },
+          "citationPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "refusalPolicyRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Refusalpolicyref"
+          }
+        },
+        "title": "KnowledgeKindSpec",
+        "type": "object"
+      },
+      "LegacySkillManifestInput": {
+        "additionalProperties": false,
+        "description": "The only accepted compatibility shape for the original M1 UI.",
+        "properties": {
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "title": "Version",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Description",
+            "type": "string"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/$defs/SkillManifestAction"
+            },
+            "maxItems": 64,
+            "title": "Actions",
+            "type": "array"
+          },
+          "schema": {
+            "$ref": "#/$defs/ManifestInputSchema"
+          }
+        },
+        "required": [
+          "name",
+          "version"
+        ],
+        "title": "LegacySkillManifestInput",
         "type": "object"
       },
       "ManifestInputSchema": {
@@ -384,6 +713,193 @@
           "type"
         ],
         "title": "ManifestProperty",
+        "type": "object"
+      },
+      "MonitoringKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "monitoring",
+            "default": "monitoring",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metricRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Metricrefs",
+            "type": "array"
+          },
+          "refreshScheduleRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Refreshscheduleref",
+            "type": "string"
+          },
+          "alertPolicyRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Alertpolicyref",
+            "type": "string"
+          },
+          "actionPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "refreshScheduleRef",
+          "alertPolicyRef"
+        ],
+        "title": "MonitoringKindSpec",
+        "type": "object"
+      },
+      "OwnerRef": {
+        "additionalProperties": false,
+        "properties": {
+          "workspaceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Workspaceid",
+            "type": "string"
+          },
+          "principalId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Principalid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "principalId"
+        ],
+        "title": "OwnerRef",
+        "type": "object"
+      },
+      "PermissionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Uri",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "version"
+        ],
+        "title": "PermissionRef",
+        "type": "object"
+      },
+      "PublicationPublishCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "publication.publish",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/PublicationPublishPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "PublicationPublishCommand",
+        "type": "object"
+      },
+      "PublicationPublishPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "draftId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Draftid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "semver": {
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "title": "Semver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draftId",
+          "revision",
+          "semver"
+        ],
+        "title": "PublicationPublishPayload",
+        "type": "object"
+      },
+      "RefreshRunCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "refresh.run",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/RefreshRunPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "RefreshRunCommand",
+        "type": "object"
+      },
+      "RefreshRunPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "skillId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Skillid",
+            "type": "string"
+          },
+          "trigger": {
+            "enum": [
+              "manual",
+              "schedule",
+              "event",
+              "freshness_on_read"
+            ],
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillId",
+          "trigger"
+        ],
+        "title": "RefreshRunPayload",
         "type": "object"
       },
       "ResourceCommand": {
@@ -461,7 +977,15 @@
             "type": "integer"
           },
           "manifest": {
-            "$ref": "#/$defs/SkillManifest"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SkillManifest"
+              },
+              {
+                "$ref": "#/$defs/LegacySkillManifestInput"
+              }
+            ],
+            "title": "Manifest"
           }
         },
         "required": [
@@ -472,42 +996,254 @@
         "title": "SaveManifestPayload",
         "type": "object"
       },
-      "SkillManifest": {
+      "SchemaRef": {
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "maxLength": 128,
+          "uri": {
+            "maxLength": 2048,
             "minLength": 1,
-            "title": "Name",
+            "title": "Uri",
             "type": "string"
           },
           "version": {
-            "maxLength": 32,
-            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Version",
             "type": "string"
           },
-          "description": {
-            "default": "",
-            "maxLength": 1024,
-            "title": "Description",
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
             "type": "string"
-          },
-          "actions": {
-            "items": {
-              "$ref": "#/$defs/SkillManifestAction"
-            },
-            "maxItems": 64,
-            "title": "Actions",
-            "type": "array"
-          },
-          "schema": {
-            "$ref": "#/$defs/ManifestInputSchema"
           }
         },
         "required": [
-          "name",
+          "uri",
+          "version",
+          "sha256"
+        ],
+        "title": "SchemaRef",
+        "type": "object"
+      },
+      "SecretRef": {
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "pattern": "^secret://.+",
+            "title": "Uri",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
           "version"
+        ],
+        "title": "SecretRef",
+        "type": "object"
+      },
+      "SemanticKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "semantic",
+            "default": "semantic",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metricRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Metricrefs",
+            "type": "array"
+          },
+          "dimensionRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Dimensionrefs",
+            "type": "array"
+          },
+          "relationshipRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Relationshiprefs",
+            "type": "array"
+          },
+          "queryPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "title": "SemanticKindSpec",
+        "type": "object"
+      },
+      "SkillContract": {
+        "additionalProperties": false,
+        "properties": {
+          "inputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "outputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "examplesRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "errorCodes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Errorcodes",
+            "type": "array"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/$defs/SkillOperation"
+            },
+            "maxItems": 64,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputSchemaRef",
+          "outputSchemaRef"
+        ],
+        "title": "SkillContract",
+        "type": "object"
+      },
+      "SkillDependencies": {
+        "additionalProperties": false,
+        "properties": {
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Skills",
+            "type": "array"
+          },
+          "goldenAssets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Goldenassets",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "title": "SkillDependencies",
+        "type": "object"
+      },
+      "SkillDraftRunCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "skill-draft.run",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/SkillDraftRunPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "SkillDraftRunCommand",
+        "type": "object"
+      },
+      "SkillDraftRunPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "draftId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Draftid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "traceId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Traceid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draftId",
+          "revision",
+          "traceId"
+        ],
+        "title": "SkillDraftRunPayload",
+        "type": "object"
+      },
+      "SkillManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "apiVersion": {
+            "const": "knowledge.veadk.io/v1alpha1",
+            "default": "knowledge.veadk.io/v1alpha1",
+            "title": "Apiversion",
+            "type": "string"
+          },
+          "kind": {
+            "const": "Skill",
+            "default": "Skill",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/$defs/SkillMetadata"
+          },
+          "spec": {
+            "$ref": "#/$defs/SkillSpec"
+          }
+        },
+        "required": [
+          "metadata",
+          "spec"
         ],
         "title": "SkillManifest",
         "type": "object"
@@ -532,6 +1268,342 @@
           "name"
         ],
         "title": "SkillManifestAction",
+        "type": "object"
+      },
+      "SkillMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "title": "Version",
+            "type": "string"
+          },
+          "displayName": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Displayname",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2048,
+            "title": "Description",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/$defs/OwnerRef"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Digest"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "displayName",
+          "owner"
+        ],
+        "title": "SkillMetadata",
+        "type": "object"
+      },
+      "SkillOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Description",
+            "type": "string"
+          },
+          "inputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "outputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "risk": {
+            "default": "read_only",
+            "enum": [
+              "read_only",
+              "external_write",
+              "high_risk"
+            ],
+            "title": "Risk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "inputSchemaRef",
+          "outputSchemaRef"
+        ],
+        "title": "SkillOperation",
+        "type": "object"
+      },
+      "SkillSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "data_access",
+              "semantic",
+              "analysis",
+              "knowledge",
+              "graph_ontology",
+              "monitoring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "contract": {
+            "$ref": "#/$defs/SkillContract"
+          },
+          "dependencies": {
+            "$ref": "#/$defs/SkillDependencies"
+          },
+          "policyRef": {
+            "$ref": "#/$defs/PermissionRef"
+          },
+          "runtimeRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Runtimeref",
+            "type": "string"
+          },
+          "evaluationSuiteRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evaluationsuiteref"
+          },
+          "skillViewRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Skillviewref"
+          },
+          "compatibility": {
+            "$ref": "#/$defs/CompatibilityTargets"
+          },
+          "kindSpec": {
+            "discriminator": {
+              "mapping": {
+                "analysis": "#/$defs/AnalysisKindSpec",
+                "data_access": "#/$defs/DataAccessKindSpec",
+                "graph_ontology": "#/$defs/GraphOntologyKindSpec",
+                "knowledge": "#/$defs/KnowledgeKindSpec",
+                "monitoring": "#/$defs/MonitoringKindSpec",
+                "semantic": "#/$defs/SemanticKindSpec"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DataAccessKindSpec"
+              },
+              {
+                "$ref": "#/$defs/SemanticKindSpec"
+              },
+              {
+                "$ref": "#/$defs/AnalysisKindSpec"
+              },
+              {
+                "$ref": "#/$defs/KnowledgeKindSpec"
+              },
+              {
+                "$ref": "#/$defs/GraphOntologyKindSpec"
+              },
+              {
+                "$ref": "#/$defs/MonitoringKindSpec"
+              }
+            ],
+            "title": "Kindspec"
+          }
+        },
+        "required": [
+          "kind",
+          "contract",
+          "policyRef",
+          "runtimeRef",
+          "kindSpec"
+        ],
+        "title": "SkillSpec",
+        "type": "object"
+      },
+      "SourceCleanCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "source.clean",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/SourceCleanPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "SourceCleanCommand",
+        "type": "object"
+      },
+      "SourceCleanPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "sourceRevisionId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Sourcerevisionid",
+            "type": "string"
+          },
+          "recipeId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Recipeid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceRevisionId",
+          "recipeId"
+        ],
+        "title": "SourceCleanPayload",
+        "type": "object"
+      },
+      "SourceProfileCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "source.profile",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/SourceProfilePayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "SourceProfileCommand",
+        "type": "object"
+      },
+      "SourceProfilePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "sourceRevisionId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Sourcerevisionid",
+            "type": "string"
+          },
+          "sampleLimit": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Samplelimit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceRevisionId"
+        ],
+        "title": "SourceProfilePayload",
+        "type": "object"
+      },
+      "StorageRef": {
+        "additionalProperties": false,
+        "description": "Content or table reference; large values never live in metadata JSON.",
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Uri",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "object",
+              "table",
+              "vector",
+              "bundle",
+              "inline"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bytes"
+          }
+        },
+        "required": [
+          "uri",
+          "kind",
+          "sha256",
+          "mediaType"
+        ],
+        "title": "StorageRef",
         "type": "object"
       },
       "StreamCancelCommand": {
@@ -590,19 +1662,19 @@
         "evaluation.run": "#/$defs/EvaluationCommand",
         "import.cancel": "#/$defs/ImportCommand",
         "import.start": "#/$defs/ImportCommand",
-        "invocation.start": "#/$defs/EmptyCommand",
-        "publication.publish": "#/$defs/EmptyCommand",
-        "refresh.run": "#/$defs/EmptyCommand",
+        "invocation.start": "#/$defs/InvocationStartCommand",
+        "publication.publish": "#/$defs/PublicationPublishCommand",
+        "refresh.run": "#/$defs/RefreshRunCommand",
         "resource.create": "#/$defs/ResourceCommand",
         "resource.publish": "#/$defs/ResourceCommand",
         "resource.revoke": "#/$defs/ResourceCommand",
         "resource.share": "#/$defs/ResourceCommand",
         "resource.update": "#/$defs/ResourceCommand",
         "skill-draft.create": "#/$defs/CreateSkillDraftCommand",
-        "skill-draft.run": "#/$defs/EmptyCommand",
+        "skill-draft.run": "#/$defs/SkillDraftRunCommand",
         "skill-draft.save-manifest": "#/$defs/SaveManifestCommand",
-        "source.clean": "#/$defs/EmptyCommand",
-        "source.profile": "#/$defs/EmptyCommand",
+        "source.clean": "#/$defs/SourceCleanCommand",
+        "source.profile": "#/$defs/SourceProfileCommand",
         "stream.cancel": "#/$defs/StreamCancelCommand"
       },
       "propertyName": "command"
@@ -639,11 +1711,1246 @@
         "$ref": "#/$defs/ArtifactExportCommand"
       },
       {
-        "$ref": "#/$defs/EmptyCommand"
+        "$ref": "#/$defs/SourceProfileCommand"
+      },
+      {
+        "$ref": "#/$defs/SourceCleanCommand"
+      },
+      {
+        "$ref": "#/$defs/SkillDraftRunCommand"
+      },
+      {
+        "$ref": "#/$defs/PublicationPublishCommand"
+      },
+      {
+        "$ref": "#/$defs/RefreshRunCommand"
+      },
+      {
+        "$ref": "#/$defs/InvocationStartCommand"
       }
     ]
   },
   "commandResponse": {
+    "$defs": {
+      "AnalysisKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "analysis",
+            "default": "analysis",
+            "title": "Kind",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "queryPlanRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Queryplanref",
+            "type": "string"
+          },
+          "refreshPolicyRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Refreshpolicyref"
+          },
+          "alertPolicyRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Alertpolicyref"
+          }
+        },
+        "required": [
+          "question",
+          "queryPlanRef"
+        ],
+        "title": "AnalysisKindSpec",
+        "type": "object"
+      },
+      "CompatibilityTargets": {
+        "additionalProperties": false,
+        "properties": {
+          "targets": {
+            "items": {
+              "enum": [
+                "agentkit",
+                "mcp",
+                "openapi",
+                "codex"
+              ],
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "title": "CompatibilityTargets",
+        "type": "object"
+      },
+      "DataAccessKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "data_access",
+            "default": "data_access",
+            "title": "Kind",
+            "type": "string"
+          },
+          "connectorType": {
+            "enum": [
+              "oracle",
+              "mysql",
+              "postgresql",
+              "csv",
+              "excel",
+              "web_api",
+              "mcp",
+              "local_file"
+            ],
+            "title": "Connectortype",
+            "type": "string"
+          },
+          "endpointRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Endpointref",
+            "type": "string"
+          },
+          "secretRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SecretRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "allowedSchemas": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Allowedschemas",
+            "type": "array"
+          },
+          "allowedTables": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Allowedtables",
+            "type": "array"
+          },
+          "allowedOperations": {
+            "items": {
+              "enum": [
+                "introspect",
+                "query",
+                "read",
+                "subscribe",
+                "search"
+              ],
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Allowedoperations",
+            "type": "array"
+          },
+          "rowPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "columnPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "connectorType",
+          "endpointRef"
+        ],
+        "title": "DataAccessKindSpec",
+        "type": "object"
+      },
+      "DraftCommandResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "enum": [
+              "skill-draft.create",
+              "skill-draft.save-manifest"
+            ],
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "draft": {
+            "$ref": "#/$defs/SkillDraft"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "resultType",
+          "draft"
+        ],
+        "title": "DraftCommandResult",
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "requestId": {
+            "title": "Requestid",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Details"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable",
+          "requestId"
+        ],
+        "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "GraphOntologyKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "graph_ontology",
+            "default": "graph_ontology",
+            "title": "Kind",
+            "type": "string"
+          },
+          "entitySchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "relationshipSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "constraintRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Constraintrefs",
+            "type": "array"
+          },
+          "evidencePolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "entitySchemaRef",
+          "relationshipSchemaRef"
+        ],
+        "title": "GraphOntologyKindSpec",
+        "type": "object"
+      },
+      "InvocationStartResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "invocation.start",
+            "default": "invocation.start",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "const": "not_ready",
+            "default": "not_ready",
+            "title": "Status",
+            "type": "string"
+          },
+          "skillVersionId": {
+            "title": "Skillversionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillVersionId"
+        ],
+        "title": "InvocationStartResult",
+        "type": "object"
+      },
+      "KnowledgeKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "knowledge",
+            "default": "knowledge",
+            "title": "Kind",
+            "type": "string"
+          },
+          "retrievalMode": {
+            "default": "hybrid",
+            "enum": [
+              "hybrid",
+              "vector",
+              "keyword"
+            ],
+            "title": "Retrievalmode",
+            "type": "string"
+          },
+          "sourceRevisionRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Sourcerevisionrefs",
+            "type": "array"
+          },
+          "citationPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "refusalPolicyRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Refusalpolicyref"
+          }
+        },
+        "title": "KnowledgeKindSpec",
+        "type": "object"
+      },
+      "MonitoringKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "monitoring",
+            "default": "monitoring",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metricRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Metricrefs",
+            "type": "array"
+          },
+          "refreshScheduleRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Refreshscheduleref",
+            "type": "string"
+          },
+          "alertPolicyRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Alertpolicyref",
+            "type": "string"
+          },
+          "actionPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "refreshScheduleRef",
+          "alertPolicyRef"
+        ],
+        "title": "MonitoringKindSpec",
+        "type": "object"
+      },
+      "NotReadyCommandResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "command.not-ready",
+            "default": "command.not-ready",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/$defs/ErrorEnvelope"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "command"
+        ],
+        "title": "NotReadyCommandResult",
+        "type": "object"
+      },
+      "OwnerRef": {
+        "additionalProperties": false,
+        "properties": {
+          "workspaceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Workspaceid",
+            "type": "string"
+          },
+          "principalId": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Principalid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceId",
+          "principalId"
+        ],
+        "title": "OwnerRef",
+        "type": "object"
+      },
+      "PermissionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Uri",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "version"
+        ],
+        "title": "PermissionRef",
+        "type": "object"
+      },
+      "PublicationPublishResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "publication.publish",
+            "default": "publication.publish",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "const": "not_ready",
+            "default": "not_ready",
+            "title": "Status",
+            "type": "string"
+          },
+          "draftId": {
+            "title": "Draftid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draftId"
+        ],
+        "title": "PublicationPublishResult",
+        "type": "object"
+      },
+      "RefreshRunResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "refresh.run",
+            "default": "refresh.run",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "const": "not_ready",
+            "default": "not_ready",
+            "title": "Status",
+            "type": "string"
+          },
+          "skillId": {
+            "title": "Skillid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skillId"
+        ],
+        "title": "RefreshRunResult",
+        "type": "object"
+      },
+      "SchemaRef": {
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Uri",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "version",
+          "sha256"
+        ],
+        "title": "SchemaRef",
+        "type": "object"
+      },
+      "SecretRef": {
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "pattern": "^secret://.+",
+            "title": "Uri",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri",
+          "version"
+        ],
+        "title": "SecretRef",
+        "type": "object"
+      },
+      "SemanticKindSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "semantic",
+            "default": "semantic",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metricRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Metricrefs",
+            "type": "array"
+          },
+          "dimensionRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Dimensionrefs",
+            "type": "array"
+          },
+          "relationshipRefs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Relationshiprefs",
+            "type": "array"
+          },
+          "queryPolicyRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PermissionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "title": "SemanticKindSpec",
+        "type": "object"
+      },
+      "SkillContract": {
+        "additionalProperties": false,
+        "properties": {
+          "inputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "outputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "examplesRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "errorCodes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Errorcodes",
+            "type": "array"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/$defs/SkillOperation"
+            },
+            "maxItems": 64,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "inputSchemaRef",
+          "outputSchemaRef"
+        ],
+        "title": "SkillContract",
+        "type": "object"
+      },
+      "SkillDependencies": {
+        "additionalProperties": false,
+        "properties": {
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Skills",
+            "type": "array"
+          },
+          "goldenAssets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Goldenassets",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "title": "SkillDependencies",
+        "type": "object"
+      },
+      "SkillDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "workspaceId": {
+            "title": "Workspaceid",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "lifecycle": {
+            "const": "draft",
+            "default": "draft",
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "viewState": {
+            "const": "debug",
+            "default": "debug",
+            "title": "Viewstate",
+            "type": "string"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "updatedAt": {
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/$defs/SkillManifest"
+          }
+        },
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "description",
+          "revision",
+          "createdAt",
+          "updatedAt",
+          "manifest"
+        ],
+        "title": "SkillDraft",
+        "type": "object"
+      },
+      "SkillDraftRunResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "skill-draft.run",
+            "default": "skill-draft.run",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "const": "not_ready",
+            "default": "not_ready",
+            "title": "Status",
+            "type": "string"
+          },
+          "draftId": {
+            "title": "Draftid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draftId"
+        ],
+        "title": "SkillDraftRunResult",
+        "type": "object"
+      },
+      "SkillManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "apiVersion": {
+            "const": "knowledge.veadk.io/v1alpha1",
+            "default": "knowledge.veadk.io/v1alpha1",
+            "title": "Apiversion",
+            "type": "string"
+          },
+          "kind": {
+            "const": "Skill",
+            "default": "Skill",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/$defs/SkillMetadata"
+          },
+          "spec": {
+            "$ref": "#/$defs/SkillSpec"
+          }
+        },
+        "required": [
+          "metadata",
+          "spec"
+        ],
+        "title": "SkillManifest",
+        "type": "object"
+      },
+      "SkillMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "maxLength": 32,
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "title": "Version",
+            "type": "string"
+          },
+          "displayName": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Displayname",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 2048,
+            "title": "Description",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/$defs/OwnerRef"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Digest"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "displayName",
+          "owner"
+        ],
+        "title": "SkillMetadata",
+        "type": "object"
+      },
+      "SkillOperation": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 1024,
+            "title": "Description",
+            "type": "string"
+          },
+          "inputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "outputSchemaRef": {
+            "$ref": "#/$defs/SchemaRef"
+          },
+          "risk": {
+            "default": "read_only",
+            "enum": [
+              "read_only",
+              "external_write",
+              "high_risk"
+            ],
+            "title": "Risk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "inputSchemaRef",
+          "outputSchemaRef"
+        ],
+        "title": "SkillOperation",
+        "type": "object"
+      },
+      "SkillSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "data_access",
+              "semantic",
+              "analysis",
+              "knowledge",
+              "graph_ontology",
+              "monitoring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "contract": {
+            "$ref": "#/$defs/SkillContract"
+          },
+          "dependencies": {
+            "$ref": "#/$defs/SkillDependencies"
+          },
+          "policyRef": {
+            "$ref": "#/$defs/PermissionRef"
+          },
+          "runtimeRef": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Runtimeref",
+            "type": "string"
+          },
+          "evaluationSuiteRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evaluationsuiteref"
+          },
+          "skillViewRef": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Skillviewref"
+          },
+          "compatibility": {
+            "$ref": "#/$defs/CompatibilityTargets"
+          },
+          "kindSpec": {
+            "discriminator": {
+              "mapping": {
+                "analysis": "#/$defs/AnalysisKindSpec",
+                "data_access": "#/$defs/DataAccessKindSpec",
+                "graph_ontology": "#/$defs/GraphOntologyKindSpec",
+                "knowledge": "#/$defs/KnowledgeKindSpec",
+                "monitoring": "#/$defs/MonitoringKindSpec",
+                "semantic": "#/$defs/SemanticKindSpec"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DataAccessKindSpec"
+              },
+              {
+                "$ref": "#/$defs/SemanticKindSpec"
+              },
+              {
+                "$ref": "#/$defs/AnalysisKindSpec"
+              },
+              {
+                "$ref": "#/$defs/KnowledgeKindSpec"
+              },
+              {
+                "$ref": "#/$defs/GraphOntologyKindSpec"
+              },
+              {
+                "$ref": "#/$defs/MonitoringKindSpec"
+              }
+            ],
+            "title": "Kindspec"
+          }
+        },
+        "required": [
+          "kind",
+          "contract",
+          "policyRef",
+          "runtimeRef",
+          "kindSpec"
+        ],
+        "title": "SkillSpec",
+        "type": "object"
+      },
+      "SourceCleanResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "source.clean",
+            "default": "source.clean",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "const": "not_ready",
+            "default": "not_ready",
+            "title": "Status",
+            "type": "string"
+          },
+          "sourceRevisionId": {
+            "title": "Sourcerevisionid",
+            "type": "string"
+          },
+          "recipeId": {
+            "title": "Recipeid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceRevisionId",
+          "recipeId"
+        ],
+        "title": "SourceCleanResult",
+        "type": "object"
+      },
+      "SourceProfileResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "source.profile",
+            "default": "source.profile",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "const": "not_ready",
+            "default": "not_ready",
+            "title": "Status",
+            "type": "string"
+          },
+          "sourceRevisionId": {
+            "title": "Sourcerevisionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceRevisionId"
+        ],
+        "title": "SourceProfileResult",
+        "type": "object"
+      },
+      "StorageRef": {
+        "additionalProperties": false,
+        "description": "Content or table reference; large values never live in metadata JSON.",
+        "properties": {
+          "uri": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Uri",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "object",
+              "table",
+              "vector",
+              "bundle",
+              "inline"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "mediaType": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Mediatype",
+            "type": "string"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Bytes"
+          }
+        },
+        "required": [
+          "uri",
+          "kind",
+          "sha256",
+          "mediaType"
+        ],
+        "title": "StorageRef",
+        "type": "object"
+      }
+    },
     "additionalProperties": false,
     "properties": {
       "accepted": {
@@ -669,8 +2976,46 @@
       "result": {
         "anyOf": [
           {
-            "additionalProperties": true,
-            "type": "object"
+            "discriminator": {
+              "mapping": {
+                "command.not-ready": "#/$defs/NotReadyCommandResult",
+                "invocation.start": "#/$defs/InvocationStartResult",
+                "publication.publish": "#/$defs/PublicationPublishResult",
+                "refresh.run": "#/$defs/RefreshRunResult",
+                "skill-draft.create": "#/$defs/DraftCommandResult",
+                "skill-draft.run": "#/$defs/SkillDraftRunResult",
+                "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
+                "source.clean": "#/$defs/SourceCleanResult",
+                "source.profile": "#/$defs/SourceProfileResult"
+              },
+              "propertyName": "resultType"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DraftCommandResult"
+              },
+              {
+                "$ref": "#/$defs/NotReadyCommandResult"
+              },
+              {
+                "$ref": "#/$defs/SourceProfileResult"
+              },
+              {
+                "$ref": "#/$defs/SourceCleanResult"
+              },
+              {
+                "$ref": "#/$defs/SkillDraftRunResult"
+              },
+              {
+                "$ref": "#/$defs/PublicationPublishResult"
+              },
+              {
+                "$ref": "#/$defs/RefreshRunResult"
+              },
+              {
+                "$ref": "#/$defs/InvocationStartResult"
+              }
+            ]
           },
           {
             "type": "null"

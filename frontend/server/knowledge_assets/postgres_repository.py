@@ -25,6 +25,7 @@ from .contracts import (
     ResourceSummary,
     SkillDraft,
     SkillManifest,
+    empty_knowledge_manifest,
     now_iso,
 )
 from .repository import KnowledgeAssetRepositoryError
@@ -87,6 +88,54 @@ class PostgresKnowledgeAssetRepository:
             server_time=now_iso(),
         )
 
+    def draft(self, draft_id: str) -> SkillDraft | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, workspace_id, name, description, revision,
+                       created_at, updated_at, manifest_json
+                FROM skill_drafts WHERE id = %s
+                """,
+                (draft_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return None
+        return SkillDraft(
+            id=row["id"],
+            workspace_id=row["workspace_id"],
+            name=row["name"],
+            description=row["description"],
+            revision=row["revision"],
+            created_at=row["created_at"].isoformat(),
+            updated_at=row["updated_at"].isoformat(),
+            manifest=SkillManifest.model_validate(row["manifest_json"]),
+        )
+
+    def current_pointer(self, *, object_type: str, object_id: str) -> int | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT current_revision FROM object_pointers
+                WHERE object_type = %s AND object_id = %s
+                """,
+                (object_type, object_id),
+            )
+            row = cursor.fetchone()
+        return row["current_revision"] if row else None
+
+    def last_good_pointer(self, *, object_type: str, object_id: str) -> int | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT last_good_revision FROM object_pointers
+                WHERE object_type = %s AND object_id = %s
+                """,
+                (object_type, object_id),
+            )
+            row = cursor.fetchone()
+        return row["last_good_revision"] if row else None
+
     def create_skill_draft(
         self, *, workspace_id: str, name: str, description: str,
         source_refs: list[str], request_id: str, idempotency_key: str,
@@ -106,9 +155,11 @@ class PostgresKnowledgeAssetRepository:
                 id=draft_id, workspace_id=workspace_id, name=name.strip(),
                 description=description.strip(), revision=1, created_at=timestamp,
                 updated_at=timestamp,
-                manifest=SkillManifest(
-                    name=name.strip(), version="1.0.0",
-                    description=description.strip(), actions=[],
+                manifest=empty_knowledge_manifest(
+                    draft_id=draft_id,
+                    workspace_id=workspace_id,
+                    name=name.strip(),
+                    description=description.strip(),
                 ),
             )
             cursor.execute(
@@ -119,7 +170,8 @@ class PostgresKnowledgeAssetRepository:
                 VALUES (%s, %s, %s, %s, 1, %s, %s, %s::jsonb)
                 """,
                 (draft.id, draft.workspace_id, draft.name, draft.description,
-                 timestamp, timestamp, json.dumps(draft.manifest.model_dump(mode="json"))),
+                 timestamp, timestamp,
+                 json.dumps(draft.manifest.model_dump(mode="json", by_alias=True))),
             )
             cursor.execute(
                 """
@@ -127,7 +179,28 @@ class PostgresKnowledgeAssetRepository:
                 VALUES (%s, %s, %s::jsonb)
                 """,
                 ("skill-draft.create", idempotency_key,
-                 json.dumps(draft.model_dump(mode="json"))),
+                 json.dumps(draft.model_dump(mode="json", by_alias=True))),
+            )
+            cursor.execute(
+                """
+                INSERT INTO skill_draft_revisions
+                (draft_id, skill_id, revision, manifest_json, status, created_at)
+                VALUES (%s, %s, 1, %s::jsonb, 'draft', %s)
+                """,
+                (
+                    draft.id,
+                    draft.id,
+                    json.dumps(draft.manifest.model_dump(mode="json", by_alias=True)),
+                    timestamp,
+                ),
+            )
+            cursor.execute(
+                """
+                INSERT INTO object_pointers
+                (object_type, object_id, current_revision, last_good_revision)
+                VALUES ('skill_draft', %s, 1, 1)
+                """,
+                (draft.id,),
             )
         return draft, False
 
@@ -173,12 +246,14 @@ class PostgresKnowledgeAssetRepository:
                     updated_at = %s, manifest_json = %s::jsonb
                 WHERE id = %s
                 """,
-                (manifest.name, manifest.description, next_revision, timestamp,
-                 json.dumps(manifest.model_dump(mode="json")), draft_id),
+                (manifest.metadata.display_name, manifest.metadata.description,
+                 next_revision, timestamp,
+                 json.dumps(manifest.model_dump(mode="json", by_alias=True)), draft_id),
             )
             draft = SkillDraft(
-                id=row["id"], workspace_id=row["workspace_id"], name=manifest.name,
-                description=manifest.description, revision=next_revision,
+                id=row["id"], workspace_id=row["workspace_id"],
+                name=manifest.metadata.display_name,
+                description=manifest.metadata.description, revision=next_revision,
                 created_at=row["created_at"].isoformat(),
                 updated_at=timestamp, manifest=manifest,
             )
@@ -188,7 +263,29 @@ class PostgresKnowledgeAssetRepository:
                 VALUES (%s, %s, %s::jsonb)
                 """,
                 ("skill-draft.save-manifest", idempotency_key,
-                 json.dumps(draft.model_dump(mode="json"))),
+                 json.dumps(draft.model_dump(mode="json", by_alias=True))),
+            )
+            cursor.execute(
+                """
+                INSERT INTO skill_draft_revisions
+                (draft_id, skill_id, revision, manifest_json, status, created_at)
+                VALUES (%s, %s, %s, %s::jsonb, 'draft', %s)
+                """,
+                (
+                    draft_id,
+                    draft_id,
+                    next_revision,
+                    json.dumps(manifest.model_dump(mode="json", by_alias=True)),
+                    timestamp,
+                ),
+            )
+            cursor.execute(
+                """
+                UPDATE object_pointers
+                SET current_revision = %s, last_good_revision = %s
+                WHERE object_type = 'skill_draft' AND object_id = %s
+                """,
+                (next_revision, next_revision, draft_id),
             )
         return draft, False
 

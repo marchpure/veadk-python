@@ -1,6 +1,6 @@
 {
   "$defs": {
-    "AuditItem": {
+    "Audit": {
       "additionalProperties": false,
       "properties": {
         "requestId": {
@@ -46,7 +46,7 @@
         "outcome",
         "occurredAt"
       ],
-      "title": "AuditItem",
+      "title": "Audit",
       "type": "object"
     }
   },
@@ -58,7 +58,7 @@
     },
     "items": {
       "items": {
-        "$ref": "#/$defs/AuditItem"
+        "$ref": "#/$defs/Audit"
       },
       "title": "Items",
       "type": "array"

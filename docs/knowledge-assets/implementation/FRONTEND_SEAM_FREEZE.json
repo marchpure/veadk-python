@@ -1,109 +1,56 @@
 {
-  "schemaVersion": "knowledge-assets.frontend-seam-freeze.v1",
-  "step": "STEP_1A",
-  "sourceCommit": "0a4fb3b78b395c3cab94b991735b897034a50f34",
-  "contractVersion": "knowledge-assets.bff.v1",
-  "files": {
-    "docs/knowledge-assets/implementation/studio-bff.openapi.yaml": {
-      "sha256": "065fbfe55c70461fb64987cc0099a393b44544fcc10fd69d0d4bf23abed898e6",
-      "bytes": 5988
-    },
-    "docs/knowledge-assets/implementation/ui-action-inventory.json": {
-      "sha256": "3aa22171516861a15f692f1bc57013e7d0deb3bf63756cc683dc906edce49797",
-      "bytes": 456899
-    },
-    "docs/knowledge-assets/implementation/UI_ACTION_API_MATRIX.yaml": {
-      "sha256": "31c7885ee2ef0ca22cd15ae250b8080741e7fffe67e8b22aa0b4752a538fd146",
-      "bytes": 339069
-    },
-    "docs/knowledge-assets/implementation/FRONTEND_SEAM_HANDOFF.md": {
-      "sha256": "0455475bea9e719e845a42ab2b69f115007c4179f5343e412989d0951b156a81",
-      "bytes": 1537
-    },
-    "frontend/server/knowledge_assets/contracts/audit.schema.json": {
-      "sha256": "cb9f3b4341f98f85e454e21d41503bfc5ea444089b9d89e64d66ad4d8cd8ab7c",
-      "bytes": 1484
-    },
-    "frontend/server/knowledge_assets/contracts/bootstrap.schema.json": {
-      "sha256": "3bdd6ebed4df589de3233983c05ffd72083f397c4aa840df8dbb34bf8b3c00c6",
-      "bytes": 2857
-    },
-    "frontend/server/knowledge_assets/contracts/command-registry.schema.json": {
-      "sha256": "854ce79dbac8496ef6dc81d4ab906deedd3f3868ac23091c9357ac4c757eee79",
-      "bytes": 17205
-    },
-    "frontend/server/knowledge_assets/contracts/error.schema.json": {
-      "sha256": "3cc84d0140eccc5db8c14855d079944a85622de90f59b0e977c9ed8fb6c29bcb",
-      "bytes": 751
-    },
-    "frontend/server/knowledge_assets/contracts/event.schema.json": {
-      "sha256": "f91381f8062fc3eea361db3eaccba2d80b1bd03f98f5f2a7ebe5e7e69f17ac6b",
-      "bytes": 2343
-    },
-    "frontend/server/knowledge_assets/contracts/operation.schema.json": {
-      "sha256": "5173ff98ee50528c345e45763aa75bc4b5e3418330e1c7ff11c7580b634014d2",
-      "bytes": 5114
-    },
-    "frontend/src/knowledge-workspace/production/generated.ts": {
-      "sha256": "758111274c9c1ced2a527c5d740d1420f8336116f96dd54b0afcfc592a929685",
-      "bytes": 5958
-    },
-    "frontend/src/knowledge-workspace/production/generatedClient.ts": {
-      "sha256": "6db596c48362176de49ab8353b82734aa46e5a53b4bcb346aaf964b08bd26004",
-      "bytes": 3235
-    },
-    "frontend/server/knowledge_assets/ports.py": {
-      "sha256": "96744fed43005830ab30fe5e68aa49c11bb2a744ba71aa9f2dc845388bc0c3e6",
-      "bytes": 1035
-    },
-    "frontend/server/knowledge_assets/policies.py": {
-      "sha256": "6f982718f97b570600088bf94d9ff6955bc351f78e107e245eaf418c6db786ba",
-      "bytes": 1081
-    },
-    "frontend/server/knowledge_assets/workers.py": {
-      "sha256": "3932da3ec0cb47357cd2b05802fc067bcdd283ab22a9aca07ff9c5ab009651d3",
-      "bytes": 537
-    },
-    "frontend/server/knowledge_assets/observability.py": {
-      "sha256": "b38892dc178337d47a0e371da60acb751bbc6666dc7fdeed3a188a4b3fc0af54",
-      "bytes": 884
-    },
-    "frontend/server/knowledge_assets/postgres_repository.py": {
-      "sha256": "4477502c16c98fd993eb55835767a0fc977d2c1e362dc8930f774a8b7d99ac90",
-      "bytes": 12391
-    },
-    "frontend/server/knowledge_assets/migrations/001_knowledge_assets.postgresql.sql": {
-      "sha256": "ecf8d4a208ae5d51fd6bddedf0f0c173253fcac27b3c59e69fb113b0c0edf63a",
-      "bytes": 1271
-    }
-  },
+  "schemaVersion": "knowledge-assets.frontend-seam-freeze.v2",
+  "step": "STEP_1_CORRECTIVE",
+  "sourceCommit": "699b3e4a7d6a31250bde8fcdc0c4bcbd4d834e7a",
+  "result": "READY_WITH_BASELINE_DEBT",
+  "browserBoundary": "/api/knowledge-assets/v1/*",
+  "canonicalManifest": "SkillManifest",
+  "legacyInputAdapter": "adapt_legacy_manifest",
   "commandCount": 23,
+  "emptyCommandCount": 0,
   "uiActionCoveragePercent": 100,
-  "genericFallbackCount": 0,
-  "actionCount": 448,
   "verification": {
-    "pythonProviderTests": "5 passed",
-    "frontendConsumerTests": "18 passed",
-    "frontendBuild": "passed",
-    "unresolvedActions": 0,
-    "forbiddenCommands": [],
-    "worktreeStatusAtGeneration": [
-      " M frontend/src/knowledge-workspace/production/ports.ts",
-      " M frontend/src/knowledge-workspace/production/store.ts",
-      " M frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs",
-      " M frontend/tests/knowledge-workspace-v21141/productionTransform.mjs",
-      " M frontend/vite.config.ts",
-      " M tests/production_readiness/knowledge_workspace_v21141/static_guard.py",
-      " M veadk/cli/cli_frontend.py",
-      "?? docs/knowledge-assets/",
-      "?? frontend/server/knowledge_assets/",
-      "?? frontend/src/knowledge-workspace/production/generated.ts",
-      "?? frontend/src/knowledge-workspace/production/generatedClient.ts",
-      "?? scripts/",
-      "?? tests/frontend/test_knowledge_asset_bff.py"
-    ]
+    "productionBoundary": "18 passed",
+    "build": "passed with existing warnings",
+    "m1ClickableAcceptance": "complete; inherited evidence retained",
+    "visualWaiver": "STEP 0 132-capture manual exemption remains baseline debt",
+    "staticGuard": "fail-closed residuals documented",
+    "step2": "not claimed"
   },
-  "inheritedDebt": [
-    "STEP 0 132-capture visual matrix manual exemption remains baseline debt."
-  ]
+  "staticGuardResiduals": [
+    "step-1-write-scope:frontend/tests/cronJobFinalAnswer.test.mjs",
+    "mandatory-split-review:frontend/src/knowledge-workspace/production/ports.ts",
+    "shared-hotspot-growth:frontend/server/knowledge_assets/repository.py:462",
+    "shared-hotspot-growth:frontend/server/knowledge_assets/routes.py:186"
+  ],
+  "files": [
+    "frontend/server/knowledge_assets/contracts.py",
+    "frontend/server/knowledge_assets/contracts/core-contracts.schema.json",
+    "frontend/server/knowledge_assets/contracts/command-registry.schema.json",
+    "frontend/server/knowledge_assets/migrations/001_knowledge_assets.postgresql.sql",
+    "frontend/server/knowledge_assets/ports.py",
+    "frontend/server/knowledge_assets/policies.py",
+    "frontend/server/knowledge_assets/workers.py",
+    "frontend/server/knowledge_assets/postgres_repository.py",
+    "frontend/src/knowledge-workspace/production/generated.ts",
+    "frontend/src/knowledge-workspace/production/generatedContracts.ts",
+    "frontend/src/knowledge-workspace/production/generatedClient.ts",
+    "frontend/src/knowledge-workspace/production/ports.ts",
+    "docs/knowledge-assets/implementation/STEP1_HANDOFF.md"
+  ],
+  "sha256": {
+    "frontend/server/knowledge_assets/contracts.py": "efc63a4be42a00f745c348a55fb90fc652be2dc6af1c538b69545f406c1c2d15",
+    "frontend/server/knowledge_assets/contracts/core-contracts.schema.json": "6c7b301a0538bb0c04063e2908238c93bc80b42a954b66044ef5fab03c0f5c8a",
+    "frontend/server/knowledge_assets/contracts/command-registry.schema.json": "a44394a795c95ef79a22ab5e5ea9f15b3878a0dceb1afcafb6bde599b8468cea",
+    "frontend/server/knowledge_assets/migrations/001_knowledge_assets.postgresql.sql": "28b59279763448257b831dea1459a41fcd7d0916b603d241fb5a6c0239cecda4",
+    "frontend/server/knowledge_assets/ports.py": "eb912b3be2097b66d02cd6ac6f3ec903de6052f7b075f020f5e8c25ce7af7efa",
+    "frontend/server/knowledge_assets/policies.py": "ea2db92c9e1c0182553b9f58edd0dcec1d43a0a5a4ea7a98f98212dbb021c106",
+    "frontend/server/knowledge_assets/workers.py": "811e8380d33957400c33b33bfa1a3dcb79ed37720cb443c97cb243ab15f331c2",
+    "frontend/server/knowledge_assets/postgres_repository.py": "9894e1f4b6c7285425abb959199129af13ec643babfe14cde016266f90ff3b1b",
+    "frontend/src/knowledge-workspace/production/generated.ts": "2cd2ef8a194233d3dbe9dc432caa84ba13c0cd1bc22ccd8fcc5e0c97e0a600ab",
+    "frontend/src/knowledge-workspace/production/generatedContracts.ts": "70eadc25235c00b45b9cb766f6d93d255ff5e2a13e6aca96043701649fc50cc4",
+    "frontend/src/knowledge-workspace/production/generatedClient.ts": "6db596c48362176de49ab8353b82734aa46e5a53b4bcb346aaf964b08bd26004",
+    "frontend/src/knowledge-workspace/production/ports.ts": "f6ccc06ce9d86fbfa884f9541c044211189c4fc02257fb78220fbf4c5bae3291",
+    "docs/knowledge-assets/implementation/STEP1_HANDOFF.md": "852c0db6243d0fe2e03fcb855eda04b435531754b6607509c1bb9f8dc482a265"
+  }
 }

@@ -15,7 +15,11 @@ import {
   GeneratedClientHttpError,
   type KnowledgeAssetClient,
 } from "./generatedClient";
-import type { GeneratedCommand } from "./generated";
+import type {
+  GeneratedCommand,
+  GeneratedLegacyManifest,
+  GeneratedManifest,
+} from "./generated";
 
 export type KnowledgeCommandName =
   | "resource.create"
@@ -54,21 +58,7 @@ export interface SkillDraftCreatePayload {
 export interface SkillDraftSaveManifestPayload {
   draftId: string;
   baseRevision: number;
-  manifest: {
-    name: string;
-    version: string;
-    description: string;
-    actions: Array<{ name: string; description: string }>;
-    schema: {
-      type: "object";
-      properties: Record<string, {
-        type: "string" | "number" | "boolean" | "object" | "array";
-        description: string;
-      }>;
-      required: string[];
-      additionalProperties: boolean;
-    };
-  };
+  manifest: GeneratedManifest | GeneratedLegacyManifest;
 }
 export interface ResourceCommandPayload {
   resourceId: string;
@@ -94,7 +84,33 @@ export interface StreamCancelPayload {
   streamId: string;
   sourceCommand: "import.start" | "assistant.turn";
 }
-export type EmptyPayload = Record<string, never>;
+export interface SourceProfilePayload {
+  sourceRevisionId: string;
+  sampleLimit: number;
+}
+export interface SourceCleanPayload {
+  sourceRevisionId: string;
+  recipeId: string;
+}
+export interface SkillDraftRunPayload {
+  draftId: string;
+  revision: number;
+  traceId: string;
+}
+export interface PublicationPublishPayload {
+  draftId: string;
+  revision: number;
+  semver: string;
+}
+export interface RefreshRunPayload {
+  skillId: string;
+  trigger: "manual" | "schedule" | "event" | "freshness_on_read";
+}
+export interface InvocationStartPayload {
+  skillVersionId: string;
+  inputRef: import("./generatedContracts").StorageRef;
+  callerId: string;
+}
 export type KnowledgeCommand =
   | { command: "action.update"; payload: ActionUpdatePayload }
   | { command: "skill-draft.create"; payload: SkillDraftCreatePayload }
@@ -109,16 +125,12 @@ export type KnowledgeCommand =
   | { command: "assistant.turn"; payload: AssistantTurnPayload }
   | { command: "evaluation.run" | "evaluation.apply"; payload: EvaluationPayload }
   | { command: "artifact.export"; payload: ArtifactExportPayload }
-  | {
-    command:
-      | "source.profile"
-      | "source.clean"
-      | "skill-draft.run"
-      | "publication.publish"
-      | "refresh.run"
-      | "invocation.start";
-    payload: EmptyPayload;
-  };
+  | { command: "source.profile"; payload: SourceProfilePayload }
+  | { command: "source.clean"; payload: SourceCleanPayload }
+  | { command: "skill-draft.run"; payload: SkillDraftRunPayload }
+  | { command: "publication.publish"; payload: PublicationPublishPayload }
+  | { command: "refresh.run"; payload: RefreshRunPayload }
+  | { command: "invocation.start"; payload: InvocationStartPayload };
 export type KnowledgeErrorCode =
   | "UNAVAILABLE"
   | "UNAUTHENTICATED"
@@ -808,12 +820,44 @@ function legacyCommand(
     case "evaluation.apply":
       return { command, payload: { targetId: "legacy" } };
     case "source.profile":
+      return {
+        command,
+        payload: { sourceRevisionId: "legacy", sampleLimit: 100 },
+      };
     case "source.clean":
+      return {
+        command,
+        payload: { sourceRevisionId: "legacy", recipeId: "legacy" },
+      };
     case "skill-draft.run":
+      return {
+        command,
+        payload: { draftId: "legacy", revision: 1, traceId: "legacy" },
+      };
     case "publication.publish":
+      return {
+        command,
+        payload: { draftId: "legacy", revision: 1, semver: "1.0.0" },
+      };
     case "refresh.run":
+      return {
+        command,
+        payload: { skillId: "legacy", trigger: "manual" },
+      };
     case "invocation.start":
-      return { command, payload: {} };
+      return {
+        command,
+        payload: {
+          skillVersionId: "legacy",
+          inputRef: {
+            uri: "inline://legacy",
+            kind: "inline",
+            sha256: "0".repeat(64),
+            mediaType: "application/json",
+          },
+          callerId: "legacy",
+        },
+      };
   }
 }
 async function* parseSse(

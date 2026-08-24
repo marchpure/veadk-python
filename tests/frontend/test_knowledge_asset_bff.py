@@ -1,15 +1,28 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from frontend.server.knowledge_assets.application import KnowledgeAssetApplication
+from frontend.server.knowledge_assets.contracts import (
+    LegacySkillManifestInput,
+    SkillManifest,
+    adapt_legacy_manifest,
+)
+from frontend.server.knowledge_assets.ports import (
+    ArtifactPutRequest,
+    FailClosedArtifactStore,
+    NotConfiguredAdapterError,
+)
 from frontend.server.knowledge_assets.repository import (
     SqliteKnowledgeAssetRepository,
 )
 from frontend.server.knowledge_assets.routes import mount_knowledge_asset_routes
+from frontend.server.knowledge_assets.workers import JobFramework, JobLeaseError
 
 
 def build_client() -> TestClient:
@@ -190,7 +203,10 @@ def test_save_manifest_validates_revision_persists_manifest_and_records_audit() 
     assert saved.status_code == 200
     saved_json = saved.json()
     assert saved_json["result"]["draft"]["revision"] == 2
-    assert saved_json["result"]["draft"]["manifest"]["actions"][0]["name"] == "answer"
+    saved_manifest = saved_json["result"]["draft"]["manifest"]
+    assert saved_manifest["spec"]["kind"] == "knowledge"
+    assert saved_manifest["spec"]["kindSpec"]["kind"] == "knowledge"
+    assert saved_manifest["spec"]["contract"]["operations"][0]["name"] == "answer"
 
     operation_id = saved_json["operationId"]
     operation = client.get(
@@ -277,3 +293,171 @@ def test_save_manifest_rejects_policy_and_stale_revision() -> None:
     assert stale.status_code == 409
     assert stale.headers["content-type"].startswith("application/problem+json")
     assert stale.json()["code"] == "CONFLICT"
+
+
+def test_legacy_adapter_normalizes_to_canonical_discriminated_manifest() -> None:
+    manifest = adapt_legacy_manifest(
+        LegacySkillManifestInput(
+            name="Knowledge",
+            version="1.0.0",
+            actions=[{"name": "answer", "description": "answer"}],
+        ),
+        draft_id="skill-draft-test",
+        workspace_id="workspace-test",
+    )
+    assert isinstance(manifest, SkillManifest)
+    assert manifest.kind == "Skill"
+    assert manifest.spec.kind == "knowledge"
+    assert manifest.spec.kind_spec.kind == "knowledge"
+    assert manifest.spec.contract.operations[0].name == "answer"
+    assert "actions" not in manifest.model_dump(mode="json")
+
+
+def test_manifest_kind_discriminator_rejects_mismatched_kind_spec() -> None:
+    with pytest.raises(ValueError, match="spec.kind must match"):
+        SkillManifest.model_validate(
+            {
+                "metadata": {
+                    "id": "skill-1",
+                    "version": "1.0.0",
+                    "displayName": "Skill",
+                    "owner": {
+                        "workspaceId": "workspace-test",
+                        "principalId": "tester",
+                    },
+                },
+                "spec": {
+                    "kind": "knowledge",
+                    "contract": {
+                        "inputSchemaRef": {
+                            "uri": "schema://input",
+                            "version": "1",
+                            "sha256": "0" * 64,
+                        },
+                        "outputSchemaRef": {
+                            "uri": "schema://output",
+                            "version": "1",
+                            "sha256": "0" * 64,
+                        },
+                    },
+                    "policyRef": {"uri": "policy://test", "version": "1"},
+                    "runtimeRef": "runtime://test",
+                    "kindSpec": {
+                        "kind": "semantic",
+                        "metricRefs": [],
+                    },
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    ("command", "payload"),
+    [
+        ("source.profile", {"sourceRevisionId": "source-1", "sampleLimit": 10}),
+        ("source.clean", {"sourceRevisionId": "source-1", "recipeId": "recipe-1"}),
+        ("skill-draft.run", {"draftId": "draft-1", "revision": 1, "traceId": "trace-1"}),
+        (
+            "publication.publish",
+            {"draftId": "draft-1", "revision": 1, "semver": "1.0.0"},
+        ),
+        ("refresh.run", {"skillId": "skill-1", "trigger": "manual"}),
+        (
+            "invocation.start",
+            {
+                "skillVersionId": "version-1",
+                "inputRef": {
+                    "uri": "object://input",
+                    "kind": "object",
+                    "sha256": "0" * 64,
+                    "mediaType": "application/json",
+                },
+                "callerId": "caller-1",
+            },
+        ),
+    ],
+)
+def test_registered_not_ready_commands_return_typed_failure(
+    command: str, payload: dict[str, object]
+) -> None:
+    client = build_client()
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={"command": command, "payload": payload},
+        headers={"X-Request-ID": f"request-{command}", "Idempotency-Key": f"key-{command}"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["accepted"] is False
+    assert body["result"]["status"] == "not_ready"
+    assert body["result"]["error"]["code"] == "COMMAND_NOT_READY"
+
+
+def test_sqlite_migration_replay_and_revision_pointers() -> None:
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    repository._migrate()
+    draft, _ = repository.create_skill_draft(
+        workspace_id="workspace-test",
+        name="Skill",
+        description="",
+        source_refs=[],
+        request_id="request",
+        idempotency_key="create",
+    )
+    assert repository.current_pointer(object_type="skill_draft", object_id=draft.id) == 1
+    assert repository.last_good_pointer(object_type="skill_draft", object_id=draft.id) == 1
+    table_names = {
+        row[0]
+        for row in repository._connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }
+    assert {"schema_migrations", "jobs", "job_events", "outbox_events", "dead_letters"} <= table_names
+
+
+def test_job_framework_enforces_idempotency_lease_retry_dead_letter_and_outbox() -> None:
+    now = [datetime(2026, 8, 24, tzinfo=timezone.utc)]
+    framework = JobFramework(now=lambda: now[0], retry_base_seconds=2)
+    first = framework.enqueue(
+        job_type="source.profile",
+        idempotency_key="same",
+        profile="test",
+        max_attempts=2,
+    )
+    replay = framework.enqueue(
+        job_type="source.profile",
+        idempotency_key="same",
+        profile="test",
+        max_attempts=2,
+    )
+    assert replay.job_id == first.job_id
+    leased = framework.lease(job_id=first.job_id, owner="worker-a", ttl_seconds=10)
+    assert leased.status == "leased"
+    with pytest.raises(JobLeaseError):
+        framework.lease(job_id=first.job_id, owner="worker-b")
+    assert framework.heartbeat(job_id=first.job_id, owner="worker-a").status == "running"
+    retried = framework.fail(job_id=first.job_id, owner="worker-a", reason="temporary")
+    assert retried.status == "queued"
+    assert retried.next_attempt_at is not None
+    framework.lease(job_id=first.job_id, owner="worker-a")
+    dead = framework.fail(job_id=first.job_id, owner="worker-a", reason="permanent")
+    assert dead.status == "dead_letter"
+    assert framework.dead_letter(first.job_id)["reason"] == "permanent"
+    assert [event.sequence for event in framework.events(first.job_id)] == list(
+        range(1, len(framework.events(first.job_id)) + 1)
+    )
+    assert len(framework.outbox()) == len(framework.events(first.job_id))
+
+
+def test_production_adapters_fail_closed() -> None:
+    adapter = FailClosedArtifactStore()
+    with pytest.raises(NotConfiguredAdapterError) as error:
+        adapter.put(
+            ArtifactPutRequest(
+                key="key",
+                content=b"data",
+                content_type="application/octet-stream",
+                profile="production",
+            )
+        )
+    assert error.value.code == "NOT_CONFIGURED"

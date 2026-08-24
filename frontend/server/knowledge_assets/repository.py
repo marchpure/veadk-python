@@ -23,6 +23,7 @@ from .contracts import (
     ResourceSummary,
     SkillDraft,
     SkillManifest,
+    empty_knowledge_manifest,
     now_iso,
 )
 
@@ -45,6 +46,12 @@ class KnowledgeAssetRepositoryError(Exception):
 
 class KnowledgeAssetRepository(Protocol):
     def bootstrap(self, workspace_id: str, role: str) -> BootstrapResponse: ...
+
+    def draft(self, draft_id: str) -> SkillDraft | None: ...
+
+    def current_pointer(self, *, object_type: str, object_id: str) -> int | None: ...
+
+    def last_good_pointer(self, *, object_type: str, object_id: str) -> int | None: ...
 
     def create_skill_draft(
         self,
@@ -195,18 +202,18 @@ class SqliteKnowledgeAssetRepository:
                 revision=1,
                 created_at=timestamp,
                 updated_at=timestamp,
-                manifest=SkillManifest(
+                manifest=empty_knowledge_manifest(
+                    draft_id=draft_id,
+                    workspace_id=workspace_id,
                     name=name.strip(),
-                    version="1.0.0",
                     description=description.strip(),
-                    actions=[],
                 ),
             )
             self._connection.execute(
                 """
                 INSERT INTO skill_drafts
                 (id, workspace_id, name, description, revision, created_at, updated_at, manifest_json)
-                VALUES (?, ?, ?, ?, 1, ?, ?, '{}')
+                VALUES (?, ?, ?, ?, 1, ?, ?, ?)
                 """,
                 (
                     draft.id,
@@ -215,16 +222,61 @@ class SqliteKnowledgeAssetRepository:
                     draft.description,
                     timestamp,
                     timestamp,
+                    draft.manifest.model_dump_json(by_alias=True),
                 ),
+            )
+            self._connection.execute(
+                """
+                INSERT INTO skill_draft_revisions
+                (draft_id, skill_id, revision, manifest_json, status, created_at)
+                VALUES (?, ?, 1, ?, 'draft', ?)
+                """,
+                (
+                    draft.id,
+                    draft.id,
+                    draft.manifest.model_dump_json(by_alias=True),
+                    timestamp,
+                ),
+            )
+            self._connection.execute(
+                """
+                INSERT INTO object_pointers
+                (object_type, object_id, current_revision, last_good_revision)
+                VALUES ('skill_draft', ?, 1, 1)
+                """,
+                (draft.id,),
             )
             self._connection.execute(
                 """
                 INSERT INTO idempotency_keys (scope, key, result_json)
                 VALUES ('skill-draft.create', ?, ?)
                 """,
-                (idempotency_key, draft.model_dump_json()),
+                (idempotency_key, draft.model_dump_json(by_alias=True)),
             )
         return draft, False
+
+    def draft(self, draft_id: str) -> SkillDraft | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT id, workspace_id, name, description, revision,
+                       created_at, updated_at, manifest_json
+                FROM skill_drafts WHERE id = ?
+                """,
+                (draft_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SkillDraft(
+            id=row["id"],
+            workspace_id=row["workspace_id"],
+            name=row["name"],
+            description=row["description"],
+            revision=row["revision"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            manifest=SkillManifest.model_validate(json.loads(row["manifest_json"])),
+        )
 
     def save_manifest(
         self,
@@ -280,8 +332,8 @@ class SqliteKnowledgeAssetRepository:
                 WHERE id = ?
                 """,
                 (
-                    manifest.name,
-                    manifest.description,
+                    manifest.metadata.display_name,
+                    manifest.metadata.description,
                     next_revision,
                     timestamp,
                     manifest.model_dump_json(by_alias=True),
@@ -291,8 +343,8 @@ class SqliteKnowledgeAssetRepository:
             draft = SkillDraft(
                 id=row["id"],
                 workspace_id=row["workspace_id"],
-                name=manifest.name,
-                description=manifest.description,
+                name=manifest.metadata.display_name,
+                description=manifest.metadata.description,
                 revision=next_revision,
                 created_at=row["created_at"],
                 updated_at=timestamp,
@@ -305,7 +357,51 @@ class SqliteKnowledgeAssetRepository:
                 """,
                 (idempotency_key, draft.model_dump_json(by_alias=True)),
             )
+            self._connection.execute(
+                """
+                INSERT INTO skill_draft_revisions
+                (draft_id, skill_id, revision, manifest_json, status, created_at)
+                VALUES (?, ?, ?, ?, 'draft', ?)
+                """,
+                (
+                    draft_id,
+                    draft_id,
+                    next_revision,
+                    manifest.model_dump_json(by_alias=True),
+                    timestamp,
+                ),
+            )
+            self._connection.execute(
+                """
+                UPDATE object_pointers
+                SET current_revision = ?, last_good_revision = ?
+                WHERE object_type = 'skill_draft' AND object_id = ?
+                """,
+                (next_revision, next_revision, draft_id),
+            )
         return draft, False
+
+    def current_pointer(self, *, object_type: str, object_id: str) -> int | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT current_revision FROM object_pointers
+                WHERE object_type = ? AND object_id = ?
+                """,
+                (object_type, object_id),
+            ).fetchone()
+        return row["current_revision"] if row else None
+
+    def last_good_pointer(self, *, object_type: str, object_id: str) -> int | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT last_good_revision FROM object_pointers
+                WHERE object_type = ? AND object_id = ?
+                """,
+                (object_type, object_id),
+            ).fetchone()
+        return row["last_good_revision"] if row else None
 
     def record_audit(
         self,

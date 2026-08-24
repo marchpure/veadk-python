@@ -1,0 +1,4849 @@
+{
+  "$defs": {
+    "ActionCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "action.update",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ActionUpdatePayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "ActionCommand",
+      "type": "object"
+    },
+    "ActionUpdatePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "actionId": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Actionid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actionId"
+      ],
+      "title": "ActionUpdatePayload",
+      "type": "object"
+    },
+    "AgentBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillVersionId": {
+          "title": "Skillversionid",
+          "type": "string"
+        },
+        "agentId": {
+          "title": "Agentid",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "versionSelector": {
+          "title": "Versionselector",
+          "type": "string"
+        },
+        "status": {
+          "default": "active",
+          "enum": [
+            "active",
+            "revoked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillVersionId",
+        "agentId",
+        "workspaceId",
+        "versionSelector",
+        "createdAt"
+      ],
+      "title": "AgentBinding",
+      "type": "object"
+    },
+    "AlertEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "acknowledged",
+            "resolved"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "ruleRef": {
+          "title": "Ruleref",
+          "type": "string"
+        },
+        "fingerprint": {
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "observedAt": {
+          "title": "Observedat",
+          "type": "string"
+        },
+        "payloadRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "severity",
+        "status",
+        "ruleRef",
+        "fingerprint",
+        "observedAt"
+      ],
+      "title": "AlertEvent",
+      "type": "object"
+    },
+    "AnalysisKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "analysis",
+          "default": "analysis",
+          "title": "Kind",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "queryPlanRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Queryplanref",
+          "type": "string"
+        },
+        "refreshPolicyRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refreshpolicyref"
+        },
+        "alertPolicyRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alertpolicyref"
+        }
+      },
+      "required": [
+        "question",
+        "queryPlanRef"
+      ],
+      "title": "AnalysisKindSpec",
+      "type": "object"
+    },
+    "ArtifactExportCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "artifact.export",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ArtifactExportPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "ArtifactExportCommand",
+      "type": "object"
+    },
+    "ArtifactExportPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "resourceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "json",
+            "csv",
+            "html"
+          ],
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resourceId",
+        "format"
+      ],
+      "title": "ArtifactExportPayload",
+      "type": "object"
+    },
+    "AssistantCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "assistant.turn",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AssistantTurnPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "AssistantCommand",
+      "type": "object"
+    },
+    "AssistantTurnPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 16384,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "contextIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Contextids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "AssistantTurnPayload",
+      "type": "object"
+    },
+    "Audit": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "occurredAt": {
+          "title": "Occurredat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requestId",
+        "operationId",
+        "workspaceId",
+        "action",
+        "resourceId",
+        "outcome",
+        "occurredAt"
+      ],
+      "title": "Audit",
+      "type": "object"
+    },
+    "ChartSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 10000,
+          "title": "Points",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ChartSeries",
+      "type": "object"
+    },
+    "ChartViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "chart",
+          "default": "chart",
+          "title": "Template",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "xField": {
+          "title": "Xfield",
+          "type": "string"
+        },
+        "yField": {
+          "title": "Yfield",
+          "type": "string"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/ChartSeries"
+          },
+          "title": "Series",
+          "type": "array"
+        },
+        "dataRef": {
+          "$ref": "#/$defs/StorageRef"
+        }
+      },
+      "required": [
+        "title",
+        "xField",
+        "yField",
+        "dataRef"
+      ],
+      "title": "ChartViewModel",
+      "type": "object"
+    },
+    "CleanRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "recipeId": {
+          "title": "Recipeid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "outputRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "qualityReportRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Errorcode"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "sourceRevisionId",
+        "recipeId",
+        "status",
+        "startedAt"
+      ],
+      "title": "CleanRun",
+      "type": "object"
+    },
+    "CleaningRecipe": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "operations": {
+          "items": {
+            "enum": [
+              "trim",
+              "deduplicate",
+              "normalize",
+              "split",
+              "map",
+              "redact"
+            ],
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Operations",
+          "type": "array"
+        },
+        "configRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "recipeDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Recipedigest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "sourceRevisionId",
+        "recipeDigest"
+      ],
+      "title": "CleaningRecipe",
+      "type": "object"
+    },
+    "CommandResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "operationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operationid"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "command.not-ready": "#/$defs/NotReadyCommandResult",
+                  "invocation.start": "#/$defs/InvocationStartResult",
+                  "publication.publish": "#/$defs/PublicationPublishResult",
+                  "refresh.run": "#/$defs/RefreshRunResult",
+                  "skill-draft.create": "#/$defs/DraftCommandResult",
+                  "skill-draft.run": "#/$defs/SkillDraftRunResult",
+                  "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
+                  "source.clean": "#/$defs/SourceCleanResult",
+                  "source.profile": "#/$defs/SourceProfileResult"
+                },
+                "propertyName": "resultType"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DraftCommandResult"
+                },
+                {
+                  "$ref": "#/$defs/NotReadyCommandResult"
+                },
+                {
+                  "$ref": "#/$defs/SourceProfileResult"
+                },
+                {
+                  "$ref": "#/$defs/SourceCleanResult"
+                },
+                {
+                  "$ref": "#/$defs/SkillDraftRunResult"
+                },
+                {
+                  "$ref": "#/$defs/PublicationPublishResult"
+                },
+                {
+                  "$ref": "#/$defs/RefreshRunResult"
+                },
+                {
+                  "$ref": "#/$defs/InvocationStartResult"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        }
+      },
+      "required": [
+        "accepted",
+        "requestId"
+      ],
+      "title": "CommandResponse",
+      "type": "object"
+    },
+    "CompatibilityTargets": {
+      "additionalProperties": false,
+      "properties": {
+        "targets": {
+          "items": {
+            "enum": [
+              "agentkit",
+              "mcp",
+              "openapi",
+              "codex"
+            ],
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Targets",
+          "type": "array"
+        }
+      },
+      "title": "CompatibilityTargets",
+      "type": "object"
+    },
+    "ConnectorCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "enum": [
+            "connector.create",
+            "connector.test"
+          ],
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConnectorPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "ConnectorCommand",
+      "type": "object"
+    },
+    "ConnectorPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "connectorKey": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Connectorkey",
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectorKey"
+      ],
+      "title": "ConnectorPayload",
+      "type": "object"
+    },
+    "CreateSkillDraftCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "skill-draft.create",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/CreateSkillDraftPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "CreateSkillDraftCommand",
+      "type": "object"
+    },
+    "CreateSkillDraftPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        },
+        "sourceRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerefs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "name"
+      ],
+      "title": "CreateSkillDraftPayload",
+      "type": "object"
+    },
+    "DashboardKpi": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "trend": {
+          "default": "unknown",
+          "enum": [
+            "up",
+            "down",
+            "flat",
+            "unknown"
+          ],
+          "title": "Trend",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "value"
+      ],
+      "title": "DashboardKpi",
+      "type": "object"
+    },
+    "DashboardViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "dashboard",
+          "default": "dashboard",
+          "title": "Template",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/ViewField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "kpis": {
+          "items": {
+            "$ref": "#/$defs/DashboardKpi"
+          },
+          "title": "Kpis",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ViewCell"
+            },
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "dataRef": {
+          "$ref": "#/$defs/StorageRef"
+        }
+      },
+      "required": [
+        "dataRef"
+      ],
+      "title": "DashboardViewModel",
+      "type": "object"
+    },
+    "DataAccessKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "data_access",
+          "default": "data_access",
+          "title": "Kind",
+          "type": "string"
+        },
+        "connectorType": {
+          "enum": [
+            "oracle",
+            "mysql",
+            "postgresql",
+            "csv",
+            "excel",
+            "web_api",
+            "mcp",
+            "local_file"
+          ],
+          "title": "Connectortype",
+          "type": "string"
+        },
+        "endpointRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Endpointref",
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "allowedSchemas": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Allowedschemas",
+          "type": "array"
+        },
+        "allowedTables": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Allowedtables",
+          "type": "array"
+        },
+        "allowedOperations": {
+          "items": {
+            "enum": [
+              "introspect",
+              "query",
+              "read",
+              "subscribe",
+              "search"
+            ],
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Allowedoperations",
+          "type": "array"
+        },
+        "rowPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "columnPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "connectorType",
+        "endpointRef"
+      ],
+      "title": "DataAccessKindSpec",
+      "type": "object"
+    },
+    "DraftCommandResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "enum": [
+            "skill-draft.create",
+            "skill-draft.save-manifest"
+          ],
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "draft": {
+          "$ref": "#/$defs/SkillDraft"
+        },
+        "replayed": {
+          "default": false,
+          "title": "Replayed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "resultType",
+        "draft"
+      ],
+      "title": "DraftCommandResult",
+      "type": "object"
+    },
+    "ErrorEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Details"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "requestId"
+      ],
+      "title": "ErrorEnvelope",
+      "type": "object"
+    },
+    "EvaluationCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "enum": [
+            "evaluation.run",
+            "evaluation.apply"
+          ],
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/EvaluationPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "EvaluationCommand",
+      "type": "object"
+    },
+    "EvaluationPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "targetId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Targetid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetId"
+      ],
+      "title": "EvaluationPayload",
+      "type": "object"
+    },
+    "EvaluationRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "suiteId": {
+          "title": "Suiteid",
+          "type": "string"
+        },
+        "suiteVersion": {
+          "minimum": 1,
+          "title": "Suiteversion",
+          "type": "integer"
+        },
+        "skillRevisionId": {
+          "title": "Skillrevisionid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "evidenceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "regressionRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "suiteId",
+        "suiteVersion",
+        "skillRevisionId",
+        "status",
+        "startedAt"
+      ],
+      "title": "EvaluationRun",
+      "type": "object"
+    },
+    "EvaluationSuite": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "caseCount": {
+          "minimum": 0,
+          "title": "Casecount",
+          "type": "integer"
+        },
+        "casesRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "passThreshold": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Passthreshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "skillId",
+        "caseCount",
+        "casesRef",
+        "passThreshold"
+      ],
+      "title": "EvaluationSuite",
+      "type": "object"
+    },
+    "Event": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "knowledge-assets.event.v1",
+          "default": "knowledge-assets.event.v1",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "eventId": {
+          "title": "Eventid",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurredAt": {
+          "title": "Occurredat",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "accepted",
+            "progress",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "terminal": {
+          "title": "Terminal",
+          "type": "boolean"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "command.not-ready": "#/$defs/NotReadyCommandResult",
+                  "invocation.start": "#/$defs/InvocationStartResult",
+                  "publication.publish": "#/$defs/PublicationPublishResult",
+                  "refresh.run": "#/$defs/RefreshRunResult",
+                  "skill-draft.create": "#/$defs/DraftCommandResult",
+                  "skill-draft.run": "#/$defs/SkillDraftRunResult",
+                  "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
+                  "source.clean": "#/$defs/SourceCleanResult",
+                  "source.profile": "#/$defs/SourceProfileResult"
+                },
+                "propertyName": "resultType"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DraftCommandResult"
+                },
+                {
+                  "$ref": "#/$defs/NotReadyCommandResult"
+                },
+                {
+                  "$ref": "#/$defs/SourceProfileResult"
+                },
+                {
+                  "$ref": "#/$defs/SourceCleanResult"
+                },
+                {
+                  "$ref": "#/$defs/SkillDraftRunResult"
+                },
+                {
+                  "$ref": "#/$defs/PublicationPublishResult"
+                },
+                {
+                  "$ref": "#/$defs/RefreshRunResult"
+                },
+                {
+                  "$ref": "#/$defs/InvocationStartResult"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "operationId",
+        "eventId",
+        "sequence",
+        "occurredAt",
+        "type",
+        "terminal"
+      ],
+      "title": "Event",
+      "type": "object"
+    },
+    "GoldenAssetRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "assetKind": {
+          "enum": [
+            "dataset",
+            "knowledge",
+            "semantic",
+            "graph"
+          ],
+          "title": "Assetkind",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "schemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "storageRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "sourceRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerevisionrefs",
+          "type": "array"
+        },
+        "recipeRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reciperef"
+        },
+        "qualityRunRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qualityrunref"
+        },
+        "owner": {
+          "$ref": "#/$defs/OwnerRef"
+        },
+        "permissionsRef": {
+          "$ref": "#/$defs/PermissionRef"
+        },
+        "lineageDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lineagedigest",
+          "type": "string"
+        },
+        "freshnessAt": {
+          "title": "Freshnessat",
+          "type": "string"
+        },
+        "lastGood": {
+          "default": true,
+          "title": "Lastgood",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "assetKind",
+        "revision",
+        "schemaRef",
+        "storageRef",
+        "owner",
+        "permissionsRef",
+        "lineageDigest",
+        "freshnessAt"
+      ],
+      "title": "GoldenAssetRevision",
+      "type": "object"
+    },
+    "GraphEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "relation": {
+          "title": "Relation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "relation"
+      ],
+      "title": "GraphEdge",
+      "type": "object"
+    },
+    "GraphNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "entityType": {
+          "title": "Entitytype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "entityType"
+      ],
+      "title": "GraphNode",
+      "type": "object"
+    },
+    "GraphOntologyKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "graph_ontology",
+          "default": "graph_ontology",
+          "title": "Kind",
+          "type": "string"
+        },
+        "entitySchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "relationshipSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "constraintRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Constraintrefs",
+          "type": "array"
+        },
+        "evidencePolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "entitySchemaRef",
+        "relationshipSchemaRef"
+      ],
+      "title": "GraphOntologyKindSpec",
+      "type": "object"
+    },
+    "GraphOntologyViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "graph_ontology",
+          "default": "graph_ontology",
+          "title": "Template",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/GraphNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/GraphEdge"
+          },
+          "title": "Edges",
+          "type": "array"
+        },
+        "evidenceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "GraphOntologyViewModel",
+      "type": "object"
+    },
+    "ImportCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "enum": [
+            "import.start",
+            "import.cancel"
+          ],
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ImportPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "ImportCommand",
+      "type": "object"
+    },
+    "ImportPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Sourceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceId"
+      ],
+      "title": "ImportPayload",
+      "type": "object"
+    },
+    "Invocation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillVersionId": {
+          "title": "Skillversionid",
+          "type": "string"
+        },
+        "callerId": {
+          "title": "Callerid",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "resolving",
+            "running",
+            "awaiting_confirmation",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "inputRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "resultRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        },
+        "actualDataRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Actualdatarevisionrefs",
+          "type": "array"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "skillVersionId",
+        "callerId",
+        "workspaceId",
+        "status",
+        "traceId",
+        "startedAt"
+      ],
+      "title": "Invocation",
+      "type": "object"
+    },
+    "InvocationStartCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "invocation.start",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/InvocationStartPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "InvocationStartCommand",
+      "type": "object"
+    },
+    "InvocationStartPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "skillVersionId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Skillversionid",
+          "type": "string"
+        },
+        "inputRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "callerId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Callerid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillVersionId",
+        "inputRef",
+        "callerId"
+      ],
+      "title": "InvocationStartPayload",
+      "type": "object"
+    },
+    "InvocationStartResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "invocation.start",
+          "default": "invocation.start",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "const": "not_ready",
+          "default": "not_ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "skillVersionId": {
+          "title": "Skillversionid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillVersionId"
+      ],
+      "title": "InvocationStartResult",
+      "type": "object"
+    },
+    "JobEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "jobId": {
+          "title": "Jobid",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "eventType": {
+          "enum": [
+            "enqueued",
+            "leased",
+            "heartbeat",
+            "retry_scheduled",
+            "cancel_requested",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "dead_letter"
+          ],
+          "title": "Eventtype",
+          "type": "string"
+        },
+        "occurredAt": {
+          "title": "Occurredat",
+          "type": "string"
+        },
+        "payloadRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "jobId",
+        "sequence",
+        "eventType",
+        "occurredAt"
+      ],
+      "title": "JobEvent",
+      "type": "object"
+    },
+    "JobState": {
+      "additionalProperties": false,
+      "properties": {
+        "jobId": {
+          "title": "Jobid",
+          "type": "string"
+        },
+        "jobType": {
+          "title": "Jobtype",
+          "type": "string"
+        },
+        "profile": {
+          "enum": [
+            "production",
+            "demo",
+            "test"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "title": "Idempotencykey",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "leased",
+            "running",
+            "cancelling",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "dead_letter"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 0,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "maxAttempts": {
+          "minimum": 1,
+          "title": "Maxattempts",
+          "type": "integer"
+        },
+        "leaseOwner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Leaseowner"
+        },
+        "leaseExpiresAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Leaseexpiresat"
+        },
+        "heartbeatAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeatat"
+        },
+        "nextAttemptAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nextattemptat"
+        },
+        "cancelRequested": {
+          "default": false,
+          "title": "Cancelrequested",
+          "type": "boolean"
+        },
+        "outboxSequence": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Outboxsequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "jobId",
+        "jobType",
+        "profile",
+        "idempotencyKey",
+        "status",
+        "attempt",
+        "maxAttempts"
+      ],
+      "title": "JobState",
+      "type": "object"
+    },
+    "KnowledgeCitation": {
+      "additionalProperties": false,
+      "properties": {
+        "citationId": {
+          "title": "Citationid",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "locator": {
+          "title": "Locator",
+          "type": "string"
+        },
+        "excerptRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "citationId",
+        "sourceRevisionId",
+        "title",
+        "locator"
+      ],
+      "title": "KnowledgeCitation",
+      "type": "object"
+    },
+    "KnowledgeKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "knowledge",
+          "default": "knowledge",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retrievalMode": {
+          "default": "hybrid",
+          "enum": [
+            "hybrid",
+            "vector",
+            "keyword"
+          ],
+          "title": "Retrievalmode",
+          "type": "string"
+        },
+        "sourceRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerevisionrefs",
+          "type": "array"
+        },
+        "citationPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "refusalPolicyRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refusalpolicyref"
+        }
+      },
+      "title": "KnowledgeKindSpec",
+      "type": "object"
+    },
+    "KnowledgeViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "knowledge",
+          "default": "knowledge",
+          "title": "Template",
+          "type": "string"
+        },
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/KnowledgeCitation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "refusal": {
+          "default": false,
+          "title": "Refusal",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "answer"
+      ],
+      "title": "KnowledgeViewModel",
+      "type": "object"
+    },
+    "LegacySkillManifestInput": {
+      "additionalProperties": false,
+      "description": "The only accepted compatibility shape for the original M1 UI.",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 32,
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/SkillManifestAction"
+          },
+          "maxItems": 64,
+          "title": "Actions",
+          "type": "array"
+        },
+        "schema": {
+          "$ref": "#/$defs/ManifestInputSchema"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "LegacySkillManifestInput",
+      "type": "object"
+    },
+    "ManifestInputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "object",
+          "default": "object",
+          "title": "Type",
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ManifestProperty"
+          },
+          "title": "Properties"
+        },
+        "required": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Required",
+          "type": "array"
+        },
+        "additionalProperties": {
+          "default": false,
+          "title": "Additionalproperties",
+          "type": "boolean"
+        }
+      },
+      "title": "ManifestInputSchema",
+      "type": "object"
+    },
+    "ManifestProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 512,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ManifestProperty",
+      "type": "object"
+    },
+    "MonitoringKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "monitoring",
+          "default": "monitoring",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metricRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Metricrefs",
+          "type": "array"
+        },
+        "refreshScheduleRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Refreshscheduleref",
+          "type": "string"
+        },
+        "alertPolicyRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Alertpolicyref",
+          "type": "string"
+        },
+        "actionPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "refreshScheduleRef",
+        "alertPolicyRef"
+      ],
+      "title": "MonitoringKindSpec",
+      "type": "object"
+    },
+    "MonitoringViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "monitoring",
+          "default": "monitoring",
+          "title": "Template",
+          "type": "string"
+        },
+        "metricRefs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metricrefs",
+          "type": "array"
+        },
+        "values": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Values",
+          "type": "array"
+        },
+        "alerts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Alerts",
+          "type": "array"
+        },
+        "dataRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MonitoringViewModel",
+      "type": "object"
+    },
+    "NotReadyCommandResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "command.not-ready",
+          "default": "command.not-ready",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorEnvelope"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        }
+      },
+      "required": [
+        "error",
+        "command"
+      ],
+      "title": "NotReadyCommandResult",
+      "type": "object"
+    },
+    "Operation": {
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/Event"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "command.not-ready": "#/$defs/NotReadyCommandResult",
+                  "invocation.start": "#/$defs/InvocationStartResult",
+                  "publication.publish": "#/$defs/PublicationPublishResult",
+                  "refresh.run": "#/$defs/RefreshRunResult",
+                  "skill-draft.create": "#/$defs/DraftCommandResult",
+                  "skill-draft.run": "#/$defs/SkillDraftRunResult",
+                  "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
+                  "source.clean": "#/$defs/SourceCleanResult",
+                  "source.profile": "#/$defs/SourceProfileResult"
+                },
+                "propertyName": "resultType"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DraftCommandResult"
+                },
+                {
+                  "$ref": "#/$defs/NotReadyCommandResult"
+                },
+                {
+                  "$ref": "#/$defs/SourceProfileResult"
+                },
+                {
+                  "$ref": "#/$defs/SourceCleanResult"
+                },
+                {
+                  "$ref": "#/$defs/SkillDraftRunResult"
+                },
+                {
+                  "$ref": "#/$defs/PublicationPublishResult"
+                },
+                {
+                  "$ref": "#/$defs/RefreshRunResult"
+                },
+                {
+                  "$ref": "#/$defs/InvocationStartResult"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "nextActions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nextactions",
+          "type": "array"
+        },
+        "audit": {
+          "items": {
+            "$ref": "#/$defs/Audit"
+          },
+          "title": "Audit",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operationId",
+        "status",
+        "version",
+        "events"
+      ],
+      "title": "Operation",
+      "type": "object"
+    },
+    "OwnerRef": {
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "principalId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Principalid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "principalId"
+      ],
+      "title": "OwnerRef",
+      "type": "object"
+    },
+    "PermissionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "uri": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Uri",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "version"
+      ],
+      "title": "PermissionRef",
+      "type": "object"
+    },
+    "PolicyGateResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillRevisionId": {
+          "title": "Skillrevisionid",
+          "type": "string"
+        },
+        "evaluationRunId": {
+          "title": "Evaluationrunid",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "publishable",
+            "blocked"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "checkedAt": {
+          "title": "Checkedat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillRevisionId",
+        "evaluationRunId",
+        "decision",
+        "checkedAt"
+      ],
+      "title": "PolicyGateResult",
+      "type": "object"
+    },
+    "ProfileRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "sampleRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reportRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "qualityScore": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Qualityscore"
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Errorcode"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "sourceRevisionId",
+        "status",
+        "startedAt"
+      ],
+      "title": "ProfileRun",
+      "type": "object"
+    },
+    "PublicationPublishCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "publication.publish",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/PublicationPublishPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "PublicationPublishCommand",
+      "type": "object"
+    },
+    "PublicationPublishPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Draftid",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "semver": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Semver",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId",
+        "revision",
+        "semver"
+      ],
+      "title": "PublicationPublishPayload",
+      "type": "object"
+    },
+    "PublicationPublishResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "publication.publish",
+          "default": "publication.publish",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "const": "not_ready",
+          "default": "not_ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "draftId": {
+          "title": "Draftid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId"
+      ],
+      "title": "PublicationPublishResult",
+      "type": "object"
+    },
+    "PublishedSkillVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "semver": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Semver",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        },
+        "skillRevisionId": {
+          "title": "Skillrevisionid",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "status": {
+          "default": "published",
+          "enum": [
+            "published",
+            "deprecated",
+            "revoked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "evaluationRunId": {
+          "title": "Evaluationrunid",
+          "type": "string"
+        },
+        "policyGateResultId": {
+          "title": "Policygateresultid",
+          "type": "string"
+        },
+        "skillViewRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skillviewref"
+        },
+        "publishedAt": {
+          "title": "Publishedat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "semver",
+        "manifest",
+        "skillRevisionId",
+        "digest",
+        "evaluationRunId",
+        "policyGateResultId",
+        "publishedAt"
+      ],
+      "title": "PublishedSkillVersion",
+      "type": "object"
+    },
+    "RefreshRun": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "trigger": {
+          "enum": [
+            "manual",
+            "schedule",
+            "event",
+            "freshness_on_read"
+          ],
+          "title": "Trigger",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "stagingRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "currentRevision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currentrevision"
+        },
+        "lastGoodRevision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lastgoodrevision"
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Errorcode"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finishedat"
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "trigger",
+        "status",
+        "startedAt"
+      ],
+      "title": "RefreshRun",
+      "type": "object"
+    },
+    "RefreshRunCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "refresh.run",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RefreshRunPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "RefreshRunCommand",
+      "type": "object"
+    },
+    "RefreshRunPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "skillId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Skillid",
+          "type": "string"
+        },
+        "trigger": {
+          "enum": [
+            "manual",
+            "schedule",
+            "event",
+            "freshness_on_read"
+          ],
+          "title": "Trigger",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillId",
+        "trigger"
+      ],
+      "title": "RefreshRunPayload",
+      "type": "object"
+    },
+    "RefreshRunResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "refresh.run",
+          "default": "refresh.run",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "const": "not_ready",
+          "default": "not_ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillId"
+      ],
+      "title": "RefreshRunResult",
+      "type": "object"
+    },
+    "ResourceCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "enum": [
+            "resource.create",
+            "resource.update",
+            "resource.publish",
+            "resource.share",
+            "resource.revoke"
+          ],
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ResourcePayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "ResourceCommand",
+      "type": "object"
+    },
+    "ResourcePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "resourceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Resourceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resourceId"
+      ],
+      "title": "ResourcePayload",
+      "type": "object"
+    },
+    "SaveManifestCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "skill-draft.save-manifest",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SaveManifestPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "SaveManifestCommand",
+      "type": "object"
+    },
+    "SaveManifestPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Draftid",
+          "type": "string"
+        },
+        "baseRevision": {
+          "minimum": 1,
+          "title": "Baserevision",
+          "type": "integer"
+        },
+        "manifest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillManifest"
+            },
+            {
+              "$ref": "#/$defs/LegacySkillManifestInput"
+            }
+          ],
+          "title": "Manifest"
+        }
+      },
+      "required": [
+        "draftId",
+        "baseRevision",
+        "manifest"
+      ],
+      "title": "SaveManifestPayload",
+      "type": "object"
+    },
+    "SchemaRef": {
+      "additionalProperties": false,
+      "properties": {
+        "uri": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Uri",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "version",
+        "sha256"
+      ],
+      "title": "SchemaRef",
+      "type": "object"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "properties": {
+        "uri": {
+          "maxLength": 2048,
+          "pattern": "^secret://.+",
+          "title": "Uri",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "version"
+      ],
+      "title": "SecretRef",
+      "type": "object"
+    },
+    "SemanticKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "semantic",
+          "default": "semantic",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metricRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Metricrefs",
+          "type": "array"
+        },
+        "dimensionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Dimensionrefs",
+          "type": "array"
+        },
+        "relationshipRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Relationshiprefs",
+          "type": "array"
+        },
+        "queryPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "SemanticKindSpec",
+      "type": "object"
+    },
+    "SemanticViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "semantic",
+          "default": "semantic",
+          "title": "Template",
+          "type": "string"
+        },
+        "schemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "metricRefs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metricrefs",
+          "type": "array"
+        },
+        "dimensionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dimensionrefs",
+          "type": "array"
+        },
+        "relationshipRefs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Relationshiprefs",
+          "type": "array"
+        },
+        "dataRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "schemaRef"
+      ],
+      "title": "SemanticViewModel",
+      "type": "object"
+    },
+    "SkillContract": {
+      "additionalProperties": false,
+      "properties": {
+        "inputSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "outputSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "examplesRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "errorCodes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Errorcodes",
+          "type": "array"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/SkillOperation"
+          },
+          "maxItems": 64,
+          "title": "Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "inputSchemaRef",
+        "outputSchemaRef"
+      ],
+      "title": "SkillContract",
+      "type": "object"
+    },
+    "SkillDependencies": {
+      "additionalProperties": false,
+      "properties": {
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Skills",
+          "type": "array"
+        },
+        "goldenAssets": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Goldenassets",
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "title": "SkillDependencies",
+      "type": "object"
+    },
+    "SkillDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "lifecycle": {
+          "const": "draft",
+          "default": "draft",
+          "title": "Lifecycle",
+          "type": "string"
+        },
+        "viewState": {
+          "const": "debug",
+          "default": "debug",
+          "title": "Viewstate",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "updatedAt": {
+          "title": "Updatedat",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "name",
+        "description",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "manifest"
+      ],
+      "title": "SkillDraft",
+      "type": "object"
+    },
+    "SkillDraftRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        },
+        "sourceRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerevisionrefs",
+          "type": "array"
+        },
+        "goldenAssetRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Goldenassetrevisionrefs",
+          "type": "array"
+        },
+        "status": {
+          "default": "draft",
+          "enum": [
+            "draft",
+            "planning",
+            "awaiting_input",
+            "running",
+            "partially_succeeded",
+            "failed",
+            "ready_for_evaluation",
+            "evaluating",
+            "publishable",
+            "publishing",
+            "published"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "revision",
+        "manifest",
+        "createdAt"
+      ],
+      "title": "SkillDraftRevision",
+      "type": "object"
+    },
+    "SkillDraftRunCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "skill-draft.run",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SkillDraftRunPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "SkillDraftRunCommand",
+      "type": "object"
+    },
+    "SkillDraftRunPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Draftid",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "traceId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Traceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId",
+        "revision",
+        "traceId"
+      ],
+      "title": "SkillDraftRunPayload",
+      "type": "object"
+    },
+    "SkillDraftRunResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "skill-draft.run",
+          "default": "skill-draft.run",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "const": "not_ready",
+          "default": "not_ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "draftId": {
+          "title": "Draftid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId"
+      ],
+      "title": "SkillDraftRunResult",
+      "type": "object"
+    },
+    "SkillManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "const": "knowledge.veadk.io/v1alpha1",
+          "default": "knowledge.veadk.io/v1alpha1",
+          "title": "Apiversion",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Skill",
+          "default": "Skill",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/SkillMetadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/SkillSpec"
+        }
+      },
+      "required": [
+        "metadata",
+        "spec"
+      ],
+      "title": "SkillManifest",
+      "type": "object"
+    },
+    "SkillManifestAction": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SkillManifestAction",
+      "type": "object"
+    },
+    "SkillMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 32,
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "displayName": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Displayname",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Description",
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/OwnerRef"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Digest"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "displayName",
+        "owner"
+      ],
+      "title": "SkillMetadata",
+      "type": "object"
+    },
+    "SkillOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        },
+        "inputSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "outputSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "risk": {
+          "default": "read_only",
+          "enum": [
+            "read_only",
+            "external_write",
+            "high_risk"
+          ],
+          "title": "Risk",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "inputSchemaRef",
+        "outputSchemaRef"
+      ],
+      "title": "SkillOperation",
+      "type": "object"
+    },
+    "SkillResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "skillRevision": {
+          "minimum": 1,
+          "title": "Skillrevision",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "data_access",
+            "semantic",
+            "analysis",
+            "knowledge",
+            "graph_ontology",
+            "monitoring"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "outputSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "resultRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "sourceRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerevisionrefs",
+          "type": "array"
+        },
+        "goldenAssetRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Goldenassetrevisionrefs",
+          "type": "array"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        },
+        "freshnessAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshnessat"
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "skillRevision",
+        "kind",
+        "outputSchemaRef",
+        "resultRef",
+        "traceId"
+      ],
+      "title": "SkillResult",
+      "type": "object"
+    },
+    "SkillSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "data_access",
+            "semantic",
+            "analysis",
+            "knowledge",
+            "graph_ontology",
+            "monitoring"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "contract": {
+          "$ref": "#/$defs/SkillContract"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/SkillDependencies"
+        },
+        "policyRef": {
+          "$ref": "#/$defs/PermissionRef"
+        },
+        "runtimeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Runtimeref",
+          "type": "string"
+        },
+        "evaluationSuiteRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluationsuiteref"
+        },
+        "skillViewRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skillviewref"
+        },
+        "compatibility": {
+          "$ref": "#/$defs/CompatibilityTargets"
+        },
+        "kindSpec": {
+          "discriminator": {
+            "mapping": {
+              "analysis": "#/$defs/AnalysisKindSpec",
+              "data_access": "#/$defs/DataAccessKindSpec",
+              "graph_ontology": "#/$defs/GraphOntologyKindSpec",
+              "knowledge": "#/$defs/KnowledgeKindSpec",
+              "monitoring": "#/$defs/MonitoringKindSpec",
+              "semantic": "#/$defs/SemanticKindSpec"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DataAccessKindSpec"
+            },
+            {
+              "$ref": "#/$defs/SemanticKindSpec"
+            },
+            {
+              "$ref": "#/$defs/AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/KnowledgeKindSpec"
+            },
+            {
+              "$ref": "#/$defs/GraphOntologyKindSpec"
+            },
+            {
+              "$ref": "#/$defs/MonitoringKindSpec"
+            }
+          ],
+          "title": "Kindspec"
+        }
+      },
+      "required": [
+        "kind",
+        "contract",
+        "policyRef",
+        "runtimeRef",
+        "kindSpec"
+      ],
+      "title": "SkillSpec",
+      "type": "object"
+    },
+    "SkillViewManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillRevisionId": {
+          "title": "Skillrevisionid",
+          "type": "string"
+        },
+        "rendererRef": {
+          "title": "Rendererref",
+          "type": "string"
+        },
+        "viewModelSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "allowedComponents": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Allowedcomponents",
+          "type": "array"
+        },
+        "cspProfile": {
+          "const": "trusted-renderer-v1",
+          "default": "trusted-renderer-v1",
+          "title": "Cspprofile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillRevisionId",
+        "rendererRef",
+        "viewModelSchemaRef"
+      ],
+      "title": "SkillViewManifest",
+      "type": "object"
+    },
+    "SkillViewRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillRevisionId": {
+          "title": "Skillrevisionid",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillViewManifest"
+        },
+        "intent": {
+          "$ref": "#/$defs/ViewIntent"
+        },
+        "viewModel": {
+          "discriminator": {
+            "mapping": {
+              "chart": "#/$defs/ChartViewModel",
+              "dashboard": "#/$defs/DashboardViewModel",
+              "graph_ontology": "#/$defs/GraphOntologyViewModel",
+              "knowledge": "#/$defs/KnowledgeViewModel",
+              "monitoring": "#/$defs/MonitoringViewModel",
+              "semantic": "#/$defs/SemanticViewModel"
+            },
+            "propertyName": "template"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DashboardViewModel"
+            },
+            {
+              "$ref": "#/$defs/ChartViewModel"
+            },
+            {
+              "$ref": "#/$defs/SemanticViewModel"
+            },
+            {
+              "$ref": "#/$defs/KnowledgeViewModel"
+            },
+            {
+              "$ref": "#/$defs/GraphOntologyViewModel"
+            },
+            {
+              "$ref": "#/$defs/MonitoringViewModel"
+            }
+          ],
+          "title": "Viewmodel"
+        },
+        "invocationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Invocationid"
+        },
+        "resultRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillRevisionId",
+        "revision",
+        "manifest",
+        "intent",
+        "viewModel",
+        "createdAt"
+      ],
+      "title": "SkillViewRevision",
+      "type": "object"
+    },
+    "SourceCleanCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "source.clean",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SourceCleanPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "SourceCleanCommand",
+      "type": "object"
+    },
+    "SourceCleanPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRevisionId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "recipeId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Recipeid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceRevisionId",
+        "recipeId"
+      ],
+      "title": "SourceCleanPayload",
+      "type": "object"
+    },
+    "SourceCleanResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "source.clean",
+          "default": "source.clean",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "const": "not_ready",
+          "default": "not_ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "recipeId": {
+          "title": "Recipeid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceRevisionId",
+        "recipeId"
+      ],
+      "title": "SourceCleanResult",
+      "type": "object"
+    },
+    "SourceProfileCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "source.profile",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SourceProfilePayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "SourceProfileCommand",
+      "type": "object"
+    },
+    "SourceProfilePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRevisionId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "sampleLimit": {
+          "default": 100,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Samplelimit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceRevisionId"
+      ],
+      "title": "SourceProfilePayload",
+      "type": "object"
+    },
+    "SourceProfileResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "source.profile",
+          "default": "source.profile",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "const": "not_ready",
+          "default": "not_ready",
+          "title": "Status",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceRevisionId"
+      ],
+      "title": "SourceProfileResult",
+      "type": "object"
+    },
+    "SourceRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceType": {
+          "enum": [
+            "local_file",
+            "pdf",
+            "document",
+            "database",
+            "excel",
+            "web_api",
+            "mcp"
+          ],
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "contentRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "schemaRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchemaRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "permissionRef": {
+          "$ref": "#/$defs/PermissionRef"
+        },
+        "sourceDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sourcedigest",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sourceType",
+        "contentRef",
+        "permissionRef",
+        "sourceDigest",
+        "createdAt"
+      ],
+      "title": "SourceRevision",
+      "type": "object"
+    },
+    "StorageRef": {
+      "additionalProperties": false,
+      "description": "Content or table reference; large values never live in metadata JSON.",
+      "properties": {
+        "uri": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Uri",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "object",
+            "table",
+            "vector",
+            "bundle",
+            "inline"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Mediatype",
+          "type": "string"
+        },
+        "bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        }
+      },
+      "required": [
+        "uri",
+        "kind",
+        "sha256",
+        "mediaType"
+      ],
+      "title": "StorageRef",
+      "type": "object"
+    },
+    "StreamCancelCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "stream.cancel",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/StreamCancelPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "StreamCancelCommand",
+      "type": "object"
+    },
+    "StreamCancelPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "streamId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Streamid",
+          "type": "string"
+        },
+        "sourceCommand": {
+          "enum": [
+            "import.start",
+            "assistant.turn"
+          ],
+          "title": "Sourcecommand",
+          "type": "string"
+        }
+      },
+      "required": [
+        "streamId",
+        "sourceCommand"
+      ],
+      "title": "StreamCancelPayload",
+      "type": "object"
+    },
+    "ViewCell": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field",
+        "value"
+      ],
+      "title": "ViewCell",
+      "type": "object"
+    },
+    "ViewField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "dataType": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "date",
+            "json"
+          ],
+          "title": "Datatype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "dataType"
+      ],
+      "title": "ViewField",
+      "type": "object"
+    },
+    "ViewIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "skillRevision": {
+          "minimum": 1,
+          "title": "Skillrevision",
+          "type": "integer"
+        },
+        "template": {
+          "enum": [
+            "dashboard",
+            "chart",
+            "semantic",
+            "knowledge",
+            "graph_ontology",
+            "monitoring"
+          ],
+          "title": "Template",
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "overview",
+            "compare",
+            "schema",
+            "answer",
+            "explore",
+            "monitor"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "resultRef": {
+          "title": "Resultref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "skillRevision",
+        "template",
+        "purpose",
+        "resultRef"
+      ],
+      "title": "ViewIntent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Schema-only registry that keeps every STEP 1 core contract generated.",
+  "properties": {
+    "sourceRevision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SourceRevision"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "profileRun": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfileRun"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cleaningRecipe": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CleaningRecipe"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cleanRun": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CleanRun"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "goldenAssetRevision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GoldenAssetRevision"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "skillDraftRevision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SkillDraftRevision"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "skillResult": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SkillResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "viewIntent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ViewIntent"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "viewModel": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "chart": "#/$defs/ChartViewModel",
+              "dashboard": "#/$defs/DashboardViewModel",
+              "graph_ontology": "#/$defs/GraphOntologyViewModel",
+              "knowledge": "#/$defs/KnowledgeViewModel",
+              "monitoring": "#/$defs/MonitoringViewModel",
+              "semantic": "#/$defs/SemanticViewModel"
+            },
+            "propertyName": "template"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DashboardViewModel"
+            },
+            {
+              "$ref": "#/$defs/ChartViewModel"
+            },
+            {
+              "$ref": "#/$defs/SemanticViewModel"
+            },
+            {
+              "$ref": "#/$defs/KnowledgeViewModel"
+            },
+            {
+              "$ref": "#/$defs/GraphOntologyViewModel"
+            },
+            {
+              "$ref": "#/$defs/MonitoringViewModel"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Viewmodel"
+    },
+    "skillViewManifest": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SkillViewManifest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "skillViewRevision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SkillViewRevision"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evaluationSuite": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvaluationSuite"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evaluationRun": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvaluationRun"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "policyGateResult": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PolicyGateResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "publishedSkillVersion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublishedSkillVersion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "agentBinding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentBinding"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "invocation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Invocation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "refreshRun": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RefreshRun"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "alertEvent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlertEvent"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "legacySkillManifestInput": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LegacySkillManifestInput"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "commandRequest": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "action.update": "#/$defs/ActionCommand",
+              "artifact.export": "#/$defs/ArtifactExportCommand",
+              "assistant.turn": "#/$defs/AssistantCommand",
+              "connector.create": "#/$defs/ConnectorCommand",
+              "connector.test": "#/$defs/ConnectorCommand",
+              "evaluation.apply": "#/$defs/EvaluationCommand",
+              "evaluation.run": "#/$defs/EvaluationCommand",
+              "import.cancel": "#/$defs/ImportCommand",
+              "import.start": "#/$defs/ImportCommand",
+              "invocation.start": "#/$defs/InvocationStartCommand",
+              "publication.publish": "#/$defs/PublicationPublishCommand",
+              "refresh.run": "#/$defs/RefreshRunCommand",
+              "resource.create": "#/$defs/ResourceCommand",
+              "resource.publish": "#/$defs/ResourceCommand",
+              "resource.revoke": "#/$defs/ResourceCommand",
+              "resource.share": "#/$defs/ResourceCommand",
+              "resource.update": "#/$defs/ResourceCommand",
+              "skill-draft.create": "#/$defs/CreateSkillDraftCommand",
+              "skill-draft.run": "#/$defs/SkillDraftRunCommand",
+              "skill-draft.save-manifest": "#/$defs/SaveManifestCommand",
+              "source.clean": "#/$defs/SourceCleanCommand",
+              "source.profile": "#/$defs/SourceProfileCommand",
+              "stream.cancel": "#/$defs/StreamCancelCommand"
+            },
+            "propertyName": "command"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CreateSkillDraftCommand"
+            },
+            {
+              "$ref": "#/$defs/SaveManifestCommand"
+            },
+            {
+              "$ref": "#/$defs/ResourceCommand"
+            },
+            {
+              "$ref": "#/$defs/ConnectorCommand"
+            },
+            {
+              "$ref": "#/$defs/ImportCommand"
+            },
+            {
+              "$ref": "#/$defs/StreamCancelCommand"
+            },
+            {
+              "$ref": "#/$defs/AssistantCommand"
+            },
+            {
+              "$ref": "#/$defs/EvaluationCommand"
+            },
+            {
+              "$ref": "#/$defs/ActionCommand"
+            },
+            {
+              "$ref": "#/$defs/ArtifactExportCommand"
+            },
+            {
+              "$ref": "#/$defs/SourceProfileCommand"
+            },
+            {
+              "$ref": "#/$defs/SourceCleanCommand"
+            },
+            {
+              "$ref": "#/$defs/SkillDraftRunCommand"
+            },
+            {
+              "$ref": "#/$defs/PublicationPublishCommand"
+            },
+            {
+              "$ref": "#/$defs/RefreshRunCommand"
+            },
+            {
+              "$ref": "#/$defs/InvocationStartCommand"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Commandrequest"
+    },
+    "commandResult": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "command.not-ready": "#/$defs/NotReadyCommandResult",
+              "invocation.start": "#/$defs/InvocationStartResult",
+              "publication.publish": "#/$defs/PublicationPublishResult",
+              "refresh.run": "#/$defs/RefreshRunResult",
+              "skill-draft.create": "#/$defs/DraftCommandResult",
+              "skill-draft.run": "#/$defs/SkillDraftRunResult",
+              "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
+              "source.clean": "#/$defs/SourceCleanResult",
+              "source.profile": "#/$defs/SourceProfileResult"
+            },
+            "propertyName": "resultType"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DraftCommandResult"
+            },
+            {
+              "$ref": "#/$defs/NotReadyCommandResult"
+            },
+            {
+              "$ref": "#/$defs/SourceProfileResult"
+            },
+            {
+              "$ref": "#/$defs/SourceCleanResult"
+            },
+            {
+              "$ref": "#/$defs/SkillDraftRunResult"
+            },
+            {
+              "$ref": "#/$defs/PublicationPublishResult"
+            },
+            {
+              "$ref": "#/$defs/RefreshRunResult"
+            },
+            {
+              "$ref": "#/$defs/InvocationStartResult"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Commandresult"
+    },
+    "commandResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CommandResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "operation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Operation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "event": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Event"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "audit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Audit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "jobState": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JobState"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "jobEvent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JobEvent"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "title": "CoreContractBundle",
+  "type": "object"
+}

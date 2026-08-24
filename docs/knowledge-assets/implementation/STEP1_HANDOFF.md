@@ -1,36 +1,74 @@
-# STEP 1 Handoff
+# STEP 1 Corrective Handoff
 
 - Result: `READY_WITH_BASELINE_DEBT`
 - STEP 1 clickable acceptance: complete.
-- Scope: STEP 1A seam freeze plus the complete M1 create, save-manifest, audit, recovery, and negative-contract gate.
-- Browser boundary: `/api/knowledge-assets/v1/*` only.
-- BFF routes: bootstrap, commands, streams, operation, typed audit, event replay, and cancellation.
-- Command contract: discriminated union; 23 registered commands; generic fallback `0`.
-- UI action inventory: 448 JSX event handlers, 100% mapped.
-- Real UI path: authenticated Knowledge workspace -> create resource -> create knowledge base -> local sample source -> `完成创建` -> `skill_builder?draft_id=...` -> six local Builder steps -> save manifest.
-- Persistence: SQLite local/test adapter and PostgreSQL production adapter for metadata, idempotency, operations, events, and audit.
-- Explicit boundaries: `ports.py`, `policies.py`, `workers.py`, and `observability.py`.
-- M1 evidence: `CLICK_ACCEPTANCE_STEP1.md`.
-- Contract evidence: `CONTRACT_FREEZE.json`.
-- STEP 1A evidence: `FRONTEND_SEAM_HANDOFF.md`, `ui-action-inventory.json`, `UI_ACTION_API_MATRIX.yaml`, `FRONTEND_SEAM_FREEZE.json`.
+- Corrective scope: canonical SkillManifest, typed STEP 1 contracts, command
+  payload/result schemas, fail-closed ports, metadata persistence skeleton,
+  migration replay, and job lifecycle framework.
+- This does not claim STEP 2 completion.
+
+## Contract Baseline
+
+- Skill is the only first-level product object.
+- Canonical `SkillManifest.spec.kind` is a discriminated union of
+  `data_access`, `semantic`, `analysis`, `knowledge`, `graph_ontology`, and
+  `monitoring`; each kind has an independent typed `kindSpec`.
+- The frozen M1 `name/version/actions/schema` request is accepted only by the
+  explicit legacy adapter and is normalized before repository persistence.
+- Core contracts include `SourceRevision`, `ProfileRun`, `CleaningRecipe`,
+  `CleanRun`, `GoldenAssetRevision`, `SkillDraftRevision`, `SkillResult`,
+  `ViewIntent`, all template ViewModels, `SkillViewManifest`,
+  `SkillViewRevision`, `EvaluationSuite`, `EvaluationRun`, `PolicyGateResult`,
+  `PublishedSkillVersion`, `AgentBinding`, `Invocation`, `RefreshRun`,
+  `AlertEvent`, `Operation`, `Event`, `Error`, and `Audit`.
+- `source.profile`, `source.clean`, `skill-draft.run`,
+  `publication.publish`, `refresh.run`, and `invocation.start` have
+  independent typed payload/result contracts and return typed
+  `COMMAND_NOT_READY` while unopened.
+- SQLite and PostgreSQL migrations express canonical draft revisions,
+  metadata/relations, current/last-good pointers, idempotency, operations,
+  events, audit, jobs, leases, outbox, and dead-letter records.
+- Production ArtifactStore, SecretStore, Queue, and Runtime adapters fail
+  closed with typed `NOT_CONFIGURED`; production/demo/test profiles are
+  explicitly represented.
 
 ## Verification
 
-- `pytest -q tests/frontend/test_knowledge_asset_bff.py`: 5 passed.
-- `node --test frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs`: 18 passed.
-- `python -m frontend.server.knowledge_assets.schema_export`: passed.
-- `python -m compileall -q frontend/server/knowledge_assets`: passed.
-- `npm run -s build`: passed; existing chunk-size and dynamic-import warnings remain.
-- Browser preview: authenticated Chrome run passed on `http://127.0.0.1:15173/`, proxied to API `http://127.0.0.1:18000`.
-- Browser create request returned draft `skill-draft-b3692ba3-844b-4f9c-9853-d23b7a416a10`, revision `1`, operation `op-795c8651d4da6e990c79ee74`.
-- Browser save request returned the same draft at revision `2`, operation `op-028839ff47b1b611627ab8cb`.
-- Browser bootstrap after save returned the draft at revision `2`.
-- Direct API acceptance also verified typed audit, SSE replay, idempotent replay, stale revision `409 CONFLICT`, unknown command `422 VALIDATION_ERROR`, and extra-payload `422 VALIDATION_ERROR`.
+- Contract/schema generation: passed; rerun produced no diff.
+- `pytest -q tests/frontend/test_knowledge_asset_bff.py`: `16 passed`.
+- Python migration/repository/job/negative contract coverage in the same
+  focused suite: `16 passed`.
+- Additional frontend migration gateway regression:
+  `pytest -q tests/frontend/test_migration_gateway_edges.py`: `13 passed`.
+- Combined Python target: `29 passed`.
+- `node --test frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs`:
+  `18 passed`, using a temporary same-version dependency symlink that was
+  removed afterward.
+- Python compileall: passed.
+- SQLite empty migration and replay: passed; 14 tables and one migration
+  version were present after replay.
+- Frontend production build: passed with existing dynamic-import and
+  chunk-size warnings; generated `veadk/webui` output was removed afterward.
+- `git diff --check`: passed after build artifact cleanup.
+- M1 browser evidence remains the existing clickable path:
+  `http://127.0.0.1:15173/`, API `http://127.0.0.1:18000`.
 
-## Residuals
+## Residual Debt
 
-- The inherited STEP 0 132-capture visual matrix manual exemption remains baseline debt and is not rewritten as a pass.
-- Static guard remains fail-closed with documented residuals: pre-existing `frontend/tests/cronJobFinalAnswer.test.mjs`, `production/ports.ts` split-review warning, and new repository/routes hotspot accounting from baseline zero.
-- The generated frontend build output is cleaned after verification.
+- Inherited STEP 0 132-capture visual matrix manual exemption remains baseline
+  debt.
+- Static guard remains fail-closed and is not repaired in this corrective:
+  `step-1-write-scope:frontend/tests/cronJobFinalAnswer.test.mjs`,
+  `mandatory-split-review:frontend/src/knowledge-workspace/production/ports.ts`,
+  `shared-hotspot-growth:frontend/server/knowledge_assets/repository.py:462`,
+  `shared-hotspot-growth:frontend/server/knowledge_assets/routes.py:186`.
+- The current guard run also reports the repository/routes growth at their
+  current measured line counts; this is documented evidence, not a claim of
+  guard pass.
+- `CONTEXT.md` was not present in this worktree.
+- The manual Review SQLite file remains outside the repository at
+  `/tmp/knowledge-assets-step1-manual-review.sqlite3`; no database or
+  dependency symlink is part of the checkpoint.
 
-This handoff stops at STEP 1. Static guard residuals are documented, and this does not claim STEP 2 completion.
+This handoff records the complete corrective STEP 1 contract base and stops
+before STEP 2. It does not claim PASS.

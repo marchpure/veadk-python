@@ -1,5 +1,10 @@
 /* Generated from frontend/server/knowledge_assets/contracts.py. */
 
+import type {
+  LegacySkillManifestInput,
+  SkillManifest,
+} from "./generatedContracts";
+
 export type ErrorCode =
   | "UNAVAILABLE"
   | "UNAUTHENTICATED"
@@ -24,23 +29,8 @@ export interface GeneratedError {
   details?: Record<string, string>;
 }
 
-export interface GeneratedManifestProperty {
-  type: "string" | "number" | "boolean" | "object" | "array";
-  description: string;
-}
-
-export interface GeneratedManifest {
-  name: string;
-  version: string;
-  description: string;
-  actions: Array<{ name: string; description: string }>;
-  schema: {
-    type: "object";
-    properties: Record<string, GeneratedManifestProperty>;
-    required: string[];
-    additionalProperties: boolean;
-  };
-}
+export type GeneratedManifest = SkillManifest;
+export type GeneratedLegacyManifest = LegacySkillManifestInput;
 
 export interface GeneratedSkillDraft {
   id: string;
@@ -130,7 +120,7 @@ export type GeneratedCommand =
     payload: {
       draftId: string;
       baseRevision: number;
-      manifest: GeneratedManifest;
+      manifest: GeneratedManifest | GeneratedLegacyManifest;
     };
   }
   | {
@@ -174,14 +164,35 @@ export type GeneratedCommand =
     payload: { resourceId: string; format: "json" | "csv" | "html" };
   }
   | {
-    command:
-      | "source.profile"
-      | "source.clean"
-      | "skill-draft.run"
-      | "publication.publish"
-      | "refresh.run"
-      | "invocation.start";
-    payload: Record<string, never>;
+    command: "source.profile";
+    payload: { sourceRevisionId: string; sampleLimit: number };
+  }
+  | {
+    command: "source.clean";
+    payload: { sourceRevisionId: string; recipeId: string };
+  }
+  | {
+    command: "skill-draft.run";
+    payload: { draftId: string; revision: number; traceId: string };
+  }
+  | {
+    command: "publication.publish";
+    payload: { draftId: string; revision: number; semver: string };
+  }
+  | {
+    command: "refresh.run";
+    payload: {
+      skillId: string;
+      trigger: "manual" | "schedule" | "event" | "freshness_on_read";
+    };
+  }
+  | {
+    command: "invocation.start";
+    payload: {
+      skillVersionId: string;
+      inputRef: import("./generatedContracts").StorageRef;
+      callerId: string;
+    };
   };
 
 export interface GeneratedCommandResponse {
