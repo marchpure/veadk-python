@@ -501,53 +501,6 @@ def test_policy_gate_rejects_duplicate_dimensions() -> None:
             )
         )
 
-
-def test_policy_gate_rejects_duplicate_dimensions() -> None:
-    app, _, _, _ = service()
-    with pytest.raises(ValueError, match="unique"):
-        app.evaluate_policy(
-            PolicyGateInput(
-                skill_draft_revision="skill-1:revision-7",
-                evaluation_run_id="run-1",
-                checks=(
-                    PolicyCheck(
-                        dimension="schema",
-                        passed=True,
-                        machine_reason="SCHEMA_PASSED",
-                    ),
-                    PolicyCheck(
-                        dimension="schema",
-                        passed=True,
-                        machine_reason="SCHEMA_PASSED_AGAIN",
-                    ),
-                ),
-            )
-        )
-
-
-def test_policy_gate_rejects_duplicate_dimensions() -> None:
-    app, _, _, _ = service()
-    with pytest.raises(ValueError, match="unique"):
-        app.evaluate_policy(
-            PolicyGateInput(
-                skill_draft_revision="skill-1:revision-7",
-                evaluation_run_id="run-1",
-                checks=(
-                    PolicyCheck(
-                        dimension="schema",
-                        passed=True,
-                        machine_reason="SCHEMA_PASSED",
-                    ),
-                    PolicyCheck(
-                        dimension="schema",
-                        passed=True,
-                        machine_reason="SCHEMA_PASSED_AGAIN",
-                    ),
-                ),
-            )
-        )
-
-
 def test_fix_plan_shows_scope_conflicts_applies_new_revision_and_scoped_rerun() -> None:
     app, repository, _, drafts = service()
     suite = app.create_suite(
