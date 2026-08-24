@@ -49,6 +49,14 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 - W4 evaluation-quality regression: `28 passed`; replay idempotency,
   cancellation-wins, candidate gating, policy uniqueness, and fix-scope
   invariants pass.
+- Current Main focused integration: `84 passed`; only known veadk dependency
+  deprecation warnings remain.
+- Markdown heading-match regression preserves the complete body in both the
+  typed `KnowledgeViewModel` and content-addressed HTML view (`88955a4b`).
+- STEP 3 static guard: `4 passed`, zero findings after excluding runtime-only
+  `.veadk/` and registering W2/W4 delivery paths (`9b4345fa`).
+- Frontend production build passed for Studio and website-integration at
+  `9b4345fa`; generated `veadk/webui` output was removed after verification.
 - Main public Evaluation/Policy BFF regression: `48 passed` combined with
   Evaluation/Golden/BFF coverage; required typed commands no longer return
   the previously audited HTTP 422 boundary. Candidate starts fail closed and
