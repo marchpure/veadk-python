@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "status": "READY_FOR_INTEGRATION",
+  "worker": "W1",
+  "domain": "sources_golden_assets",
+  "baseCommit": "31a26a6fd0547a7696af62b97b42a842f07f8339",
+  "workerCommit": null,
+  "proposalOnly": true,
+  "implementationReusedFromMain": [
+    "local Markdown/CSV source revision",
+    "profile and clean runs",
+    "GoldenAssetRevision persistence",
+    "credential-blocked external connector contracts"
+  ],
+  "ownedStates": [
+    "source.catalog.read",
+    "source.create",
+    "source.refresh",
+    "golden_asset.read"
+  ],
+  "statusRules": {
+    "localMarkdownCsvSqlite": "STEP3_REAL",
+    "larkOracleWebApiWorkdayMcp": "EXTERNAL_CREDENTIAL_BLOCKED"
+  },
+  "knownDebt": [
+    "full parser-backed PDF/Office/Excel ingestion remains deferred",
+    "credentialed provider E2E remains externally blocked"
+  ],
+  "tests": {
+    "mainExistingSourceGoldenFlow": "covered by Main focused backend regression"
+  }
+}
