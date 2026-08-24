@@ -8,7 +8,12 @@ Status: `READY_FOR_INTEGRATION`
 - Branch: `feat/knowledge-step3-worker2-agent-authoring`
 - Worker start/base: `a34383ccb281c59c240a9b6ccf88a31da6382d1f`
 - Worker commit: `65037a4b98838ae467fec223b4e1e45d56b9dfd2` (base delivery)
-- Follow-up commit: pending after this verification pass
+- Follow-up commits: `bdb1573dd5616fab8ca8f9246f1bca560c9816e2`,
+  `a03cb607bdb8e8cfa47628348e922f6c2b1d1b71`,
+  `b0ca31dac00c40bff4b8090aff1bf07dc008817e`
+  (persisted read-model progress and recovery coverage)
+
+The handoff metadata is committed after the code head.
 - STEP 3 Main checkpoint verified from sibling Worker worktrees:
   `a34383ccb281c59c240a9b6ccf88a31da6382d1f`
 - Checkpoint tag: `knowledge-skill-factory-step-3-v2131-checkpoint-a34383cc`
@@ -44,7 +49,7 @@ Status: `READY_FOR_INTEGRATION`
   - typed patch proposal/accept/reject, optimistic conflict and undo
   - explicit rerun classification for query/metric/permission/freshness/alert/mapping
   - context add/remove, cancellation, durable retry, personal team reuse with lineage
-  - operation/event/read model recovery after refresh
+  - operation/event/read model recovery after refresh, including BuildPlan, context digest, stage, progress, and clarification questions
   - durable single/batch comment repair proposals, team pre-publish evaluation
     transition, execution-time reauthorization
 - `tests/frontend/test_skill_authoring.py`
@@ -68,13 +73,48 @@ Both journeys produced operation IDs and trace IDs at runtime; the values are
 printed by the local replay command and intentionally not treated as durable
 production evidence until Main wires the repository and Worker 3.
 
+## VEADK P0 gate
+
+The amended P0 path is implemented by `VeADKModelGateway`:
+
+- public `veadk.Agent` with typed `BuildPlan` output schema;
+- public `veadk.Runner.run_async`, not a second runtime;
+- W1-injected MCP tool objects and schemas;
+- safe prompt/context input containing caller, workspace, permissions, fixed
+  revisions, requested kind, and current UI binding;
+- durable `session_id`, real `trace_id`, Runner event summaries, and formal MCP
+  tool-call evidence;
+- typed `BuildPlan` fields for data refs, metrics, dimensions, layout intent,
+  refresh policy, and lineage, passed to W3 through
+  `Worker3ExecutionRequest`;
+- explicit failure for missing credentials, MCP failure, timeout, missing MCP
+  calls, and invalid structured output.
+
+Real smoke command:
+
+```text
+MODEL_AGENT_API_KEY=... MODEL_AGENT_MODEL=... \
+W2_MCP_SERVER_URL=... W2_MCP_BEARER_TOKEN=... \
+python -m frontend.server.skill_authoring.real_smoke
+```
+
+The command is intentionally credential/environment gated. It cannot claim
+success or emit a fixed plan without a real Agent/Runner execution and MCP
+tool call. W2 does not own MCP lifecycle or Dashboard rendering.
+
 ## Verification
 
-- `pytest -q tests/frontend/test_skill_authoring.py`: **20 passed**
+- `pytest -q tests/frontend/test_skill_authoring.py`: **26 passed**
 - `python -m compileall -q frontend/server/skill_authoring tests/frontend/test_skill_authoring.py`: passed
 - `git diff --check`: passed
 - Prototype archive download, SHA-256, extraction and `prototype/readme.md`: passed
 - Local replay with different prompts and different BuildPlan/draft digests: passed
+- Real Agent/Runner contract test with a non-sales maintenance request and
+  formal MCP tool call: passed
+- Invalid Runner structured output: explicit failed operation with no draft:
+  passed
+- Real MCP failure envelope: explicit failed operation with no draft: passed
+- W3 typed data/metric/dimension/layout/refresh/lineage handoff: passed
 
 ## Integration requirements and known limits
 

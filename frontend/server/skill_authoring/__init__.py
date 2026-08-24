@@ -19,7 +19,9 @@ from .ports import (
     InMemoryResourceResolver,
     JsonFileAuthoringRepository,
     LocalPlanningHarness,
+    McpToolBundle,
     NoopWorker3Executor,
+    VeADKModelGateway,
 )
 from .service import SkillAuthoringService
 
@@ -33,8 +35,10 @@ __all__ = [
     "InMemoryResourceResolver",
     "JsonFileAuthoringRepository",
     "LocalPlanningHarness",
+    "McpToolBundle",
     "NoopWorker3Executor",
     "PatchProposal",
     "SkillAuthoringError",
     "SkillAuthoringService",
+    "VeADKModelGateway",
 ]

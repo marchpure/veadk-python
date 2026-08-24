@@ -49,6 +49,23 @@ rows:
     command: skill_draft.create
     read_model: AuthoringOperation
     test: tests/frontend/test_skill_authoring.py::test_credential_blocked_is_typed_and_persisted
+  - id: model.veadk_p0
+    owner: W2
+    status: P0_REAL_AGENT_RUNNER
+    command: skill_draft.create
+    read_model: AuthoringReadModel.agent_execution
+    test: tests/frontend/test_skill_authoring.py::test_real_veadk_agent_runner_calls_mcp_and_returns_evidence
+    smoke_command: python -m frontend.server.skill_authoring.real_smoke
+    evidence:
+      - real_veadk_agent
+      - real_veadk_runner
+      - real_mcp_tool_call
+      - session_id
+      - trace_id
+      - events
+      - typed_build_plan
+      - typed_skill_draft
+    failure_test: tests/frontend/test_skill_authoring.py::test_veadk_runner_invalid_output_fails_without_fixed_plan
   - id: worker3.execution
     owner: W2
     status: STEP3_GATED

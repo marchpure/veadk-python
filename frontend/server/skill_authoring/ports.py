@@ -12,12 +12,16 @@ import hashlib
 import json
 import os
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 from pydantic import BaseModel
 
 from .models import (
+    AgentEventEvidence,
+    AgentExecutionEvidence,
+    AgentToolCallEvidence,
     BuildPlan,
     ContextEnvelope,
     DraftRevision,
@@ -41,6 +45,19 @@ from .models import (
 )
 
 
+@dataclass(frozen=True)
+class McpToolBundle:
+    """W1-provided MCP tools and schemas; this worker does not own lifecycle."""
+
+    tools: tuple[object, ...]
+    schemas: Mapping[str, object]
+    credentialed: bool = True
+
+
+class McpToolProvider(Protocol):
+    async def tools_for(self, context: ResolvedContext) -> McpToolBundle: ...
+
+
 class ResourceResolver(Protocol):
     async def resolve(
         self, envelope: ContextEnvelope, refs: Sequence[ResourceRef]
@@ -51,6 +68,9 @@ class ModelGateway(Protocol):
     async def propose_plan(
         self, context: ResolvedContext, *, requested_kind: SkillKind | None
     ) -> BuildPlan: ...
+
+    @property
+    def execution_evidence(self) -> AgentExecutionEvidence | None: ...
 
 
 class AuthoringRepository(Protocol):
@@ -144,6 +164,10 @@ class InMemoryResourceResolver:
                 "permissions": envelope.permissions,
                 "authorized_permissions": authorized_permissions,
                 "fixed_revisions": envelope.fixed_revisions,
+                "current_skill_id": envelope.current_skill_id,
+                "current_view_id": envelope.current_view_id,
+                "current_component_id": envelope.current_component_id,
+                "comment_ids": envelope.comment_ids,
             }
         )
         return ResolvedContext(
@@ -166,13 +190,18 @@ class CredentialBlockedGateway:
             "model gateway credentials are not configured",
         )
 
+    @property
+    def execution_evidence(self) -> AgentExecutionEvidence | None:
+        return None
+
 
 class AgentKitModelGateway:
-    """Adapter around an existing Agent/LLM gateway.
+    """Legacy proposal-only adapter; it is not the P0 production path.
 
     ``proposer`` must return a validated ``BuildPlan``.  This adapter does not
     accept raw HTML, source code, arbitrary tool calls, or persistence methods
-    from the model response.
+    from the model response. Production wiring must use
+    :class:`VeADKModelGateway`.
     """
 
     def __init__(self, proposer: object | None = None) -> None:
@@ -220,6 +249,295 @@ class AgentKitModelGateway:
                 "model gateway returned an invalid BuildPlan",
             ) from error
 
+    @property
+    def execution_evidence(self) -> AgentExecutionEvidence | None:
+        return None
+
+
+class VeADKModelGateway:
+    """Production adapter using the repository's public Agent and Runner.
+
+    W1 owns MCP connection/authentication and injects already-authorized tool
+    objects.  This adapter only supplies those tools to the official VEADK
+    Agent and records the official Runner event stream.
+    """
+
+    def __init__(
+        self,
+        *,
+        mcp_tools: McpToolBundle | McpToolProvider | None = None,
+        model: object | None = None,
+        model_name: str | None = None,
+        model_api_base: str | None = None,
+        model_api_key: str | None = None,
+    ) -> None:
+        self._mcp_tools = mcp_tools
+        self._model = model
+        self._model_name = model_name
+        self._model_api_base = model_api_base
+        self._model_api_key = model_api_key
+        self._last_execution: AgentExecutionEvidence | None = None
+
+    @property
+    def execution_evidence(self) -> AgentExecutionEvidence | None:
+        return self._last_execution
+
+    async def _resolve_tools(self, context: ResolvedContext) -> McpToolBundle:
+        if self._mcp_tools is None:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.CREDENTIAL_BLOCKED,
+                "W1 MCP tools and credentials are not configured",
+            )
+        if isinstance(self._mcp_tools, McpToolBundle):
+            bundle = self._mcp_tools
+        else:
+            bundle = await self._mcp_tools.tools_for(context)
+        if not bundle.credentialed or not bundle.tools:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.CREDENTIAL_BLOCKED,
+                "authorized MCP tools and usable credentials are required",
+            )
+        return bundle
+
+    async def propose_plan(
+        self, context: ResolvedContext, *, requested_kind: SkillKind | None
+    ) -> BuildPlan:
+        bundle = await self._resolve_tools(context)
+        if self._model is None and not (
+            self._model_api_key or os.getenv("MODEL_AGENT_API_KEY")
+        ):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.CREDENTIAL_BLOCKED,
+                "VEADK model credentials are not configured",
+            )
+
+        try:
+            from google.genai import types
+            from veadk import Agent, Runner
+            from veadk.memory.short_term_memory import ShortTermMemory
+            from veadk.tracing.telemetry.opentelemetry_tracer import (
+                OpentelemetryTracer,
+            )
+        except Exception as error:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.MODEL_UNAVAILABLE,
+                "official VEADK Agent/Runner is unavailable",
+            ) from error
+
+        session_id = f"skill-authoring-{context.envelope.request_id}"
+        instruction = self._instruction(context, requested_kind, bundle)
+        agent_kwargs: dict[str, Any] = {
+            "name": "skill_authoring_agent",
+            "description": "Structured SkillDraft and BuildPlan authoring agent.",
+            "instruction": instruction,
+            "tools": list(bundle.tools),
+            "output_schema": BuildPlan,
+            "tracers": [OpentelemetryTracer()],
+            "enable_responses": False,
+        }
+        if self._model is not None:
+            agent_kwargs["model"] = self._model
+        else:
+            if self._model_name:
+                agent_kwargs["model_name"] = self._model_name
+            if self._model_api_base:
+                agent_kwargs["model_api_base"] = self._model_api_base
+            if self._model_api_key:
+                agent_kwargs["model_api_key"] = self._model_api_key
+
+        events: list[AgentEventEvidence] = []
+        tool_calls: list[AgentToolCallEvidence] = []
+        try:
+            agent = Agent(**agent_kwargs)
+            runner = Runner(
+                agent=agent,
+                app_name="skill_authoring",
+                short_term_memory=ShortTermMemory(backend="local"),
+            )
+            await runner.session_service.create_session(
+                app_name=runner.app_name,
+                user_id=context.envelope.caller_id,
+                session_id=session_id,
+            )
+            message = types.Content(
+                role="user",
+                parts=[types.Part(text=json.dumps(context.model_input, ensure_ascii=False))],
+            )
+            output_text: str | None = None
+            async for event in runner.run_async(
+                user_id=context.envelope.caller_id,
+                session_id=session_id,
+                new_message=message,
+            ):
+                events.append(
+                    AgentEventEvidence(
+                        event_type=event.__class__.__name__,
+                        author=getattr(event, "author", None),
+                        has_content=bool(getattr(event, "content", None)),
+                        output_present=getattr(event, "output", None) is not None,
+                    )
+                )
+                content = getattr(event, "content", None)
+                for part in getattr(content, "parts", None) or ():
+                    function_call = getattr(part, "function_call", None)
+                    if function_call is not None:
+                        tool_calls.append(
+                            AgentToolCallEvidence(
+                                name=function_call.name,
+                                call_id=function_call.id,
+                                status="requested",
+                            )
+                        )
+                    function_response = getattr(part, "function_response", None)
+                    if function_response is not None:
+                        response = getattr(function_response, "response", None)
+                        response_status = (
+                            "failed"
+                            if self._mcp_response_failed(response)
+                            else "succeeded"
+                        )
+                        tool_calls.append(
+                            AgentToolCallEvidence(
+                                name=function_response.name,
+                                call_id=function_response.id,
+                                status=response_status,
+                            )
+                        )
+                    if getattr(part, "text", None):
+                        output_text = part.text
+                if getattr(event, "output", None):
+                    output_text = str(event.output)
+            trace_id = runner.get_trace_id()
+            if not trace_id or trace_id == "<unknown_trace_id>":
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.MODEL_UNAVAILABLE,
+                    "VEADK Runner did not provide a trace_id",
+                )
+            if not tool_calls:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "VEADK Agent did not call an authorized MCP tool",
+                )
+            failed_tool = next(
+                (call for call in tool_calls if call.status == "failed"), None
+            )
+            if failed_tool is not None:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.MODEL_UNAVAILABLE,
+                    f"MCP tool call failed: {failed_tool.name}",
+                )
+            evidence = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id=trace_id,
+                status="succeeded",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+            )
+            self._last_execution = evidence
+            if not output_text:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "VEADK Runner returned no structured output",
+                )
+            return BuildPlan.model_validate_json(output_text)
+        except SkillAuthoringError as error:
+            if self._last_execution is None:
+                self._last_execution = AgentExecutionEvidence(
+                    session_id=session_id,
+                    trace_id=(
+                        trace_id
+                        if "trace_id" in locals()
+                        and trace_id != "<unknown_trace_id>"
+                        else "unavailable"
+                    ),
+                    status="failed",
+                    events=tuple(events),
+                    tool_calls=tuple(tool_calls),
+                    error_code=error.code,
+                    error_message=error.message,
+                )
+            raise
+        except ValueError as error:
+            self._last_execution = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id=trace_id if "trace_id" in locals() else "unavailable",
+                status="failed",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+                error_code=AuthoringErrorCode.VALIDATION_FAILED,
+                error_message="VEADK Runner output was not a valid BuildPlan",
+            )
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "VEADK Runner output was not a valid BuildPlan",
+            ) from error
+        except TimeoutError as error:
+            self._last_execution = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id="unavailable",
+                status="failed",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+                error_code=AuthoringErrorCode.MODEL_TIMEOUT,
+                error_message="VEADK Runner timed out",
+            )
+            raise SkillAuthoringError(
+                AuthoringErrorCode.MODEL_TIMEOUT, "VEADK Runner timed out"
+            ) from error
+        except Exception as error:
+            self._last_execution = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id="unavailable",
+                status="failed",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+                error_code=AuthoringErrorCode.MODEL_UNAVAILABLE,
+                error_message="VEADK Agent/Runner execution failed",
+            )
+            raise SkillAuthoringError(
+                AuthoringErrorCode.MODEL_UNAVAILABLE,
+                "VEADK Agent/Runner execution failed",
+            ) from error
+
+    @staticmethod
+    def _instruction(
+        context: ResolvedContext,
+        requested_kind: SkillKind | None,
+        bundle: McpToolBundle,
+    ) -> str:
+        return (
+            "Create only a typed BuildPlan for a SkillDraft. Use the provided MCP "
+            "tools through the formal tool mechanism when schema/data inspection is "
+            "needed. Never emit HTML, URLs, timers, code, or persistence commands. "
+            "The downstream Worker 3 owns execution and rendering. "
+            f"requested_kind={requested_kind.value if requested_kind else None}; "
+            f"mcp_schemas={json.dumps(bundle.schemas, ensure_ascii=False, sort_keys=True)}; "
+            f"authorized_context={json.dumps(context.model_input, ensure_ascii=False, sort_keys=True)}"
+        )
+
+    @staticmethod
+    def _mcp_response_failed(response: object) -> bool:
+        """Recognize W1/MCP error envelopes without trusting model text."""
+        if isinstance(response, Mapping):
+            if response.get("isError") is True:
+                return True
+            if response.get("status") == "failed" or response.get("error"):
+                return True
+            return any(
+                VeADKModelGateway._mcp_response_failed(value)
+                for value in response.values()
+            )
+        if isinstance(response, (list, tuple)):
+            return any(
+                VeADKModelGateway._mcp_response_failed(value) for value in response
+            )
+        if isinstance(response, str):
+            try:
+                return VeADKModelGateway._mcp_response_failed(json.loads(response))
+            except (TypeError, ValueError):
+                return False
+        return False
+
 
 class LocalPlanningHarness:
     """Credential-free deterministic planner for replayable local journeys.
@@ -228,6 +546,8 @@ class LocalPlanningHarness:
     test harness for the port, not a production fallback and does not assert a
     fake execution success.
     """
+
+    TEST_ONLY = True
 
     async def propose_plan(
         self, context: ResolvedContext, *, requested_kind: SkillKind | None
@@ -355,6 +675,26 @@ class LocalPlanningHarness:
             inputs=inputs,
             outputs=outputs,
             dependencies=tuple(item.ref for item in context.resources),
+            data_refs=tuple(item.ref for item in context.resources),
+            metrics=(
+                tuple(fields[2:3])
+                if kind in {SkillKind.ANALYSIS, SkillKind.MONITORING}
+                else ()
+            ),
+            dimensions=tuple(fields[:2]),
+            layout_intent=(
+                "trend"
+                if kind == SkillKind.ANALYSIS and variant == 0
+                else "breakdown"
+                if kind == SkillKind.ANALYSIS
+                else "graph"
+                if kind == SkillKind.GRAPH_ONTOLOGY
+                else "alert"
+                if kind == SkillKind.MONITORING
+                else "document"
+            ),
+            refresh_policy=context.envelope.freshness,
+            lineage=tuple(item.ref for item in context.resources),
             kind_spec=spec,
             query_plan=query if kind == SkillKind.ANALYSIS else None,
             plan_digest=digest(
@@ -368,6 +708,11 @@ class LocalPlanningHarness:
             ),
         )
         return plan
+
+    @property
+    def execution_evidence(self) -> AgentExecutionEvidence | None:
+        """LocalPlanningHarness is explicitly test-only and has no Agent run."""
+        return None
 
     @staticmethod
     def _infer_kind(context: ResolvedContext) -> SkillKind:

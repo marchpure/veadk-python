@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import sys
+from typing import AsyncGenerator
 from pathlib import Path
 
 import pytest
 
 from frontend.server.skill_authoring.models import (
     AuthoringErrorCode,
+    BuildPlan,
     AuthoringStatus,
     ContextEnvelope,
     ContextMutation,
@@ -33,7 +37,9 @@ from frontend.server.skill_authoring.ports import (
     InMemoryResourceResolver,
     JsonFileAuthoringRepository,
     LocalPlanningHarness,
+    McpToolBundle,
     NoopWorker3Executor,
+    VeADKModelGateway,
 )
 from frontend.server.skill_authoring.service import SkillAuthoringService
 
@@ -256,6 +262,35 @@ async def test_fixed_context_and_model_input_are_server_authorized(setup_authori
 
 
 @pytest.mark.asyncio
+async def test_context_binding_is_in_model_input_and_changes_context_digest(setup_authoring):
+    service, _, ref = setup_authoring
+    first = await service.create_draft(
+        envelope(ref, "Explain maintenance reliability by site").model_copy(
+            update={
+                "current_skill_id": "skill_current",
+                "current_view_id": "view_table",
+                "current_component_id": "component_chart",
+                "comment_ids": ("comment_1",),
+            }
+        ),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    second = await service.create_draft(
+        envelope(ref, "Explain maintenance reliability by site").model_copy(
+            update={
+                "current_skill_id": "skill_current",
+                "current_view_id": "view_graph",
+                "current_component_id": "component_chart",
+                "comment_ids": ("comment_1",),
+            }
+        ),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    assert first.operation.context_digest != second.operation.context_digest
+
+
+@pytest.mark.asyncio
 async def test_agentkit_gateway_only_accepts_typed_build_plan(setup_authoring):
     service, _, ref = setup_authoring
     captured = {}
@@ -310,6 +345,280 @@ async def test_model_timeout_is_typed(setup_authoring):
     )
     result = await service.create_draft(short, requested_kind=SkillKind.ANALYSIS)
     assert result.operation.error_code == AuthoringErrorCode.MODEL_TIMEOUT
+
+
+@pytest.mark.asyncio
+async def test_real_veadk_agent_runner_calls_mcp_and_returns_evidence(setup_authoring):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.adk.tools.mcp_tool.mcp_session_manager import (
+        StdioConnectionParams,
+    )
+    from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+    from google.genai import types
+    from mcp.client.stdio import StdioServerParameters
+
+    captured: dict[str, object] = {}
+
+    def valid_plan() -> dict[str, object]:
+        query = {
+            "source_revision": ref.revision,
+            "selected_fields": ["amount", "created_at"],
+            "filters": {},
+            "limit": 100,
+            "read_only": True,
+        }
+        return {
+            "plan_id": "plan_real_veadk",
+            "intent": "analysis",
+            "purpose": "Compare maintenance backlog by site over time.",
+            "nodes": [
+                {"node_id": "resolve_intent", "role": "intent_resolution"},
+                {
+                    "node_id": "resolve_context",
+                    "role": "context_resolution",
+                    "depends_on": ["resolve_intent"],
+                },
+                {
+                    "node_id": "prepare_source",
+                    "role": "query_plan",
+                    "depends_on": ["resolve_context"],
+                },
+                {
+                    "node_id": "worker3_execution",
+                    "role": "worker3_execution",
+                    "depends_on": ["prepare_source"],
+                },
+            ],
+            "inputs": [],
+            "outputs": [{"name": "table", "type": "table"}],
+            "dependencies": [ref.model_dump(mode="json")],
+            "data_refs": [ref.model_dump(mode="json")],
+            "lineage": [ref.model_dump(mode="json")],
+            "metrics": ["backlog_count"],
+            "dimensions": ["site", "created_at"],
+            "layout_intent": "trend",
+            "refresh_policy": {
+                "max_age_seconds": 3600,
+                "require_fixed_revision": True,
+            },
+            "kind_spec": {
+                "kind": "analysis",
+                "query_plan": query,
+                "analysis_shape": "trend",
+                "unit": "count",
+            },
+            "query_plan": query,
+            "plan_digest": "model_digest_is_recomputed",
+        }
+
+    mcp_server = """
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("w2-real-mcp")
+@mcp.tool()
+def mcp_inspect_schema(question: str) -> dict:
+    \"\"\"Inspect the authorized non-sales data source schema through MCP.\"\"\"
+    return {"source_revision": "rev_1", "fields": ["amount", "created_at"]}
+mcp.run()
+"""
+
+    class ToolCallingModel(BaseLlm):
+        turn: int = 0
+
+        async def generate_content_async(
+            self, llm_request, stream=False
+        ) -> AsyncGenerator[LlmResponse, None]:
+            del stream
+            self.turn += 1
+            captured["model_input"] = llm_request.contents[0].parts[0].text
+            if self.turn == 1:
+                yield LlmResponse(
+                    content=types.Content(
+                        role="model",
+                        parts=[
+                            types.Part(
+                                function_call=types.FunctionCall(
+                                    name="mcp_inspect_schema",
+                                    args={"question": "inspect maintenance fields"},
+                                    id="call_mcp_1",
+                                )
+                            )
+                        ],
+                    )
+                )
+                return
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(valid_plan()))],
+                )
+            )
+
+    toolset = McpToolset(
+        connection_params=StdioConnectionParams(
+            server_params=StdioServerParameters(
+                command=sys.executable,
+                args=("-c", mcp_server),
+            )
+        ),
+        tool_filter=["mcp_inspect_schema"],
+    )
+    gateway = VeADKModelGateway(
+        mcp_tools=McpToolBundle(
+            tools=(toolset,),
+            schemas={"mcp_inspect_schema": {"kind": "mcp", "read_only": True}},
+        ),
+        model=ToolCallingModel(model="test-real-runner-model"),
+        model_api_key="test-key",
+    )
+    service.model_gateway = gateway
+    result = await service.create_draft(
+        envelope(
+            ref,
+            "Compare maintenance backlog by site over time",
+        ),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    assert result.operation.status == AuthoringStatus.READY_FOR_EXECUTION
+    assert result.draft is not None
+    assert result.draft.plan.intent == SkillKind.ANALYSIS
+    assert result.draft.plan.data_refs == (ref,)
+    assert result.draft.plan.lineage == (ref,)
+    assert result.draft.plan.metrics == ("backlog_count",)
+    assert result.draft.plan.dimensions == ("site", "created_at")
+    assert result.draft.plan.layout_intent == "trend"
+    evidence = result.operation.agent_execution
+    assert evidence is not None
+    assert evidence.status == "succeeded"
+    assert evidence.session_id.startswith("skill-authoring-")
+    assert evidence.trace_id not in {"", "unavailable", "<unknown_trace_id>"}
+    assert evidence.events
+    assert any(call.name == "mcp_inspect_schema" for call in evidence.tool_calls)
+    assert any(call.status == "succeeded" for call in evidence.tool_calls)
+    assert result.operation.trace_id == evidence.trace_id
+    model_input = json.loads(str(captured["model_input"]))
+    assert model_input["prompt"] == "Compare maintenance backlog by site over time"
+    assert model_input["workspace_id"] == "workspace_1"
+    assert model_input["caller_id"] == "user_1"
+    assert model_input["fixed_revisions"] == [ref.revision]
+    assert model_input["context_binding"]["current_view_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_veadk_runner_invalid_output_fails_without_fixed_plan(setup_authoring):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    class InvalidModel(BaseLlm):
+        async def generate_content_async(
+            self, llm_request, stream=False
+        ) -> AsyncGenerator[LlmResponse, None]:
+            del llm_request, stream
+            yield LlmResponse(
+                content=types.Content(
+                    role="model", parts=[types.Part(text='{"not": "a BuildPlan"}')]
+                )
+            )
+
+    service.model_gateway = VeADKModelGateway(
+        mcp_tools=McpToolBundle(tools=(lambda: {"ok": True},), schemas={}),
+        model=InvalidModel(model="invalid-output-model"),
+        model_api_key="test-key",
+    )
+    result = await service.create_draft(
+        envelope(ref, "Summarize equipment reliability by site"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    assert result.draft is None
+    assert result.operation.status == AuthoringStatus.FAILED
+    assert result.operation.error_code == AuthoringErrorCode.VALIDATION_FAILED
+    assert result.operation.agent_execution is not None
+    assert result.operation.agent_execution.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_veadk_mcp_failure_is_explicit_and_does_not_create_draft(setup_authoring):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
+    from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+    from google.genai import types
+    from mcp.client.stdio import StdioServerParameters
+
+    mcp_server = """
+from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("w2-failing-mcp")
+@mcp.tool()
+def mcp_read_source(question: str) -> dict:
+    \"\"\"Read the source, returning an upstream failure for this test.\"\"\"
+    return {"status": "failed", "error": "upstream MCP unavailable"}
+mcp.run()
+"""
+
+    class FailingToolModel(BaseLlm):
+        turn: int = 0
+
+        async def generate_content_async(
+            self, llm_request, stream=False
+        ) -> AsyncGenerator[LlmResponse, None]:
+            del llm_request, stream
+            self.turn += 1
+            if self.turn == 1:
+                yield LlmResponse(
+                    content=types.Content(
+                        role="model",
+                        parts=[
+                            types.Part(
+                                function_call=types.FunctionCall(
+                                    name="mcp_read_source",
+                                    args={"question": "read reliability"},
+                                    id="call_failed_mcp",
+                                )
+                            )
+                        ],
+                    )
+                )
+                return
+            yield LlmResponse(
+                content=types.Content(
+                    role="model", parts=[types.Part(text='{"fixed": "fallback"}')]
+                )
+            )
+
+    toolset = McpToolset(
+        connection_params=StdioConnectionParams(
+            server_params=StdioServerParameters(
+                command=sys.executable,
+                args=("-c", mcp_server),
+            )
+        ),
+        tool_filter=["mcp_read_source"],
+    )
+    service.model_gateway = VeADKModelGateway(
+        mcp_tools=McpToolBundle(tools=(toolset,), schemas={"mcp_read_source": {}}),
+        model=FailingToolModel(model="mcp-failure-model"),
+        model_api_key="test-key",
+    )
+
+    result = await service.create_draft(
+        envelope(ref, "Summarize equipment reliability by site"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    assert result.draft is None
+    assert result.operation.status == AuthoringStatus.FAILED
+    assert result.operation.error_code == AuthoringErrorCode.MODEL_UNAVAILABLE
+    assert result.operation.agent_execution is not None
+    assert any(
+        call.status == "failed"
+        for call in result.operation.agent_execution.tool_calls
+    )
 
 
 @pytest.mark.asyncio
@@ -550,6 +859,32 @@ async def test_execution_is_typed_worker3_boundary(setup_authoring):
     )
     assert result.operation.status == AuthoringStatus.READY_FOR_EXECUTION
     assert any(event.event_type == "execution_requested" for event in result.events)
+
+
+@pytest.mark.asyncio
+async def test_worker3_receives_typed_plan_handoff(setup_authoring):
+    service, _, ref = setup_authoring
+    captured: dict[str, object] = {}
+
+    class Worker3:
+        async def request_execution(self, request):
+            captured["request"] = request
+            return type("Accepted", (), {"state": "queued"})()
+
+    service.worker3 = Worker3()
+    created = await service.create_draft(
+        envelope(ref, "Compare equipment reliability by site"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert created.draft is not None
+    await service.request_execution(created.draft.draft_id, caller_id="user_1")
+    request = captured["request"]
+    assert request.data_refs == created.draft.plan.data_refs
+    assert request.metrics == created.draft.plan.metrics
+    assert request.dimensions == created.draft.plan.dimensions
+    assert request.layout_intent == created.draft.plan.layout_intent
+    assert request.freshness == created.draft.plan.refresh_policy
+    assert request.lineage == created.draft.plan.lineage
 
 
 @pytest.mark.asyncio

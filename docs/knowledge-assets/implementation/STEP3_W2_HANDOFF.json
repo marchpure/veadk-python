@@ -7,7 +7,12 @@
   "branch": "feat/knowledge-step3-worker2-agent-authoring",
   "baseCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
   "workerCommit": "65037a4b98838ae467fec223b4e1e45d56b9dfd2",
-  "followUpCommit": "pending",
+  "codeCommits": [
+    "bdb1573dd5616fab8ca8f9246f1bca560c9816e2",
+    "a03cb607bdb8e8cfa47628348e922f6c2b1d1b71",
+    "b0ca31dac00c40bff4b8090aff1bf07dc008817e"
+  ],
+  "codeHead": "b0ca31dac00c40bff4b8090aff1bf07dc008817e",
   "mainCheckpointCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
   "mainCheckpointTag": "knowledge-skill-factory-step-3-v2131-checkpoint-a34383cc",
   "migrationHead": "004_step3_shares",
@@ -70,7 +75,7 @@
     ]
   },
   "tests": {
-    "focused": "20 passed",
+    "focused": "26 passed",
     "compileall": "passed",
     "diffCheck": "passed",
     "prototypeArchive": "sha256 and readme passed"
@@ -81,5 +86,35 @@
     "Agent/model credentialed integration is external-credential-blocked",
     "Worker 3 executor and Worker 4 Evaluation remain integration dependencies",
     "local JSON repository is a replay adapter, not production storage"
-  ]
+  ],
+  "veadkP0": {
+    "adapter": "frontend/server/skill_authoring/ports.py::VeADKModelGateway",
+    "smokeCommand": "python -m frontend.server.skill_authoring.real_smoke",
+    "test": "tests/frontend/test_skill_authoring.py::test_real_veadk_agent_runner_calls_mcp_and_returns_evidence",
+    "failureTest": "tests/frontend/test_skill_authoring.py::test_veadk_runner_invalid_output_fails_without_fixed_plan",
+    "evidence": [
+      "public_veadk_agent",
+      "public_veadk_runner",
+      "mcp_tool_call",
+      "session_id",
+      "trace_id",
+      "events",
+      "typed_skilldraft",
+      "typed_buildplan"
+    ],
+    "typedW3Fields": [
+      "data_refs",
+      "metrics",
+      "dimensions",
+      "layout_intent",
+      "refresh_policy",
+      "lineage"
+    ],
+    "productionBoundaries": [
+      "no_local_planning_fallback",
+      "no_mcp_lifecycle",
+      "no_dashboard_renderer",
+      "no_arbitrary_html"
+    ]
+  }
 }

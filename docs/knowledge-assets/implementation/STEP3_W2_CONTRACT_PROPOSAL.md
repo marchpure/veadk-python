@@ -58,3 +58,35 @@ The internal adapter needs durable equivalents for:
 - patch proposal audit row, including base revision, impact, acceptance/rejection.
 
 The worker's `JsonFileAuthoringRepository` is a restart/replay test adapter only.
+
+## VEADK P0 adapter and W3 handoff
+
+`VeADKModelGateway` is the production model port. It constructs the repository's
+public `veadk.Agent` with `output_schema=BuildPlan` and the W1-provided MCP
+tool bundle, then executes through the public `veadk.Runner.run_async` API.
+The adapter records the Runner's `session_id`, real `trace_id`, event summaries,
+and formal MCP tool calls as `AgentExecutionEvidence`.
+
+The input contains the natural-language prompt, authorized context binding,
+workspace/caller, server-authorized permissions, fixed Source/Golden revisions,
+requested kind, MCP tool schemas, and W1-owned tools. Missing credentials,
+MCP/tool failure, Runner timeout, missing MCP calls, or invalid structured
+output are explicit failures. `LocalPlanningHarness` remains an explicitly
+test-only credential-free harness and is never a production fallback.
+
+`BuildPlan` is the W3 boundary. It carries typed `data_refs`, `metrics`,
+`dimensions`, `layout_intent`, `refresh_policy`, and `lineage`; W2 does not
+generate HTML or implement MCP lifecycle or Dashboard rendering. The
+`Worker3ExecutionRequest` repeats these typed fields so W3 can consume them
+without reading arbitrary model output.
+
+Real smoke command (requires real credentials and a reachable W1 MCP endpoint):
+
+```text
+MODEL_AGENT_API_KEY=... MODEL_AGENT_MODEL=... \
+W2_MCP_SERVER_URL=... W2_MCP_BEARER_TOKEN=... \
+python -m frontend.server.skill_authoring.real_smoke
+```
+
+It exits non-zero when the real Agent/Runner, MCP call, trace, or typed plan is
+not present and never returns a fixed plan on failure.
