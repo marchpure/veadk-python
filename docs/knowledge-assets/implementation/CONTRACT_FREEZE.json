@@ -1,10 +1,10 @@
 {
   "schemaVersion": "knowledge-assets.contract-freeze.v2",
-  "step": "STEP_1_CORRECTIVE",
-  "sourceCommit": "c24f6488f2d419644608fed6f5ecb337255c030c",
-  "immutableTag": "knowledge-skill-factory-step-1-corrective-1",
-  "branch": "feat/knowledge-skill-factory-step-1",
-  "result": "READY_WITH_BASELINE_DEBT",
+  "step": "STEP_2_INTEGRATION",
+  "sourceCommit": "26de3274120db4178f56e76a9a74662c3755133e",
+  "immutableTag": "knowledge-skill-factory-step-2-integration",
+  "branch": "knowledge-skill-factory-step-1-corrective-quality",
+  "result": "READY_WITH_STEP2_LIMITATIONS",
   "canonicalObject": "Skill",
   "canonicalManifest": "frontend/server/knowledge_assets/contracts.py:SkillManifest",
   "kindSpecDiscriminator": "spec.kindSpec.kind",
@@ -60,15 +60,34 @@
     "sqliteMigrationReplay": "passed",
     "m1ClickableAcceptance": "existing evidence retained",
     "inheritedVisualDebt": "STEP 0 132-capture visual matrix manual exemption remains",
-    "staticGuard": "fail-closed residuals documented; not repaired",
-    "step2": "not claimed"
+    "staticGuard": "passed; zero findings",
+    "localGoldenData": "Markdown and CSV profile, clean, artifact, revision, and run path passed",
+    "externalConnectors": "Oracle, Web API, MCP, and published Skill are credential_blocked",
+    "runtimeComposition": "authenticated FastAPI BFF composition passed",
+    "permissionRevocation": "authenticated-workspace BFF tombstone path passed",
+    "historicalStaticGuardTest": "blocked by stale 47-60 production-file-count assertion; authoritative guard passes",
+    "step3": "not started",
+    "step4": "not started"
   },
-  "staticGuardResiduals": [
-    "step-1-write-scope:frontend/tests/cronJobFinalAnswer.test.mjs",
-    "mandatory-split-review:frontend/src/knowledge-workspace/production/ports.ts",
-    "shared-hotspot-growth:frontend/server/knowledge_assets/repository.py:462",
-    "shared-hotspot-growth:frontend/server/knowledge_assets/routes.py:186"
-  ],
+  "staticGuardResiduals": [],
+  "integrationArtifacts": {
+    "goldenData": [
+      "frontend/server/knowledge_assets/application.py",
+      "frontend/server/knowledge_assets/repository/sqlite.py",
+      "frontend/server/knowledge_assets/migrations/001_knowledge_assets.sql"
+    ],
+    "connectorSpi": [
+      "frontend/server/knowledge_assets/ports.py",
+      "frontend/server/knowledge_assets/connectors.py"
+    ],
+    "runtime": [
+      "frontend/server/knowledge_assets/runtime.py",
+      "frontend/server/knowledge_assets/routes/http.py"
+    ],
+    "generatedContractSha256": "b03eba014265e14881ce87a8ebcf8b59bbb281c7b13d624ed8cc0e04c49e44dc",
+    "generatedTypeScriptSha256": "7c5c05be80d3dec36bdc23969a4f727fb2e6c52af5c4433c4949706e1e5bb508",
+    "migrationSha256": "4018795c83d4d4826ef22ef982cfdd2cf88e5dd33dd0351a688a61d379754e95"
+  },
   "files": [
     "frontend/server/knowledge_assets/contracts.py",
     "frontend/server/knowledge_assets/contracts/core-contracts.schema.json",
