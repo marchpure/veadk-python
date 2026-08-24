@@ -10,8 +10,9 @@ Date: 2026-08-25
 - v2.13.1 delta checkpoint: `a34383cc`
 - checkpoint metadata: `31a26a6f`
 - worker registration: `62029e91`
-- current Main shell integration: `215175a7`
-- current corrective integration: `215175a7` (includes effective W4 corrective)
+- current Main shell integration: `a51b132c`
+- current corrective integration: `a51b132c` (typed Evaluation/Policy BFF and
+  SQLite/PostgreSQL persistence parity)
 - W2 real Agent/Runner integration: `7949f452`, with effective audit-boundary
   hardening at `513bfb49`
 - real SkillViewRevision → production Workspace Dashboard integration:
@@ -48,6 +49,11 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 - W4 evaluation-quality regression: `28 passed`; replay idempotency,
   cancellation-wins, candidate gating, policy uniqueness, and fix-scope
   invariants pass.
+- Main public Evaluation/Policy BFF regression: `48 passed` combined with
+  Evaluation/Golden/BFF coverage; required typed commands no longer return
+  the previously audited HTTP 422 boundary. Candidate starts fail closed and
+  missing real evaluator ports return a failed run with
+  `EVALUATION_EXECUTOR_NOT_CONFIGURED`.
 - Main full backend regression: `104 passed, 13 skipped`.
 - W4 audit/evaluation check: `6 passed`.
 - Prototype archive SHA-256: `ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571`
@@ -68,8 +74,9 @@ effective integration content; the exact requested SHAs remain in the worker
 ledger but are not ancestors of this worktree. Both requested corrective changes
 are therefore represented in Main. W1 has not supplied the
 required real Source/Golden Data commit and `W1.status.json`. W3 hardening is
-integrated and its worktree is clean; Main compatibility fixes remain in this
-working tree until committed. Main is not duplicating W1/W3 domain work.
+integrated, but its worktree currently contains uncommitted vertical-test and
+MCP fixture changes awaiting disposition. Main is not duplicating W1/W3 domain
+work.
 
 The three newly explicit P0 gates have temporary runtime records, but not
 accepted final evidence:
