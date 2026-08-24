@@ -25,11 +25,9 @@ from .contracts import (
     LegacySkillManifestInput,
     InvocationStartPayload,
     InvocationStartResult,
-    AssistantContextEnvelope,
     AssistantDiff,
     AssistantTurnPayload,
     AssistantTurnResult,
-    SkillPatch,
     OperationEvent,
     OperationResponse,
     PublicationPublishPayload,
@@ -60,9 +58,6 @@ from .contracts import (
     KnowledgeCitation,
     SemanticViewModel,
     DashboardViewModel,
-    DashboardKpi,
-    ViewField,
-    ViewCell,
     ChartViewModel,
     ChartSeries,
     GraphOntologyViewModel,
@@ -80,6 +75,20 @@ from .contracts import (
     EvaluationRun,
     EvaluationCaseResult,
     PolicyGateResult,
+    EvaluationQualityCommandResult,
+    EvaluationSuiteCreatePayload,
+    EvaluationSuiteRevisePayload,
+    EvaluationCaseImportPayload,
+    EvaluationCaseAdoptHistoryPayload,
+    EvaluationCaseGenerateCandidatePayload,
+    EvaluationCaseConfirmPayload,
+    EvaluationRunStartPayload,
+    EvaluationRunActionPayload,
+    EvaluationRunRetryPayload,
+    EvaluationFixProposePayload,
+    EvaluationFixProposeAllPayload,
+    EvaluationFixActionPayload,
+    PolicyGateEvaluatePayload,
     adapt_legacy_manifest,
     now_iso,
 )
@@ -99,6 +108,26 @@ from .repository import (
     KnowledgeAssetRepositoryError,
     KnowledgeAssetRepository,
 )
+from .evaluation_quality import EvaluationQualityService
+from .evaluation_quality.main_repository import MainEvaluationRepository
+from .evaluation_quality.models import (
+    CaseCategory,
+    CaseSource,
+)
+
+
+class _UnavailableEvaluationExecutor:
+    def evaluate(self, case, provenance):
+        raise RuntimeError(
+            "EVALUATION_EXECUTOR_NOT_CONFIGURED: a real evaluator port is required"
+        )
+
+
+class _UnavailableEvaluationGrader:
+    def grade(self, case, actual):
+        raise RuntimeError(
+            "EVALUATION_GRADER_NOT_CONFIGURED: a real grader port is required"
+        )
 
 
 class KnowledgeAssetApplication:
@@ -144,6 +173,13 @@ class KnowledgeAssetApplication:
         self._golden_content = LocalGoldenAssetContentAdapter(
             ".veadk/knowledge-assets/artifacts"
         )
+        self._evaluation_quality = None
+        if sqlite_connection is not None:
+            self._evaluation_quality = EvaluationQualityService(
+                MainEvaluationRepository(sqlite_connection),
+                _UnavailableEvaluationExecutor(),
+                _UnavailableEvaluationGrader(),
+            )
 
     def bootstrap(self, workspace_id: str, role: str):
         return self.repository.bootstrap(workspace_id, role)
@@ -248,9 +284,7 @@ class KnowledgeAssetApplication:
             schema = {"format": "csv", "columns": next(csv.reader([first_line]), [])}
         else:
             schema = {"format": "markdown", "columns": ["text"]}
-        return hashlib.sha256(
-            json.dumps(schema, sort_keys=True).encode()
-        ).hexdigest()
+        return hashlib.sha256(json.dumps(schema, sort_keys=True).encode()).hexdigest()
 
     @staticmethod
     def _local_path(source_ref: str) -> Path | None:
@@ -265,14 +299,20 @@ class KnowledgeAssetApplication:
         return raw.resolve()
 
     def _source_path(self, source_revision_id: str) -> Path:
-        path = getattr(self.repository, "source_path", lambda _id: None)(source_revision_id)
+        path = getattr(self.repository, "source_path", lambda _id: None)(
+            source_revision_id
+        )
         if path is None:
             raise KnowledgeAssetRepositoryError(
-                "SOURCE_NOT_FOUND", "本地来源不存在。", details={"sourceRevisionId": source_revision_id}
+                "SOURCE_NOT_FOUND",
+                "本地来源不存在。",
+                details={"sourceRevisionId": source_revision_id},
             )
         return Path(path)
 
-    def _run_profile(self, payload: SourceProfilePayload, request_id: str) -> SourceProfileResult:
+    def _run_profile(
+        self, payload: SourceProfilePayload, request_id: str
+    ) -> SourceProfileResult:
         source = self.repository.source_revision(payload.source_revision_id)
         if source is None:
             raise KnowledgeAssetRepositoryError("SOURCE_NOT_FOUND", "来源不存在。")
@@ -287,14 +327,21 @@ class KnowledgeAssetApplication:
             columns = list(rows[0].keys()) if rows else []
             nonempty = sum(bool(value) for row in sample for value in row.values())
             total = max(len(sample) * max(len(columns), 1), 1)
-            report = {"format": "csv", "rows": len(rows), "columns": columns, "sample": sample}
+            report = {
+                "format": "csv",
+                "rows": len(rows),
+                "columns": columns,
+                "sample": sample,
+            }
         else:
             lines = [line for line in content.splitlines() if line.strip()]
             sample = lines[: payload.sample_limit]
             nonempty = len(sample)
             total = max(len(sample), 1)
             report = {"format": "markdown", "lines": len(lines), "sample": sample}
-        report_digest = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
+        report_digest = hashlib.sha256(
+            json.dumps(report, sort_keys=True).encode()
+        ).hexdigest()
         structure = {
             "format": source.source_type,
             "columns": columns if source.source_type == "csv" else ["text"],
@@ -308,23 +355,45 @@ class KnowledgeAssetApplication:
             json.dumps(cost, sort_keys=True).encode()
         ).hexdigest()
         sensitive = [
-            column for column in columns
-            if any(token in column.lower() for token in ("email", "phone", "token", "secret"))
+            column
+            for column in columns
+            if any(
+                token in column.lower()
+                for token in ("email", "phone", "token", "secret")
+            )
         ]
         run = ProfileRun(
-            id=f"profile-{source.id}", source_revision_id=source.id, status="succeeded",
-            report_ref=StorageRef(uri=f"local://profile/{report_digest}", kind="inline",
-                                  sha256=report_digest, media_type="application/json"),
-            structure_ref=StorageRef(uri=f"local://structure/{structure_digest}", kind="inline",
-                                     sha256=structure_digest, media_type="application/json"),
-            quality_score=nonempty / total, started_at=now_iso(), finished_at=now_iso(),
+            id=f"profile-{source.id}",
+            source_revision_id=source.id,
+            status="succeeded",
+            report_ref=StorageRef(
+                uri=f"local://profile/{report_digest}",
+                kind="inline",
+                sha256=report_digest,
+                media_type="application/json",
+            ),
+            structure_ref=StorageRef(
+                uri=f"local://structure/{structure_digest}",
+                kind="inline",
+                sha256=structure_digest,
+                media_type="application/json",
+            ),
+            quality_score=nonempty / total,
+            started_at=now_iso(),
+            finished_at=now_iso(),
             sensitive_classification=sensitive,
-            estimated_cost_ref=StorageRef(uri=f"local://cost/{cost_digest}", kind="inline",
-                                          sha256=cost_digest, media_type="application/json"),
+            estimated_cost_ref=StorageRef(
+                uri=f"local://cost/{cost_digest}",
+                kind="inline",
+                sha256=cost_digest,
+                media_type="application/json",
+            ),
         )
         self.repository.save_profile_run(run)
         return SourceProfileResult(
-            source_revision_id=source.id, status="succeeded", profile_run=run,
+            source_revision_id=source.id,
+            status="succeeded",
+            profile_run=run,
             error=None,
         )
 
@@ -343,11 +412,16 @@ class KnowledgeAssetApplication:
         raw = path.read_text(encoding="utf-8")
         operations = ["trim", "deduplicate"]
         recipe_digest = hashlib.sha256(
-            json.dumps({"source": source.id, "operations": operations}, sort_keys=True).encode()
+            json.dumps(
+                {"source": source.id, "operations": operations}, sort_keys=True
+            ).encode()
         ).hexdigest()
         recipe = CleaningRecipe(
-            id=payload.recipe_id, version=1, operations=operations,
-            source_revision_id=source.id, recipe_digest=recipe_digest,
+            id=payload.recipe_id,
+            version=1,
+            operations=operations,
+            source_revision_id=source.id,
+            recipe_digest=recipe_digest,
         )
         self.repository.save_cleaning_recipe(recipe)
         if source.source_type == "csv":
@@ -360,7 +434,13 @@ class KnowledgeAssetApplication:
                 if marker not in seen:
                     seen.add(marker)
                     cleaned.append(item)
-            output = "\n".join(json.dumps(row, ensure_ascii=False, sort_keys=True) for row in cleaned) + "\n"
+            output = (
+                "\n".join(
+                    json.dumps(row, ensure_ascii=False, sort_keys=True)
+                    for row in cleaned
+                )
+                + "\n"
+            )
             media_type = "application/x-ndjson"
         else:
             lines = []
@@ -376,26 +456,49 @@ class KnowledgeAssetApplication:
         artifact = self._artifact_path(digest)
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.write_text(output, encoding="utf-8")
-        storage = StorageRef(uri=f"local://golden/{digest}", kind="object", sha256=digest,
-                             media_type=media_type, bytes=len(output.encode()))
+        storage = StorageRef(
+            uri=f"local://golden/{digest}",
+            kind="object",
+            sha256=digest,
+            media_type=media_type,
+            bytes=len(output.encode()),
+        )
         clean = CleanRun(
-            id=f"clean-{source.id}-{recipe.version}", source_revision_id=source.id,
-            recipe_id=recipe.id, status="succeeded", output_ref=storage,
-            started_at=now_iso(), finished_at=now_iso(),
+            id=f"clean-{source.id}-{recipe.version}",
+            source_revision_id=source.id,
+            recipe_id=recipe.id,
+            status="succeeded",
+            output_ref=storage,
+            started_at=now_iso(),
+            finished_at=now_iso(),
         )
         self.repository.save_clean_run(clean)
-        lineage = hashlib.sha256(f"{source.source_digest}:{recipe.recipe_digest}:{digest}".encode()).hexdigest()
+        lineage = hashlib.sha256(
+            f"{source.source_digest}:{recipe.recipe_digest}:{digest}".encode()
+        ).hexdigest()
         golden = GoldenAssetRevision(
-            id=f"golden-{digest[:24]}", asset_kind="dataset" if source.source_type == "csv" else "knowledge",
-            revision=1, schema_ref=SchemaRef(uri=f"local://schema/{digest}", version="1", sha256=digest),
-            storage_ref=storage, source_revision_refs=[source.id], recipe_ref=recipe.id,
-            quality_run_ref=clean.id, owner=OwnerRef(workspace_id=workspace_id, principal_id="local"),
-            permissions_ref=source.permission_ref, lineage_digest=lineage,
-            freshness_at=now_iso(), last_good=True,
+            id=f"golden-{digest[:24]}",
+            asset_kind="dataset" if source.source_type == "csv" else "knowledge",
+            revision=1,
+            schema_ref=SchemaRef(
+                uri=f"local://schema/{digest}", version="1", sha256=digest
+            ),
+            storage_ref=storage,
+            source_revision_refs=[source.id],
+            recipe_ref=recipe.id,
+            quality_run_ref=clean.id,
+            owner=OwnerRef(workspace_id=workspace_id, principal_id="local"),
+            permissions_ref=source.permission_ref,
+            lineage_digest=lineage,
+            freshness_at=now_iso(),
+            last_good=True,
         )
         golden = self.repository.save_golden_asset_revision(golden)
         return SourceCleanResult(
-            source_revision_id=source.id, recipe_id=recipe.id, status="succeeded", clean_run=clean,
+            source_revision_id=source.id,
+            recipe_id=recipe.id,
+            status="succeeded",
+            clean_run=clean,
             golden_asset_revision=golden,
         )
 
@@ -425,9 +528,7 @@ class KnowledgeAssetApplication:
                         stripped = item.strip()
                         try:
                             normalized[key] = (
-                                float(stripped)
-                                if "." in stripped
-                                else int(stripped)
+                                float(stripped) if "." in stripped else int(stripped)
                             )
                             continue
                         except ValueError:
@@ -442,10 +543,11 @@ class KnowledgeAssetApplication:
             return []
         fields = list(rows[0])
         return [
-            field for field in fields
+            field
+            for field in fields
             if any(
-                isinstance(row.get(field), (int, float)) and
-                not isinstance(row.get(field), bool)
+                isinstance(row.get(field), (int, float))
+                and not isinstance(row.get(field), bool)
                 for row in rows
             )
         ]
@@ -455,10 +557,11 @@ class KnowledgeAssetApplication:
         if not rows:
             return []
         return [
-            field for field in rows[0]
+            field
+            for field in rows[0]
             if not any(
-                isinstance(row.get(field), (int, float)) and
-                not isinstance(row.get(field), bool)
+                isinstance(row.get(field), (int, float))
+                and not isinstance(row.get(field), bool)
                 for row in rows
             )
         ]
@@ -475,27 +578,24 @@ class KnowledgeAssetApplication:
             )
         elif isinstance(view_model, DashboardViewModel):
             body = "".join(
-                f"<div data-row=\"{index}\">{html.escape(str(cell.value or ''))}</div>"
+                f'<div data-row="{index}">{html.escape(str(cell.value or ""))}</div>'
                 for index, row in enumerate(view_model.rows)
                 for cell in row
             )
         elif isinstance(view_model, ChartViewModel):
-            body = (
-                f"<h2>{html.escape(view_model.title)}</h2>"
-                + "".join(
-                    f"<div data-series=\"{html.escape(series.name)}\">"
-                    f"{len(series.points)} points</div>"
-                    for series in view_model.series
-                )
+            body = f"<h2>{html.escape(view_model.title)}</h2>" + "".join(
+                f'<div data-series="{html.escape(series.name)}">'
+                f"{len(series.points)} points</div>"
+                for series in view_model.series
             )
         elif isinstance(view_model, GraphOntologyViewModel):
             body = "".join(
-                f"<div data-node=\"{html.escape(node.id)}\">{html.escape(node.label)}</div>"
+                f'<div data-node="{html.escape(node.id)}">{html.escape(node.label)}</div>'
                 for node in view_model.nodes
             )
         elif isinstance(view_model, MonitoringViewModel):
             body = "".join(
-                f"<div data-point=\"{html.escape(label)}\">{value}</div>"
+                f'<div data-point="{html.escape(label)}">{value}</div>'
                 for label, value in view_model.values
             )
         else:
@@ -509,17 +609,23 @@ class KnowledgeAssetApplication:
         return output
 
     def _run_skill_draft(
-        self, payload: SkillDraftRunPayload, *, request_id: str,
+        self,
+        payload: SkillDraftRunPayload,
+        *,
+        request_id: str,
         operation_id: str | None = None,
     ) -> SkillDraftRunResult:
         self._execution_checkpoint()
+
         def cancelled() -> bool:
             if operation_id is None:
                 return False
             operation = self.repository.operation(operation_id)
             return operation is not None and operation.status == "cancelled"
 
-        def cancelled_result(golden: GoldenAssetRevision | None = None) -> SkillDraftRunResult:
+        def cancelled_result(
+            golden: GoldenAssetRevision | None = None,
+        ) -> SkillDraftRunResult:
             if golden is not None:
                 self.repository.update_skill_draft_revision_status(
                     payload.draft_id, payload.revision, "failed"
@@ -689,7 +795,11 @@ class KnowledgeAssetApplication:
         )
         if execution.status == "cancelled":
             return cancelled_result(golden)
-        if execution.skill_result is None or execution.view_intent is None or execution.skill_view_revision is None:
+        if (
+            execution.skill_result is None
+            or execution.view_intent is None
+            or execution.skill_view_revision is None
+        ):
             status = (
                 "partially_succeeded"
                 if execution.state == "over_budget"
@@ -709,7 +819,8 @@ class KnowledgeAssetApplication:
                 golden_asset_revision=golden,
                 error=ErrorEnvelope(
                     code=execution.state.upper(),
-                    message=execution.message or "Typed Skill execution did not produce a view.",
+                    message=execution.message
+                    or "Typed Skill execution did not produce a view.",
                     retryable=execution.state in {"over_budget", "timeout", "no_data"},
                     request_id=request_id,
                 ),
@@ -790,8 +901,10 @@ class KnowledgeAssetApplication:
         if kind == "semantic":
             result_payload["typedOutput"] = {
                 "schemaRef": golden.schema_ref.model_dump(mode="json"),
-                "metricRefs": draft.manifest.spec.kind_spec.metric_refs or numeric_fields,
-                "dimensionRefs": draft.manifest.spec.kind_spec.dimension_refs or text_fields,
+                "metricRefs": draft.manifest.spec.kind_spec.metric_refs
+                or numeric_fields,
+                "dimensionRefs": draft.manifest.spec.kind_spec.dimension_refs
+                or text_fields,
                 "relationshipRefs": draft.manifest.spec.kind_spec.relationship_refs,
             }
         elif kind == "analysis":
@@ -928,7 +1041,9 @@ class KnowledgeAssetApplication:
             metric = numeric_fields[0] if numeric_fields else None
             values = [
                 (
-                    str(row.get(text_fields[0], index + 1)) if text_fields else str(index + 1),
+                    str(row.get(text_fields[0], index + 1))
+                    if text_fields
+                    else str(index + 1),
                     float(row[metric]) if metric else float(len(lines[index])),
                 )
                 for index, row in enumerate(rows[:1000])
@@ -940,8 +1055,8 @@ class KnowledgeAssetApplication:
                 ]
             view_model = MonitoringViewModel(
                 metric_refs=(
-                    draft.manifest.spec.kind_spec.metric_refs or
-                    ([metric] if metric else [])
+                    draft.manifest.spec.kind_spec.metric_refs
+                    or ([metric] if metric else [])
                 ),
                 values=values,
                 alerts=[],
@@ -1033,7 +1148,10 @@ class KnowledgeAssetApplication:
         )
 
     def _run_evaluation(
-        self, payload: EvaluationPayload, *, request_id: str,
+        self,
+        payload: EvaluationPayload,
+        *,
+        request_id: str,
         result_type: str = "evaluation.run",
     ) -> EvaluationRunResult:
         draft = self.repository.draft(payload.target_id)
@@ -1123,7 +1241,9 @@ class KnowledgeAssetApplication:
             sort_keys=True,
         ).encode("utf-8")
         cases_digest = hashlib.sha256(cases_bytes).hexdigest()
-        cases_path = Path(".veadk/knowledge-assets/evaluations") / f"{cases_digest}.json"
+        cases_path = (
+            Path(".veadk/knowledge-assets/evaluations") / f"{cases_digest}.json"
+        )
         cases_path.parent.mkdir(parents=True, exist_ok=True)
         cases_path.write_bytes(cases_bytes)
         cases_ref = StorageRef(
@@ -1170,20 +1290,20 @@ class KnowledgeAssetApplication:
                     "actualResultRef": actual_ref.model_dump(mode="json"),
                     "expectedOutputRef": (
                         case.expected_output_ref.model_dump(mode="json")
-                        if case.expected_output_ref else None
+                        if case.expected_output_ref
+                        else None
                     ),
                     "boundToCurrentRevision": bound_to_current_revision,
                     "expectedMatches": expected_matches,
-                    "status": "skipped" if candidate else (
-                        "passed" if structural_pass else "failed"
-                    ),
+                    "status": "skipped"
+                    if candidate
+                    else ("passed" if structural_pass else "failed"),
                 },
                 sort_keys=True,
             ).encode("utf-8")
             evidence_digest = hashlib.sha256(evidence_bytes).hexdigest()
             evidence_path = (
-                Path(".veadk/knowledge-assets/evaluations")
-                / f"{evidence_digest}.json"
+                Path(".veadk/knowledge-assets/evaluations") / f"{evidence_digest}.json"
             )
             evidence_path.write_bytes(evidence_bytes)
             evidence_ref = StorageRef(
@@ -1203,9 +1323,9 @@ class KnowledgeAssetApplication:
             case_results.append(
                 EvaluationCaseResult(
                     case_id=case.id,
-                    status="skipped" if candidate else (
-                        "passed" if structural_pass else "failed"
-                    ),
+                    status="skipped"
+                    if candidate
+                    else ("passed" if structural_pass else "failed"),
                     score=0.0 if candidate else (1.0 if structural_pass else 0.0),
                     evidence_ref=evidence_ref,
                     regression_diff_ref=regression_ref,
@@ -1214,7 +1334,8 @@ class KnowledgeAssetApplication:
         runnable_results = [item for item in case_results if item.status != "skipped"]
         score = (
             sum(item.score for item in runnable_results) / len(runnable_results)
-            if runnable_results else 0.0
+            if runnable_results
+            else 0.0
         )
         candidate_blocked = any(case.source == "agent_candidate" for case in cases)
         run_id = f"evaluation-{hashlib.sha256((draft.id + request_id).encode()).hexdigest()[:24]}"
@@ -1265,7 +1386,9 @@ class KnowledgeAssetApplication:
                 else (
                     ["agent candidate cases require explicit confirmation"]
                     if candidate_blocked
-                    else ["one or more evaluation cases did not bind to the current result"]
+                    else [
+                        "one or more evaluation cases did not bind to the current result"
+                    ]
                 )
             ),
             machine_reasons=(
@@ -1367,9 +1490,12 @@ class KnowledgeAssetApplication:
                     request_id=request_id,
                 ),
             )
-        invocation_id = "invocation-" + hashlib.sha256(
-            f"{payload.skill_version_id}:{payload.skill_view_revision_id}:{request_id}".encode()
-        ).hexdigest()[:24]
+        invocation_id = (
+            "invocation-"
+            + hashlib.sha256(
+                f"{payload.skill_version_id}:{payload.skill_view_revision_id}:{request_id}".encode()
+            ).hexdigest()[:24]
+        )
         now = now_iso()
         invocation = Invocation(
             id=invocation_id,
@@ -1395,7 +1521,10 @@ class KnowledgeAssetApplication:
         )
 
     def _export_artifact(
-        self, payload: ArtifactExportPayload, *, request_id: str,
+        self,
+        payload: ArtifactExportPayload,
+        *,
+        request_id: str,
         workspace_id: str,
     ) -> ArtifactExportResult:
         draft = self.repository.draft(payload.resource_id)
@@ -1425,7 +1554,10 @@ class KnowledgeAssetApplication:
                 ),
             )
         if payload.format == "html":
-            source = Path(".veadk/knowledge-assets/bundles") / f"{view.result_ref.sha256}.html"
+            source = (
+                Path(".veadk/knowledge-assets/bundles")
+                / f"{view.result_ref.sha256}.html"
+            )
             media_type = "text/html"
             suffix = "html"
         else:
@@ -1441,7 +1573,10 @@ class KnowledgeAssetApplication:
                         request_id=request_id,
                     ),
                 )
-            source = Path(".veadk/knowledge-assets/results") / f"{result.result_ref.sha256}.json"
+            source = (
+                Path(".veadk/knowledge-assets/results")
+                / f"{result.result_ref.sha256}.json"
+            )
             if not source.exists() and result.result_ref.uri.startswith(
                 "local://kind-runtime/results/"
             ):
@@ -1533,9 +1668,12 @@ class KnowledgeAssetApplication:
                     request_id=request_id,
                 ),
             )
-        grant_id = "share-" + hashlib.sha256(
-            f"{resource_id}:{view.id}:{workspace_id}".encode()
-        ).hexdigest()[:24]
+        grant_id = (
+            "share-"
+            + hashlib.sha256(
+                f"{resource_id}:{view.id}:{workspace_id}".encode()
+            ).hexdigest()[:24]
+        )
         grant = SkillViewShareGrant(
             id=grant_id,
             resource_id=resource_id,
@@ -1847,9 +1985,7 @@ class KnowledgeAssetApplication:
         owner = f"builder:{operation_id}"
         try:
             self._builder_jobs.lease(job_id=job.job_id, owner=owner, ttl_seconds=30)
-            self._builder_jobs.heartbeat(
-                job_id=job.job_id, owner=owner, ttl_seconds=30
-            )
+            self._builder_jobs.heartbeat(job_id=job.job_id, owner=owner, ttl_seconds=30)
         except JobLeaseError:
             return
         try:
@@ -1936,6 +2072,210 @@ class KnowledgeAssetApplication:
             outcome=terminal_type,
         )
 
+    def _run_evaluation_quality_command(
+        self,
+        command: str,
+        payload: dict[str, object],
+        *,
+        request_id: str,
+    ) -> CommandResponse:
+        """Expose W4's typed domain through Main's public command seam."""
+        if self._evaluation_quality is None:
+            result = EvaluationQualityCommandResult(
+                result_type=command,
+                status="failed",
+                message="Evaluation persistence is not configured.",
+                error=ErrorEnvelope(
+                    code="EVALUATION_PERSISTENCE_NOT_CONFIGURED",
+                    message="当前仓库未配置 Evaluation 持久化。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        try:
+            if command == "evaluation-suite.create":
+                typed = EvaluationSuiteCreatePayload.model_validate(payload)
+                value = self._evaluation_quality.create_suite(
+                    suite_id=typed.suite_id,
+                    skill_id=typed.skill_id,
+                    cases=typed.cases,
+                    pass_threshold=typed.pass_threshold,
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", suite=value
+                )
+            elif command == "evaluation-suite.revise":
+                typed = EvaluationSuiteRevisePayload.model_validate(payload)
+                value = self._evaluation_quality.revise_suite(
+                    typed.suite_id, typed.version, typed.additions
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", suite=value
+                )
+            elif command == "evaluation-case.import":
+                typed = EvaluationCaseImportPayload.model_validate(payload)
+                value = self._evaluation_quality.import_cases(
+                    typed.content, media_type=typed.media_type
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", cases=list(value)
+                )
+            elif command == "evaluation-case.adopt-history":
+                typed = EvaluationCaseAdoptHistoryPayload.model_validate(payload)
+                value = self._evaluation_quality.adopt_historical_case(
+                    case_id=typed.case_id,
+                    category=CaseCategory(typed.category),
+                    input=typed.input,
+                    expected=typed.expected,
+                    provenance_ref=typed.provenance_ref,
+                    source=CaseSource(typed.source),
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", cases=[value]
+                )
+            elif command == "evaluation-case.generate-candidates":
+                typed = EvaluationCaseGenerateCandidatePayload.model_validate(payload)
+                value = self._evaluation_quality.agent_candidate(
+                    case_id=typed.case_id,
+                    category=CaseCategory(typed.category),
+                    input=typed.input,
+                    expected=typed.expected,
+                    provenance_ref=typed.provenance_ref,
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", cases=[value]
+                )
+            elif command == "evaluation-case.confirm-candidates":
+                typed = EvaluationCaseConfirmPayload.model_validate(payload)
+                value = self._evaluation_quality.confirm_candidates(
+                    typed.suite_id, typed.version, typed.case_ids
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", suite=value
+                )
+            elif command == "evaluation-run.start":
+                typed = EvaluationRunStartPayload.model_validate(payload)
+                run = self._evaluation_quality.start_run(
+                    suite_id=typed.suite_id,
+                    suite_version=typed.suite_version,
+                    provenance=typed.provenance,
+                    selected_case_ids=typed.selected_case_ids or None,
+                )
+                try:
+                    run = self._evaluation_quality.execute(run.id)
+                except RuntimeError as error:
+                    run = run.model_copy(
+                        update={"status": "failed", "finished_at": now_iso()}
+                    )
+                    self._evaluation_quality.repository.save_run(run)
+                    result = EvaluationQualityCommandResult(
+                        result_type=command,
+                        status="failed",
+                        run=run,
+                        message=str(error),
+                        error=ErrorEnvelope(
+                            code="EVALUATION_EXECUTOR_NOT_CONFIGURED",
+                            message="评测执行器未配置，已明确失败。",
+                            retryable=False,
+                            request_id=request_id,
+                        ),
+                    )
+                else:
+                    result = EvaluationQualityCommandResult(
+                        result_type=command,
+                        status="succeeded" if run.status == "succeeded" else "failed",
+                        run=run,
+                    )
+            elif command == "evaluation-run.cancel":
+                typed = EvaluationRunActionPayload.model_validate(payload)
+                run = self._evaluation_quality.cancel(typed.run_id)
+                result = EvaluationQualityCommandResult(
+                    result_type=command,
+                    status="succeeded" if run.status == "cancelled" else "failed",
+                    run=run,
+                )
+            elif command == "evaluation-run.resume":
+                typed = EvaluationRunActionPayload.model_validate(payload)
+                run = self._evaluation_quality.resume(typed.run_id)
+                result = EvaluationQualityCommandResult(
+                    result_type=command,
+                    status="succeeded" if run.status == "succeeded" else "failed",
+                    run=run,
+                )
+            elif command == "evaluation-run.retry":
+                typed = EvaluationRunRetryPayload.model_validate(payload)
+                run = self._evaluation_quality.retry(typed.run_id)
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", run=run
+                )
+            elif command in {
+                "evaluation-fix.propose",
+                "evaluation-fix.propose-all-unresolved",
+            }:
+                if command == "evaluation-fix.propose":
+                    typed = EvaluationFixProposePayload.model_validate(payload)
+                    plan = self._evaluation_quality.propose_fix(
+                        run_id=typed.run_id,
+                        issue_case_ids=typed.issue_case_ids,
+                        affected_case_ids=typed.affected_case_ids,
+                        conflicts=typed.conflicts,
+                        patch=typed.patch,
+                    )
+                else:
+                    typed = EvaluationFixProposeAllPayload.model_validate(payload)
+                    plan = self._evaluation_quality.propose_all_unresolved(
+                        run_id=typed.run_id,
+                        affected_case_ids=typed.affected_case_ids,
+                        conflicts=typed.conflicts,
+                        patch=typed.patch,
+                    )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", fix_plan=plan
+                )
+            elif command in {"evaluation-fix.apply", "evaluation-fix.undo"}:
+                typed = EvaluationFixActionPayload.model_validate(payload)
+                plan = (
+                    self._evaluation_quality.apply_fix(typed.plan_id)
+                    if command.endswith("apply")
+                    else self._evaluation_quality.undo_fix(typed.plan_id)
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", fix_plan=plan
+                )
+            elif command == "policy-gate.evaluate":
+                typed = PolicyGateEvaluatePayload.model_validate(payload)
+                gate = self._evaluation_quality.evaluate_run_policy(
+                    typed.run_id, typed.checks
+                )
+                result = EvaluationQualityCommandResult(
+                    result_type=command, status="succeeded", gate=gate
+                )
+            else:
+                raise ValueError(f"unsupported evaluation quality command: {command}")
+        except (KeyError, ValueError, RuntimeError) as error:
+            message = str(error)
+            result = EvaluationQualityCommandResult(
+                result_type=command,
+                status="failed",
+                message=message,
+                error=ErrorEnvelope(
+                    code=(
+                        "AGENT_CANDIDATE_CONFIRMATION_REQUIRED"
+                        if "explicit confirmation" in message
+                        else "EVALUATION_COMMAND_FAILED"
+                    ),
+                    message=message,
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+        return CommandResponse(
+            accepted=result.status == "succeeded",
+            request_id=request_id,
+            result=result,
+        )
+
     def unsupported(
         self,
         command: str,
@@ -1947,6 +2287,26 @@ class KnowledgeAssetApplication:
         async_mode: bool = False,
     ) -> CommandResponse:
         result: CommandResult
+        if command in {
+            "evaluation-suite.create",
+            "evaluation-suite.revise",
+            "evaluation-case.import",
+            "evaluation-case.adopt-history",
+            "evaluation-case.generate-candidates",
+            "evaluation-case.confirm-candidates",
+            "evaluation-run.start",
+            "evaluation-run.cancel",
+            "evaluation-run.resume",
+            "evaluation-run.retry",
+            "evaluation-fix.propose",
+            "evaluation-fix.propose-all-unresolved",
+            "evaluation-fix.apply",
+            "evaluation-fix.undo",
+            "policy-gate.evaluate",
+        }:
+            return self._run_evaluation_quality_command(
+                command, payload, request_id=request_id
+            )
         if command == "source.profile":
             typed = SourceProfilePayload.model_validate(payload)
             if self.repository.source_revision(typed.source_revision_id) is None:
@@ -1954,7 +2314,9 @@ class KnowledgeAssetApplication:
                     source_revision_id=typed.source_revision_id,
                     error=self._not_ready_error(command, request_id),
                 )
-                return CommandResponse(accepted=False, request_id=request_id, result=result)
+                return CommandResponse(
+                    accepted=False, request_id=request_id, result=result
+                )
             result = self._run_profile(typed, request_id)
         elif command == "source.clean":
             typed = SourceCleanPayload.model_validate(payload)
@@ -1964,7 +2326,9 @@ class KnowledgeAssetApplication:
                     recipe_id=typed.recipe_id,
                     error=self._not_ready_error(command, request_id),
                 )
-                return CommandResponse(accepted=False, request_id=request_id, result=result)
+                return CommandResponse(
+                    accepted=False, request_id=request_id, result=result
+                )
             draft = self.repository.draft(str(payload.get("draft_id", "")))
             workspace_id = draft.workspace_id if draft else "workspace-local"
             result = self._run_clean(typed, workspace_id)
@@ -2008,9 +2372,12 @@ class KnowledgeAssetApplication:
                 return retried
         elif command == "skill-draft.run":
             typed = SkillDraftRunPayload.model_validate(payload)
-            operation_id = "run-" + hashlib.sha256(
-                (idempotency_key or request_id).encode()
-            ).hexdigest()[:24]
+            operation_id = (
+                "run-"
+                + hashlib.sha256((idempotency_key or request_id).encode()).hexdigest()[
+                    :24
+                ]
+            )
             self.repository.create_operation(operation_id, request_id)
             existing = self.repository.operation(operation_id)
             if existing is not None and existing.status == "cancelled":
@@ -2129,7 +2496,9 @@ class KnowledgeAssetApplication:
             reason = str(payload.get("reason", "revoked"))
             golden = self.repository.latest_golden_asset_revision(workspace_id)
             if golden is not None and golden.id == resource_id:
-                self.repository.revoke_asset(resource_id, workspace_id, request_id, reason)
+                self.repository.revoke_asset(
+                    resource_id, workspace_id, request_id, reason
+                )
             result = NotReadyCommandResult(
                 command=command,
                 error=self._not_ready_error(command, request_id),
@@ -2166,14 +2535,18 @@ class KnowledgeAssetApplication:
                     started_at=now_iso(),
                 )
                 try:
-                    sources = self.repository.source_revisions_for_workspace(workspace_id)
+                    sources = self.repository.source_revisions_for_workspace(
+                        workspace_id
+                    )
                     if not sources:
                         raise KnowledgeAssetRepositoryError(
                             "SOURCE_NOT_FOUND", "没有可刷新的来源。"
                         )
                     source = sources[-1]
                     current_bytes = self._source_path(source.id).read_bytes()
-                    current_schema = self._schema_digest(current_bytes, source.source_type)
+                    current_schema = self._schema_digest(
+                        current_bytes, source.source_type
+                    )
                     if source.schema_ref and current_schema != source.schema_ref.sha256:
                         raise KnowledgeAssetRepositoryError(
                             "SCHEMA_CHANGED", "来源结构已变化，刷新被安全门禁拒绝。"
@@ -2197,25 +2570,32 @@ class KnowledgeAssetApplication:
                         ),
                         workspace_id,
                     )
-                    run = run.model_copy(update={
-                        "status": "succeeded",
-                        "staging_ref": cleaned.golden_asset_revision.storage_ref,
-                        "current_revision": cleaned.golden_asset_revision.revision,
-                        "last_good_revision": cleaned.golden_asset_revision.revision,
-                        "finished_at": now_iso(),
-                    })
+                    run = run.model_copy(
+                        update={
+                            "status": "succeeded",
+                            "staging_ref": cleaned.golden_asset_revision.storage_ref,
+                            "current_revision": cleaned.golden_asset_revision.revision,
+                            "last_good_revision": cleaned.golden_asset_revision.revision,
+                            "finished_at": now_iso(),
+                        }
+                    )
                     result = RefreshRunResult(
-                        skill_id=typed.skill_id, status="succeeded",
+                        skill_id=typed.skill_id,
+                        status="succeeded",
                         refresh_run=run,
                     )
                 except (KnowledgeAssetRepositoryError, OSError, UnicodeError) as error:
                     code = getattr(error, "code", "SOURCE_READ_FAILED")
-                    run = run.model_copy(update={
-                        "status": "failed", "error_code": code,
-                        "finished_at": now_iso(),
-                    })
+                    run = run.model_copy(
+                        update={
+                            "status": "failed",
+                            "error_code": code,
+                            "finished_at": now_iso(),
+                        }
+                    )
                     result = RefreshRunResult(
-                        skill_id=typed.skill_id, status="failed",
+                        skill_id=typed.skill_id,
+                        status="failed",
                         refresh_run=run,
                         error=ErrorEnvelope(
                             code=code,

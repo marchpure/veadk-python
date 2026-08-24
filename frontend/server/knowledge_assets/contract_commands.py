@@ -3,6 +3,17 @@ from __future__ import annotations
 from .contract_base import *
 from .contract_data import *
 from .contract_views import *
+from .evaluation_quality.models import (
+    EvaluationCase as QualityEvaluationCase,
+    EvaluationRun as QualityEvaluationRun,
+    EvaluationSuite as QualityEvaluationSuite,
+    FixPlan as QualityFixPlan,
+    PolicyCheck as QualityPolicyCheck,
+    PolicyGateResult as QualityPolicyGateResult,
+    RunProvenance as QualityRunProvenance,
+    TypedPatch as QualityTypedPatch,
+)
+
 
 class ErrorEnvelope(ContractModel):
     code: str
@@ -80,9 +91,7 @@ class SkillPatch(ContractModel):
     patch_id: str = Field(min_length=1, max_length=256)
     skill_id: str = Field(min_length=1, max_length=256)
     base_revision: int = Field(ge=1)
-    operation: Literal[
-        "set_description", "set_runtime_ref", "set_evaluation_suite_ref"
-    ]
+    operation: Literal["set_description", "set_runtime_ref", "set_evaluation_suite_ref"]
     value: str = Field(max_length=2048)
     undo_token: str | None = Field(default=None, min_length=1, max_length=256)
 
@@ -155,11 +164,89 @@ class RefreshRunPayload(ContractModel):
 
 class InvocationStartPayload(ContractModel):
     skill_version_id: str = Field(min_length=1, max_length=256)
-    skill_view_revision_id: str = Field(
-        default="unbound", min_length=1, max_length=256
-    )
+    skill_view_revision_id: str = Field(default="unbound", min_length=1, max_length=256)
     input_ref: StorageRef
     caller_id: str = Field(min_length=1, max_length=256)
+
+
+class EvaluationSuiteCreatePayload(ContractModel):
+    suite_id: str = Field(min_length=1, max_length=128)
+    skill_id: str = Field(min_length=1, max_length=256)
+    cases: list[QualityEvaluationCase] = Field(min_length=1, max_length=1000)
+    pass_threshold: float = Field(default=1.0, ge=0, le=1)
+
+
+class EvaluationSuiteRevisePayload(ContractModel):
+    suite_id: str = Field(min_length=1, max_length=128)
+    version: int = Field(ge=1)
+    additions: list[QualityEvaluationCase] = Field(min_length=1, max_length=1000)
+
+
+class EvaluationCaseImportPayload(ContractModel):
+    content: str = Field(min_length=1, max_length=10_000_000)
+    media_type: Literal["application/json", "text/csv"]
+
+
+class EvaluationCaseAdoptHistoryPayload(ContractModel):
+    case_id: str = Field(min_length=1, max_length=128)
+    category: str = Field(min_length=1, max_length=64)
+    input: dict[str, object]
+    expected: dict[str, object]
+    provenance_ref: str = Field(min_length=1, max_length=2048)
+    source: Literal["historical_conversation", "historical_run"]
+
+
+class EvaluationCaseGenerateCandidatePayload(ContractModel):
+    case_id: str = Field(min_length=1, max_length=128)
+    category: str = Field(min_length=1, max_length=64)
+    input: dict[str, object]
+    expected: dict[str, object]
+    provenance_ref: str = Field(min_length=1, max_length=2048)
+
+
+class EvaluationCaseConfirmPayload(ContractModel):
+    suite_id: str = Field(min_length=1, max_length=128)
+    version: int = Field(ge=1)
+    case_ids: list[str] = Field(min_length=1, max_length=1000)
+
+
+class EvaluationRunStartPayload(ContractModel):
+    suite_id: str = Field(min_length=1, max_length=128)
+    suite_version: int = Field(ge=1)
+    provenance: QualityRunProvenance
+    selected_case_ids: list[str] = Field(default_factory=list, max_length=1000)
+
+
+class EvaluationRunActionPayload(ContractModel):
+    run_id: str = Field(min_length=1, max_length=256)
+
+
+class EvaluationRunRetryPayload(ContractModel):
+    run_id: str = Field(min_length=1, max_length=256)
+
+
+class EvaluationFixProposePayload(ContractModel):
+    run_id: str = Field(min_length=1, max_length=256)
+    issue_case_ids: list[str] = Field(min_length=1, max_length=1000)
+    affected_case_ids: list[str] = Field(min_length=1, max_length=1000)
+    conflicts: list[str] = Field(default_factory=list, max_length=1000)
+    patch: QualityTypedPatch
+
+
+class EvaluationFixProposeAllPayload(ContractModel):
+    run_id: str = Field(min_length=1, max_length=256)
+    affected_case_ids: list[str] = Field(min_length=1, max_length=1000)
+    conflicts: list[str] = Field(default_factory=list, max_length=1000)
+    patch: QualityTypedPatch
+
+
+class EvaluationFixActionPayload(ContractModel):
+    plan_id: str = Field(min_length=1, max_length=256)
+
+
+class PolicyGateEvaluatePayload(ContractModel):
+    run_id: str = Field(min_length=1, max_length=256)
+    checks: list[QualityPolicyCheck] = Field(default_factory=list, max_length=32)
 
 
 class CommandResultBase(ContractModel):
@@ -226,11 +313,22 @@ class SkillDraftRunResult(CommandResultBase):
     skill_result: SkillResult | None = None
     view_intent: ViewIntent | None = None
     skill_view_revision: SkillViewRevision | None = None
-    execution_state: Literal[
-        "ok", "no_data", "unable_to_answer", "permission_denied",
-        "schema_drift", "validation_failed", "timeout", "over_budget",
-        "cancelled", "credential_blocked", "awaiting_input"
-    ] | None = None
+    execution_state: (
+        Literal[
+            "ok",
+            "no_data",
+            "unable_to_answer",
+            "permission_denied",
+            "schema_drift",
+            "validation_failed",
+            "timeout",
+            "over_budget",
+            "cancelled",
+            "credential_blocked",
+            "awaiting_input",
+        ]
+        | None
+    ) = None
     trace_ref: StorageRef | None = None
     evidence_ref: StorageRef | None = None
 
@@ -274,6 +372,33 @@ class EvaluationRunResult(CommandResultBase):
     policy_gate_result: PolicyGateResult | None = None
 
 
+class EvaluationQualityCommandResult(CommandResultBase):
+    result_type: Literal[
+        "evaluation-suite.create",
+        "evaluation-suite.revise",
+        "evaluation-case.import",
+        "evaluation-case.adopt-history",
+        "evaluation-case.generate-candidates",
+        "evaluation-case.confirm-candidates",
+        "evaluation-run.start",
+        "evaluation-run.cancel",
+        "evaluation-run.resume",
+        "evaluation-run.retry",
+        "evaluation-fix.propose",
+        "evaluation-fix.propose-all-unresolved",
+        "evaluation-fix.apply",
+        "evaluation-fix.undo",
+        "policy-gate.evaluate",
+    ]
+    status: Literal["not_ready", "succeeded", "failed", "blocked"] = "not_ready"
+    suite: QualityEvaluationSuite | None = None
+    run: QualityEvaluationRun | None = None
+    fix_plan: QualityFixPlan | None = None
+    gate: QualityPolicyGateResult | None = None
+    cases: list[QualityEvaluationCase] = Field(default_factory=list, max_length=1000)
+    message: str | None = None
+
+
 CommandResult = Annotated[
     DraftCommandResult
     | NotReadyCommandResult
@@ -287,7 +412,7 @@ CommandResult = Annotated[
     | RefreshRunResult
     | InvocationStartResult
     | EvaluationRunResult
-    ,
+    | EvaluationQualityCommandResult,
     Field(discriminator="result_type"),
 ]
 
@@ -336,6 +461,81 @@ class AssistantCommand(ContractModel):
 class EvaluationCommand(ContractModel):
     command: Literal["evaluation.run", "evaluation.apply"]
     payload: EvaluationPayload
+
+
+class EvaluationSuiteCreateCommand(ContractModel):
+    command: Literal["evaluation-suite.create"]
+    payload: EvaluationSuiteCreatePayload
+
+
+class EvaluationSuiteReviseCommand(ContractModel):
+    command: Literal["evaluation-suite.revise"]
+    payload: EvaluationSuiteRevisePayload
+
+
+class EvaluationCaseImportCommand(ContractModel):
+    command: Literal["evaluation-case.import"]
+    payload: EvaluationCaseImportPayload
+
+
+class EvaluationCaseAdoptHistoryCommand(ContractModel):
+    command: Literal["evaluation-case.adopt-history"]
+    payload: EvaluationCaseAdoptHistoryPayload
+
+
+class EvaluationCaseGenerateCandidateCommand(ContractModel):
+    command: Literal["evaluation-case.generate-candidates"]
+    payload: EvaluationCaseGenerateCandidatePayload
+
+
+class EvaluationCaseConfirmCommand(ContractModel):
+    command: Literal["evaluation-case.confirm-candidates"]
+    payload: EvaluationCaseConfirmPayload
+
+
+class EvaluationRunStartCommand(ContractModel):
+    command: Literal["evaluation-run.start"]
+    payload: EvaluationRunStartPayload
+
+
+class EvaluationRunCancelCommand(ContractModel):
+    command: Literal["evaluation-run.cancel"]
+    payload: EvaluationRunActionPayload
+
+
+class EvaluationRunResumeCommand(ContractModel):
+    command: Literal["evaluation-run.resume"]
+    payload: EvaluationRunActionPayload
+
+
+class EvaluationRunRetryCommand(ContractModel):
+    command: Literal["evaluation-run.retry"]
+    payload: EvaluationRunRetryPayload
+
+
+class EvaluationFixProposeCommand(ContractModel):
+    command: Literal["evaluation-fix.propose"]
+    payload: EvaluationFixProposePayload
+
+
+class EvaluationFixProposeAllCommand(ContractModel):
+    command: Literal["evaluation-fix.propose-all-unresolved"]
+    payload: EvaluationFixProposeAllPayload
+
+
+class EvaluationFixApplyCommand(ContractModel):
+    command: Literal["evaluation-fix.apply"]
+    payload: EvaluationFixActionPayload
+
+
+class EvaluationFixUndoCommand(ContractModel):
+    command: Literal["evaluation-fix.undo"]
+    payload: EvaluationFixActionPayload
+
+
+class PolicyGateEvaluateCommand(ContractModel):
+    command: Literal["policy-gate.evaluate"]
+    payload: PolicyGateEvaluatePayload
 
 
 class ActionCommand(ContractModel):
@@ -392,6 +592,21 @@ CommandRequest = Annotated[
     | StreamCancelCommand
     | AssistantCommand
     | EvaluationCommand
+    | EvaluationSuiteCreateCommand
+    | EvaluationSuiteReviseCommand
+    | EvaluationCaseImportCommand
+    | EvaluationCaseAdoptHistoryCommand
+    | EvaluationCaseGenerateCandidateCommand
+    | EvaluationCaseConfirmCommand
+    | EvaluationRunStartCommand
+    | EvaluationRunCancelCommand
+    | EvaluationRunResumeCommand
+    | EvaluationRunRetryCommand
+    | EvaluationFixProposeCommand
+    | EvaluationFixProposeAllCommand
+    | EvaluationFixApplyCommand
+    | EvaluationFixUndoCommand
+    | PolicyGateEvaluateCommand
     | ActionCommand
     | ArtifactExportCommand
     | SourceProfileCommand
@@ -413,9 +628,7 @@ class CommandResponse(ContractModel):
 
 
 class Event(ContractModel):
-    schema_version: Literal["knowledge-assets.event.v1"] = (
-        "knowledge-assets.event.v1"
-    )
+    schema_version: Literal["knowledge-assets.event.v1"] = "knowledge-assets.event.v1"
     operation_id: str
     event_id: str
     sequence: int = Field(ge=1)
