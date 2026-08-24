@@ -80,7 +80,10 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   MCP evidence, but its handoff is `CANDIDATE_PENDING_FINAL_VERIFICATION`,
   `W1.status.json` is absent, and the worktree is dirty; it is not integrated.
 - W2: `65037a4b`, `bdb1573d`, `a03cb607`, `bffeeb88`; Main `7949f452`
-- W3: source `d7cb4cb2`, Main cherry-pick `0e2462d8`
+- W3: source `d7cb4cb2`, frozen worker commit `45b686af`, Main integration
+  `9eef0d01`; MAIN fixed the narrow JSON numeric coercion regression exposed
+  after integration. W3 dashboard artifact regression is now 7 passed and
+  kind runtime regression is 23 passed.
 - W4: `308f1022`, `45e44eb6`
 - W4 corrective: `6ee81405` integrated; latest W4 read-only audit is
   `MAIN_CORRECTION_REQUIRED` at `09dfd62a`.
@@ -98,7 +101,9 @@ application was removed and the remaining evaluation regression is verified
 by `d14403a5`. W1 has not supplied the required real Source/Golden Data
 commit and `W1.status.json`. W3 hardening is integrated, but its worktree
 currently contains uncommitted vertical-test and MCP fixture changes awaiting
-disposition. Main is not duplicating W1/W3 domain work.
+disposition. Main is not duplicating W1/W3 domain work. The W3 artifact
+regression fix is limited to the shared typed-value parser boundary and does
+not promote P0-3 to PASS.
 
 The three newly explicit P0 gates have temporary runtime records, but not
 accepted final evidence:
@@ -137,6 +142,8 @@ The W2 authoring module is present and the Main-owned `skill-authoring.start`
 boundary is now integrated as a durable fail-closed seam. No credentialed
 success, W1 MCP lifecycle, or Source/Golden wiring is claimed; the command
 returns persisted `credential_blocked` until those real adapters are supplied.
+W3 artifact integration is regression-clean, but component evidence is not
+the required single-URL P0-3 acceptance.
 Main's Dashboard composition now fail-closes the prototype finance/recruitment
 scenario branches until typed bootstrap or SkillViewRevision data exists;
 production boundary regression is 20 passed and static guard remains zero
