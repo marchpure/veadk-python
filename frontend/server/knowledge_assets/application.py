@@ -128,7 +128,10 @@ from frontend.server.skill_authoring.ports import (
     CredentialBlockedGateway,
     NoopWorker3Executor,
 )
-from .authoring_repository import SqliteAuthoringRepository
+from .authoring_repository import (
+    PostgresAuthoringRepository,
+    SqliteAuthoringRepository,
+)
 
 
 class _W1NotConfiguredResolver:
@@ -160,6 +163,9 @@ class KnowledgeAssetApplication:
         repository: KnowledgeAssetRepository,
         *,
         audit_recorder: AuditRecorderPort | None = None,
+        authoring_resolver: object | None = None,
+        authoring_model_gateway: object | None = None,
+        authoring_worker3: object | None = None,
     ) -> None:
         self.repository = repository
         self.audit_recorder = audit_recorder or repository
@@ -211,16 +217,25 @@ class KnowledgeAssetApplication:
                 _UnavailableEvaluationGrader(),
             )
         self._authoring = None
-        if sqlite_connection is not None:
+        if sqlite_connection is not None or isinstance(
+            repository, PostgresKnowledgeAssetRepository
+        ):
             from frontend.server.skill_authoring.service import SkillAuthoringService
 
-            self._authoring = SkillAuthoringService(
+            authoring_repository = (
                 SqliteAuthoringRepository(
                     sqlite_connection, getattr(repository, "_lock", None)
-                ),
-                _W1NotConfiguredResolver(),
-                CredentialBlockedGateway(),
-                NoopWorker3Executor(),
+                )
+                if sqlite_connection is not None
+                else PostgresAuthoringRepository(
+                    repository_connection, getattr(repository, "_lock", None)
+                )
+            )
+            self._authoring = SkillAuthoringService(
+                authoring_repository,
+                authoring_resolver or _W1NotConfiguredResolver(),
+                authoring_model_gateway or CredentialBlockedGateway(),
+                authoring_worker3 or NoopWorker3Executor(),
             )
 
     async def start_skill_authoring(
