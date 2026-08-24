@@ -29,11 +29,16 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 
 - Backend focused: 104 passed, 13 skipped.
 - Frontend focused: 25 passed.
+- Frontend full regression: 817 passed, including the Capability Matrix route
+  allowlist contract added at `ab80835c`.
 - Production build: Studio and website-integration bundles built.
 - Static guard: pass, zero findings.
 - Browser route audit: 43 new + 23 retained states passed with zero page/console
   errors and zero horizontal overflow; evidence is outside the repository at
   `/tmp/knowledge-step3-evidence-final-20260825/route-audit.json`.
+- Corrected route-availability diagnostic scan after `ab80835c`: 43 states
+  unavailable=0 and errors=0. This only proves route composition behavior; it
+  does not promote any P0 gate to PASS.
 - Temporary P0-1/P0-2/P0-3 runtime evidence is recorded outside the repository
   in `/tmp/knowledge-step3-evidence-final-20260825/`, but Worker 4's strict
   audit rejects it as final acceptance evidence: the chain uses disallowed
@@ -57,6 +62,8 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   `.veadk/` and registering W2/W4 delivery paths (`9b4345fa`).
 - Frontend production build passed for Studio and website-integration at
   `9b4345fa`; generated `veadk/webui` output was removed after verification.
+- Main route composition fix `ab80835c` allowlists only the legal Capability
+  Matrix deep links, without accepting arbitrary `fileId` values.
 - Main public Evaluation/Policy BFF regression: `48 passed` combined with
   Evaluation/Golden/BFF coverage; required typed commands no longer return
   the previously audited HTTP 422 boundary. Candidate starts fail closed and
