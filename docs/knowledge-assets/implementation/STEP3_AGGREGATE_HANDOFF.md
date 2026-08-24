@@ -76,18 +76,18 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 
 ## Worker state
 
-- W1: `da3fd632` is an implementation candidate with real local adapters and
-  MCP evidence, but its handoff is `CANDIDATE_PENDING_FINAL_VERIFICATION`,
-  `W1.status.json` is absent, and the worktree is dirty; it is not integrated.
+- W1: clean candidate `cc444c67` contains real local adapters, Source/Golden
+  revisions, and MCP evidence, but formal `W1.status.json` is absent; it is
+  not integrated or signed by MAIN.
 - W2: `65037a4b`, `bdb1573d`, `a03cb607`, `bffeeb88`; Main `7949f452`
 - W2 hardening `a03cb607` is integrated in Main `400b8774`; W4 corrective
   `6ee81405` is integrated in Main `ecf54021`. Their focused changes are
   covered by the current combined regression, but W4 must still audit the
   resulting clean Main commit.
-- W3: source `d7cb4cb2`, frozen worker commit `45b686af`, Main integration
-  `9eef0d01`; MAIN fixed the narrow JSON numeric coercion regression exposed
-  after integration. W3 dashboard artifact regression is now 7 passed and
-  kind runtime regression is 23 passed.
+- W3: source `d7cb4cb2`, frozen worker commit `45b686af`, hardening
+  `1b07a763`, Main integration `6d89cefb`; MAIN fixed the narrow JSON numeric
+  coercion regression exposed after integration. W3 dashboard artifact
+  regression is now 7 passed and kind runtime regression is 23 passed.
 - W4: `308f1022`, `45e44eb6`
 - W4 corrective: `6ee81405` integrated; latest W4 read-only audit is
   `MAIN_CORRECTION_REQUIRED` at `09dfd62a`.
@@ -98,14 +98,11 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   PostgreSQL authoring adapter. BFF/authoring/evaluation focused regression is
   `60 passed`.
 
-W2 `a03cb607` was content-equivalent to code already present in Main after
-conflict reconciliation and did not create a new Main commit. W4
-`6ee81405` production constraints were already present; its duplicate test
-application was removed and the remaining evaluation regression is verified
-by `d14403a5`. W1 has not supplied the required real Source/Golden Data
-commit and `W1.status.json`. W3 hardening is integrated, but its worktree
-currently contains uncommitted vertical-test and MCP fixture changes awaiting
-disposition. Main is not duplicating W1/W3 domain work. The W3 artifact
+W2 `a03cb607` is integrated in Main `400b8774` with semantic conflict
+resolution preserving Main stage/progress/context binding. W4 `6ee81405` is
+integrated in Main `ecf54021`. W1 has supplied clean candidate `cc444c67` but
+formal `W1.status.json` is still absent. W3 hardening is integrated and its
+worktree is clean. Main is not duplicating W1/W3 domain work. The W3 artifact
 regression fix is limited to the shared typed-value parser boundary and does
 not promote P0-3 to PASS.
 
