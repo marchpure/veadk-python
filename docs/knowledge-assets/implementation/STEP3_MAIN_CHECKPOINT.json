@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "baseCommit": "1a42872c5e72e3cd9c7f16fd31b5f5f8b4fcff5d",
+  "checkpointCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
+  "tag": "knowledge-skill-factory-step-3-v2131-checkpoint-a34383cc",
+  "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
+  "commandRegistryDigest": "bcd6f4d1ca7c3f7e52b1ced95de410cbc843c68397ca9f45b799e427a5718d18",
+  "generatedTypeScriptDigest": "8701ed10d71db33b9642c4c47bf4b76932a976670e22bde1f45b9126091e1a85",
+  "migrationHead": "004_step3_shares",
+  "frontendBaseCommit": "0a4fb3b78b395c3cab94b991735b897034a50f34",
+  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+  "oldRouteCount": 23,
+  "newRouteCount": 43,
+  "uiDeltaDigest": "dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30",
+  "tests": {
+    "focusedBackend": "29 passed",
+    "diffCheck": "passed",
+    "matrixEntries": 43,
+    "jsonValidation": "passed"
+  },
+  "knownDebt": [
+    "credentialed Oracle/Web API/MCP/Published Skill integrations",
+    "formal publication/Registry/cross-Agent calling reserved for STEP 4",
+    "distributed queue deployment and full parser-backed Office/PDF/Excel ingestion",
+    "high-fidelity v2.13.1 port and 43-state browser evidence remain Main integration work"
+  ],
+  "createdAt": "2026-08-24T19:58:02.515549+00:00"
+}
