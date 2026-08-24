@@ -864,8 +864,19 @@
             "postgresql",
             "csv",
             "excel",
+            "markdown",
+            "pdf",
+            "office",
+            "lark_doc",
+            "lark_minutes",
+            "lark_group_chat",
             "web_api",
+            "web_url",
+            "rest_api",
+            "graphql",
+            "openapi",
             "mcp",
+            "published_skill",
             "local_file"
           ],
           "title": "Connectortype",
@@ -947,6 +958,64 @@
         "endpointRef"
       ],
       "title": "DataAccessKindSpec",
+      "type": "object"
+    },
+    "DatabaseConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "oracle",
+            "postgresql",
+            "mysql"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "dsnRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Dsnref",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "dsnRef",
+        "secretRef"
+      ],
+      "title": "DatabaseConnectorConfig",
       "type": "object"
     },
     "DraftCommandResult": {
@@ -1319,6 +1388,60 @@
         "terminal"
       ],
       "title": "Event",
+      "type": "object"
+    },
+    "FileConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "markdown",
+            "csv",
+            "pdf",
+            "office",
+            "excel"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "maxBytes": {
+          "default": 10485760,
+          "minimum": 1,
+          "title": "Maxbytes",
+          "type": "integer"
+        },
+        "maxFiles": {
+          "default": 10000,
+          "minimum": 1,
+          "title": "Maxfiles",
+          "type": "integer"
+        },
+        "followSymlinks": {
+          "const": false,
+          "default": false,
+          "title": "Followsymlinks",
+          "type": "boolean"
+        },
+        "sheetAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sheetallowlist",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "sourceRef"
+      ],
+      "title": "FileConnectorConfig",
       "type": "object"
     },
     "GoldenAssetRevision": {
@@ -2160,6 +2283,63 @@
       "title": "ManifestProperty",
       "type": "object"
     },
+    "McpConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "mcp",
+          "title": "Kind",
+          "type": "string"
+        },
+        "serverUrl": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Serverurl",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "oauthScopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Oauthscoperef",
+          "type": "string"
+        },
+        "toolAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Toolallowlist",
+          "type": "array"
+        },
+        "outputBytes": {
+          "default": 1000000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Outputbytes",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "serverUrl",
+        "secretRef",
+        "oauthScopeRef",
+        "toolAllowlist"
+      ],
+      "title": "McpConnectorConfig",
+      "type": "object"
+    },
     "MonitoringKindSpec": {
       "additionalProperties": false,
       "properties": {
@@ -2619,6 +2799,50 @@
       "title": "ProfileRun",
       "type": "object"
     },
+    "ProviderDocumentConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "lark_doc",
+            "lark_minutes",
+            "lark_group_chat"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "documentRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Documentref",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "documentRef",
+        "secretRef",
+        "scopeRef"
+      ],
+      "title": "ProviderDocumentConfig",
+      "type": "object"
+    },
     "PublicationPublishCommand": {
       "additionalProperties": false,
       "properties": {
@@ -2701,6 +2925,63 @@
         "draftId"
       ],
       "title": "PublicationPublishResult",
+      "type": "object"
+    },
+    "PublishedSkillConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "published_skill",
+          "title": "Kind",
+          "type": "string"
+        },
+        "skillRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Skillref",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "dependencyAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Dependencyallowlist",
+          "type": "array"
+        },
+        "outputBytes": {
+          "default": 1000000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Outputbytes",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "skillRef",
+        "secretRef",
+        "scopeRef",
+        "dependencyAllowlist"
+      ],
+      "title": "PublishedSkillConnectorConfig",
       "type": "object"
     },
     "PublishedSkillVersion": {
@@ -4226,8 +4507,17 @@
             "document",
             "database",
             "excel",
+            "office",
+            "lark_doc",
+            "lark_minutes",
+            "lark_group_chat",
             "web_api",
-            "mcp"
+            "web_url",
+            "rest_api",
+            "graphql",
+            "openapi",
+            "mcp",
+            "published_skill"
           ],
           "title": "Sourcetype",
           "type": "string"
@@ -4489,6 +4779,87 @@
         "resultRef"
       ],
       "title": "ViewIntent",
+      "type": "object"
+    },
+    "WebConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "web_api",
+            "web_url",
+            "rest_api",
+            "graphql",
+            "openapi"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "termsRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Termsref"
+        },
+        "operationAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Operationallowlist",
+          "type": "array"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "endpoint"
+      ],
+      "title": "WebConnectorConfig",
       "type": "object"
     }
   },
@@ -4951,6 +5322,60 @@
         }
       ],
       "default": null
+    },
+    "connectorConfig": {
+      "anyOf": [
+        {
+          "discriminator": {
+            "mapping": {
+              "csv": "#/$defs/FileConnectorConfig",
+              "excel": "#/$defs/FileConnectorConfig",
+              "graphql": "#/$defs/WebConnectorConfig",
+              "lark_doc": "#/$defs/ProviderDocumentConfig",
+              "lark_group_chat": "#/$defs/ProviderDocumentConfig",
+              "lark_minutes": "#/$defs/ProviderDocumentConfig",
+              "markdown": "#/$defs/FileConnectorConfig",
+              "mcp": "#/$defs/McpConnectorConfig",
+              "mysql": "#/$defs/DatabaseConnectorConfig",
+              "office": "#/$defs/FileConnectorConfig",
+              "openapi": "#/$defs/WebConnectorConfig",
+              "oracle": "#/$defs/DatabaseConnectorConfig",
+              "pdf": "#/$defs/FileConnectorConfig",
+              "postgresql": "#/$defs/DatabaseConnectorConfig",
+              "published_skill": "#/$defs/PublishedSkillConnectorConfig",
+              "rest_api": "#/$defs/WebConnectorConfig",
+              "web_api": "#/$defs/WebConnectorConfig",
+              "web_url": "#/$defs/WebConnectorConfig"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FileConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/ProviderDocumentConfig"
+            },
+            {
+              "$ref": "#/$defs/DatabaseConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/WebConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/McpConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/PublishedSkillConnectorConfig"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Connectorconfig"
     }
   },
   "title": "CoreContractBundle",

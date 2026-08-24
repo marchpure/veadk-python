@@ -11,11 +11,17 @@ from urllib.parse import urlparse
 from .ports import ConnectorConfig
 
 _SECRET_KEY = re.compile(r"(secret|token|password|credential|private.?key|api.?key)", re.I)
+_PROMPT_INJECTION = re.compile(
+    r"(ignore\s+(all\s+)?previous\s+instructions|reveal\s+the\s+system\s+prompt|"
+    r"bypass\s+(the\s+)?safety|you\s+are\s+now\s+the)",
+    re.I,
+)
 
 
 def reject_inline_secrets(config: ConnectorConfig) -> None:
     for key, value in (config.options or {}).items():
-        if _SECRET_KEY.search(key) or _SECRET_KEY.search(value):
+        rendered = value if isinstance(value, str) else repr(value)
+        if _SECRET_KEY.search(key) or _SECRET_KEY.search(rendered):
             raise ValueError("credentials must be referenced by secretRef, never supplied inline")
 
 
@@ -52,6 +58,52 @@ def validate_read_only_sql(query: str, *, parameters: dict[str, object]) -> None
         names = set(re.findall(r"(?<!:):([A-Za-z_][A-Za-z0-9_]*)", statement))
         if names - set(parameters):
             raise ValueError("all SQL parameters must be supplied separately")
+
+
+def validate_database_limits(
+    *,
+    row_limit: int,
+    byte_limit: int,
+    timeout_seconds: int,
+) -> None:
+    if row_limit < 1:
+        raise ValueError("database row limit must be positive")
+    if byte_limit < 1:
+        raise ValueError("database byte limit must be positive")
+    if timeout_seconds < 1:
+        raise ValueError("database timeout must be positive")
+
+
+def sanitize_mcp_output(output: str) -> str:
+    """Keep provider output untrusted and quarantine instruction-like content."""
+    if _PROMPT_INJECTION.search(output):
+        return "[QUARANTINED_UNTRUSTED_MCP_OUTPUT]"
+    return output
+
+
+def validate_archive_limits(
+    *,
+    compressed_bytes: int,
+    expanded_bytes: int,
+    file_count: int,
+    member_names: list[str],
+    max_expansion_ratio: int = 100,
+    max_expanded_bytes: int = 100 * 1024 * 1024,
+    max_files: int = 10_000,
+) -> None:
+    if compressed_bytes < 1 or expanded_bytes < 0:
+        raise ValueError("archive byte counts must be valid")
+    if expanded_bytes > max_expanded_bytes:
+        raise ValueError("archive expanded-byte limit exceeded")
+    if expanded_bytes / compressed_bytes > max_expansion_ratio:
+        raise ValueError("archive compression expansion ratio exceeded")
+    if file_count < 0 or file_count > max_files:
+        raise ValueError("archive file-count limit exceeded")
+    if any(
+        name.startswith("/") or ".." in name.split("/")
+        for name in member_names
+    ):
+        raise ValueError("archive member path escapes the destination")
 
 
 def validate_mcp_tool(

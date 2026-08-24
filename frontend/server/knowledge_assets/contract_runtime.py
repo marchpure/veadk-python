@@ -4,6 +4,7 @@ from .contract_base import *
 from .contract_data import *
 from .contract_views import *
 from .contract_commands import *
+from .connector_contracts import ConnectorKindConfig
 
 def validate_state_transition(
     current: str, target: str, *, cancelled: bool = False
@@ -61,6 +62,7 @@ class CoreContractBundle(ContractModel):
     audit: Audit | None = None
     job_state: JobState | None = None
     job_event: JobEvent | None = None
+    connector_config: ConnectorKindConfig | None = None
 
 
 class JobState(ContractModel):

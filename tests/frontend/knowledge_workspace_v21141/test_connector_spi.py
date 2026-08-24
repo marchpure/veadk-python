@@ -37,13 +37,40 @@ def test_local_connector_rejects_escape_unsupported_and_oversize(tmp_path: Path)
         connector.test_connection(context(), ConnectorConfig(kind="markdown", endpoint="large.md"))
 
 
-def test_external_connector_is_explicitly_credential_blocked() -> None:
-    adapter = connector_for("oracle")
+def test_local_connector_rejects_symlink_sources(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "outside-secret.md"
+    outside.write_text("secret", encoding="utf-8")
+    (tmp_path / "linked.md").symlink_to(outside)
+    connector = LocalFileConnector(root=tmp_path)
+    with pytest.raises(ValueError, match="symlink"):
+        connector.test_connection(
+            context(), ConnectorConfig(kind="markdown", endpoint="linked.md")
+        )
+
+
+@pytest.mark.parametrize(
+    ("kind", "endpoint"),
+    [
+        ("oracle", "oracle://db"),
+        ("web_api", "https://example.invalid"),
+        ("mcp", "https://mcp.example.invalid"),
+        ("published_skill", "skill://workday"),
+    ],
+)
+def test_external_connectors_are_explicitly_credential_blocked(
+    kind: str, endpoint: str
+) -> None:
+    adapter = connector_for(kind)
     event = adapter.test_connection(
-        context(), ConnectorConfig(kind="oracle", endpoint="oracle://db", options={"secretRef": "secret://db"})
+        context(),
+        ConnectorConfig(
+            kind=kind,
+            endpoint=endpoint,
+            options={"secretRef": "secret://db"},
+        ),
     )
     assert event.status == "credential_blocked"
-    assert event.details["kind"] == "oracle"
+    assert event.details["kind"] == kind
 
 
 def test_external_connector_rejects_missing_secret_reference_without_inline_secret() -> None:
@@ -53,3 +80,28 @@ def test_external_connector_rejects_missing_secret_reference_without_inline_secr
     )
     assert event.status == "credential_blocked"
     assert "secretRef" in event.details["reason"]
+
+
+def test_external_connector_validates_its_kind_config_before_blocking() -> None:
+    adapter = connector_for("oracle")
+    with pytest.raises(ValueError):
+        adapter.validate_config(
+            context(),
+            ConnectorConfig(
+                kind="oracle",
+                endpoint="oracle://db",
+                options={"rowLimit": 0},
+            ),
+        )
+    event = adapter.validate_config(
+        context(),
+        ConnectorConfig(
+            kind="oracle",
+            endpoint="oracle://db",
+            options={
+                "secretRef": {"uri": "secret://db", "version": "v1"},
+                "schemaAllowlist": ["REPORTING"],
+            },
+        ),
+    )
+    assert event.status == "credential_blocked"

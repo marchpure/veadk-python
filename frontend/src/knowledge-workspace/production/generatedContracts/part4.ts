@@ -2,7 +2,23 @@
 
 import type { AnalysisKindSpec, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
 import type { GoldenAssetRevision, GraphOntologyKindSpec, GraphOntologyViewModel, KnowledgeKindSpec, KnowledgeViewModel, MonitoringKindSpec, MonitoringViewModel } from "./part2";
-import type { OwnerRef, PermissionRef, ProfileRun, SchemaRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+import type { OwnerRef, PermissionRef, ProfileRun, SchemaRef, SecretRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+
+export interface SkillDraftRevision {
+  id: string;
+  skillId: string;
+  revision: number;
+  manifest: SkillManifest;
+  sourceRevisionRefs?: Array<string>;
+  goldenAssetRevisionRefs?: Array<string>;
+  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
+  createdAt: string;
+}
+
+export interface SkillDraftRunCommand {
+  command: "skill-draft.run";
+  payload: SkillDraftRunPayload;
+}
 
 export interface SkillDraftRunPayload {
   draftId: string;
@@ -133,7 +149,7 @@ export interface SourceProfileResult {
 
 export interface SourceRevision {
   id: string;
-  sourceType: "local_file" | "markdown" | "csv" | "pdf" | "document" | "database" | "excel" | "web_api" | "mcp";
+  sourceType: "local_file" | "markdown" | "csv" | "pdf" | "document" | "database" | "excel" | "office" | "lark_doc" | "lark_minutes" | "lark_group_chat" | "web_api" | "web_url" | "rest_api" | "graphql" | "openapi" | "mcp" | "published_skill";
   contentRef: StorageRef;
   schemaRef?: SchemaRef | null;
   permissionRef: PermissionRef;
@@ -177,4 +193,15 @@ export interface ViewIntent {
   template: "dashboard" | "chart" | "semantic" | "knowledge" | "graph_ontology" | "monitoring";
   purpose: "overview" | "compare" | "schema" | "answer" | "explore" | "monitor";
   resultRef: string;
+}
+
+export interface WebConnectorConfig {
+  kind: "web_api" | "web_url" | "rest_api" | "graphql" | "openapi";
+  endpoint: string;
+  secretRef?: SecretRef | null;
+  termsRef?: string | null;
+  operationAllowlist?: Array<string>;
+  pageSize?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
 }

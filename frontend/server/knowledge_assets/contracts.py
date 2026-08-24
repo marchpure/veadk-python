@@ -10,3 +10,4 @@ from .contract_data import *
 from .contract_views import *
 from .contract_commands import *
 from .contract_runtime import *
+from .connector_contracts import *

@@ -13,6 +13,7 @@ from .ports import (
     ConnectorEvent,
     CredentialBlockedConnector,
 )
+from .connector_contracts import validate_runtime_connector_config
 from .security import reject_inline_secrets, validate_web_endpoint
 
 
@@ -24,7 +25,10 @@ class LocalFileConnector:
         self.max_bytes = max_bytes
 
     def _path(self, config: ConnectorConfig) -> Path:
-        candidate = (self.root / config.endpoint).resolve()
+        unresolved = self.root / config.endpoint
+        if unresolved.is_symlink():
+            raise ValueError("local source symlink is not allowed")
+        candidate = unresolved.resolve()
         if candidate != self.root and self.root not in candidate.parents:
             raise ValueError("local source escapes the configured workspace root")
         if candidate.suffix.lower() not in {".md", ".markdown", ".csv"}:
@@ -88,20 +92,44 @@ class OracleConnector(CredentialBlockedConnector):
     def __init__(self) -> None:
         super().__init__("oracle")
 
+    def validate_config(self, context, config):
+        validate_runtime_connector_config(
+            kind="oracle", endpoint=config.endpoint, options=config.options
+        )
+        return self._blocked(context, "validateConfig")
+
 
 class WebApiConnector(CredentialBlockedConnector):
     def __init__(self) -> None:
         super().__init__("web_api")
+
+    def validate_config(self, context, config):
+        validate_runtime_connector_config(
+            kind="web_api", endpoint=config.endpoint, options=config.options
+        )
+        return self._blocked(context, "validateConfig")
 
 
 class McpConnector(CredentialBlockedConnector):
     def __init__(self) -> None:
         super().__init__("mcp")
 
+    def validate_config(self, context, config):
+        validate_runtime_connector_config(
+            kind="mcp", endpoint=config.endpoint, options=config.options
+        )
+        return self._blocked(context, "validateConfig")
+
 
 class PublishedSkillConnector(CredentialBlockedConnector):
     def __init__(self) -> None:
         super().__init__("published_skill")
+
+    def validate_config(self, context, config):
+        validate_runtime_connector_config(
+            kind="published_skill", endpoint=config.endpoint, options=config.options
+        )
+        return self._blocked(context, "validateConfig")
 
 
 def connector_for(kind: str, *, root: str | Path = ".") -> ConnectorAdapter:

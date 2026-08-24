@@ -19,7 +19,8 @@ class SourceRevision(ContractModel):
     id: str
     source_type: Literal[
         "local_file", "markdown", "csv", "pdf", "document", "database", "excel",
-        "web_api", "mcp"
+        "office", "lark_doc", "lark_minutes", "lark_group_chat", "web_api",
+        "web_url", "rest_api", "graphql", "openapi", "mcp", "published_skill"
     ]
     content_ref: StorageRef
     schema_ref: SchemaRef | None = None

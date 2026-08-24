@@ -88,7 +88,7 @@ class ConnectorConfig:
         "markdown", "csv", "oracle", "web_api", "mcp", "published_skill"
     ]
     endpoint: str
-    options: dict[str, str] | None = None
+    options: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
