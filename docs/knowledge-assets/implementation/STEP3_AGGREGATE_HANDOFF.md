@@ -83,6 +83,10 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 - W4: `308f1022`, `45e44eb6`
 - W4 corrective: `6ee81405` integrated; latest W4 read-only audit is
   `MAIN_CORRECTION_REQUIRED` at `09dfd62a`.
+- Main authoring composition: `d73e258e` adds the typed
+  `skill-authoring.start` command, durable SQLite/PostgreSQL authoring tables,
+  idempotent operation/event readback, and explicit W1 credential-blocked
+  behavior. BFF/authoring/evaluation focused regression is `60 passed`.
 
 W2 `a03cb607` was content-equivalent to code already present in Main after
 conflict reconciliation and did not create a new Main commit. W4
@@ -126,10 +130,10 @@ requirements; no PublishedSkill ID/revision is claimed. W1 still must
 provide a non-null real Source/Golden Data commit and clean worktree; W2/W3
 follow-up changes must be committed or rejected; all Worker worktrees must
 then be clean and W4 must perform read-only verification.
-The W2 authoring module is present and its Main focused authoring/data suite
-passes 45 tests, but its Main-owned BFF command registration and durable
-production persistence seam are not yet complete; `skill-authoring.start`
-must not be treated as integrated.
+The W2 authoring module is present and the Main-owned `skill-authoring.start`
+boundary is now integrated as a durable fail-closed seam. No credentialed
+success, W1 MCP lifecycle, or Source/Golden wiring is claimed; the command
+returns persisted `credential_blocked` until those real adapters are supplied.
 Main's Dashboard composition now fail-closes the prototype finance/recruitment
 scenario branches until typed bootstrap or SkillViewRevision data exists;
 production boundary regression is 20 passed and static guard remains zero
