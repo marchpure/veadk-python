@@ -206,6 +206,100 @@
       "title": "ArtifactExportResult",
       "type": "object"
     },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "title": "Mediatype",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uri",
+        "sha256",
+        "mediaType",
+        "bytes"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "AssetOwner": {
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "principalId": {
+          "title": "Principalid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "principalId"
+      ],
+      "title": "AssetOwner",
+      "type": "object"
+    },
+    "AssetPermission": {
+      "additionalProperties": false,
+      "properties": {
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "personal",
+            "team"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "canRead": {
+          "title": "Canread",
+          "type": "boolean"
+        },
+        "canWrite": {
+          "title": "Canwrite",
+          "type": "boolean"
+        },
+        "inheritedFromConnectionId": {
+          "title": "Inheritedfromconnectionid",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "scope",
+        "canRead",
+        "canWrite",
+        "inheritedFromConnectionId",
+        "version"
+      ],
+      "title": "AssetPermission",
+      "type": "object"
+    },
     "AssistantDiff": {
       "additionalProperties": false,
       "properties": {
@@ -806,6 +900,30 @@
       "title": "BuildPlan",
       "type": "object"
     },
+    "CapabilityReason": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "CapabilityReason",
+      "type": "object"
+    },
     "CaseCategory": {
       "enum": [
         "normal",
@@ -994,6 +1112,118 @@
       "title": "CleanRun",
       "type": "object"
     },
+    "CleanRunRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "recipeId": {
+          "title": "Recipeid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "outputRef": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "qualityReportRef": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "title": "Finishedat",
+          "type": "string"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sourceRevisionId",
+        "recipeId",
+        "status",
+        "outputRef",
+        "qualityReportRef",
+        "startedAt",
+        "finishedAt",
+        "traceId"
+      ],
+      "title": "CleanRunRecord",
+      "type": "object"
+    },
+    "CleaningRecipeRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "assetId": {
+          "title": "Assetid",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "enum": [
+              "trim",
+              "deduplicate",
+              "normalize",
+              "redact"
+            ],
+            "type": "string"
+          },
+          "title": "Operations",
+          "type": "array"
+        },
+        "recipeDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Recipedigest",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "assetId",
+        "version",
+        "sourceRevisionId",
+        "operations",
+        "recipeDigest",
+        "createdAt"
+      ],
+      "title": "CleaningRecipeRecord",
+      "type": "object"
+    },
     "CompatibilityTargets": {
       "additionalProperties": false,
       "properties": {
@@ -1013,6 +1243,204 @@
         }
       },
       "title": "CompatibilityTargets",
+      "type": "object"
+    },
+    "ConnectionInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "connectorKey": {
+          "title": "Connectorkey",
+          "type": "string"
+        },
+        "displayName": {
+          "title": "Displayname",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "personal",
+            "team"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "ownerId": {
+          "title": "Ownerid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "config_required",
+            "credential_blocked",
+            "unsupported",
+            "revoked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "configuration": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            ]
+          },
+          "title": "Configuration",
+          "type": "object"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secretref"
+        },
+        "syncMode": {
+          "enum": [
+            "full",
+            "incremental",
+            "realtime"
+          ],
+          "title": "Syncmode",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "updatedAt": {
+          "title": "Updatedat",
+          "type": "string"
+        },
+        "lastSuccessAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lastsuccessat"
+        },
+        "lastError": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapabilityReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "discoveredResources": {
+          "items": {
+            "$ref": "#/$defs/DiscoveredResource"
+          },
+          "title": "Discoveredresources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "connectorKey",
+        "displayName",
+        "scope",
+        "ownerId",
+        "status",
+        "configuration",
+        "syncMode",
+        "createdAt",
+        "updatedAt"
+      ],
+      "title": "ConnectionInstance",
+      "type": "object"
+    },
+    "ConnectorOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "validate",
+            "discover",
+            "revoke",
+            "delete"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "config_required",
+            "credential_blocked",
+            "unsupported",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/CapabilityReason"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/DiscoveredResource"
+          },
+          "title": "Resources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operation",
+        "status",
+        "traceId",
+        "reason"
+      ],
+      "title": "ConnectorOperation",
       "type": "object"
     },
     "DashboardKpi": {
@@ -1218,6 +1646,128 @@
         "endpointRef"
       ],
       "title": "DataAccessKindSpec",
+      "type": "object"
+    },
+    "DiscoveredField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "dataType": {
+          "title": "Datatype",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "dataType"
+      ],
+      "title": "DiscoveredField",
+      "type": "object"
+    },
+    "DiscoveredResource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "resourceType": {
+          "enum": [
+            "file",
+            "table",
+            "document",
+            "operation",
+            "tool"
+          ],
+          "title": "Resourcetype",
+          "type": "string"
+        },
+        "schemaName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Schemaname"
+        },
+        "rowCount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rowcount"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/DiscoveredField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "inputSchema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputschema"
+        },
+        "outputSchema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputschema"
+        },
+        "permission": {
+          "default": "read",
+          "enum": [
+            "read",
+            "denied"
+          ],
+          "title": "Permission",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "resourceType"
+      ],
+      "title": "DiscoveredResource",
       "type": "object"
     },
     "DraftCommandResult": {
@@ -2008,6 +2558,168 @@
       "title": "GoldenAssetRevision",
       "type": "object"
     },
+    "GoldenAssetRevisionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "assetId": {
+          "title": "Assetid",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "assetKind": {
+          "enum": [
+            "dataset",
+            "knowledge"
+          ],
+          "title": "Assetkind",
+          "type": "string"
+        },
+        "schemaDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Schemadigest",
+          "type": "string"
+        },
+        "storageRef": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "owner": {
+          "$ref": "#/$defs/AssetOwner"
+        },
+        "permissions": {
+          "$ref": "#/$defs/AssetPermission"
+        },
+        "lineage": {
+          "$ref": "#/$defs/GoldenLineage"
+        },
+        "qualityScore": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Qualityscore",
+          "type": "number"
+        },
+        "freshnessAt": {
+          "title": "Freshnessat",
+          "type": "string"
+        },
+        "dataAsOf": {
+          "title": "Dataasof",
+          "type": "string"
+        },
+        "lastGood": {
+          "default": true,
+          "title": "Lastgood",
+          "type": "boolean"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "assetId",
+        "revision",
+        "assetKind",
+        "schemaDigest",
+        "storageRef",
+        "owner",
+        "permissions",
+        "lineage",
+        "qualityScore",
+        "freshnessAt",
+        "dataAsOf",
+        "traceId"
+      ],
+      "title": "GoldenAssetRevisionRecord",
+      "type": "object"
+    },
+    "GoldenLineage": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "title": "Connectionid",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "profileRunId": {
+          "title": "Profilerunid",
+          "type": "string"
+        },
+        "recipeId": {
+          "title": "Recipeid",
+          "type": "string"
+        },
+        "recipeVersion": {
+          "minimum": 1,
+          "title": "Recipeversion",
+          "type": "integer"
+        },
+        "cleanRunId": {
+          "title": "Cleanrunid",
+          "type": "string"
+        },
+        "contentDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Contentdigest",
+          "type": "string"
+        },
+        "correlationId": {
+          "title": "Correlationid",
+          "type": "string"
+        },
+        "adapterRunId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapterrunid"
+        },
+        "lineageDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Lineagedigest",
+          "type": "string"
+        },
+        "toolArguments": {
+          "additionalProperties": true,
+          "title": "Toolarguments",
+          "type": "object"
+        }
+      },
+      "required": [
+        "connectionId",
+        "resourceId",
+        "sourceRevisionId",
+        "profileRunId",
+        "recipeId",
+        "recipeVersion",
+        "cleanRunId",
+        "contentDigest",
+        "correlationId",
+        "lineageDigest"
+      ],
+      "title": "GoldenLineage",
+      "type": "object"
+    },
     "GraphEdge": {
       "additionalProperties": false,
       "properties": {
@@ -2662,6 +3374,47 @@
       "title": "PolicyCheck",
       "type": "object"
     },
+    "ProfileField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "dataType": {
+          "title": "Datatype",
+          "type": "string"
+        },
+        "nullable": {
+          "title": "Nullable",
+          "type": "boolean"
+        },
+        "nullCount": {
+          "minimum": 0,
+          "title": "Nullcount",
+          "type": "integer"
+        },
+        "distinctCount": {
+          "minimum": 0,
+          "title": "Distinctcount",
+          "type": "integer"
+        },
+        "sensitive": {
+          "default": false,
+          "title": "Sensitive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "dataType",
+        "nullable",
+        "nullCount",
+        "distinctCount"
+      ],
+      "title": "ProfileField",
+      "type": "object"
+    },
     "ProfileRun": {
       "additionalProperties": false,
       "properties": {
@@ -2786,6 +3539,87 @@
         "startedAt"
       ],
       "title": "ProfileRun",
+      "type": "object"
+    },
+    "ProfileRunRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "sourceRevisionId": {
+          "title": "Sourcerevisionid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "rowCount": {
+          "minimum": 0,
+          "title": "Rowcount",
+          "type": "integer"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/ProfileField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "qualityScore": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Qualityscore",
+          "type": "number"
+        },
+        "sensitiveFields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sensitivefields",
+          "type": "array"
+        },
+        "reportRef": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "sampleRef": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "finishedAt": {
+          "title": "Finishedat",
+          "type": "string"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sourceRevisionId",
+        "status",
+        "rowCount",
+        "fields",
+        "qualityScore",
+        "sensitiveFields",
+        "reportRef",
+        "sampleRef",
+        "startedAt",
+        "finishedAt",
+        "traceId"
+      ],
+      "title": "ProfileRunRecord",
       "type": "object"
     },
     "PublicationPublishResult": {
@@ -4284,6 +5118,78 @@
       "title": "SourceCleanResult",
       "type": "object"
     },
+    "SourceGoldenConnectionResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "source_golden.connection",
+          "default": "source_golden.connection",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "connection": {
+          "$ref": "#/$defs/ConnectionInstance"
+        },
+        "validation": {
+          "$ref": "#/$defs/ConnectorOperation"
+        },
+        "discovery": {
+          "$ref": "#/$defs/ConnectorOperation"
+        },
+        "replayed": {
+          "default": false,
+          "title": "Replayed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "connection",
+        "validation",
+        "discovery"
+      ],
+      "title": "SourceGoldenConnectionResult",
+      "type": "object"
+    },
+    "SourceGoldenIngestResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "source_golden.ingest",
+          "default": "source_golden.ingest",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "$ref": "#/$defs/SourceRevisionRecord"
+        },
+        "profileRun": {
+          "$ref": "#/$defs/ProfileRunRecord"
+        },
+        "cleaningRecipe": {
+          "$ref": "#/$defs/CleaningRecipeRecord"
+        },
+        "cleanRun": {
+          "$ref": "#/$defs/CleanRunRecord"
+        },
+        "goldenAssetRevision": {
+          "$ref": "#/$defs/GoldenAssetRevisionRecord"
+        },
+        "replayed": {
+          "default": false,
+          "title": "Replayed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sourceRevision",
+        "profileRun",
+        "cleaningRecipe",
+        "cleanRun",
+        "goldenAssetRevision"
+      ],
+      "title": "SourceGoldenIngestResult",
+      "type": "object"
+    },
     "SourceProfileResult": {
       "additionalProperties": false,
       "properties": {
@@ -4334,6 +5240,85 @@
         "sourceRevisionId"
       ],
       "title": "SourceProfileResult",
+      "type": "object"
+    },
+    "SourceRevisionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "connectionId": {
+          "title": "Connectionid",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "sourceType": {
+          "enum": [
+            "markdown",
+            "csv",
+            "excel",
+            "pdf",
+            "sqlite",
+            "mcp"
+          ],
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "contentRef": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "sourceDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sourcedigest",
+          "type": "string"
+        },
+        "schemaDigest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Schemadigest",
+          "type": "string"
+        },
+        "sourceLocator": {
+          "title": "Sourcelocator",
+          "type": "string"
+        },
+        "permissionVersion": {
+          "minimum": 1,
+          "title": "Permissionversion",
+          "type": "integer"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "connectionId",
+        "resourceId",
+        "sourceType",
+        "contentRef",
+        "sourceDigest",
+        "schemaDigest",
+        "sourceLocator",
+        "permissionVersion",
+        "createdAt",
+        "traceId"
+      ],
+      "title": "SourceRevisionRecord",
       "type": "object"
     },
     "StorageRef": {
@@ -5678,7 +6663,9 @@
               "skill-draft.run": "#/$defs/SkillDraftRunResult",
               "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
               "source.clean": "#/$defs/SourceCleanResult",
-              "source.profile": "#/$defs/SourceProfileResult"
+              "source.profile": "#/$defs/SourceProfileResult",
+              "source_golden.connection": "#/$defs/SourceGoldenConnectionResult",
+              "source_golden.ingest": "#/$defs/SourceGoldenIngestResult"
             },
             "propertyName": "resultType"
           },
@@ -5724,6 +6711,12 @@
             },
             {
               "$ref": "#/$defs/SkillAuthoringStartResult"
+            },
+            {
+              "$ref": "#/$defs/SourceGoldenConnectionResult"
+            },
+            {
+              "$ref": "#/$defs/SourceGoldenIngestResult"
             }
           ]
         },

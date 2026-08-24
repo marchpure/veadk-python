@@ -76,6 +76,10 @@ from .contracts import (
     EvaluationCaseResult,
     PolicyGateResult,
     EvaluationQualityCommandResult,
+    SourceGoldenConnectionCreatePayload,
+    SourceGoldenIngestPayload,
+    SourceGoldenConnectionResult,
+    SourceGoldenIngestResult,
     EvaluationSuiteCreatePayload,
     EvaluationSuiteRevisePayload,
     EvaluationCaseImportPayload,
@@ -108,6 +112,7 @@ from .repository import (
     KnowledgeAssetRepositoryError,
     KnowledgeAssetRepository,
 )
+from .sources_golden import AccessContext, SourceGoldenApplication, SourcesGoldenError
 from .evaluation_quality import EvaluationQualityService
 from .evaluation_quality.main_repository import MainEvaluationRepository
 from .evaluation_quality.models import (
@@ -123,6 +128,9 @@ from frontend.server.skill_authoring.models import (
     Scope as AuthoringScope,
     SkillAuthoringError,
     SkillKind as AuthoringSkillKind,
+    ResolvedContext,
+    ResolvedResource,
+    digest as authoring_digest,
 )
 from frontend.server.skill_authoring.ports import (
     CredentialBlockedGateway,
@@ -132,6 +140,70 @@ from .authoring_repository import (
     PostgresAuthoringRepository,
     SqliteAuthoringRepository,
 )
+
+
+class _W1ResourceResolver:
+    """Resolve pinned W1 Golden revisions into the W2 authoring boundary."""
+
+    def __init__(self, source_golden: SourceGoldenApplication) -> None:
+        self.source_golden = source_golden
+
+    async def resolve(self, envelope, refs):
+        context = AccessContext(
+            workspace_id=envelope.workspace_id,
+            principal_id=envelope.caller_id,
+            role="editor",
+        )
+        resources: list[ResolvedResource] = []
+        for ref in refs:
+            if ref.kind != "golden_asset":
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.RESOURCE_NOT_FOUND,
+                    f"unsupported Source/Golden resource kind: {ref.kind}",
+                )
+            binding = self.source_golden.golden_resource_binding(
+                context, ref.revision
+            )
+            if binding.object_id != ref.object_id:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.INVALID_CONTEXT,
+                    f"resource {ref.object_id}@{ref.revision} does not match the pinned Golden Asset",
+                )
+            resources.append(
+                ResolvedResource(
+                    ref=ref,
+                    display_name=binding.display_name,
+                    provider_revision=binding.provider_revision,
+                    schema_digest=binding.schema_digest,
+                    capabilities=tuple(binding.capabilities),
+                    semantic_fields=tuple(binding.semantic_fields),
+                    authorized=binding.authorized,
+                )
+            )
+        authorized_permissions = tuple(
+            sorted(
+                {
+                    capability
+                    for resource in resources
+                    for capability in resource.capabilities
+                }
+            )
+        )
+        return ResolvedContext(
+            envelope=envelope,
+            resources=tuple(resources),
+            authorized_permissions=authorized_permissions,
+            context_digest=authoring_digest(
+                {
+                    "caller": envelope.caller_id,
+                    "workspace": envelope.workspace_id,
+                    "prompt": envelope.prompt,
+                    "refs": [item.model_dump(mode="json") for item in resources],
+                    "permissions": authorized_permissions,
+                    "fixed_revisions": envelope.fixed_revisions,
+                }
+            ),
+        )
 
 
 class _W1NotConfiguredResolver:
@@ -166,6 +238,7 @@ class KnowledgeAssetApplication:
         authoring_resolver: object | None = None,
         authoring_model_gateway: object | None = None,
         authoring_worker3: object | None = None,
+        sources_golden: SourceGoldenApplication | None = None,
     ) -> None:
         self.repository = repository
         self.audit_recorder = audit_recorder or repository
@@ -197,6 +270,7 @@ class KnowledgeAssetApplication:
             else "test"
         )
         self._builder_job_ids: dict[str, str] = {}
+        self._sources_golden = sources_golden
         self._kind_runtime = KindRuntime(
             ContentAddressedStore(".veadk/knowledge-assets/kind-runtime")
         )
@@ -233,7 +307,12 @@ class KnowledgeAssetApplication:
             )
             self._authoring = SkillAuthoringService(
                 authoring_repository,
-                authoring_resolver or _W1NotConfiguredResolver(),
+                authoring_resolver
+                or (
+                    _W1ResourceResolver(sources_golden)
+                    if sources_golden is not None
+                    else _W1NotConfiguredResolver()
+                ),
                 authoring_model_gateway or CredentialBlockedGateway(),
                 authoring_worker3 or NoopWorker3Executor(),
             )
@@ -315,7 +394,93 @@ class KnowledgeAssetApplication:
         )
 
     def bootstrap(self, workspace_id: str, role: str):
-        return self.repository.bootstrap(workspace_id, role)
+        base = self.repository.bootstrap(workspace_id, role)
+        if self._sources_golden is None:
+            return base
+        projection = self._sources_golden.bootstrap_projection(
+            AccessContext(
+                workspace_id=workspace_id,
+                principal_id=workspace_id,
+                role=role if role in {"viewer", "editor", "admin"} else "viewer",
+            )
+        )
+        value = base.model_dump(mode="python", by_alias=True)
+        value["workspaceData"] = {
+            **value.get("workspaceData", {}),
+            **projection.get("workspaceData", {}),
+        }
+        value["connections"] = projection["connections"]
+        value["routes"] = sorted(set(value.get("routes", [])) | set(projection["routes"]))
+        return type(base).model_validate(value)
+
+    def source_golden_connection(
+        self,
+        payload: SourceGoldenConnectionCreatePayload,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        role: str,
+        idempotency_key: str,
+        trace_id: str,
+    ) -> CommandResponse:
+        if self._sources_golden is None:
+            raise SourcesGoldenError("SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。")
+        result = self._sources_golden.create_connection(
+            AccessContext(workspace_id=workspace_id, principal_id=principal_id,
+                          role=role if role in {"viewer", "editor", "admin"} else "viewer"),
+            connector_key=payload.connector_key,
+            display_name=payload.display_name,
+            scope=payload.scope,
+            configuration=payload.configuration,
+            secret_ref=payload.secret_ref,
+            idempotency_key=idempotency_key,
+            trace_id=trace_id,
+        )
+        return CommandResponse(
+            accepted=result.connection.status == "ready",
+            request_id=trace_id,
+            result=SourceGoldenConnectionResult(
+                connection=result.connection,
+                validation=result.validation,
+                discovery=result.discovery,
+                replayed=result.replayed,
+            ),
+        )
+
+    def source_golden_ingest(
+        self,
+        payload: SourceGoldenIngestPayload,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        role: str,
+        idempotency_key: str,
+        trace_id: str,
+    ) -> CommandResponse:
+        if self._sources_golden is None:
+            raise SourcesGoldenError("SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。")
+        result = self._sources_golden.ingest(
+            AccessContext(workspace_id=workspace_id, principal_id=principal_id,
+                          role=role if role in {"viewer", "editor", "admin"} else "viewer"),
+            connection_id=payload.connection_id,
+            resource_id=payload.resource_id,
+            recipe_operations=payload.recipe_operations,
+            tool_arguments=payload.tool_arguments,
+            idempotency_key=idempotency_key,
+            trace_id=trace_id,
+        )
+        return CommandResponse(
+            accepted=True,
+            request_id=trace_id,
+            result=SourceGoldenIngestResult(
+                source_revision=result.source_revision,
+                profile_run=result.profile_run,
+                cleaning_recipe=result.cleaning_recipe,
+                clean_run=result.clean_run,
+                golden_asset_revision=result.golden_asset_revision,
+                replayed=result.replayed,
+            ),
+        )
 
     def create_skill_draft(
         self,

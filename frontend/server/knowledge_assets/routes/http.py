@@ -19,6 +19,7 @@ from ..contracts import (
     OperationAuditResponse,
 )
 from ..repository import KnowledgeAssetRepositoryError
+from ..sources_golden import SourcesGoldenError
 
 
 def _error(
@@ -96,6 +97,30 @@ def mount_knowledge_asset_routes(
                 request_id=request_id,
                 idempotency_key=idempotency_key,
             )
+        if body.command == "source-golden.connection.create":
+            try:
+                return application.source_golden_connection(
+                    body.payload,
+                    workspace_id=workspace_id,
+                    principal_id=workspace_id,
+                    role=_role,
+                    idempotency_key=idempotency_key,
+                    trace_id=request_id,
+                )
+            except SourcesGoldenError as error:
+                return _error(422, error.code, error.message, request_id)
+        if body.command == "source-golden.ingest":
+            try:
+                return application.source_golden_ingest(
+                    body.payload,
+                    workspace_id=workspace_id,
+                    principal_id=workspace_id,
+                    role=_role,
+                    idempotency_key=idempotency_key,
+                    trace_id=request_id,
+                )
+            except SourcesGoldenError as error:
+                return _error(422, error.code, error.message, request_id)
         async_mode = (
             body.command in {"skill-draft.run", "skill-draft.retry"}
             and "respond-async" in request.headers.get("Prefer", "")

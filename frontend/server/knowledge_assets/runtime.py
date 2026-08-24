@@ -11,6 +11,7 @@ from .application import KnowledgeAssetApplication
 from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import SqliteKnowledgeAssetRepository
 from .routes import mount_knowledge_asset_routes
+from .sources_golden import SourceGoldenApplication
 
 
 def create_app(
@@ -42,10 +43,17 @@ def create_app(
         )
         else SqliteKnowledgeAssetRepository(repository_path)
     )
+    runtime_root = Path(".veadk/knowledge-assets/sources-golden")
+    sources_golden = SourceGoldenApplication(
+        database_path=runtime_root / "sources-golden.sqlite3",
+        artifact_root=runtime_root / "artifacts",
+        source_root=runtime_root / "sources",
+    )
     mount_knowledge_asset_routes(
         app,
         application=KnowledgeAssetApplication(
-            repository
+            repository,
+            sources_golden=sources_golden,
         ),
         identity_resolver=identity_resolver,
     )

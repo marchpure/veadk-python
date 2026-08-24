@@ -1,8 +1,20 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactExportResult, AssistantTurnResult, Audit, AuthoringEvent, AuthoringOperation, DraftCommandResult, DraftRevision, ErrorEnvelope } from "./part1";
+import type { ArtifactExportResult, ArtifactRef, AssistantTurnResult, Audit, AuthoringEvent, AuthoringOperation, DraftCommandResult, DraftRevision, ErrorEnvelope } from "./part1";
 import type { EvaluationQualityCommandResult, EvaluationRunResult, Event, GoldenAssetRevision, InvocationStartResult, LegacySkillManifestInput } from "./part2";
-import type { SkillManifest, SkillOperation, SkillResult, SkillViewRevision, SkillViewShareGrant, SourceCleanResult, SourceProfileResult, StorageRef, ViewIntent } from "./part4";
+import type { SkillManifest, SkillOperation, SkillResult, SkillViewRevision, SkillViewShareGrant, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewIntent } from "./part4";
+
+export interface ManifestInputSchema {
+  type?: "object";
+  properties?: Record<string, ManifestProperty>;
+  required?: Array<string>;
+  additionalProperties?: boolean;
+}
+
+export interface ManifestProperty {
+  type: "string" | "number" | "boolean" | "object" | "array";
+  description?: string;
+}
 
 export interface McpConnectorConfig {
   kind: "mcp";
@@ -33,7 +45,7 @@ export interface Operation {
   status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
   version: number;
   events: Array<Event>;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
   error?: ErrorEnvelope | null;
   nextActions?: Array<string>;
   audit?: Array<Audit>;
@@ -87,6 +99,15 @@ export interface PolicyGateEvaluatePayload {
   checks?: Array<PolicyCheck>;
 }
 
+export interface ProfileField {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+  nullCount: number;
+  distinctCount: number;
+  sensitive?: boolean;
+}
+
 export interface ProfileRun {
   id: string;
   sourceRevisionId: string;
@@ -100,6 +121,21 @@ export interface ProfileRun {
   errorCode?: string | null;
   startedAt: string;
   finishedAt?: string | null;
+}
+
+export interface ProfileRunRecord {
+  id: string;
+  sourceRevisionId: string;
+  status: "succeeded" | "failed" | "cancelled";
+  rowCount: number;
+  fields: Array<ProfileField>;
+  qualityScore: number;
+  sensitiveFields: Array<string>;
+  reportRef: ArtifactRef;
+  sampleRef: ArtifactRef;
+  startedAt: string;
+  finishedAt: string;
+  traceId: string;
 }
 
 export interface ProviderDocumentConfig {
@@ -367,3 +403,5 @@ export interface SkillDraftRunResult {
   traceRef?: StorageRef | null;
   evidenceRef?: StorageRef | null;
 }
+
+export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";

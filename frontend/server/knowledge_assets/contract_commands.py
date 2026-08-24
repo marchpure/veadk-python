@@ -19,6 +19,15 @@ from frontend.server.skill_authoring.models import (
     DraftRevision,
     ResourceRef as AuthoringResourceRef,
 )
+from .sources_golden.models import (
+    ConnectorOperation,
+    ConnectionInstance,
+    GoldenAssetRevisionRecord,
+    ProfileRunRecord,
+    CleaningRecipeRecord,
+    CleanRunRecord,
+    SourceRevisionRecord,
+)
 
 
 class ErrorEnvelope(ContractModel):
@@ -72,6 +81,41 @@ class ResourcePayload(ContractModel):
 
 class ConnectorPayload(ContractModel):
     connector_key: str = Field(min_length=1, max_length=128)
+
+
+class SourceGoldenConnectionCreatePayload(ContractModel):
+    connector_key: str = Field(min_length=1, max_length=128)
+    display_name: str = Field(min_length=1, max_length=256)
+    scope: Literal["personal", "team"] = "personal"
+    configuration: dict[str, object] = Field(default_factory=dict)
+    secret_ref: str | None = None
+
+
+class SourceGoldenIngestPayload(ContractModel):
+    connection_id: str = Field(min_length=1, max_length=256)
+    resource_id: str | None = None
+    recipe_operations: list[
+        Literal["trim", "deduplicate", "normalize", "redact"]
+    ] = Field(default_factory=lambda: ["trim"])
+    tool_arguments: dict[str, object] = Field(default_factory=dict)
+
+
+class SourceGoldenConnectionResult(ContractModel):
+    result_type: Literal["source_golden.connection"] = "source_golden.connection"
+    connection: ConnectionInstance
+    validation: ConnectorOperation
+    discovery: ConnectorOperation
+    replayed: bool = False
+
+
+class SourceGoldenIngestResult(ContractModel):
+    result_type: Literal["source_golden.ingest"] = "source_golden.ingest"
+    source_revision: SourceRevisionRecord
+    profile_run: ProfileRunRecord
+    cleaning_recipe: CleaningRecipeRecord
+    clean_run: CleanRunRecord
+    golden_asset_revision: GoldenAssetRevisionRecord
+    replayed: bool = False
 
 
 class ImportPayload(ContractModel):
@@ -446,7 +490,9 @@ CommandResult = Annotated[
     | InvocationStartResult
     | EvaluationRunResult
     | EvaluationQualityCommandResult
-    | SkillAuthoringStartResult,
+    | SkillAuthoringStartResult
+    | SourceGoldenConnectionResult
+    | SourceGoldenIngestResult,
     Field(discriminator="result_type"),
 ]
 
@@ -622,6 +668,16 @@ class SkillAuthoringStartCommand(ContractModel):
     payload: SkillAuthoringStartPayload
 
 
+class SourceGoldenConnectionCreateCommand(ContractModel):
+    command: Literal["source-golden.connection.create"]
+    payload: SourceGoldenConnectionCreatePayload
+
+
+class SourceGoldenIngestCommand(ContractModel):
+    command: Literal["source-golden.ingest"]
+    payload: SourceGoldenIngestPayload
+
+
 CommandRequest = Annotated[
     CreateSkillDraftCommand
     | SaveManifestCommand
@@ -655,7 +711,9 @@ CommandRequest = Annotated[
     | PublicationPublishCommand
     | RefreshRunCommand
     | InvocationStartCommand
-    | SkillAuthoringStartCommand,
+    | SkillAuthoringStartCommand
+    | SourceGoldenConnectionCreateCommand
+    | SourceGoldenIngestCommand,
     Field(discriminator="command"),
 ]
 

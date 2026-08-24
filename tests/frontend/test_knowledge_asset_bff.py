@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
+from pathlib import Path
+import sys
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -21,19 +24,170 @@ from frontend.server.knowledge_assets.repository import (
     SqliteKnowledgeAssetRepository,
 )
 from frontend.server.knowledge_assets.routes import mount_knowledge_asset_routes
+from frontend.server.knowledge_assets.sources_golden import (
+    AccessContext,
+    SourceGoldenApplication,
+)
 from frontend.server.knowledge_assets.workers import JobFramework, JobLeaseError
 
 
-def build_client() -> TestClient:
+def build_client(
+    sources_golden: SourceGoldenApplication | None = None,
+) -> TestClient:
     app = FastAPI()
     mount_knowledge_asset_routes(
         app,
         application=KnowledgeAssetApplication(
-            SqliteKnowledgeAssetRepository(":memory:")
+            SqliteKnowledgeAssetRepository(":memory:"),
+            sources_golden=sources_golden,
         ),
         identity_resolver=lambda request: ("workspace-test", "editor"),
     )
     return TestClient(app)
+
+
+def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None:
+    data_path = tmp_path / "metrics.json"
+    data_path.write_text(
+        json.dumps(
+            [
+                {"service": "edge", "cpuPercent": 21.0},
+                {"service": "worker", "cpuPercent": 48.0},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    server = (
+        Path(__file__).parents[1]
+        / "fixtures"
+        / "knowledge_workspace_v21141"
+        / "mcp_sdk_infrastructure_server.py"
+    ).resolve()
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path,
+    )
+    client = build_client(source_golden)
+    connection = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "source-golden.connection.create",
+            "payload": {
+                "connectorKey": "mcp_custom",
+                "displayName": "Infrastructure MCP",
+                "scope": "team",
+                "configuration": {
+                    "transport": "stdio",
+                    "command": sys.executable,
+                    "args": [str(server)],
+                    "env": {"MCP_FIXTURE_DATA_PATH": str(data_path)},
+                    "cwd": str(tmp_path),
+                    "startupTimeoutSeconds": 5,
+                    "callTimeoutSeconds": 5,
+                    "toolAllowlist": ["infrastructure.metrics"],
+                    "outputBytes": 1000000,
+                },
+            },
+        },
+        headers={
+            "X-Request-ID": "bff-mcp-connection",
+            "Idempotency-Key": "bff-mcp-connection",
+        },
+    )
+    assert connection.status_code == 200
+    connection_payload = connection.json()
+    assert connection_payload["accepted"] is True
+    connection_result = connection_payload["result"]
+    assert connection_result["connection"]["status"] == "ready"
+    assert connection_result["discovery"]["resources"][0]["name"] == (
+        "infrastructure.metrics"
+    )
+
+    resource_id = connection_result["discovery"]["resources"][0]["id"]
+    ingested = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "source-golden.ingest",
+            "payload": {
+                "connectionId": connection_result["connection"]["id"],
+                "resourceId": resource_id,
+                "recipeOperations": ["trim"],
+                "toolArguments": {"service": "all"},
+            },
+        },
+        headers={
+            "X-Request-ID": "bff-mcp-ingest",
+            "Idempotency-Key": "bff-mcp-ingest",
+        },
+    )
+    assert ingested.status_code == 200
+    ingest_result = ingested.json()["result"]
+    assert ingest_result["sourceRevision"]["sourceType"] == "mcp"
+    assert ingest_result["goldenAssetRevision"]["revision"] == 1
+    assert ingest_result["goldenAssetRevision"]["lineage"]["toolArguments"] == {
+        "service": "all"
+    }
+
+
+def test_authoring_resolves_real_golden_revision_before_model_gate(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "metrics.csv"
+    source.write_text("service,cpu\nedge,21\nworker,48\n", encoding="utf-8")
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path,
+    )
+    created = source_golden.create_connection(
+        AccessContext(workspace_id="workspace-test", principal_id="workspace-test", role="editor"),
+        connector_key="csv",
+        display_name="Infrastructure CSV",
+        scope="team",
+        configuration={"sourceRef": "metrics.csv"},
+        secret_ref=None,
+        idempotency_key="authoring-source",
+        trace_id="authoring-source-trace",
+    )
+    ingested = source_golden.ingest(
+        AccessContext(workspace_id="workspace-test", principal_id="workspace-test", role="editor"),
+        connection_id=created.connection.id,
+        resource_id=created.connection.discovered_resources[0].id,
+        recipe_operations=["trim"],
+        idempotency_key="authoring-golden",
+        trace_id="authoring-golden-trace",
+    )
+    client = build_client(source_golden)
+    revision = ingested.golden_asset_revision
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-authoring.start",
+            "payload": {
+                "prompt": "Compare infrastructure CPU by service.",
+                "resourceRefs": [
+                    {
+                        "kind": "golden_asset",
+                        "object_id": revision.asset_id,
+                        "revision": revision.id,
+                        "scope": "team",
+                    }
+                ],
+                "fixedRevisions": [revision.id],
+                "requestedKind": "analysis",
+            },
+        },
+        headers={
+            "X-Request-ID": "authoring-real-context",
+            "Idempotency-Key": "authoring-real-context",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["result"]["status"] == "credential_blocked"
+    assert payload["result"]["operation"]["context_digest"]
+    assert payload["result"]["operation"]["context_digest"] != ""
 
 
 def test_create_skill_draft_persists_and_replays_projection() -> None:

@@ -1,8 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationCaseGenerateCandidatePayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult } from "./part2";
-import type { NotReadyCommandResult, OutputContract, PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult } from "./part3";
-import type { SkillKind, SkillPatch, SourceCleanResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
+import type { EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult } from "./part2";
+import type { NotReadyCommandResult, OutputContract, PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
+import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
 
 export interface ActionCommand {
   command: "action.update";
@@ -73,6 +73,27 @@ export interface ArtifactExportResult {
   status?: "not_ready" | "succeeded" | "failed";
   resourceId: string;
   artifactRef?: StorageRef | null;
+}
+
+export interface ArtifactRef {
+  uri: string;
+  sha256: string;
+  mediaType: string;
+  bytes: number;
+}
+
+export interface AssetOwner {
+  workspaceId: string;
+  principalId: string;
+}
+
+export interface AssetPermission {
+  workspaceId: string;
+  scope: "personal" | "team";
+  canRead: boolean;
+  canWrite: boolean;
+  inheritedFromConnectionId: string;
+  version: number;
 }
 
 export interface AssistantCommand {
@@ -188,6 +209,12 @@ export interface BuildPlan {
   plan_digest: string;
 }
 
+export interface CapabilityReason {
+  code: string;
+  message: string;
+  retryable?: boolean;
+}
+
 export type CaseCategory = "normal" | "refusal" | "unauthorized" | "empty_data" | "ambiguity" | "metric_definition" | "citation" | "chart_consistency" | "interaction" | "performance_budget";
 
 export type CaseSource = "manual" | "historical_conversation" | "historical_run" | "csv_import" | "json_import" | "agent_candidate";
@@ -218,6 +245,18 @@ export interface CleanRun {
   finishedAt?: string | null;
 }
 
+export interface CleanRunRecord {
+  id: string;
+  sourceRevisionId: string;
+  recipeId: string;
+  status: "succeeded" | "failed" | "cancelled";
+  outputRef: ArtifactRef;
+  qualityReportRef: ArtifactRef;
+  startedAt: string;
+  finishedAt: string;
+  traceId: string;
+}
+
 export interface CleaningRecipe {
   id: string;
   version: number;
@@ -227,20 +266,56 @@ export interface CleaningRecipe {
   recipeDigest: string;
 }
 
+export interface CleaningRecipeRecord {
+  id: string;
+  assetId: string;
+  version: number;
+  sourceRevisionId: string;
+  operations: Array<"trim" | "deduplicate" | "normalize" | "redact">;
+  recipeDigest: string;
+  createdAt: string;
+}
+
 export interface CommandResponse {
   accepted: boolean;
   requestId: string;
   operationId?: string | null;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
 }
 
 export interface CompatibilityTargets {
   targets?: Array<"agentkit" | "mcp" | "openapi" | "codex">;
 }
 
+export interface ConnectionInstance {
+  id: string;
+  workspaceId: string;
+  connectorKey: string;
+  displayName: string;
+  scope: "personal" | "team";
+  ownerId: string;
+  status: "ready" | "config_required" | "credential_blocked" | "unsupported" | "revoked";
+  configuration: Record<string, string | number | boolean | Array<string> | Record<string, string>>;
+  secretRef?: string | null;
+  syncMode: "full" | "incremental" | "realtime";
+  createdAt: string;
+  updatedAt: string;
+  lastSuccessAt?: string | null;
+  lastError?: CapabilityReason | null;
+  discoveredResources?: Array<DiscoveredResource>;
+}
+
 export interface ConnectorCommand {
   command: "connector.create" | "connector.test";
   payload: ConnectorPayload;
+}
+
+export interface ConnectorOperation {
+  operation: "validate" | "discover" | "revoke" | "delete";
+  status: "succeeded" | "config_required" | "credential_blocked" | "unsupported" | "failed";
+  traceId: string;
+  reason: CapabilityReason;
+  resources?: Array<DiscoveredResource>;
 }
 
 export interface ConnectorPayload {
@@ -297,6 +372,24 @@ export interface DatabaseConnectorConfig {
   timeoutSeconds?: number;
 }
 
+export interface DiscoveredField {
+  name: string;
+  dataType: string;
+  nullable?: boolean;
+}
+
+export interface DiscoveredResource {
+  id: string;
+  name: string;
+  resourceType: "file" | "table" | "document" | "operation" | "tool";
+  schemaName?: string | null;
+  rowCount?: number | null;
+  fields?: Array<DiscoveredField>;
+  inputSchema?: Record<string, unknown> | null;
+  outputSchema?: Record<string, unknown> | null;
+  permission?: "read" | "denied";
+}
+
 export interface DraftCommandResult {
   resultType: "skill-draft.create" | "skill-draft.save-manifest";
   error?: ErrorEnvelope | null;
@@ -343,34 +436,4 @@ export interface ErrorEnvelope {
   retryable: boolean;
   requestId: string;
   details?: Record<string, string> | null;
-}
-
-export interface EvaluationCaseAdoptHistoryCommand {
-  command: "evaluation-case.adopt-history";
-  payload: EvaluationCaseAdoptHistoryPayload;
-}
-
-export interface EvaluationCaseAdoptHistoryPayload {
-  caseId: string;
-  category: string;
-  input: Record<string, unknown>;
-  expected: Record<string, unknown>;
-  provenanceRef: string;
-  source: "historical_conversation" | "historical_run";
-}
-
-export interface EvaluationCaseConfirmCommand {
-  command: "evaluation-case.confirm-candidates";
-  payload: EvaluationCaseConfirmPayload;
-}
-
-export interface EvaluationCaseConfirmPayload {
-  suiteId: string;
-  version: number;
-  caseIds: Array<string>;
-}
-
-export interface EvaluationCaseGenerateCandidateCommand {
-  command: "evaluation-case.generate-candidates";
-  payload: EvaluationCaseGenerateCandidatePayload;
 }
