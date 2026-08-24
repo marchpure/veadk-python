@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
-const referenceUrl =
+const referenceUrl = process.env.KNOWLEDGE_REFERENCE_URL ??
   "https://6a8afc013497970234090688-prototype.inspire.bytedance.net/?file=welcome";
 const candidateUrl = process.env.KNOWLEDGE_CANDIDATE_URL ??
   "http://127.0.0.1:4173/?studio=knowledge&file=welcome";
