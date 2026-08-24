@@ -18,7 +18,8 @@ class SkillDraft(ContractModel):
 class SourceRevision(ContractModel):
     id: str
     source_type: Literal[
-        "local_file", "pdf", "document", "database", "excel", "web_api", "mcp"
+        "local_file", "markdown", "csv", "pdf", "document", "database", "excel",
+        "web_api", "mcp"
     ]
     content_ref: StorageRef
     schema_ref: SchemaRef | None = None
@@ -112,5 +113,4 @@ class SkillResult(ContractModel):
     golden_asset_revision_refs: list[str] = Field(default_factory=list, max_length=100)
     trace_id: str
     freshness_at: str | None = None
-
 

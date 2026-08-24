@@ -23,6 +23,11 @@ from ..contracts import (
     ResourceSummary,
     SkillDraft,
     SkillManifest,
+    CleanRun,
+    CleaningRecipe,
+    GoldenAssetRevision,
+    ProfileRun,
+    SourceRevision,
     empty_knowledge_manifest,
     now_iso,
 )
@@ -104,6 +109,14 @@ class KnowledgeAssetRepository(Protocol):
 
     def cancel_operation(self, operation_id: str, request_id: str) -> OperationResponse: ...
 
+    def source_revision(self, source_revision_id: str) -> SourceRevision | None: ...
+    def save_source_revision(self, revision: SourceRevision, workspace_id: str, source_path: str) -> None: ...
+    def save_profile_run(self, run: ProfileRun) -> None: ...
+    def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None: ...
+    def save_clean_run(self, run: CleanRun) -> None: ...
+    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> None: ...
+    def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None: ...
+
 
 class SqliteKnowledgeAssetRepository:
     """SQL-backed repository used by local Studio and contract environments."""
@@ -147,7 +160,10 @@ class SqliteKnowledgeAssetRepository:
         ]
         return BootstrapResponse(
             resources=resources,
-            connections=[],
+            connections=[
+                {"id": "local-markdown", "type": "markdown", "status": "available"},
+                {"id": "local-csv", "type": "csv", "status": "available"},
+            ],
             publications=[],
             routes=["welcome", "add_kb", "skill_builder"],
             workspace_data={
@@ -166,7 +182,10 @@ class SqliteKnowledgeAssetRepository:
             access={
                 "spaceId": workspace_id,
                 "role": role,
-                "capabilities": ["skill-draft.create", "skill-draft.save-manifest"],
+                "capabilities": [
+                    "skill-draft.create", "skill-draft.save-manifest",
+                    "source.profile", "source.clean", "skill-draft.run",
+                ],
             },
             server_time=now_iso(),
         )
@@ -181,7 +200,6 @@ class SqliteKnowledgeAssetRepository:
         request_id: str,
         idempotency_key: str,
     ) -> tuple[SkillDraft, bool]:
-        del source_refs
         with self._lock:
             existing = self._connection.execute(
                 """
@@ -253,7 +271,139 @@ class SqliteKnowledgeAssetRepository:
                 """,
                 (idempotency_key, draft.model_dump_json(by_alias=True)),
             )
+            for source_ref in source_refs:
+                self._connection.execute(
+                    "INSERT OR IGNORE INTO contract_objects "
+                    "(object_type, object_id, metadata_json, relation_json, status) "
+                    "VALUES ('source_ref', ?, ?, ?, 'attached')",
+                    (draft.id, json.dumps({"sourceRef": source_ref}), "{}"),
+                )
         return draft, False
+
+    def save_source_revision(
+        self, revision: SourceRevision, workspace_id: str, source_path: str
+    ) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO source_revisions
+                (id, workspace_id, source_type, content_ref_json, schema_ref_json,
+                 permission_ref_json, source_digest, source_path, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    revision.id, workspace_id, revision.source_type,
+                    revision.content_ref.model_dump_json(by_alias=True),
+                    revision.schema_ref.model_dump_json(by_alias=True)
+                    if revision.schema_ref else None,
+                    revision.permission_ref.model_dump_json(by_alias=True),
+                    revision.source_digest, source_path, revision.created_at,
+                ),
+            )
+
+    def source_revision(self, source_revision_id: str) -> SourceRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM source_revisions WHERE id = ?", (source_revision_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return SourceRevision(
+            id=row["id"], source_type=row["source_type"],
+            content_ref=json.loads(row["content_ref_json"]),
+            schema_ref=json.loads(row["schema_ref_json"]) if row["schema_ref_json"] else None,
+            permission_ref=json.loads(row["permission_ref_json"]),
+            source_digest=row["source_digest"], created_at=row["created_at"],
+        )
+
+    def source_path(self, source_revision_id: str) -> str | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT source_path FROM source_revisions WHERE id = ?",
+                (source_revision_id,),
+            ).fetchone()
+        return row["source_path"] if row else None
+
+    def source_workspace(self, source_revision_id: str) -> str | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT workspace_id FROM source_revisions WHERE id = ?",
+                (source_revision_id,),
+            ).fetchone()
+        return row["workspace_id"] if row else None
+
+    def save_profile_run(self, run: ProfileRun) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO profile_runs
+                (id, source_revision_id, status, sample_ref_json, report_ref_json,
+                 quality_score, error_code, started_at, finished_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (run.id, run.source_revision_id, run.status,
+                 run.sample_ref.model_dump_json(by_alias=True) if run.sample_ref else None,
+                 run.report_ref.model_dump_json(by_alias=True) if run.report_ref else None,
+                 run.quality_score, run.error_code, run.started_at, run.finished_at),
+            )
+
+    def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO cleaning_recipes
+                (id, version, operations_json, source_revision_id, recipe_digest)
+                VALUES (?, ?, ?, ?, ?)""",
+                (recipe.id, recipe.version, json.dumps(recipe.operations),
+                 recipe.source_revision_id, recipe.recipe_digest),
+            )
+
+    def save_clean_run(self, run: CleanRun) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO clean_runs
+                (id, source_revision_id, recipe_id, status, output_ref_json,
+                 quality_report_ref_json, error_code, started_at, finished_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (run.id, run.source_revision_id, run.recipe_id, run.status,
+                 run.output_ref.model_dump_json(by_alias=True) if run.output_ref else None,
+                 run.quality_report_ref.model_dump_json(by_alias=True)
+                 if run.quality_report_ref else None,
+                 run.error_code, run.started_at, run.finished_at),
+            )
+
+    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO golden_asset_revisions
+                (id, workspace_id, asset_kind, revision, schema_ref_json,
+                 storage_ref_json, source_revision_refs_json, recipe_ref,
+                 quality_run_ref, owner_json, permissions_ref_json, lineage_digest,
+                 freshness_at, last_good)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (revision.id, revision.owner.workspace_id, revision.asset_kind,
+                 revision.revision, revision.schema_ref.model_dump_json(by_alias=True),
+                 revision.storage_ref.model_dump_json(by_alias=True),
+                 json.dumps(revision.source_revision_refs), revision.recipe_ref,
+                 revision.quality_run_ref, revision.owner.model_dump_json(by_alias=True),
+                 revision.permissions_ref.model_dump_json(by_alias=True),
+                 revision.lineage_digest, revision.freshness_at, int(revision.last_good)),
+            )
+
+    def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM golden_asset_revisions WHERE workspace_id = ? "
+                "ORDER BY revision DESC LIMIT 1", (workspace_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return GoldenAssetRevision(
+            id=row["id"], asset_kind=row["asset_kind"], revision=row["revision"],
+            schema_ref=json.loads(row["schema_ref_json"]),
+            storage_ref=json.loads(row["storage_ref_json"]),
+            source_revision_refs=json.loads(row["source_revision_refs_json"]),
+            recipe_ref=row["recipe_ref"], quality_run_ref=row["quality_run_ref"],
+            owner=json.loads(row["owner_json"]),
+            permissions_ref=json.loads(row["permissions_ref_json"]),
+            lineage_digest=row["lineage_digest"], freshness_at=row["freshness_at"],
+            last_good=bool(row["last_good"]),
+        )
 
     def draft(self, draft_id: str) -> SkillDraft | None:
         with self._lock:

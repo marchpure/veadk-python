@@ -135,21 +135,25 @@ class NotReadyCommandResult(CommandResultBase):
 
 class SourceProfileResult(CommandResultBase):
     result_type: Literal["source.profile"] = "source.profile"
-    status: Literal["not_ready"] = "not_ready"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
     source_revision_id: str
+    profile_run: ProfileRun | None = None
 
 
 class SourceCleanResult(CommandResultBase):
     result_type: Literal["source.clean"] = "source.clean"
-    status: Literal["not_ready"] = "not_ready"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
     source_revision_id: str
     recipe_id: str
+    clean_run: CleanRun | None = None
+    golden_asset_revision: GoldenAssetRevision | None = None
 
 
 class SkillDraftRunResult(CommandResultBase):
     result_type: Literal["skill-draft.run"] = "skill-draft.run"
-    status: Literal["not_ready"] = "not_ready"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
     draft_id: str
+    golden_asset_revision: GoldenAssetRevision | None = None
 
 
 class PublicationPublishResult(CommandResultBase):
@@ -345,5 +349,3 @@ OperationResponse = Operation
 class OperationAuditResponse(ContractModel):
     operation_id: str
     items: list[Audit] = Field(default_factory=list)
-
-
