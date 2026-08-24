@@ -1,0 +1,29 @@
+{
+  "status": "INTEGRATING",
+  "step4Ready": false,
+  "date": "2026-08-25",
+  "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "42b733ec"],
+  "workerCommits": {"W1": null, "W2": null, "W3": null, "W4": null},
+  "finalTag": null,
+  "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
+  "commandRegistryDigest": "bcd6f4d1ca7c3f7e52b1ced95de410cbc843c68397ca9f45b799e427a5718d18",
+  "migrationHead": "004_step3_shares",
+  "oldRouteCount": 23,
+  "newRouteCount": 43,
+  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+  "tests": {
+    "backendFocused": "29 passed",
+    "frontendFocused": "75 passed",
+    "build": "passed",
+    "staticGuard": "passed"
+  },
+  "studioUrl": "http://127.0.0.1:4173/?studio=knowledge",
+  "apiUrl": "http://127.0.0.1:8793",
+  "knownDebt": [
+    "worker proposals not yet committed/reviewed",
+    "43-state browser evidence not yet complete",
+    "fresh aggregate vertical IDs/evidence not yet recorded",
+    "external credential connectors remain blocked",
+    "formal publication, Registry, Scheduler, and cross-Agent calling are STEP 4"
+  ]
+}
