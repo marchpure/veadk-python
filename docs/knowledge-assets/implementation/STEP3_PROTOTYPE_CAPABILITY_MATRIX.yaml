@@ -1,0 +1,48 @@
+schemaVersion: "1.0"
+date: "2026-08-25"
+routeCounts: { old: 23, new: 43, added: 20 }
+fields: [stateUrl, expectedUiAction, productionUseCase, owner, status, automatedTest]
+states:
+  - {stateUrl: "/?file=welcome", expectedUiAction: "Studio home and composer", productionUseCase: "workspace.read/composer", owner: MAIN, status: STEP3_REAL, automatedTest: "frontend workspace home"}
+  - {stateUrl: "/?file=add_data&step=1", expectedUiAction: "Open connector catalog", productionUseCase: "source.catalog.read", owner: W1, status: STEP3_REAL, automatedTest: "connector catalog"}
+  - {stateUrl: "/?file=add_data&step=2&source=lark_doc", expectedUiAction: "Show credential form and blocked state", productionUseCase: "source.create", owner: W1, status: EXTERNAL_CREDENTIAL_BLOCKED, automatedTest: "connector contract"}
+  - {stateUrl: "/?file=add_data&step=2&source=postgresql", expectedUiAction: "Show PostgreSQL form", productionUseCase: "source.create", owner: W1, status: STEP3_REAL, automatedTest: "source form"}
+  - {stateUrl: "/?file=add_data&step=2&source=create_custom", expectedUiAction: "Show custom connector form", productionUseCase: "source.create", owner: W1, status: STEP3_GATED, automatedTest: "source form"}
+  - {stateUrl: "/?modal=v212_entry", expectedUiAction: "Open review acceptance drawer", productionUseCase: "workspace.review.read", owner: MAIN, status: STEP3_REAL, automatedTest: "route manifest"}
+  - {stateUrl: "/?file=journey_knowledge&step=1&pane=open", expectedUiAction: "Knowledge journey prepares material", productionUseCase: "skill-draft.prepare", owner: W1, status: STEP3_REAL, automatedTest: "journey route"}
+  - {stateUrl: "/?file=journey_knowledge&step=1&error_state=auth_failed&pane=open", expectedUiAction: "Credential error and recovery", productionUseCase: "source.error.read", owner: W1, status: EXTERNAL_CREDENTIAL_BLOCKED, automatedTest: "credential blocking"}
+  - {stateUrl: "/?file=journey_knowledge&step=7&pane=open", expectedUiAction: "Evaluation gate before publish", productionUseCase: "evaluation.run", owner: W4, status: STEP3_GATED, automatedTest: "evaluation core"}
+  - {stateUrl: "/?file=journey_knowledge&step=8&pane=open", expectedUiAction: "Show invocation deferred state", productionUseCase: "invocation.start", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "invocation boundary"}
+  - {stateUrl: "/?file=journey_oracle_excel&step=1&pane=open", expectedUiAction: "Oracle/Excel journey entry", productionUseCase: "source.create", owner: W1, status: EXTERNAL_CREDENTIAL_BLOCKED, automatedTest: "connector contract"}
+  - {stateUrl: "/?file=journey_oracle_excel&step=4&pane=open", expectedUiAction: "Show build details", productionUseCase: "skill-draft.run", owner: W3, status: STEP3_REAL, automatedTest: "typed execution"}
+  - {stateUrl: "/?file=journey_oracle_excel&step=7&pane=open", expectedUiAction: "Evaluation gate", productionUseCase: "evaluation.run", owner: W4, status: STEP3_GATED, automatedTest: "evaluation core"}
+  - {stateUrl: "/?file=journey_oracle_excel&step=8&pane=open", expectedUiAction: "Show deferred Agent calling", productionUseCase: "invocation.start", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "invocation boundary"}
+  - {stateUrl: "/?file=journey_web_api&step=1&pane=open", expectedUiAction: "Web API connector entry", productionUseCase: "source.create", owner: W1, status: EXTERNAL_CREDENTIAL_BLOCKED, automatedTest: "web adapter contract"}
+  - {stateUrl: "/?file=journey_web_api&step=7&pane=open", expectedUiAction: "Evaluation gate", productionUseCase: "evaluation.run", owner: W4, status: STEP3_GATED, automatedTest: "evaluation core"}
+  - {stateUrl: "/?file=journey_web_api&step=8&pane=open", expectedUiAction: "Schema drift/error read model", productionUseCase: "source.refresh", owner: W1, status: EXTERNAL_CREDENTIAL_BLOCKED, automatedTest: "refresh matrix"}
+  - {stateUrl: "/?file=journey_financial_monitor&step=1&pane=open", expectedUiAction: "Monitoring journey entry", productionUseCase: "skill-draft.prepare", owner: W3, status: STEP3_REAL, automatedTest: "journey route"}
+  - {stateUrl: "/?file=journey_financial_monitor&step=6&pane=open", expectedUiAction: "Historical evaluation view", productionUseCase: "evaluation.run", owner: W4, status: STEP3_REAL, automatedTest: "evaluation cases"}
+  - {stateUrl: "/?file=journey_financial_monitor&step=7&pane=open", expectedUiAction: "Evaluation gate", productionUseCase: "evaluation.run", owner: W4, status: STEP3_GATED, automatedTest: "evaluation core"}
+  - {stateUrl: "/?file=journey_financial_monitor&step=8&pane=open", expectedUiAction: "Monitoring invocation deferred", productionUseCase: "invocation.start", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "invocation boundary"}
+  - {stateUrl: "/?file=journey_workday_mcp&step=1&pane=open", expectedUiAction: "MCP connector entry", productionUseCase: "source.create", owner: W1, status: EXTERNAL_CREDENTIAL_BLOCKED, automatedTest: "MCP allowlist"}
+  - {stateUrl: "/?file=journey_workday_mcp&step=5&error_state=render_error&pane=open", expectedUiAction: "Trusted renderer error", productionUseCase: "view.render", owner: W3, status: STEP3_REAL, automatedTest: "render boundary"}
+  - {stateUrl: "/?file=journey_workday_mcp&step=7&pane=open", expectedUiAction: "Evaluation gate", productionUseCase: "evaluation.run", owner: W4, status: STEP3_GATED, automatedTest: "evaluation core"}
+  - {stateUrl: "/?file=journey_workday_mcp&step=8&pane=open", expectedUiAction: "MCP invocation deferred", productionUseCase: "invocation.start", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "invocation boundary"}
+  - {stateUrl: "/?file=res_dash_finance", expectedUiAction: "Financial dashboard", productionUseCase: "view.read", owner: MAIN, status: STEP3_REAL, automatedTest: "visual baseline"}
+  - {stateUrl: "/?file=res_dash_finance&modal=action_policy&policy_id=pol_finance", expectedUiAction: "Action policy modal", productionUseCase: "policy.read", owner: W4, status: STEP3_GATED, automatedTest: "policy gate"}
+  - {stateUrl: "/?file=res_dash_east", expectedUiAction: "Dashboard viewer", productionUseCase: "view.read", owner: MAIN, status: STEP3_REAL, automatedTest: "visual baseline"}
+  - {stateUrl: "/?file=res_dash_east&modal=publish_agent", expectedUiAction: "Agent publish gate", productionUseCase: "publication.publish", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "publication boundary"}
+  - {stateUrl: "/?file=res_dash_east&modal=agent_selector", expectedUiAction: "Agent target selector", productionUseCase: "agent.target.read", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "publication boundary"}
+  - {stateUrl: "/?file=evaluation_detail&eval_target=res_dash_east", expectedUiAction: "Evaluation details", productionUseCase: "evaluation.read", owner: W4, status: STEP3_REAL, automatedTest: "evaluation cases"}
+  - {stateUrl: "/?file=kg_sales", expectedUiAction: "Knowledge graph viewer", productionUseCase: "view.read", owner: W3, status: STEP3_REAL, automatedTest: "graph projection"}
+  - {stateUrl: "/?file=kg_sales&pane=open&chat=planning", expectedUiAction: "Graph build plan assistant", productionUseCase: "assistant.turn", owner: W2, status: STEP3_REAL, automatedTest: "typed patch"}
+  - {stateUrl: "/?file=res_dash_recruitment", expectedUiAction: "Action-loop data tab", productionUseCase: "view.read", owner: MAIN, status: STEP3_REAL, automatedTest: "action loop"}
+  - {stateUrl: "/?file=res_dash_recruitment&dash_tab=action", expectedUiAction: "Action tab", productionUseCase: "action.read", owner: MAIN, status: STEP3_REAL, automatedTest: "action loop"}
+  - {stateUrl: "/?file=res_dash_recruitment&dash_tab=review", expectedUiAction: "Review tab", productionUseCase: "evaluation.read", owner: W4, status: STEP3_GATED, automatedTest: "action loop"}
+  - {stateUrl: "/?file=res_dash_recruitment&dash_tab=decision", expectedUiAction: "Decision tab", productionUseCase: "policy.read", owner: W4, status: STEP3_GATED, automatedTest: "action loop"}
+  - {stateUrl: "/?file=res_dash_recruitment&dash_tab=action&highlight_target=todo_vn_hc_1", expectedUiAction: "Evidence highlight", productionUseCase: "evidence.read", owner: W4, status: STEP3_REAL, automatedTest: "action loop"}
+  - {stateUrl: "/?file=res_dash_recruitment&modal=action_policy", expectedUiAction: "Action policy modal", productionUseCase: "policy.read", owner: W4, status: STEP3_GATED, automatedTest: "policy gate"}
+  - {stateUrl: "/?file=semantic_sales", expectedUiAction: "Semantic model viewer", productionUseCase: "view.read", owner: W3, status: STEP3_REAL, automatedTest: "typed execution"}
+  - {stateUrl: "/?file=res_sample_postgres", expectedUiAction: "Connection detail viewer", productionUseCase: "source.read", owner: W1, status: STEP3_REAL, automatedTest: "source revision"}
+  - {stateUrl: "/?file=kb_sales", expectedUiAction: "Knowledge base viewer", productionUseCase: "view.read", owner: W3, status: STEP3_REAL, automatedTest: "typed execution"}
+  - {stateUrl: "/?file=kb_sales&modal=publish_agent", expectedUiAction: "Agent publish gate", productionUseCase: "publication.publish", owner: MAIN, status: STEP4_DEFERRED, automatedTest: "publication boundary"}
