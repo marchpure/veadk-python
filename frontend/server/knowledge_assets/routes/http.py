@@ -88,6 +88,14 @@ def mount_knowledge_asset_routes(
         if not idempotency_key:
             return _error(400, "IDEMPOTENCY_KEY_REQUIRED", "缺少幂等键。", request_id)
         workspace_id, _role = identity_resolver(request)
+        if body.command == "skill-authoring.start":
+            return await application.start_skill_authoring(
+                body.payload.model_dump(mode="python"),
+                caller_id=workspace_id,
+                workspace_id=workspace_id,
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
         async_mode = (
             body.command in {"skill-draft.run", "skill-draft.retry"}
             and "respond-async" in request.headers.get("Prefer", "")
@@ -149,6 +157,14 @@ def mount_knowledge_asset_routes(
     async def operation(operation_id: str, request: Request) -> Any:
         request_id = request.headers.get("X-Request-ID", "missing-request-id")
         value = application.operation(operation_id)
+        if value is None:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        return value.model_dump(mode="json", by_alias=True)
+
+    @app.get("/api/knowledge-assets/v1/authoring/operations/{operation_id}")
+    async def authoring_operation(operation_id: str, request: Request) -> Any:
+        request_id = request.headers.get("X-Request-ID", "missing-request-id")
+        value = await application.authoring_operation(operation_id)
         if value is None:
             return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
         return value.model_dump(mode="json", by_alias=True)

@@ -13,6 +13,12 @@ from .evaluation_quality.models import (
     RunProvenance as QualityRunProvenance,
     TypedPatch as QualityTypedPatch,
 )
+from frontend.server.skill_authoring.models import (
+    AuthoringEvent,
+    AuthoringOperation,
+    DraftRevision,
+    ResourceRef as AuthoringResourceRef,
+)
 
 
 class ErrorEnvelope(ContractModel):
@@ -169,6 +175,22 @@ class InvocationStartPayload(ContractModel):
     caller_id: str = Field(min_length=1, max_length=256)
 
 
+class SkillAuthoringStartPayload(ContractModel):
+    prompt: str = Field(min_length=1, max_length=8_000)
+    resource_refs: list[AuthoringResourceRef] = Field(default_factory=list, max_length=32)
+    permissions: list[str] = Field(default_factory=list, max_length=64)
+    fixed_revisions: list[str] = Field(default_factory=list, max_length=64)
+    requested_kind: Literal[
+        "knowledge", "semantic", "analysis", "graph_ontology", "monitoring"
+    ] | None = None
+    scope: Literal["personal", "team"] = "personal"
+    display_name: str | None = Field(default=None, max_length=160)
+    current_skill_id: str | None = Field(default=None, max_length=160)
+    current_view_id: str | None = Field(default=None, max_length=160)
+    current_component_id: str | None = Field(default=None, max_length=160)
+    comment_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
 class EvaluationSuiteCreatePayload(ContractModel):
     suite_id: str = Field(min_length=1, max_length=128)
     skill_id: str = Field(min_length=1, max_length=256)
@@ -252,6 +274,17 @@ class PolicyGateEvaluatePayload(ContractModel):
 class CommandResultBase(ContractModel):
     result_type: str
     error: ErrorEnvelope | None = None
+
+
+class SkillAuthoringStartResult(CommandResultBase):
+    result_type: Literal["skill-authoring.start"] = "skill-authoring.start"
+    status: Literal[
+        "queued", "planning", "awaiting_input", "ready_for_execution",
+        "credential_blocked", "failed", "cancelled"
+    ] = "failed"
+    operation: AuthoringOperation | None = None
+    draft: DraftRevision | None = None
+    events: list[AuthoringEvent] = Field(default_factory=list, max_length=128)
 
 
 class DraftCommandResult(CommandResultBase):
@@ -412,7 +445,8 @@ CommandResult = Annotated[
     | RefreshRunResult
     | InvocationStartResult
     | EvaluationRunResult
-    | EvaluationQualityCommandResult,
+    | EvaluationQualityCommandResult
+    | SkillAuthoringStartResult,
     Field(discriminator="result_type"),
 ]
 
@@ -583,6 +617,11 @@ class InvocationStartCommand(ContractModel):
     payload: InvocationStartPayload
 
 
+class SkillAuthoringStartCommand(ContractModel):
+    command: Literal["skill-authoring.start"]
+    payload: SkillAuthoringStartPayload
+
+
 CommandRequest = Annotated[
     CreateSkillDraftCommand
     | SaveManifestCommand
@@ -615,7 +654,8 @@ CommandRequest = Annotated[
     | SkillDraftRetryCommand
     | PublicationPublishCommand
     | RefreshRunCommand
-    | InvocationStartCommand,
+    | InvocationStartCommand
+    | SkillAuthoringStartCommand,
     Field(discriminator="command"),
 ]
 

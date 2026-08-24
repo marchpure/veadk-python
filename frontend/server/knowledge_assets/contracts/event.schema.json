@@ -1,30 +1,19 @@
 {
   "$defs": {
-    "AnalysisKindSpec": {
+    "AgentEventEvidence": {
       "additionalProperties": false,
+      "description": "Safe, durable summary of one event emitted by the real Agent Runner.",
       "properties": {
-        "kind": {
-          "const": "analysis",
-          "default": "analysis",
-          "title": "Kind",
-          "type": "string"
-        },
-        "question": {
-          "maxLength": 2048,
+        "event_type": {
+          "maxLength": 160,
           "minLength": 1,
-          "title": "Question",
+          "title": "Event Type",
           "type": "string"
         },
-        "queryPlanRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Queryplanref",
-          "type": "string"
-        },
-        "refreshPolicyRef": {
+        "author": {
           "anyOf": [
             {
-              "maxLength": 2048,
+              "maxLength": 160,
               "type": "string"
             },
             {
@@ -32,27 +21,137 @@
             }
           ],
           "default": null,
-          "title": "Refreshpolicyref"
+          "title": "Author"
         },
-        "alertPolicyRef": {
-          "anyOf": [
-            {
-              "maxLength": 2048,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Alertpolicyref"
+        "has_content": {
+          "default": false,
+          "title": "Has Content",
+          "type": "boolean"
+        },
+        "output_present": {
+          "default": false,
+          "title": "Output Present",
+          "type": "boolean"
         }
       },
       "required": [
-        "question",
-        "queryPlanRef"
+        "event_type"
       ],
-      "title": "AnalysisKindSpec",
+      "title": "AgentEventEvidence",
+      "type": "object"
+    },
+    "AgentExecutionEvidence": {
+      "additionalProperties": false,
+      "description": "Verifiable execution evidence; IDs are never fabricated on failure.",
+      "properties": {
+        "session_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Trace Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/AgentEventEvidence"
+          },
+          "maxItems": 256,
+          "title": "Events",
+          "type": "array"
+        },
+        "tool_calls": {
+          "items": {
+            "$ref": "#/$defs/AgentToolCallEvidence"
+          },
+          "maxItems": 128,
+          "title": "Tool Calls",
+          "type": "array"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoringErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        }
+      },
+      "required": [
+        "session_id",
+        "trace_id",
+        "status"
+      ],
+      "title": "AgentExecutionEvidence",
+      "type": "object"
+    },
+    "AgentToolCallEvidence": {
+      "additionalProperties": false,
+      "description": "Safe, durable summary of a formal tool call observed in Runner events.",
+      "properties": {
+        "name": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "call_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Call Id"
+        },
+        "status": {
+          "default": "succeeded",
+          "enum": [
+            "requested",
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "AgentToolCallEvidence",
       "type": "object"
     },
     "ArtifactExportResult": {
@@ -216,6 +315,495 @@
         "skillId"
       ],
       "title": "AssistantTurnResult",
+      "type": "object"
+    },
+    "AuthoringErrorCode": {
+      "enum": [
+        "invalid_context",
+        "permission_denied",
+        "resource_not_found",
+        "awaiting_input",
+        "credential_blocked",
+        "model_timeout",
+        "model_unavailable",
+        "validation_failed",
+        "optimistic_conflict",
+        "team_read_only",
+        "evaluation_required",
+        "not_found",
+        "cancelled",
+        "execution_blocked"
+      ],
+      "title": "AuthoringErrorCode",
+      "type": "string"
+    },
+    "AuthoringEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "operation_id": {
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "event_type": {
+          "enum": [
+            "operation_created",
+            "context_resolved",
+            "agent_execution",
+            "plan_proposed",
+            "clarification_required",
+            "credential_blocked",
+            "draft_created",
+            "patch_proposed",
+            "patch_accepted",
+            "patch_rejected",
+            "undo_applied",
+            "execution_requested",
+            "operation_retry",
+            "operation_cancelled",
+            "operation_failed"
+          ],
+          "title": "Event Type",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "data": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 16,
+          "title": "Data",
+          "type": "object"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "event_type",
+        "sequence"
+      ],
+      "title": "AuthoringEvent",
+      "type": "object"
+    },
+    "AuthoringOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "operation_type": {
+          "enum": [
+            "create_draft",
+            "propose_patch",
+            "accept_patch",
+            "patch_reject",
+            "undo",
+            "comment_repair",
+            "comment_repair_batch",
+            "execute_draft",
+            "retry",
+            "cancel",
+            "copy_team_draft",
+            "submit_team_review",
+            "update_context"
+          ],
+          "title": "Operation Type",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/AuthoringStatus"
+        },
+        "caller_id": {
+          "title": "Caller Id",
+          "type": "string"
+        },
+        "workspace_id": {
+          "title": "Workspace Id",
+          "type": "string"
+        },
+        "draft_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Draft Id"
+        },
+        "current_revision": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Revision"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoringErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "trace_id": {
+          "title": "Trace Id",
+          "type": "string"
+        },
+        "patch_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Patch Id"
+        },
+        "retry_of_operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry Of Operation Id"
+        },
+        "clarification_questions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Clarification Questions",
+          "type": "array"
+        },
+        "stage": {
+          "default": "received",
+          "enum": [
+            "received",
+            "planning",
+            "context_resolved",
+            "plan_ready",
+            "clarification",
+            "draft_ready",
+            "patch_ready",
+            "execution_queued",
+            "credential_blocked",
+            "cancelled",
+            "failed"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "progress": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Progress",
+          "type": "integer"
+        },
+        "context_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context Digest"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BuildPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "agent_execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentExecutionEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation_id",
+        "operation_type",
+        "status",
+        "caller_id",
+        "workspace_id",
+        "trace_id"
+      ],
+      "title": "AuthoringOperation",
+      "type": "object"
+    },
+    "AuthoringStatus": {
+      "enum": [
+        "queued",
+        "planning",
+        "awaiting_input",
+        "credential_blocked",
+        "running",
+        "ready_for_execution",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "AuthoringStatus",
+      "type": "string"
+    },
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_steps": {
+          "default": 8,
+          "maximum": 32,
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "default": 4096,
+          "maximum": 32768,
+          "minimum": 256,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "timeout_ms": {
+          "default": 30000,
+          "maximum": 120000,
+          "minimum": 100,
+          "title": "Timeout Ms",
+          "type": "integer"
+        }
+      },
+      "title": "Budget",
+      "type": "object"
+    },
+    "BuildPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "plan_id": {
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/$defs/SkillKind"
+        },
+        "purpose": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/PlanNode"
+          },
+          "maxItems": 12,
+          "minItems": 3,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputContract"
+          },
+          "maxItems": 32,
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/OutputContract"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "maxItems": 32,
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "kind_spec": {
+          "discriminator": {
+            "mapping": {
+              "analysis": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec",
+              "graph_ontology": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec",
+              "knowledge": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec",
+              "monitoring": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec",
+              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec"
+            }
+          ],
+          "title": "Kind Spec"
+        },
+        "query_plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueryPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clarification_questions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Clarification Questions",
+          "type": "array"
+        },
+        "data_refs": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "maxItems": 32,
+          "title": "Data Refs",
+          "type": "array"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Metrics",
+          "type": "array"
+        },
+        "dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "layout_intent": {
+          "default": "table",
+          "enum": [
+            "kpi",
+            "trend",
+            "table",
+            "funnel",
+            "breakdown",
+            "graph",
+            "document",
+            "alert"
+          ],
+          "title": "Layout Intent",
+          "type": "string"
+        },
+        "refresh_policy": {
+          "$ref": "#/$defs/FreshnessPolicy"
+        },
+        "lineage": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "maxItems": 32,
+          "title": "Lineage",
+          "type": "array"
+        },
+        "plan_digest": {
+          "title": "Plan Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plan_id",
+        "intent",
+        "purpose",
+        "nodes",
+        "outputs",
+        "kind_spec",
+        "plan_digest"
+      ],
+      "title": "BuildPlan",
       "type": "object"
     },
     "CaseCategory": {
@@ -670,6 +1258,234 @@
       "title": "DraftCommandResult",
       "type": "object"
     },
+    "DraftManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/SkillKind"
+        },
+        "kind_spec": {
+          "discriminator": {
+            "mapping": {
+              "analysis": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec",
+              "graph_ontology": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec",
+              "knowledge": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec",
+              "monitoring": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec",
+              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec"
+            }
+          ],
+          "title": "Kind Spec"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputContract"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/OutputContract"
+          },
+          "title": "Outputs",
+          "type": "array"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "permissions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "freshness": {
+          "$ref": "#/$defs/FreshnessPolicy"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "kind",
+        "kind_spec",
+        "inputs",
+        "outputs",
+        "dependencies",
+        "permissions",
+        "freshness"
+      ],
+      "title": "DraftManifest",
+      "type": "object"
+    },
+    "DraftRevision": {
+      "additionalProperties": false,
+      "properties": {
+        "draft_id": {
+          "title": "Draft Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "parent_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Revision"
+        },
+        "manifest": {
+          "$ref": "#/$defs/DraftManifest"
+        },
+        "plan": {
+          "$ref": "#/$defs/BuildPlan"
+        },
+        "state": {
+          "default": "draft",
+          "enum": [
+            "draft",
+            "awaiting_execution",
+            "execution_requested",
+            "conflicted"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "owner_id": {
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "workspace_id": {
+          "title": "Workspace Id",
+          "type": "string"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        },
+        "authorized_permissions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Authorized Permissions",
+          "type": "array"
+        },
+        "lineage": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "title": "Lineage",
+          "type": "array"
+        },
+        "lineage_source_draft_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lineage Source Draft Id"
+        },
+        "promotion_state": {
+          "default": "personal",
+          "enum": [
+            "personal",
+            "team_read_only",
+            "pre_publish_evaluation"
+          ],
+          "title": "Promotion State",
+          "type": "string"
+        },
+        "digest": {
+          "title": "Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "undo_of_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Undo Of Revision"
+        }
+      },
+      "required": [
+        "draft_id",
+        "revision",
+        "manifest",
+        "plan",
+        "scope",
+        "owner_id",
+        "workspace_id",
+        "digest"
+      ],
+      "title": "DraftRevision",
+      "type": "object"
+    },
     "ErrorEnvelope": {
       "additionalProperties": false,
       "properties": {
@@ -1065,6 +1881,38 @@
       "title": "FixPlan",
       "type": "object"
     },
+    "FreshnessPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of"
+        },
+        "max_age_seconds": {
+          "default": 86400,
+          "maximum": 31536000,
+          "minimum": 0,
+          "title": "Max Age Seconds",
+          "type": "integer"
+        },
+        "require_fixed_revision": {
+          "default": true,
+          "title": "Require Fixed Revision",
+          "type": "boolean"
+        }
+      },
+      "title": "FreshnessPolicy",
+      "type": "object"
+    },
     "GoldenAssetRevision": {
       "additionalProperties": false,
       "properties": {
@@ -1208,48 +2056,6 @@
       "title": "GraphNode",
       "type": "object"
     },
-    "GraphOntologyKindSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "graph_ontology",
-          "default": "graph_ontology",
-          "title": "Kind",
-          "type": "string"
-        },
-        "entitySchemaRef": {
-          "$ref": "#/$defs/SchemaRef"
-        },
-        "relationshipSchemaRef": {
-          "$ref": "#/$defs/SchemaRef"
-        },
-        "constraintRefs": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Constraintrefs",
-          "type": "array"
-        },
-        "evidencePolicyRef": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PermissionRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "entitySchemaRef",
-        "relationshipSchemaRef"
-      ],
-      "title": "GraphOntologyKindSpec",
-      "type": "object"
-    },
     "GraphOntologyViewModel": {
       "additionalProperties": false,
       "properties": {
@@ -1286,6 +2092,40 @@
         }
       },
       "title": "GraphOntologyViewModel",
+      "type": "object"
+    },
+    "InputContract": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{1,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "date",
+            "dimension",
+            "metric",
+            "document_ref"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "InputContract",
       "type": "object"
     },
     "Invocation": {
@@ -1499,61 +2339,6 @@
       "title": "KnowledgeCitation",
       "type": "object"
     },
-    "KnowledgeKindSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "knowledge",
-          "default": "knowledge",
-          "title": "Kind",
-          "type": "string"
-        },
-        "retrievalMode": {
-          "default": "hybrid",
-          "enum": [
-            "hybrid",
-            "vector",
-            "keyword"
-          ],
-          "title": "Retrievalmode",
-          "type": "string"
-        },
-        "sourceRevisionRefs": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Sourcerevisionrefs",
-          "type": "array"
-        },
-        "citationPolicyRef": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PermissionRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "refusalPolicyRef": {
-          "anyOf": [
-            {
-              "maxLength": 2048,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Refusalpolicyref"
-        }
-      },
-      "title": "KnowledgeKindSpec",
-      "type": "object"
-    },
     "KnowledgeViewModel": {
       "additionalProperties": false,
       "properties": {
@@ -1584,54 +2369,6 @@
         "answer"
       ],
       "title": "KnowledgeViewModel",
-      "type": "object"
-    },
-    "MonitoringKindSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "monitoring",
-          "default": "monitoring",
-          "title": "Kind",
-          "type": "string"
-        },
-        "metricRefs": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Metricrefs",
-          "type": "array"
-        },
-        "refreshScheduleRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Refreshscheduleref",
-          "type": "string"
-        },
-        "alertPolicyRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Alertpolicyref",
-          "type": "string"
-        },
-        "actionPolicyRef": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PermissionRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "refreshScheduleRef",
-        "alertPolicyRef"
-      ],
-      "title": "MonitoringKindSpec",
       "type": "object"
     },
     "MonitoringViewModel": {
@@ -1711,6 +2448,40 @@
         "command"
       ],
       "title": "NotReadyCommandResult",
+      "type": "object"
+    },
+    "OutputContract": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{1,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "answer",
+            "table",
+            "metric",
+            "chart",
+            "schema",
+            "graph",
+            "observation"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "OutputContract",
       "type": "object"
     },
     "OwnerRef": {
@@ -1793,6 +2564,59 @@
         "version"
       ],
       "title": "PermissionRef",
+      "type": "object"
+    },
+    "PlanNode": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "pattern": "^[a-z][a-z0-9_]{1,63}$",
+          "title": "Node Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "intent_resolution",
+            "context_resolution",
+            "query_plan",
+            "retrieval",
+            "schema_mapping",
+            "threshold_policy",
+            "worker3_execution"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "input_names": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Input Names",
+          "type": "array"
+        },
+        "output_names": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Output Names",
+          "type": "array"
+        }
+      },
+      "required": [
+        "node_id",
+        "role"
+      ],
+      "title": "PlanNode",
       "type": "object"
     },
     "PolicyCheck": {
@@ -2001,6 +2825,53 @@
       "title": "PublicationPublishResult",
       "type": "object"
     },
+    "QueryPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "source_revision": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "selected_fields": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Selected Fields",
+          "type": "array"
+        },
+        "filters": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 32,
+          "title": "Filters",
+          "type": "object"
+        },
+        "limit": {
+          "default": 100,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "read_only": {
+          "const": true,
+          "default": true,
+          "title": "Read Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_revision",
+        "selected_fields"
+      ],
+      "title": "QueryPlan",
+      "type": "object"
+    },
     "RefreshRun": {
       "additionalProperties": false,
       "properties": {
@@ -2161,6 +3032,45 @@
       "title": "RefreshRunResult",
       "type": "object"
     },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "description": "A browser-safe reference; it is not a resource snapshot.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "golden_asset",
+            "data_access_skill",
+            "knowledge_asset",
+            "skill"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "object_id": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Object Id",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        }
+      },
+      "required": [
+        "kind",
+        "object_id",
+        "revision",
+        "scope"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
     "ResourceShareResult": {
       "additionalProperties": false,
       "properties": {
@@ -2318,6 +3228,14 @@
       "title": "SchemaRef",
       "type": "object"
     },
+    "Scope": {
+      "enum": [
+        "personal",
+        "team"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
     "SecretRef": {
       "additionalProperties": false,
       "properties": {
@@ -2339,54 +3257,6 @@
         "version"
       ],
       "title": "SecretRef",
-      "type": "object"
-    },
-    "SemanticKindSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "semantic",
-          "default": "semantic",
-          "title": "Kind",
-          "type": "string"
-        },
-        "metricRefs": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Metricrefs",
-          "type": "array"
-        },
-        "dimensionRefs": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Dimensionrefs",
-          "type": "array"
-        },
-        "relationshipRefs": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Relationshiprefs",
-          "type": "array"
-        },
-        "queryPolicyRef": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PermissionRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "title": "SemanticKindSpec",
       "type": "object"
     },
     "SemanticViewModel": {
@@ -2438,6 +3308,74 @@
         "schemaRef"
       ],
       "title": "SemanticViewModel",
+      "type": "object"
+    },
+    "SkillAuthoringStartResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "skill-authoring.start",
+          "default": "skill-authoring.start",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "failed",
+          "enum": [
+            "queued",
+            "planning",
+            "awaiting_input",
+            "ready_for_execution",
+            "credential_blocked",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoringOperation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "draft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DraftRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/AuthoringEvent"
+          },
+          "maxItems": 128,
+          "title": "Events",
+          "type": "array"
+        }
+      },
+      "title": "SkillAuthoringStartResult",
       "type": "object"
     },
     "SkillContract": {
@@ -2712,6 +3650,17 @@
       ],
       "title": "SkillDraftRunResult",
       "type": "object"
+    },
+    "SkillKind": {
+      "enum": [
+        "knowledge",
+        "semantic",
+        "analysis",
+        "graph_ontology",
+        "monitoring"
+      ],
+      "title": "SkillKind",
+      "type": "string"
     },
     "SkillManifest": {
       "additionalProperties": false,
@@ -3035,12 +3984,12 @@
         "kindSpec": {
           "discriminator": {
             "mapping": {
-              "analysis": "#/$defs/AnalysisKindSpec",
+              "analysis": "#/$defs/frontend__server__knowledge_assets__contract_base__AnalysisKindSpec",
               "data_access": "#/$defs/DataAccessKindSpec",
-              "graph_ontology": "#/$defs/GraphOntologyKindSpec",
-              "knowledge": "#/$defs/KnowledgeKindSpec",
-              "monitoring": "#/$defs/MonitoringKindSpec",
-              "semantic": "#/$defs/SemanticKindSpec"
+              "graph_ontology": "#/$defs/frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec",
+              "knowledge": "#/$defs/frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec",
+              "monitoring": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec",
+              "semantic": "#/$defs/frontend__server__knowledge_assets__contract_base__SemanticKindSpec"
             },
             "propertyName": "kind"
           },
@@ -3049,19 +3998,19 @@
               "$ref": "#/$defs/DataAccessKindSpec"
             },
             {
-              "$ref": "#/$defs/SemanticKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__SemanticKindSpec"
             },
             {
-              "$ref": "#/$defs/AnalysisKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__AnalysisKindSpec"
             },
             {
-              "$ref": "#/$defs/KnowledgeKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec"
             },
             {
-              "$ref": "#/$defs/GraphOntologyKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec"
             },
             {
-              "$ref": "#/$defs/MonitoringKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec"
             }
           ],
           "title": "Kindspec"
@@ -3590,6 +4539,254 @@
         "resultRef"
       ],
       "title": "ViewIntent",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__AnalysisKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "analysis",
+          "default": "analysis",
+          "title": "Kind",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "queryPlanRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Queryplanref",
+          "type": "string"
+        },
+        "refreshPolicyRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refreshpolicyref"
+        },
+        "alertPolicyRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alertpolicyref"
+        }
+      },
+      "required": [
+        "question",
+        "queryPlanRef"
+      ],
+      "title": "AnalysisKindSpec",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "graph_ontology",
+          "default": "graph_ontology",
+          "title": "Kind",
+          "type": "string"
+        },
+        "entitySchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "relationshipSchemaRef": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "constraintRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Constraintrefs",
+          "type": "array"
+        },
+        "evidencePolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "entitySchemaRef",
+        "relationshipSchemaRef"
+      ],
+      "title": "GraphOntologyKindSpec",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "knowledge",
+          "default": "knowledge",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retrievalMode": {
+          "default": "hybrid",
+          "enum": [
+            "hybrid",
+            "vector",
+            "keyword"
+          ],
+          "title": "Retrievalmode",
+          "type": "string"
+        },
+        "sourceRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Sourcerevisionrefs",
+          "type": "array"
+        },
+        "citationPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "refusalPolicyRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Refusalpolicyref"
+        }
+      },
+      "title": "KnowledgeKindSpec",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__MonitoringKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "monitoring",
+          "default": "monitoring",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metricRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Metricrefs",
+          "type": "array"
+        },
+        "refreshScheduleRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Refreshscheduleref",
+          "type": "string"
+        },
+        "alertPolicyRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Alertpolicyref",
+          "type": "string"
+        },
+        "actionPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "refreshScheduleRef",
+        "alertPolicyRef"
+      ],
+      "title": "MonitoringKindSpec",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__SemanticKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "semantic",
+          "default": "semantic",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metricRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Metricrefs",
+          "type": "array"
+        },
+        "dimensionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Dimensionrefs",
+          "type": "array"
+        },
+        "relationshipRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Relationshiprefs",
+          "type": "array"
+        },
+        "queryPolicyRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "SemanticKindSpec",
       "type": "object"
     },
     "frontend__server__knowledge_assets__contract_views__EvaluationCaseResult": {
@@ -4183,6 +5380,228 @@
       ],
       "title": "PolicyGateResult",
       "type": "object"
+    },
+    "frontend__server__skill_authoring__models__AnalysisKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "analysis",
+          "default": "analysis",
+          "title": "Kind",
+          "type": "string"
+        },
+        "query_plan": {
+          "$ref": "#/$defs/QueryPlan"
+        },
+        "analysis_shape": {
+          "default": "table",
+          "enum": [
+            "kpi",
+            "trend",
+            "table",
+            "funnel",
+            "breakdown"
+          ],
+          "title": "Analysis Shape",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "query_plan"
+      ],
+      "title": "AnalysisKindSpec",
+      "type": "object"
+    },
+    "frontend__server__skill_authoring__models__GraphOntologyKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "graph_ontology",
+          "default": "graph_ontology",
+          "title": "Kind",
+          "type": "string"
+        },
+        "entity_types": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Entity Types",
+          "type": "array"
+        },
+        "relation_types": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Relation Types",
+          "type": "array"
+        },
+        "mapping_intent": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Mapping Intent",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity_types"
+      ],
+      "title": "GraphOntologyKindSpec",
+      "type": "object"
+    },
+    "frontend__server__skill_authoring__models__KnowledgeKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "knowledge",
+          "default": "knowledge",
+          "title": "Kind",
+          "type": "string"
+        },
+        "citation_intent": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Citation Intent",
+          "type": "array"
+        },
+        "retrieval_mode": {
+          "default": "hybrid",
+          "enum": [
+            "hybrid",
+            "semantic",
+            "exact"
+          ],
+          "title": "Retrieval Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "citation_intent"
+      ],
+      "title": "KnowledgeKindSpec",
+      "type": "object"
+    },
+    "frontend__server__skill_authoring__models__MonitoringKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "monitoring",
+          "default": "monitoring",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "comparator": {
+          "enum": [
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "change_rate"
+          ],
+          "title": "Comparator",
+          "type": "string"
+        },
+        "duration_minutes": {
+          "default": 5,
+          "maximum": 43200,
+          "minimum": 1,
+          "title": "Duration Minutes",
+          "type": "integer"
+        },
+        "refresh_seconds": {
+          "default": 900,
+          "maximum": 86400,
+          "minimum": 60,
+          "title": "Refresh Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "metric",
+        "threshold",
+        "comparator"
+      ],
+      "title": "MonitoringKindSpec",
+      "type": "object"
+    },
+    "frontend__server__skill_authoring__models__SemanticKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "semantic",
+          "default": "semantic",
+          "title": "Kind",
+          "type": "string"
+        },
+        "entities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Entities",
+          "type": "array"
+        },
+        "relationships": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Relationships",
+          "type": "array"
+        },
+        "dimensions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "measures": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Measures",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entities"
+      ],
+      "title": "SemanticKindSpec",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -4254,6 +5673,7 @@
               "publication.publish": "#/$defs/PublicationPublishResult",
               "refresh.run": "#/$defs/RefreshRunResult",
               "resource.share": "#/$defs/ResourceShareResult",
+              "skill-authoring.start": "#/$defs/SkillAuthoringStartResult",
               "skill-draft.create": "#/$defs/DraftCommandResult",
               "skill-draft.run": "#/$defs/SkillDraftRunResult",
               "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
@@ -4301,6 +5721,9 @@
             },
             {
               "$ref": "#/$defs/EvaluationQualityCommandResult"
+            },
+            {
+              "$ref": "#/$defs/SkillAuthoringStartResult"
             }
           ]
         },
