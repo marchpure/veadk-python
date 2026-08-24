@@ -1,8 +1,8 @@
 {
   "schemaVersion": "knowledge-assets.frontend-seam-freeze.v2",
   "step": "STEP_2_INTEGRATION",
-  "sourceCommit": "26de3274120db4178f56e76a9a74662c3755133e",
-  "immutableTag": "knowledge-skill-factory-step-2-integration",
+  "sourceCommit": "74ad5437b300c0914f1c99adbfb188335eaa080b",
+  "immutableTag": "knowledge-skill-factory-step-2-quality",
   "result": "READY_WITH_STEP2_LIMITATIONS",
   "browserBoundary": "/api/knowledge-assets/v1/*",
   "canonicalManifest": "SkillManifest",
@@ -19,7 +19,9 @@
     "localGoldenData": "Markdown and CSV end-to-end path passed",
     "authenticatedRevocation": "BFF permission revocation tombstone path passed",
     "externalCredentials": "Oracle, Web API, MCP, and published Skill remain credential_blocked",
-    "historicalStaticGuardTest": "stale production-file-count assertion remains blocked; guard itself passes",
+    "historicalStaticGuardTest": "scope/budget wrapper updated; authoritative guard unchanged",
+    "generatedClientBoundary": "bootstrap, commands, streams, operations, audit, and cancellation use generated client",
+    "generatedContractSplit": "four generated domain modules plus generated facade, all below split threshold",
     "step3": "not started",
     "step4": "not started"
   },
