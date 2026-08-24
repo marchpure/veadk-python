@@ -4537,6 +4537,53 @@
               }
             ],
             "default": null
+          },
+          "executionState": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ok",
+                  "no_data",
+                  "unable_to_answer",
+                  "permission_denied",
+                  "schema_drift",
+                  "validation_failed",
+                  "timeout",
+                  "over_budget",
+                  "cancelled",
+                  "credential_blocked",
+                  "awaiting_input"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Executionstate"
+          },
+          "traceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "evidenceRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [

@@ -46,6 +46,9 @@ export interface SkillDraftRunResult {
   skillResult?: SkillResult | null;
   viewIntent?: ViewIntent | null;
   skillViewRevision?: SkillViewRevision | null;
+  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
+  traceRef?: StorageRef | null;
+  evidenceRef?: StorageRef | null;
 }
 
 export interface SkillManifest {

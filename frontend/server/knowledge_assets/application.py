@@ -703,6 +703,9 @@ class KnowledgeAssetApplication:
             return SkillDraftRunResult(
                 draft_id=draft.id,
                 status=status,
+                execution_state=execution.state,
+                trace_ref=execution.trace_ref,
+                evidence_ref=execution.evidence_ref,
                 golden_asset_revision=golden,
                 error=ErrorEnvelope(
                     code=execution.state.upper(),
@@ -737,6 +740,9 @@ class KnowledgeAssetApplication:
         return SkillDraftRunResult(
             draft_id=draft.id,
             status="ready_for_evaluation",
+            execution_state=execution.state,
+            trace_ref=execution.trace_ref,
+            evidence_ref=execution.evidence_ref,
             golden_asset_revision=golden,
             skill_result=execution.skill_result,
             view_intent=execution.view_intent,
