@@ -114,7 +114,7 @@ async function renderFinalAnswer(output, overflowed) {
 
   const React = require("react");
   const { createRoot } = require("react-dom/client");
-  const { act } = React;
+  const act = React.act ?? React.unstable_act;
   const CronJobFinalAnswer = await loadComponent();
   const container = dom.window.document.getElementById("root");
   const root = createRoot(container);
