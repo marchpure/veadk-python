@@ -1,8 +1,53 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { ArtifactExportResult, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { EvaluationRunResult, Event, InvocationStartResult, LegacySkillManifestInput } from "./part2";
-import type { SkillDraftRetryPayload, SkillDraftRunResult, SkillManifest, SkillOperation, SkillViewShareGrant, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+import type { EvaluationQualityCommandResult, EvaluationRunResult, Event, InvocationStartResult, KnowledgeCitation } from "./part2";
+import type { SkillDraftRetryPayload, SkillDraftRunResult, SkillManifest, SkillManifestAction, SkillOperation, SkillViewShareGrant, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+
+export interface KnowledgeViewModel {
+  template?: "knowledge";
+  answer: string;
+  citations?: Array<KnowledgeCitation>;
+  refusal?: boolean;
+}
+
+export interface LegacySkillManifestInput {
+  name: string;
+  version: string;
+  description?: string;
+  actions?: Array<SkillManifestAction>;
+  schema?: ManifestInputSchema;
+}
+
+export interface ManifestInputSchema {
+  type?: "object";
+  properties?: Record<string, ManifestProperty>;
+  required?: Array<string>;
+  additionalProperties?: boolean;
+}
+
+export interface ManifestProperty {
+  type: "string" | "number" | "boolean" | "object" | "array";
+  description?: string;
+}
+
+export interface McpConnectorConfig {
+  kind: "mcp";
+  serverUrl: string;
+  secretRef: SecretRef;
+  oauthScopeRef: string;
+  toolAllowlist: Array<string>;
+  outputBytes?: number;
+  timeoutSeconds?: number;
+}
+
+export interface MonitoringKindSpec {
+  kind?: "monitoring";
+  metricRefs?: Array<string>;
+  refreshScheduleRef: string;
+  alertPolicyRef: string;
+  actionPolicyRef?: PermissionRef | null;
+}
 
 export interface MonitoringViewModel {
   template?: "monitoring";
@@ -23,7 +68,7 @@ export interface Operation {
   status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
   version: number;
   events: Array<Event>;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | null;
   error?: ErrorEnvelope | null;
   nextActions?: Array<string>;
   audit?: Array<Audit>;
@@ -34,19 +79,33 @@ export interface OwnerRef {
   principalId: string;
 }
 
+export interface PatchOperation {
+  op: "replace_query" | "replace_metric" | "replace_retrieval_policy" | "replace_view_binding" | "replace_interaction" | "replace_budget";
+  path: string;
+  before: unknown;
+  after: unknown;
+}
+
 export interface PermissionRef {
   uri: string;
   version: string;
 }
 
-export interface PolicyGateResult {
-  id: string;
-  skillRevisionId: string;
-  evaluationRunId: string;
-  decision: "publishable" | "blocked";
-  reasons?: Array<string>;
-  machineReasons?: Array<string>;
-  checkedAt: string;
+export interface PolicyCheck {
+  dimension: "schema" | "data_quality" | "freshness" | "permission" | "security" | "evaluation" | "visual_interaction" | "compatibility" | "budget";
+  passed: boolean;
+  machineReason: string;
+  evidenceRefs?: Array<string>;
+}
+
+export interface PolicyGateEvaluateCommand {
+  command: "policy-gate.evaluate";
+  payload: PolicyGateEvaluatePayload;
+}
+
+export interface PolicyGateEvaluatePayload {
+  runId: string;
+  checks?: Array<PolicyCheck>;
 }
 
 export interface ProfileRun {
@@ -161,6 +220,18 @@ export interface ResourceShareResult {
   status?: "not_ready" | "succeeded" | "failed";
   resourceId: string;
   shareGrant?: SkillViewShareGrant | null;
+}
+
+export interface RunProvenance {
+  suiteId: string;
+  suiteVersion: number;
+  environment: "test" | "staging" | "production";
+  skillDraftRevision: string;
+  dependencyRevisionRefs?: Array<string>;
+  goldenRevisionRefs?: Array<string>;
+  executorVersion: string;
+  rendererVersion: string;
+  dataAsOf: string;
 }
 
 export interface SaveManifestCommand {
