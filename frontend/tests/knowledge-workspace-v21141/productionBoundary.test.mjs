@@ -41,9 +41,26 @@ function productionModuleUrls() {
   const generatedClientUrl = transpileProductionModule("generatedClient.ts", {
     "./generated": generatedUrl,
   });
-  const portsUrl = transpileProductionModule("ports.ts", {
+  const typedPortsUrl = transpileProductionModule("typedPorts.ts", {
     "./bootstrapSchema": schemaUrl,
     "./generatedClient": generatedClientUrl,
+  });
+  const httpSupportUrl = transpileProductionModule("httpSupport.ts", {
+    "./bootstrapSchema": schemaUrl,
+    "./generated": generatedUrl,
+    "./generatedClient": generatedClientUrl,
+    "./typedPorts": typedPortsUrl,
+  });
+  const httpAdapterUrl = transpileProductionModule("httpAdapter.ts", {
+    "./bootstrapSchema": schemaUrl,
+    "./generated": generatedUrl,
+    "./generatedClient": generatedClientUrl,
+    "./typedPorts": typedPortsUrl,
+    "./httpSupport": httpSupportUrl,
+  });
+  const portsUrl = transpileProductionModule("ports.ts", {
+    "./typedPorts": typedPortsUrl,
+    "./httpAdapter": httpAdapterUrl,
   });
   const dataUrl = transpileProductionModule("data.ts", {
     "./bootstrapSchema": schemaUrl,
@@ -52,7 +69,12 @@ function productionModuleUrls() {
 }
 
 test("production boundary declares typed HTTP/SSE ports and no optimistic success", () => {
-  const ports = readFileSync(join(root, "production/ports.ts"), "utf8");
+  const ports = [
+    "ports.ts",
+    "typedPorts.ts",
+    "httpAdapter.ts",
+    "httpSupport.ts",
+  ].map((file) => readFileSync(join(root, "production", file), "utf8")).join("\n");
   assert.match(ports, /export interface WorkspaceAdapter/);
   assert.match(ports, /"Idempotency-Key"/);
   assert.match(ports, /"X-Request-ID"/);
