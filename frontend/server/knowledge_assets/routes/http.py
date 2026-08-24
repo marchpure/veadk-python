@@ -109,11 +109,22 @@ def mount_knowledge_asset_routes(
                 details=error.details,
                 retryable=error.retryable,
             )
-        return application.unsupported(
-            body.command,
-            request_id,
-            body.payload.model_dump(mode="python"),
-        )
+        try:
+            return application.unsupported(
+                body.command,
+                request_id,
+                body.payload.model_dump(mode="python"),
+            )
+        except KnowledgeAssetRepositoryError as error:
+            status_code = 404 if error.code.endswith("_NOT_FOUND") else 422
+            return _error(
+                status_code,
+                error.code,
+                error.message,
+                request_id,
+                details=error.details,
+                retryable=error.retryable,
+            )
 
     @app.post("/api/knowledge-assets/v1/streams")
     async def streams(request: Request, body: CommandRequest) -> Response:
