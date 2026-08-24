@@ -36,6 +36,7 @@
     "Frontend production build passed at Main 9b4345fa; generated output is runtime-only and not committed",
     "Main route composition fix ab80835c allowlists the 19 legal Capability Matrix deep links independently of the BFF resource manifest; corrected isolated browser scan observed 43 unavailable=0 and errors=0 (diagnostic evidence only, not P0 acceptance)",
     "W2 authoring module is present in Main from the accepted W2 integration and its focused authoring/data suite passes 45 tests, but Main-owned BFF command registration and durable authoring persistence mapping remain incomplete; no skill-authoring.start success is claimed",
+    "Main Dashboard boundary now fail-closes prototype finance/recruitment scenario branches until typed bootstrap or SkillViewRevision data exists; production boundary contract is 20 passed and static guard remains zero findings",
     "W4 read-only final verification is pending until all Worker worktrees are clean and the unified real chain passes",
     "production Dashboard now consumes workspace-scoped SkillViewRevision through typed bootstrap; full browser proof is still pending",
     "external credential connectors remain blocked",

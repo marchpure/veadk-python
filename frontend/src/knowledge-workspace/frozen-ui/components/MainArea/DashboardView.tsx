@@ -13,9 +13,13 @@ export default function DashboardView({ fileId, isTeam = false, setSearchParams,
   const editTarget = searchParams.get('edit');
   const chartTitle = searchParams.get('chartTitle') || '按周销售与利润趋势';
   const isSelectMode = searchParams.get('select_mode') === 'true';
-  const isRecruitment = fileId === 'res_dash_recruitment';
+  // The frozen prototype includes scenario-specific finance/recruitment
+  // canvases, but those canvases contain static business facts. Production
+  // Dashboard content must come from the typed bootstrap/ViewRevision, so
+  // scenario branches stay fail-closed until they have a server projection.
+  const isRecruitment = false;
   const customName = searchParams.get('custom_name');
-  const isFinance = fileId === 'res_dash_finance' || fileId?.includes('finance') || customName?.includes('金融');
+  const isFinance = false;
   
   const currentVersion = 'V2.1';
   const displayVersion = currentVersion;

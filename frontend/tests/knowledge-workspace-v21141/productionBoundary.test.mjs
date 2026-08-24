@@ -129,6 +129,22 @@ test("production route availability accepts only Capability Matrix deep links", 
   assert.doesNotMatch(source, /CAPABILITY_MATRIX_ROUTE_IDS\.add\(fileId\)/);
 });
 
+test("production Dashboard does not enter static scenario canvases", () => {
+  const source = readFileSync(
+    join(
+      root,
+      "frozen-ui/components/MainArea/DashboardView.tsx",
+    ),
+    "utf8",
+  );
+  assert.match(source, /const isFinance = false;/);
+  assert.match(source, /const isRecruitment = false;/);
+  assert.match(
+    source,
+    /Dashboard content must come from the typed bootstrap\/ViewRevision/,
+  );
+});
+
 test("all 47 frozen provenance targets are tracked in the checkout", () => {
   const manifest = JSON.parse(
     readFileSync(
