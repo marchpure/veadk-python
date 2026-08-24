@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -53,7 +52,9 @@ def test_create_skill_draft_persists_and_replays_projection() -> None:
         },
     }
 
-    created = client.post("/api/knowledge-assets/v1/commands", json=body, headers=headers)
+    created = client.post(
+        "/api/knowledge-assets/v1/commands", json=body, headers=headers
+    )
     assert created.status_code == 200
     result = created.json()
     assert result["accepted"] is True
@@ -76,7 +77,9 @@ def test_create_skill_draft_persists_and_replays_projection() -> None:
     assert bootstrap.status_code == 200
     assert bootstrap.json()["resources"][0]["id"] == result["result"]["draft"]["id"]
 
-    replay = client.post("/api/knowledge-assets/v1/commands", json=body, headers=headers)
+    replay = client.post(
+        "/api/knowledge-assets/v1/commands", json=body, headers=headers
+    )
     assert replay.status_code == 200
     assert replay.json()["operationId"] == result["operationId"]
     assert replay.json()["result"]["draft"]["id"] == result["result"]["draft"]["id"]
@@ -96,7 +99,10 @@ def test_command_union_rejects_unknown_commands_and_extra_payload() -> None:
     assert unknown.status_code == 422
     assert unknown.headers["content-type"].startswith("application/problem+json")
     assert unknown.json()["code"] == "VALIDATION_ERROR"
-    assert "does not match any of the expected tags" in unknown.json()["details"]["validation"]
+    assert (
+        "does not match any of the expected tags"
+        in unknown.json()["details"]["validation"]
+    )
 
     extra = client.post(
         "/api/knowledge-assets/v1/commands",
@@ -116,6 +122,120 @@ def test_command_union_rejects_unknown_commands_and_extra_payload() -> None:
     assert extra.headers["content-type"].startswith("application/problem+json")
     assert extra.json()["code"] == "VALIDATION_ERROR"
     assert "unknown" in extra.json()["details"]["validation"]
+
+
+def test_evaluation_quality_commands_use_typed_bff_and_fail_closed_for_candidates() -> (
+    None
+):
+    client = build_client()
+    suite = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation-suite.create",
+            "payload": {
+                "suiteId": "suite-bff",
+                "skillId": "skill-bff",
+                "cases": [
+                    {
+                        "id": "candidate-1",
+                        "source": "agent_candidate",
+                        "category": "normal",
+                        "input": {"question": "non-sales question"},
+                        "expected": {"answer": "ok"},
+                        "provenanceRef": "agent-generation://trace-1",
+                    }
+                ],
+            },
+        },
+        headers={"X-Request-ID": "eval-suite", "Idempotency-Key": "eval-suite"},
+    )
+    assert suite.status_code == 200
+    assert suite.json()["result"]["status"] == "succeeded"
+    assert suite.json()["result"]["suite"]["version"] == 1
+
+    run = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation-run.start",
+            "payload": {
+                "suiteId": "suite-bff",
+                "suiteVersion": 1,
+                "provenance": {
+                    "suiteId": "suite-bff",
+                    "suiteVersion": 1,
+                    "environment": "test",
+                    "skillDraftRevision": "skill-bff:1",
+                    "executorVersion": "executor@test",
+                    "rendererVersion": "renderer@test",
+                    "dataAsOf": "2026-08-25T00:00:00Z",
+                },
+            },
+        },
+        headers={"X-Request-ID": "eval-run", "Idempotency-Key": "eval-run"},
+    )
+    assert run.status_code == 200
+    assert run.json()["accepted"] is False
+    assert run.json()["result"]["status"] == "failed"
+    assert run.json()["result"]["error"]["code"] == (
+        "AGENT_CANDIDATE_CONFIRMATION_REQUIRED"
+    )
+
+
+def test_evaluation_run_without_real_executor_is_explicitly_failed() -> None:
+    client = build_client()
+    created = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation-suite.create",
+            "payload": {
+                "suiteId": "suite-no-executor",
+                "skillId": "skill-no-executor",
+                "cases": [
+                    {
+                        "id": "manual-1",
+                        "source": "manual",
+                        "category": "normal",
+                        "input": {"question": "non-sales question"},
+                        "expected": {"answer": "ok"},
+                    }
+                ],
+            },
+        },
+        headers={
+            "X-Request-ID": "suite-no-executor",
+            "Idempotency-Key": "suite-no-executor",
+        },
+    ).json()
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation-run.start",
+            "payload": {
+                "suiteId": "suite-no-executor",
+                "suiteVersion": created["result"]["suite"]["version"],
+                "provenance": {
+                    "suiteId": "suite-no-executor",
+                    "suiteVersion": 1,
+                    "environment": "test",
+                    "skillDraftRevision": "skill-no-executor:1",
+                    "executorVersion": "executor@test",
+                    "rendererVersion": "renderer@test",
+                    "dataAsOf": "2026-08-25T00:00:00Z",
+                },
+            },
+        },
+        headers={
+            "X-Request-ID": "run-no-executor",
+            "Idempotency-Key": "run-no-executor",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["accepted"] is False
+    assert response.json()["result"]["status"] == "failed"
+    assert response.json()["result"]["error"]["code"] == (
+        "EVALUATION_EXECUTOR_NOT_CONFIGURED"
+    )
+    assert response.json()["result"]["run"]["status"] == "failed"
 
 
 def test_operation_events_replay_after_sequence_and_cancel_is_terminal() -> None:
@@ -180,7 +300,9 @@ def test_save_manifest_validates_revision_persists_manifest_and_records_audit() 
                 "name": "Policy Skill",
                 "version": "1.0.0",
                 "description": "Answer policy questions",
-                "actions": [{"name": "answer", "description": "Answer a policy question"}],
+                "actions": [
+                    {"name": "answer", "description": "Answer a policy question"}
+                ],
                 "schema": {
                     "type": "object",
                     "properties": {
@@ -244,7 +366,10 @@ def test_save_manifest_rejects_policy_and_stale_revision() -> None:
                 "sourceRefs": [],
             },
         },
-        headers={"X-Request-ID": "request-policy-create", "Idempotency-Key": "policy-create-1"},
+        headers={
+            "X-Request-ID": "request-policy-create",
+            "Idempotency-Key": "policy-create-1",
+        },
     ).json()["result"]["draft"]
     invalid = {
         "command": "skill-draft.save-manifest",
@@ -268,7 +393,10 @@ def test_save_manifest_rejects_policy_and_stale_revision() -> None:
     response = client.post(
         "/api/knowledge-assets/v1/commands",
         json=invalid,
-        headers={"X-Request-ID": "request-policy-invalid", "Idempotency-Key": "policy-invalid-1"},
+        headers={
+            "X-Request-ID": "request-policy-invalid",
+            "Idempotency-Key": "policy-invalid-1",
+        },
     )
     assert response.status_code == 422
     assert response.headers["content-type"].startswith("application/problem+json")
@@ -282,13 +410,19 @@ def test_save_manifest_rejects_policy_and_stale_revision() -> None:
     saved = client.post(
         "/api/knowledge-assets/v1/commands",
         json={"command": "skill-draft.save-manifest", "payload": valid},
-        headers={"X-Request-ID": "request-policy-save", "Idempotency-Key": "policy-save-1"},
+        headers={
+            "X-Request-ID": "request-policy-save",
+            "Idempotency-Key": "policy-save-1",
+        },
     )
     assert saved.status_code == 200
     stale = client.post(
         "/api/knowledge-assets/v1/commands",
         json={"command": "skill-draft.save-manifest", "payload": valid},
-        headers={"X-Request-ID": "request-policy-stale", "Idempotency-Key": "policy-stale-1"},
+        headers={
+            "X-Request-ID": "request-policy-stale",
+            "Idempotency-Key": "policy-stale-1",
+        },
     )
     assert stale.status_code == 409
     assert stale.headers["content-type"].startswith("application/problem+json")
@@ -356,7 +490,10 @@ def test_manifest_kind_discriminator_rejects_mismatched_kind_spec() -> None:
     [
         ("source.profile", {"sourceRevisionId": "source-1", "sampleLimit": 10}),
         ("source.clean", {"sourceRevisionId": "source-1", "recipeId": "recipe-1"}),
-        ("skill-draft.run", {"draftId": "draft-1", "revision": 1, "traceId": "trace-1"}),
+        (
+            "skill-draft.run",
+            {"draftId": "draft-1", "revision": 1, "traceId": "trace-1"},
+        ),
         (
             "publication.publish",
             {"draftId": "draft-1", "revision": 1, "semver": "1.0.0"},
@@ -384,15 +521,16 @@ def test_registered_not_ready_commands_return_typed_failure(
     response = client.post(
         "/api/knowledge-assets/v1/commands",
         json={"command": command, "payload": payload},
-        headers={"X-Request-ID": f"request-{command}", "Idempotency-Key": f"key-{command}"},
+        headers={
+            "X-Request-ID": f"request-{command}",
+            "Idempotency-Key": f"key-{command}",
+        },
     )
     assert response.status_code == 200
     body = response.json()
     assert body["accepted"] is False
     expected_status = (
-        "failed"
-        if command in {"refresh.run", "skill-draft.run"}
-        else "not_ready"
+        "failed" if command in {"refresh.run", "skill-draft.run"} else "not_ready"
     )
     assert body["result"]["status"] == expected_status
     expected_code = (
@@ -416,18 +554,30 @@ def test_sqlite_migration_replay_and_revision_pointers() -> None:
         request_id="request",
         idempotency_key="create",
     )
-    assert repository.current_pointer(object_type="skill_draft", object_id=draft.id) == 1
-    assert repository.last_good_pointer(object_type="skill_draft", object_id=draft.id) == 1
+    assert (
+        repository.current_pointer(object_type="skill_draft", object_id=draft.id) == 1
+    )
+    assert (
+        repository.last_good_pointer(object_type="skill_draft", object_id=draft.id) == 1
+    )
     table_names = {
         row[0]
         for row in repository._connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'"
         )
     }
-    assert {"schema_migrations", "jobs", "job_events", "outbox_events", "dead_letters"} <= table_names
+    assert {
+        "schema_migrations",
+        "jobs",
+        "job_events",
+        "outbox_events",
+        "dead_letters",
+    } <= table_names
 
 
-def test_job_framework_enforces_idempotency_lease_retry_dead_letter_and_outbox() -> None:
+def test_job_framework_enforces_idempotency_lease_retry_dead_letter_and_outbox() -> (
+    None
+):
     now = [datetime(2026, 8, 24, tzinfo=timezone.utc)]
     framework = JobFramework(now=lambda: now[0], retry_base_seconds=2)
     first = framework.enqueue(
@@ -447,7 +597,9 @@ def test_job_framework_enforces_idempotency_lease_retry_dead_letter_and_outbox()
     assert leased.status == "leased"
     with pytest.raises(JobLeaseError):
         framework.lease(job_id=first.job_id, owner="worker-b")
-    assert framework.heartbeat(job_id=first.job_id, owner="worker-a").status == "running"
+    assert (
+        framework.heartbeat(job_id=first.job_id, owner="worker-a").status == "running"
+    )
     retried = framework.fail(job_id=first.job_id, owner="worker-a", reason="temporary")
     assert retried.status == "queued"
     assert retried.next_attempt_at is not None

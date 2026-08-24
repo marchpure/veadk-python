@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -17,8 +18,15 @@ from frontend.server.knowledge_assets.evaluation_quality import (
 )
 from frontend.server.knowledge_assets.evaluation_quality.models import (
     EvaluationActual,
+    EvaluationRun,
+    EvaluationSuite,
+    FixPlan,
     PatchOperation,
     PolicyCheck,
+    PolicyGateResult,
+)
+from frontend.server.knowledge_assets.evaluation_quality.main_repository import (
+    MainEvaluationRepository,
 )
 
 
@@ -123,6 +131,61 @@ def service(
         evaluator,
         drafts,
     )
+
+
+def test_main_repository_round_trips_all_w4_aggregate_types() -> None:
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    repository = MainEvaluationRepository(connection)
+    suite = EvaluationSuite(
+        id="suite-main",
+        version=1,
+        skill_id="skill-main",
+        cases=(case("case-main"),),
+        digest="0" * 64,
+    )
+    run = EvaluationRun(
+        id="run-main",
+        provenance=provenance(),
+        status="queued",
+        selected_case_ids=("case-main",),
+    )
+    gate = PolicyGateResult(
+        id="gate-main",
+        skill_draft_revision="skill-1:revision-7",
+        evaluation_run_id=run.id,
+        decision="blocked",
+        checks=(),
+        machine_reasons=("NO_POLICY_CHECKS",),
+    )
+    fix = FixPlan(
+        id="fix-main",
+        run_id=run.id,
+        issue_case_ids=("case-main",),
+        affected_case_ids=("case-main",),
+        patch=TypedPatch(
+            id="patch-main",
+            base_draft_revision="skill-1:revision-7",
+            operations=(
+                PatchOperation(
+                    op="replace_metric",
+                    path="/metrics/revenue",
+                    before="gross",
+                    after="net",
+                ),
+            ),
+        ),
+    )
+
+    repository.save_suite(suite)
+    repository.save_run(run)
+    repository.save_gate(gate)
+    repository.save_fix_plan(fix)
+
+    assert repository.suite(suite.id, suite.version) == suite
+    assert repository.run(run.id) == run
+    assert repository.gate(gate.id) == gate
+    assert repository.fix_plan(fix.id) == fix
 
 
 def test_suite_versions_are_immutable_and_cover_every_required_category() -> None:
@@ -341,9 +404,7 @@ def test_policy_gate_requires_all_dimensions_and_returns_machine_reasons() -> No
             dimension=dimension,
             passed=dimension != "security",
             machine_reason=(
-                "SECURITY_SCAN_PASSED"
-                if dimension != "security"
-                else "CSP_VIOLATION"
+                "SECURITY_SCAN_PASSED" if dimension != "security" else "CSP_VIOLATION"
             ),
             evidence_refs=(f"evidence://{dimension}",),
         )
@@ -413,7 +474,9 @@ def test_policy_gate_derives_evaluation_check_from_persisted_run() -> None:
     )
     gate = app.evaluate_run_policy(completed.id, non_evaluation_checks)
     assert gate.decision == "publishable"
-    assert next(check for check in gate.checks if check.dimension == "evaluation").passed
+    assert next(
+        check for check in gate.checks if check.dimension == "evaluation"
+    ).passed
 
 
 def test_policy_gate_rejects_duplicate_dimensions() -> None:
@@ -489,7 +552,9 @@ def test_fix_plan_shows_scope_conflicts_applies_new_revision_and_scoped_rerun() 
     assert applied.undo_token == "undo://patch-1"
     assert rerun.selected_case_ids == ("two",)
     assert rerun.provenance.skill_draft_revision == "skill-1:revision-8"
-    assert repository.suite(suite.id, suite.version).cases[1].expected == expected_before
+    assert (
+        repository.suite(suite.id, suite.version).cases[1].expected == expected_before
+    )
     assert drafts.applied == [patch]
 
     undone = app.undo_fix(plan.id)

@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
 
 
 def utc_now() -> str:
@@ -12,7 +13,12 @@ def utc_now() -> str:
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        extra="forbid",
+        frozen=True,
+    )
 
 
 class CaseSource(str, Enum):
@@ -195,6 +201,4 @@ class FixPlan(StrictModel):
     undo_token: str | None = None
 
 
-EvaluationImport = Annotated[
-    list[EvaluationCase], Field(min_length=1, max_length=1000)
-]
+EvaluationImport = Annotated[list[EvaluationCase], Field(min_length=1, max_length=1000)]
