@@ -2,9 +2,9 @@
   "schemaVersion": "knowledge-assets.contract-freeze.v2",
   "step": "STEP_2_INTEGRATION",
   "sourceCommit": "74ad5437b300c0914f1c99adbfb188335eaa080b",
-  "immutableTag": "knowledge-skill-factory-step-2-quality",
+  "immutableTag": "knowledge-skill-factory-step-2-integration-corrective-1",
   "branch": "knowledge-skill-factory-step-1-corrective-quality",
-  "result": "READY_WITH_STEP2_LIMITATIONS",
+  "result": "READY_WITH_BASELINE_DEBT",
   "canonicalObject": "Skill",
   "canonicalManifest": "frontend/server/knowledge_assets/contracts.py:SkillManifest",
   "kindSpecDiscriminator": "spec.kindSpec.kind",
@@ -49,15 +49,15 @@
     "frontend/src/knowledge-workspace/production/generatedContracts.ts"
   ],
   "verification": {
-    "schemaGeneration": "passed; generated artifacts are clean",
-    "focusedPython": "54 passed, 13 skipped external-E2E cases",
+    "focusedPython": "50 passed, 13 skipped external-E2E cases",
+    "refreshSchemaDriftLastGood": "9 passed",
+    "migrationReplay": "1 passed; 21 tables",
+    "secretLeakScan": "passed; no findings",
     "migrationGateway": "13 passed",
     "combinedPython": "29 passed",
     "frontendProductionBoundary": "18 passed",
-    "compileall": "passed",
-    "frontendBuild": "passed with existing warnings",
+    "schemaGeneration": "passed; generated artifacts clean",
     "gitDiffCheck": "passed",
-    "sqliteMigrationReplay": "passed",
     "m1ClickableAcceptance": "existing evidence retained",
     "inheritedVisualDebt": "STEP 0 132-capture visual matrix manual exemption remains",
     "staticGuard": "passed; zero findings",
@@ -70,7 +70,8 @@
     "security": "SSRF/DNS rebinding, inline-secret, read-only SQL, MCP allowlist/output budget passed",
     "migrationUpgrade": "SQLite upgrade-in-place and replay passed with 21 tables",
     "step3": "not started",
-    "step4": "not started"
+    "step4": "not started",
+    "credentialBlocked": "Oracle, Web API, MCP, and published Skill real-credential E2E skipped/blocked; no complete production connectivity claim"
   },
   "staticGuardResiduals": [],
   "integrationArtifacts": {
