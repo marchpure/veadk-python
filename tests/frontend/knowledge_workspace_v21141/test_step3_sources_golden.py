@@ -1060,6 +1060,9 @@ def test_fixture_stdio_mcp_calls_feed_source_and_golden_revisions(
     )
     assert first_detail.preview[0]["station"] == "wetland-a"
     assert first_detail.preview[0]["secretEcho"] == "[REDACTED]"
+    assert first_detail.preview[0]["apiToken"] == "[REDACTED]"
+    source_bytes = application._artifact_store.read(first.source_revision.content_ref)
+    assert b"provider-inline-sensitive-value" not in source_bytes
 
     data_path.write_text(
         json.dumps(
