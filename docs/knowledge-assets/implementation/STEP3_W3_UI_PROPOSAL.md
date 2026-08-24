@@ -34,6 +34,9 @@ the existing product shell:
 
 Main should bind these backend facts into the existing header and views:
 
+- execution lifecycle `status` and typed `state`
+- stable `operationId`
+- `retryOfOperationId` when a run is a retry
 - draft revision from `KindExecutionRequest.draftRevision`
 - result revision from `SkillResult.id`
 - view revision from `SkillViewRevision.id`
@@ -41,10 +44,19 @@ Main should bind these backend facts into the existing header and views:
 - `dataAsOf` from `SkillResult.freshnessAt` or result payload
 - source/citation/evidence from result payload and `evidenceRef`
 - trace from `traceRef`
+- monitoring `observations`, `alerts`, `lastGoodRevisionId`,
+  `durationSeconds`, and preview-only `actionCandidates`
 
 Filter/drill changes that alter data scope should re-run through the typed
 runtime. Pure presentation changes can stay local if they do not change
 `resultRef`, `dataAsOf`, source, evidence, or trace.
+
+For failed/blocked states, UI should render the typed `state` directly instead
+of parsing messages. `unable_to_answer` is a successful Knowledge refusal when
+the retrieval/answer provider returns no reliable authorized evidence; it is
+not a transport failure. `cancelled`, `timeout`, `over_budget`,
+`permission_denied`, `schema_drift`, and `validation_failed` are terminal
+operation outcomes.
 
 ## Renderer safety expectations
 

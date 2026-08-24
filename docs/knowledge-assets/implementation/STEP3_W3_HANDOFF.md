@@ -1,6 +1,6 @@
 # STEP 3 Worker 3 Handoff
 
-Status: `READY_FOR_INTEGRATION`
+Status: `STEP3_W3_FROZEN`
 
 Date: 2026-08-25
 
@@ -43,15 +43,26 @@ Branch/worktree:
   - `ExecutionBudget`
   - `ExecutionTrace`
   - `ExecutionEvidence`
+  - provider contract models for retrieval, query plans, semantic projections,
+    graph mappings, and monitoring lifecycle records
   - `KindHandlerOutput`
   - `SkillKindExecutionRecord`
 - `frontend/server/knowledge_assets/kind_runtime/runtime.py`
   - `KindRuntime`
   - explicit dispatch for `knowledge`, `semantic`, `analysis`,
     `graph_ontology`, and `monitoring`
-  - cancellation, byte budget, timeout, no-data, and failure-state handling
+  - durable idempotency, retry, running cancellation, byte budget, timeout,
+    no-data, restart recovery, and failure-state handling
 - `frontend/server/knowledge_assets/kind_runtime/handlers.py`
   - five explicit handlers; no universal `ArtifactSpec`
+- `frontend/server/knowledge_assets/kind_runtime/providers.py`
+  - replaceable `RetrievalProvider`, `SemanticProvider`, `QueryExecutor`, and
+    `GraphMappingProvider` ports
+  - local read-only adapters for deterministic test/replay execution
+- `frontend/server/knowledge_assets/kind_runtime/repository.py`
+  - Worker 3-owned SQLite operation repository for operation lifecycle,
+    idempotency replay, cancellation flags, retry records, and incomplete
+    operation discovery after process restart
 - `frontend/server/knowledge_assets/kind_runtime/projector.py`
   - typed `SkillResult`, `ViewIntent`, `SkillViewRevision`
   - content-addressed result, evidence, trace, view-model, and trusted HTML refs
@@ -65,16 +76,46 @@ Branch/worktree:
 
 | Requirement area | Evidence |
 |---|---|
-| Unified execution protocol | `KindExecutionRequest` and `SkillKindExecutionRecord` in `kind_runtime/models.py`; `KindRuntime.execute` in `kind_runtime/runtime.py`. |
+| Unified execution protocol | `KindExecutionRequest` and `SkillKindExecutionRecord` in `kind_runtime/models.py`; `KindRuntime.execute`, `retry`, `cancel`, and `recover_incomplete` in `kind_runtime/runtime.py`. |
 | Five explicit kind handlers | `KnowledgeHandler`, `SemanticHandler`, `AnalysisHandler`, `GraphOntologyHandler`, `MonitoringHandler` in `kind_runtime/handlers.py`. |
 | Typed `SkillResult` / `ViewIntent` / `SkillViewRevision` | `SkillViewProjector.project` in `kind_runtime/projector.py`; covered by `test_worker3_runtime_executes_each_kind_with_typed_projection`. |
 | Content-addressed revision refs | `ContentAddressedStore`; result/evidence/trace/view/model refs are SHA-256 addressed. |
-| Knowledge citations and no-answer/permission states | `KnowledgeHandler`; covered by document digest/citation and permission tests. |
-| Semantic MDL projection and validation | `SemanticHandler`; covers metrics/dimensions/time semantics/relationships/permission metadata, ambiguous-field drift, sensitive-field denial, and cycle rejection. |
-| Analysis true data dependence | `AnalysisHandler`; aggregate points/KPI/null/dataAsOf/source payloads change with structured input. |
-| Graph ontology pagination/evidence/conflict/version compare | `GraphOntologyHandler`; payload includes ontology, relations, pagination, conflicts, and version compare refs. |
-| Monitoring action loop preview | `MonitoringHandler`; alerts/observations/actionCandidates are generated with `externalActionsExecuted=false`. |
+| Durable idempotency and restart recovery | `SqliteKindRuntimeRepository`; covered by completed-operation replay, concurrent same-key execution, retry linkage, and incomplete-operation recovery tests. |
+| Running cancellation and timeout | `KindRuntime` polls repository cancel flags while waiting on bounded futures; covered by running-cancel and timeout tests. |
+| Knowledge retrieval/answer contract | `RetrievalProvider`; covered by replaceable provider, citation permission, and explicit no-answer/refusal tests. |
+| Semantic MDL projection and validation | `SemanticProvider`; covers entities, joins, metrics, aggregations, units, permission metadata, ambiguity rejection, dependency validation, sensitive-field denial, and cycle rejection. |
+| Analysis fixed-plan execution | `QueryExecutor`; analysis requires a fixed `queryPlanRef` and executes through the controlled read-only port instead of selecting the first inferred dimension/metric. |
+| Graph ontology evidence-backed relations | `GraphMappingProvider`; graph edges come from schema/mapping/evidence relationships, not positional `related_to` links. |
+| Monitoring action loop lifecycle | `MonitoringHandler` plus `MonitoringLifecycle`; observations, alerts, last-good revision, duration, and preview-only action candidates are persisted with `externalActionsExecuted=false`. |
 | Trusted lifecycle/safe renderer alternative | `trusted_html`; test checks CSP marker, a11y region, text alternative, and no script/iframe. |
+
+## Corrective hardening after `96b7d10b`
+
+The previous commit `96b7d10b` is treated as
+`READY_FOR_INTEGRATION_CANDIDATE`, not production complete. This follow-up
+freezes W3 after correcting the hardening gaps:
+
+- execution lifecycle is now operation-id based and can be persisted through
+  `SqliteKindRuntimeRepository`;
+- idempotent replay returns the persisted record, including after constructing
+  a new runtime/repository instance over the same database;
+- concurrent same-key executions share the persisted result instead of running
+  provider code twice;
+- cancellation is checked while the handler future is running and persists a
+  terminal `cancelled` record before late success can replace it;
+- timeout uses bounded future waiting and emits terminal `timeout`;
+- retry records link to `retryOfOperationId` and persist both successful and
+  rejected retry attempts;
+- Knowledge is routed through a replaceable retrieval/answer provider with
+  citation permission refs and explicit no-answer reasons;
+- Semantic projection is provider-backed and validates entities, relationships,
+  declared fields, units, aggregations, ambiguities, cycles, and dependency
+  errors;
+- Analysis consumes a fixed `queryPlanRef` and uses a read-only query executor
+  port;
+- Graph/Ontology edges are produced from mapping relationships/evidence;
+- Monitoring stores lifecycle observations, alerts, last-good revision,
+  duration, and preview action candidates, with no STEP 4 Scheduler execution.
 
 ## Real IDs / digests / traces
 
@@ -103,13 +144,20 @@ Executed:
 
 ```bash
 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py
-# 10 passed in 0.67s
+# 23 passed in 1.00s
 
 pytest -q tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py \
   tests/frontend/knowledge_workspace_v21141/test_step3_core.py \
   tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py \
   tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py
-# 27 passed in 1.26s
+# 27 passed in 1.25s
+
+PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py \
+  tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py \
+  tests/frontend/knowledge_workspace_v21141/test_step3_core.py \
+  tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py \
+  tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py
+# 50 passed in 1.65s
 ```
 
 Coverage includes:
@@ -126,6 +174,13 @@ Coverage includes:
 - timeout failure
 - idempotent replay stability for unchanged inputs
 - monitoring threshold/change-rate action candidate preview
+- provider contracts for retrieval, semantic model projection, query execution,
+  and graph mapping
+- durable operation repository replay after runtime restart
+- concurrent idempotency for same-key executions
+- running cancellation and late-success suppression
+- retry linkage
+- monitoring lifecycle persistence
 - renderer XSS/CSP smoke and text alternative
 
 ## Integration proposals
@@ -135,10 +190,10 @@ Coverage includes:
 
 ## Code size
 
-Worker 3 added 1,612 lines before generated bytecode cleanup:
+Worker 3 runtime/test surface at freeze:
 
-- runtime module: 1,275 lines
-- focused tests: 337 lines
+- runtime package: 2,374 lines
+- focused tests: 913 lines
 
 ## Known integration notes
 

@@ -18,8 +18,19 @@ from frontend.server.knowledge_assets.contracts import (
 )
 
 from .models import ExecutionEvidence, KindExecutionRequest, KindHandlerOutput
+from .providers import (
+    LocalGraphMappingProvider,
+    LocalQueryExecutor,
+    LocalRetrievalProvider,
+    LocalSemanticProvider,
+    GraphMappingProvider,
+    QueryExecutor,
+    RetrievalProvider,
+    SemanticProvider,
+    monitoring_plan_from_request,
+    query_plan_from_request,
+)
 from .tabular import (
-    aggregate_sum,
     duplicate_semantic_names,
     first_content,
     infer_fields,
@@ -38,6 +49,9 @@ class KindHandler:
 
 class KnowledgeHandler(KindHandler):
     kind = "knowledge"
+
+    def __init__(self, provider: RetrievalProvider | None = None) -> None:
+        self.provider = provider or LocalRetrievalProvider()
 
     def execute(self, request: KindExecutionRequest) -> KindHandlerOutput:
         golden, content = _first_golden(request)
@@ -59,30 +73,26 @@ class KnowledgeHandler(KindHandler):
                 ),
                 message="Golden Asset permission policy denied retrieval.",
             )
-        chunks = text_chunks(content)
         query = request.draft_revision.manifest.metadata.description
-        words = {word.lower() for word in re.findall(r"[\w\u4e00-\u9fff]+", query)}
-        matched = [
-            chunk for chunk in chunks
-            if not words or any(word in chunk.lower() for word in words)
-        ][:3]
-        state = "ok" if matched else "unable_to_answer"
-        answer = "\n".join(matched) if matched else "无法根据已授权知识来源回答。"
+        hits = self.provider.retrieve(request, query)
+        answer, reason = self.provider.answer(request, query, hits)
+        state = "ok" if answer else "unable_to_answer"
+        answer_text = answer or "无法根据已授权知识来源回答。"
         evidence = [
             _evidence(
                 request,
-                source_revision_id,
+                hit.source_revision_id,
                 golden.id,
-                f"local://golden/{golden.storage_ref.sha256}",
+                hit.chunk_locator,
             )
-            for index, source_revision_id in enumerate(golden.source_revision_refs or [golden.id])
-        ][: max(1, len(matched))]
+            for hit in hits[:3]
+        ]
         return KindHandlerOutput(
             state=state,
             template="knowledge",
             purpose="answer",
             view_model=KnowledgeViewModel(
-                answer=answer,
+                answer=answer_text,
                 refusal=state == "unable_to_answer",
                 citations=[
                     KnowledgeCitation(
@@ -96,8 +106,9 @@ class KnowledgeHandler(KindHandler):
                 ],
             ),
             payload={
-                "answer": answer,
+                "answer": answer_text,
                 "state": state,
+                "answerReason": reason,
                 "citations": [item.model_dump(mode="json", by_alias=True) for item in evidence],
             },
             evidence=evidence,
@@ -106,6 +117,9 @@ class KnowledgeHandler(KindHandler):
 
 class SemanticHandler(KindHandler):
     kind = "semantic"
+
+    def __init__(self, provider: SemanticProvider | None = None) -> None:
+        self.provider = provider or LocalSemanticProvider()
 
     def execute(self, request: KindExecutionRequest) -> KindHandlerOutput:
         golden, content = _first_golden(request)
@@ -126,18 +140,29 @@ class SemanticHandler(KindHandler):
                 payload={"deniedFields": denied_fields},
                 message="Field-level permission policy rejected sensitive columns.",
             )
-        ambiguous = duplicate_semantic_names(rows)
-        if ambiguous:
+        semantic = self.provider.build_model(request)
+        if semantic.ambiguities:
             return KindHandlerOutput(
                 state="schema_drift",
                 template="semantic",
                 purpose="schema",
-                payload={"ambiguousFields": ambiguous},
-                message="Ambiguous field names require semantic review.",
+                payload={"ambiguities": semantic.ambiguities},
+                message="Semantic fields require review before projection.",
             )
-        numeric, dimensions, date_like = infer_fields(rows)
-        spec = request.draft_revision.manifest.spec.kind_spec
-        cycle = _relationship_cycle(getattr(spec, "relationship_refs", []))
+        if semantic.dependency_errors:
+            return KindHandlerOutput(
+                state="validation_failed",
+                template="semantic",
+                purpose="schema",
+                payload={"dependencyErrors": semantic.dependency_errors},
+                message="Semantic model dependencies failed validation.",
+            )
+        cycle = _relationship_cycle(
+            [
+                f"{relationship.source}.{relationship.target}"
+                for relationship in semantic.relationships
+            ]
+        )
         if cycle:
             return KindHandlerOutput(
                 state="validation_failed",
@@ -146,9 +171,18 @@ class SemanticHandler(KindHandler):
                 payload={"cycle": cycle},
                 message="Semantic relationship cycle detected.",
             )
-        metric_refs = list(getattr(spec, "metric_refs", []) or numeric)
-        dimension_refs = list(getattr(spec, "dimension_refs", []) or dimensions + date_like)
-        relationship_refs = list(getattr(spec, "relationship_refs", []))
+        metric_refs = [
+            field.name for field in semantic.fields if field.role == "measure"
+        ]
+        dimension_refs = [
+            field.name
+            for field in semantic.fields
+            if field.role in {"dimension", "time"}
+        ]
+        relationship_refs = [
+            f"{relationship.source}.{relationship.target}"
+            for relationship in semantic.relationships
+        ]
         return KindHandlerOutput(
             state="ok",
             template="semantic",
@@ -161,16 +195,28 @@ class SemanticHandler(KindHandler):
                 data_ref=golden.storage_ref,
             ),
             payload={
-                "entities": [{"name": "golden_asset", "source": golden.id}],
+                "entities": [{"name": name, "source": golden.id} for name in semantic.entities],
                 "metrics": [
-                    {"name": name, "aggregation": "sum", "unit": _unit_for(name)}
-                    for name in metric_refs
+                    field.model_dump(mode="json", by_alias=True)
+                    for field in semantic.fields
+                    if field.role == "measure"
                 ],
-                "dimensions": [{"name": name} for name in dimension_refs],
-                "timeSemantics": [{"field": name, "grain": "day"} for name in date_like],
-                "relationships": relationship_refs,
+                "dimensions": [
+                    field.model_dump(mode="json", by_alias=True)
+                    for field in semantic.fields
+                    if field.role == "dimension"
+                ],
+                "timeSemantics": [
+                    field.model_dump(mode="json", by_alias=True)
+                    for field in semantic.fields
+                    if field.role == "time"
+                ],
+                "relationships": [
+                    relationship.model_dump(mode="json", by_alias=True)
+                    for relationship in semantic.relationships
+                ],
                 "permissions": {"policyRef": request.draft_revision.manifest.spec.policy_ref.uri},
-                "editableMdl": _mdl(metric_refs, dimension_refs, relationship_refs),
+                "editableMdl": semantic.mdl,
             },
             evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, "schema:0")],
         )
@@ -178,6 +224,9 @@ class SemanticHandler(KindHandler):
 
 class AnalysisHandler(KindHandler):
     kind = "analysis"
+
+    def __init__(self, query_executor: QueryExecutor | None = None) -> None:
+        self.query_executor = query_executor or LocalQueryExecutor()
 
     def execute(self, request: KindExecutionRequest) -> KindHandlerOutput:
         golden, content = _first_golden(request)
@@ -198,17 +247,33 @@ class AnalysisHandler(KindHandler):
                 payload={"deniedFields": denied_fields},
                 message="Field-level permission policy rejected sensitive columns.",
             )
-        numeric, dimensions, date_like = infer_fields(rows)
-        if not numeric:
+        try:
+            plan = query_plan_from_request(request)
+        except ValueError as error:
             return KindHandlerOutput(
-                state="awaiting_input",
+                state="no_data",
                 template="chart",
                 purpose="compare",
-                message="Analysis requires at least one numeric measure.",
+                message=str(error),
             )
-        dimension = dimensions[0] if dimensions else date_like[0] if date_like else "_row"
-        metric = numeric[0]
-        if len(rows) > request.budget.max_rows:
+        try:
+            executed = self.query_executor.execute(request, plan)
+        except PermissionError as error:
+            return KindHandlerOutput(
+                state="permission_denied",
+                template="chart",
+                purpose="compare",
+                payload={"deniedFields": str(error).split(",")},
+                message="Field-level permission policy rejected query plan.",
+            )
+        except ValueError as error:
+            return KindHandlerOutput(
+                state="validation_failed",
+                template="chart",
+                purpose="compare",
+                message=str(error),
+            )
+        except OverflowError:
             return KindHandlerOutput(
                 state="over_budget",
                 template="chart",
@@ -216,17 +281,17 @@ class AnalysisHandler(KindHandler):
                 payload={"rowCount": len(rows), "maxRows": request.budget.max_rows},
                 message="Analysis row budget exceeded.",
             )
-        points = (
-            aggregate_sum(rows, dimension=dimension, metric=metric, limit=request.budget.max_rows)
-            if dimension != "_row"
-            else [(str(index + 1), float(row[metric])) for index, row in enumerate(rows)]
-        )
+        points = [
+            (str(row["label"]), float(row["value"]))
+            for row in executed["rows"]
+            if isinstance(row.get("value"), (int, float))
+        ]
         if not points:
             return KindHandlerOutput(
                 state="no_data",
                 template="chart",
                 purpose="compare",
-                message="No numeric values remained after filtering nulls.",
+                message="Query plan returned no data.",
             )
         values = [value for _, value in points]
         return KindHandlerOutput(
@@ -235,34 +300,38 @@ class AnalysisHandler(KindHandler):
             purpose="compare",
             view_model=ChartViewModel(
                 title=request.draft_revision.manifest.metadata.display_name,
-                x_field=dimension,
-                y_field=metric,
-                series=[ChartSeries(name=metric, points=points)],
+                x_field=executed["dimension"] or "result",
+                y_field=executed["metric"],
+                series=[ChartSeries(name=executed["metric"], points=points)],
                 data_ref=golden.storage_ref,
             ),
             payload={
                 "query": {
-                    "kind": "parameterized_aggregate",
-                    "measure": metric,
-                    "dimension": None if dimension == "_row" else dimension,
-                    "limit": request.budget.max_rows,
-                    "readonly": True,
+                    "planId": plan.plan_id,
+                    "compiled": executed["compiled"],
+                    "parameters": plan.filters,
+                    "readonly": plan.read_only,
+                    "limit": plan.limit,
+                    "timeoutMs": plan.timeout_ms or request.budget.timeout_ms,
                 },
                 "kpis": [
-                    {"key": f"sum_{metric}", "value": sum(values), "unit": _unit_for(metric)},
+                    {"key": f"sum_{executed['metric']}", "value": sum(values), "unit": _unit_for(executed["metric"])},
                     {"key": "row_count", "value": len(rows), "unit": "rows"},
                 ],
                 "trends": [{"label": label, "value": value} for label, value in points],
-                "nulls": _null_counts(rows),
-                "dataAsOf": request.freshness_at or golden.freshness_at,
-                "source": golden.id,
+                "nulls": executed["nulls"],
+                "dataAsOf": executed["dataAsOf"],
+                "source": executed["source"],
             },
-            evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, f"query:{metric}")],
+            evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, f"query:{plan.plan_id}")],
         )
 
 
 class GraphOntologyHandler(KindHandler):
     kind = "graph_ontology"
+
+    def __init__(self, mapping_provider: GraphMappingProvider | None = None) -> None:
+        self.mapping_provider = mapping_provider or LocalGraphMappingProvider()
 
     def execute(self, request: KindExecutionRequest) -> KindHandlerOutput:
         golden, content = _first_golden(request)
@@ -275,21 +344,26 @@ class GraphOntologyHandler(KindHandler):
                 purpose="explore",
                 message="Graph ontology execution requires schema rows or document chunks.",
             )
-        numeric, dimensions, _ = infer_fields(rows)
-        node_names = dimensions + numeric if rows else [chunk[:48] for chunk in chunks]
+        mapping = self.mapping_provider.build_graph(request)
+        node_names = mapping.entities if mapping.entities else [chunk[:48] for chunk in chunks]
         page_size = min(request.budget.max_rows, 500)
         nodes = [
             GraphNode(
                 id=f"node-{index}",
                 label=name,
-                entity_type="metric" if name in numeric else "entity",
+                entity_type="metric" if any(name == rel.target for rel in mapping.relationships) else "entity",
             )
             for index, name in enumerate(node_names[:page_size])
         ]
+        node_by_label = {node.label: node.id for node in nodes}
         edges = [
-            GraphEdge(source=nodes[index - 1].id, target=node.id, relation="related_to")
-            for index, node in enumerate(nodes)
-            if index
+            GraphEdge(
+                source=node_by_label[relationship.source],
+                target=node_by_label[relationship.target],
+                relation=relationship.relation,
+            )
+            for relationship in mapping.relationships
+            if relationship.source in node_by_label and relationship.target in node_by_label
         ]
         conflicts = duplicate_semantic_names(rows)
         return KindHandlerOutput(
@@ -304,6 +378,7 @@ class GraphOntologyHandler(KindHandler):
             payload={
                 "ontology": {"entities": [node.model_dump(mode="json", by_alias=True) for node in nodes]},
                 "relations": [edge.model_dump(mode="json", by_alias=True) for edge in edges],
+                "mappingEvidence": mapping.evidence_locators,
                 "pagination": {"offset": 0, "limit": page_size, "total": len(node_names)},
                 "conflicts": conflicts,
                 "versionCompare": {
@@ -318,6 +393,9 @@ class GraphOntologyHandler(KindHandler):
 class MonitoringHandler(KindHandler):
     kind = "monitoring"
 
+    def __init__(self, query_executor: QueryExecutor | None = None) -> None:
+        self.query_executor = query_executor or LocalQueryExecutor()
+
     def execute(self, request: KindExecutionRequest) -> KindHandlerOutput:
         golden, content = _first_golden(request)
         rows = parse_rows(content)
@@ -331,26 +409,45 @@ class MonitoringHandler(KindHandler):
         numeric, dimensions, date_like = infer_fields(rows)
         if not numeric:
             return KindHandlerOutput(
-                state="awaiting_input",
+                state="no_data",
                 template="monitoring",
                 purpose="monitor",
                 message="Monitoring requires at least one metric.",
             )
-        metric = numeric[0]
-        dimension = date_like[0] if date_like else dimensions[0] if dimensions else "_row"
-        if dimension == "_row":
-            values = [(str(index + 1), float(row[metric])) for index, row in enumerate(rows)]
-        elif date_like and dimension == date_like[0]:
-            values = [
-                (str(row.get(dimension, index + 1)), float(row[metric]))
-                for index, row in enumerate(rows[: request.budget.max_rows])
-                if isinstance(row.get(metric), (int, float))
-            ]
-        else:
-            values = aggregate_sum(
-                rows, dimension=dimension, metric=metric, limit=request.budget.max_rows
+        plan = monitoring_plan_from_request(request)
+        try:
+            executed = self.query_executor.execute(request, plan)
+        except PermissionError as error:
+            return KindHandlerOutput(
+                state="permission_denied",
+                template="monitoring",
+                purpose="monitor",
+                payload={"deniedFields": str(error).split(",")},
+                message="Field-level permission policy rejected monitoring query plan.",
             )
-        threshold = _threshold(getattr(request.draft_revision.manifest.spec.kind_spec, "alert_policy_ref", ""))
+        except OverflowError:
+            return KindHandlerOutput(
+                state="over_budget",
+                template="monitoring",
+                purpose="monitor",
+                payload={"rowCount": len(rows), "maxRows": request.budget.max_rows},
+                message="Monitoring row budget exceeded.",
+            )
+        except ValueError as error:
+            return KindHandlerOutput(
+                state="validation_failed",
+                template="monitoring",
+                purpose="monitor",
+                message=str(error),
+            )
+        values = [
+            (str(row["label"]), float(row["value"]))
+            for row in executed["rows"]
+            if isinstance(row.get("value"), (int, float))
+        ]
+        threshold = _threshold(
+            getattr(request.draft_revision.manifest.spec.kind_spec, "alert_policy_ref", "")
+        )
         latest = values[-1][1] if values else 0.0
         previous = values[-2][1] if len(values) > 1 else latest
         change_rate = 0.0 if previous == 0 else (latest - previous) / abs(previous)
@@ -358,21 +455,21 @@ class MonitoringHandler(KindHandler):
         alerts = []
         observations = []
         if threshold is not None and latest >= threshold:
-            alerts.append(f"{metric} reached {latest:g}, threshold {threshold:g}")
+            alerts.append(f"{plan.metric} reached {latest:g}, threshold {threshold:g}")
         if abs(change_rate) >= 0.2 and len(values) > 1:
-            alerts.append(f"{metric} changed {change_rate:.0%} since previous point")
+            alerts.append(f"{plan.metric} changed {change_rate:.0%} since previous point")
         if stale:
             alerts.append("source freshness is stale")
-        observations.append(
-            {
-                "metric": metric,
+        observation = {
+                "metric": plan.metric,
                 "latest": latest,
                 "previous": previous,
                 "changeRate": change_rate,
+                "durationSeconds": _duration_seconds(values),
                 "freshness": golden.freshness_at,
-                "lastGood": golden.last_good,
+                "lastGoodRevisionId": golden.id if golden.last_good else None,
             }
-        )
+        observations.append(observation)
         action_candidates = [
             {
                 "type": "review",
@@ -387,7 +484,7 @@ class MonitoringHandler(KindHandler):
             template="monitoring",
             purpose="monitor",
             view_model=MonitoringViewModel(
-                metric_refs=list(getattr(request.draft_revision.manifest.spec.kind_spec, "metric_refs", []) or [metric]),
+                metric_refs=list(getattr(request.draft_revision.manifest.spec.kind_spec, "metric_refs", []) or [plan.metric]),
                 values=values,
                 alerts=alerts,
                 data_ref=golden.storage_ref,
@@ -474,18 +571,6 @@ def _unit_for(field: str) -> str:
     return ""
 
 
-def _mdl(metrics: list[str], dimensions: list[str], relationships: list[str]) -> str:
-    lines = ["model golden_asset {"]
-    for dimension in dimensions:
-        lines.append(f"  dimension {dimension}")
-    for metric in metrics:
-        lines.append(f"  measure {metric} aggregate: sum")
-    for relationship in relationships:
-        lines.append(f"  relationship {relationship}")
-    lines.append("}")
-    return "\n".join(lines)
-
-
 def _null_counts(rows: list[dict[str, object]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in rows:
@@ -493,6 +578,17 @@ def _null_counts(rows: list[dict[str, object]]) -> dict[str, int]:
             if value in (None, ""):
                 counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _duration_seconds(values: list[tuple[str, float]]) -> int:
+    if len(values) < 2:
+        return 0
+    try:
+        first = datetime.fromisoformat(values[0][0].replace("Z", "+00:00"))
+        last = datetime.fromisoformat(values[-1][0].replace("Z", "+00:00"))
+    except ValueError:
+        return len(values) - 1
+    return max(0, int((last - first).total_seconds()))
 
 
 def _threshold(policy_ref: str) -> float | None:
