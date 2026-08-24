@@ -1,35 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactExportResult, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { EvaluationQualityCommandResult, EvaluationRunResult, Event, InvocationStartResult, KnowledgeCitation } from "./part2";
-import type { SkillDraftRetryPayload, SkillDraftRunResult, SkillManifest, SkillManifestAction, SkillOperation, SkillViewShareGrant, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
-
-export interface KnowledgeViewModel {
-  template?: "knowledge";
-  answer: string;
-  citations?: Array<KnowledgeCitation>;
-  refusal?: boolean;
-}
-
-export interface LegacySkillManifestInput {
-  name: string;
-  version: string;
-  description?: string;
-  actions?: Array<SkillManifestAction>;
-  schema?: ManifestInputSchema;
-}
-
-export interface ManifestInputSchema {
-  type?: "object";
-  properties?: Record<string, ManifestProperty>;
-  required?: Array<string>;
-  additionalProperties?: boolean;
-}
-
-export interface ManifestProperty {
-  type: "string" | "number" | "boolean" | "object" | "array";
-  description?: string;
-}
+import type { ArtifactExportResult, AssistantTurnResult, Audit, AuthoringEvent, AuthoringOperation, DraftCommandResult, DraftRevision, ErrorEnvelope } from "./part1";
+import type { EvaluationQualityCommandResult, EvaluationRunResult, Event, GoldenAssetRevision, InvocationStartResult, LegacySkillManifestInput } from "./part2";
+import type { SkillManifest, SkillOperation, SkillResult, SkillViewRevision, SkillViewShareGrant, SourceCleanResult, SourceProfileResult, StorageRef, ViewIntent } from "./part4";
 
 export interface McpConnectorConfig {
   kind: "mcp";
@@ -39,14 +12,6 @@ export interface McpConnectorConfig {
   toolAllowlist: Array<string>;
   outputBytes?: number;
   timeoutSeconds?: number;
-}
-
-export interface MonitoringKindSpec {
-  kind?: "monitoring";
-  metricRefs?: Array<string>;
-  refreshScheduleRef: string;
-  alertPolicyRef: string;
-  actionPolicyRef?: PermissionRef | null;
 }
 
 export interface MonitoringViewModel {
@@ -68,10 +33,16 @@ export interface Operation {
   status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
   version: number;
   events: Array<Event>;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | null;
   error?: ErrorEnvelope | null;
   nextActions?: Array<string>;
   audit?: Array<Audit>;
+}
+
+export interface OutputContract {
+  name: string;
+  type: "answer" | "table" | "metric" | "chart" | "schema" | "graph" | "observation";
+  required?: boolean;
 }
 
 export interface OwnerRef {
@@ -89,6 +60,14 @@ export interface PatchOperation {
 export interface PermissionRef {
   uri: string;
   version: string;
+}
+
+export interface PlanNode {
+  node_id: string;
+  role: "intent_resolution" | "context_resolution" | "query_plan" | "retrieval" | "schema_mapping" | "threshold_policy" | "worker3_execution";
+  depends_on?: Array<string>;
+  input_names?: Array<string>;
+  output_names?: Array<string>;
 }
 
 export interface PolicyCheck {
@@ -173,6 +152,14 @@ export interface PublishedSkillVersion {
   publishedAt: string;
 }
 
+export interface QueryPlan {
+  source_revision: string;
+  selected_fields: Array<string>;
+  filters?: Record<string, string>;
+  limit?: number;
+  read_only?: true;
+}
+
 export interface RefreshRun {
   id: string;
   skillId: string;
@@ -214,6 +201,13 @@ export interface ResourcePayload {
   reason?: string;
 }
 
+export interface ResourceRef {
+  kind: "golden_asset" | "data_access_skill" | "knowledge_asset" | "skill";
+  object_id: string;
+  revision: string;
+  scope: Scope;
+}
+
 export interface ResourceShareResult {
   resultType?: "resource.share";
   error?: ErrorEnvelope | null;
@@ -251,17 +245,11 @@ export interface SchemaRef {
   sha256: string;
 }
 
+export type Scope = "personal" | "team";
+
 export interface SecretRef {
   uri: string;
   version: string;
-}
-
-export interface SemanticKindSpec {
-  kind?: "semantic";
-  metricRefs?: Array<string>;
-  dimensionRefs?: Array<string>;
-  relationshipRefs?: Array<string>;
-  queryPolicyRef?: PermissionRef | null;
 }
 
 export interface SemanticViewModel {
@@ -271,6 +259,34 @@ export interface SemanticViewModel {
   dimensionRefs?: Array<string>;
   relationshipRefs?: Array<string>;
   dataRef?: StorageRef | null;
+}
+
+export interface SkillAuthoringStartCommand {
+  command: "skill-authoring.start";
+  payload: SkillAuthoringStartPayload;
+}
+
+export interface SkillAuthoringStartPayload {
+  prompt: string;
+  resourceRefs?: Array<ResourceRef>;
+  permissions?: Array<string>;
+  fixedRevisions?: Array<string>;
+  requestedKind?: "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring" | null;
+  scope?: "personal" | "team";
+  displayName?: string | null;
+  currentSkillId?: string | null;
+  currentViewId?: string | null;
+  currentComponentId?: string | null;
+  commentIds?: Array<string>;
+}
+
+export interface SkillAuthoringStartResult {
+  resultType?: "skill-authoring.start";
+  error?: ErrorEnvelope | null;
+  status?: "queued" | "planning" | "awaiting_input" | "ready_for_execution" | "credential_blocked" | "failed" | "cancelled";
+  operation?: AuthoringOperation | null;
+  draft?: DraftRevision | null;
+  events?: Array<AuthoringEvent>;
 }
 
 export interface SkillContract {
@@ -303,4 +319,51 @@ export interface SkillDraft {
 export interface SkillDraftRetryCommand {
   command: "skill-draft.retry";
   payload: SkillDraftRetryPayload;
+}
+
+export interface SkillDraftRetryPayload {
+  draftId: string;
+  revision: number;
+  traceId: string;
+  maxSteps?: number;
+  budget?: number;
+  retryOfOperationId: string;
+}
+
+export interface SkillDraftRevision {
+  id: string;
+  skillId: string;
+  revision: number;
+  manifest: SkillManifest;
+  sourceRevisionRefs?: Array<string>;
+  goldenAssetRevisionRefs?: Array<string>;
+  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
+  createdAt: string;
+}
+
+export interface SkillDraftRunCommand {
+  command: "skill-draft.run";
+  payload: SkillDraftRunPayload;
+}
+
+export interface SkillDraftRunPayload {
+  draftId: string;
+  revision: number;
+  traceId: string;
+  maxSteps?: number;
+  budget?: number;
+}
+
+export interface SkillDraftRunResult {
+  resultType?: "skill-draft.run";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
+  draftId: string;
+  goldenAssetRevision?: GoldenAssetRevision | null;
+  skillResult?: SkillResult | null;
+  viewIntent?: ViewIntent | null;
+  skillViewRevision?: SkillViewRevision | null;
+  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
+  traceRef?: StorageRef | null;
+  evidenceRef?: StorageRef | null;
 }

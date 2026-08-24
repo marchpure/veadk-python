@@ -1,55 +1,10 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { AnalysisKindSpec, CaseCategory, CaseSource, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GraphOntologyKindSpec, GraphOntologyViewModel, KnowledgeKindSpec } from "./part2";
-import type { KnowledgeViewModel, MonitoringKindSpec, MonitoringViewModel, OwnerRef, PatchOperation, PermissionRef, PolicyCheck, ProfileRun, RunProvenance, SchemaRef, SecretRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+import type { CaseCategory, CaseSource, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
+import type { GoldenAssetRevision, GraphOntologyViewModel, KnowledgeViewModel } from "./part2";
+import type { MonitoringViewModel, OwnerRef, PatchOperation, PermissionRef, PolicyCheck, ProfileRun, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
 
-export interface SkillDraftRetryPayload {
-  draftId: string;
-  revision: number;
-  traceId: string;
-  maxSteps?: number;
-  budget?: number;
-  retryOfOperationId: string;
-}
-
-export interface SkillDraftRevision {
-  id: string;
-  skillId: string;
-  revision: number;
-  manifest: SkillManifest;
-  sourceRevisionRefs?: Array<string>;
-  goldenAssetRevisionRefs?: Array<string>;
-  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
-  createdAt: string;
-}
-
-export interface SkillDraftRunCommand {
-  command: "skill-draft.run";
-  payload: SkillDraftRunPayload;
-}
-
-export interface SkillDraftRunPayload {
-  draftId: string;
-  revision: number;
-  traceId: string;
-  maxSteps?: number;
-  budget?: number;
-}
-
-export interface SkillDraftRunResult {
-  resultType?: "skill-draft.run";
-  error?: ErrorEnvelope | null;
-  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
-  draftId: string;
-  goldenAssetRevision?: GoldenAssetRevision | null;
-  skillResult?: SkillResult | null;
-  viewIntent?: ViewIntent | null;
-  skillViewRevision?: SkillViewRevision | null;
-  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
-  traceRef?: StorageRef | null;
-  evidenceRef?: StorageRef | null;
-}
+export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";
 
 export interface SkillManifest {
   apiVersion?: "knowledge.veadk.io/v1alpha1";
@@ -111,7 +66,7 @@ export interface SkillSpec {
   evaluationSuiteRef?: string | null;
   skillViewRef?: string | null;
   compatibility?: CompatibilityTargets;
-  kindSpec: DataAccessKindSpec | SemanticKindSpec | AnalysisKindSpec | KnowledgeKindSpec | GraphOntologyKindSpec | MonitoringKindSpec;
+  kindSpec: DataAccessKindSpec | frontend__server__knowledge_assets__contract_base__SemanticKindSpec | frontend__server__knowledge_assets__contract_base__AnalysisKindSpec | frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec | frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec | frontend__server__knowledge_assets__contract_base__MonitoringKindSpec;
 }
 
 export interface SkillViewManifest {
@@ -248,6 +203,46 @@ export interface WebConnectorConfig {
   timeoutSeconds?: number;
 }
 
+export interface frontend__server__knowledge_assets__contract_base__AnalysisKindSpec {
+  kind?: "analysis";
+  question: string;
+  queryPlanRef: string;
+  refreshPolicyRef?: string | null;
+  alertPolicyRef?: string | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec {
+  kind?: "graph_ontology";
+  entitySchemaRef: SchemaRef;
+  relationshipSchemaRef: SchemaRef;
+  constraintRefs?: Array<string>;
+  evidencePolicyRef?: PermissionRef | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec {
+  kind?: "knowledge";
+  retrievalMode?: "hybrid" | "vector" | "keyword";
+  sourceRevisionRefs?: Array<string>;
+  citationPolicyRef?: PermissionRef | null;
+  refusalPolicyRef?: string | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_base__MonitoringKindSpec {
+  kind?: "monitoring";
+  metricRefs?: Array<string>;
+  refreshScheduleRef: string;
+  alertPolicyRef: string;
+  actionPolicyRef?: PermissionRef | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_base__SemanticKindSpec {
+  kind?: "semantic";
+  metricRefs?: Array<string>;
+  dimensionRefs?: Array<string>;
+  relationshipRefs?: Array<string>;
+  queryPolicyRef?: PermissionRef | null;
+}
+
 export interface frontend__server__knowledge_assets__contract_views__EvaluationCase {
   id: string;
   inputRef: StorageRef;
@@ -358,4 +353,41 @@ export interface frontend__server__knowledge_assets__evaluation_quality__models_
   checks: Array<PolicyCheck>;
   machineReasons: Array<string>;
   checkedAt?: string;
+}
+
+export interface frontend__server__skill_authoring__models__AnalysisKindSpec {
+  kind?: "analysis";
+  query_plan: QueryPlan;
+  analysis_shape?: "kpi" | "trend" | "table" | "funnel" | "breakdown";
+  unit?: string | null;
+}
+
+export interface frontend__server__skill_authoring__models__GraphOntologyKindSpec {
+  kind?: "graph_ontology";
+  entity_types: Array<string>;
+  relation_types?: Array<string>;
+  mapping_intent?: Array<string>;
+}
+
+export interface frontend__server__skill_authoring__models__KnowledgeKindSpec {
+  kind?: "knowledge";
+  citation_intent: Array<string>;
+  retrieval_mode?: "hybrid" | "semantic" | "exact";
+}
+
+export interface frontend__server__skill_authoring__models__MonitoringKindSpec {
+  kind?: "monitoring";
+  metric: string;
+  threshold: number;
+  comparator: "gt" | "gte" | "lt" | "lte" | "change_rate";
+  duration_minutes?: number;
+  refresh_seconds?: number;
+}
+
+export interface frontend__server__skill_authoring__models__SemanticKindSpec {
+  kind?: "semantic";
+  entities: Array<string>;
+  relationships?: Array<string>;
+  dimensions?: Array<string>;
+  measures?: Array<string>;
 }

@@ -114,6 +114,30 @@ from .evaluation_quality.models import (
     CaseCategory,
     CaseSource,
 )
+from frontend.server.skill_authoring.models import (
+    AuthoringErrorCode,
+    AuthoringReadModel,
+    ContextEnvelope,
+    FreshnessPolicy,
+    ResourceRef as AuthoringResourceRef,
+    Scope as AuthoringScope,
+    SkillAuthoringError,
+    SkillKind as AuthoringSkillKind,
+)
+from frontend.server.skill_authoring.ports import (
+    CredentialBlockedGateway,
+    NoopWorker3Executor,
+)
+from .authoring_repository import SqliteAuthoringRepository
+
+
+class _W1NotConfiguredResolver:
+    async def resolve(self, envelope, refs):
+        del envelope, refs
+        raise SkillAuthoringError(
+            AuthoringErrorCode.CREDENTIAL_BLOCKED,
+            "W1 Source/Golden Data resolver and MCP lifecycle are not configured",
+        )
 
 
 class _UnavailableEvaluationExecutor:
@@ -186,6 +210,94 @@ class KnowledgeAssetApplication:
                 _UnavailableEvaluationExecutor(),
                 _UnavailableEvaluationGrader(),
             )
+        self._authoring = None
+        if sqlite_connection is not None:
+            from frontend.server.skill_authoring.service import SkillAuthoringService
+
+            self._authoring = SkillAuthoringService(
+                SqliteAuthoringRepository(
+                    sqlite_connection, getattr(repository, "_lock", None)
+                ),
+                _W1NotConfiguredResolver(),
+                CredentialBlockedGateway(),
+                NoopWorker3Executor(),
+            )
+
+    async def start_skill_authoring(
+        self,
+        payload: dict[str, object],
+        *,
+        caller_id: str,
+        workspace_id: str,
+        request_id: str,
+        idempotency_key: str,
+    ) -> CommandResponse:
+        from .contracts import SkillAuthoringStartResult
+        if self._authoring is None:
+            result = SkillAuthoringStartResult(
+                status="credential_blocked",
+                error=ErrorEnvelope(
+                    code="AUTHORING_NOT_CONFIGURED",
+                    message="生产 authoring repository 尚未配置。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        authoring_repo = self._authoring.repository
+        previous_id = await authoring_repo.get_idempotency(idempotency_key)
+        if previous_id:
+            read = await self._authoring.read_operation(previous_id)
+            return self._authoring_response(read, request_id)
+        refs = tuple(
+            AuthoringResourceRef.model_validate(item)
+            for item in payload.get("resource_refs", [])
+        )
+        envelope = ContextEnvelope(
+            request_id=request_id,
+            caller_id=caller_id,
+            workspace_id=workspace_id,
+            prompt=str(payload["prompt"]),
+            resource_refs=refs,
+            permissions=tuple(str(item) for item in payload.get("permissions", [])),
+            fixed_revisions=tuple(
+                str(item) for item in payload.get("fixed_revisions", [])
+            ),
+            freshness=FreshnessPolicy(),
+            current_skill_id=payload.get("current_skill_id"),
+            current_view_id=payload.get("current_view_id"),
+            current_component_id=payload.get("current_component_id"),
+            comment_ids=tuple(str(item) for item in payload.get("comment_ids", [])),
+        )
+        kind = payload.get("requested_kind")
+        read = await self._authoring.create_draft(
+            envelope,
+            requested_kind=AuthoringSkillKind(kind) if kind else None,
+            scope=AuthoringScope(str(payload.get("scope", "personal"))),
+            display_name=payload.get("display_name"),
+        )
+        operation_id = read.operation.operation_id
+        await authoring_repo.save_idempotency(idempotency_key, operation_id)
+        return self._authoring_response(read, request_id)
+
+    @staticmethod
+    def _authoring_response(read: AuthoringReadModel, request_id: str) -> CommandResponse:
+        from .contracts import SkillAuthoringStartResult
+        result = SkillAuthoringStartResult(
+            status=read.operation.status.value,
+            operation=read.operation,
+            draft=read.draft,
+            events=list(read.events),
+        )
+        accepted = read.operation.status.value in {
+            "queued", "planning", "awaiting_input", "ready_for_execution"
+        }
+        return CommandResponse(
+            accepted=accepted,
+            request_id=request_id,
+            operation_id=read.operation.operation_id,
+            result=result,
+        )
 
     def bootstrap(self, workspace_id: str, role: str):
         return self.repository.bootstrap(workspace_id, role)
@@ -2662,6 +2774,14 @@ class KnowledgeAssetApplication:
 
     def operation(self, operation_id: str) -> OperationResponse | None:
         return self.repository.operation(operation_id)
+
+    async def authoring_operation(self, operation_id: str) -> AuthoringReadModel | None:
+        if self._authoring is None:
+            return None
+        operation = await self._authoring.repository.get_operation(operation_id)
+        if operation is None:
+            return None
+        return await self._authoring.read_operation(operation_id)
 
     def cancel(self, operation_id: str, request_id: str) -> OperationResponse:
         job_id = self._builder_job_ids.get(operation_id)

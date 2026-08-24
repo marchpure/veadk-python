@@ -1,8 +1,26 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { ArtifactExportResult, AssistantTurnResult, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef } from "./part3";
-import type { SkillDraftRunResult, SkillResult, SourceCleanResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
+import type { NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SkillAuthoringStartResult, SkillDraftRunResult } from "./part3";
+import type { SkillManifestAction, SkillResult, SourceCleanResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
+
+export interface EvaluationCaseGenerateCandidatePayload {
+  caseId: string;
+  category: string;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  provenanceRef: string;
+}
+
+export interface EvaluationCaseImportCommand {
+  command: "evaluation-case.import";
+  payload: EvaluationCaseImportPayload;
+}
+
+export interface EvaluationCaseImportPayload {
+  content: string;
+  mediaType: "application/json" | "text/csv";
+}
 
 export interface EvaluationCommand {
   command: "evaluation.run" | "evaluation.apply";
@@ -144,7 +162,7 @@ export interface Event {
   occurredAt: string;
   type: "accepted" | "progress" | "succeeded" | "failed" | "cancelled";
   terminal: boolean;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | null;
   error?: ErrorEnvelope | null;
 }
 
@@ -168,6 +186,12 @@ export interface FixPlan {
   newDraftRevision?: string | null;
   rerunId?: string | null;
   undoToken?: string | null;
+}
+
+export interface FreshnessPolicy {
+  as_of?: string | null;
+  max_age_seconds?: number;
+  require_fixed_revision?: boolean;
 }
 
 export interface GoldenAssetRevision {
@@ -198,14 +222,6 @@ export interface GraphNode {
   entityType: string;
 }
 
-export interface GraphOntologyKindSpec {
-  kind?: "graph_ontology";
-  entitySchemaRef: SchemaRef;
-  relationshipSchemaRef: SchemaRef;
-  constraintRefs?: Array<string>;
-  evidencePolicyRef?: PermissionRef | null;
-}
-
 export interface GraphOntologyViewModel {
   template?: "graph_ontology";
   nodes?: Array<GraphNode>;
@@ -220,6 +236,12 @@ export interface ImportCommand {
 
 export interface ImportPayload {
   sourceId: string;
+}
+
+export interface InputContract {
+  name: string;
+  type: "string" | "number" | "boolean" | "date" | "dimension" | "metric" | "document_ref";
+  required?: boolean;
 }
 
 export interface Invocation {
@@ -291,10 +313,29 @@ export interface KnowledgeCitation {
   excerptRef?: StorageRef | null;
 }
 
-export interface KnowledgeKindSpec {
-  kind?: "knowledge";
-  retrievalMode?: "hybrid" | "vector" | "keyword";
-  sourceRevisionRefs?: Array<string>;
-  citationPolicyRef?: PermissionRef | null;
-  refusalPolicyRef?: string | null;
+export interface KnowledgeViewModel {
+  template?: "knowledge";
+  answer: string;
+  citations?: Array<KnowledgeCitation>;
+  refusal?: boolean;
+}
+
+export interface LegacySkillManifestInput {
+  name: string;
+  version: string;
+  description?: string;
+  actions?: Array<SkillManifestAction>;
+  schema?: ManifestInputSchema;
+}
+
+export interface ManifestInputSchema {
+  type?: "object";
+  properties?: Record<string, ManifestProperty>;
+  required?: Array<string>;
+  additionalProperties?: boolean;
+}
+
+export interface ManifestProperty {
+  type: "string" | "number" | "boolean" | "object" | "array";
+  description?: string;
 }

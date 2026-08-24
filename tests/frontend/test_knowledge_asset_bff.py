@@ -124,6 +124,50 @@ def test_command_union_rejects_unknown_commands_and_extra_payload() -> None:
     assert "unknown" in extra.json()["details"]["validation"]
 
 
+def test_skill_authoring_start_is_typed_and_fail_closed_without_w1() -> None:
+    client = build_client()
+    headers = {
+        "X-Request-ID": "authoring-request-1",
+        "Idempotency-Key": "authoring-start-1",
+    }
+    body = {
+        "command": "skill-authoring.start",
+        "payload": {
+            "prompt": "Compare infrastructure service health by day",
+            "requestedKind": "analysis",
+        },
+    }
+
+    first = client.post(
+        "/api/knowledge-assets/v1/commands", json=body, headers=headers
+    )
+    assert first.status_code == 200
+    first_payload = first.json()
+    assert first_payload["accepted"] is False
+    assert first_payload["result"]["resultType"] == "skill-authoring.start"
+    assert first_payload["result"]["status"] == "credential_blocked"
+    assert first_payload["result"]["operation"]["error_code"] == "credential_blocked"
+    assert first_payload["result"]["draft"] is None
+    assert [
+        item["event_type"] for item in first_payload["result"]["events"]
+    ] == ["operation_created", "credential_blocked"]
+
+    replay = client.post(
+        "/api/knowledge-assets/v1/commands", json=body, headers=headers
+    )
+    assert replay.status_code == 200
+    replay_payload = replay.json()
+    assert replay_payload["operationId"] == first_payload["operationId"]
+    assert replay_payload["result"]["operation"]["operation_id"] == (
+        first_payload["operationId"]
+    )
+    read_back = client.get(
+        f"/api/knowledge-assets/v1/authoring/operations/{first_payload['operationId']}",
+        headers={"X-Request-ID": "authoring-read-1"},
+    )
+    assert read_back.status_code == 200
+    assert read_back.json()["operation"]["status"] == "credential_blocked"
+    assert read_back.json()["events"][1]["event_type"] == "credential_blocked"
 def test_evaluation_quality_commands_use_typed_bff_and_fail_closed_for_candidates() -> (
     None
 ):
