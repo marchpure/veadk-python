@@ -76,8 +76,9 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 
 ## Worker state
 
-- W1: `85b8a19c` (proposal only; required non-null integration commit and
-  clean worktree still missing)
+- W1: `da3fd632` is an implementation candidate with real local adapters and
+  MCP evidence, but its handoff is `CANDIDATE_PENDING_FINAL_VERIFICATION`,
+  `W1.status.json` is absent, and the worktree is dirty; it is not integrated.
 - W2: `65037a4b`, `bdb1573d`, `a03cb607`, `bffeeb88`; Main `7949f452`
 - W3: source `d7cb4cb2`, Main cherry-pick `0e2462d8`
 - W4: `308f1022`, `45e44eb6`
@@ -86,7 +87,9 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 - Main authoring composition: `d73e258e` adds the typed
   `skill-authoring.start` command, durable SQLite/PostgreSQL authoring tables,
   idempotent operation/event readback, and explicit W1 credential-blocked
-  behavior. BFF/authoring/evaluation focused regression is `60 passed`.
+  behavior. `ae3793b8` adds injectable resolver/model/Worker 3 ports and the
+  PostgreSQL authoring adapter. BFF/authoring/evaluation focused regression is
+  `60 passed`.
 
 W2 `a03cb607` was content-equivalent to code already present in Main after
 conflict reconciliation and did not create a new Main commit. W4
