@@ -7,7 +7,7 @@
   "finalTag": null,
   "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
   "commandRegistryDigest": "bcd6f4d1ca7c3f7e52b1ced95de410cbc843c68397ca9f45b799e427a5718d18",
-  "migrationHead": "004_step3_shares",
+  "migrationHead": "006_skill_authoring",
   "oldRouteCount": 23,
   "newRouteCount": 43,
   "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
