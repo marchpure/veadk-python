@@ -1,0 +1,51 @@
+worker: W2
+domain: agent_orchestration_skilldraft_authoring
+rows:
+  - id: composer.create
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.create
+    read_model: AuthoringReadModel
+    test: tests/frontend/test_skill_authoring.py::test_real_local_journey_changes_plan_and_draft_digest
+  - id: composer.context_refs
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.context.update
+    read_model: AuthoringReadModel
+    test: tests/frontend/test_skill_authoring.py::test_context_add_remove_cancel_and_team_lineage
+  - id: assistant.typed_patch
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.patch.propose/accept/reject
+    read_model: PatchProposal
+    test: tests/frontend/test_skill_authoring.py::test_patch_impact_accept_undo_and_refresh_recovery
+  - id: assistant.undo_conflict
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.undo
+    read_model: AuthoringReadModel
+    test: tests/frontend/test_skill_authoring.py::test_stale_patch_returns_conflict_and_team_object_is_read_only
+  - id: team.reuse
+    owner: W2
+    status: STEP3_REAL
+    command: skill_draft.team.reuse
+    read_model: DraftRevision
+    test: tests/frontend/test_skill_authoring.py::test_context_add_remove_cancel_and_team_lineage
+  - id: model.credentials
+    owner: W2
+    status: EXTERNAL_CREDENTIAL_BLOCKED
+    command: skill_draft.create
+    read_model: AuthoringOperation
+    test: tests/frontend/test_skill_authoring.py::test_credential_blocked_is_typed_and_persisted
+  - id: worker3.execution
+    owner: W2
+    status: STEP3_GATED
+    command: skill_draft.execute
+    read_model: Worker3ExecutionAccepted
+    test: tests/frontend/test_skill_authoring.py::test_execution_is_typed_worker3_boundary
+  - id: evaluation.publish
+    owner: W4
+    status: STEP3_GATED
+    command: worker4_owned
+    read_model: worker4_owned
+    test: worker4_owned
