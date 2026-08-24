@@ -1,6 +1,6 @@
 # STEP 3 Aggregate Handoff — Main Integration Snapshot
 
-Status: `INTEGRATING`
+Status: `BLOCKED`
 STEP4_READY: `false`
 Date: 2026-08-25
 
@@ -22,40 +22,45 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 
 ## Verification snapshot
 
-- Backend focused: 29 passed.
-- Frontend focused: 75 passed.
+- Backend focused: 104 passed, 13 skipped.
+- Frontend focused: 29 passed.
 - Production build: Studio and website-integration bundles built.
 - Static guard: pass, zero findings.
 - Browser route audit: 43 new + 23 retained states passed with zero page/console
   errors and zero horizontal overflow; evidence is outside the repository at
   `/tmp/knowledge-step3-evidence-final-20260825/route-audit.json`.
-- Real vertical-chain evidence passed; fresh IDs and operation replay are at
-  `/tmp/knowledge-step3-evidence-final-20260825/vertical-chain.json`.
+- The required P0 real vertical-chain evidence is not available. Any prior
+  local replay evidence does not satisfy P0-1/P0-2/P0-3.
 - W4 candidate-gate regression: passed; unconfirmed Agent candidates return
   `failed` with `AGENT_CANDIDATE_CONFIRMATION_REQUIRED`.
 - Read-only Worker checks: W1 Source/Golden `2 passed`; W3 hardening `23
   passed`.
-- Main full backend regression: `107 passed, 13 skipped, 1 failed`; the
-  reproducible failure is knowledge Golden Asset body truncation (`# Policy`
-  is returned without `Revenue is stable.`). This remains pending the W3
-  hardening commit and is not hidden by W3's isolated pass.
-- W4 audit/evaluation check: `20 passed`.
+- Main typed compatibility regression: `29 passed`; Markdown body,
+  semantic/analysis/knowledge CSV execution, and W3 result export pass.
+- Main full backend regression: `104 passed, 13 skipped`.
+- W4 audit/evaluation check: `6 passed`.
 - Prototype archive SHA-256: `ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571`
 - Runtime evidence remains outside the repository.
 
 ## Worker state
 
-- W1: `85b8a19c`
+- W1: `85b8a19c` (required real Source/Golden commit and `W1.status.json`
+  still missing)
 - W2: `65037a4b`, `bdb1573d`
-- W3: `96b7d10b`
+- W3: source `d7cb4cb2`, Main cherry-pick `0e2462d8`
 - W4: `308f1022`, `45e44eb6`
 - W4 corrective: `6ee81405` integrated; Main composition fix is pending commit.
 
 W2 `a03cb607` and W4 `6ee81405` are integrated. W1 has not supplied the
-required real Source/Golden Data commit and `W1.status.json`. W3 remains dirty
-at `96b7d10b` with its hardening changes uncommitted; Main is not duplicating
-that domain work. The knowledge正文 regression is therefore still pending W3
-hardening and read-only verification.
+required real Source/Golden Data commit and `W1.status.json`. W3 hardening is
+integrated and its worktree is clean; Main compatibility fixes remain in this
+working tree until committed. Main is not duplicating W1/W3 domain work.
+
+The three newly explicit P0 gates are all `BLOCKED`: no committed local custom
+MCP initialize/tools/list/tools/call evidence; no real veadk.Agent/Runner
+session/trace/tool-call evidence for a non-preset request; and no independent
+W3 artifact workspace with real build/render, accessible Dashboard, KPI
+change evidence, screenshots, and HTML digest.
 
 ## Known debt and next gate
 

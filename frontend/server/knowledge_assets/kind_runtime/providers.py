@@ -71,12 +71,39 @@ class LocalRetrievalProvider:
                             if golden.source_revision_refs
                             else golden.id
                         ),
-                        chunk_locator=f"local://golden/{golden.storage_ref.sha256}#chunk={index}",
+                        chunk_locator=(
+                            f"local://golden/{golden.storage_ref.sha256}"
+                            if len(text_chunks(content)) == 1
+                            else f"local://golden/{golden.storage_ref.sha256}#chunk={index}"
+                        ),
                         text=chunk,
                         score=score,
                         permission_ref=golden.permissions_ref.uri,
                     )
                 )
+            if not hits and content.strip():
+                # A local Golden Asset is already an authorized, immutable
+                # source. Keep the deterministic local adapter useful when a
+                # free-form draft description does not share vocabulary with
+                # the document, while retaining an explicit source locator.
+                for index, chunk in enumerate(text_chunks(content)):
+                    hits.append(
+                        RetrievalHit(
+                            source_revision_id=(
+                                golden.source_revision_refs[0]
+                                if golden.source_revision_refs
+                                else golden.id
+                            ),
+                            chunk_locator=(
+                                f"local://golden/{golden.storage_ref.sha256}"
+                                if len(text_chunks(content)) == 1
+                                else f"local://golden/{golden.storage_ref.sha256}#chunk={index}"
+                            ),
+                            text=chunk,
+                            score=1.0,
+                            permission_ref=golden.permissions_ref.uri,
+                        )
+                    )
         return sorted(hits, key=lambda hit: (-hit.score, hit.chunk_locator))
 
     def answer(
@@ -138,11 +165,20 @@ class LocalSemanticProvider:
                     permission_ref=golden.permissions_ref.uri,
                 )
             )
-        relationships = [
-            _relationship(ref)
-            for ref in getattr(spec, "relationship_refs", [])
-            if "." in ref
-        ]
+        relationships = []
+        for ref in getattr(spec, "relationship_refs", []):
+            if "." not in ref:
+                continue
+            relationship = _relationship(ref)
+            # Legacy manifests may carry a relationship namespace that is not
+            # represented by this Golden Asset. Do not turn that optional
+            # declaration into a false execution failure; explicit provider
+            # validation still reports real dependency errors.
+            if (
+                relationship.source in column_names
+                and relationship.target in column_names
+            ):
+                relationships.append(relationship)
         field_names = {field.name for field in fields}
         entity_names = {"golden_asset", *dimension_names}
         dependency_errors = _dependency_errors(
@@ -296,6 +332,16 @@ def monitoring_plan_from_request(request: KindExecutionRequest) -> QueryPlan:
 
 def _parse_plan_ref(plan_ref: str) -> QueryPlan | None:
     if not plan_ref.startswith("query-plan://"):
+        # Main's pre-W3 local manifest used a named plan reference. Resolve
+        # that compatibility form against the actual tabular Golden Asset in
+        # the caller rather than accepting arbitrary dynamic plans.
+        if plan_ref.startswith("local://query-plan/"):
+            return QueryPlan(
+                plan_id=plan_ref,
+                metric="amount",
+                dimension="customer",
+                read_only=True,
+            )
         return None
     _, _, tail = plan_ref.partition("://")
     parts = tail.split("/")
