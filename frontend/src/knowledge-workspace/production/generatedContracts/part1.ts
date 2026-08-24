@@ -1,8 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationPayload, InvocationStartResult } from "./part2";
-import type { NotReadyCommandResult, PermissionRef, PublicationPublishResult, RefreshRunResult, SecretRef, SkillDraft } from "./part3";
-import type { SkillDraftRunResult, SourceCleanResult, SourceProfileResult, StorageRef, ViewCell, ViewField } from "./part4";
+import type { EvaluationRunResult, InvocationStartResult } from "./part2";
+import type { NotReadyCommandResult, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, SecretRef, SkillDraft } from "./part3";
+import type { SkillDraftRunResult, SkillPatch, SourceCleanResult, SourceProfileResult, StorageRef, ViewCell, ViewField } from "./part4";
 
 export interface ActionCommand {
   command: "action.update";
@@ -52,14 +52,52 @@ export interface ArtifactExportPayload {
   format: "json" | "csv" | "html";
 }
 
+export interface ArtifactExportResult {
+  resultType?: "artifact.export";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "succeeded" | "failed";
+  resourceId: string;
+  artifactRef?: StorageRef | null;
+}
+
 export interface AssistantCommand {
   command: "assistant.turn";
   payload: AssistantTurnPayload;
 }
 
+export interface AssistantContextEnvelope {
+  skillId: string;
+  viewRevisionId: string;
+  selectedIds?: Array<string>;
+  schemaRef: string;
+  permissionScope: string;
+}
+
+export interface AssistantDiff {
+  patchId: string;
+  skillId: string;
+  baseRevision: number;
+  nextRevision: number;
+  operation: SkillPatch;
+  before: string;
+  after: string;
+  undoToken: string;
+}
+
 export interface AssistantTurnPayload {
   text: string;
   contextIds?: Array<string>;
+  context?: AssistantContextEnvelope | null;
+  patch?: SkillPatch | null;
+}
+
+export interface AssistantTurnResult {
+  resultType?: "assistant.turn";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "succeeded" | "failed";
+  skillId: string;
+  diff?: AssistantDiff | null;
+  rerun?: SkillDraftRunResult | null;
 }
 
 export interface Audit {
@@ -112,7 +150,7 @@ export interface CommandResponse {
   accepted: boolean;
   requestId: string;
   operationId?: string | null;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | null;
 }
 
 export interface CompatibilityTargets {
@@ -191,9 +229,4 @@ export interface ErrorEnvelope {
   retryable: boolean;
   requestId: string;
   details?: Record<string, string> | null;
-}
-
-export interface EvaluationCommand {
-  command: "evaluation.run" | "evaluation.apply";
-  payload: EvaluationPayload;
 }

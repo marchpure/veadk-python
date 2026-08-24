@@ -3,7 +3,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from frontend.server.knowledge_assets.application import KnowledgeAssetApplication
-from frontend.server.knowledge_assets.contracts import SourceCleanPayload, SourceProfilePayload
+from frontend.server.knowledge_assets.contracts import (
+    SkillOperation,
+    SkillDraftRunPayload,
+    SourceCleanPayload,
+    SourceProfilePayload,
+)
 from frontend.server.knowledge_assets.repository import SqliteKnowledgeAssetRepository
 from frontend.server.knowledge_assets.routes import mount_knowledge_asset_routes
 
@@ -123,6 +128,536 @@ def test_bff_local_markdown_flow_returns_readable_golden_revision(
     assert cleaned.json()["accepted"] is True
     assert golden["storageRef"]["uri"].startswith("local://golden/")
     assert repository.latest_golden_asset_revision("ws").id == golden["id"]
+
+
+def test_bff_skill_draft_run_builds_typed_knowledge_view_from_golden_asset(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "policy.md"
+    source.write_text("# Policy\n\nRevenue is stable.\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=KnowledgeAssetApplication(repository),
+        identity_resolver=lambda request: ("ws", "editor"),
+    )
+    client = TestClient(app)
+
+    created = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-draft.create",
+            "payload": {
+                "workspaceId": "ws",
+                "name": "Policy",
+                "description": "Answer policy questions",
+                "sourceRefs": [str(source)],
+            },
+        },
+        headers={"X-Request-ID": "run-create", "Idempotency-Key": "run-create"},
+    )
+    draft = created.json()["result"]["draft"]
+    source_id = repository._connection.execute(
+        "SELECT id FROM source_revisions"
+    ).fetchone()["id"]
+    cleaned = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "source.clean",
+            "payload": {"sourceRevisionId": source_id, "recipeId": "run-clean"},
+        },
+        headers={"X-Request-ID": "run-clean", "Idempotency-Key": "run-clean"},
+    )
+    golden = cleaned.json()["result"]["goldenAssetRevision"]
+    manifest = {
+        "apiVersion": "knowledge.veadk.io/v1alpha1",
+        "kind": "Skill",
+        "metadata": {
+            "id": draft["id"],
+            "version": "1.0.0",
+            "displayName": "Policy",
+            "description": "Answer policy questions",
+            "owner": {"workspaceId": "ws", "principalId": "local"},
+        },
+        "spec": {
+            "kind": "knowledge",
+            "contract": {
+                "inputSchemaRef": {
+                    "uri": "local://schema/input",
+                    "version": "1",
+                    "sha256": "0" * 64,
+                },
+                "outputSchemaRef": {
+                    "uri": "local://schema/output",
+                    "version": "1",
+                    "sha256": "0" * 64,
+                },
+                "operations": [
+                    {
+                        "name": "answer",
+                        "description": "Answer from the attached Golden Asset",
+                        "inputSchemaRef": {
+                            "uri": "local://schema/input",
+                            "version": "1",
+                            "sha256": "0" * 64,
+                        },
+                        "outputSchemaRef": {
+                            "uri": "local://schema/output",
+                            "version": "1",
+                            "sha256": "0" * 64,
+                        },
+                    }
+                ],
+            },
+            "dependencies": {"goldenAssets": [golden["id"]]},
+            "policyRef": {"uri": "permission://workspace/ws", "version": "1"},
+            "runtimeRef": "runtime://knowledge/v1",
+            "kindSpec": {
+                "kind": "knowledge",
+                "retrievalMode": "keyword",
+                "sourceRevisionRefs": [source_id],
+            },
+        },
+    }
+    saved = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-draft.save-manifest",
+            "payload": {
+                "draftId": draft["id"],
+                "baseRevision": draft["revision"],
+                "manifest": manifest,
+            },
+        },
+        headers={"X-Request-ID": "run-save", "Idempotency-Key": "run-save"},
+    )
+    assert saved.status_code == 200
+    revision = saved.json()["result"]["draft"]["revision"]
+
+    partial = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-draft.run",
+            "payload": {
+                "draftId": draft["id"],
+                "revision": revision,
+                "traceId": "trace-partial",
+                "maxSteps": 1,
+                "budget": 1000,
+            },
+        },
+        headers={"X-Request-ID": "run-partial", "Idempotency-Key": "run-partial"},
+    )
+    assert partial.status_code == 200
+    assert partial.json()["accepted"] is False
+    assert partial.json()["result"]["status"] == "partially_succeeded"
+    partial_operation_id = partial.json()["operationId"]
+
+    ran = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-draft.retry",
+            "payload": {
+                "draftId": draft["id"],
+                "revision": revision,
+                "traceId": "trace-real-knowledge",
+                "maxSteps": 3,
+                "budget": 1000,
+                "retryOfOperationId": partial_operation_id,
+            },
+        },
+        headers={"X-Request-ID": "run-execute", "Idempotency-Key": "run-execute"},
+    )
+
+    assert ran.status_code == 200
+    assert ran.json()["accepted"] is True
+    result = ran.json()["result"]
+    assert result["status"] == "ready_for_evaluation"
+    assert result["skillResult"]["resultRef"]["sha256"]
+    assert result["viewIntent"]["template"] == "knowledge"
+    assert result["skillViewRevision"]["viewModel"]["answer"] == (
+        "# Policy\nRevenue is stable."
+    )
+    assert result["skillViewRevision"]["manifest"]["cspProfile"] == "trusted-renderer-v1"
+    assert ran.json()["operationId"].startswith("run-")
+    operation = client.get(
+        f"/api/knowledge-assets/v1/operations/{ran.json()['operationId']}",
+        headers={"X-Request-ID": "read-run-operation"},
+    )
+    assert operation.status_code == 200
+    assert [event["type"] for event in operation.json()["events"]] == [
+        "accepted",
+        "progress",
+        "succeeded",
+    ]
+
+    evaluated = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation.run",
+            "payload": {
+                "targetId": draft["id"],
+                "suiteId": "policy-suite",
+                "environment": "test",
+                "caseIds": ["answer-policy"],
+            },
+        },
+        headers={"X-Request-ID": "run-evaluation", "Idempotency-Key": "run-evaluation"},
+    )
+    assert evaluated.status_code == 200
+    evaluation = evaluated.json()["result"]
+    assert evaluation["status"] == "succeeded"
+    assert evaluation["evaluationRun"]["dataRevisionRefs"] == [golden["id"]]
+    assert evaluation["evaluationRun"]["caseResults"][0]["status"] == "passed"
+    assert evaluation["policyGateResult"]["decision"] == "publishable"
+    assert evaluation["policyGateResult"]["machineReasons"] == [
+        "EVAL_SCORE_AT_OR_ABOVE_THRESHOLD",
+        "SKILL_RESULT_BOUND_TO_CURRENT_REVISION",
+        "SKILL_VIEW_BOUND_TO_CURRENT_REVISION",
+    ]
+
+    invoked = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "invocation.start",
+            "payload": {
+                "skillVersionId": f"test://{draft['id']}:{revision}",
+                "skillViewRevisionId": repository._connection.execute(
+                    "SELECT id FROM skill_view_revisions WHERE skill_revision_id = ?",
+                    (evaluation["evaluationRun"]["skillRevisionId"],),
+                ).fetchone()["id"],
+                "inputRef": {
+                    "uri": "inline://question",
+                    "kind": "inline",
+                    "sha256": "0" * 64,
+                    "mediaType": "application/json",
+                },
+                "callerId": "acceptance-test",
+            },
+        },
+        headers={"X-Request-ID": "run-invocation", "Idempotency-Key": "run-invocation"},
+    )
+    assert invoked.status_code == 200
+    invocation = invoked.json()["result"]["invocation"]
+    assert invoked.json()["result"]["status"] == "succeeded"
+    assert invocation["skillViewRevisionId"].startswith("view-")
+    assert invocation["status"] == "succeeded"
+    assert invoked.json()["result"]["skillResult"]["id"].startswith("result-")
+    assert invoked.json()["result"]["dataRevisionRefs"] == [golden["id"]]
+
+    exported = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "artifact.export",
+            "payload": {"resourceId": draft["id"], "format": "json"},
+        },
+        headers={"X-Request-ID": "run-export", "Idempotency-Key": "run-export"},
+    )
+    assert exported.status_code == 200
+    export_result = exported.json()["result"]
+    assert export_result["status"] == "succeeded"
+    assert export_result["artifactRef"]["sha256"] == result["skillResult"]["resultRef"]["sha256"]
+    assert export_result["artifactRef"]["uri"].startswith("local://export/")
+
+    exported_csv = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "artifact.export",
+            "payload": {"resourceId": draft["id"], "format": "csv"},
+        },
+        headers={"X-Request-ID": "run-export-csv", "Idempotency-Key": "run-export-csv"},
+    )
+    assert exported_csv.status_code == 200
+    assert exported_csv.json()["result"]["status"] == "succeeded"
+    assert exported_csv.json()["result"]["artifactRef"]["mediaType"] == "text/csv"
+    assert exported_csv.json()["result"]["artifactRef"]["uri"].endswith(".csv")
+
+    shared = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "resource.share",
+            "payload": {"resourceId": draft["id"]},
+        },
+        headers={"X-Request-ID": "run-share", "Idempotency-Key": "run-share"},
+    )
+    assert shared.status_code == 200
+    share_result = shared.json()["result"]
+    assert share_result["status"] == "succeeded"
+    assert share_result["shareGrant"]["permission"] == "read"
+    assert share_result["shareGrant"]["skillViewRevisionId"] == invocation["skillViewRevisionId"]
+
+    rejected = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "invocation.start",
+            "payload": {
+                "skillVersionId": f"test://{draft['id']}:{revision}",
+                "skillViewRevisionId": "view-missing",
+                "inputRef": {
+                    "uri": "inline://question",
+                    "kind": "inline",
+                    "sha256": "0" * 64,
+                    "mediaType": "application/json",
+                },
+                "callerId": "acceptance-test",
+            },
+        },
+        headers={"X-Request-ID": "run-invocation-missing", "Idempotency-Key": "run-invocation-missing"},
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["result"]["status"] == "failed"
+    assert rejected.json()["result"]["error"]["code"] == "SKILL_VIEW_REVISION_NOT_FOUND"
+
+
+def test_assistant_turn_validates_context_returns_diff_and_reruns(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "assistant.md"
+    source.write_text("Answer from source.\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    draft, _ = repository.create_skill_draft(
+        workspace_id="ws",
+        name="Assistant",
+        description="before",
+        source_refs=[str(source)],
+        request_id="create",
+        idempotency_key="create",
+    )
+    revision = application._register_local_source(
+        str(source), workspace_id="ws", request_id="source"
+    )
+    assert revision is not None
+    cleaned = application._run_clean(
+        SourceCleanPayload(source_revision_id=revision.id, recipe_id="clean"), "ws"
+    )
+    manifest = draft.manifest.model_copy(
+        update={
+            "spec": draft.manifest.spec.model_copy(
+                update={
+                    "contract": draft.manifest.spec.contract.model_copy(
+                        update={
+                            "operations": [
+                                SkillOperation(
+                                    name="answer",
+                                    input_schema_ref=draft.manifest.spec.contract.input_schema_ref,
+                                    output_schema_ref=draft.manifest.spec.contract.output_schema_ref,
+                                )
+                            ]
+                        }
+                    )
+                }
+            )
+        }
+    )
+    manifest = manifest.model_copy(
+        update={
+            "spec": manifest.spec.model_copy(
+                update={
+                    "dependencies": manifest.spec.dependencies.model_copy(
+                        update={"golden_assets": [cleaned.golden_asset_revision.id]}
+                    )
+                }
+            )
+        }
+    )
+    draft, _ = repository.save_manifest(
+        draft_id=draft.id,
+        base_revision=draft.revision,
+        manifest=manifest,
+        request_id="save",
+        idempotency_key="save",
+    )
+    result = application.unsupported(
+        "assistant.turn",
+        "assistant-request",
+        {
+            "text": "rename this skill",
+            "context": {
+                "skillId": draft.id,
+                "viewRevisionId": "view-before",
+                "selectedIds": [],
+                "schemaRef": "local://schema/input",
+                "permissionScope": "permission://workspace/ws",
+            },
+            "patch": {
+                "patchId": "patch-1",
+                "skillId": draft.id,
+                "baseRevision": draft.revision,
+                "operation": "set_description",
+                "value": "after",
+            },
+        },
+        workspace_id="ws",
+    )
+    assert result.accepted is True
+    assistant = result.result
+    assert assistant.result_type == "assistant.turn"
+    assert assistant.status == "succeeded"
+    assert assistant.diff.before == "before"
+    assert assistant.diff.after == "after"
+    assert assistant.diff.next_revision == draft.revision + 1
+    assert assistant.rerun.status == "ready_for_evaluation"
+    assert assistant.rerun.skill_result.kind == "knowledge"
+    undo = application.unsupported(
+        "assistant.turn",
+        "assistant-undo",
+        {
+            "text": "undo",
+            "context": {
+                "skillId": draft.id,
+                "viewRevisionId": "view-before",
+                "selectedIds": [],
+                "schemaRef": "local://schema/input",
+                "permissionScope": "permission://workspace/ws",
+            },
+            "patch": {
+                "patchId": "patch-undo",
+                "skillId": draft.id,
+                "baseRevision": assistant.diff.next_revision,
+                "operation": "set_description",
+                "value": "ignored-by-undo",
+                "undoToken": assistant.diff.undo_token,
+            },
+        },
+        workspace_id="ws",
+    )
+    assert undo.result.status == "succeeded"
+    assert undo.result.diff.before == "after"
+    assert undo.result.diff.after == "before"
+    assert undo.result.rerun.status == "ready_for_evaluation"
+
+
+def test_evaluation_sources_are_content_addressed_and_candidates_block_gate(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "evaluation.md"
+    source.write_text("Evaluation source.\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    draft, _ = repository.create_skill_draft(
+        workspace_id="ws",
+        name="Evaluation",
+        description="",
+        source_refs=[str(source)],
+        request_id="create",
+        idempotency_key="create",
+    )
+    registered = application._register_local_source(
+        str(source), workspace_id="ws", request_id="source"
+    )
+    assert registered is not None
+    cleaned = application._run_clean(
+        SourceCleanPayload(source_revision_id=registered.id, recipe_id="clean"), "ws"
+    )
+    manifest = draft.manifest.model_copy(
+        update={
+            "spec": draft.manifest.spec.model_copy(
+                update={
+                    "dependencies": draft.manifest.spec.dependencies.model_copy(
+                        update={"golden_assets": [cleaned.golden_asset_revision.id]}
+                    ),
+                    "contract": draft.manifest.spec.contract.model_copy(
+                        update={
+                            "operations": [
+                                SkillOperation(
+                                    name="answer",
+                                    input_schema_ref=draft.manifest.spec.contract.input_schema_ref,
+                                    output_schema_ref=draft.manifest.spec.contract.output_schema_ref,
+                                )
+                            ]
+                        }
+                    ),
+                }
+            )
+        }
+    )
+    draft, _ = repository.save_manifest(
+        draft_id=draft.id,
+        base_revision=draft.revision,
+        manifest=manifest,
+        request_id="save",
+        idempotency_key="save",
+    )
+    executed = application._run_skill_draft(
+        SkillDraftRunPayload(
+            draft_id=draft.id,
+            revision=draft.revision,
+            trace_id="evaluation-apply-execution",
+        ),
+        request_id="evaluation-apply-execution",
+    )
+    assert executed.status == "ready_for_evaluation"
+    evaluated = application.unsupported(
+        "evaluation.apply",
+        "evaluation-apply",
+        {
+            "targetId": draft.id,
+            "suiteId": "mixed-suite",
+            "environment": "test",
+            "cases": [
+                {
+                    "id": "manual-1",
+                    "inputRef": {
+                        "uri": "inline://manual",
+                        "kind": "inline",
+                        "sha256": "1" * 64,
+                        "mediaType": "application/json",
+                    },
+                    "source": "manual",
+                },
+                {
+                    "id": "historical-1",
+                    "inputRef": {
+                        "uri": "inline://historical",
+                        "kind": "inline",
+                        "sha256": "2" * 64,
+                        "mediaType": "application/json",
+                    },
+                    "source": "historical",
+                },
+                {
+                    "id": "batch-1",
+                    "inputRef": {
+                        "uri": "inline://batch",
+                        "kind": "inline",
+                        "sha256": "3" * 64,
+                        "mediaType": "application/json",
+                    },
+                    "source": "batch",
+                },
+                {
+                    "id": "candidate-1",
+                    "inputRef": {
+                        "uri": "inline://candidate",
+                        "kind": "inline",
+                        "sha256": "4" * 64,
+                        "mediaType": "application/json",
+                    },
+                    "source": "agent_candidate",
+                },
+            ],
+        },
+        workspace_id="ws",
+    )
+    assert evaluated.result.result_type == "evaluation.apply"
+    assert evaluated.result.status == "failed"
+    assert evaluated.result.evaluation_suite.case_count == 4
+    assert evaluated.result.evaluation_suite.cases_ref.uri.startswith(
+        "local://evaluation-cases/"
+    )
+    assert all(
+        case.evidence_ref is not None and case.regression_diff_ref is not None
+        for case in evaluated.result.evaluation_run.case_results
+    )
+    assert evaluated.result.policy_gate_result.decision == "blocked"
+    assert evaluated.result.policy_gate_result.machine_reasons == [
+        "EVAL_SCORE_BELOW_THRESHOLD"
+    ]
 
 
 def test_golden_revisions_are_append_only_and_tombstones_hide_revoked_assets(

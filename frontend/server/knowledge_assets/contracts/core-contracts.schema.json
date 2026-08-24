@@ -248,6 +248,58 @@
       "title": "ArtifactExportPayload",
       "type": "object"
     },
+    "ArtifactExportResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "artifact.export",
+          "default": "artifact.export",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "artifactRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "resourceId"
+      ],
+      "title": "ArtifactExportResult",
+      "type": "object"
+    },
     "AssistantCommand": {
       "additionalProperties": false,
       "properties": {
@@ -267,6 +319,99 @@
       "title": "AssistantCommand",
       "type": "object"
     },
+    "AssistantContextEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "skillId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Skillid",
+          "type": "string"
+        },
+        "viewRevisionId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Viewrevisionid",
+          "type": "string"
+        },
+        "selectedIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Selectedids",
+          "type": "array"
+        },
+        "schemaRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Schemaref",
+          "type": "string"
+        },
+        "permissionScope": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Permissionscope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skillId",
+        "viewRevisionId",
+        "schemaRef",
+        "permissionScope"
+      ],
+      "title": "AssistantContextEnvelope",
+      "type": "object"
+    },
+    "AssistantDiff": {
+      "additionalProperties": false,
+      "properties": {
+        "patchId": {
+          "title": "Patchid",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "baseRevision": {
+          "title": "Baserevision",
+          "type": "integer"
+        },
+        "nextRevision": {
+          "title": "Nextrevision",
+          "type": "integer"
+        },
+        "operation": {
+          "$ref": "#/$defs/SkillPatch"
+        },
+        "before": {
+          "title": "Before",
+          "type": "string"
+        },
+        "after": {
+          "title": "After",
+          "type": "string"
+        },
+        "undoToken": {
+          "title": "Undotoken",
+          "type": "string"
+        }
+      },
+      "required": [
+        "patchId",
+        "skillId",
+        "baseRevision",
+        "nextRevision",
+        "operation",
+        "before",
+        "after",
+        "undoToken"
+      ],
+      "title": "AssistantDiff",
+      "type": "object"
+    },
     "AssistantTurnPayload": {
       "additionalProperties": false,
       "properties": {
@@ -283,12 +428,97 @@
           "maxItems": 100,
           "title": "Contextids",
           "type": "array"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssistantContextEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "patch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillPatch"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "text"
       ],
       "title": "AssistantTurnPayload",
+      "type": "object"
+    },
+    "AssistantTurnResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "assistant.turn",
+          "default": "assistant.turn",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "diff": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssistantDiff"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rerun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillDraftRunResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "skillId"
+      ],
+      "title": "AssistantTurnResult",
       "type": "object"
     },
     "Audit": {
@@ -586,10 +816,15 @@
             {
               "discriminator": {
                 "mapping": {
+                  "artifact.export": "#/$defs/ArtifactExportResult",
+                  "assistant.turn": "#/$defs/AssistantTurnResult",
                   "command.not-ready": "#/$defs/NotReadyCommandResult",
+                  "evaluation.apply": "#/$defs/EvaluationRunResult",
+                  "evaluation.run": "#/$defs/EvaluationRunResult",
                   "invocation.start": "#/$defs/InvocationStartResult",
                   "publication.publish": "#/$defs/PublicationPublishResult",
                   "refresh.run": "#/$defs/RefreshRunResult",
+                  "resource.share": "#/$defs/ResourceShareResult",
                   "skill-draft.create": "#/$defs/DraftCommandResult",
                   "skill-draft.run": "#/$defs/SkillDraftRunResult",
                   "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
@@ -615,6 +850,15 @@
                   "$ref": "#/$defs/SkillDraftRunResult"
                 },
                 {
+                  "$ref": "#/$defs/AssistantTurnResult"
+                },
+                {
+                  "$ref": "#/$defs/ArtifactExportResult"
+                },
+                {
+                  "$ref": "#/$defs/ResourceShareResult"
+                },
+                {
                   "$ref": "#/$defs/PublicationPublishResult"
                 },
                 {
@@ -622,6 +866,9 @@
                 },
                 {
                   "$ref": "#/$defs/InvocationStartResult"
+                },
+                {
+                  "$ref": "#/$defs/EvaluationRunResult"
                 }
               ]
             },
@@ -1100,6 +1347,99 @@
       "title": "ErrorEnvelope",
       "type": "object"
     },
+    "EvaluationCase": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "inputRef": {
+          "$ref": "#/$defs/StorageRef"
+        },
+        "expectedOutputRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "default": "manual",
+          "enum": [
+            "manual",
+            "historical",
+            "batch",
+            "agent_candidate"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "inputRef"
+      ],
+      "title": "EvaluationCase",
+      "type": "object"
+    },
+    "EvaluationCaseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "caseId": {
+          "title": "Caseid",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "evidenceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "regressionDiffRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StorageRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "caseId",
+        "status",
+        "score"
+      ],
+      "title": "EvaluationCaseResult",
+      "type": "object"
+    },
     "EvaluationCommand": {
       "additionalProperties": false,
       "properties": {
@@ -1130,6 +1470,39 @@
           "minLength": 1,
           "title": "Targetid",
           "type": "string"
+        },
+        "suiteId": {
+          "default": "default-step3",
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Suiteid",
+          "type": "string"
+        },
+        "environment": {
+          "default": "test",
+          "enum": [
+            "production",
+            "demo",
+            "test"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "caseIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Caseids",
+          "type": "array"
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/EvaluationCase"
+          },
+          "maxItems": 1000,
+          "title": "Cases",
+          "type": "array"
         }
       },
       "required": [
@@ -1205,6 +1578,40 @@
           ],
           "default": null
         },
+        "environment": {
+          "default": "test",
+          "enum": [
+            "production",
+            "demo",
+            "test"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "dependencyRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Dependencyrevisionrefs",
+          "type": "array"
+        },
+        "dataRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Datarevisionrefs",
+          "type": "array"
+        },
+        "caseResults": {
+          "items": {
+            "$ref": "#/$defs/EvaluationCaseResult"
+          },
+          "maxItems": 1000,
+          "title": "Caseresults",
+          "type": "array"
+        },
         "startedAt": {
           "title": "Startedat",
           "type": "string"
@@ -1231,6 +1638,83 @@
         "startedAt"
       ],
       "title": "EvaluationRun",
+      "type": "object"
+    },
+    "EvaluationRunResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "enum": [
+            "evaluation.run",
+            "evaluation.apply"
+          ],
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "targetId": {
+          "title": "Targetid",
+          "type": "string"
+        },
+        "evaluationSuite": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationSuite"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evaluationRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationRun"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "policyGateResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PolicyGateResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "resultType",
+        "targetId"
+      ],
+      "title": "EvaluationRunResult",
       "type": "object"
     },
     "EvaluationSuite": {
@@ -1262,6 +1746,24 @@
           "minimum": 0,
           "title": "Passthreshold",
           "type": "number"
+        },
+        "environment": {
+          "default": "test",
+          "enum": [
+            "production",
+            "demo",
+            "test"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "caseIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Caseids",
+          "type": "array"
         }
       },
       "required": [
@@ -1321,10 +1823,15 @@
             {
               "discriminator": {
                 "mapping": {
+                  "artifact.export": "#/$defs/ArtifactExportResult",
+                  "assistant.turn": "#/$defs/AssistantTurnResult",
                   "command.not-ready": "#/$defs/NotReadyCommandResult",
+                  "evaluation.apply": "#/$defs/EvaluationRunResult",
+                  "evaluation.run": "#/$defs/EvaluationRunResult",
                   "invocation.start": "#/$defs/InvocationStartResult",
                   "publication.publish": "#/$defs/PublicationPublishResult",
                   "refresh.run": "#/$defs/RefreshRunResult",
+                  "resource.share": "#/$defs/ResourceShareResult",
                   "skill-draft.create": "#/$defs/DraftCommandResult",
                   "skill-draft.run": "#/$defs/SkillDraftRunResult",
                   "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
@@ -1350,6 +1857,15 @@
                   "$ref": "#/$defs/SkillDraftRunResult"
                 },
                 {
+                  "$ref": "#/$defs/AssistantTurnResult"
+                },
+                {
+                  "$ref": "#/$defs/ArtifactExportResult"
+                },
+                {
+                  "$ref": "#/$defs/ResourceShareResult"
+                },
+                {
                   "$ref": "#/$defs/PublicationPublishResult"
                 },
                 {
@@ -1357,6 +1873,9 @@
                 },
                 {
                   "$ref": "#/$defs/InvocationStartResult"
+                },
+                {
+                  "$ref": "#/$defs/EvaluationRunResult"
                 }
               ]
             },
@@ -1716,6 +2235,10 @@
           "title": "Skillversionid",
           "type": "string"
         },
+        "skillViewRevisionId": {
+          "title": "Skillviewrevisionid",
+          "type": "string"
+        },
         "callerId": {
           "title": "Callerid",
           "type": "string"
@@ -1791,6 +2314,7 @@
       "required": [
         "id",
         "skillVersionId",
+        "skillViewRevisionId",
         "callerId",
         "workspaceId",
         "status",
@@ -1826,6 +2350,13 @@
           "maxLength": 256,
           "minLength": 1,
           "title": "Skillversionid",
+          "type": "string"
+        },
+        "skillViewRevisionId": {
+          "default": "unbound",
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Skillviewrevisionid",
           "type": "string"
         },
         "inputRef": {
@@ -1867,14 +2398,48 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "skillVersionId": {
           "title": "Skillversionid",
           "type": "string"
+        },
+        "invocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Invocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "skillResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dataRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Datarevisionrefs",
+          "type": "array"
         }
       },
       "required": [
@@ -2501,10 +3066,15 @@
             {
               "discriminator": {
                 "mapping": {
+                  "artifact.export": "#/$defs/ArtifactExportResult",
+                  "assistant.turn": "#/$defs/AssistantTurnResult",
                   "command.not-ready": "#/$defs/NotReadyCommandResult",
+                  "evaluation.apply": "#/$defs/EvaluationRunResult",
+                  "evaluation.run": "#/$defs/EvaluationRunResult",
                   "invocation.start": "#/$defs/InvocationStartResult",
                   "publication.publish": "#/$defs/PublicationPublishResult",
                   "refresh.run": "#/$defs/RefreshRunResult",
+                  "resource.share": "#/$defs/ResourceShareResult",
                   "skill-draft.create": "#/$defs/DraftCommandResult",
                   "skill-draft.run": "#/$defs/SkillDraftRunResult",
                   "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
@@ -2530,6 +3100,15 @@
                   "$ref": "#/$defs/SkillDraftRunResult"
                 },
                 {
+                  "$ref": "#/$defs/AssistantTurnResult"
+                },
+                {
+                  "$ref": "#/$defs/ArtifactExportResult"
+                },
+                {
+                  "$ref": "#/$defs/ResourceShareResult"
+                },
+                {
                   "$ref": "#/$defs/PublicationPublishResult"
                 },
                 {
@@ -2537,6 +3116,9 @@
                 },
                 {
                   "$ref": "#/$defs/InvocationStartResult"
+                },
+                {
+                  "$ref": "#/$defs/EvaluationRunResult"
                 }
               ]
             },
@@ -2656,6 +3238,13 @@
             "type": "string"
           },
           "title": "Reasons",
+          "type": "array"
+        },
+        "machineReasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Machinereasons",
           "type": "array"
         },
         "checkedAt": {
@@ -3314,6 +3903,58 @@
       "title": "ResourcePayload",
       "type": "object"
     },
+    "ResourceShareResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "resource.share",
+          "default": "resource.share",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "shareGrant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillViewShareGrant"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "resourceId"
+      ],
+      "title": "ResourceShareResult",
+      "type": "object"
+    },
     "SaveManifestCommand": {
       "additionalProperties": false,
       "properties": {
@@ -3654,6 +4295,75 @@
       "title": "SkillDraft",
       "type": "object"
     },
+    "SkillDraftRetryCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "const": "skill-draft.retry",
+          "title": "Command",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SkillDraftRetryPayload"
+        }
+      },
+      "required": [
+        "command",
+        "payload"
+      ],
+      "title": "SkillDraftRetryCommand",
+      "type": "object"
+    },
+    "SkillDraftRetryPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Draftid",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "traceId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Traceid",
+          "type": "string"
+        },
+        "maxSteps": {
+          "default": 10,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Maxsteps",
+          "type": "integer"
+        },
+        "budget": {
+          "default": 10000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Budget",
+          "type": "integer"
+        },
+        "retryOfOperationId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Retryofoperationid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId",
+        "revision",
+        "traceId",
+        "retryOfOperationId"
+      ],
+      "title": "SkillDraftRetryPayload",
+      "type": "object"
+    },
     "SkillDraftRevision": {
       "additionalProperties": false,
       "properties": {
@@ -3760,6 +4470,20 @@
           "minLength": 1,
           "title": "Traceid",
           "type": "string"
+        },
+        "maxSteps": {
+          "default": 10,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Maxsteps",
+          "type": "integer"
+        },
+        "budget": {
+          "default": 10000,
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Budget",
+          "type": "integer"
         }
       },
       "required": [
@@ -3794,8 +4518,13 @@
           "default": "not_ready",
           "enum": [
             "not_ready",
-            "succeeded",
-            "failed"
+            "planning",
+            "awaiting_input",
+            "running",
+            "partially_succeeded",
+            "failed",
+            "cancelled",
+            "ready_for_evaluation"
           ],
           "title": "Status",
           "type": "string"
@@ -3808,6 +4537,39 @@
           "anyOf": [
             {
               "$ref": "#/$defs/GoldenAssetRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "skillResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "viewIntent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ViewIntent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "skillViewRevision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkillViewRevision"
             },
             {
               "type": "null"
@@ -3964,6 +4726,65 @@
         "outputSchemaRef"
       ],
       "title": "SkillOperation",
+      "type": "object"
+    },
+    "SkillPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patchId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Patchid",
+          "type": "string"
+        },
+        "skillId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Skillid",
+          "type": "string"
+        },
+        "baseRevision": {
+          "minimum": 1,
+          "title": "Baserevision",
+          "type": "integer"
+        },
+        "operation": {
+          "enum": [
+            "set_description",
+            "set_runtime_ref",
+            "set_evaluation_suite_ref"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 2048,
+          "title": "Value",
+          "type": "string"
+        },
+        "undoToken": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Undotoken"
+        }
+      },
+      "required": [
+        "patchId",
+        "skillId",
+        "baseRevision",
+        "operation",
+        "value"
+      ],
+      "title": "SkillPatch",
       "type": "object"
     },
     "SkillResult": {
@@ -4285,6 +5106,58 @@
         "createdAt"
       ],
       "title": "SkillViewRevision",
+      "type": "object"
+    },
+    "SkillViewShareGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "skillViewRevisionId": {
+          "title": "Skillviewrevisionid",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "permission": {
+          "const": "read",
+          "default": "read",
+          "title": "Permission",
+          "type": "string"
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expiresat"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "resourceId",
+        "skillViewRevisionId",
+        "workspaceId",
+        "createdAt"
+      ],
+      "title": "SkillViewShareGrant",
       "type": "object"
     },
     "SourceCleanCommand": {
@@ -5140,6 +6013,7 @@
               "resource.share": "#/$defs/ResourceCommand",
               "resource.update": "#/$defs/ResourceCommand",
               "skill-draft.create": "#/$defs/CreateSkillDraftCommand",
+              "skill-draft.retry": "#/$defs/SkillDraftRetryCommand",
               "skill-draft.run": "#/$defs/SkillDraftRunCommand",
               "skill-draft.save-manifest": "#/$defs/SaveManifestCommand",
               "source.clean": "#/$defs/SourceCleanCommand",
@@ -5189,6 +6063,9 @@
               "$ref": "#/$defs/SkillDraftRunCommand"
             },
             {
+              "$ref": "#/$defs/SkillDraftRetryCommand"
+            },
+            {
               "$ref": "#/$defs/PublicationPublishCommand"
             },
             {
@@ -5211,10 +6088,15 @@
         {
           "discriminator": {
             "mapping": {
+              "artifact.export": "#/$defs/ArtifactExportResult",
+              "assistant.turn": "#/$defs/AssistantTurnResult",
               "command.not-ready": "#/$defs/NotReadyCommandResult",
+              "evaluation.apply": "#/$defs/EvaluationRunResult",
+              "evaluation.run": "#/$defs/EvaluationRunResult",
               "invocation.start": "#/$defs/InvocationStartResult",
               "publication.publish": "#/$defs/PublicationPublishResult",
               "refresh.run": "#/$defs/RefreshRunResult",
+              "resource.share": "#/$defs/ResourceShareResult",
               "skill-draft.create": "#/$defs/DraftCommandResult",
               "skill-draft.run": "#/$defs/SkillDraftRunResult",
               "skill-draft.save-manifest": "#/$defs/DraftCommandResult",
@@ -5240,6 +6122,15 @@
               "$ref": "#/$defs/SkillDraftRunResult"
             },
             {
+              "$ref": "#/$defs/AssistantTurnResult"
+            },
+            {
+              "$ref": "#/$defs/ArtifactExportResult"
+            },
+            {
+              "$ref": "#/$defs/ResourceShareResult"
+            },
+            {
               "$ref": "#/$defs/PublicationPublishResult"
             },
             {
@@ -5247,6 +6138,9 @@
             },
             {
               "$ref": "#/$defs/InvocationStartResult"
+            },
+            {
+              "$ref": "#/$defs/EvaluationRunResult"
             }
           ]
         },

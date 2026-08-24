@@ -88,6 +88,10 @@ def mount_knowledge_asset_routes(
         if not idempotency_key:
             return _error(400, "IDEMPOTENCY_KEY_REQUIRED", "缺少幂等键。", request_id)
         workspace_id, _role = identity_resolver(request)
+        async_mode = (
+            body.command in {"skill-draft.run", "skill-draft.retry"}
+            and "respond-async" in request.headers.get("Prefer", "")
+        )
         try:
             if body.command == "skill-draft.create":
                 return application.create_skill_draft(
@@ -116,6 +120,8 @@ def mount_knowledge_asset_routes(
                 request_id,
                 body.payload.model_dump(mode="python"),
                 workspace_id=workspace_id,
+                idempotency_key=idempotency_key,
+                async_mode=async_mode,
             )
         except KnowledgeAssetRepositoryError as error:
             status_code = 404 if error.code.endswith("_NOT_FOUND") else 422

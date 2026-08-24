@@ -140,6 +140,16 @@ class SkillViewRevision(ContractModel):
     created_at: str
 
 
+class SkillViewShareGrant(ContractModel):
+    id: str
+    resource_id: str
+    skill_view_revision_id: str
+    workspace_id: str
+    permission: Literal["read"] = "read"
+    expires_at: str | None = None
+    created_at: str
+
+
 class EvaluationSuite(ContractModel):
     id: str
     version: int = Field(ge=1)
@@ -147,6 +157,23 @@ class EvaluationSuite(ContractModel):
     case_count: int = Field(ge=0)
     cases_ref: StorageRef
     pass_threshold: float = Field(ge=0, le=1)
+    environment: RuntimeProfile = "test"
+    case_ids: list[str] = Field(default_factory=list, max_length=1000)
+
+
+class EvaluationCase(ContractModel):
+    id: str
+    input_ref: StorageRef
+    expected_output_ref: StorageRef | None = None
+    source: Literal["manual", "historical", "batch", "agent_candidate"] = "manual"
+
+
+class EvaluationCaseResult(ContractModel):
+    case_id: str
+    status: Literal["passed", "failed", "skipped"]
+    score: float = Field(ge=0, le=1)
+    evidence_ref: StorageRef | None = None
+    regression_diff_ref: StorageRef | None = None
 
 
 class EvaluationRun(ContractModel):
@@ -158,6 +185,10 @@ class EvaluationRun(ContractModel):
     score: float | None = Field(default=None, ge=0, le=1)
     evidence_ref: StorageRef | None = None
     regression_ref: StorageRef | None = None
+    environment: RuntimeProfile = "test"
+    dependency_revision_refs: list[str] = Field(default_factory=list, max_length=100)
+    data_revision_refs: list[str] = Field(default_factory=list, max_length=100)
+    case_results: list[EvaluationCaseResult] = Field(default_factory=list, max_length=1000)
     started_at: str
     finished_at: str | None = None
 
@@ -168,6 +199,7 @@ class PolicyGateResult(ContractModel):
     evaluation_run_id: str
     decision: Literal["publishable", "blocked"]
     reasons: list[str] = Field(default_factory=list)
+    machine_reasons: list[str] = Field(default_factory=list)
     checked_at: str
 
 
@@ -198,6 +230,7 @@ class AgentBinding(ContractModel):
 class Invocation(ContractModel):
     id: str
     skill_version_id: str
+    skill_view_revision_id: str
     caller_id: str
     workspace_id: str
     status: Literal[
@@ -239,5 +272,3 @@ class AlertEvent(ContractModel):
     fingerprint: str
     observed_at: str
     payload_ref: StorageRef | None = None
-
-

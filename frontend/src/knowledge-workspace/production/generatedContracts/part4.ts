@@ -1,8 +1,17 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { AnalysisKindSpec, ChartViewModel, CleanRun, CompatibilityTargets, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GraphOntologyKindSpec, GraphOntologyViewModel, KnowledgeKindSpec, KnowledgeViewModel, MonitoringKindSpec, MonitoringViewModel } from "./part2";
-import type { OwnerRef, PermissionRef, ProfileRun, SchemaRef, SecretRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+import type { GoldenAssetRevision, GraphOntologyKindSpec, GraphOntologyViewModel, KnowledgeKindSpec, KnowledgeViewModel, MonitoringKindSpec } from "./part2";
+import type { MonitoringViewModel, OwnerRef, PermissionRef, ProfileRun, SchemaRef, SecretRef, SemanticKindSpec, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+
+export interface SkillDraftRetryPayload {
+  draftId: string;
+  revision: number;
+  traceId: string;
+  maxSteps?: number;
+  budget?: number;
+  retryOfOperationId: string;
+}
 
 export interface SkillDraftRevision {
   id: string;
@@ -24,14 +33,19 @@ export interface SkillDraftRunPayload {
   draftId: string;
   revision: number;
   traceId: string;
+  maxSteps?: number;
+  budget?: number;
 }
 
 export interface SkillDraftRunResult {
   resultType?: "skill-draft.run";
   error?: ErrorEnvelope | null;
-  status?: "not_ready" | "succeeded" | "failed";
+  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
   draftId: string;
   goldenAssetRevision?: GoldenAssetRevision | null;
+  skillResult?: SkillResult | null;
+  viewIntent?: ViewIntent | null;
+  skillViewRevision?: SkillViewRevision | null;
 }
 
 export interface SkillManifest {
@@ -61,6 +75,15 @@ export interface SkillOperation {
   inputSchemaRef: SchemaRef;
   outputSchemaRef: SchemaRef;
   risk?: "read_only" | "external_write" | "high_risk";
+}
+
+export interface SkillPatch {
+  patchId: string;
+  skillId: string;
+  baseRevision: number;
+  operation: "set_description" | "set_runtime_ref" | "set_evaluation_suite_ref";
+  value: string;
+  undoToken?: string | null;
 }
 
 export interface SkillResult {
@@ -106,6 +129,16 @@ export interface SkillViewRevision {
   viewModel: DashboardViewModel | ChartViewModel | SemanticViewModel | KnowledgeViewModel | GraphOntologyViewModel | MonitoringViewModel;
   invocationId?: string | null;
   resultRef?: StorageRef | null;
+  createdAt: string;
+}
+
+export interface SkillViewShareGrant {
+  id: string;
+  resourceId: string;
+  skillViewRevisionId: string;
+  workspaceId: string;
+  permission?: "read";
+  expiresAt?: string | null;
   createdAt: string;
 }
 

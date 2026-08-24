@@ -113,6 +113,10 @@ export function createKnowledgeAssetClient(
             "Content-Type": "application/json",
             "X-Request-ID": context.requestId,
             "Idempotency-Key": context.idempotencyKey,
+            ...(command.command === "skill-draft.run" ||
+            command.command === "skill-draft.retry"
+              ? { Prefer: "respond-async" }
+              : {}),
             ...(context.expectedVersion ? { "If-Match": context.expectedVersion } : {}),
             ...(context.lastEventId ? { "Last-Event-ID": context.lastEventId } : {}),
           },

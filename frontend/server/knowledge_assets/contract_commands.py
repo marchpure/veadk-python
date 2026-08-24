@@ -64,10 +64,46 @@ class ImportPayload(ContractModel):
 class AssistantTurnPayload(ContractModel):
     text: str = Field(min_length=1, max_length=16_384)
     context_ids: list[str] = Field(default_factory=list, max_length=100)
+    context: "AssistantContextEnvelope | None" = None
+    patch: "SkillPatch | None" = None
+
+
+class AssistantContextEnvelope(ContractModel):
+    skill_id: str = Field(min_length=1, max_length=256)
+    view_revision_id: str = Field(min_length=1, max_length=256)
+    selected_ids: list[str] = Field(default_factory=list, max_length=100)
+    schema_ref: str = Field(min_length=1, max_length=2048)
+    permission_scope: str = Field(min_length=1, max_length=256)
+
+
+class SkillPatch(ContractModel):
+    patch_id: str = Field(min_length=1, max_length=256)
+    skill_id: str = Field(min_length=1, max_length=256)
+    base_revision: int = Field(ge=1)
+    operation: Literal[
+        "set_description", "set_runtime_ref", "set_evaluation_suite_ref"
+    ]
+    value: str = Field(max_length=2048)
+    undo_token: str | None = Field(default=None, min_length=1, max_length=256)
+
+
+class AssistantDiff(ContractModel):
+    patch_id: str
+    skill_id: str
+    base_revision: int
+    next_revision: int
+    operation: SkillPatch
+    before: str
+    after: str
+    undo_token: str
 
 
 class EvaluationPayload(ContractModel):
     target_id: str = Field(min_length=1, max_length=128)
+    suite_id: str = Field(default="default-step3", min_length=1, max_length=128)
+    environment: RuntimeProfile = "test"
+    case_ids: list[str] = Field(default_factory=list, max_length=1000)
+    cases: list[EvaluationCase] = Field(default_factory=list, max_length=1000)
 
 
 class ActionUpdatePayload(ContractModel):
@@ -98,6 +134,12 @@ class SkillDraftRunPayload(ContractModel):
     draft_id: str = Field(min_length=1, max_length=256)
     revision: int = Field(ge=1)
     trace_id: str = Field(min_length=1, max_length=256)
+    max_steps: int = Field(default=10, ge=1, le=100)
+    budget: int = Field(default=10_000, ge=1, le=10_000_000)
+
+
+class SkillDraftRetryPayload(SkillDraftRunPayload):
+    retry_of_operation_id: str = Field(min_length=1, max_length=256)
 
 
 class PublicationPublishPayload(ContractModel):
@@ -113,6 +155,9 @@ class RefreshRunPayload(ContractModel):
 
 class InvocationStartPayload(ContractModel):
     skill_version_id: str = Field(min_length=1, max_length=256)
+    skill_view_revision_id: str = Field(
+        default="unbound", min_length=1, max_length=256
+    )
     input_ref: StorageRef
     caller_id: str = Field(min_length=1, max_length=256)
 
@@ -134,6 +179,20 @@ class NotReadyCommandResult(CommandResultBase):
     error: ErrorEnvelope
 
 
+class ArtifactExportResult(CommandResultBase):
+    result_type: Literal["artifact.export"] = "artifact.export"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
+    resource_id: str
+    artifact_ref: StorageRef | None = None
+
+
+class ResourceShareResult(CommandResultBase):
+    result_type: Literal["resource.share"] = "resource.share"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
+    resource_id: str
+    share_grant: SkillViewShareGrant | None = None
+
+
 class SourceProfileResult(CommandResultBase):
     result_type: Literal["source.profile"] = "source.profile"
     status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
@@ -152,9 +211,29 @@ class SourceCleanResult(CommandResultBase):
 
 class SkillDraftRunResult(CommandResultBase):
     result_type: Literal["skill-draft.run"] = "skill-draft.run"
-    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
+    status: Literal[
+        "not_ready",
+        "planning",
+        "awaiting_input",
+        "running",
+        "partially_succeeded",
+        "failed",
+        "cancelled",
+        "ready_for_evaluation",
+    ] = "not_ready"
     draft_id: str
     golden_asset_revision: GoldenAssetRevision | None = None
+    skill_result: SkillResult | None = None
+    view_intent: ViewIntent | None = None
+    skill_view_revision: SkillViewRevision | None = None
+
+
+class AssistantTurnResult(CommandResultBase):
+    result_type: Literal["assistant.turn"] = "assistant.turn"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
+    skill_id: str
+    diff: AssistantDiff | None = None
+    rerun: SkillDraftRunResult | None = None
 
 
 class PublicationPublishResult(CommandResultBase):
@@ -172,8 +251,20 @@ class RefreshRunResult(CommandResultBase):
 
 class InvocationStartResult(CommandResultBase):
     result_type: Literal["invocation.start"] = "invocation.start"
-    status: Literal["not_ready"] = "not_ready"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
     skill_version_id: str
+    invocation: Invocation | None = None
+    skill_result: SkillResult | None = None
+    data_revision_refs: list[str] = Field(default_factory=list, max_length=100)
+
+
+class EvaluationRunResult(CommandResultBase):
+    result_type: Literal["evaluation.run", "evaluation.apply"]
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
+    target_id: str
+    evaluation_suite: EvaluationSuite | None = None
+    evaluation_run: EvaluationRun | None = None
+    policy_gate_result: PolicyGateResult | None = None
 
 
 CommandResult = Annotated[
@@ -182,9 +273,14 @@ CommandResult = Annotated[
     | SourceProfileResult
     | SourceCleanResult
     | SkillDraftRunResult
+    | AssistantTurnResult
+    | ArtifactExportResult
+    | ResourceShareResult
     | PublicationPublishResult
     | RefreshRunResult
-    | InvocationStartResult,
+    | InvocationStartResult
+    | EvaluationRunResult
+    ,
     Field(discriminator="result_type"),
 ]
 
@@ -260,6 +356,11 @@ class SkillDraftRunCommand(ContractModel):
     payload: SkillDraftRunPayload
 
 
+class SkillDraftRetryCommand(ContractModel):
+    command: Literal["skill-draft.retry"]
+    payload: SkillDraftRetryPayload
+
+
 class PublicationPublishCommand(ContractModel):
     command: Literal["publication.publish"]
     payload: PublicationPublishPayload
@@ -289,6 +390,7 @@ CommandRequest = Annotated[
     | SourceProfileCommand
     | SourceCleanCommand
     | SkillDraftRunCommand
+    | SkillDraftRetryCommand
     | PublicationPublishCommand
     | RefreshRunCommand
     | InvocationStartCommand,

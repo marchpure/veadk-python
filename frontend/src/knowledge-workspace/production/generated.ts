@@ -153,7 +153,12 @@ export type GeneratedCommand =
   }
   | {
     command: "evaluation.run" | "evaluation.apply";
-    payload: { targetId: string };
+    payload: {
+      targetId: string;
+      suiteId: string;
+      environment: "production" | "demo" | "test";
+      caseIds: string[];
+    };
   }
   | {
     command: "action.update";
@@ -172,8 +177,25 @@ export type GeneratedCommand =
     payload: { sourceRevisionId: string; recipeId: string };
   }
   | {
+    command: "skill-draft.retry";
+    payload: {
+      draftId: string;
+      revision: number;
+      traceId: string;
+      maxSteps: number;
+      budget: number;
+      retryOfOperationId: string;
+    };
+  }
+  | {
     command: "skill-draft.run";
-    payload: { draftId: string; revision: number; traceId: string };
+    payload: {
+      draftId: string;
+      revision: number;
+      traceId: string;
+      maxSteps: number;
+      budget: number;
+    };
   }
   | {
     command: "publication.publish";

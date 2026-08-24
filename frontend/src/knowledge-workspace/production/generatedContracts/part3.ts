@@ -1,8 +1,16 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { Event, InvocationStartResult, LegacySkillManifestInput } from "./part2";
-import type { SkillDraftRunResult, SkillManifest, SkillOperation, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+import type { ArtifactExportResult, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
+import type { EvaluationRunResult, Event, InvocationStartResult, LegacySkillManifestInput } from "./part2";
+import type { SkillDraftRetryPayload, SkillDraftRunResult, SkillManifest, SkillOperation, SkillViewShareGrant, SourceCleanResult, SourceProfileResult, StorageRef } from "./part4";
+
+export interface MonitoringViewModel {
+  template?: "monitoring";
+  metricRefs?: Array<string>;
+  values?: Array<[string, number]>;
+  alerts?: Array<string>;
+  dataRef?: StorageRef | null;
+}
 
 export interface NotReadyCommandResult {
   resultType?: "command.not-ready";
@@ -15,7 +23,7 @@ export interface Operation {
   status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
   version: number;
   events: Array<Event>;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | null;
   error?: ErrorEnvelope | null;
   nextActions?: Array<string>;
   audit?: Array<Audit>;
@@ -37,6 +45,7 @@ export interface PolicyGateResult {
   evaluationRunId: string;
   decision: "publishable" | "blocked";
   reasons?: Array<string>;
+  machineReasons?: Array<string>;
   checkedAt: string;
 }
 
@@ -146,6 +155,14 @@ export interface ResourcePayload {
   reason?: string;
 }
 
+export interface ResourceShareResult {
+  resultType?: "resource.share";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "succeeded" | "failed";
+  resourceId: string;
+  shareGrant?: SkillViewShareGrant | null;
+}
+
 export interface SaveManifestCommand {
   command: "skill-draft.save-manifest";
   payload: SaveManifestPayload;
@@ -210,4 +227,9 @@ export interface SkillDraft {
   createdAt: string;
   updatedAt: string;
   manifest: SkillManifest;
+}
+
+export interface SkillDraftRetryCommand {
+  command: "skill-draft.retry";
+  payload: SkillDraftRetryPayload;
 }
