@@ -26,6 +26,22 @@
       "target": "frontend/src/knowledge-workspace/production/data.ts",
       "reason": "Production starts without static data and hydrates only from bootstrap.",
       "production_dependency": "frontend/src/knowledge-workspace/production/data.ts"
+    },
+    {
+      "id": "ADAPTER-04",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-1",
+      "source_path": "prototype/codebase/src/components/Layout/MainAreaPane.tsx",
+      "target": "frontend/src/knowledge-workspace/production/store.ts",
+      "reason": "Only server-authorized bootstrap routes and resources may render; unknown deep links fail closed instead of falling back to prototype screens.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
+    },
+    {
+      "id": "ADAPTER-05",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-1",
+      "source_path": "prototype/codebase/src/components/Layout/FileTreePane.tsx",
+      "target": "frontend/vite.config.ts",
+      "reason": "Strip prototype catalog defaults from the production module graph while preserving the frozen source archive.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
     }
   ]
 }

@@ -2,8 +2,8 @@ import { useSyncExternalStore } from "react";
 import {
   createRequestContext,
   KnowledgeAdapterError,
-  ProductionKnowledgeAdapter,
   type KnowledgeBootstrap,
+  ProductionKnowledgeAdapter,
   type WorkspaceAdapter,
 } from "./ports";
 
@@ -56,7 +56,11 @@ export class WorkspaceStore<T> {
     const next = updater(this.state);
     const adapter = getWorkspaceAdapter();
     void adapter
-      .command("workspace.store-update", { store: this.key, value: next }, createRequestContext())
+      .command(
+        "workspace.store-update",
+        { store: this.key, value: next },
+        createRequestContext(),
+      )
       .then((result) => {
         if (!result.accepted) {
           publishWorkspaceError(
@@ -83,7 +87,7 @@ export class WorkspaceStore<T> {
     this.listeners.forEach((listener) => listener());
   };
 
-  subscribe = (listener: Listener): (() => void) => {
+  subscribe = (listener: Listener): () => void => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -91,8 +95,20 @@ export class WorkspaceStore<T> {
   };
 }
 
+// Production route availability is populated only by the bootstrap response.
 let adapter: WorkspaceAdapter = new ProductionKnowledgeAdapter();
 let lastError: KnowledgeAdapterError | null = null;
+let workspaceRoutes = new Set<string>(["welcome"]);
+const SERVER_FEATURE_ROUTES = new Set([
+  "welcome",
+  "add_data",
+  "connector_catalog",
+  "add_kb",
+  "upload_doc",
+  "skill_builder",
+  "data_overview",
+  "evaluation_detail",
+]);
 const errorListeners = new Set<(error: KnowledgeAdapterError | null) => void>();
 
 export function getWorkspaceAdapter(): WorkspaceAdapter {
@@ -101,8 +117,20 @@ export function getWorkspaceAdapter(): WorkspaceAdapter {
 
 export function installWorkspaceAdapter(next: WorkspaceAdapter): void {
   adapter = next;
+  workspaceRoutes = new Set(["welcome"]);
   lastError = null;
   errorListeners.forEach((listener) => listener(null));
+}
+
+export function isWorkspaceRouteAvailable(fileId: string): boolean {
+  return (
+    (SERVER_FEATURE_ROUTES.has(fileId) && workspaceRoutes.has(fileId)) ||
+    resourceStore
+      .getState()
+      .some(
+        (resource) => resource.id === fileId || resource.resourceId === fileId,
+      )
+  );
 }
 
 export function subscribeWorkspaceError(
@@ -122,7 +150,11 @@ export const knowledgeWorkspaceStorage: Storage = {
   },
   clear() {
     void getWorkspaceAdapter()
-      .command("workspace.store-update", { operation: "clear" }, createRequestContext())
+      .command(
+        "workspace.store-update",
+        { operation: "clear" },
+        createRequestContext(),
+      )
       .catch(publishWorkspaceError);
   },
   getItem() {
@@ -152,15 +184,14 @@ export const knowledgeWorkspaceStorage: Storage = {
 };
 
 export function publishWorkspaceError(error: unknown): void {
-  lastError =
-    error instanceof KnowledgeAdapterError
-      ? error
-      : new KnowledgeAdapterError({
-          code: "UNAVAILABLE",
-          message: "知识服务不可用，请稍后重试。",
-          retryable: true,
-          requestId: "unknown",
-        });
+  lastError = error instanceof KnowledgeAdapterError
+    ? error
+    : new KnowledgeAdapterError({
+      code: "UNAVAILABLE",
+      message: "知识服务不可用，请稍后重试。",
+      retryable: true,
+      requestId: "unknown",
+    });
   errorListeners.forEach((listener) => listener(lastError));
 }
 
@@ -209,11 +240,14 @@ export function getResourceDescriptor(
   return {
     identity: resource.id,
     id: resource.id,
-    name: searchParams.get("custom_name") || resource.displayName || resource.name,
+    name: searchParams.get("custom_name") || resource.displayName ||
+      resource.name,
     type: resource.resourceKind || resource.type,
     artifactType: resource.subtype || resource.artifactType || resource.type,
-    version: searchParams.get("version") || resource.version || "V1.0",
-    space: resource.space || "personal",
+    ...(searchParams.get("version") || resource.version
+      ? { version: searchParams.get("version") || resource.version }
+      : {}),
+    ...(resource.space ? { space: resource.space } : {}),
     isResourceLevel: true,
     resourceKind: resource.resourceKind,
     subtype: resource.subtype,
@@ -228,10 +262,19 @@ export async function bootstrapWorkspace(
   try {
     const bootstrapped = await currentAdapter.bootstrap(signal);
     resourceStore.replace(bootstrapped.resources as WorkspaceResource[]);
-    connectionStore.replace(bootstrapped.connections as Record<string, unknown>[]);
+    connectionStore.replace(
+      bootstrapped.connections as Record<string, unknown>[],
+    );
     agentPublicationStore.replace(bootstrapped.publications);
+    workspaceRoutes = new Set([
+      "welcome",
+      ...(bootstrapped.routes ?? []).filter(
+        (route): route is string => typeof route === "string",
+      ),
+    ]);
     return bootstrapped;
   } catch (error) {
+    if (signal?.aborted) throw error;
     publishWorkspaceError(error);
     throw error;
   }
@@ -248,7 +291,11 @@ export async function runProductionMutation(
 ): Promise<boolean> {
   const context = createRequestContext();
   try {
-    const result = await currentAdapter.command(intent.command, intent, context);
+    const result = await currentAdapter.command(
+      intent.command,
+      intent,
+      context,
+    );
     if (!result.accepted) {
       publishWorkspaceError(
         new KnowledgeAdapterError({
