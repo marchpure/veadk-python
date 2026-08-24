@@ -125,9 +125,13 @@ def first_content(request_contents: dict[str, str]) -> tuple[str, str]:
     return key, request_contents[key]
 
 
-def _coerce(value: str | None) -> str | int | float | None:
+def _coerce(value: Any) -> Any:
     if value is None:
         return None
+    if isinstance(value, (bool, int, float)):
+        return value
+    if not isinstance(value, str):
+        return value
     stripped = value.strip()
     if stripped == "":
         return None
