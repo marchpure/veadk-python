@@ -80,6 +80,10 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   MCP evidence, but its handoff is `CANDIDATE_PENDING_FINAL_VERIFICATION`,
   `W1.status.json` is absent, and the worktree is dirty; it is not integrated.
 - W2: `65037a4b`, `bdb1573d`, `a03cb607`, `bffeeb88`; Main `7949f452`
+- W2 hardening `a03cb607` is integrated in Main `400b8774`; W4 corrective
+  `6ee81405` is integrated in Main `ecf54021`. Their focused changes are
+  covered by the current combined regression, but W4 must still audit the
+  resulting clean Main commit.
 - W3: source `d7cb4cb2`, frozen worker commit `45b686af`, Main integration
   `9eef0d01`; MAIN fixed the narrow JSON numeric coercion regression exposed
   after integration. W3 dashboard artifact regression is now 7 passed and
