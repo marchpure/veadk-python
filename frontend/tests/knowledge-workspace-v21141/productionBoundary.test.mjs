@@ -18,6 +18,34 @@ function sourceFiles(directory) {
   });
 }
 
+function transpileProductionModule(moduleName, replacements = {}) {
+  const source = readFileSync(join(productionRoot, moduleName), "utf8");
+  let output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  for (const [specifier, replacement] of Object.entries(replacements)) {
+    output = output.replaceAll(
+      `from ${JSON.stringify(specifier)}`,
+      `from ${JSON.stringify(replacement)}`,
+    );
+  }
+  return `data:text/javascript,${encodeURIComponent(output)}`;
+}
+
+function productionModuleUrls() {
+  const schemaUrl = transpileProductionModule("bootstrapSchema.ts");
+  const portsUrl = transpileProductionModule("ports.ts", {
+    "./bootstrapSchema": schemaUrl,
+  });
+  const dataUrl = transpileProductionModule("data.ts", {
+    "./bootstrapSchema": schemaUrl,
+  });
+  return { schemaUrl, portsUrl, dataUrl };
+}
+
 test("production boundary declares typed HTTP/SSE ports and no optimistic success", () => {
   const ports = readFileSync(join(root, "production/ports.ts"), "utf8");
   assert.match(ports, /export interface WorkspaceAdapter/);
@@ -98,15 +126,9 @@ test("deterministic adapter is test-only and emits a terminal ordered event", as
 });
 
 test("production adapter sends typed context and fail-closes malformed streams", async () => {
-  const source = readFileSync(join(root, "production/ports.ts"), "utf8");
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
+  const { portsUrl } = productionModuleUrls();
   const { ProductionKnowledgeAdapter, KnowledgeAdapterError } = await import(
-    `data:text/javascript,${encodeURIComponent(output)}`
+    portsUrl
   );
   const calls = [];
   const adapter = new ProductionKnowledgeAdapter({
@@ -156,15 +178,9 @@ test("production adapter sends typed context and fail-closes malformed streams",
 });
 
 test("production adapter preserves caller cancellation and sends durable stream cancellation", async () => {
-  const source = readFileSync(join(root, "production/ports.ts"), "utf8");
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
+  const { portsUrl } = productionModuleUrls();
   const { ProductionKnowledgeAdapter } = await import(
-    `data:text/javascript,${encodeURIComponent(output)}`
+    portsUrl
   );
   const calls = [];
   const adapter = new ProductionKnowledgeAdapter({
@@ -200,15 +216,9 @@ test("production adapter preserves caller cancellation and sends durable stream 
 });
 
 test("production adapter exposes structured server errors without treating them as success", async () => {
-  const source = readFileSync(join(root, "production/ports.ts"), "utf8");
-  const output = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-    },
-  }).outputText;
+  const { portsUrl } = productionModuleUrls();
   const { ProductionKnowledgeAdapter, KnowledgeAdapterError } = await import(
-    `data:text/javascript,${encodeURIComponent(output)}`
+    portsUrl
   );
   const adapter = new ProductionKnowledgeAdapter({
     fetcher: async () =>
@@ -243,17 +253,79 @@ test("production adapter exposes structured server errors without treating them 
   );
 });
 
-test("aborted bootstrap does not replace a later workspace result with a stale error", async () => {
-  const portsOutput = ts.transpileModule(
-    readFileSync(join(root, "production/ports.ts"), "utf8"),
-    {
-      compilerOptions: {
-        module: ts.ModuleKind.ESNext,
-        target: ts.ScriptTarget.ES2022,
-      },
+test("production bootstrap validates and exposes server-derived workspace data", async () => {
+  const { portsUrl } = productionModuleUrls();
+  const { ProductionKnowledgeAdapter, KnowledgeAdapterError } = await import(
+    portsUrl
+  );
+  const workspaceData = {
+    connectorCatalog: [{
+      connectorKey: "postgresql",
+      category: "db",
+      name: "PostgreSQL",
+      desc: "真实服务端连接器目录项",
+      capabilities: ["关系型"],
+      inputSchema: { host: "string" },
+      credentialSchema: { password: "password" },
+      discoveryPipeline: ["连接测试"],
+      syncModes: ["incremental"],
+    }],
+    datasetFields: [{ name: "order_id", type: "string", desc: "订单编号" }],
+    dashboard: {
+      kpis: [{ label: "总销售额", value: "¥ 1", trend: "+1%", isUp: true }],
+      trendData: [{ name: "周一", sales: 1, profit: 2 }],
     },
-  ).outputText;
-  const portsUrl = `data:text/javascript,${encodeURIComponent(portsOutput)}`;
+    knowledgeGraph: {
+      entities: [{ id: "e1", name: "Customer", props: 1, constraints: "ID 唯一" }],
+      mappings: [{ id: "m1", onto: "Customer.id", db: "customers.id", status: "pending" }],
+    },
+  };
+  const base = {
+    resources: [],
+    connections: [],
+    publications: [],
+    routes: ["welcome"],
+    access: { spaceId: "space-1", role: "editor", capabilities: [] },
+    serverTime: "2026-01-01T00:00:00.000Z",
+    workspaceData,
+    actionLoop: {
+      signals: [],
+      policies: [],
+      todos: [],
+      reviews: [],
+      briefs: [],
+    },
+  };
+  const adapter = new ProductionKnowledgeAdapter({
+    fetcher: async () =>
+      new Response(JSON.stringify(base), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  });
+  const bootstrap = await adapter.bootstrap();
+  assert.deepEqual(bootstrap.workspaceData, workspaceData);
+
+  const malformed = new ProductionKnowledgeAdapter({
+    fetcher: async () =>
+      new Response(JSON.stringify({
+        ...base,
+        workspaceData: { ...workspaceData, dashboard: { kpis: [] } },
+      }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  });
+  await assert.rejects(
+    () => malformed.bootstrap(),
+    (error) =>
+      error instanceof KnowledgeAdapterError &&
+      error.issue.code === "INVALID_RESPONSE",
+  );
+});
+
+test("aborted bootstrap does not replace a later workspace result with a stale error", async () => {
+  const { portsUrl, dataUrl } = productionModuleUrls();
   const storeOutput = ts
     .transpileModule(
       readFileSync(join(root, "production/store.ts"), "utf8"),
@@ -265,6 +337,10 @@ test("aborted bootstrap does not replace a later workspace result with a stale e
       },
     )
     .outputText.replace('from "./ports";', `from ${JSON.stringify(portsUrl)};`)
+    .replace(
+      'from "./data";',
+      `from ${JSON.stringify(dataUrl)};`,
+    )
     .replace(
       'from "react";',
       `from ${JSON.stringify(

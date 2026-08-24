@@ -58,6 +58,22 @@
       "target": "frontend/vite.config.ts",
       "reason": "Preserve the frozen welcome composer Enter transition only after the typed assistant.turn command is accepted; keep ordinary editing and Shift+Enter local while preventing production mutation bypass.",
       "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
+    },
+    {
+      "id": "ADAPTER-08",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-2-corrective-6",
+      "source_path": "frontend/src/knowledge-workspace/production/ports.ts",
+      "target": "frontend/src/knowledge-workspace/production/bootstrapSchema.ts",
+      "reason": "Keep the production HTTP/SSE adapter focused on transport and commands while validating server-derived connector, dataset, dashboard, graph, and action-loop bootstrap data through a typed STEP 2 contract. This is not a backend implementation.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/ports.ts"
+    },
+    {
+      "id": "ADAPTER-09",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-2-corrective-6",
+      "source_path": "frontend/src/knowledge-workspace/production/bootstrapSchema.ts",
+      "target": "frontend/src/knowledge-workspace/production/data.ts",
+      "reason": "Hydrate empty production view data only from a validated server bootstrap response; no fixture, mock, localStorage, connector, persistence, domain service, scheduler, or STEP 3 backend is added.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/data.ts"
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   ProductionKnowledgeAdapter,
   type WorkspaceAdapter,
 } from "./ports";
+import { hydrateWorkspaceData } from "./data";
 
 type Listener = () => void;
 
@@ -266,6 +267,11 @@ export async function bootstrapWorkspace(
       bootstrapped.connections as Record<string, unknown>[],
     );
     agentPublicationStore.replace(bootstrapped.publications);
+    customRegistryStore.replace(
+      bootstrapped.workspaceData.connectorCatalog as ConnectorDef[],
+    );
+    hydrateWorkspaceData(bootstrapped.workspaceData);
+    actionLoopStore.replace(bootstrapped.actionLoop as ActionLoopState);
     workspaceRoutes = new Set([
       "welcome",
       ...(bootstrapped.routes ?? []).filter(
