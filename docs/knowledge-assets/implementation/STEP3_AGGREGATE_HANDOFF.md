@@ -84,14 +84,14 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 - W4 corrective: `6ee81405` integrated; latest W4 read-only audit is
   `MAIN_CORRECTION_REQUIRED` at `09dfd62a`.
 
-W2 `a03cb607` and W4 `6ee81405` are present in Main through equivalent
-effective integration content; the exact requested SHAs remain in the worker
-ledger but are not ancestors of this worktree. Both requested corrective changes
-are therefore represented in Main. W1 has not supplied the
-required real Source/Golden Data commit and `W1.status.json`. W3 hardening is
-integrated, but its worktree currently contains uncommitted vertical-test and
-MCP fixture changes awaiting disposition. Main is not duplicating W1/W3 domain
-work.
+W2 `a03cb607` was content-equivalent to code already present in Main after
+conflict reconciliation and did not create a new Main commit. W4
+`6ee81405` production constraints were already present; its duplicate test
+application was removed and the remaining evaluation regression is verified
+by `d14403a5`. W1 has not supplied the required real Source/Golden Data
+commit and `W1.status.json`. W3 hardening is integrated, but its worktree
+currently contains uncommitted vertical-test and MCP fixture changes awaiting
+disposition. Main is not duplicating W1/W3 domain work.
 
 The three newly explicit P0 gates have temporary runtime records, but not
 accepted final evidence:
@@ -121,8 +121,8 @@ This is diagnostic route evidence only and does not pass any P0 gate.
 ## Known debt and next gate
 
 Credentialed external connectors remain `EXTERNAL_CREDENTIAL_BLOCKED`.
-Publication, Registry, Scheduler, and cross-Agent calling remain
-`STEP4_DEFERRED`; no PublishedSkill ID/revision is claimed. W1 still must
+Publication, Registry, Scheduler, and cross-Agent calling remain active P0-D
+requirements; no PublishedSkill ID/revision is claimed. W1 still must
 provide a non-null real Source/Golden Data commit and clean worktree; W2/W3
 follow-up changes must be committed or rejected; all Worker worktrees must
 then be clean and W4 must perform read-only verification.
