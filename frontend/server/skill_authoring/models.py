@@ -41,6 +41,7 @@ class AuthoringErrorCode(StrEnum):
     EVALUATION_REQUIRED = "evaluation_required"
     NOT_FOUND = "not_found"
     CANCELLED = "cancelled"
+    EXECUTION_BLOCKED = "execution_blocked"
 
 
 class SkillAuthoringError(RuntimeError):
@@ -350,7 +351,8 @@ class DraftRevision(BaseModel):
     scope: Scope
     owner_id: str
     workspace_id: str
-    budget: Budget
+    budget: Budget = Field(default_factory=Budget)
+    authorized_permissions: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     lineage: tuple[ResourceRef, ...] = Field(default_factory=tuple)
     lineage_source_draft_id: str | None = None
     promotion_state: Literal["personal", "team_read_only", "pre_publish_evaluation"] = "personal"
@@ -525,6 +527,7 @@ class AuthoringOperation(BaseModel):
         "undo",
         "comment_repair",
         "comment_repair_batch",
+        "execute_draft",
         "retry",
         "cancel",
         "copy_team_draft",
@@ -539,6 +542,7 @@ class AuthoringOperation(BaseModel):
     error_code: AuthoringErrorCode | None = None
     error_message: str | None = None
     trace_id: str
+    patch_id: str | None = None
     retry_of_operation_id: str | None = None
     clarification_questions: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
     created_at: datetime = Field(default_factory=utc_now)

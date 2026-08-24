@@ -7,7 +7,8 @@ Status: `READY_FOR_INTEGRATION`
 - Worker worktree: `/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring`
 - Branch: `feat/knowledge-step3-worker2-agent-authoring`
 - Worker start/base: `a34383ccb281c59c240a9b6ccf88a31da6382d1f`
-- Worker commit: `5caa33d8cd144422c4909351073e8e6037208a37`
+- Worker commit: `65037a4b98838ae467fec223b4e1e45d56b9dfd2` (base delivery)
+- Follow-up commit: pending after this verification pass
 - STEP 3 Main checkpoint verified from sibling Worker worktrees:
   `a34383ccb281c59c240a9b6ccf88a31da6382d1f`
 - Checkpoint tag: `knowledge-skill-factory-step-3-v2131-checkpoint-a34383cc`
@@ -44,6 +45,8 @@ Status: `READY_FOR_INTEGRATION`
   - explicit rerun classification for query/metric/permission/freshness/alert/mapping
   - context add/remove, cancellation, durable retry, personal team reuse with lineage
   - operation/event/read model recovery after refresh
+  - durable single/batch comment repair proposals, team pre-publish evaluation
+    transition, execution-time reauthorization
 - `tests/frontend/test_skill_authoring.py`
 - `STEP3_W2_CONTRACT_PROPOSAL.md`
 - `STEP3_W2_UI_PROPOSAL.md`
@@ -67,7 +70,7 @@ production evidence until Main wires the repository and Worker 3.
 
 ## Verification
 
-- `pytest -q tests/frontend/test_skill_authoring.py`: **14 passed**
+- `pytest -q tests/frontend/test_skill_authoring.py`: **20 passed**
 - `python -m compileall -q frontend/server/skill_authoring tests/frontend/test_skill_authoring.py`: passed
 - `git diff --check`: passed
 - Prototype archive download, SHA-256, extraction and `prototype/readme.md`: passed
@@ -84,7 +87,7 @@ the local planning harness is test-only and does not report execution success.
 
 ## Recommended integration order
 
-1. Cherry-pick this commit onto `a34383c…`.
+1. Cherry-pick the base delivery and follow-up commits onto `a34383c…`.
 2. Review `STEP3_W2_CONTRACT_PROPOSAL.md`; implement shared registry/DTO seams in
    Main only.
 3. Wire `ResourceResolver` to W1 GoldenAsset/Skill authorization and

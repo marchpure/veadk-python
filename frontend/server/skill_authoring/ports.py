@@ -63,6 +63,8 @@ class AuthoringRepository(Protocol):
     async def list_drafts(self, workspace_id: str, caller_id: str) -> tuple[DraftRevision, ...]: ...
     async def save_create_request(self, operation_id: str, request: object) -> None: ...
     async def get_create_request(self, operation_id: str) -> object | None: ...
+    async def save_patch(self, proposal: object) -> None: ...
+    async def get_patch(self, patch_id: str) -> object | None: ...
 
 
 class Worker3Executor(Protocol):
@@ -410,6 +412,7 @@ class JsonFileAuthoringRepository:
             "events": {},
             "drafts": {},
             "create_requests": {},
+            "patches": {},
         }
         self._loaded = False
 
@@ -425,6 +428,7 @@ class JsonFileAuthoringRepository:
             self._state.setdefault("events", {})
             self._state.setdefault("drafts", {})
             self._state.setdefault("create_requests", {})
+            self._state.setdefault("patches", {})
             self._loaded = True
 
     async def _write(self) -> None:
@@ -520,3 +524,16 @@ class JsonFileAuthoringRepository:
 
         data = self._state["create_requests"].get(operation_id)
         return CreateDraftRequest.model_validate(data) if data else None
+
+    async def save_patch(self, proposal: object) -> None:
+        await self._ensure_loaded()
+        async with self._lock:
+            self._state["patches"][proposal.patch_id] = proposal.model_dump(mode="json")
+            await self._write()
+
+    async def get_patch(self, patch_id: str) -> object | None:
+        await self._ensure_loaded()
+        from .models import PatchProposal
+
+        data = self._state["patches"].get(patch_id)
+        return PatchProposal.model_validate(data) if data else None

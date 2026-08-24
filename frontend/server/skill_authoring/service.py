@@ -35,8 +35,12 @@ from .models import (
     TypedPatch,
     Worker3ExecutionRequest,
     ContextMutation,
+    CommentRepairBatchRequest,
+    CommentRepairBatchResult,
+    CommentRepairRequest,
     CreateDraftRequest,
     TeamReuseRequest,
+    TeamReviewRequest,
     digest,
     utc_now,
 )
@@ -128,7 +132,10 @@ class SkillAuthoringService:
             )
             if plan.clarification_questions:
                 operation = operation.model_copy(
-                    update={"status": AuthoringStatus.AWAITING_INPUT}
+                    update={
+                        "status": AuthoringStatus.AWAITING_INPUT,
+                        "clarification_questions": plan.clarification_questions,
+                    }
                 )
                 await self.repository.save_operation(operation)
                 await self._event(
@@ -212,13 +219,48 @@ class SkillAuthoringService:
                 AuthoringErrorCode.TEAM_READ_ONLY,
                 "team-published objects are read-only; copy them to a personal draft",
             )
+        if isinstance(patch, SetQueryPlanPatch):
+            if patch.query_plan.source_revision not in {
+                item.revision for item in draft.lineage
+            }:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.INVALID_CONTEXT,
+                    "query patch must reference a fixed draft lineage revision",
+                )
+        if isinstance(patch, SetPermissionScopePatch) and not set(
+            patch.permissions
+        ).issubset(set(draft.authorized_permissions)):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "permission patch cannot exceed server-authorized capabilities",
+            )
         impact = self._impact(patch)
+        operation = await self._new_operation(
+            operation_type="propose_patch",
+            caller_id=proposed_by,
+            draft_id=draft_id,
+        )
         proposal = PatchProposal(
+            operation_id=operation.operation_id,
             draft_id=draft_id,
             base_revision=base_revision,
             patch=patch,
             impact=impact,
             proposed_by=proposed_by,
+        )
+        operation = operation.model_copy(
+            update={"status": AuthoringStatus.SUCCEEDED, "patch_id": proposal.patch_id}
+        )
+        await self.repository.save_patch(proposal)
+        await self.repository.save_operation(operation)
+        await self._event(
+            operation,
+            "patch_proposed",
+            {
+                "patch_id": proposal.patch_id,
+                "base_revision": str(base_revision),
+                "requires_rerun": str(impact.requires_rerun).lower(),
+            },
         )
         return proposal
 
@@ -253,13 +295,13 @@ class SkillAuthoringService:
                     "team-published objects are read-only",
                 )
             if current.revision != proposal.base_revision:
-                conflicted = proposal.model_copy(update={"status": "conflicted"})
-                del conflicted
+                await self._save_patch_status(proposal, "conflicted")
                 operation = operation.model_copy(
                     update={
                         "status": AuthoringStatus.FAILED,
                         "error_code": AuthoringErrorCode.CONFLICT,
                         "error_message": "draft changed since this proposal was created",
+                        "patch_id": proposal.patch_id,
                     }
                 )
                 await self.repository.save_operation(operation)
@@ -277,6 +319,7 @@ class SkillAuthoringService:
                     if proposal.impact.requires_rerun
                     else AuthoringStatus.SUCCEEDED,
                     "current_revision": next_draft.revision,
+                    "patch_id": proposal.patch_id,
                 }
             )
             await self.repository.save_operation(operation)
@@ -289,22 +332,77 @@ class SkillAuthoringService:
                     "requires_rerun": str(proposal.impact.requires_rerun).lower(),
                 },
             )
+            await self._save_patch_status(proposal, "accepted")
             return await self.read_operation(operation.operation_id)
 
     async def reject_patch(
         self, proposal: PatchProposal, *, caller_id: str
     ) -> AuthoringReadModel:
         operation = await self._new_operation(
-            operation_type="accept_patch",
+            operation_type="patch_reject",
             caller_id=caller_id,
             draft_id=proposal.draft_id,
         )
+        operation = operation.model_copy(update={"patch_id": proposal.patch_id})
+        await self.repository.save_operation(operation)
         await self._event(
             operation,
             "patch_rejected",
             {"patch_id": proposal.patch_id},
         )
+        await self._save_patch_status(proposal, "rejected")
+        operation = operation.model_copy(update={"status": AuthoringStatus.SUCCEEDED})
+        await self.repository.save_operation(operation)
         return await self.read_operation(operation.operation_id)
+
+    async def _save_patch_status(
+        self, proposal: PatchProposal, status: str
+    ) -> None:
+        await self.repository.save_patch(proposal.model_copy(update={"status": status}))
+
+    async def repair_comment(
+        self, request: CommentRepairRequest
+    ) -> PatchProposal:
+        proposal = await self.propose_patch(
+            request.draft_id,
+            base_revision=request.base_revision,
+            patch=request.patch,
+            proposed_by=request.proposed_by,
+        )
+        proposal = proposal.model_copy(
+            update={"source_comment_ids": (request.comment_id,)}
+        )
+        await self.repository.save_patch(proposal)
+        return proposal
+
+    async def repair_comments(
+        self, request: CommentRepairBatchRequest
+    ) -> CommentRepairBatchResult:
+        if len({item.draft_id for item in request.requests}) != 1:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "batch comment repair must target one draft",
+            )
+        proposals = tuple(
+            [
+                await self.repair_comment(item)
+                for item in request.requests
+            ]
+        )
+        operation = await self._new_operation(
+            operation_type="comment_repair_batch",
+            caller_id=request.requests[0].proposed_by,
+            draft_id=request.requests[0].draft_id,
+        )
+        await self._event(
+            operation,
+            "patch_proposed",
+            {"proposal_count": str(len(proposals)), "batch": "true"},
+        )
+        return CommentRepairBatchResult(
+            operation_id=operation.operation_id,
+            proposals=proposals,
+        )
 
     async def undo(
         self,
@@ -370,8 +468,21 @@ class SkillAuthoringService:
             raise SkillAuthoringError(
                 AuthoringErrorCode.PERMISSION_DENIED, "caller cannot execute this draft"
             )
+        await self.resolver.resolve(
+            ContextEnvelope(
+                caller_id=caller_id,
+                workspace_id=draft.workspace_id,
+                prompt="execute fixed SkillDraft revision",
+                resource_refs=draft.lineage,
+                permissions=draft.authorized_permissions,
+                fixed_revisions=tuple(ref.revision for ref in draft.lineage),
+                freshness=draft.manifest.freshness,
+                current_skill_id=draft.draft_id,
+            ),
+            draft.lineage,
+        )
         operation = await self._new_operation(
-            operation_type="create_draft",
+            operation_type="execute_draft",
             caller_id=caller_id,
             draft_id=draft_id,
         )
@@ -403,6 +514,62 @@ class SkillAuthoringService:
         )
         return await self.read_operation(operation.operation_id)
 
+    async def submit_team_review(self, request: TeamReviewRequest) -> AuthoringReadModel:
+        draft = await self.repository.get_draft(request.draft_id, request.base_revision)
+        if draft is None:
+            raise SkillAuthoringError(AuthoringErrorCode.NOT_FOUND, "draft not found")
+        if draft.scope != Scope.PERSONAL or draft.promotion_state != "personal":
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "only a personal draft can enter team review",
+            )
+        if draft.owner_id != request.caller_id:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "only the draft owner can submit team review",
+            )
+        operation = await self._new_operation(
+            operation_type="submit_team_review",
+            caller_id=request.caller_id,
+            draft_id=request.draft_id,
+        )
+        next_revision = draft.revision + 1
+        reviewed = draft.model_copy(
+            update={
+                "revision": next_revision,
+                "parent_revision": draft.revision,
+                "promotion_state": "pre_publish_evaluation",
+                "updated_at": utc_now(),
+                "digest": digest(
+                    {
+                        "parent": draft.digest,
+                        "team": request.team_id,
+                        "review_revision": request.base_revision,
+                        "next_revision": next_revision,
+                    }
+                ),
+            }
+        )
+        await self.repository.save_draft(reviewed)
+        operation = operation.model_copy(
+            update={
+                "status": AuthoringStatus.SUCCEEDED,
+                "current_revision": reviewed.revision,
+            }
+        )
+        await self.repository.save_operation(operation)
+        await self._event(
+            operation,
+            "context_resolved",
+            {
+                "team_id": request.team_id,
+                "state": "pre_publish_evaluation",
+                "published": "false",
+                "revision": str(reviewed.revision),
+            },
+        )
+        return await self.read_operation(operation.operation_id)
+
     async def update_context(
         self,
         draft_id: str,
@@ -430,8 +597,15 @@ class SkillAuthoringService:
             caller_id=caller_id,
             draft_id=draft_id,
         )
-        manifest = current.manifest.model_copy(update={"dependencies": tuple(refs)})
-        plan = current.plan.model_copy(update={"dependencies": tuple(refs)})
+        authorized_permissions = resolved.authorized_permissions
+        resolved_refs = tuple(item.ref for item in resolved.resources)
+        manifest = current.manifest.model_copy(
+            update={
+                "dependencies": resolved_refs,
+                "permissions": authorized_permissions,
+            }
+        )
+        plan = current.plan.model_copy(update={"dependencies": resolved_refs})
         next_revision = current.revision + 1
         updated = current.model_copy(
             update={
@@ -439,7 +613,8 @@ class SkillAuthoringService:
                 "parent_revision": current.revision,
                 "manifest": manifest,
                 "plan": plan,
-                "lineage": tuple(item.ref for item in resolved.resources),
+                "lineage": resolved_refs,
+                "authorized_permissions": authorized_permissions,
                 "updated_at": utc_now(),
                 "digest": digest(
                     {
@@ -640,6 +815,11 @@ class SkillAuthoringService:
         return AuthoringReadModel(
             operation=operation,
             draft=draft,
+            latest_patch=(
+                await self.repository.get_patch(operation.patch_id)
+                if operation.patch_id
+                else None
+            ),
             events=await self.repository.list_events(operation_id),
         )
 
@@ -702,7 +882,7 @@ class SkillAuthoringService:
             inputs=plan.inputs,
             outputs=plan.outputs,
             dependencies=plan.dependencies,
-            permissions=envelope.permissions,
+            permissions=context.authorized_permissions,
             freshness=envelope.freshness,
         )
         draft_id = f"draft_{uuid4().hex}"
@@ -723,6 +903,7 @@ class SkillAuthoringService:
             owner_id=envelope.caller_id,
             workspace_id=envelope.workspace_id,
             budget=envelope.budget,
+            authorized_permissions=context.authorized_permissions,
             lineage=plan.dependencies,
             promotion_state="team_read_only" if scope == Scope.TEAM else "personal",
             digest=draft_digest,
@@ -752,6 +933,11 @@ class SkillAuthoringService:
                 reason="freshness_changed",
             )
         if isinstance(patch, SetPermissionScopePatch):
+            if any(permission not in {"read", "profile", "query"} for permission in patch.permissions):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "permission patch contains an unsupported capability",
+                )
             return PatchImpact(
                 summary="权限范围变化，需要重新鉴权并执行",
                 affected_paths=("manifest.permissions",),
@@ -793,6 +979,11 @@ class SkillAuthoringService:
         elif isinstance(patch, SetDescriptionPatch):
             manifest = manifest.model_copy(update={"description": patch.description})
         elif isinstance(patch, SetPermissionScopePatch):
+            if not set(patch.permissions).issubset(set(draft.authorized_permissions)):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.PERMISSION_DENIED,
+                    "permission patch cannot exceed server-authorized capabilities",
+                )
             manifest = manifest.model_copy(update={"permissions": patch.permissions})
         elif isinstance(patch, SetRefreshPolicyPatch):
             manifest = manifest.model_copy(update={"freshness": patch.freshness})
@@ -801,6 +992,13 @@ class SkillAuthoringService:
                 raise SkillAuthoringError(
                     AuthoringErrorCode.VALIDATION_FAILED,
                     "query plan patches apply only to analysis skills",
+                )
+            if patch.query_plan.source_revision not in {
+                item.revision for item in draft.lineage
+            }:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.INVALID_CONTEXT,
+                    "query patch must reference a fixed draft lineage revision",
                 )
             kind_spec = kind_spec.model_copy(update={"query_plan": patch.query_plan})
             plan = draft.plan.model_copy(
