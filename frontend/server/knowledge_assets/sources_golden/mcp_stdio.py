@@ -418,7 +418,9 @@ class StdioMcpClient:
                         request_id=request_id,
                         status="failed",
                         error_code=(
-                            "MCP_METHOD_NOT_FOUND"
+                            "MCP_SHUTDOWN_UNSUPPORTED"
+                            if allow_method_not_found and code in {-32601, -32602}
+                            else "MCP_METHOD_NOT_FOUND"
                             if code == -32601
                             else "MCP_JSONRPC_ERROR"
                         ),
@@ -537,7 +539,7 @@ class StdioMcpClient:
                 exchanges.append(
                     McpExchange(
                         sequence=len(exchanges) + 1,
-                        method="shutdown",
+                        method="stdio/eof",
                         status="succeeded",
                         response_digest=hashlib.sha256(b"stdio-eof").hexdigest(),
                     )

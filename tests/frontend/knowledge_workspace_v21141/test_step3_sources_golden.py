@@ -1251,6 +1251,22 @@ def test_official_sdk_stdio_mcp_cross_implementation_and_dynamic_revisions(
     assert all(trace.shell is False for trace in traces)
     assert all(trace.shutdown_mode == "stdio_eof" for trace in traces)
     assert all(trace.pid != os.getpid() for trace in traces)
+    assert all(
+        any(
+            exchange.method == "shutdown"
+            and exchange.status == "failed"
+            and exchange.error_code == "MCP_SHUTDOWN_UNSUPPORTED"
+            for exchange in trace.exchanges
+        )
+        for trace in traces
+    )
+    assert all(
+        any(
+            exchange.method == "stdio/eof" and exchange.status == "succeeded"
+            for exchange in trace.exchanges
+        )
+        for trace in traces
+    )
     assert [trace.correlation_id for trace in traces] == [
         "trace-official-initialize",
         "trace-official-call-one",

@@ -403,6 +403,7 @@ class McpExchange(ContractModel):
         "tools/list",
         "tools/call",
         "shutdown",
+        "stdio/eof",
     ]
     request_id: int | None = None
     status: Literal["sent", "succeeded", "failed"]
