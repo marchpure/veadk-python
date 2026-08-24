@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0",
+  "status": "READY_FOR_INTEGRATION",
+  "baseCommit": "31a26a6fd0547a7696af62b97b42a842f07f8339",
+  "branch": "feat/knowledge-step3-worker4-evaluation-quality",
+  "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
+  "uiDeltaDigest": "dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30",
+  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+  "tests": {
+    "worker4": {"passed": 16, "failed": 0},
+    "backendCombined": {"passed": 31, "failed": 0},
+    "compile": "PASS",
+    "diffCheck": "PASS",
+    "ruff": "BLOCKED_BY_CHECKPOINT_TAG_VERSION"
+  },
+  "capabilityMatrix": {
+    "states": 43,
+    "oldRoutes": 23,
+    "classificationAudit": "PASS",
+    "browserAudit": "BLOCKED_PENDING_MAIN_INTEGRATION_URL"
+  },
+  "security": {
+    "productionBrowserState": "PASS",
+    "productionIframe": "PASS",
+    "browserDirectProvider": "PASS",
+    "fullIntegratedScan": "BLOCKED_PENDING_MAIN_INTEGRATION"
+  },
+  "external": {
+    "lark": "EXTERNAL_CREDENTIAL_BLOCKED",
+    "oracle": "EXTERNAL_CREDENTIAL_BLOCKED",
+    "webApi": "EXTERNAL_CREDENTIAL_BLOCKED",
+    "workdayMcp": "EXTERNAL_CREDENTIAL_BLOCKED"
+  },
+  "proposals": [
+    "STEP3_W4_CONTRACT_PROPOSAL.md",
+    "STEP3_W4_UI_PROPOSAL.md"
+  ],
+  "finalReadOnlyVerification": {
+    "status": "PENDING_MAIN_INTEGRATION",
+    "integrationCommit": null,
+    "studioUrl": null
+  }
+}
