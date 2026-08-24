@@ -22,6 +22,7 @@ from .contracts import (
     PublicationPublishResult,
     RefreshRunPayload,
     RefreshRunResult,
+    RefreshRun,
     SkillDraft,
     SkillDraftRunPayload,
     SkillDraftRunResult,
@@ -121,8 +122,17 @@ class KnowledgeAssetApplication:
         if suffix not in {".md", ".markdown", ".csv"}:
             return None
         content = path.read_bytes()
+        if len(content) > 10 * 1024 * 1024:
+            raise KnowledgeAssetRepositoryError(
+                "SOURCE_TOO_LARGE", "本地来源超过 10 MiB 限制。"
+            )
+        if b"\x00" in content:
+            raise KnowledgeAssetRepositoryError(
+                "SOURCE_UNSAFE_CONTENT", "本地来源包含不允许的二进制内容。"
+            )
         digest = hashlib.sha256(content).hexdigest()
         source_type = "csv" if suffix == ".csv" else "markdown"
+        schema_digest = self._schema_digest(content, source_type)
         revision = SourceRevision(
             id=f"source-{digest[:24]}",
             source_type=source_type,
@@ -133,7 +143,11 @@ class KnowledgeAssetApplication:
                 media_type="text/csv" if source_type == "csv" else "text/markdown",
                 bytes=len(content),
             ),
-            schema_ref=None,
+            schema_ref=SchemaRef(
+                uri=f"local://schema/source/{schema_digest}",
+                version="1",
+                sha256=schema_digest,
+            ),
             permission_ref=PermissionRef(
                 uri=f"permission://workspace/{workspace_id}",
                 version="1",
@@ -145,11 +159,27 @@ class KnowledgeAssetApplication:
         return revision
 
     @staticmethod
+    def _schema_digest(content: bytes, source_type: str) -> str:
+        if source_type == "csv":
+            first_line = content.decode("utf-8").splitlines()[0] if content else ""
+            schema = {"format": "csv", "columns": next(csv.reader([first_line]), [])}
+        else:
+            schema = {"format": "markdown", "columns": ["text"]}
+        return hashlib.sha256(
+            json.dumps(schema, sort_keys=True).encode()
+        ).hexdigest()
+
+    @staticmethod
     def _local_path(source_ref: str) -> Path | None:
         parsed = urlparse(source_ref)
         if parsed.scheme in {"http", "https", "secret"}:
             return None
-        return Path(parsed.path if parsed.scheme == "file" else source_ref).expanduser().resolve()
+        raw = Path(parsed.path if parsed.scheme == "file" else source_ref).expanduser()
+        if raw.is_symlink():
+            raise KnowledgeAssetRepositoryError(
+                "SOURCE_UNSAFE_PATH", "本地来源不得通过符号链接读取。"
+            )
+        return raw.resolve()
 
     def _source_path(self, source_revision_id: str) -> Path:
         path = getattr(self.repository, "source_path", lambda _id: None)(source_revision_id)
@@ -165,6 +195,9 @@ class KnowledgeAssetApplication:
             raise KnowledgeAssetRepositoryError("SOURCE_NOT_FOUND", "来源不存在。")
         path = self._source_path(source.id)
         content = path.read_text(encoding="utf-8")
+        columns: list[str] = []
+        rows: list[dict[str, str]] = []
+        lines: list[str] = []
         if source.source_type == "csv":
             rows = list(csv.DictReader(content.splitlines()))
             sample = rows[: payload.sample_limit]
@@ -179,11 +212,32 @@ class KnowledgeAssetApplication:
             total = max(len(sample), 1)
             report = {"format": "markdown", "lines": len(lines), "sample": sample}
         report_digest = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
+        structure = {
+            "format": source.source_type,
+            "columns": columns if source.source_type == "csv" else ["text"],
+            "rowCount": len(rows) if source.source_type == "csv" else len(lines),
+        }
+        structure_digest = hashlib.sha256(
+            json.dumps(structure, sort_keys=True).encode()
+        ).hexdigest()
+        cost = {"bytesRead": path.stat().st_size, "sampleRows": len(sample)}
+        cost_digest = hashlib.sha256(
+            json.dumps(cost, sort_keys=True).encode()
+        ).hexdigest()
+        sensitive = [
+            column for column in columns
+            if any(token in column.lower() for token in ("email", "phone", "token", "secret"))
+        ]
         run = ProfileRun(
             id=f"profile-{source.id}", source_revision_id=source.id, status="succeeded",
             report_ref=StorageRef(uri=f"local://profile/{report_digest}", kind="inline",
                                   sha256=report_digest, media_type="application/json"),
+            structure_ref=StorageRef(uri=f"local://structure/{structure_digest}", kind="inline",
+                                     sha256=structure_digest, media_type="application/json"),
             quality_score=nonempty / total, started_at=now_iso(), finished_at=now_iso(),
+            sensitive_classification=sensitive,
+            estimated_cost_ref=StorageRef(uri=f"local://cost/{cost_digest}", kind="inline",
+                                          sha256=cost_digest, media_type="application/json"),
         )
         self.repository.save_profile_run(run)
         return SourceProfileResult(
@@ -449,10 +503,89 @@ class KnowledgeAssetApplication:
             )
         elif command == "refresh.run":
             typed = RefreshRunPayload.model_validate(payload)
-            result = RefreshRunResult(
-                skill_id=typed.skill_id,
-                error=self._not_ready_error(command, request_id),
-            )
+            draft = self.repository.draft(typed.skill_id)
+            if draft is None or draft.workspace_id != workspace_id:
+                result = RefreshRunResult(
+                    skill_id=typed.skill_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="SKILL_NOT_FOUND",
+                        message="待刷新的 Skill 不存在或不属于当前工作区。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            else:
+                previous = self.repository.latest_golden_asset_revision(workspace_id)
+                run = RefreshRun(
+                    id=f"refresh-{hashlib.sha256(request_id.encode()).hexdigest()[:24]}",
+                    skill_id=typed.skill_id,
+                    trigger=typed.trigger,
+                    status="running",
+                    current_revision=previous.revision if previous else None,
+                    last_good_revision=previous.revision if previous else None,
+                    started_at=now_iso(),
+                )
+                try:
+                    sources = self.repository.source_revisions_for_workspace(workspace_id)
+                    if not sources:
+                        raise KnowledgeAssetRepositoryError(
+                            "SOURCE_NOT_FOUND", "没有可刷新的来源。"
+                        )
+                    source = sources[-1]
+                    current_bytes = self._source_path(source.id).read_bytes()
+                    current_schema = self._schema_digest(current_bytes, source.source_type)
+                    if source.schema_ref and current_schema != source.schema_ref.sha256:
+                        raise KnowledgeAssetRepositoryError(
+                            "SCHEMA_CHANGED", "来源结构已变化，刷新被安全门禁拒绝。"
+                        )
+                    current_digest = hashlib.sha256(current_bytes).hexdigest()
+                    if current_digest != source.source_digest:
+                        source = self._register_local_source(
+                            str(self._source_path(source.id)),
+                            workspace_id=workspace_id,
+                            request_id=request_id,
+                        )
+                        assert source is not None
+                    self._run_profile(
+                        SourceProfilePayload(source_revision_id=source.id),
+                        request_id,
+                    )
+                    cleaned = self._run_clean(
+                        SourceCleanPayload(
+                            source_revision_id=source.id,
+                            recipe_id=f"refresh-{source.id}",
+                        ),
+                        workspace_id,
+                    )
+                    run = run.model_copy(update={
+                        "status": "succeeded",
+                        "staging_ref": cleaned.golden_asset_revision.storage_ref,
+                        "current_revision": cleaned.golden_asset_revision.revision,
+                        "last_good_revision": cleaned.golden_asset_revision.revision,
+                        "finished_at": now_iso(),
+                    })
+                    result = RefreshRunResult(
+                        skill_id=typed.skill_id, status="succeeded",
+                        refresh_run=run,
+                    )
+                except (KnowledgeAssetRepositoryError, OSError, UnicodeError) as error:
+                    code = getattr(error, "code", "SOURCE_READ_FAILED")
+                    run = run.model_copy(update={
+                        "status": "failed", "error_code": code,
+                        "finished_at": now_iso(),
+                    })
+                    result = RefreshRunResult(
+                        skill_id=typed.skill_id, status="failed",
+                        refresh_run=run,
+                        error=ErrorEnvelope(
+                            code=code,
+                            message=str(error),
+                            retryable=False,
+                            request_id=request_id,
+                        ),
+                    )
+                self.repository.save_refresh_run(run)
         elif command == "invocation.start":
             typed = InvocationStartPayload.model_validate(payload)
             result = InvocationStartResult(

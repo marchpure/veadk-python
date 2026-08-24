@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -61,18 +62,28 @@ def _ts_type(schema: dict[str, Any]) -> str:
     }.get(schema_type, "unknown")
 
 
-def _render_typescript(schema: dict[str, Any]) -> str:
+def _render_typescript(
+    schema: dict[str, Any], names: list[str] | None = None
+) -> str:
     lines = [
         "/* Generated from contracts.py; do not edit manually. */",
         "",
     ]
-    for name, definition in schema.get("$defs", {}).items():
+    definitions = schema.get("$defs", {})
+    selected = names or list(definitions)
+    for name in selected:
+        definition = definitions[name]
         if "enum" in definition or "oneOf" in definition or "anyOf" in definition:
             lines.append(f"export type {name} = {_ts_type(definition)};")
         else:
             lines.append(f"export interface {name} {_ts_type(definition)}")
-        lines.append("")
-    if schema.get("title") == "CoreContractBundle":
+        # Keep the generated contract facade reviewable as one module while
+        # avoiding artificial blank-line growth as the canonical model grows.
+        if name != selected[-1]:
+            lines.append("")
+    if schema.get("title") == "CoreContractBundle" and (
+        names is None or "CoreContractBundle" in selected
+    ):
         lines.append("export interface CoreContractBundle {")
         for name, value in schema.get("properties", {}).items():
             optional = "" if name in schema.get("required", []) else "?"
@@ -80,6 +91,37 @@ def _render_typescript(schema: dict[str, Any]) -> str:
         lines.append("}")
         lines.append("")
     return "\n".join(lines)
+
+
+def _render_part(
+    schema: dict[str, Any],
+    names: list[str],
+    module_name: str,
+    module_names: list[str],
+    chunks: list[list[str]],
+) -> str:
+    all_names = list(schema.get("$defs", {}))
+    rendered = _render_typescript(schema, names)
+    referenced = {
+        name for name in all_names
+        if name not in names and re.search(rf"\b{name}\b", rendered)
+    }
+    imports = []
+    for other_module_name, chunk in zip(module_names, chunks, strict=True):
+        if other_module_name == module_name:
+            continue
+        module_references = sorted(referenced.intersection(chunk))
+        if module_references:
+            imports.append(
+                f'import type {{ {", ".join(module_references)} }} '
+                f'from "./{other_module_name}";'
+            )
+    return (
+        "/* Generated from contracts.py; do not edit manually. */\n\n"
+        + "\n".join(imports)
+        + ("\n\n" if imports else "")
+        + rendered.split("\n\n", 1)[-1]
+    )
 
 
 def export_schemas(output: Path) -> None:
@@ -116,8 +158,41 @@ def export_schemas(output: Path) -> None:
             encoding="utf-8",
         )
     core_schema = schemas["core-contracts.schema.json"]
-    (output.parent.parent.parent / "src/knowledge-workspace/production/generatedContracts.ts").write_text(
-        _render_typescript(core_schema),
+    generated_root = output.parent.parent.parent / "src/knowledge-workspace/production"
+    generated_dir = generated_root / "generatedContracts"
+    generated_dir.mkdir(parents=True, exist_ok=True)
+    names = list(core_schema.get("$defs", {}))
+    chunk_size = max(1, (len(names) + 3) // 4)
+    chunks = [names[index:index + chunk_size] for index in range(0, len(names), chunk_size)]
+    module_names = [f"part{index}" for index in range(1, len(chunks) + 1)]
+    for module_name, chunk in zip(module_names, chunks, strict=True):
+        (generated_dir / f"{module_name}.ts").write_text(
+            _render_part(core_schema, chunk, module_name, module_names, chunks),
+            encoding="utf-8",
+        )
+    bundle_lines = [
+        "/* Generated from contracts.py; do not edit manually. */",
+        "",
+    ]
+    for module_name, chunk in zip(module_names, chunks, strict=True):
+        bundle_lines.append(
+            f'import type {{ {", ".join(chunk)} }} from "./{module_name}";'
+        )
+    bundle_lines.extend(["", "export interface CoreContractBundle {"])
+    for name, value in core_schema.get("properties", {}).items():
+        optional = "" if name in core_schema.get("required", []) else "?"
+        bundle_lines.append(f"  {name}{optional}: {_ts_type(value)};")
+    bundle_lines.extend(["}", ""])
+    (generated_dir / "bundle.ts").write_text(
+        "\n".join(bundle_lines), encoding="utf-8"
+    )
+    (generated_root / "generatedContracts.ts").write_text(
+        "/* Generated from contracts.py; do not edit manually. */\n\n"
+        + "\n".join(
+            f'export * from "./generatedContracts/{module_name}";'
+            for module_name in [*module_names, "bundle"]
+        )
+        + "\n",
         encoding="utf-8",
     )
 

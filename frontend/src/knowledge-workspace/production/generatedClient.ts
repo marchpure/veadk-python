@@ -40,11 +40,27 @@ export interface KnowledgeAssetClient {
     context: {
       requestId: string;
       idempotencyKey: string;
+      expectedVersion?: string;
+      lastEventId?: string;
       signal?: AbortSignal;
     },
   ): Promise<GeneratedCommandResponse>;
   operation(operationId: string, signal?: AbortSignal): Promise<GeneratedOperation>;
   audit(operationId: string, signal?: AbortSignal): Promise<GeneratedOperationAudit>;
+  stream(
+    command: GeneratedCommand,
+      context: {
+      requestId: string;
+      idempotencyKey: string;
+      expectedVersion?: string;
+      lastEventId?: string;
+      signal?: AbortSignal;
+    },
+  ): Promise<Response>;
+  cancel(
+    operationId: string,
+    context: { requestId: string; idempotencyKey: string; signal?: AbortSignal },
+  ): Promise<GeneratedOperation>;
 }
 
 export function createKnowledgeAssetClient(
@@ -97,6 +113,8 @@ export function createKnowledgeAssetClient(
             "Content-Type": "application/json",
             "X-Request-ID": context.requestId,
             "Idempotency-Key": context.idempotencyKey,
+            ...(context.expectedVersion ? { "If-Match": context.expectedVersion } : {}),
+            ...(context.lastEventId ? { "Last-Event-ID": context.lastEventId } : {}),
           },
           body: JSON.stringify(command),
         },
@@ -114,5 +132,44 @@ export function createKnowledgeAssetClient(
         {},
         signal,
       ).then(assertGeneratedOperationAudit),
+    stream: async (command, context) => {
+      const response = await fetcher(`${basePath}/streams`, {
+        method: "POST",
+        signal: context.signal,
+        headers: {
+          Accept: "text/event-stream",
+          "Content-Type": "application/json",
+          "X-Request-ID": context.requestId,
+          "Idempotency-Key": context.idempotencyKey,
+          ...(context.expectedVersion ? { "If-Match": context.expectedVersion } : {}),
+          ...(context.lastEventId ? { "Last-Event-ID": context.lastEventId } : {}),
+        },
+        body: JSON.stringify(command),
+      });
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type") ?? "";
+        let body: unknown = null;
+        try { body = await response.json(); } catch { /* problem body optional */ }
+        const headers: Record<string, string> = {};
+        response.headers.forEach((value, key) => { headers[key] = value; });
+        throw new GeneratedClientHttpError(
+          response.status, contentType, headers, body,
+        );
+      }
+      return response;
+    },
+    cancel: (operationId, context) =>
+      request(
+        `/operations/${encodeURIComponent(operationId)}:cancel`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Request-ID": context.requestId,
+            "Idempotency-Key": context.idempotencyKey,
+          },
+        },
+        context.signal,
+      ).then(assertGeneratedOperation),
   };
 }

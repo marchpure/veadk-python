@@ -165,8 +165,9 @@ class PublicationPublishResult(CommandResultBase):
 
 class RefreshRunResult(CommandResultBase):
     result_type: Literal["refresh.run"] = "refresh.run"
-    status: Literal["not_ready"] = "not_ready"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
     skill_id: str
+    refresh_run: RefreshRun | None = None
 
 
 class InvocationStartResult(CommandResultBase):

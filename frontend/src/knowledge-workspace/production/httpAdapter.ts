@@ -53,12 +53,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
   }
   async bootstrap(signal?: AbortSignal): Promise<KnowledgeBootstrap> {
     const id = requestId();
-    const response = await this.request("GET", "/v1/bootstrap", undefined, {
-      requestId: id,
-      idempotencyKey: id,
-      signal,
-    });
-    const body = await readJson(response, id);
+    const body = await this.generatedClient.bootstrap(signal);
     if (!body || typeof body !== "object") {
       throw new KnowledgeAdapterError({
         code: "INVALID_RESPONSE",
@@ -83,40 +78,18 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
   ): Promise<KnowledgeCommandResult> {
     const normalized = normalizeCommand(command, contextOrPayload, legacyContext);
     const context = normalized.context;
-    if (
-      normalized.command.command === "skill-draft.create" ||
-      normalized.command.command === "action.update"
-    ) {
-      let generated;
-      try {
-        generated = await this.generatedClient.command(
-          normalized.command as GeneratedCommand,
-          context,
-        );
-      } catch (error) {
-        if (error instanceof GeneratedClientHttpError) {
-          throw errorFromGeneratedClient(error, context.requestId);
-        }
-        throw error;
-      }
+    try {
+      const generated = await this.generatedClient.command(
+        normalized.command as GeneratedCommand,
+        context,
+      );
       return parseCommandResult(generated, context.requestId);
+    } catch (error) {
+      if (error instanceof GeneratedClientHttpError) {
+        throw errorFromGeneratedClient(error, context.requestId);
+      }
+      throw error;
     }
-    const response = await this.request(
-      "POST",
-      "/v1/commands",
-      normalized.command,
-      context,
-    );
-    const body = await readJson(response, context.requestId);
-    if (!body || typeof body !== "object" || !("accepted" in body)) {
-      throw new KnowledgeAdapterError({
-        code: "INVALID_RESPONSE",
-        message: "知识服务 mutation 响应缺少 accepted 字段。",
-        retryable: false,
-        requestId: context.requestId,
-      });
-    }
-    return parseCommandResult(body, context.requestId);
   }
   async stream(
     command: Extract<
@@ -147,10 +120,8 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     let terminalReached = false;
     let response: Response;
     try {
-      response = await this.request(
-        "POST",
-        "/v1/streams",
-        normalized.command,
+      response = await this.generatedClient.stream(
+        normalized.command as GeneratedCommand,
         { ...context, signal: controller.signal },
       );
     } catch (error) {
@@ -222,15 +193,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
                   },
                 };
             const cancelContext = createRequestContext();
-            const result = await this.command(cancelCommand, cancelContext);
-            if (!result.accepted) {
-              throw new KnowledgeAdapterError({
-                code: "UNAVAILABLE",
-                message: "知识服务未确认取消请求。",
-                retryable: true,
-                requestId: cancelContext.requestId,
-              });
-            }
+            await this.command(cancelCommand, cancelContext);
           })();
           return cancelPromise;
         };

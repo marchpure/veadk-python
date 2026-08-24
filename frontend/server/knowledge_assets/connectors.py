@@ -13,6 +13,7 @@ from .ports import (
     ConnectorEvent,
     CredentialBlockedConnector,
 )
+from .security import reject_inline_secrets, validate_web_endpoint
 
 
 class LocalFileConnector:
@@ -56,8 +57,15 @@ class LocalFileConnector:
         if path.suffix.lower() == ".csv":
             with path.open(newline="", encoding="utf-8") as handle:
                 columns = next(csv.reader(handle), [])
-            return ConnectorEvent("introspect", "succeeded", context.trace_id, {"columns": ",".join(columns)})
-        return ConnectorEvent("introspect", "succeeded", context.trace_id, {"format": "markdown"})
+            schema = ",".join(columns)
+            return ConnectorEvent(
+                "introspect", "succeeded", context.trace_id,
+                {"columns": schema, "schemaDigest": hashlib.sha256(schema.encode()).hexdigest()},
+            )
+        return ConnectorEvent(
+            "introspect", "succeeded", context.trace_id,
+            {"format": "markdown", "schemaDigest": hashlib.sha256(b"markdown:text").hexdigest()},
+        )
 
     def sample(self, context, config):
         path = self._path(config)
@@ -76,9 +84,42 @@ class LocalFileConnector:
         return ConnectorEvent("close", "succeeded", context.trace_id, {})
 
 
+class OracleConnector(CredentialBlockedConnector):
+    def __init__(self) -> None:
+        super().__init__("oracle")
+
+
+class WebApiConnector(CredentialBlockedConnector):
+    def __init__(self) -> None:
+        super().__init__("web_api")
+
+
+class McpConnector(CredentialBlockedConnector):
+    def __init__(self) -> None:
+        super().__init__("mcp")
+
+
+class PublishedSkillConnector(CredentialBlockedConnector):
+    def __init__(self) -> None:
+        super().__init__("published_skill")
+
+
 def connector_for(kind: str, *, root: str | Path = ".") -> ConnectorAdapter:
     if kind in {"markdown", "csv"}:
         return LocalFileConnector(root=root)
-    if kind in {"oracle", "web_api", "mcp", "published_skill"}:
-        return CredentialBlockedConnector(kind)
+    blocked = {
+        "oracle": OracleConnector,
+        "web_api": WebApiConnector,
+        "mcp": McpConnector,
+        "published_skill": PublishedSkillConnector,
+    }
+    if kind in blocked:
+        return blocked[kind]()
     raise ValueError(f"unsupported data_access connector kind: {kind}")
+
+
+def validate_external_config(config: ConnectorConfig) -> None:
+    """Validate a connector config before any provider is contacted."""
+    reject_inline_secrets(config)
+    if config.kind == "web_api":
+        validate_web_endpoint(config.endpoint)

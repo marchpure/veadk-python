@@ -2475,6 +2475,17 @@
             ],
             "default": null
           },
+          "structureRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "qualityScore": {
             "anyOf": [
               {
@@ -2488,6 +2499,25 @@
             ],
             "default": null,
             "title": "Qualityscore"
+          },
+          "sensitiveClassification": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Sensitiveclassification",
+            "type": "array"
+          },
+          "estimatedCostRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "errorCode": {
             "anyOf": [
@@ -2564,6 +2594,114 @@
         "title": "PublicationPublishResult",
         "type": "object"
       },
+      "RefreshRun": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "skillId": {
+            "title": "Skillid",
+            "type": "string"
+          },
+          "trigger": {
+            "enum": [
+              "manual",
+              "schedule",
+              "event",
+              "freshness_on_read"
+            ],
+            "title": "Trigger",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stagingRef": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/StorageRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "currentRevision": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currentrevision"
+          },
+          "lastGoodRevision": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lastgoodrevision"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Errorcode"
+          },
+          "startedAt": {
+            "title": "Startedat",
+            "type": "string"
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finishedat"
+          }
+        },
+        "required": [
+          "id",
+          "skillId",
+          "trigger",
+          "status",
+          "startedAt"
+        ],
+        "title": "RefreshRun",
+        "type": "object"
+      },
       "RefreshRunResult": {
         "additionalProperties": false,
         "properties": {
@@ -2585,14 +2723,29 @@
             "default": null
           },
           "status": {
-            "const": "not_ready",
             "default": "not_ready",
+            "enum": [
+              "not_ready",
+              "succeeded",
+              "failed"
+            ],
             "title": "Status",
             "type": "string"
           },
           "skillId": {
             "title": "Skillid",
             "type": "string"
+          },
+          "refreshRun": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RefreshRun"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [

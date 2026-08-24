@@ -176,6 +176,18 @@ class JobFramework:
             if event.sequence > after_sequence
         ]
 
+    def checkpoint(self, *, job_id: str, owner: str, after_sequence: int) -> JobState:
+        """Acknowledge only committed outbox events owned by the live worker."""
+        job = self._owned(job_id, owner)
+        if after_sequence < 0 or after_sequence > job.outbox_sequence:
+            raise ValueError("checkpoint must reference an emitted sequence")
+        job.outbox_sequence = max(job.outbox_sequence, after_sequence)
+        return job.model_copy(deep=True)
+
+    def resume(self, *, after_sequence: int = 0) -> list[JobEvent]:
+        """Replay committed events in sequence order after a consumer restart."""
+        return self.outbox(after_sequence=after_sequence)
+
     def dead_letter(self, job_id: str) -> dict[str, str] | None:
         item = self._dead_letters.get(job_id)
         if item is None:
