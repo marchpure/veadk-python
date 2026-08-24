@@ -506,6 +506,7 @@ export interface ResourceCommand {
 
 export interface ResourcePayload {
   resourceId: string;
+  reason?: string;
 }
 
 export interface SaveManifestCommand {

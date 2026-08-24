@@ -50,6 +50,7 @@ class SaveManifestPayload(ContractModel):
 
 class ResourcePayload(ContractModel):
     resource_id: str = Field(min_length=1, max_length=128)
+    reason: str = Field(default="revoked", max_length=256)
 
 
 class ConnectorPayload(ContractModel):

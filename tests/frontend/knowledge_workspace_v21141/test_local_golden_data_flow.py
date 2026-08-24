@@ -102,3 +102,31 @@ def test_bff_local_markdown_flow_returns_readable_golden_revision(
     assert cleaned.json()["accepted"] is True
     assert golden["storageRef"]["uri"].startswith("local://golden/")
     assert repository.latest_golden_asset_revision("ws").id == golden["id"]
+
+
+def test_golden_revisions_are_append_only_and_tombstones_hide_revoked_assets(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "notes.md"
+    source.write_text("first\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    first_source = application._register_local_source(str(source), workspace_id="ws", request_id="r")
+    first = application._run_clean(
+        SourceCleanPayload(source_revision_id=first_source.id, recipe_id="r1"), "ws"
+    ).golden_asset_revision
+    source.write_text("second\n", encoding="utf-8")
+    second_source = application._register_local_source(str(source), workspace_id="ws", request_id="r2")
+    second = application._run_clean(
+        SourceCleanPayload(source_revision_id=second_source.id, recipe_id="r2"), "ws"
+    ).golden_asset_revision
+    assert first.revision == 1
+    assert second.revision == 2
+    assert repository.latest_golden_asset_revision("ws").id == second.id
+    repository.revoke_asset(second.id, "ws", "revoke-1", "permission revoked")
+    assert repository.latest_golden_asset_revision("ws").id == first.id
+    tombstone = repository._connection.execute(
+        "SELECT reason FROM asset_tombstones WHERE asset_id = ?", (second.id,)
+    ).fetchone()
+    assert tombstone["reason"] == "permission revoked"

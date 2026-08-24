@@ -114,8 +114,9 @@ class KnowledgeAssetRepository(Protocol):
     def save_profile_run(self, run: ProfileRun) -> None: ...
     def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None: ...
     def save_clean_run(self, run: CleanRun) -> None: ...
-    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> None: ...
+    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> GoldenAssetRevision: ...
     def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None: ...
+    def revoke_asset(self, asset_id: str, workspace_id: str, request_id: str, reason: str) -> None: ...
 
 
 class SqliteKnowledgeAssetRepository:
@@ -367,8 +368,14 @@ class SqliteKnowledgeAssetRepository:
                  run.error_code, run.started_at, run.finished_at),
             )
 
-    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> None:
+    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> GoldenAssetRevision:
         with self._lock:
+            next_revision = self._connection.execute(
+                "SELECT COALESCE(MAX(revision), 0) + 1 FROM golden_asset_revisions "
+                "WHERE workspace_id = ? AND asset_kind = ?",
+                (revision.owner.workspace_id, revision.asset_kind),
+            ).fetchone()[0]
+            revision = revision.model_copy(update={"revision": next_revision})
             self._connection.execute(
                 """INSERT OR REPLACE INTO golden_asset_revisions
                 (id, workspace_id, asset_kind, revision, schema_ref_json,
@@ -384,11 +391,13 @@ class SqliteKnowledgeAssetRepository:
                  revision.permissions_ref.model_dump_json(by_alias=True),
                  revision.lineage_digest, revision.freshness_at, int(revision.last_good)),
             )
+        return revision
 
     def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None:
         with self._lock:
             row = self._connection.execute(
                 "SELECT * FROM golden_asset_revisions WHERE workspace_id = ? "
+                "AND id NOT IN (SELECT asset_id FROM asset_tombstones) "
                 "ORDER BY revision DESC LIMIT 1", (workspace_id,)
             ).fetchone()
         if row is None:
@@ -404,6 +413,17 @@ class SqliteKnowledgeAssetRepository:
             lineage_digest=row["lineage_digest"], freshness_at=row["freshness_at"],
             last_good=bool(row["last_good"]),
         )
+
+    def revoke_asset(
+        self, asset_id: str, workspace_id: str, request_id: str, reason: str
+    ) -> None:
+        with self._lock:
+            self._connection.execute(
+                """INSERT OR REPLACE INTO asset_tombstones
+                (asset_id, workspace_id, reason, revoked_at, request_id)
+                VALUES (?, ?, ?, ?, ?)""",
+                (asset_id, workspace_id, reason, now_iso(), request_id),
+            )
 
     def draft(self, draft_id: str) -> SkillDraft | None:
         with self._lock:
