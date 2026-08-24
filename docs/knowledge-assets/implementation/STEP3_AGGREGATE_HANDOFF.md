@@ -10,9 +10,10 @@ Date: 2026-08-25
 - v2.13.1 delta checkpoint: `a34383cc`
 - checkpoint metadata: `31a26a6f`
 - worker registration: `62029e91`
-- current Main shell integration: `aa0cf00b`
-- current corrective integration: `a4a258e6`
-- W2 real Agent/Runner integration: `7949f452`
+- current Main shell integration: `215175a7`
+- current corrective integration: `215175a7` (includes effective W4 corrective)
+- W2 real Agent/Runner integration: `7949f452`, with effective audit-boundary
+  hardening at `513bfb49`
 - real SkillViewRevision → production Workspace Dashboard integration:
   `4aa377fe`
 - checkpoint tag: `knowledge-skill-factory-step-3-v2131-checkpoint-31a26a6f`
@@ -44,6 +45,9 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
   passed`.
 - Main typed compatibility regression: `25 passed`; Markdown body,
   semantic/analysis/knowledge CSV execution, and W3 result export pass.
+- W4 evaluation-quality regression: `28 passed`; replay idempotency,
+  cancellation-wins, candidate gating, policy uniqueness, and fix-scope
+  invariants pass.
 - Main full backend regression: `104 passed, 13 skipped`.
 - W4 audit/evaluation check: `6 passed`.
 - Prototype archive SHA-256: `ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571`
@@ -59,7 +63,10 @@ relationship are in `STEP3_PROTOTYPE_CAPABILITY_MATRIX.yaml`.
 - W4 corrective: `6ee81405` integrated; latest W4 read-only audit is
   `MAIN_CORRECTION_REQUIRED` at `09dfd62a`.
 
-W2 `a03cb607` and W4 `6ee81405` are integrated. W1 has not supplied the
+W2 `a03cb607` and W4 `6ee81405` are present in Main through equivalent
+effective integration content; the exact requested SHAs remain in the worker
+ledger but are not ancestors of this worktree. Both requested corrective changes
+are therefore represented in Main. W1 has not supplied the
 required real Source/Golden Data commit and `W1.status.json`. W3 hardening is
 integrated and its worktree is clean; Main compatibility fixes remain in this
 working tree until committed. Main is not duplicating W1/W3 domain work.
