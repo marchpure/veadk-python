@@ -555,6 +555,37 @@ function chunkDirectory(moduleIds: readonly string[]): string {
   return "assets/chunks";
 }
 
+function appsSdkReact18Compatibility(): Plugin {
+  return {
+    name: "apps-sdk-react-18-compatibility",
+    enforce: "pre",
+    transform(code, id) {
+      const cleanId = id.split("?")[0].replaceAll("\\", "/");
+      if (
+        !cleanId.includes("/node_modules/@openai/apps-sdk-ui/") ||
+        !/\.(?:m?js|jsx?|tsx?)$/.test(cleanId) ||
+        !/\buse\b/.test(code)
+      ) {
+        return null;
+      }
+
+      const imported = code.replace(
+        /(\bimport\s+(?:React\s*,\s*)?\{[^}]*?)\buse\b(?=\s*[,}])/g,
+        "$1useContext",
+      );
+      const compatible = imported.replace(
+        /\buse\((?=[A-Za-z_$][\w$]*Context\b)/g,
+        "useContext(",
+      );
+      const withProvider = compatible.replace(
+        /(\b_?jsx)\(([A-Za-z_$][\w$]*Context),\s*\{\s*value:/g,
+        "$1($2.Provider, { value:",
+      );
+      return withProvider === code ? null : { code: withProvider, map: null };
+    },
+  };
+}
+
 function knowledgeWorkspaceProductionBoundary(): Plugin {
   const frozenRoot = resolve(process.cwd(), "src/knowledge-workspace/frozen-ui");
   const productionRoot = resolve(process.cwd(), "src/knowledge-workspace/production");
@@ -658,6 +689,7 @@ export default defineConfig({
   // plugins: [react(), tailwindcss()]
   plugins: [
     knowledgeWorkspaceProductionBoundary(),
+    appsSdkReact18Compatibility(),
     react(),
     tailwindcss(),
   ],
