@@ -118,6 +118,26 @@ class PostgresKnowledgeAssetRepository:
             else None
         )
 
+    def latest_dashboard_view(self, workspace_id: str) -> SkillViewRevision | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT v.view_json
+                FROM skill_view_revisions AS v
+                JOIN skill_drafts AS d
+                  ON d.id = split_part(v.skill_revision_id, ':', 1)
+                WHERE d.workspace_id = %s
+                ORDER BY v.created_at DESC LIMIT 1
+                """,
+                (workspace_id,),
+            )
+            row = cursor.fetchone()
+        return (
+            SkillViewRevision.model_validate(row["view_json"])
+            if row is not None
+            else None
+        )
+
     def save_skill_view_revision(self, revision: SkillViewRevision) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
@@ -277,6 +297,17 @@ class PostgresKnowledgeAssetRepository:
                 (workspace_id,),
             )
             rows = cursor.fetchall()
+        latest_view = self.latest_dashboard_view(workspace_id)
+        workspace_data = {
+            "connectorCatalog": [],
+            "datasetFields": [],
+            "dashboard": {"kpis": [], "trendData": []},
+            "knowledgeGraph": {"entities": [], "mappings": []},
+        }
+        if latest_view is not None:
+            workspace_data["skillViewRevision"] = latest_view.model_dump(
+                mode="json", by_alias=True
+            )
         return BootstrapResponse(
             resources=[
                 ResourceSummary(
@@ -290,12 +321,7 @@ class PostgresKnowledgeAssetRepository:
             connections=[],
             publications=[],
             routes=["welcome", "add_kb", "skill_builder"],
-            workspace_data={
-                "connectorCatalog": [],
-                "datasetFields": [],
-                "dashboard": {"kpis": [], "trendData": []},
-                "knowledgeGraph": {"entities": [], "mappings": []},
-            },
+            workspace_data=workspace_data,
             action_loop={
                 "signals": [],
                 "policies": [],

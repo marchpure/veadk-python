@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { mockKpis, mockTrendData } from '../../data/mockData';
+import { workspaceKpis, workspaceTrendData } from '../../../production/data';
 import { ArrowUpRight, ArrowDownRight, Wand2, PlusSquare, X, LayoutDashboard, Clock, BellRing, Settings, CheckCircle2, AlertTriangle, Play, Check, Link as LinkIcon, User, Calendar, FileText, Activity, ShieldCheck, ChevronRight, Globe } from 'lucide-react';
 import ArtifactHeader from './ArtifactHeader';
 import { cn } from '../../lib/utils';
@@ -444,7 +444,14 @@ export default function DashboardView({ fileId, isTeam = false, setSearchParams,
     return (
       <div className="animate-in fade-in space-y-6 pb-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full relative">
-          {mockKpis.map((kpi:any, idx:number) => {
+          {workspaceKpis.length === 0 ? (
+            <div className="col-span-full bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">
+              <div className="text-sm font-bold text-slate-700">暂无可展示的服务端 Dashboard 数据</div>
+              <p className="text-xs text-slate-500 mt-2">
+                请先完成真实 Source、Golden Asset 和 Skill 执行；未收到服务端 ViewModel 前不会展示示例数据。
+              </p>
+            </div>
+          ) : workspaceKpis.map((kpi:any, idx:number) => {
             const kpiId = `kpi_${idx}`;
             return (
               <div key={idx} {...elProps(kpiId, 'KPI', kpi.label, "bg-white p-5 rounded-xl border border-slate-200 shadow-sm")}>
@@ -466,8 +473,12 @@ export default function DashboardView({ fileId, isTeam = false, setSearchParams,
              <Activity size={16} className="mr-2 text-blue-600"/> {chartTitle}
            </h3>
            <div className="h-72 w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <LineChart data={mockTrendData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+             {workspaceTrendData.length === 0 ? (
+               <div className="h-full flex items-center justify-center text-sm text-slate-500">
+                 服务端尚未返回趋势数据
+               </div>
+             ) : <ResponsiveContainer width="100%" height="100%">
+               <LineChart data={workspaceTrendData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
@@ -476,7 +487,7 @@ export default function DashboardView({ fileId, isTeam = false, setSearchParams,
                  <Line type="monotone" dataKey="sales" name="销售额" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
                  <Line type="monotone" dataKey="profit" name="利润" stroke="#10b981" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
                </LineChart>
-             </ResponsiveContainer>
+             </ResponsiveContainer>}
            </div>
         </div>
       </div>

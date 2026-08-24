@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Database, Clock, FileText, Plus, Sparkles, LayoutDashboard, FilePieChart, ListTree, FileSpreadsheet, Calculator, Webhook, Fingerprint, Activity, UserCircle, AlertCircle, TrendingUp, Info, BadgeCheck, Lock, X } from 'lucide-react';
-import { salesDatasetFields } from '../../data/mockData';
+import { salesDatasetFields } from '../../../production/data';
 import { cn } from '../../lib/utils';
 
 export default function DatasetView({ setSearchParams, searchParams, fileId }: any) {
