@@ -1,4 +1,4 @@
-import { WorkspaceStore } from "./store";
+import { actionLoopStore } from "./store";
 
 export interface Signal {
   id: string;
@@ -86,7 +86,4 @@ export const defaultActionLoopState: ActionLoopState = {
   briefs: [],
 };
 
-export const actionLoopStore = new WorkspaceStore<ActionLoopState>(
-  "action-loop",
-  defaultActionLoopState,
-);
+export { actionLoopStore };
