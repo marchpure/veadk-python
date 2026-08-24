@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from typing import Protocol
+
+from .models import (
+    EvaluationActual,
+    EvaluationCase,
+    EvaluationRun,
+    EvaluationSuite,
+    FixPlan,
+    PolicyGateResult,
+    RunProvenance,
+    TypedPatch,
+)
+
+
+class CaseEvaluatorPort(Protocol):
+    def evaluate(
+        self, case: EvaluationCase, provenance: RunProvenance
+    ) -> EvaluationActual: ...
+
+
+class CaseGraderPort(Protocol):
+    def grade(
+        self, case: EvaluationCase, actual: EvaluationActual
+    ) -> tuple[float, dict[str, object]]: ...
+
+
+class DraftRevisionPort(Protocol):
+    def apply_patch(self, patch: TypedPatch) -> tuple[str, str]: ...
+    def undo_patch(self, undo_token: str) -> str: ...
+
+
+class EvaluationRepositoryPort(Protocol):
+    def next_suite_version(self, suite_id: str) -> int: ...
+    def save_suite(self, suite: EvaluationSuite) -> None: ...
+    def suite(self, suite_id: str, version: int) -> EvaluationSuite | None: ...
+    def save_run(self, run: EvaluationRun) -> None: ...
+    def run(self, run_id: str) -> EvaluationRun | None: ...
+    def save_gate(self, gate: PolicyGateResult) -> None: ...
+    def gate(self, gate_id: str) -> PolicyGateResult | None: ...
+    def save_fix_plan(self, plan: FixPlan) -> None: ...
+    def fix_plan(self, plan_id: str) -> FixPlan | None: ...
