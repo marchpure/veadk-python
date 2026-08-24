@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { workspaceKpis, workspaceTrendData } from '../../../production/data';
+import { workspaceChartConfig } from '../../../production/data';
 import { ArrowUpRight, ArrowDownRight, Wand2, PlusSquare, X, LayoutDashboard, Clock, BellRing, Settings, CheckCircle2, AlertTriangle, Play, Check, Link as LinkIcon, User, Calendar, FileText, Activity, ShieldCheck, ChevronRight, Globe } from 'lucide-react';
 import ArtifactHeader from './ArtifactHeader';
 import { cn } from '../../lib/utils';
@@ -470,7 +471,7 @@ export default function DashboardView({ fileId, isTeam = false, setSearchParams,
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center">
-             <Activity size={16} className="mr-2 text-blue-600"/> {chartTitle}
+             <Activity size={16} className="mr-2 text-blue-600"/> {workspaceChartConfig?.title || chartTitle}
            </h3>
            <div className="h-72 w-full">
              {workspaceTrendData.length === 0 ? (
@@ -478,14 +479,17 @@ export default function DashboardView({ fileId, isTeam = false, setSearchParams,
                  服务端尚未返回趋势数据
                </div>
              ) : <ResponsiveContainer width="100%" height="100%">
-               <LineChart data={workspaceTrendData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+               <LineChart data={workspaceChartConfig?.data || workspaceTrendData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
+                 <XAxis dataKey={workspaceChartConfig?.xField || "name"} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                  <Tooltip cursor={{ stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '4 4' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                  <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                 <Line type="monotone" dataKey="sales" name="销售额" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-                 <Line type="monotone" dataKey="profit" name="利润" stroke="#10b981" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+                 {(workspaceChartConfig?.series || [
+                   { name: "value", dataKey: "sales", color: "#3b82f6" },
+                 ]).map((series) => (
+                   <Line key={series.dataKey} type="monotone" dataKey={series.dataKey} name={series.name} stroke={series.color} strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
+                 ))}
                </LineChart>
              </ResponsiveContainer>}
            </div>

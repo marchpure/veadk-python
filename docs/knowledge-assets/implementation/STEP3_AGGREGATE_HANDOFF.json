@@ -26,7 +26,8 @@
   "studioUrl": "http://127.0.0.1:4173/?studio=knowledge",
   "apiUrl": "http://127.0.0.1:8793",
   "knownDebt": [
-    "W1 real Source/Golden Data commit and W1.status.json are pending; W1 worktree has untracked files",
+    "W1 real Source/Golden Data commit with non-null workerCommit and clean W1 worktree are pending; W1 proposal status exists but is not an integration commit",
+    "W2/W3 have uncommitted follow-up evidence files; W4 final read-only verification has not passed",
     "W4 read-only final verification is pending until all Worker worktrees are clean and the unified real chain passes",
     "production Dashboard now consumes workspace-scoped SkillViewRevision through typed bootstrap; full browser proof is still pending",
     "external credential connectors remain blocked",
@@ -35,23 +36,23 @@
   ],
   "p0Gates": {
     "P0-1": {
-      "status": "PASS_EVIDENCE",
+      "status": "BLOCKED",
       "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python /tmp/knowledge-step3-evidence-final-20260825/mcp_daemon.py",
       "daemonPid": 31402,
       "probePid": 46968,
       "evidence": "/tmp/knowledge-step3-evidence-final-20260825/mcp-daemon-evidence.json",
-      "result": "initialize, tools/list, tools/call sales_snapshot succeeded; source=local-custom-mcp"
+      "result": "Temporary evidence exists, but W4 strict audit rejects it as final P0 evidence; formal protocol/failure/chain evidence remains required"
     },
     "P0-2": {
-      "status": "PASS_EVIDENCE",
+      "status": "BLOCKED",
       "sessionId": "step3-real-agent-20260825",
       "traceId": "b9b2aaed581c621fd545fee7e97b086a",
       "evidence": "/tmp/knowledge-step3-evidence-final-20260825/agent-evidence.json",
       "traceFile": "/tmp/knowledge-step3-evidence-final-20260825/veadk_opentelemetry_tracer_veadk_default_user_step3-real-agent-20260825_b9b2aaed581c621fd545fee7e97b086a.json",
-      "result": "real veadk.Agent and veadk.Runner produced a validated BuildPlan from MCP context"
+      "result": "Temporary evidence exists, but W4 strict audit rejects it as final P0 evidence; credentialed non-sales production chain remains unproven"
     },
     "P0-3": {
-      "status": "PASS_EVIDENCE",
+      "status": "BLOCKED",
       "artifactWorkspace": "/tmp/knowledge-step3-evidence-final-20260825/dashboard-artifact-workspace",
       "buildArtifact": "/tmp/knowledge-step3-evidence-final-20260825/dashboard-artifact-workspace/dist/index.html",
       "dashboardUrl": "http://127.0.0.1:8794/",
@@ -61,7 +62,7 @@
       "screenshot": "/tmp/knowledge-step3-evidence-final-20260825/dashboard-after.png",
       "screenshotSha256": "5eaa57c914d51442e3b9c0378735ecffc3896c030aaf4afcd38efa582f21bedd",
       "evidence": "/tmp/knowledge-step3-evidence-final-20260825/vertical-chain.json",
-      "result": "independent artifact generated from real BuildPlan and MCP data, built and browser-rendered; KPI changed from total=215/East=120/West=95/gap=25 to total=230/East=140/West=90/gap=50"
+      "result": "Temporary artifact evidence exists, but W4 rejects file/test publication evidence as final production Dashboard acceptance; formal single-URL chain remains unproven"
     }
   },
   "unifiedChain": {

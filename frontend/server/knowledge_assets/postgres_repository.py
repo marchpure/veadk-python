@@ -127,6 +127,7 @@ class PostgresKnowledgeAssetRepository:
                 JOIN skill_drafts AS d
                   ON d.id = split_part(v.skill_revision_id, ':', 1)
                 WHERE d.workspace_id = %s
+                  AND v.view_json->'viewModel'->>'template' IN ('dashboard', 'chart')
                 ORDER BY v.created_at DESC LIMIT 1
                 """,
                 (workspace_id,),

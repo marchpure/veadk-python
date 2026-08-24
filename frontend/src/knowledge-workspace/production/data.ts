@@ -17,6 +17,13 @@ export const mockTrendData = workspaceTrendData;
 export const knowledgeGraphEntities: WorkspaceKnowledgeGraphEntity[] = [];
 export const knowledgeGraphMappings: WorkspaceKnowledgeGraphMapping[] = [];
 export let activeSkillViewRevision: Record<string, unknown> | null = null;
+export let workspaceChartConfig: {
+  title: string;
+  xField: string;
+  yField: string;
+  series: Array<{ name: string; dataKey: string; color: string }>;
+  data: Array<Record<string, string | number>>;
+} | null = null;
 
 function replaceContents<T>(target: T[], next: T[]): void {
   target.splice(0, target.length, ...next);
@@ -29,28 +36,53 @@ export function hydrateWorkspaceData(data: WorkspaceBootstrapData): void {
   replaceContents(knowledgeGraphEntities, data.knowledgeGraph.entities);
   replaceContents(knowledgeGraphMappings, data.knowledgeGraph.mappings);
   activeSkillViewRevision = data.skillViewRevision ?? null;
+  workspaceChartConfig = null;
   const viewModel =
     activeSkillViewRevision?.viewModel &&
     typeof activeSkillViewRevision.viewModel === "object"
       ? activeSkillViewRevision.viewModel as Record<string, unknown>
       : null;
   if (viewModel?.template === "chart") {
-    const series = Array.isArray(viewModel.series) ? viewModel.series[0] : null;
-    const points = series && typeof series === "object" && Array.isArray((series as Record<string, unknown>).points)
-      ? (series as Record<string, unknown>).points
+    const seriesList = Array.isArray(viewModel.series)
+      ? viewModel.series.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
       : [];
-    const numericPoints = points.filter(
-      (point): point is [string, number] =>
-        Array.isArray(point) && typeof point[0] === "string" &&
-        typeof point[1] === "number" && Number.isFinite(point[1]),
+    const firstSeries = seriesList[0];
+    const points = firstSeries && Array.isArray(firstSeries.points) ? firstSeries.points : [];
+    const numericPoints = points.filter((point): point is [string, number] =>
+      Array.isArray(point) && typeof point[0] === "string" &&
+      typeof point[1] === "number" && Number.isFinite(point[1]),
     );
     if (numericPoints.length > 0) {
+      const xField = typeof viewModel.xField === "string" ? viewModel.xField : "dimension";
+      const yField = typeof viewModel.yField === "string" ? viewModel.yField : "value";
+      const chartSeries = seriesList.map((series, index) => ({
+        name: typeof series.name === "string" ? series.name : `series-${index + 1}`,
+        dataKey: `series_${index}`,
+        color: index === 0 ? "#3b82f6" : "#10b981",
+      }));
+      const chartData = numericPoints.map(([label, value], pointIndex) => {
+        const row: Record<string, string | number> = { [xField]: label };
+        seriesList.forEach((series, seriesIndex) => {
+          const seriesPoints = Array.isArray(series.points) ? series.points : [];
+          const candidate = seriesPoints[pointIndex];
+          row[`series_${seriesIndex}`] =
+            Array.isArray(candidate) && typeof candidate[1] === "number" ? candidate[1] : 0;
+        });
+        return row;
+      });
+      workspaceChartConfig = {
+        title: typeof viewModel.title === "string" ? viewModel.title : "Generated chart",
+        xField,
+        yField,
+        series: chartSeries,
+        data: chartData,
+      };
       const total = numericPoints.reduce((sum, [, value]) => sum + value, 0);
       const highest = Math.max(...numericPoints.map(([, value]) => value));
       replaceContents(workspaceKpis, [
-        { label: "总计", value: String(total), trend: "unknown", isUp: true },
-        { label: "最高维度", value: String(highest), trend: "unknown", isUp: true },
-        { label: "数据点", value: String(numericPoints.length), trend: "unknown", isUp: true },
+        { label: `${yField} total`, value: String(total), trend: "unknown", isUp: true },
+        { label: `${yField} max`, value: String(highest), trend: "unknown", isUp: true },
+        { label: `${xField} count`, value: String(numericPoints.length), trend: "unknown", isUp: true },
       ]);
       replaceContents(workspaceTrendData, numericPoints.map(([name, value]) => ({
         name,
