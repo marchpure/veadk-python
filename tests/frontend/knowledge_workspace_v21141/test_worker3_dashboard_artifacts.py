@@ -212,7 +212,9 @@ def test_dashboard_artifact_workspaces_are_independent_built_and_data_driven(
         assert (workspace / "publish-ready-artifact.json").is_file()
         assert result.build_command[:3] == ["npm", "run", "build"]
         assert result.serve_command[:3] == ["npm", "run", "serve"]
+        assert result.artifact_url.startswith("file://")
         assert result.page_url.startswith("file://")
+        assert result.served_page_url is None
         data = json.loads((workspace / "dist" / "dashboard-data.json").read_text())
         assert data["title"] == "基础设施服务工单健康看板"
         assert data["layout"] == ["kpis", "chart", "table", "insights"]
@@ -452,7 +454,10 @@ def test_dashboard_visual_regression_screenshot_smoke(tmp_path: Path) -> None:
         "refresh control size aligns with v2.13.1",
     ]
     assert screenshot.interaction_checked is True
+    assert screenshot.artifact_url == result.artifact_url
     assert screenshot.page_url.startswith("http://127.0.0.1:")
+    assert screenshot.served_page_url == screenshot.page_url
+    assert screenshot.serve_command == result.serve_command
 
 
 def test_w3_dashboard_evidence_script_generates_repeatable_acceptance_summary(
@@ -552,6 +557,11 @@ def test_w3_dashboard_evidence_script_generates_repeatable_acceptance_summary(
     assert summary["tableRows"]["changed"] is True
     assert summary["kpis"]["before"] != summary["kpis"]["after"]
     assert summary["chart"]["before"] != summary["chart"]["after"]
+    assert summary["artifactUrls"]["before"].startswith("file://")
+    assert summary["artifactUrls"]["after"].startswith("file://")
+    assert summary["pageUrls"] == summary["servedPageUrls"]
+    assert summary["servedPageUrls"]["before"].startswith("http://127.0.0.1:")
+    assert summary["servedPageUrls"]["after"].startswith("http://127.0.0.1:")
     assert summary["visualRegression"]["baseline"] == "v2.13.1"
     assert summary["visualRegression"]["browserExecutable"] == str(chrome)
     assert "Google Chrome" in summary["visualRegression"]["browserVersion"]

@@ -173,9 +173,17 @@ def generate_evidence(
             "before": before.workspace_path,
             "after": after.workspace_path,
         },
+        "artifactUrls": {
+            "before": before.artifact_url,
+            "after": after.artifact_url,
+        },
         "pageUrls": {
-            "before": before.page_url,
-            "after": after.page_url,
+            "before": screenshots["before"].served_page_url,
+            "after": screenshots["after"].served_page_url,
+        },
+        "servedPageUrls": {
+            "before": screenshots["before"].served_page_url,
+            "after": screenshots["after"].served_page_url,
         },
         "buildCommands": {
             "before": before.build_command,
@@ -459,6 +467,11 @@ def _assert_summary(summary: dict[str, Any]) -> None:
     assert summary["buildResults"]["after"]["returnCode"] == 0
     assert summary["screenshots"]["before"]["status"] == "succeeded"
     assert summary["screenshots"]["after"]["status"] == "succeeded"
+    assert summary["artifactUrls"]["before"].startswith("file://")
+    assert summary["artifactUrls"]["after"].startswith("file://")
+    assert summary["servedPageUrls"]["before"].startswith("http://127.0.0.1:")
+    assert summary["servedPageUrls"]["after"].startswith("http://127.0.0.1:")
+    assert summary["pageUrls"] == summary["servedPageUrls"]
     assert summary["publishReady"]["before"]["mainPublishAction"] == (
         "MAIN_PUBLISH_CHAIN_REQUIRED"
     )
