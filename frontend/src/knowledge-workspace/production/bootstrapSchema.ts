@@ -54,6 +54,7 @@ export interface WorkspaceBootstrapData {
     entities: WorkspaceKnowledgeGraphEntity[];
     mappings: WorkspaceKnowledgeGraphMapping[];
   };
+  skillViewRevision?: Record<string, unknown> | null;
 }
 
 export interface WorkspaceActionLoopState {
@@ -218,6 +219,13 @@ export function parseBootstrap(
     (value.routes !== undefined && !Array.isArray(value.routes))
   ) {
     return fail("知识服务 bootstrap 响应不符合约定。");
+  }
+  if (
+    workspaceData.skillViewRevision !== undefined &&
+    workspaceData.skillViewRevision !== null &&
+    !isRecord(workspaceData.skillViewRevision)
+  ) {
+    return fail("知识服务 bootstrap 的 SkillViewRevision 不符合约定。");
   }
   if (
     !workspaceData.connectorCatalog.every(isConnector) ||

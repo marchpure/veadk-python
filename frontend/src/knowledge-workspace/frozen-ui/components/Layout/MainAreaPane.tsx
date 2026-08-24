@@ -18,6 +18,7 @@ import SkillArtifactView from '../MainArea/SkillArtifactView';
 import ConnectionDetailView from '../MainArea/ConnectionDetailView';
 import JourneyDetailView from '../MainArea/JourneyDetailView';
 import { resourceStore } from '../../lib/store';
+import { activeSkillViewRevision } from '../../../production/data';
 
 export default function MainAreaPane({ fileId, errorState, searchParams, setSearchParams, showToast, isWorkspaceEmpty }: any) {
 
@@ -36,6 +37,20 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     if (fileId === 'skill_builder') return <SkillBuilderView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     
     const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
+
+    const generatedViewModel =
+      activeSkillViewRevision?.viewModel &&
+      typeof activeSkillViewRevision.viewModel === 'object'
+        ? activeSkillViewRevision.viewModel as Record<string, unknown>
+        : null;
+    const generatedViewOwner = activeSkillViewRevision?.skill_revision_id;
+    if (
+      resource?.resourceKind === 'skill_draft' &&
+      generatedViewOwner === `${fileId}:${resource.revision ?? 1}` &&
+      (generatedViewModel?.template === 'dashboard' || generatedViewModel?.template === 'chart')
+    ) {
+      return <DashboardView fileId={fileId} isTeam={resource.space === 'team'} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
 
     if (resource?.resourceKind === 'source' || resource?.resourceKind === 'connection' || fileId === 'res_sample_postgres') {
       return <ConnectionDetailView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;

@@ -134,6 +134,7 @@ class KnowledgeAssetRepository(Protocol):
     def latest_skill_view_revision(
         self, skill_revision_id: str
     ) -> SkillViewRevision | None: ...
+    def latest_dashboard_view(self, workspace_id: str) -> SkillViewRevision | None: ...
     def save_skill_view_revision(self, revision: SkillViewRevision) -> None: ...
     def skill_view_revision(self, revision_id: str) -> SkillViewRevision | None: ...
     def update_skill_draft_revision_status(
@@ -218,6 +219,17 @@ class SqliteKnowledgeAssetRepository:
             )
             for row in rows
         ]
+        latest_view = self.latest_dashboard_view(workspace_id)
+        workspace_data = {
+            "connectorCatalog": [],
+            "datasetFields": [],
+            "dashboard": {"kpis": [], "trendData": []},
+            "knowledgeGraph": {"entities": [], "mappings": []},
+        }
+        if latest_view is not None:
+            workspace_data["skillViewRevision"] = latest_view.model_dump(
+                mode="json", by_alias=True
+            )
         return BootstrapResponse(
             resources=resources,
             connections=[
@@ -226,12 +238,7 @@ class SqliteKnowledgeAssetRepository:
             ],
             publications=[],
             routes=["welcome", "add_kb", "skill_builder"],
-            workspace_data={
-                "connectorCatalog": [],
-                "datasetFields": [],
-                "dashboard": {"kpis": [], "trendData": []},
-                "knowledgeGraph": {"entities": [], "mappings": []},
-            },
+            workspace_data=workspace_data,
             action_loop={
                 "signals": [],
                 "policies": [],
@@ -489,6 +496,25 @@ class SqliteKnowledgeAssetRepository:
                 ORDER BY created_at DESC LIMIT 1
                 """,
                 (skill_revision_id,),
+            ).fetchone()
+        return (
+            SkillViewRevision.model_validate(json.loads(row["view_json"]))
+            if row is not None
+            else None
+        )
+
+    def latest_dashboard_view(self, workspace_id: str) -> SkillViewRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT v.view_json
+                FROM skill_view_revisions AS v
+                JOIN skill_drafts AS d
+                  ON d.id = substr(v.skill_revision_id, 1, instr(v.skill_revision_id, ':') - 1)
+                WHERE d.workspace_id = ?
+                ORDER BY v.created_at DESC LIMIT 1
+                """,
+                (workspace_id,),
             ).fetchone()
         return (
             SkillViewRevision.model_validate(json.loads(row["view_json"]))
