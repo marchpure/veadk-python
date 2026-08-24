@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0",
+  "status": "READY_FOR_INTEGRATION",
+  "worker": "W2",
+  "domain": "agent_orchestration_skilldraft_authoring",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring",
+  "branch": "feat/knowledge-step3-worker2-agent-authoring",
+  "baseCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
+  "workerCommit": "5caa33d8cd144422c4909351073e8e6037208a37",
+  "mainCheckpointCommit": "a34383ccb281c59c240a9b6ccf88a31da6382d1f",
+  "mainCheckpointTag": "knowledge-skill-factory-step-3-v2131-checkpoint-a34383cc",
+  "migrationHead": "004_step3_shares",
+  "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
+  "uiDeltaDigest": "dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30",
+  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+  "writeScope": [
+    "frontend/server/skill_authoring",
+    "tests/frontend/test_skill_authoring.py",
+    "docs/knowledge-assets/implementation/STEP3_W2_*"
+  ],
+  "proposals": [
+    "docs/knowledge-assets/implementation/STEP3_W2_CONTRACT_PROPOSAL.md",
+    "docs/knowledge-assets/implementation/STEP3_W2_UI_PROPOSAL.md",
+    "docs/knowledge-assets/implementation/STEP3_W2_CAPABILITY_MATRIX_PROPOSAL.yaml"
+  ],
+  "matrixRows": [
+    "composer.create",
+    "composer.context_refs",
+    "assistant.typed_patch",
+    "assistant.undo_conflict",
+    "team.reuse",
+    "model.credentials",
+    "worker3.execution"
+  ],
+  "operations": [
+    "skill_draft.create",
+    "skill_draft.context.update",
+    "skill_draft.patch.propose",
+    "skill_draft.patch.accept",
+    "skill_draft.patch.reject",
+    "skill_draft.undo",
+    "skill_draft.execute",
+    "skill_draft.cancel",
+    "skill_draft.retry",
+    "skill_draft.team.reuse",
+    "skill_draft.read"
+  ],
+  "localJourney": {
+    "inputs": [
+      "[analysis] show orders by day",
+      "[analysis] break down value by customer"
+    ],
+    "contextDigests": [
+      "d5206fa06dca9e49ee6e",
+      "0364248aacf9b971af24"
+    ],
+    "planDigests": [
+      "124ba171e76df2e19a14",
+      "caadf127d07616d357e1"
+    ],
+    "draftDigests": [
+      "3f6e49fe49b66ec7914d",
+      "d974f24a697ddb8ddc14"
+    ]
+  },
+  "tests": {
+    "focused": "14 passed",
+    "compileall": "passed",
+    "diffCheck": "passed",
+    "prototypeArchive": "sha256 and readme passed"
+  },
+  "knownLimits": [
+    "Checkpoint metadata was verified in sibling Worker worktrees before rebasing",
+    "shared command registry and BFF route registration await Main",
+    "Agent/model credentialed integration is external-credential-blocked",
+    "Worker 3 executor and Worker 4 Evaluation remain integration dependencies",
+    "local JSON repository is a replay adapter, not production storage"
+  ]
+}
