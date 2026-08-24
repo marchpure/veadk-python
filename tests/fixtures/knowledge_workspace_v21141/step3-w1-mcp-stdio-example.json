@@ -1,0 +1,24 @@
+{
+  "connectorKey": "mcp_custom",
+  "displayName": "Local infrastructure metrics",
+  "scope": "team",
+  "configuration": {
+    "transport": "stdio",
+    "command": "/absolute/path/to/python3",
+    "args": [
+      "/absolute/path/to/repository/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py"
+    ],
+    "env": {
+      "MCP_FIXTURE_DATA_PATH": "/absolute/path/to/infrastructure-metrics.json",
+      "MCP_API_TOKEN": "secret://workspace-id/mcp-api-token"
+    },
+    "cwd": "/absolute/path/to/repository",
+    "startupTimeoutSeconds": 5,
+    "callTimeoutSeconds": 5,
+    "toolAllowlist": [
+      "infrastructure.metrics"
+    ],
+    "outputBytes": 1000000
+  },
+  "credentialRule": "The application injects resolved values at process start; only workspace-bound secret:// references may appear in configuration."
+}
