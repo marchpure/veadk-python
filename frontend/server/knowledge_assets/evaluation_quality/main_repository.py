@@ -18,6 +18,30 @@ class MainEvaluationRepository:
         self.connection = connection
         self._sqlite = isinstance(connection, sqlite3.Connection)
         self._placeholder = "?" if self._sqlite else "%s"
+        if self._sqlite:
+            self.connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS evaluation_quality_suites (
+                  suite_id TEXT NOT NULL,
+                  version INTEGER NOT NULL,
+                  payload_json TEXT NOT NULL,
+                  PRIMARY KEY (suite_id, version)
+                );
+                CREATE TABLE IF NOT EXISTS evaluation_quality_runs (
+                  run_id TEXT PRIMARY KEY,
+                  status TEXT NOT NULL,
+                  payload_json TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS evaluation_quality_gates (
+                  gate_id TEXT PRIMARY KEY,
+                  payload_json TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS evaluation_quality_fix_plans (
+                  plan_id TEXT PRIMARY KEY,
+                  payload_json TEXT NOT NULL
+                );
+                """
+            )
 
     def _query(self, sql: str, params: tuple[Any, ...] = ()):
         if self._sqlite:
