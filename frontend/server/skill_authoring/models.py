@@ -186,6 +186,12 @@ class ResolvedContext(BaseModel):
             "fixed_revisions": self.envelope.fixed_revisions,
             "budget": self.envelope.budget.model_dump(mode="json"),
             "freshness": self.envelope.freshness.model_dump(mode="json"),
+            "context_binding": {
+                "current_skill_id": self.envelope.current_skill_id,
+                "current_view_id": self.envelope.current_view_id,
+                "current_component_id": self.envelope.current_component_id,
+                "comment_ids": self.envelope.comment_ids,
+            },
         }
 
 
@@ -312,6 +318,14 @@ class BuildPlan(BaseModel):
     kind_spec: KindSpec
     query_plan: QueryPlan | None = None
     clarification_questions: tuple[str, ...] = Field(default_factory=tuple, max_length=5)
+    data_refs: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
+    metrics: tuple[str, ...] = Field(default_factory=tuple, max_length=128)
+    dimensions: tuple[str, ...] = Field(default_factory=tuple, max_length=128)
+    layout_intent: Literal[
+        "kpi", "trend", "table", "funnel", "breakdown", "graph", "document", "alert"
+    ] = "table"
+    refresh_policy: FreshnessPolicy = Field(default_factory=FreshnessPolicy)
+    lineage: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     plan_digest: str
 
     @model_validator(mode="after")
@@ -477,6 +491,11 @@ class Worker3ExecutionRequest(BaseModel):
     workspace_id: str
     caller_id: str
     dependencies: tuple[ResourceRef, ...]
+    data_refs: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
+    metrics: tuple[str, ...] = Field(default_factory=tuple, max_length=128)
+    dimensions: tuple[str, ...] = Field(default_factory=tuple, max_length=128)
+    layout_intent: str = Field(default="table", min_length=1, max_length=64)
+    lineage: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     budget: Budget
     freshness: FreshnessPolicy
 
@@ -489,6 +508,43 @@ class Worker3ExecutionAccepted(BaseModel):
     reason: str | None = None
 
 
+class AgentEventEvidence(BaseModel):
+    """Safe, durable summary of one event emitted by the real Agent Runner."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    event_type: str = Field(min_length=1, max_length=160)
+    author: str | None = Field(default=None, max_length=160)
+    has_content: bool = False
+    output_present: bool = False
+
+
+class AgentToolCallEvidence(BaseModel):
+    """Safe, durable summary of a formal tool call observed in Runner events."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1, max_length=160)
+    call_id: str | None = Field(default=None, max_length=160)
+    status: Literal["requested", "succeeded", "failed"] = "succeeded"
+
+
+class AgentExecutionEvidence(BaseModel):
+    """Verifiable execution evidence; IDs are never fabricated on failure."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    session_id: str = Field(min_length=1, max_length=160)
+    trace_id: str = Field(min_length=1, max_length=160)
+    status: Literal["running", "succeeded", "failed"]
+    events: tuple[AgentEventEvidence, ...] = Field(default_factory=tuple, max_length=256)
+    tool_calls: tuple[AgentToolCallEvidence, ...] = Field(
+        default_factory=tuple, max_length=128
+    )
+    error_code: AuthoringErrorCode | None = None
+    error_message: str | None = Field(default=None, max_length=500)
+
+
 class AuthoringEvent(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -497,6 +553,7 @@ class AuthoringEvent(BaseModel):
     event_type: Literal[
         "operation_created",
         "context_resolved",
+        "agent_execution",
         "plan_proposed",
         "clarification_required",
         "credential_blocked",
@@ -545,6 +602,23 @@ class AuthoringOperation(BaseModel):
     patch_id: str | None = None
     retry_of_operation_id: str | None = None
     clarification_questions: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
+    stage: Literal[
+        "received",
+        "planning",
+        "context_resolved",
+        "plan_ready",
+        "clarification",
+        "draft_ready",
+        "patch_ready",
+        "execution_queued",
+        "credential_blocked",
+        "cancelled",
+        "failed",
+    ] = "received"
+    progress: int = Field(default=0, ge=0, le=100)
+    context_digest: str | None = None
+    plan: BuildPlan | None = None
+    agent_execution: AgentExecutionEvidence | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

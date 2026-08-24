@@ -96,7 +96,13 @@ class SkillAuthoringService:
         )
         await self._event(operation, "operation_created", {})
         try:
-            operation = operation.model_copy(update={"status": AuthoringStatus.PLANNING})
+            operation = operation.model_copy(
+                update={
+                    "status": AuthoringStatus.PLANNING,
+                    "stage": "planning",
+                    "progress": 10,
+                }
+            )
             await self.repository.save_operation(operation)
             context = await self.resolver.resolve(envelope, envelope.resource_refs)
             await self._event(
@@ -107,6 +113,14 @@ class SkillAuthoringService:
                     "resource_count": str(len(context.resources)),
                 },
             )
+            operation = operation.model_copy(
+                update={
+                    "stage": "context_resolved",
+                    "progress": 30,
+                    "context_digest": context.context_digest,
+                }
+            )
+            await self.repository.save_operation(operation)
             if not context.resources:
                 raise SkillAuthoringError(
                     AuthoringErrorCode.AMBIGUOUS,
@@ -125,6 +139,33 @@ class SkillAuthoringService:
                     "model gateway timed out",
                     operation_id=operation.operation_id,
                 ) from error
+            execution_evidence = getattr(
+                self.model_gateway, "execution_evidence", None
+            )
+            if execution_evidence is not None:
+                operation = operation.model_copy(
+                    update={
+                        "agent_execution": execution_evidence,
+                        "trace_id": execution_evidence.trace_id,
+                    }
+                )
+                await self.repository.save_operation(operation)
+                await self._event(
+                    operation,
+                    "agent_execution",
+                    {
+                        "session_id": execution_evidence.session_id,
+                        "trace_id": execution_evidence.trace_id,
+                        "status": execution_evidence.status,
+                        "event_count": str(len(execution_evidence.events)),
+                        "tool_call_count": str(len(execution_evidence.tool_calls)),
+                    },
+                )
+            plan = self._validate_plan(context, plan, requested_kind=requested_kind)
+            operation = operation.model_copy(
+                update={"stage": "plan_ready", "progress": 60, "plan": plan}
+            )
+            await self.repository.save_operation(operation)
             await self._event(
                 operation,
                 "plan_proposed",
@@ -134,6 +175,8 @@ class SkillAuthoringService:
                 operation = operation.model_copy(
                     update={
                         "status": AuthoringStatus.AWAITING_INPUT,
+                        "stage": "clarification",
+                        "progress": 60,
                         "clarification_questions": plan.clarification_questions,
                     }
                 )
@@ -148,6 +191,8 @@ class SkillAuthoringService:
                     draft=None,
                     events=await self.repository.list_events(operation.operation_id),
                 )
+            if await self._is_cancelled(operation.operation_id):
+                return await self.read_operation(operation.operation_id)
             draft = self._make_draft(
                 operation,
                 envelope,
@@ -162,6 +207,9 @@ class SkillAuthoringService:
                     "status": AuthoringStatus.READY_FOR_EXECUTION,
                     "draft_id": draft.draft_id,
                     "current_revision": draft.revision,
+                    "stage": "draft_ready",
+                    "progress": 100,
+                    "plan": plan,
                 }
             )
             await self.repository.save_operation(operation)
@@ -172,6 +220,9 @@ class SkillAuthoringService:
             )
             return await self.read_operation(operation.operation_id)
         except SkillAuthoringError as error:
+            execution_evidence = getattr(
+                self.model_gateway, "execution_evidence", None
+            )
             status = (
                 AuthoringStatus.CREDENTIAL_BLOCKED
                 if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
@@ -184,7 +235,22 @@ class SkillAuthoringService:
                     "status": status,
                     "error_code": error.code,
                     "error_message": error.message,
+                    "stage": (
+                        "credential_blocked"
+                        if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
+                        else "clarification"
+                        if error.code == AuthoringErrorCode.AMBIGUOUS
+                        else "failed"
+                    ),
+                    "progress": 60 if error.code == AuthoringErrorCode.AMBIGUOUS else 100,
                     "updated_at": utc_now(),
+                    "agent_execution": execution_evidence,
+                    "trace_id": (
+                        execution_evidence.trace_id
+                        if execution_evidence is not None
+                        and execution_evidence.trace_id != "unavailable"
+                        else operation.trace_id
+                    ),
                 }
             )
             await self.repository.save_operation(operation)
@@ -219,6 +285,11 @@ class SkillAuthoringService:
                 AuthoringErrorCode.TEAM_READ_ONLY,
                 "team-published objects are read-only; copy them to a personal draft",
             )
+        if draft.owner_id != proposed_by:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "only the personal draft owner may propose a patch",
+            )
         if isinstance(patch, SetQueryPlanPatch):
             if patch.query_plan.source_revision not in {
                 item.revision for item in draft.lineage
@@ -249,7 +320,12 @@ class SkillAuthoringService:
             proposed_by=proposed_by,
         )
         operation = operation.model_copy(
-            update={"status": AuthoringStatus.SUCCEEDED, "patch_id": proposal.patch_id}
+            update={
+                "status": AuthoringStatus.SUCCEEDED,
+                "patch_id": proposal.patch_id,
+                "stage": "patch_ready",
+                "progress": 100,
+            }
         )
         await self.repository.save_patch(proposal)
         await self.repository.save_operation(operation)
@@ -302,6 +378,8 @@ class SkillAuthoringService:
                         "error_code": AuthoringErrorCode.CONFLICT,
                         "error_message": "draft changed since this proposal was created",
                         "patch_id": proposal.patch_id,
+                        "stage": "failed",
+                        "progress": 100,
                     }
                 )
                 await self.repository.save_operation(operation)
@@ -320,6 +398,8 @@ class SkillAuthoringService:
                     else AuthoringStatus.SUCCEEDED,
                     "current_revision": next_draft.revision,
                     "patch_id": proposal.patch_id,
+                    "stage": "draft_ready",
+                    "progress": 100,
                 }
             )
             await self.repository.save_operation(operation)
@@ -343,7 +423,13 @@ class SkillAuthoringService:
             caller_id=caller_id,
             draft_id=proposal.draft_id,
         )
-        operation = operation.model_copy(update={"patch_id": proposal.patch_id})
+        operation = operation.model_copy(
+            update={
+                "patch_id": proposal.patch_id,
+                "stage": "patch_ready",
+                "progress": 100,
+            }
+        )
         await self.repository.save_operation(operation)
         await self._event(
             operation,
@@ -351,7 +437,9 @@ class SkillAuthoringService:
             {"patch_id": proposal.patch_id},
         )
         await self._save_patch_status(proposal, "rejected")
-        operation = operation.model_copy(update={"status": AuthoringStatus.SUCCEEDED})
+        operation = operation.model_copy(
+            update={"status": AuthoringStatus.SUCCEEDED, "stage": "patch_ready", "progress": 100}
+        )
         await self.repository.save_operation(operation)
         return await self.read_operation(operation.operation_id)
 
@@ -448,6 +536,9 @@ class SkillAuthoringService:
             update={
                 "status": AuthoringStatus.SUCCEEDED,
                 "current_revision": restored.revision,
+                "stage": "draft_ready",
+                "progress": 100,
+                "plan": restored.plan,
             }
         )
         await self.repository.save_operation(operation)
@@ -494,16 +585,27 @@ class SkillAuthoringService:
             workspace_id=draft.workspace_id,
             caller_id=caller_id,
             dependencies=draft.lineage,
+            data_refs=draft.plan.data_refs or draft.lineage,
+            metrics=draft.plan.metrics,
+            dimensions=draft.plan.dimensions,
+            layout_intent=draft.plan.layout_intent,
+            lineage=draft.plan.lineage or draft.lineage,
             budget=draft.budget,
             freshness=draft.manifest.freshness,
         )
         accepted = await self.worker3.request_execution(request)
         operation = operation.model_copy(
             update={
-                "status": AuthoringStatus.RUNNING
-                if getattr(accepted, "state", None) == "accepted"
-                else AuthoringStatus.READY_FOR_EXECUTION,
+                "status": (
+                    AuthoringStatus.RUNNING
+                    if getattr(accepted, "state", None) == "accepted"
+                    else AuthoringStatus.CREDENTIAL_BLOCKED
+                    if getattr(accepted, "state", None) == "credential_blocked"
+                    else AuthoringStatus.READY_FOR_EXECUTION
+                ),
                 "current_revision": draft.revision,
+                "stage": "execution_queued",
+                "progress": 85,
             }
         )
         await self.repository.save_operation(operation)
@@ -555,6 +657,9 @@ class SkillAuthoringService:
             update={
                 "status": AuthoringStatus.SUCCEEDED,
                 "current_revision": reviewed.revision,
+                "stage": "draft_ready",
+                "progress": 100,
+                "plan": reviewed.plan,
             }
         )
         await self.repository.save_operation(operation)
@@ -630,6 +735,10 @@ class SkillAuthoringService:
             update={
                 "status": AuthoringStatus.READY_FOR_EXECUTION,
                 "current_revision": next_revision,
+                "stage": "draft_ready",
+                "progress": 100,
+                "context_digest": resolved.context_digest,
+                "plan": plan,
             }
         )
         await self.repository.save_operation(operation)
@@ -665,6 +774,8 @@ class SkillAuthoringService:
                 "status": AuthoringStatus.CANCELLED,
                 "error_code": AuthoringErrorCode.CANCELLED,
                 "error_message": "operation cancelled by caller",
+                "stage": "cancelled",
+                "progress": 100,
                 "updated_at": utc_now(),
             }
         )
@@ -789,6 +900,9 @@ class SkillAuthoringService:
                 "status": AuthoringStatus.SUCCEEDED,
                 "draft_id": copied.draft_id,
                 "current_revision": 1,
+                "stage": "draft_ready",
+                "progress": 100,
+                "plan": copied.plan,
             }
         )
         await self.repository.save_operation(operation)
@@ -822,6 +936,102 @@ class SkillAuthoringService:
             ),
             events=await self.repository.list_events(operation_id),
         )
+
+    async def _is_cancelled(self, operation_id: str) -> bool:
+        operation = await self.repository.get_operation(operation_id)
+        return operation is not None and operation.status == AuthoringStatus.CANCELLED
+
+    @staticmethod
+    def _validate_plan(
+        context: ResolvedContext,
+        plan: BuildPlan,
+        *,
+        requested_kind: SkillKind | None,
+    ) -> BuildPlan:
+        """Validate model output against server-resolved context and contracts."""
+        if requested_kind is not None and plan.intent != requested_kind:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "model plan intent does not match the requested kind",
+            )
+        authorized = {
+            (item.ref.scope, item.ref.kind, item.ref.object_id, item.ref.revision)
+            for item in context.resources
+        }
+        dependencies = tuple(
+            dict.fromkeys(plan.dependencies)
+        )
+        plan_data_refs = tuple(dict.fromkeys(plan.data_refs or dependencies))
+        plan_lineage = tuple(dict.fromkeys(plan.lineage or plan_data_refs))
+        if any(
+            (item.scope, item.kind, item.object_id, item.revision) not in authorized
+            for item in dependencies
+        ):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "model plan contains an unauthorized resource dependency",
+            )
+        if any(
+            (item.scope, item.kind, item.object_id, item.revision) not in authorized
+            for item in (*plan_data_refs, *plan_lineage)
+        ):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "model plan contains an unauthorized data reference or lineage",
+            )
+        if plan.intent == SkillKind.ANALYSIS and any(
+            item.ref.kind not in {"golden_asset", "data_access_skill"}
+            for item in context.resources
+        ):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.INVALID_CONTEXT,
+                "analysis requires a GoldenAssetRevision or authorized data_access Skill",
+            )
+        pinned = set(context.envelope.fixed_revisions)
+        if plan.query_plan is not None:
+            if plan.query_plan.source_revision not in pinned:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.INVALID_CONTEXT,
+                    "query plan source is not fixed in the Context Envelope",
+                )
+            available_fields = {
+                field for item in context.resources for field in item.semantic_fields
+            }
+            if available_fields and not set(plan.query_plan.selected_fields).issubset(
+                available_fields
+            ):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "query plan selects a field absent from the authorized schema",
+                )
+        node_ids = [node.node_id for node in plan.nodes]
+        if len(node_ids) != len(set(node_ids)):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "BuildPlan contains duplicate node IDs",
+            )
+        node_set = set(node_ids)
+        if any(dep not in node_set for node in plan.nodes for dep in node.depends_on):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "BuildPlan contains an unknown node dependency",
+            )
+        if not any(node.role == "worker3_execution" for node in plan.nodes):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "BuildPlan must terminate at the Worker 3 execution boundary",
+            )
+        canonical = plan.model_copy(
+            update={
+                "dependencies": dependencies,
+                "data_refs": plan_data_refs,
+                "lineage": plan_lineage,
+                "plan_digest": digest(
+                    plan.model_dump(exclude={"plan_digest"}, mode="json")
+                ),
+            }
+        )
+        return canonical
 
     async def _new_operation(
         self,
