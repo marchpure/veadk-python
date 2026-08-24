@@ -1,9 +1,9 @@
 {
-  "status": "INTEGRATING",
+  "status": "BLOCKED",
   "step4Ready": false,
   "date": "2026-08-25",
   "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869", "a4a258e6"],
-  "workerCommits": {"W1": ["85b8a19c"], "W2": ["65037a4b", "bdb1573d", "a03cb607"], "W3": ["96b7d10b"], "W4": ["308f1022", "45e44eb6", "6ee81405"]},
+  "workerCommits": {"W1": ["85b8a19c"], "W2": ["65037a4b", "bdb1573d", "a03cb607"], "W3": ["d7cb4cb2", "0e2462d8"], "W4": ["308f1022", "45e44eb6", "6ee81405"]},
   "finalTag": null,
   "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
   "commandRegistryDigest": "bcd6f4d1ca7c3f7e52b1ced95de410cbc843c68397ca9f45b799e427a5718d18",
@@ -12,27 +12,32 @@
   "newRouteCount": 43,
   "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
   "tests": {
-    "backendFocused": "29 passed",
-    "frontendFocused": "75 passed",
+    "backendFocused": "104 passed, 13 skipped",
+    "frontendFocused": "29 passed",
     "w1ReadOnly": "2 passed",
     "w3ReadOnly": "23 passed",
     "w4CandidateGateRegression": "35 passed in combined focused run",
-    "mainKnowledgeGoldenRegression": "FAIL: body truncated to '# Policy'; W3 hardening not integrated",
-    "mainBackendRegression": "107 passed, 13 skipped, 1 failed",
-    "w4Audit": "20 passed",
+    "mainKnowledgeGoldenRegression": "29 passed in focused compatibility run",
+    "mainBackendRegression": "104 passed, 13 skipped",
+    "w4Audit": "6 passed",
     "build": "passed",
     "staticGuard": "passed"
   },
   "studioUrl": "http://127.0.0.1:4173/?studio=knowledge",
   "apiUrl": "http://127.0.0.1:8793",
   "knownDebt": [
-    "W1 real Source/Golden Data commit and W1.status.json are pending",
-    "W3 hardening commit and clean worktree are pending",
-    "knowledge body-preservation regression awaits W3 hardening",
-    "Main full backend regression currently has one reproducible knowledge body failure",
-    "W4 read-only final verification is pending",
+    "W1 real Source/Golden Data commit and W1.status.json are pending; W1 worktree has untracked files",
+    "P0-1 real local custom MCP initialize/tools-list/tools-call evidence is missing",
+    "P0-2 real veadk.Agent and veadk.Runner session/trace/tool-event evidence is missing",
+    "P0-3 independent frontend artifact workspace, real build/render, dashboard URL and data-change evidence are missing",
+    "W4 read-only final verification is pending until all Worker worktrees are clean and the unified real chain passes",
     "external credential connectors remain blocked",
     "formal publication, Registry, Scheduler, and cross-Agent calling are STEP 4",
-    "STEP4_READY remains false pending a separate release decision"
-  ]
+    "STEP4_READY remains false pending completion of STEP 3 and a separate release decision"
+  ],
+  "p0Gates": {
+    "P0-1": {"status": "BLOCKED", "reason": "No committed real local custom MCP process evidence (command/PID/initialize/tools/list/tools/call)."},
+    "P0-2": {"status": "BLOCKED", "reason": "No real veadk.Agent/Runner session_id, trace_id, and tool-call event evidence for a non-preset request."},
+    "P0-3": {"status": "BLOCKED", "reason": "No independent W3 artifact workspace with real generated build/render, accessible dashboard, screenshots, KPI diff, and HTML digest."}
+  }
 }

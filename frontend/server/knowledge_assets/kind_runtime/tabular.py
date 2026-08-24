@@ -53,7 +53,10 @@ def parse_rows(content: str) -> list[dict[str, Any]]:
 
 
 def text_chunks(content: str) -> list[str]:
-    return [chunk.strip() for chunk in re.split(r"\n\s*\n|\n", content) if chunk.strip()]
+    # A local Golden Asset is the immutable source of truth. Keep its document
+    # body together so keyword overlap cannot return a heading without the
+    # paragraphs that follow it.
+    return [content.strip()] if content.strip() else []
 
 
 def infer_fields(rows: list[dict[str, Any]]) -> tuple[list[str], list[str], list[str]]:

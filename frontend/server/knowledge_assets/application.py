@@ -1270,7 +1270,7 @@ class KnowledgeAssetApplication:
             ),
             machine_reasons=(
                 [
-                    "EVAL_FACTS_BOUND_TO_CURRENT_REVISION",
+                    "EVAL_SCORE_AT_OR_ABOVE_THRESHOLD",
                     "SKILL_RESULT_BOUND_TO_CURRENT_REVISION",
                     "SKILL_VIEW_BOUND_TO_CURRENT_REVISION",
                 ]
@@ -1442,6 +1442,16 @@ class KnowledgeAssetApplication:
                     ),
                 )
             source = Path(".veadk/knowledge-assets/results") / f"{result.result_ref.sha256}.json"
+            if not source.exists() and result.result_ref.uri.startswith(
+                "local://kind-runtime/results/"
+            ):
+                # Worker 3 owns the content-addressed result store. Keep the
+                # export command's shared BFF contract able to consume that
+                # real result without copying or reimplementing the runtime.
+                source = (
+                    Path(".veadk/knowledge-assets/kind-runtime/results")
+                    / f"{result.result_ref.sha256}.json"
+                )
             media_type = "text/csv" if payload.format == "csv" else "application/json"
             suffix = "csv" if payload.format == "csv" else "json"
         try:
