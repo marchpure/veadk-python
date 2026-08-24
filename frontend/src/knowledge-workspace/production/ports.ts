@@ -1,3 +1,16 @@
+import {
+  parseBootstrap,
+  type KnowledgeBootstrap,
+  type WorkspaceActionLoopState,
+  type WorkspaceBootstrapData,
+  type WorkspaceConnectorDefinition,
+  type WorkspaceDatasetField,
+  type WorkspaceKpi,
+  type WorkspaceKnowledgeGraphEntity,
+  type WorkspaceKnowledgeGraphMapping,
+  type WorkspaceTrendPoint,
+} from "./bootstrapSchema";
+
 export type KnowledgeCommand =
   | "resource.create"
   | "resource.update"
@@ -43,15 +56,18 @@ export interface KnowledgeError {
   retryAfterMs?: number;
   details?: Record<string, string>;
 }
-export interface KnowledgeBootstrap {
-  resources: unknown[];
-  connections: unknown[];
-  publications: unknown[];
-  routes?: string[];
-  actionLoop?: unknown;
-  access: { spaceId: string; role: string; capabilities: string[] };
-  serverTime: string;
-}
+
+export type {
+  KnowledgeBootstrap,
+  WorkspaceActionLoopState,
+  WorkspaceBootstrapData,
+  WorkspaceConnectorDefinition,
+  WorkspaceDatasetField,
+  WorkspaceKpi,
+  WorkspaceKnowledgeGraphEntity,
+  WorkspaceKnowledgeGraphMapping,
+  WorkspaceTrendPoint,
+};
 export interface KnowledgeCommandResult {
   accepted: boolean;
   requestId: string;
@@ -258,7 +274,14 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
         requestId: id,
       });
     }
-    return parseBootstrap(body, id);
+    return parseBootstrap(body, id, (message, requestIdValue) =>
+      new KnowledgeAdapterError({
+        code: "INVALID_RESPONSE",
+        message,
+        retryable: false,
+        requestId: requestIdValue,
+      }),
+    );
   }
   async command(
     command: KnowledgeCommand,
@@ -453,44 +476,6 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
       context.signal?.removeEventListener("abort", abort);
     }
   }
-}
-function parseBootstrap(
-  body: unknown,
-  requestIdValue: string,
-): KnowledgeBootstrap {
-  const value = body as Record<string, unknown> | null;
-  const access = value?.access as Record<string, unknown> | undefined;
-  if (
-    !value ||
-    !Array.isArray(value.resources) ||
-    !Array.isArray(value.connections) ||
-    !Array.isArray(value.publications) ||
-    !access ||
-    typeof access !== "object" ||
-    typeof value.serverTime !== "string" ||
-    Number.isNaN(Date.parse(value.serverTime)) ||
-    (value.routes !== undefined && !Array.isArray(value.routes))
-  ) {
-    throw new KnowledgeAdapterError({
-      code: "INVALID_RESPONSE",
-      message: "知识服务 bootstrap 响应不符合约定。",
-      retryable: false,
-      requestId: requestIdValue,
-    });
-  }
-  if (
-    typeof access.spaceId !== "string" ||
-    typeof access.role !== "string" ||
-    !Array.isArray(access.capabilities)
-  ) {
-    throw new KnowledgeAdapterError({
-      code: "INVALID_RESPONSE",
-      message: "知识服务 bootstrap 缺少有效的访问上下文。",
-      retryable: false,
-      requestId: requestIdValue,
-    });
-  }
-  return body as KnowledgeBootstrap;
 }
 function parseCommandResult(
   body: unknown,

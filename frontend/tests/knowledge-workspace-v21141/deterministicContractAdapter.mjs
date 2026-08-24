@@ -25,6 +25,19 @@ export function createDeterministicContractAdapter(seed = "knowledge-contract") 
         resources,
         connections: [],
         publications: [],
+        workspaceData: {
+          connectorCatalog: [],
+          datasetFields: [],
+          dashboard: { kpis: [], trendData: [] },
+          knowledgeGraph: { entities: [], mappings: [] },
+        },
+        actionLoop: {
+          signals: [],
+          policies: [],
+          todos: [],
+          reviews: [],
+          briefs: [],
+        },
         access: { spaceId: `${seed}-space`, role: "editor", capabilities: [] },
         serverTime: "2026-01-01T00:00:00.000Z",
       };
