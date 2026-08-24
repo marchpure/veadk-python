@@ -1,6 +1,12 @@
 import { dirname, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import * as ts from "typescript";
-import { defineConfig, type Plugin, type ProxyOptions } from "vite";
+import {
+  defineConfig,
+  transformWithEsbuild,
+  type Plugin,
+  type ProxyOptions,
+} from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -140,6 +146,126 @@ function kwPrototypeEffect(body: string): boolean {
   );
 }
 
+function kwStripPrototypeProductionDefaults(code: string, filePath: string): string {
+  const name = filePath.replaceAll("\\", "/").split("?")[0];
+  let output = code.replace(/demo_[A-Za-z0-9_]+/g, "knowledge_workspace_state");
+  if (name.endsWith("/components/Layout/FileTreePane.tsx")) {
+    output = output
+      .replace(
+        /const defaultPersonal = \[(?!\s*\])[\s\S]*?\n  \];/,
+        "const defaultPersonal = [];",
+      )
+      .replace(
+        /const defaultTeam = \[(?!\s*\])[\s\S]*?\n  \];/,
+        "const defaultTeam = [];",
+      )
+      .replace(
+        /if \(isSampleAdded\) datasetsChildren = \[[\s\S]*?\];/,
+        "if (isSampleAdded) datasetsChildren = [];",
+      );
+  }
+  if (name.endsWith("/components/Layout/MainAreaPane.tsx")) {
+    if (!output.includes("isWorkspaceRouteAvailable as isProductionRouteAvailable")) {
+      output = output.replace(
+        "import { resourceStore } from '../../lib/store';",
+        "import { resourceStore } from '../../lib/store';\nimport { isWorkspaceRouteAvailable as isProductionRouteAvailable } from '../../../production/store';\nconst ProductionRouteUnavailable = ({ fileId }: { fileId: string }) => <div className=\"flex h-full min-h-[240px] items-center justify-center bg-slate-50 p-8\" role=\"alert\"><div className=\"max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm\"><strong className=\"block text-sm font-semibold text-slate-800\">此资源暂不可用</strong><span className=\"mt-2 block text-xs leading-5 text-slate-500\">资源目录未授权或尚未从知识服务加载完成，请返回目录后重试。</span><code className=\"mt-3 block break-all text-[10px] text-slate-400\">{fileId}</code></div></div>;",
+      );
+    }
+    if (!output.includes("isProductionRouteAvailable(fileId)")) {
+      output = output.replace(
+        "  const renderContent = () => {",
+        "  const renderContent = () => {\n    if (fileId !== 'welcome' && !isProductionRouteAvailable(fileId)) return <ProductionRouteUnavailable fileId={fileId} />;",
+      );
+    }
+  }
+  if (name.endsWith("/components/MainArea/SemanticView.tsx")) {
+    output = output
+      .replace(
+        /return (?:localStorage|knowledgeWorkspaceStorage)\.getItem\('demo_semantic_mdl_v5'\) \|\| `[\s\S]*?`;/,
+        "return knowledgeWorkspaceStorage.getItem('demo_semantic_mdl_v5') || '';",
+      )
+      .replace(
+        /return \{ DynamicTable: \{x: 60, y: 100\}, Customer: \{x: 460, y: 60\}, Region: \{x: 460, y: 280\}, Product: \{x: 460, y: 500\} \};/,
+        "return {};",
+      );
+  }
+  if (
+    name.endsWith("/components/RightPane/CommentThread.tsx") ||
+    name.endsWith("/components/MainArea/KnowledgeGraphView.tsx") ||
+    name.endsWith("/components/MainArea/EvaluationCenterView.tsx")
+  ) {
+    output = output.replace(/return \[[\s\S]*?\n\s*\];/g, "return [];");
+  }
+  if (name.endsWith("/components/MainArea/KnowledgeGraphView.tsx")) {
+    output = output.replace(
+      /const \[entities, setEntities\] = useState<any\[\]>\(\(\) => \{[\s\S]*?\n\s*\}\);/,
+      "const [entities, setEntities] = useState<any[]>([]);",
+    );
+  }
+  if (name.endsWith("/components/Modals/ShareModal.tsx")) {
+    output = output.replace(
+      /\s*<tr className="hover:bg-slate-50 bg-white transition-colors">\s*<td[^>]*>昨天 09:00:00[\s\S]*?<\/tr>\s*<tr className="hover:bg-slate-50 bg-white transition-colors">\s*<td[^>]*>2天前 09:00:00[\s\S]*?<\/tr>/,
+      "",
+    );
+  }
+  if (name.endsWith("/components/MainArea/KnowledgeGraphView.tsx")) {
+    output = output.replace(
+      /const \[mappings, setMappings\] = useState(?:<[^>]+>)?\(\[[\s\S]*?\n  \]\);/,
+      "const [mappings, setMappings] = useState<any[]>([]);",
+    );
+  }
+  if (name.includes("/components/MainArea/SkillBuilderView.tsx")) {
+    output = output.replace(
+      /const \[candidateEndpoints, setCandidateEndpoints\] = useState(?:<[^>]+>)?\(\[[\s\S]*?\n\s*\]\);/,
+      "const [candidateEndpoints, setCandidateEndpoints] = useState<any[]>([]);",
+    );
+  }
+  if (name.endsWith("/components/Layout/FileTreePane.tsx")) {
+    output = output.replace(
+      "readonly: true, \n      icon:",
+      "readonly: true, version: r.version, \n      icon:",
+    );
+  }
+  return output;
+}
+
+function kwNeutralizePrototypeSuccessMessages(code: string): string {
+  const positive = /成功|已成功|创建|发布|同步|上传|执行|应用|验证|完成|提交|绑定|授权|生效|更新|撤销|回滚|修复|导出|生成/;
+  const sourceFile = ts.createSourceFile(
+    "knowledge-workspace-production-toast.tsx",
+    code,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const replacements: Array<{ start: number; end: number }> = [];
+  kwWalk(sourceFile, (node) => {
+    if (!ts.isCallExpression(node) || node.arguments.length === 0) return;
+    const expression = node.expression;
+    const isToast =
+      (ts.isIdentifier(expression) && expression.text === "showToast") ||
+      (ts.isPropertyAccessExpression(expression) &&
+        expression.name.text === "showToast");
+    if (!isToast) return;
+    const argument = node.arguments[0];
+    if (!positive.test(kwNodeText(code, argument))) return;
+    replacements.push({
+      start: argument.getStart(sourceFile),
+      end: argument.end,
+    });
+  });
+  let output = code;
+  for (const replacement of replacements.sort(
+    (left, right) => right.start - left.start,
+  )) {
+    output =
+      output.slice(0, replacement.start) +
+      '"已发送请求，等待状态刷新。"' +
+      output.slice(replacement.end);
+  }
+  return output;
+}
+
 function kwResolveMutationNames(
   sourceFile: ts.SourceFile,
   source: string,
@@ -199,10 +325,10 @@ function kwCommandForHandler(
   source: string,
 ): string {
   const value = `${handlerName ?? ""} ${source}`.toLowerCase();
-  if (value.includes("publish") || value.includes("bind")) return "resource.publish";
-  if (value.includes("share")) return "resource.share";
-  if (value.includes("revoke") || value.includes("rollback")) return "resource.revoke";
-  if (value.includes("export")) return "artifact.export";
+  if (value.includes("publish") || value.includes("bind") || value.includes("发布") || value.includes("授权")) return "resource.publish";
+  if (value.includes("share") || value.includes("分享")) return "resource.share";
+  if (value.includes("revoke") || value.includes("rollback") || value.includes("撤销") || value.includes("回滚")) return "resource.revoke";
+  if (value.includes("export") || value.includes("导出")) return "artifact.export";
   if (
     value.includes("connector") ||
     value.includes("feishu") ||
@@ -210,7 +336,7 @@ function kwCommandForHandler(
   ) {
     return "connector.create";
   }
-  if (value.includes("eval") || value.includes("regress")) return "evaluation.run";
+  if (value.includes("eval") || value.includes("regress") || value.includes("评测") || value.includes("回归")) return "evaluation.run";
   if (
     value.includes("todo") ||
     value.includes("review") ||
@@ -219,7 +345,7 @@ function kwCommandForHandler(
   ) {
     return "action.update";
   }
-  if (value.includes("assistant") || value.includes("chat")) return "assistant.turn";
+  if (value.includes("assistant") || value.includes("chat") || value.includes("助手") || value.includes("对话")) return "assistant.turn";
   return "workspace.mutation";
 }
 
@@ -229,14 +355,15 @@ export function transformFrozenProductionMutations(
   frozenRoot: string,
   productionRoot: string,
 ): { code: string; map: null; mutationCount: number } | null {
+  const productionCode = kwStripPrototypeProductionDefaults(code, filePath);
   const sourceFile = ts.createSourceFile(
     filePath,
-    code,
+    productionCode,
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,
   );
-  const mutationNames = kwResolveMutationNames(sourceFile, code);
+  const mutationNames = kwResolveMutationNames(sourceFile, productionCode);
   const directPrototypeMutationNames = new Set<string>();
   kwWalk(sourceFile, (node) => {
     if (!kwIsFunctionLike(node) || !("body" in node) || !node.body) return;
@@ -245,7 +372,7 @@ export function transformFrozenProductionMutations(
       name &&
       !/^[A-Z]/.test(name) &&
       !kwContainsJsx(node.body) &&
-      kwPrototypeEffect(kwNodeText(code, node.body))
+      kwPrototypeEffect(kwNodeText(productionCode, node.body))
     ) {
       directPrototypeMutationNames.add(name);
     }
@@ -284,7 +411,7 @@ export function transformFrozenProductionMutations(
       ts.isIdentifier(node.parent.expression) &&
       node.parent.expression.text === "useEffect" &&
       node.body &&
-      kwPrototypeEffect(kwNodeText(code, node.body))
+      kwPrototypeEffect(kwNodeText(productionCode, node.body))
     ) {
       effectReplacements.push({
         start: node.body.getStart(sourceFile),
@@ -299,7 +426,7 @@ export function transformFrozenProductionMutations(
     }
     const expression = initializer.expression;
     const handlerName = ts.isIdentifier(expression) ? expression.text : undefined;
-    if (!kwHandlerIsMutation(expression, node.name.text, code, mutationNames)) {
+    if (!kwHandlerIsMutation(expression, node.name.text, productionCode, mutationNames)) {
       return;
     }
     replacements.push({
@@ -309,7 +436,7 @@ export function transformFrozenProductionMutations(
         {
           command: kwCommandForHandler(
             handlerName,
-            kwNodeText(code, expression),
+            kwNodeText(productionCode, expression),
           ),
           sourcePath: filePath
             .slice(frozenRoot.length + 1)
@@ -325,8 +452,13 @@ export function transformFrozenProductionMutations(
     ...functionReplacements,
     ...effectReplacements,
   ];
-  if (allReplacements.length === 0) return null;
-  let output = code;
+  if (allReplacements.length === 0) {
+    const adapted = kwNeutralizePrototypeSuccessMessages(productionCode);
+    return adapted === code
+      ? null
+      : { code: adapted, map: null, mutationCount: 0 };
+  }
+  let output = productionCode;
   for (const replacement of allReplacements.sort(
     (left, right) => right.start - left.start,
   )) {
@@ -342,7 +474,9 @@ export function transformFrozenProductionMutations(
   ).replaceAll("\\", "/");
   if (!runtimePath.startsWith(".")) runtimePath = `./${runtimePath}`;
   return {
-    code: `import { runProductionMutation as __runProductionMutation } from ${JSON.stringify(runtimePath)};\n${output}`,
+    code: kwNeutralizePrototypeSuccessMessages(
+      `import { runProductionMutation as __runProductionMutation } from ${JSON.stringify(runtimePath)};\n${output}`,
+    ),
     map: null,
     mutationCount: replacements.length,
   };
@@ -378,12 +512,15 @@ function knowledgeWorkspaceProductionBoundary(): Plugin {
 
   return {
     name: "knowledge-workspace-production-boundary",
+    enforce: "pre",
     resolveId(source, importer) {
       if (source === "virtual:knowledge-workspace-storage") {
         return storageVirtualId;
       }
-      if (!importer || !importer.startsWith(frozenRoot)) return null;
-      const resolved = resolve(dirname(importer), source);
+      const cleanImporter = importer?.split("?")[0];
+      if (!cleanImporter || !cleanImporter.startsWith(frozenRoot)) return null;
+      const cleanSource = source.split("?")[0].replaceAll("\\", "/");
+      const resolved = resolve(dirname(cleanImporter), cleanSource);
       const redirects: Record<string, string> = {
         [resolve(frozenRoot, "lib/store")]: resolve(productionRoot, "store.ts"),
         [resolve(frozenRoot, "lib/store.ts")]: resolve(productionRoot, "store.ts"),
@@ -401,7 +538,17 @@ function knowledgeWorkspaceProductionBoundary(): Plugin {
           "data.ts",
         ),
       };
-      return redirects[resolved] ?? null;
+      if (redirects[resolved]) return redirects[resolved];
+      if (/(?:^|\/)lib\/store(?:\.ts)?$/.test(cleanSource)) {
+        return resolve(productionRoot, "store.ts");
+      }
+      if (/(?:^|\/)lib\/actionLoopStore(?:\.ts)?$/.test(cleanSource)) {
+        return resolve(productionRoot, "actionLoop.ts");
+      }
+      if (/(?:^|\/)data\/mockData(?:\.ts)?$/.test(cleanSource)) {
+        return resolve(productionRoot, "data.ts");
+      }
+      return null;
     },
     load(id) {
       if (id === storageVirtualId) {
@@ -412,7 +559,8 @@ function knowledgeWorkspaceProductionBoundary(): Plugin {
       return null;
     },
     transform(code, id) {
-      if (!id.startsWith(`${frozenRoot}/`) || !/\.(tsx?|jsx?)$/.test(id)) {
+      const cleanId = id.split("?")[0];
+      if (!cleanId.startsWith(`${frozenRoot}/`) || !/\.(tsx?|jsx?)$/.test(cleanId)) {
         return null;
       }
       const usesStorage = /\blocalStorage\b/.test(code);
@@ -421,23 +569,35 @@ function knowledgeWorkspaceProductionBoundary(): Plugin {
         : code;
       const mutationTransform = transformFrozenProductionMutations(
         storageCode,
-        id,
+        cleanId,
         frozenRoot,
         productionRoot,
       );
       if (mutationTransform) {
-        return {
-          ...mutationTransform,
-          code: usesStorage
-            ? `import { knowledgeWorkspaceStorage } from "virtual:knowledge-workspace-storage";\n${mutationTransform.code}`
-            : mutationTransform.code,
-        };
+        const adaptedCode = usesStorage
+          ? `import { knowledgeWorkspaceStorage } from "virtual:knowledge-workspace-storage";\n${mutationTransform.code}`
+          : mutationTransform.code;
+        return transformWithEsbuild(adaptedCode, cleanId, {
+          loader: cleanId.endsWith(".tsx") ? "tsx" : "ts",
+          target: "es2020",
+          jsx: "automatic",
+          sourcemap: false,
+        });
       }
-      if (!usesStorage) return null;
-      return {
-        code: `import { knowledgeWorkspaceStorage } from "virtual:knowledge-workspace-storage";\n${storageCode}`,
-        map: null,
-      };
+      if (storageCode === code && !usesStorage) return null;
+      const productionCode = kwStripPrototypeProductionDefaults(
+        storageCode,
+        cleanId,
+      );
+      const adaptedCode = usesStorage
+        ? `import { knowledgeWorkspaceStorage } from "virtual:knowledge-workspace-storage";\n${productionCode}`
+        : productionCode;
+      return transformWithEsbuild(adaptedCode, cleanId, {
+        loader: cleanId.endsWith(".tsx") ? "tsx" : "ts",
+        target: "es2020",
+        jsx: "automatic",
+        sourcemap: false,
+      });
     },
   };
 }
@@ -446,10 +606,15 @@ export default defineConfig({
   // Keep the canonical host plugin declaration discoverable to existing
   // frontend contract checks; the boundary plugin is intentionally prepended.
   // plugins: [react(), tailwindcss()]
-  plugins: [knowledgeWorkspaceProductionBoundary(), react(), tailwindcss()],
+  plugins: [
+    knowledgeWorkspaceProductionBoundary(),
+    react(),
+    tailwindcss(),
+  ],
   server: {
     port: 5173,
     proxy: {
+      "/api/knowledge-assets": localApiProxy(),
       "/list-apps": localApiProxy(),
       "/apps": localApiProxy(),
       "/run_sse": localApiProxy(),

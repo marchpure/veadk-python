@@ -30,7 +30,7 @@
     "highlight.js": "^11.11.1",
     "html-to-image": "^1.11.13",
     "json5": "2.2.3",
-    "lucide-react": "^0.460.0",
+    "lucide-react": "0.563.0",
     "mermaid": "^11.16.1",
     "motion": "^11.18.2",
     "react": "^19.2.8",

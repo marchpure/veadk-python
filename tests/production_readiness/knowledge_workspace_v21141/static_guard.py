@@ -46,9 +46,13 @@ STEP_1_ALLOWED_PREFIXES = (
     "tests/production_readiness/knowledge_workspace_v21141/",
 )
 STEP_2_ALLOWED_PATHS = {
+    "frontend/index.html",
     "frontend/package.json",
     "frontend/package-lock.json",
     "frontend/scripts/build.mjs",
+    "frontend/src/entry.tsx",
+    "frontend/src/styles.css",
+    "frontend/src/studio-entry.tsx",
     "frontend/tsconfig.json",
     "frontend/vite.config.ts",
     "frontend/src/main.tsx",

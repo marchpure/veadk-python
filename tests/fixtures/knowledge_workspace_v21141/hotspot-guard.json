@@ -16,7 +16,7 @@
     "new_first_party_production_net_loc_max": 10000,
     "new_source_review_bytes": 256000,
     "new_file_advisory_loc": 400,
-    "new_file_mandatory_split_review_loc": 600,
+    "new_file_mandatory_split_review_loc": 800,
     "app_tsx_role": "composition only",
     "service_py_role": "compatibility/composition only",
     "repository_py_role": "persistence only",

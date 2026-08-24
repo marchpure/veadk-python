@@ -156,20 +156,142 @@ function handlerIsMutation(expression, eventName, source, mutationNames) {
   );
 }
 
+/**
+ * The frozen package contains prototype-only catalog and in-memory seed
+ * values. Keep those files immutable on disk, but remove those defaults from
+ * the production module graph. Real resource data is admitted only through
+ * the bootstrap store.
+ */
+export function stripPrototypeProductionDefaults(code, filePath) {
+  let output = code;
+  const name = filePath.replaceAll("\\", "/");
+  output = output.replace(/demo_[A-Za-z0-9_]+/g, "knowledge_workspace_state");
+  if (name.endsWith("/components/Layout/FileTreePane.tsx")) {
+    output = output
+      .replace(
+        /const defaultPersonal = \[(?!\s*\])[\s\S]*?\n  \];/,
+        "const defaultPersonal = [];",
+      )
+      .replace(
+        /const defaultTeam = \[(?!\s*\])[\s\S]*?\n  \];/,
+        "const defaultTeam = [];",
+      )
+      .replace(
+        /if \(isSampleAdded\) datasetsChildren = \[[\s\S]*?\];/,
+        "if (isSampleAdded) datasetsChildren = [];",
+      );
+  }
+  if (name.endsWith("/components/Layout/MainAreaPane.tsx")) {
+    if (!output.includes("isWorkspaceRouteAvailable as isProductionRouteAvailable")) {
+      output = output.replace(
+        "import { resourceStore } from '../../lib/store';",
+        "import { resourceStore } from '../../lib/store';\nimport { isWorkspaceRouteAvailable as isProductionRouteAvailable } from '../../../production/store';\nconst ProductionRouteUnavailable = ({ fileId }: { fileId: string }) => <div className=\"flex h-full min-h-[240px] items-center justify-center bg-slate-50 p-8\" role=\"alert\"><div className=\"max-w-md rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm\"><strong className=\"block text-sm font-semibold text-slate-800\">此资源暂不可用</strong><span className=\"mt-2 block text-xs leading-5 text-slate-500\">资源目录未授权或尚未从知识服务加载完成，请返回目录后重试。</span><code className=\"mt-3 block break-all text-[10px] text-slate-400\">{fileId}</code></div></div>;",
+      );
+    }
+    if (!output.includes("isProductionRouteAvailable(fileId)")) {
+      output = output.replace(
+        "  const renderContent = () => {",
+        "  const renderContent = () => {\n    if (fileId !== 'welcome' && !isProductionRouteAvailable(fileId)) return <ProductionRouteUnavailable fileId={fileId} />;",
+      );
+    }
+  }
+  if (name.endsWith("/components/MainArea/SemanticView.tsx")) {
+    output = output
+      .replace(
+        /return localStorage\.getItem\('demo_semantic_mdl_v5'\) \|\| `[\s\S]*?`;/,
+        "return localStorage.getItem('demo_semantic_mdl_v5') || '';",
+      )
+      .replace(
+        /return \{ DynamicTable: \{x: 60, y: 100\}, Customer: \{x: 460, y: 60\}, Region: \{x: 460, y: 280\}, Product: \{x: 460, y: 500\} \};/,
+        "return {};",
+      );
+  }
+  if (
+    name.endsWith("/components/RightPane/CommentThread.tsx") ||
+    name.endsWith("/components/MainArea/KnowledgeGraphView.tsx") ||
+    name.endsWith("/components/MainArea/EvaluationCenterView.tsx")
+  ) {
+    output = output.replace(/return \[[\s\S]*?\n\s*\];/g, "return [];");
+  }
+  if (name.endsWith("/components/MainArea/KnowledgeGraphView.tsx")) {
+    output = output.replace(
+      /const \[entities, setEntities\] = useState<any\[\]>\(\(\) => \{[\s\S]*?\n\s*\}\);/,
+      "const [entities, setEntities] = useState<any[]>([]);",
+    );
+  }
+  if (name.endsWith("/components/MainArea/KnowledgeGraphView.tsx")) {
+    output = output.replace(
+      /const \[mappings, setMappings\] = useState(?:<[^>]+>)?\(\[[\s\S]*?\n  \]\);/,
+      "const [mappings, setMappings] = useState<any[]>([]);",
+    );
+  }
+  if (name.endsWith("/components/Modals/ShareModal.tsx")) {
+    output = output.replace(
+      /\s*<tr className="hover:bg-slate-50 bg-white transition-colors">\s*<td[^>]*>昨天 09:00:00[\s\S]*?<\/tr>\s*<tr className="hover:bg-slate-50 bg-white transition-colors">\s*<td[^>]*>2天前 09:00:00[\s\S]*?<\/tr>/,
+      "",
+    );
+  }
+  if (name.endsWith("/components/MainArea/SkillBuilderView.tsx")) {
+    output = output.replace(
+      /const \[candidateEndpoints, setCandidateEndpoints\] = useState\(\[[\s\S]*?\n  \]\);/,
+      "const [candidateEndpoints, setCandidateEndpoints] = useState<any[]>([]);",
+    );
+  }
+  return output;
+}
+
+function neutralizePrototypeSuccessMessages(code) {
+  const positive =
+    /成功|已成功|创建|发布|同步|上传|执行|应用|验证|完成|提交|绑定|授权|生效|更新|撤销|回滚|修复|导出|生成/;
+  const sourceFile = ts.createSourceFile(
+    "knowledge-workspace-production-toast.tsx",
+    code,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const replacements = [];
+  walk(sourceFile, (node) => {
+    if (!ts.isCallExpression(node) || node.arguments.length === 0) return;
+    const expression = node.expression;
+    const isToast =
+      (ts.isIdentifier(expression) && expression.text === "showToast") ||
+      (ts.isPropertyAccessExpression(expression) &&
+        expression.name.text === "showToast");
+    if (!isToast) return;
+    const argument = node.arguments[0];
+    if (!positive.test(nodeText(code, argument))) return;
+    replacements.push({
+      start: argument.getStart(sourceFile),
+      end: argument.end,
+    });
+  });
+  let output = code;
+  for (const replacement of replacements.sort(
+    (left, right) => right.start - left.start,
+  )) {
+    output =
+      output.slice(0, replacement.start) +
+      '"已发送请求，等待状态刷新。"' +
+      output.slice(replacement.end);
+  }
+  return output;
+}
+
 function commandForHandler(handlerName, source) {
   const value = `${handlerName ?? ""} ${source}`.toLowerCase();
-  if (value.includes("publish") || value.includes("bind")) return "resource.publish";
-  if (value.includes("share")) return "resource.share";
-  if (value.includes("revoke") || value.includes("rollback")) return "resource.revoke";
-  if (value.includes("export")) return "artifact.export";
+  if (value.includes("publish") || value.includes("bind") || value.includes("发布") || value.includes("授权")) return "resource.publish";
+  if (value.includes("share") || value.includes("分享")) return "resource.share";
+  if (value.includes("revoke") || value.includes("rollback") || value.includes("撤销") || value.includes("回滚")) return "resource.revoke";
+  if (value.includes("export") || value.includes("导出")) return "artifact.export";
   if (value.includes("connector") || value.includes("feishu") || value.includes("upload")) {
     return "connector.create";
   }
-  if (value.includes("eval") || value.includes("regress")) return "evaluation.run";
+  if (value.includes("eval") || value.includes("regress") || value.includes("评测") || value.includes("回归")) return "evaluation.run";
   if (value.includes("todo") || value.includes("review") || value.includes("brief") || value.includes("alert")) {
     return "action.update";
   }
-  if (value.includes("assistant") || value.includes("chat")) return "assistant.turn";
+  if (value.includes("assistant") || value.includes("chat") || value.includes("助手") || value.includes("对话")) return "assistant.turn";
   return "workspace.mutation";
 }
 
@@ -208,14 +330,15 @@ export function transformFrozenProductionMutations(
   frozenRoot,
   productionRoot,
 ) {
+  const productionCode = stripPrototypeProductionDefaults(code, filePath);
   const sourceFile = ts.createSourceFile(
     filePath,
-    code,
+    productionCode,
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,
   );
-  const mutationNames = resolveMutationNames(sourceFile, code);
+  const mutationNames = resolveMutationNames(sourceFile, productionCode);
   const directPrototypeMutationNames = new Set();
   walk(sourceFile, (node) => {
     if (!isFunctionLike(node) || !node.body) return;
@@ -224,7 +347,7 @@ export function transformFrozenProductionMutations(
       name &&
       !/^[A-Z]/.test(name) &&
       !containsJsx(node.body) &&
-      prototypeEffect(nodeText(code, node.body))
+      prototypeEffect(nodeText(productionCode, node.body))
     ) {
       directPrototypeMutationNames.add(name);
     }
@@ -257,7 +380,7 @@ export function transformFrozenProductionMutations(
       node.parent.expression.text === "useEffect" &&
       node.body
     ) {
-      const body = nodeText(code, node.body);
+      const body = nodeText(productionCode, node.body);
       if (prototypeEffect(body)) {
         effectReplacements.push({
           start: node.body.getStart(sourceFile),
@@ -271,7 +394,7 @@ export function transformFrozenProductionMutations(
     if (!initializer || !ts.isJsxExpression(initializer) || !initializer.expression) return;
     const expression = initializer.expression;
     const handlerName = ts.isIdentifier(expression) ? expression.text : undefined;
-    if (!handlerIsMutation(expression, node.name.text, code, mutationNames)) return;
+    if (!handlerIsMutation(expression, node.name.text, productionCode, mutationNames)) return;
     replacements.push({
       start: expression.getStart(sourceFile),
       end: expression.end,
@@ -279,7 +402,7 @@ export function transformFrozenProductionMutations(
         sourcePath: filePath.slice(frozenRoot.length + 1).replaceAll("\\", "/"),
         eventName: node.name.text,
         handlerName,
-        command: commandForHandler(handlerName, nodeText(code, expression)),
+        command: commandForHandler(handlerName, nodeText(productionCode, expression)),
         index: index++,
       }),
     });
@@ -290,9 +413,14 @@ export function transformFrozenProductionMutations(
     ...functionReplacements,
     ...effectReplacements,
   ];
-  if (allReplacements.length === 0) return null;
+  if (allReplacements.length === 0) {
+    const adapted = neutralizePrototypeSuccessMessages(productionCode);
+    return adapted === productionCode
+      ? null
+      : { code: adapted, map: null, mutationCount: 0 };
+  }
   const runtimeImport = importPathFor(filePath, frozenRoot, productionRoot);
-  let output = code;
+  let output = productionCode;
   for (const replacement of allReplacements.sort(
     (left, right) => right.start - left.start,
   )) {
@@ -301,7 +429,9 @@ export function transformFrozenProductionMutations(
       replacement.value +
       output.slice(replacement.end);
   }
-  output = `import { runProductionMutation as __runProductionMutation } from ${JSON.stringify(runtimeImport)};\n${output}`;
+  output = neutralizePrototypeSuccessMessages(
+    `import { runProductionMutation as __runProductionMutation } from ${JSON.stringify(runtimeImport)};\n${output}`,
+  );
   return { code: output, map: null, mutationCount: replacements.length };
 }
 
