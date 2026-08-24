@@ -128,7 +128,9 @@ class DashboardBuildResult(ContractModel):
     workspace_path: str
     source_path: str
     index_html_path: str
+    artifact_url: str
     page_url: str
+    served_page_url: str | None = None
     build_command: list[str]
     serve_command: list[str]
     html_ref: StorageRef
@@ -152,7 +154,10 @@ class DashboardBuildResult(ContractModel):
 
 class DashboardScreenshotResult(ContractModel):
     status: Literal["succeeded", "failed"]
+    artifact_url: str
     page_url: str
+    served_page_url: str
+    serve_command: list[str]
     screenshot_path: str
     screenshot_ref: StorageRef | None = None
     viewport: str
@@ -280,6 +285,7 @@ def generate_dashboard_artifact(
         workspace / "publish-ready-artifact.json",
         publish_ready.model_dump(mode="json", by_alias=True),
     )
+    artifact_url = (dist / "index.html").resolve().as_uri()
     return DashboardBuildResult(
         artifact_id=request.artifact_id,
         status=status,
@@ -287,7 +293,8 @@ def generate_dashboard_artifact(
         workspace_path=str(workspace),
         source_path=str(src),
         index_html_path=str(dist / "index.html"),
-        page_url=(dist / "index.html").resolve().as_uri(),
+        artifact_url=artifact_url,
+        page_url=artifact_url,
         build_command=_build_command(workspace),
         serve_command=_serve_command(workspace),
         html_ref=html_ref,
@@ -381,7 +388,10 @@ def capture_dashboard_screenshot(
             image_width, image_height = image.size
         return DashboardScreenshotResult(
             status="succeeded",
+            artifact_url=result.artifact_url,
             page_url=server.url,
+            served_page_url=server.url,
+            serve_command=result.serve_command,
             screenshot_path=str(output),
             screenshot_ref=_storage_ref(output, "image/png", "object"),
             viewport=f"{width}x{height}",
@@ -396,7 +406,10 @@ def capture_dashboard_screenshot(
     except Exception as error:
         return DashboardScreenshotResult(
             status="failed",
+            artifact_url=result.artifact_url,
             page_url=result.page_url,
+            served_page_url=server.url if "server" in locals() else "",
+            serve_command=result.serve_command,
             screenshot_path=str(output),
             viewport=f"{width}x{height}",
             error=str(error),

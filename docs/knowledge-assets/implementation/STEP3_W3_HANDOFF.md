@@ -162,6 +162,11 @@ The generated dashboard is a browser-run HTML/CSS/JS artifact. It is not a
 or `localStorage`. The refresh button emits a host integration event and stays
 in `refreshing` until Main's shell reports completion.
 
+2026-08-25 scope correction hardening: `DashboardBuildResult` now records the
+generated `artifactUrl` separately from served browser evidence. The evidence
+summary's `pageUrls` and `servedPageUrls` are real `npm run serve` HTTP URLs
+captured by Chrome, while file artifact entrypoints remain under `artifactUrls`.
+
 Concrete acceptance evidence was generated with the repeatable command:
 
 ```bash
@@ -185,9 +190,17 @@ Concrete acceptance evidence was generated at:
 - summary:
   `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/evidence-summary.json`
 - before workspace:
-  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-1abfed778bfb-0004`
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-637ab4b7e8d1`
 - after workspace:
-  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-b8502598d58b-0004`
+  `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-1d7d505412e2`
+- before artifact URL:
+  `file:///Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-637ab4b7e8d1/dist/index.html`
+- after artifact URL:
+  `file:///Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-1d7d505412e2/dist/index.html`
+- before served page URL captured by Chrome:
+  `http://127.0.0.1:56177/index.html`
+- after served page URL captured by Chrome:
+  `http://127.0.0.1:56201/index.html`
 - before screenshot:
   `/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/before.png`
 - after screenshot:
@@ -195,8 +208,8 @@ Concrete acceptance evidence was generated at:
 
 Evidence facts:
 
-- W2 BuildPlan id: `plan_req_296a684cb08f427a908b8fa033b644d2`;
-- W2 plan digest: `f3987e2e80398a4acc24`;
+- W2 BuildPlan id: `plan_compare_infra_util_time_001`;
+- W2 plan digest: `9d8d851f1725cdfb6f41`;
 - W1 Golden Data fixed revision id: `golden_rev_1`;
 - input domain: infrastructure service health, not sales;
 - before KPI `cpu_utilization`: `0.345`;
@@ -205,12 +218,15 @@ Evidence facts:
 - after chart points: `edge=0.82`, `worker=0.31`;
 - table rows changed: `true`;
 - before HTML digest:
-  `4485d0c7e506494083afc29d4754f665140ad984ec450769c8c90fb3119b6c4d`;
+  `35a9a60e4be83fb6f95d242dd8c6c7f194192917644db910bd169d39b69177ba`;
 - after HTML digest:
-  `b724087e408e5288de6b3bb82907898c2f094ec47f1f3b6f43e5f5a7ece069ce`;
+  `53ac614bda7cef819212a73403eb4c213f07b787f0d171d3e69a4044f055906f`;
 - both screenshots succeeded using system Chrome
   `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
   (`Google Chrome 151.0.7922.170`);
+- screenshot digests:
+  `before=c01131af52b49d9755f5aa51c379085caf205f26755e10d28b0befc680980f49`,
+  `after=21223a329faebcc286a3e8e5ede5f56db81c26301fa8c01a48cdcad5a6d2770b`;
 - v2.13.1 visual checks passed for root rendering, hero/content/table regions,
   no horizontal overflow, 12px panel radius/1px borders, title typography, and
   34px-36px refresh control height;
@@ -260,7 +276,7 @@ PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/te
   tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py \
   tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py
 # 54 passed in 6.57s
-# Latest verification on 2026-08-25: 57 passed in 10.83s
+# Latest verification on 2026-08-25: 57 passed in 11.57s
 
 PYTHONDONTWRITEBYTECODE=1 python scripts/knowledge_step3_w3_dashboard_evidence.py \
   --chrome /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome

@@ -1,125 +1,92 @@
 {
-  "schemaVersion": "knowledge-assets.step3.worker3.handoff.v1",
-  "status": "STEP3_W3_FROZEN",
-  "date": "2026-08-25",
-  "worker": "Backend Worker 3 - Multi-kind Skill Execution, View Projection & Dashboard Artifact Generation",
-  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker3-kind-runtime",
-  "branch": "feat/knowledge-step3-worker3-kind-runtime",
   "baseCommit": "31a26a6fd0547a7696af62b97b42a842f07f8339",
-  "prototype": {
-    "sha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
-    "readmeRead": true,
-    "captureCount": 43
-  },
-  "modules": [
-    "frontend/server/knowledge_assets/kind_runtime/models.py",
-    "frontend/server/knowledge_assets/kind_runtime/runtime.py",
-    "frontend/server/knowledge_assets/kind_runtime/handlers.py",
-    "frontend/server/knowledge_assets/kind_runtime/providers.py",
-    "frontend/server/knowledge_assets/kind_runtime/repository.py",
-    "frontend/server/knowledge_assets/kind_runtime/dashboard_artifacts.py",
-    "frontend/server/knowledge_assets/kind_runtime/projector.py",
-    "frontend/server/knowledge_assets/kind_runtime/store.py",
-    "frontend/server/knowledge_assets/kind_runtime/adapters.py"
-  ],
-  "kinds": {
-    "knowledge": {
-      "handler": "KnowledgeHandler",
-      "template": "knowledge",
-      "states": [
-        "ok",
-        "no_data",
-        "unable_to_answer",
-        "permission_denied"
-      ]
-    },
-    "semantic": {
-      "handler": "SemanticHandler",
-      "template": "semantic",
-      "states": [
-        "ok",
-        "no_data",
-        "permission_denied",
-        "schema_drift",
-        "validation_failed"
-      ]
-    },
-    "analysis": {
-      "handler": "AnalysisHandler",
-      "template": "chart",
-      "states": [
-        "ok",
-        "no_data",
-        "permission_denied",
-        "validation_failed",
-        "over_budget"
-      ]
-    },
-    "graph_ontology": {
-      "handler": "GraphOntologyHandler",
-      "template": "graph_ontology",
-      "states": [
-        "ok",
-        "no_data",
-        "schema_drift"
-      ]
-    },
-    "monitoring": {
-      "handler": "MonitoringHandler",
-      "template": "monitoring",
-      "states": [
-        "ok",
-        "no_data",
-        "permission_denied",
-        "validation_failed",
-        "over_budget"
-      ]
-    }
-  },
-  "hardening": {
-    "sourceCommit": "96b7d10b",
-    "sourceStatus": "READY_FOR_INTEGRATION_CANDIDATE",
-    "lifecycle": [
-      "operationId derived from idempotencyKey",
-      "durable SQLite lifecycle repository",
-      "completed-operation replay after runtime restart",
-      "concurrent same-key execution waits for persisted result",
-      "running cancellation via repository cancel flag polling",
-      "bounded future timeout",
-      "retryOfOperationId linkage",
-      "incomplete operation discovery for process restart recovery"
-    ],
-    "providers": [
-      "RetrievalProvider",
-      "SemanticProvider",
-      "QueryExecutor",
-      "GraphMappingProvider"
-    ],
-    "semanticValidation": [
-      "entities",
-      "joins",
-      "metrics",
-      "aggregations",
-      "units",
-      "ambiguities",
-      "cycles",
-      "declared-field dependency errors"
-    ],
-    "monitoringLifecycle": [
-      "observations",
-      "alerts",
-      "lastGoodRevisionId",
-      "durationSeconds",
-      "preview action candidates",
-      "externalActionsExecuted=false"
-    ],
-    "scheduler": "STEP 4 Scheduler not executed"
-  },
+  "branch": "feat/knowledge-step3-worker3-kind-runtime",
   "dashboardArtifactGeneration": {
-    "scope": "W3-only dashboard generation/build/render; no MCP, veadk.Agent, veadk.Runner, publication, reinvocation runtime, shared BFF, application.py, or frozen-ui wiring.",
+    "artifactUrls": {
+      "after": "file:///Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-1d7d505412e2/dist/index.html",
+      "before": "file:///Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-637ab4b7e8d1/dist/index.html"
+    },
+    "artifactWorkspaces": {
+      "after": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-1d7d505412e2",
+      "before": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-637ab4b7e8d1"
+    },
+    "buildCommands": {
+      "after": "npm run build --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-1d7d505412e2",
+      "before": "npm run build --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-637ab4b7e8d1"
+    },
+    "dataChangeProof": {
+      "afterChartPoints": [
+        [
+          "edge",
+          0.82
+        ],
+        [
+          "worker",
+          0.31
+        ]
+      ],
+      "afterHtmlDigest": "53ac614bda7cef819212a73403eb4c213f07b787f0d171d3e69a4044f055906f",
+      "afterKpis": {
+        "cpu_utilization": 0.565,
+        "service_count": 2
+      },
+      "beforeChartPoints": [
+        [
+          "edge",
+          0.21
+        ],
+        [
+          "worker",
+          0.48
+        ]
+      ],
+      "beforeHtmlDigest": "35a9a60e4be83fb6f95d242dd8c6c7f194192917644db910bd169d39b69177ba",
+      "beforeKpis": {
+        "cpu_utilization": 0.345,
+        "service_count": 2
+      },
+      "domain": "infrastructure_service_health",
+      "tableRowsChanged": true
+    },
+    "evidenceSummary": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/evidence-summary.json",
+    "forbiddenPatternsChecked": [
+      "mockKpis",
+      "mockTrendData",
+      "fixed sales copy",
+      "JSON/pre replacement page",
+      "static screenshot output",
+      "setTimeout/localStorage success simulation"
+    ],
     "inputContracts": {
+      "w1": {
+        "after": {
+          "dataQueryRef": "w2://build-plan/plan_compare_infra_util_time_001/data/infrastructure_metrics@golden_rev_1",
+          "invocationRef": "trace://w2/24b6ea0271830f4aaa7559fd005c56e6",
+          "sourceRevisionRefs": [
+            "w2://build-plan/plan_compare_infra_util_time_001/data/infrastructure_metrics@golden_rev_1"
+          ],
+          "w1GoldenAssetDigest": "e7d3e65c98fa59efd6ee555c90f0cc9bdf43fd15965fb8bd290f84e7787d8d4d",
+          "w1GoldenAssetRevisionId": "golden_rev_1",
+          "w1GoldenAssetRevisionNumber": 2,
+          "w2BuildPlanId": "plan_compare_infra_util_time_001"
+        },
+        "before": {
+          "dataQueryRef": "w2://build-plan/plan_compare_infra_util_time_001/data/infrastructure_metrics@golden_rev_1",
+          "invocationRef": "trace://w2/24b6ea0271830f4aaa7559fd005c56e6",
+          "sourceRevisionRefs": [
+            "w2://build-plan/plan_compare_infra_util_time_001/data/infrastructure_metrics@golden_rev_1"
+          ],
+          "w1GoldenAssetDigest": "46beddd60b17bc3dab65a150f447b24a5dd39b2008c7a7660814c81f8f3ecb84",
+          "w1GoldenAssetRevisionId": "golden_rev_1",
+          "w1GoldenAssetRevisionNumber": 1,
+          "w2BuildPlanId": "plan_compare_infra_util_time_001"
+        },
+        "kind": "GoldenAssetRevision+GoldenData",
+        "requiredGoldenRevisionId": "golden_rev_1",
+        "source": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring/tests/fixtures/w2_infrastructure_metrics.json"
+      },
       "w2": {
-        "buildPlanId": "plan_req_296a684cb08f427a908b8fa033b644d2",
+        "buildPlanId": "plan_compare_infra_util_time_001",
         "dataRefs": [
           {
             "kind": "golden_asset",
@@ -145,7 +112,7 @@
           "cpu_utilization"
         ],
         "normalizedDashboardBuildPlan": {
-          "buildPlanId": "plan_req_296a684cb08f427a908b8fa033b644d2",
+          "buildPlanId": "plan_compare_infra_util_time_001",
           "chart": {
             "aggregation": "avg",
             "chartType": "bar",
@@ -153,7 +120,7 @@
             "xField": "service",
             "yField": "cpu_utilization"
           },
-          "dataQueryRef": "w2://build-plan/plan_req_296a684cb08f427a908b8fa033b644d2/data/infrastructure_metrics@golden_rev_1",
+          "dataQueryRef": "w2://build-plan/plan_compare_infra_util_time_001/data/infrastructure_metrics@golden_rev_1",
           "insights": [
             {
               "template": "{top_dimension} 当前利用率最高，为 {top_value:.2f} ratio。"
@@ -162,7 +129,7 @@
               "template": "共消费 {row_count} 条 W1 Golden Data；目标：{user_goal}"
             }
           ],
-          "invocationRef": "trace://w2/e586c9d021e3f8f18bd934447ac944b5",
+          "invocationRef": "trace://w2/24b6ea0271830f4aaa7559fd005c56e6",
           "kpis": [
             {
               "aggregation": "avg",
@@ -197,35 +164,8 @@
           "title": "基础设施利用率健康看板",
           "userGoal": "Compare infrastructure utilization by service over time. Use only the exact authorized infrastructure_metrics golden revision."
         },
-        "planDigest": "f3987e2e80398a4acc24",
+        "planDigest": "9d8d851f1725cdfb6f41",
         "source": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring/tests/fixtures/w2_real_smoke_success.json"
-      },
-      "w1": {
-        "after": {
-          "dataQueryRef": "w2://build-plan/plan_req_296a684cb08f427a908b8fa033b644d2/data/infrastructure_metrics@golden_rev_1",
-          "invocationRef": "trace://w2/e586c9d021e3f8f18bd934447ac944b5",
-          "sourceRevisionRefs": [
-            "w2://build-plan/plan_req_296a684cb08f427a908b8fa033b644d2/data/infrastructure_metrics@golden_rev_1"
-          ],
-          "w1GoldenAssetDigest": "e7d3e65c98fa59efd6ee555c90f0cc9bdf43fd15965fb8bd290f84e7787d8d4d",
-          "w1GoldenAssetRevisionId": "golden_rev_1",
-          "w1GoldenAssetRevisionNumber": 2,
-          "w2BuildPlanId": "plan_req_296a684cb08f427a908b8fa033b644d2"
-        },
-        "before": {
-          "dataQueryRef": "w2://build-plan/plan_req_296a684cb08f427a908b8fa033b644d2/data/infrastructure_metrics@golden_rev_1",
-          "invocationRef": "trace://w2/e586c9d021e3f8f18bd934447ac944b5",
-          "sourceRevisionRefs": [
-            "w2://build-plan/plan_req_296a684cb08f427a908b8fa033b644d2/data/infrastructure_metrics@golden_rev_1"
-          ],
-          "w1GoldenAssetDigest": "46beddd60b17bc3dab65a150f447b24a5dd39b2008c7a7660814c81f8f3ecb84",
-          "w1GoldenAssetRevisionId": "golden_rev_1",
-          "w1GoldenAssetRevisionNumber": 1,
-          "w2BuildPlanId": "plan_req_296a684cb08f427a908b8fa033b644d2"
-        },
-        "kind": "GoldenAssetRevision+GoldenData",
-        "requiredGoldenRevisionId": "golden_rev_1",
-        "source": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker2-agent-authoring/tests/fixtures/w2_infrastructure_metrics.json"
       }
     },
     "outputArtifacts": [
@@ -253,74 +193,32 @@
       "build.json",
       "publish-ready-artifact.json"
     ],
-    "forbiddenPatternsChecked": [
-      "mockKpis",
-      "mockTrendData",
-      "fixed sales copy",
-      "JSON/pre replacement page",
-      "static screenshot output",
-      "setTimeout/localStorage success simulation"
-    ],
-    "evidenceSummary": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/evidence-summary.json",
-    "artifactWorkspaces": {
-      "after": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-b8502598d58b-0004",
-      "before": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-1abfed778bfb-0004"
-    },
     "pageUrls": {
-      "after": "file:///Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-b8502598d58b-0004/dist/index.html",
-      "before": "file:///Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-1abfed778bfb-0004/dist/index.html"
+      "after": "http://127.0.0.1:56201/index.html",
+      "before": "http://127.0.0.1:56177/index.html"
     },
-    "buildCommands": {
-      "before": "npm run build --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-1abfed778bfb-0004",
-      "after": "npm run build --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-b8502598d58b-0004"
-    },
+    "scope": "W3-only dashboard generation/build/render; no MCP, veadk.Agent, veadk.Runner, publication, reinvocation runtime, shared BFF, application.py, or frozen-ui wiring.",
     "serveCommands": {
-      "before": "npm run serve --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-1abfed778bfb-0004",
-      "after": "npm run serve --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-b8502598d58b-0004"
+      "after": "npm run serve --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-after-1d7d505412e2",
+      "before": "npm run serve --prefix /Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/artifact-workspaces/w3-dashboard-before-637ab4b7e8d1"
     },
-    "dataChangeProof": {
-      "domain": "infrastructure_service_health",
-      "beforeKpis": {
-        "cpu_utilization": 0.345,
-        "service_count": 2
-      },
-      "afterKpis": {
-        "cpu_utilization": 0.565,
-        "service_count": 2
-      },
-      "beforeChartPoints": [
-        [
-          "edge",
-          0.21
-        ],
-        [
-          "worker",
-          0.48
-        ]
-      ],
-      "afterChartPoints": [
-        [
-          "edge",
-          0.82
-        ],
-        [
-          "worker",
-          0.31
-        ]
-      ],
-      "tableRowsChanged": true,
-      "beforeHtmlDigest": "4485d0c7e506494083afc29d4754f665140ad984ec450769c8c90fb3119b6c4d",
-      "afterHtmlDigest": "b724087e408e5288de6b3bb82907898c2f094ec47f1f3b6f43e5f5a7ece069ce"
+    "servedPageUrls": {
+      "after": "http://127.0.0.1:56201/index.html",
+      "before": "http://127.0.0.1:56177/index.html"
     },
     "visualRegression": {
-      "browser": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-      "browserVersion": "Google Chrome 151.0.7922.170",
+      "afterScreenshot": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/after.png",
+      "afterScreenshotDigest": "21223a329faebcc286a3e8e5ede5f56db81c26301fa8c01a48cdcad5a6d2770b",
       "baseline": "v2.13.1",
       "basis": [
         "v2.13.1 design-system typography/radius/control-size rules",
         "real Chrome screenshot of generated artifact served over HTTP",
         "refresh interaction emits host event and waits for completion"
       ],
+      "beforeScreenshot": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/before.png",
+      "beforeScreenshotDigest": "c01131af52b49d9755f5aa51c379085caf205f26755e10d28b0befc680980f49",
+      "browser": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "browserVersion": "Google Chrome 151.0.7922.170",
       "checks": [
         "dashboard root rendered",
         "hero/content/table regions rendered",
@@ -329,25 +227,146 @@
         "title typography aligns with v2.13.1",
         "refresh control size aligns with v2.13.1"
       ],
-      "beforeScreenshot": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/before.png",
-      "afterScreenshot": "/Users/bytedance/.codex/coordination/knowledge-step3/w3-dashboard-generation-evidence/screenshots/after.png",
-      "viewport": "1440x960",
+      "interaction": "refresh button clicked; generated page emitted host refresh event and stayed refreshing until host completion event",
       "status": "succeeded",
-      "interaction": "refresh button clicked; generated page emitted host refresh event and stayed refreshing until host completion event"
+      "viewport": "1440x960"
     }
   },
+  "date": "2026-08-25",
+  "hardening": {
+    "lifecycle": [
+      "operationId derived from idempotencyKey",
+      "durable SQLite lifecycle repository",
+      "completed-operation replay after runtime restart",
+      "concurrent same-key execution waits for persisted result",
+      "running cancellation via repository cancel flag polling",
+      "bounded future timeout",
+      "retryOfOperationId linkage",
+      "incomplete operation discovery for process restart recovery"
+    ],
+    "monitoringLifecycle": [
+      "observations",
+      "alerts",
+      "lastGoodRevisionId",
+      "durationSeconds",
+      "preview action candidates",
+      "externalActionsExecuted=false"
+    ],
+    "providers": [
+      "RetrievalProvider",
+      "SemanticProvider",
+      "QueryExecutor",
+      "GraphMappingProvider"
+    ],
+    "scheduler": "STEP 4 Scheduler not executed",
+    "semanticValidation": [
+      "entities",
+      "joins",
+      "metrics",
+      "aggregations",
+      "units",
+      "ambiguities",
+      "cycles",
+      "declared-field dependency errors"
+    ],
+    "sourceCommit": "96b7d10b",
+    "sourceStatus": "READY_FOR_INTEGRATION_CANDIDATE"
+  },
+  "kinds": {
+    "analysis": {
+      "handler": "AnalysisHandler",
+      "states": [
+        "ok",
+        "no_data",
+        "permission_denied",
+        "validation_failed",
+        "over_budget"
+      ],
+      "template": "chart"
+    },
+    "graph_ontology": {
+      "handler": "GraphOntologyHandler",
+      "states": [
+        "ok",
+        "no_data",
+        "schema_drift"
+      ],
+      "template": "graph_ontology"
+    },
+    "knowledge": {
+      "handler": "KnowledgeHandler",
+      "states": [
+        "ok",
+        "no_data",
+        "unable_to_answer",
+        "permission_denied"
+      ],
+      "template": "knowledge"
+    },
+    "monitoring": {
+      "handler": "MonitoringHandler",
+      "states": [
+        "ok",
+        "no_data",
+        "permission_denied",
+        "validation_failed",
+        "over_budget"
+      ],
+      "template": "monitoring"
+    },
+    "semantic": {
+      "handler": "SemanticHandler",
+      "states": [
+        "ok",
+        "no_data",
+        "permission_denied",
+        "schema_drift",
+        "validation_failed"
+      ],
+      "template": "semantic"
+    }
+  },
+  "modules": [
+    "frontend/server/knowledge_assets/kind_runtime/models.py",
+    "frontend/server/knowledge_assets/kind_runtime/runtime.py",
+    "frontend/server/knowledge_assets/kind_runtime/handlers.py",
+    "frontend/server/knowledge_assets/kind_runtime/providers.py",
+    "frontend/server/knowledge_assets/kind_runtime/repository.py",
+    "frontend/server/knowledge_assets/kind_runtime/dashboard_artifacts.py",
+    "frontend/server/knowledge_assets/kind_runtime/projector.py",
+    "frontend/server/knowledge_assets/kind_runtime/store.py",
+    "frontend/server/knowledge_assets/kind_runtime/adapters.py"
+  ],
+  "proposals": [
+    "docs/knowledge-assets/implementation/STEP3_W3_CONTRACT_PROPOSAL.md",
+    "docs/knowledge-assets/implementation/STEP3_W3_UI_PROPOSAL.md"
+  ],
+  "prototype": {
+    "captureCount": 43,
+    "readmeRead": true,
+    "sha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571"
+  },
   "readModel": {
-    "result": "SkillResult",
     "intent": "ViewIntent",
-    "viewRevision": "SkillViewRevision",
     "refs": [
       "local://kind-runtime/results/{sha256}",
       "local://kind-runtime/evidence/{sha256}",
       "local://kind-runtime/traces/{sha256}",
       "local://kind-runtime/views/{sha256}",
       "local://kind-runtime/view-models/{sha256}"
-    ]
+    ],
+    "result": "SkillResult",
+    "viewRevision": "SkillViewRevision"
   },
+  "schemaVersion": "knowledge-assets.step3.worker3.handoff.v1",
+  "scopeNotes": [
+    "No frozen-ui changes.",
+    "No shared generated contract changes.",
+    "No shared application/routes/repository wiring changes.",
+    "No lockfile changes.",
+    "Main should remove duplicated save_skill_view_revision in application.py during integration."
+  ],
+  "status": "STEP3_W3_FROZEN",
   "tests": [
     {
       "command": "PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py",
@@ -359,18 +378,9 @@
     },
     {
       "command": "PYTHONDONTWRITEBYTECODE=1 pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_dashboard_artifacts.py tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py tests/frontend/knowledge_workspace_v21141/test_step3_core.py tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py",
-      "result": "57 passed in 10.83s"
+      "result": "57 passed in 11.57s"
     }
   ],
-  "proposals": [
-    "docs/knowledge-assets/implementation/STEP3_W3_CONTRACT_PROPOSAL.md",
-    "docs/knowledge-assets/implementation/STEP3_W3_UI_PROPOSAL.md"
-  ],
-  "scopeNotes": [
-    "No frozen-ui changes.",
-    "No shared generated contract changes.",
-    "No shared application/routes/repository wiring changes.",
-    "No lockfile changes.",
-    "Main should remove duplicated save_skill_view_revision in application.py during integration."
-  ]
+  "worker": "Backend Worker 3 - Multi-kind Skill Execution, View Projection & Dashboard Artifact Generation",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker3-kind-runtime"
 }
