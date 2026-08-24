@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "knowledge-assets.step3.worker3.handoff.v1",
+  "status": "READY_FOR_INTEGRATION",
+  "date": "2026-08-25",
+  "worker": "Backend Worker 3 - Multi-kind Skill Execution & View Projection",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker3-kind-runtime",
+  "branch": "feat/knowledge-step3-worker3-kind-runtime",
+  "baseCommit": "31a26a6fd0547a7696af62b97b42a842f07f8339",
+  "prototype": {
+    "sha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+    "readmeRead": true,
+    "captureCount": 43
+  },
+  "modules": [
+    "frontend/server/knowledge_assets/kind_runtime/models.py",
+    "frontend/server/knowledge_assets/kind_runtime/runtime.py",
+    "frontend/server/knowledge_assets/kind_runtime/handlers.py",
+    "frontend/server/knowledge_assets/kind_runtime/projector.py",
+    "frontend/server/knowledge_assets/kind_runtime/store.py",
+    "frontend/server/knowledge_assets/kind_runtime/adapters.py"
+  ],
+  "kinds": {
+    "knowledge": {
+      "handler": "KnowledgeHandler",
+      "template": "knowledge",
+      "states": ["ok", "no_data", "unable_to_answer", "permission_denied"]
+    },
+    "semantic": {
+      "handler": "SemanticHandler",
+      "template": "semantic",
+      "states": ["ok", "no_data", "permission_denied", "schema_drift", "validation_failed"]
+    },
+    "analysis": {
+      "handler": "AnalysisHandler",
+      "template": "chart",
+      "states": ["ok", "no_data", "awaiting_input", "permission_denied", "over_budget"]
+    },
+    "graph_ontology": {
+      "handler": "GraphOntologyHandler",
+      "template": "graph_ontology",
+      "states": ["ok", "no_data", "schema_drift"]
+    },
+    "monitoring": {
+      "handler": "MonitoringHandler",
+      "template": "monitoring",
+      "states": ["ok", "no_data", "awaiting_input"]
+    }
+  },
+  "readModel": {
+    "result": "SkillResult",
+    "intent": "ViewIntent",
+    "viewRevision": "SkillViewRevision",
+    "refs": [
+      "local://kind-runtime/results/{sha256}",
+      "local://kind-runtime/evidence/{sha256}",
+      "local://kind-runtime/traces/{sha256}",
+      "local://kind-runtime/views/{sha256}",
+      "local://kind-runtime/view-models/{sha256}"
+    ]
+  },
+  "tests": [
+    {
+      "command": "pytest -q tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py",
+      "result": "10 passed in 0.67s"
+    },
+    {
+      "command": "pytest -q tests/frontend/knowledge_workspace_v21141/test_step3_typed_execution.py tests/frontend/knowledge_workspace_v21141/test_step3_core.py tests/frontend/knowledge_workspace_v21141/test_step3_render_boundary.py tests/frontend/knowledge_workspace_v21141/test_local_golden_data_flow.py",
+      "result": "27 passed in 1.26s"
+    }
+  ],
+  "proposals": [
+    "docs/knowledge-assets/implementation/STEP3_W3_CONTRACT_PROPOSAL.md",
+    "docs/knowledge-assets/implementation/STEP3_W3_UI_PROPOSAL.md"
+  ],
+  "scopeNotes": [
+    "No frozen-ui changes.",
+    "No shared generated contract changes.",
+    "No shared application/routes/repository wiring changes.",
+    "No lockfile changes.",
+    "Main should remove duplicated save_skill_view_revision in application.py during integration."
+  ]
+}
