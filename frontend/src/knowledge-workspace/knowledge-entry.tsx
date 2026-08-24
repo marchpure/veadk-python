@@ -8,6 +8,10 @@ import {
 } from "./production/store";
 import "./knowledge-entry.css";
 
+const rootElement = document.getElementById("root");
+document.title = "Inspire Prototype";
+rootElement?.setAttribute("style", "height: 100vh; width: 100vw;");
+
 function KnowledgeEntry() {
   const [error, setError] = useState(() => getWorkspaceError());
   const [ready, setReady] = useState(false);
