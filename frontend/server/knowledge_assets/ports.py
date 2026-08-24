@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, Literal
 
 from .contracts import (
     BootstrapResponse,
@@ -69,6 +69,73 @@ class RuntimeInvocationRequest:
     caller_id: str
     workspace_id: str
     profile: RuntimeProfile
+
+
+@dataclass(frozen=True)
+class ConnectorContext:
+    tenant_id: str
+    caller_id: str
+    workspace_id: str
+    trace_id: str
+    idempotency_key: str
+    timeout_seconds: int = 30
+    secret_ref: str | None = None
+
+
+@dataclass(frozen=True)
+class ConnectorConfig:
+    kind: Literal[
+        "markdown", "csv", "oracle", "web_api", "mcp", "published_skill"
+    ]
+    endpoint: str
+    options: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class ConnectorEvent:
+    operation: str
+    status: Literal["succeeded", "credential_blocked", "failed"]
+    trace_id: str
+    details: dict[str, str]
+
+
+class ConnectorAdapter(Protocol):
+    """Common SPI for every data_access source kind."""
+
+    def discover(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def validate_config(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def test_connection(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def introspect(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def sample(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def read(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def subscribe(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def checkpoint(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+    def close(self, context: ConnectorContext, config: ConnectorConfig) -> ConnectorEvent: ...
+
+
+class CredentialBlockedConnector:
+    """Explicitly reports blocked real protocols; never substitutes a mock."""
+
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+
+    def _blocked(self, context: ConnectorContext, operation: str) -> ConnectorEvent:
+        return ConnectorEvent(
+            operation=operation,
+            status="credential_blocked",
+            trace_id=context.trace_id,
+            details={"kind": self.kind, "reason": "usable credentials/configuration required"},
+        )
+
+    def discover(self, context, config): return self._blocked(context, "discover")
+    def validate_config(self, context, config): return self._blocked(context, "validateConfig")
+    def test_connection(self, context, config): return self._blocked(context, "testConnection")
+    def introspect(self, context, config): return self._blocked(context, "introspect")
+    def sample(self, context, config): return self._blocked(context, "sample")
+    def read(self, context, config): return self._blocked(context, "read")
+    def subscribe(self, context, config): return self._blocked(context, "subscribe")
+    def checkpoint(self, context, config): return self._blocked(context, "checkpoint")
+    def close(self, context, config): return self._blocked(context, "close")
 
 
 class ArtifactStorePort(Protocol):
