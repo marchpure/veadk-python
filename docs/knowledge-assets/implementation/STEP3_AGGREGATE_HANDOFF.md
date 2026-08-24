@@ -130,5 +130,10 @@ The W2 authoring module is present and its Main focused authoring/data suite
 passes 45 tests, but its Main-owned BFF command registration and durable
 production persistence seam are not yet complete; `skill-authoring.start`
 must not be treated as integrated.
+Main's Dashboard composition now fail-closes the prototype finance/recruitment
+scenario branches until typed bootstrap or SkillViewRevision data exists;
+production boundary regression is 20 passed and static guard remains zero
+findings. This prevents fixed scenario facts from being treated as real data,
+but does not establish the P0-3 generated-artifact chain.
 Full Capability Matrix/browser regression against the real production chain
 remains required before any closeout decision. `STEP4_READY` remains false.
