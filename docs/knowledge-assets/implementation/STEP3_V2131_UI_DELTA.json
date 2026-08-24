@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "date": "2026-08-25",
+  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+  "oldFrozenUi": {
+    "fileCount": 48,
+    "lineCount": 9388,
+    "routeCount": 23,
+    "source": "frontend/src/knowledge-workspace/frozen-ui and tests/fixtures/knowledge_workspace_v21141/route-manifests.json"
+  },
+  "newPrototype": {
+    "fileCount": 49,
+    "lineCount": 9864,
+    "routeCount": 43,
+    "source": "prototype/codebase/src and prototype/codebase/prototype-route.json"
+  },
+  "diff": {
+    "changedPaths": 11,
+    "insertions": 620,
+    "deletionsMeasured": 77,
+    "deletionsPackagedApproximation": 79,
+    "netMeasured": 543,
+    "paths": [
+      "components/Layout/FileTreePane.tsx",
+      "components/Layout/MainAreaPane.tsx",
+      "components/Layout/TopNav.tsx",
+      "components/Layout/WorkspaceLayout.tsx",
+      "components/MainArea/ArtifactHeader.tsx",
+      "components/MainArea/SkillArtifactView.tsx",
+      "components/RightPane/ChatAssistant.tsx",
+      "lib/store.ts",
+      "prototype-route.json",
+      "components/MainArea/JourneyDetailView.tsx",
+      "components/Modals/V212EntryDrawer.tsx"
+    ]
+  },
+  "retainedStateCount": 23,
+  "addedStateCount": 20,
+  "productionRules": {
+    "reuseHighFidelityShell": true,
+    "prototypeMocksAreFacts": false,
+    "formalPublication": "STEP4_DEFERRED",
+    "externalCredentialConnectors": "EXTERNAL_CREDENTIAL_BLOCKED"
+  }
+}
