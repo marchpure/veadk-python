@@ -1,7 +1,8 @@
 {
   "schemaVersion": "knowledge-assets.contract-freeze.v2",
   "step": "STEP_1_CORRECTIVE",
-  "sourceCommit": "699b3e4a7d6a31250bde8fcdc0c4bcbd4d834e7a",
+  "sourceCommit": "c24f6488f2d419644608fed6f5ecb337255c030c",
+  "immutableTag": "knowledge-skill-factory-step-1-corrective-1",
   "branch": "feat/knowledge-skill-factory-step-1",
   "result": "READY_WITH_BASELINE_DEBT",
   "canonicalObject": "Skill",
@@ -119,7 +120,7 @@
     "frontend/src/knowledge-workspace/production/generatedClient.ts": "6db596c48362176de49ab8353b82734aa46e5a53b4bcb346aaf964b08bd26004",
     "frontend/src/knowledge-workspace/production/ports.ts": "f6ccc06ce9d86fbfa884f9541c044211189c4fc02257fb78220fbf4c5bae3291",
     "tests/frontend/test_knowledge_asset_bff.py": "f639509cd4d071b63f79c0a1be2e6ce97897760020d1b218e55bdf360532712c",
-    "docs/knowledge-assets/implementation/STEP1_HANDOFF.md": "852c0db6243d0fe2e03fcb855eda04b435531754b6607509c1bb9f8dc482a265",
+    "docs/knowledge-assets/implementation/STEP1_HANDOFF.md": "4b16514abaee4a9c5bfda64ff97e60b0e9e24cc677d6eaff79feb1a7d2e1584b",
     "docs/knowledge-assets/implementation/WORKTREE_OWNERS.md": "57ad709461c7a07637528c547f292d88ae89791699736cd97e6240a2f8a3f3a4"
   }
 }

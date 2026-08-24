@@ -2,6 +2,8 @@
 
 - Result: `READY_WITH_BASELINE_DEBT`
 - STEP 1 clickable acceptance: complete.
+- Corrective commit: `c24f6488f2d419644608fed6f5ecb337255c030c`
+- Immutable tag: `knowledge-skill-factory-step-1-corrective-1`
 - Corrective scope: canonical SkillManifest, typed STEP 1 contracts, command
   payload/result schemas, fail-closed ports, metadata persistence skeleton,
   migration replay, and job lifecycle framework.
