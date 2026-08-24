@@ -1,0 +1,248 @@
+{
+  "$defs": {
+    "AuditItem": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "resourceId": {
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "occurredAt": {
+          "title": "Occurredat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requestId",
+        "operationId",
+        "workspaceId",
+        "action",
+        "resourceId",
+        "outcome",
+        "occurredAt"
+      ],
+      "title": "AuditItem",
+      "type": "object"
+    },
+    "ErrorEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Details"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "requestId"
+      ],
+      "title": "ErrorEnvelope",
+      "type": "object"
+    },
+    "OperationEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "knowledge-assets.event.v1",
+          "default": "knowledge-assets.event.v1",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "operationId": {
+          "title": "Operationid",
+          "type": "string"
+        },
+        "eventId": {
+          "title": "Eventid",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurredAt": {
+          "title": "Occurredat",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "accepted",
+            "progress",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "terminal": {
+          "title": "Terminal",
+          "type": "boolean"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "operationId",
+        "eventId",
+        "sequence",
+        "occurredAt",
+        "type",
+        "terminal"
+      ],
+      "title": "OperationEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "operationId": {
+      "title": "Operationid",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "accepted",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/OperationEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorEnvelope"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "nextActions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Nextactions",
+      "type": "array"
+    },
+    "audit": {
+      "items": {
+        "$ref": "#/$defs/AuditItem"
+      },
+      "title": "Audit",
+      "type": "array"
+    }
+  },
+  "required": [
+    "operationId",
+    "status",
+    "version",
+    "events"
+  ],
+  "title": "OperationResponse",
+  "type": "object"
+}

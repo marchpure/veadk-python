@@ -37,13 +37,18 @@ function transpileProductionModule(moduleName, replacements = {}) {
 
 function productionModuleUrls() {
   const schemaUrl = transpileProductionModule("bootstrapSchema.ts");
+  const generatedUrl = transpileProductionModule("generated.ts");
+  const generatedClientUrl = transpileProductionModule("generatedClient.ts", {
+    "./generated": generatedUrl,
+  });
   const portsUrl = transpileProductionModule("ports.ts", {
     "./bootstrapSchema": schemaUrl,
+    "./generatedClient": generatedClientUrl,
   });
   const dataUrl = transpileProductionModule("data.ts", {
     "./bootstrapSchema": schemaUrl,
   });
-  return { schemaUrl, portsUrl, dataUrl };
+  return { schemaUrl, generatedUrl, generatedClientUrl, portsUrl, dataUrl };
 }
 
 test("production boundary declares typed HTTP/SSE ports and no optimistic success", () => {
@@ -548,6 +553,67 @@ test("neutralized success handlers still dispatch a typed production command", a
   assert.match(publishHandler ?? "", /__runProductionMutation/);
   assert.match(publishHandler ?? "", /resource\.publish/);
   assert.doesNotMatch(publishHandler ?? "", /已成功发布/);
+});
+
+test("real knowledge-base create CTA dispatches the skill draft command", async () => {
+  const { transformFrozenProductionMutations } = await import(
+    "./productionTransform.mjs"
+  );
+  const filePath = join(
+    frozenRoot,
+    "components/MainArea/AddKnowledgeBaseView.tsx",
+  );
+  const transformed = transformFrozenProductionMutations(
+    readFileSync(filePath, "utf8"),
+    filePath,
+    frozenRoot,
+    productionRoot,
+  );
+  assert.ok(transformed);
+  assert.match(transformed.code, /"command":"skill-draft\.create"/);
+  assert.match(transformed.code, /handleCreate/);
+  assert.doesNotMatch(transformed.code, /resourceStore\.setState\s*\(/);
+});
+
+test("local source preparation remains local until the create CTA", async () => {
+  const { transformFrozenProductionMutations } = await import(
+    "./productionTransform.mjs"
+  );
+  const source = `
+    function handleLocalUpload(name) {
+      setSources([...sources, { name }]);
+    }
+    export function AddKnowledgeBaseView() {
+      return <span onClick={(event) => { event.preventDefault(); handleLocalUpload("sample.pdf"); }}>sample</span>;
+    }
+  `;
+  const transformed = transformFrozenProductionMutations(
+    source,
+    "/repo/components/MainArea/AddKnowledgeBaseView.tsx",
+    "/repo",
+    "/repo/production",
+  );
+  assert.equal(transformed, null);
+});
+
+test("real Skill Builder publish CTA dispatches manifest persistence", async () => {
+  const { transformFrozenProductionMutations } = await import(
+    "./productionTransform.mjs"
+  );
+  const filePath = join(
+    frozenRoot,
+    "components/MainArea/SkillBuilderView.tsx",
+  );
+  const transformed = transformFrozenProductionMutations(
+    readFileSync(filePath, "utf8"),
+    filePath,
+    frozenRoot,
+    productionRoot,
+  );
+  assert.ok(transformed);
+  assert.match(transformed.code, /"command":"skill-draft\.save-manifest"/);
+  assert.match(transformed.code, /handlePublish/);
+  assert.doesNotMatch(transformed.code, /resourceStore\.setState\s*\(/);
 });
 
 test("assistant composer keeps the frozen Enter transition behind adapter acceptance", async () => {

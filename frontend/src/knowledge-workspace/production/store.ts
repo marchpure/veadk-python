@@ -59,8 +59,10 @@ export class WorkspaceStore<T> {
     const adapter = getWorkspaceAdapter();
     void adapter
       .command(
-        "workspace.store-update",
-        { store: this.key, value: next },
+        {
+          command: "action.update",
+          payload: { actionId: `store:${this.key}` },
+        },
         createRequestContext(),
       )
       .then((result) => {
@@ -116,6 +118,7 @@ export const actionLoopStore = new WorkspaceStore<ActionLoopState>(
 let adapter: WorkspaceAdapter = new ProductionKnowledgeAdapter();
 let lastError: KnowledgeAdapterError | null = null;
 let workspaceRoutes = new Set<string>(["welcome"]);
+let workspaceId = "local";
 const SERVER_FEATURE_ROUTES = new Set([
   "welcome",
   "add_data",
@@ -135,6 +138,7 @@ export function getWorkspaceAdapter(): WorkspaceAdapter {
 export function installWorkspaceAdapter(next: WorkspaceAdapter): void {
   adapter = next;
   workspaceRoutes = new Set(["welcome"]);
+  workspaceId = "local";
   lastError = null;
   errorListeners.forEach((listener) => listener(null));
 }
@@ -168,8 +172,7 @@ export const knowledgeWorkspaceStorage: Storage = {
   clear() {
     void getWorkspaceAdapter()
       .command(
-        "workspace.store-update",
-        { operation: "clear" },
+        { command: "action.update", payload: { actionId: "storage.clear" } },
         createRequestContext(),
       )
       .catch(publishWorkspaceError);
@@ -183,17 +186,22 @@ export const knowledgeWorkspaceStorage: Storage = {
   removeItem(key) {
     void getWorkspaceAdapter()
       .command(
-        "workspace.store-update",
-        { operation: "remove", key },
+        {
+          command: "action.update",
+          payload: { actionId: `storage.remove:${key}` },
+        },
         createRequestContext(),
       )
       .catch(publishWorkspaceError);
   },
   setItem(key, value) {
+    void value;
     void getWorkspaceAdapter()
       .command(
-        "workspace.store-update",
-        { operation: "set", key, value },
+        {
+          command: "action.update",
+          payload: { actionId: `storage.set:${key}` },
+        },
         createRequestContext(),
       )
       .catch(publishWorkspaceError);
@@ -278,6 +286,10 @@ export async function bootstrapWorkspace(
 ): Promise<KnowledgeBootstrap> {
   try {
     const bootstrapped = await currentAdapter.bootstrap(signal);
+    const serverWorkspaceId = bootstrapped.access.spaceId;
+    if (typeof serverWorkspaceId === "string" && serverWorkspaceId) {
+      workspaceId = serverWorkspaceId;
+    }
     resourceStore.replace(bootstrapped.resources as WorkspaceResource[]);
     connectionStore.replace(
       bootstrapped.connections as Record<string, unknown>[],
@@ -304,20 +316,70 @@ export async function bootstrapWorkspace(
 
 export async function runProductionMutation(
   intent: {
-    command: import("./ports").KnowledgeCommand;
+    command: import("./ports").KnowledgeCommandName;
     sourcePath: string;
     eventName: string;
     handlerName?: string;
   },
   currentAdapter: WorkspaceAdapter = getWorkspaceAdapter(),
-): Promise<boolean> {
+): Promise<import("./ports").KnowledgeCommandResult | null> {
   const context = createRequestContext();
-  try {
-    const result = await currentAdapter.command(
-      intent.command,
-      intent,
-      context,
+  const selectedDraft = (() => {
+    if (typeof window === "undefined") return undefined;
+    const draftId = new URL(window.location.href).searchParams.get("draft_id");
+    return resourceStore.getState().find(
+      (resource) =>
+        resource.resourceKind === "skill_draft" &&
+        (!draftId || resource.id === draftId),
     );
+  })();
+  const command: import("./ports").KnowledgeCommand = intent.command ===
+      "skill-draft.create"
+    ? {
+      command: "skill-draft.create",
+      payload: {
+        workspaceId,
+        name: "销售制度知识库",
+        description: "由知识库创建动作生成的 Skill 草稿",
+        sourceRefs: [],
+      },
+    }
+    : intent.command === "skill-draft.save-manifest"
+    ? {
+      command: "skill-draft.save-manifest",
+      payload: {
+        draftId: selectedDraft?.id ?? "",
+        baseRevision: Number(selectedDraft?.revision ?? 1),
+        manifest: {
+          name: "销售制度知识库",
+          version: "1.0.0",
+          description: "聚合各渠道的销售制度与流程规范",
+          actions: [{
+            name: "answer",
+            description: "回答销售制度与流程问题",
+          }],
+          schema: {
+            type: "object",
+            properties: {
+              question: {
+                type: "string",
+                description: "用户问题",
+              },
+            },
+            required: ["question"],
+            additionalProperties: false,
+          },
+        },
+      },
+    }
+    : {
+      command: "action.update",
+      payload: {
+        actionId: `${intent.sourcePath}:${intent.handlerName ?? intent.eventName}`,
+      },
+    };
+  try {
+    const result = await currentAdapter.command(command, context);
     if (!result.accepted) {
       publishWorkspaceError(
         new KnowledgeAdapterError({
@@ -327,16 +389,31 @@ export async function runProductionMutation(
           requestId: context.requestId,
         }),
       );
-      return false;
+      return null;
     }
     try {
       await bootstrapWorkspace(undefined, currentAdapter);
     } catch {
-      return false;
+      return null;
     }
-    return true;
+    if (intent.command === "skill-draft.create") {
+      const draft = result.result?.draft;
+      const draftId = draft && typeof draft === "object" &&
+          typeof draft.id === "string"
+        ? draft.id
+        : undefined;
+      if (draftId && typeof window !== "undefined") {
+        const next = new URL(window.location.href);
+        next.searchParams.set("file", "skill_builder");
+        next.searchParams.set("draft_id", draftId);
+        next.searchParams.delete("adapter");
+        window.history.pushState({}, "", next);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }
+    }
+    return result;
   } catch (error) {
     publishWorkspaceError(error);
-    return false;
+    return null;
   }
 }

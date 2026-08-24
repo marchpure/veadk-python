@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "ErrorEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "requestId": {
+          "title": "Requestid",
+          "type": "string"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Details"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "requestId"
+      ],
+      "title": "ErrorEnvelope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "knowledge-assets.event.v1",
+      "default": "knowledge-assets.event.v1",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "operationId": {
+      "title": "Operationid",
+      "type": "string"
+    },
+    "eventId": {
+      "title": "Eventid",
+      "type": "string"
+    },
+    "sequence": {
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "occurredAt": {
+      "title": "Occurredat",
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "accepted",
+        "progress",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Type",
+      "type": "string"
+    },
+    "terminal": {
+      "title": "Terminal",
+      "type": "boolean"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorEnvelope"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "operationId",
+    "eventId",
+    "sequence",
+    "occurredAt",
+    "type",
+    "terminal"
+  ],
+  "title": "OperationEvent",
+  "type": "object"
+}

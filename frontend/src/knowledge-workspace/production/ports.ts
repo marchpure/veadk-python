@@ -10,8 +10,14 @@ import {
   type WorkspaceKnowledgeGraphMapping,
   type WorkspaceTrendPoint,
 } from "./bootstrapSchema";
+import {
+  createKnowledgeAssetClient,
+  GeneratedClientHttpError,
+  type KnowledgeAssetClient,
+} from "./generatedClient";
+import type { GeneratedCommand } from "./generated";
 
-export type KnowledgeCommand =
+export type KnowledgeCommandName =
   | "resource.create"
   | "resource.update"
   | "resource.publish"
@@ -27,8 +33,92 @@ export type KnowledgeCommand =
   | "evaluation.apply"
   | "action.update"
   | "artifact.export"
-  | "workspace.store-update"
-  | "workspace.mutation";
+  | "skill-draft.create"
+  | "skill-draft.save-manifest"
+  | "source.profile"
+  | "source.clean"
+  | "skill-draft.run"
+  | "publication.publish"
+  | "refresh.run"
+  | "invocation.start";
+
+export interface ActionUpdatePayload {
+  actionId: string;
+}
+export interface SkillDraftCreatePayload {
+  workspaceId: string;
+  name: string;
+  description: string;
+  sourceRefs: string[];
+}
+export interface SkillDraftSaveManifestPayload {
+  draftId: string;
+  baseRevision: number;
+  manifest: {
+    name: string;
+    version: string;
+    description: string;
+    actions: Array<{ name: string; description: string }>;
+    schema: {
+      type: "object";
+      properties: Record<string, {
+        type: "string" | "number" | "boolean" | "object" | "array";
+        description: string;
+      }>;
+      required: string[];
+      additionalProperties: boolean;
+    };
+  };
+}
+export interface ResourceCommandPayload {
+  resourceId: string;
+}
+export interface ConnectorCommandPayload {
+  connectorKey: string;
+}
+export interface ImportCommandPayload {
+  sourceId: string;
+}
+export interface AssistantTurnPayload {
+  text: string;
+  contextIds: string[];
+}
+export interface EvaluationPayload {
+  targetId: string;
+}
+export interface ArtifactExportPayload {
+  resourceId: string;
+  format: "json" | "csv" | "html";
+}
+export interface StreamCancelPayload {
+  streamId: string;
+  sourceCommand: "import.start" | "assistant.turn";
+}
+export type EmptyPayload = Record<string, never>;
+export type KnowledgeCommand =
+  | { command: "action.update"; payload: ActionUpdatePayload }
+  | { command: "skill-draft.create"; payload: SkillDraftCreatePayload }
+  | {
+    command: "skill-draft.save-manifest";
+    payload: SkillDraftSaveManifestPayload;
+  }
+  | { command: "resource.create" | "resource.update" | "resource.publish" | "resource.share" | "resource.revoke"; payload: ResourceCommandPayload }
+  | { command: "connector.create" | "connector.test"; payload: ConnectorCommandPayload }
+  | { command: "import.start" | "import.cancel"; payload: ImportCommandPayload }
+  | { command: "stream.cancel"; payload: StreamCancelPayload }
+  | { command: "assistant.turn"; payload: AssistantTurnPayload }
+  | { command: "evaluation.run" | "evaluation.apply"; payload: EvaluationPayload }
+  | { command: "artifact.export"; payload: ArtifactExportPayload }
+  | {
+    command:
+      | "source.profile"
+      | "source.clean"
+      | "skill-draft.run"
+      | "publication.publish"
+      | "refresh.run"
+      | "invocation.start";
+    payload: EmptyPayload;
+  };
 export type KnowledgeErrorCode =
   | "UNAVAILABLE"
   | "UNAUTHENTICATED"
@@ -40,7 +130,10 @@ export type KnowledgeErrorCode =
   | "CANCELLED"
   | "PARTIAL_FAILURE"
   | "INVALID_RESPONSE"
-  | "NETWORK";
+  | "NETWORK"
+  | "VALIDATION_ERROR"
+  | "DRAFT_NOT_FOUND"
+  | "OPERATION_NOT_FOUND";
 export interface KnowledgeRequestContext {
   requestId: string;
   idempotencyKey: string;
@@ -71,8 +164,12 @@ export type {
 export interface KnowledgeCommandResult {
   accepted: boolean;
   requestId: string;
+  operationId?: string;
   version?: string;
-  data?: unknown;
+  result?: {
+    draft?: Record<string, string | number>;
+    replayed?: boolean;
+  };
 }
 export interface KnowledgeStreamEvent {
   schema_version: string;
@@ -81,7 +178,7 @@ export interface KnowledgeStreamEvent {
   sequence: number;
   occurred_at: string;
   type: string;
-  payload: unknown;
+  payload: Record<string, unknown>;
   terminal: boolean;
 }
 export interface KnowledgeStream {
@@ -94,15 +191,17 @@ export interface WorkspaceAdapter {
   bootstrap(signal?: AbortSignal): Promise<KnowledgeBootstrap>;
   command(
     command: KnowledgeCommand,
-    payload: unknown,
     context: KnowledgeRequestContext,
   ): Promise<KnowledgeCommandResult>;
   stream(
-    command: KnowledgeCommand,
-    payload: unknown,
+    command: Extract<
+      KnowledgeCommand,
+      { command: "import.start" | "assistant.turn" }
+    >,
     context: KnowledgeRequestContext,
   ): Promise<KnowledgeStream>;
 }
+type LegacyCommandName = KnowledgeCommandName;
 export class KnowledgeAdapterError extends Error {
   readonly issue: KnowledgeError;
   constructor(issue: KnowledgeError) {
@@ -141,6 +240,9 @@ function knownErrorCode(value: unknown): KnowledgeErrorCode | null {
     "PARTIAL_FAILURE",
     "INVALID_RESPONSE",
     "NETWORK",
+    "VALIDATION_ERROR",
+    "DRAFT_NOT_FOUND",
+    "OPERATION_NOT_FOUND",
   ];
   return typeof value === "string" &&
       codes.includes(value as KnowledgeErrorCode)
@@ -215,6 +317,58 @@ async function errorFromResponse(
     details: details && Object.keys(details).length > 0 ? details : undefined,
   });
 }
+
+function errorFromGeneratedClient(
+  error: GeneratedClientHttpError,
+  requestIdValue: string,
+): KnowledgeAdapterError {
+  const envelope = error.body && typeof error.body === "object"
+    ? error.body as Record<string, unknown>
+    : null;
+  const fallbackCode: KnowledgeErrorCode = error.status === 401
+    ? "UNAUTHENTICATED"
+    : error.status === 403
+    ? "FORBIDDEN"
+    : error.status === 408
+    ? "TIMEOUT"
+    : error.status === 409
+    ? "CONFLICT"
+    : error.status === 429
+    ? "RATE_LIMITED"
+    : error.status >= 500
+    ? "UNAVAILABLE"
+    : "INVALID_RESPONSE";
+  const code = knownErrorCode(envelope?.code) ?? fallbackCode;
+  const retryAfterMs =
+    typeof envelope?.retry_after_ms === "number" && envelope.retry_after_ms >= 0
+      ? envelope.retry_after_ms
+      : Number(error.headers["retry-after"] ?? 0) * 1000 || undefined;
+  const details = envelope?.details && typeof envelope.details === "object"
+    ? Object.fromEntries(
+      Object.entries(envelope.details).filter(
+        ([key, value]) =>
+          /^[a-zA-Z0-9_.-]+$/.test(key) &&
+          !/credential|token|cookie|secret|password/i.test(key) &&
+          typeof value === "string",
+      ),
+    )
+    : undefined;
+  return new KnowledgeAdapterError({
+    code,
+    message:
+      typeof envelope?.message === "string" && envelope.message.trim()
+        ? envelope.message
+        : `知识服务返回 HTTP ${error.status}，请检查服务配置后重试。`,
+    retryable: typeof envelope?.retryable === "boolean"
+      ? envelope.retryable
+      : code === "RATE_LIMITED" ||
+        code === "TIMEOUT" ||
+        code === "UNAVAILABLE",
+    requestId: requestIdValue,
+    retryAfterMs,
+    details: details && Object.keys(details).length > 0 ? details : undefined,
+  });
+}
 async function readJson(
   response: Response,
   requestIdValue: string,
@@ -247,6 +401,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
   private readonly basePath: string;
   private readonly fetcher: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly generatedClient: KnowledgeAssetClient;
   constructor(
     options: {
       basePath?: string;
@@ -257,6 +412,10 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     this.basePath = options.basePath ?? "/api/knowledge-assets";
     this.fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
     this.timeoutMs = options.timeoutMs ?? 15_000;
+    this.generatedClient = createKnowledgeAssetClient(
+      this.fetcher,
+      `${this.basePath}/v1`,
+    );
   }
   async bootstrap(signal?: AbortSignal): Promise<KnowledgeBootstrap> {
     const id = requestId();
@@ -284,14 +443,34 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     );
   }
   async command(
-    command: KnowledgeCommand,
-    payload: unknown,
-    context: KnowledgeRequestContext,
+    command: KnowledgeCommand | LegacyCommandName,
+    contextOrPayload: KnowledgeRequestContext | Record<string, unknown>,
+    legacyContext?: KnowledgeRequestContext,
   ): Promise<KnowledgeCommandResult> {
+    const normalized = normalizeCommand(command, contextOrPayload, legacyContext);
+    const context = normalized.context;
+    if (
+      normalized.command.command === "skill-draft.create" ||
+      normalized.command.command === "action.update"
+    ) {
+      let generated;
+      try {
+        generated = await this.generatedClient.command(
+          normalized.command as GeneratedCommand,
+          context,
+        );
+      } catch (error) {
+        if (error instanceof GeneratedClientHttpError) {
+          throw errorFromGeneratedClient(error, context.requestId);
+        }
+        throw error;
+      }
+      return parseCommandResult(generated, context.requestId);
+    }
     const response = await this.request(
       "POST",
       "/v1/commands",
-      { command, payload },
+      normalized.command,
       context,
     );
     const body = await readJson(response, context.requestId);
@@ -306,10 +485,19 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     return parseCommandResult(body, context.requestId);
   }
   async stream(
-    command: KnowledgeCommand,
-    payload: unknown,
-    context: KnowledgeRequestContext,
+    command: Extract<
+      KnowledgeCommand,
+      { command: "import.start" | "assistant.turn" }
+    > | "assistant.turn",
+    contextOrPayload: KnowledgeRequestContext | Record<string, unknown>,
+    legacyContext?: KnowledgeRequestContext,
   ): Promise<KnowledgeStream> {
+    const normalized = normalizeStreamCommand(
+      command,
+      contextOrPayload,
+      legacyContext,
+    );
+    const context = normalized.context;
     const controller = new AbortController();
     let callerAbortListener: (() => void) | undefined;
     if (context.signal) {
@@ -328,7 +516,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
       response = await this.request(
         "POST",
         "/v1/streams",
-        { command, payload },
+        normalized.command,
         { ...context, signal: controller.signal },
       );
     } catch (error) {
@@ -381,18 +569,26 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
             controller.abort();
             callerAbortListener &&
               context.signal?.removeEventListener("abort", callerAbortListener);
-            const cancelCommand = command === "import.start"
-              ? "import.cancel"
-              : "stream.cancel";
+            const cancelCommand: KnowledgeCommand =
+              normalized.command.command === "import.start"
+                ? {
+                  command: "import.cancel",
+                  payload: {
+                    sourceId: (normalized.command as Extract<
+                      KnowledgeCommand,
+                      { command: "import.start" }
+                    >).payload.sourceId,
+                  },
+                }
+                : {
+                  command: "stream.cancel",
+                  payload: {
+                    streamId: streamId ?? context.requestId,
+                    sourceCommand: "assistant.turn",
+                  },
+                };
             const cancelContext = createRequestContext();
-            const result = await this.command(
-              cancelCommand,
-              {
-                streamId: streamId ?? context.requestId,
-                sourceCommand: command,
-              },
-              cancelContext,
-            );
+            const result = await this.command(cancelCommand, cancelContext);
             if (!result.accepted) {
               throw new KnowledgeAdapterError({
                 code: "UNAVAILABLE",
@@ -496,6 +692,129 @@ function parseCommandResult(
     });
   }
   return body as KnowledgeCommandResult;
+}
+
+function normalizeCommand(
+  command: KnowledgeCommand | LegacyCommandName,
+  contextOrPayload: KnowledgeRequestContext | Record<string, unknown>,
+  legacyContext?: KnowledgeRequestContext,
+): { command: KnowledgeCommand; context: KnowledgeRequestContext } {
+  if (typeof command !== "string") {
+    return { command, context: contextOrPayload as KnowledgeRequestContext };
+  }
+  return {
+    command: legacyCommand(command, contextOrPayload as Record<string, unknown>),
+    context: legacyContext ?? (contextOrPayload as KnowledgeRequestContext),
+  };
+}
+
+function normalizeStreamCommand(
+  command: Extract<
+    KnowledgeCommand,
+    { command: "import.start" | "assistant.turn" }
+  > | "assistant.turn",
+  contextOrPayload: KnowledgeRequestContext | Record<string, unknown>,
+  legacyContext?: KnowledgeRequestContext,
+): {
+  command: Extract<
+    KnowledgeCommand,
+    { command: "import.start" | "assistant.turn" }
+  >;
+  context: KnowledgeRequestContext;
+} {
+  if (typeof command !== "string") {
+    return { command, context: contextOrPayload as KnowledgeRequestContext };
+  }
+  return {
+    command: legacyCommand(command, contextOrPayload as Record<string, unknown>) as Extract<
+      KnowledgeCommand,
+      { command: "import.start" | "assistant.turn" }
+    >,
+    context: legacyContext ?? (contextOrPayload as KnowledgeRequestContext),
+  };
+}
+
+function legacyCommand(
+  command: LegacyCommandName,
+  payload: Record<string, unknown>,
+): KnowledgeCommand {
+  switch (command) {
+    case "assistant.turn":
+      return {
+        command,
+        payload: {
+          text: typeof payload.text === "string" ? payload.text : "",
+          contextIds: [],
+        },
+      };
+    case "import.start":
+    case "import.cancel":
+      return {
+        command,
+        payload: { sourceId: typeof payload.sourceId === "string" ? payload.sourceId : "legacy" },
+      };
+    case "stream.cancel":
+      return {
+        command,
+        payload: { streamId: "legacy", sourceCommand: "assistant.turn" },
+      };
+    case "artifact.export":
+      return {
+        command,
+        payload: { resourceId: "legacy", format: "json" },
+      };
+    case "action.update":
+      return { command, payload: { actionId: "legacy" } };
+    case "skill-draft.create":
+      return {
+        command,
+        payload: {
+          workspaceId: "legacy",
+          name: "Legacy draft",
+          description: "",
+          sourceRefs: [],
+        },
+      };
+    case "skill-draft.save-manifest":
+      return {
+        command,
+        payload: {
+          draftId: "legacy",
+          baseRevision: 1,
+          manifest: {
+            name: "Legacy draft",
+            version: "1.0.0",
+            description: "",
+            actions: [{ name: "answer", description: "" }],
+            schema: {
+              type: "object",
+              properties: {},
+              required: [],
+              additionalProperties: false,
+            },
+          },
+        },
+      };
+    case "resource.create":
+    case "resource.update":
+    case "resource.publish":
+    case "resource.share":
+    case "resource.revoke":
+      return { command, payload: { resourceId: "legacy" } };
+    case "connector.create":
+    case "connector.test":
+      return { command, payload: { connectorKey: "legacy" } };
+    case "evaluation.run":
+    case "evaluation.apply":
+      return { command, payload: { targetId: "legacy" } };
+    case "source.profile":
+    case "source.clean":
+    case "skill-draft.run":
+    case "publication.publish":
+    case "refresh.run":
+    case "invocation.start":
+      return { command, payload: {} };
+  }
 }
 async function* parseSse(
   body: ReadableStream<Uint8Array>,

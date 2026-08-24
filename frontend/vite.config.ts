@@ -45,6 +45,8 @@ const KW_MUTATING_TEXT =
 const KW_TIMER = /\b(?:setTimeout|setInterval)\s*\(/;
 const KW_EVENT = /^on[A-Z]/;
 const KW_NON_MUTATING = new Set([
+  "handleNext",
+  "handlePrev",
   "handleResize",
   "handleKey",
   "handleEsc",
@@ -62,6 +64,11 @@ const KW_NON_MUTATING = new Set([
   "handleAddStage",
   "handleRemoveStage",
   "handleStageChange",
+]);
+const KW_LOCAL_COMPOSITION_HANDLERS = new Set([
+  "handleLocalUpload",
+  "handleFeishuCheck",
+  "handleFeishuSync",
 ]);
 
 function kwNodeText(source: string, node: ts.Node): string {
@@ -113,6 +120,7 @@ function kwContainsJsx(node: ts.Node): boolean {
 
 function kwMutationLike(name: string | undefined, body: string): boolean {
   if (name && KW_NON_MUTATING.has(name)) return false;
+  if (name && KW_LOCAL_COMPOSITION_HANDLERS.has(name)) return false;
   if (
     name &&
     /^(?:handleSend|handleSuggestionClick|handleRealFileUpload|handleUpload|handleNext|handlePublish|handleConfirm|confirm|apply|startReEval|applySuggestions|generate|request|approve|save|submit|create|publish|share|revoke|test|sync|refresh|retry|delete|remove)/.test(
@@ -333,6 +341,9 @@ function kwHandlerIsMutation(
     return false;
   }
   const body = kwNodeText(source, expression.body);
+  if ([...KW_LOCAL_COMPOSITION_HANDLERS].some((name) =>
+    new RegExp(`\\b${name}\\s*\\(`).test(body)
+  )) return false;
   return (
     kwMutationLike(undefined, body) ||
     [...mutationNames].some((name) =>
@@ -344,8 +355,21 @@ function kwHandlerIsMutation(
 function kwCommandForHandler(
   handlerName: string | undefined,
   source: string,
+  filePath?: string,
 ): string {
   const value = `${handlerName ?? ""} ${source}`.toLowerCase();
+  if (
+    filePath?.endsWith("/components/MainArea/AddKnowledgeBaseView.tsx") &&
+    handlerName === "handleCreate"
+  ) {
+    return "skill-draft.create";
+  }
+  if (
+    filePath?.endsWith("/components/MainArea/SkillBuilderView.tsx") &&
+    value.includes("handlepublish")
+  ) {
+    return "skill-draft.save-manifest";
+  }
   if (value.includes("publish") || value.includes("bind") || value.includes("发布") || value.includes("授权")) return "resource.publish";
   if (value.includes("share") || value.includes("分享")) return "resource.share";
   if (value.includes("revoke") || value.includes("rollback") || value.includes("撤销") || value.includes("回滚")) return "resource.revoke";
@@ -373,7 +397,7 @@ function kwCommandForHandler(
     value.includes("助手") ||
     value.includes("对话")
   ) return "assistant.turn";
-  return "workspace.mutation";
+  return "action.update";
 }
 
 function kwPreserveHandler(
@@ -431,9 +455,10 @@ export function transformFrozenProductionMutations(
     if (kwIsFunctionLike(node) && "body" in node && node.body) {
       const name = kwFunctionName(node);
       if (
-        name &&
-        directPrototypeMutationNames.has(name) &&
-        !kwContainsJsx(node.body)
+      name &&
+      directPrototypeMutationNames.has(name) &&
+      !KW_LOCAL_COMPOSITION_HANDLERS.has(name) &&
+      !kwContainsJsx(node.body)
       ) {
         functionReplacements.push({
           start: node.body.getStart(sourceFile),
@@ -486,6 +511,7 @@ export function transformFrozenProductionMutations(
           command: kwCommandForHandler(
             handlerName,
             kwNodeText(productionCode, expression),
+            filePath,
           ),
           sourcePath: filePath
             .slice(frozenRoot.length + 1)

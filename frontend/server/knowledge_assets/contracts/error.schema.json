@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "title": "Code",
+      "type": "string"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "requestId": {
+      "title": "Requestid",
+      "type": "string"
+    },
+    "details": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Details"
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "retryable",
+    "requestId"
+  ],
+  "title": "ErrorEnvelope",
+  "type": "object"
+}
