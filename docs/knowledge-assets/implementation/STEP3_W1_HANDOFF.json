@@ -1,32 +1,191 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "knowledge-assets.step3.worker-handoff.v1",
   "status": "READY_FOR_INTEGRATION",
   "worker": "W1",
-  "domain": "sources_golden_assets",
+  "domain": "sources_connectors_golden_data",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3-worker1-sources-golden",
+  "branch": "feat/knowledge-step3-worker1-sources-golden",
   "baseCommit": "31a26a6fd0547a7696af62b97b42a842f07f8339",
-  "workerCommit": null,
-  "proposalOnly": true,
-  "implementationReusedFromMain": [
-    "local Markdown/CSV source revision",
-    "profile and clean runs",
-    "GoldenAssetRevision persistence",
-    "credential-blocked external connector contracts"
+  "preservedProposalCommit": "85b8a19c46928b75044be8a265ec7694a992a1fc",
+  "implementationCommit": "da3fd63266be81928203212592b2c306677bde30",
+  "protocolHardeningCommit": "26c7008409e11f95b8cf0717391c03413381e70e",
+  "sensitiveResultHardeningCommit": "bcc084d43eb056daf64f45fedca1a41d1f67086b",
+  "codeHead": "bcc084d43eb056daf64f45fedca1a41d1f67086b",
+  "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
+  "uiDeltaDigest": "dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30",
+  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
+  "migrationHead": "004_step3_shares",
+  "writeScope": [
+    "frontend/server/knowledge_assets/sources_golden",
+    "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py",
+    "tests/fixtures/knowledge_workspace_v21141/generate_step3_w1_mcp_evidence.py",
+    "tests/fixtures/knowledge_workspace_v21141/mcp_*",
+    "tests/fixtures/knowledge_workspace_v21141/step3-w1-*",
+    "docs/knowledge-assets/implementation/STEP3_W1_*"
   ],
-  "ownedStates": [
-    "source.catalog.read",
-    "source.create",
-    "source.refresh",
-    "golden_asset.read"
-  ],
-  "statusRules": {
-    "localMarkdownCsvSqlite": "STEP3_REAL",
-    "larkOracleWebApiWorkdayMcp": "EXTERNAL_CREDENTIAL_BLOCKED"
+  "catalog": {
+    "total": 37,
+    "categories": {
+      "office": 10,
+      "file": 8,
+      "db": 11,
+      "api": 5,
+      "custom": 3
+    },
+    "capabilityStates": {
+      "available": 5,
+      "configurable": 3,
+      "credential_blocked": 26,
+      "unsupported": 3
+    }
   },
-  "knownDebt": [
-    "full parser-backed PDF/Office/Excel ingestion remains deferred",
-    "credentialed provider E2E remains externally blocked"
+  "realLocalAdapters": [
+    "markdown",
+    "csv",
+    "sqlite",
+    "excel_xlsx_xls",
+    "pdf",
+    "mcp_stdio"
   ],
-  "tests": {
-    "mainExistingSourceGoldenFlow": "covered by Main focused backend regression"
-  }
+  "externalFailClosedAdapters": [
+    "oracle",
+    "postgresql",
+    "lark",
+    "web_api",
+    "remote_mcp"
+  ],
+  "readModels": [
+    "ConnectorCatalogView",
+    "AddDataView",
+    "DataOverviewView",
+    "ConnectionDetailView",
+    "GoldenAssetDetailView",
+    "GoldenDataView",
+    "GoldenResourceBinding"
+  ],
+  "lifecycle": [
+    "ConnectionInstance",
+    "SourceRevisionRecord",
+    "ProfileRunRecord",
+    "CleaningRecipeRecord",
+    "CleanRunRecord",
+    "GoldenAssetRevisionRecord",
+    "RefreshRunRecord"
+  ],
+  "mcpP0": {
+    "status": "PASS",
+    "officialSdk": {
+      "package": "mcp",
+      "version": "1.26.0",
+      "server": "tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py",
+      "serverName": "repository-infrastructure-metrics",
+      "protocolVersion": "2025-11-25",
+      "processIds": [
+        89430,
+        89431,
+        89452
+      ],
+      "processesReaped": true,
+      "tools": [
+        "infrastructure.metrics"
+      ],
+      "inputAndOutputSchemaDiscovered": true,
+      "toolCalls": 2
+    },
+    "faultFixture": "tests/fixtures/knowledge_workspace_v21141/mcp_habitat_server.py",
+    "fixtureProcessIds": [
+      89428,
+      89429
+    ],
+    "protocolChain": [
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+      "tools/call",
+      "shutdown",
+      "stdio_eof",
+      "process_reap"
+    ],
+    "security": [
+      "shell_false",
+      "separate_command_args_env_cwd",
+      "workspace_bound_secret_ref",
+      "injected_runtime_secret_resolver",
+      "startup_call_exit_timeouts",
+      "combined_output_budget",
+      "tool_allowlist",
+      "untrusted_output_quarantine",
+      "secret_redaction",
+      "all_spawned_processes_reaped"
+    ],
+    "stableErrors": [
+      "MCP_CONFIGURATION_INVALID",
+      "MCP_PROCESS_START_FAILED",
+      "MCP_PROCESS_EXITED",
+      "MCP_TIMEOUT",
+      "MCP_INVALID_MESSAGE",
+      "MCP_TOOL_NOT_ALLOWED",
+      "MCP_TOOL_FAILED",
+      "MCP_OUTPUT_LIMIT"
+    ],
+    "evidence": "docs/knowledge-assets/implementation/STEP3_W1_MCP_EVIDENCE.json",
+    "evidenceSha256": "8e7de2cd36f6f079f5fc1c6f6531c64ddc2584d71a1af04739cbfb76a3b6c05b",
+    "exampleConfiguration": "tests/fixtures/knowledge_workspace_v21141/step3-w1-mcp-stdio-example.json"
+  },
+  "dataChangeEvidence": {
+    "before": {
+      "sourceRevision": "source-d54deed0f9d9c3a5aa6b8c6a",
+      "contentDigest": "0c88b9bcb59fba3bd9c0b8289fc63b5c2c8a692da078b6cf7e883efcd10d4535",
+      "goldenRevision": "golden-e67e5096fe82adebeb7e2ecb-r1-866d7fa7",
+      "goldenOutputDigest": "866d7fa7add621202468a00257f12fb870d870236e838b4221484803e4a2c8ac",
+      "dataAsOf": "2026-08-25T08:00:00Z"
+    },
+    "after": {
+      "sourceRevision": "source-521784eda0522458df49a136",
+      "contentDigest": "faf2db64f718b699f7b6623df8fc8d07b2179a5b3bbbe992cd820c038fa8113a",
+      "goldenRevision": "golden-e67e5096fe82adebeb7e2ecb-r2-765185b8",
+      "goldenOutputDigest": "765185b869a9a72abb76048a6bca87b96f9e094b659701cdffea697ef02d71da",
+      "dataAsOf": "2026-08-25T08:05:00Z"
+    },
+    "changed": {
+      "toolsCallOutput": true,
+      "sourceRevision": true,
+      "goldenRevision": true,
+      "contentDigest": true,
+      "goldenOutputDigest": true,
+      "freshness": true,
+      "dataAsOf": true
+    }
+  },
+  "proposals": {
+    "contract": "docs/knowledge-assets/implementation/STEP3_W1_CONTRACT_PROPOSAL.md",
+    "ui": "docs/knowledge-assets/implementation/STEP3_W1_UI_PROPOSAL.md",
+    "capabilityMatrix": "docs/knowledge-assets/implementation/STEP3_W1_CAPABILITY_MATRIX_PROPOSAL.yaml",
+    "consumerFixture": "tests/fixtures/knowledge_workspace_v21141/step3-w1-ui-consumer-contract.json"
+  },
+  "verification": {
+    "focused": "38 passed",
+    "step3Directory": "99 passed, 13 skipped",
+    "ruffCheck": "passed",
+    "ruffFormat": "passed",
+    "gitleaks": "passed",
+    "mypy": "no issues in 8 W1 source files with --follow-imports=skip --ignore-missing-imports",
+    "compileall": "passed",
+    "jsonYaml": "passed",
+    "diffCheck": "passed",
+    "evidenceRunner": "passed",
+    "freshEmptyRuntimeReproduction": "passed",
+    "contentAddressedArtifactVerification": "passed",
+    "secretSentinelPersisted": false,
+    "allSpawnedProcessesReaped": true,
+    "checkpointAncestor": true
+  },
+  "knownLimits": [
+    "Main must register shared BFF commands/routes and bind bootstrap_projection",
+    "External Oracle/PostgreSQL/Lark/Web/API and remote MCP remain credential_blocked",
+    "Excel passed with environment-provided openpyxl 3.1.5 and xlrd 2.0.2; Main must package them or downgrade capability",
+    "doc_txt implements PDF only; Markdown uses local_file; TXT and HTML remain unsupported",
+    "13 existing external-system E2E cases remain skipped",
+    "No Agent planning, Dashboard renderer, or publication implementation is included"
+  ]
 }
