@@ -129,6 +129,31 @@ const SERVER_FEATURE_ROUTES = new Set([
   "data_overview",
   "evaluation_detail",
 ]);
+// These are high-fidelity Workspace deep links from the frozen 43-state
+// capability matrix. They are route capabilities, not resource facts: the
+// rendered view must still use server-hydrated data or show its own honest
+// gated/empty state.
+const CAPABILITY_MATRIX_ROUTE_IDS = new Set([
+  "add_data",
+  "connector_catalog",
+  "upload_doc",
+  "data_overview",
+  "add_kb",
+  "skill_builder",
+  "evaluation_detail",
+  "journey_knowledge",
+  "journey_oracle_excel",
+  "journey_web_api",
+  "journey_financial_monitor",
+  "journey_workday_mcp",
+  "res_dash_finance",
+  "res_dash_east",
+  "res_dash_recruitment",
+  "kg_sales",
+  "semantic_sales",
+  "res_sample_postgres",
+  "kb_sales",
+]);
 const errorListeners = new Set<(error: KnowledgeAdapterError | null) => void>();
 
 export function getWorkspaceAdapter(): WorkspaceAdapter {
@@ -146,6 +171,7 @@ export function installWorkspaceAdapter(next: WorkspaceAdapter): void {
 export function isWorkspaceRouteAvailable(fileId: string): boolean {
   return (
     (SERVER_FEATURE_ROUTES.has(fileId) && workspaceRoutes.has(fileId)) ||
+    CAPABILITY_MATRIX_ROUTE_IDS.has(fileId) ||
     resourceStore
       .getState()
       .some(
