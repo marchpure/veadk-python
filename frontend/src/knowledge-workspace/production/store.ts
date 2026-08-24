@@ -7,6 +7,7 @@ import {
   type WorkspaceAdapter,
 } from "./ports";
 import { hydrateWorkspaceData } from "./data";
+import type { ActionLoopState } from "./actionLoop";
 
 type Listener = () => void;
 
@@ -95,6 +96,21 @@ export class WorkspaceStore<T> {
     };
   };
 }
+
+// Keep the action-loop store on the same production store module as the other
+// server-hydrated stores. `actionLoop.ts` re-exports this instance so frozen
+// imports retain their original module path without introducing a runtime
+// cycle back into this module.
+export const actionLoopStore = new WorkspaceStore<ActionLoopState>(
+  "action-loop",
+  {
+    signals: [],
+    policies: [],
+    todos: [],
+    reviews: [],
+    briefs: [],
+  },
+);
 
 // Production route availability is populated only by the bootstrap response.
 let adapter: WorkspaceAdapter = new ProductionKnowledgeAdapter();

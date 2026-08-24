@@ -74,6 +74,14 @@
       "target": "frontend/src/knowledge-workspace/production/data.ts",
       "reason": "Hydrate empty production view data only from a validated server bootstrap response; no fixture, mock, localStorage, connector, persistence, domain service, scheduler, or STEP 3 backend is added.",
       "production_dependency": "frontend/src/knowledge-workspace/production/data.ts"
+    },
+    {
+      "id": "ADAPTER-10",
+      "source_commit": "knowledge-v2.11.4.1-commercial-step-2-corrective-7",
+      "source_path": "prototype/codebase/src/lib/actionLoopStore.ts",
+      "target": "frontend/src/knowledge-workspace/production/store.ts",
+      "reason": "Keep the action-loop store instance in the shared production store so server bootstrap hydration and frozen action-loop imports observe one fail-closed production store; the action-loop module retains its public export path.",
+      "production_dependency": "frontend/src/knowledge-workspace/production/store.ts"
     }
   ]
 }
