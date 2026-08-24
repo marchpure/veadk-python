@@ -21,7 +21,8 @@ STEP 3 Skill View generation and STEP 4 publishing were not started.
 - `62a086ea` — append-only Golden Data revisions and tombstones.
 - `26de3274` — authenticated-workspace permission revocation through BFF.
 
-Frozen source commit: `74ad5437b300c0914f1c99adbfb188335eaa080b`
+Frozen implementation commit: `74ad5437b300c0914f1c99adbfb188335eaa080b`
+Handoff commit: `06d68dea6a6b35bf22d192404f0571f415ddc33c`
 
 ## Worker status
 
