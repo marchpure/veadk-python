@@ -97,6 +97,12 @@ def mount_knowledge_asset_routes(
                 request_id=request_id,
                 idempotency_key=idempotency_key,
             )
+        if body.command == "skill-authoring.execute":
+            return await application.execute_skill_authoring(
+                body.payload.model_dump(mode="python"),
+                caller_id=workspace_id,
+                request_id=request_id,
+            )
         if body.command == "source-golden.connection.create":
             try:
                 if (

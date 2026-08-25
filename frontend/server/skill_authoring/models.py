@@ -498,14 +498,19 @@ class Worker3ExecutionRequest(BaseModel):
     lineage: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     budget: Budget
     freshness: FreshnessPolicy
+    draft_manifest: DraftManifest | None = None
+    build_plan: BuildPlan | None = None
+    trace_id: str = Field(default="", max_length=160)
 
 
 class Worker3ExecutionAccepted(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     execution_id: str
-    state: Literal["queued", "credential_blocked", "accepted"]
+    state: Literal["queued", "credential_blocked", "accepted", "failed"]
     reason: str | None = None
+    artifact_result: dict[str, object] | None = None
+    execution_result: dict[str, object] | None = None
 
 
 class AgentEventEvidence(BaseModel):
@@ -611,6 +616,7 @@ class AuthoringOperation(BaseModel):
         "draft_ready",
         "patch_ready",
         "execution_queued",
+        "execution_succeeded",
         "credential_blocked",
         "cancelled",
         "failed",
@@ -619,6 +625,8 @@ class AuthoringOperation(BaseModel):
     context_digest: str | None = None
     plan: BuildPlan | None = None
     agent_execution: AgentExecutionEvidence | None = None
+    artifact_result: dict[str, object] | None = None
+    execution_result: dict[str, object] | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

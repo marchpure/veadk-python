@@ -180,6 +180,25 @@ class SourceGoldenApplication:
             seen.add(connection.id)
         return configurations
 
+    def golden_asset_content(
+        self,
+        context: AccessContext,
+        revision_id: str,
+    ) -> bytes:
+        """Read an authorized Golden revision through the owned artifact store."""
+        revision = self.golden_revision(context, revision_id)
+        try:
+            return self._artifact_store.read(
+                type(revision.storage_ref).model_validate(
+                    revision.storage_ref.model_dump(mode="json")
+                )
+            )
+        except (OSError, ValueError) as error:
+            raise SourcesGoldenError(
+                "GOLDEN_CONTENT_UNAVAILABLE",
+                "The authorized Golden revision content is unavailable.",
+            ) from error
+
     def connector_catalog(
         self,
         context: AccessContext,

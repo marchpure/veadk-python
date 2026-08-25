@@ -335,6 +335,27 @@ class SkillAuthoringStartResult(CommandResultBase):
     events: list[AuthoringEvent] = Field(default_factory=list, max_length=128)
 
 
+class SkillAuthoringExecutePayload(ContractModel):
+    draft_id: str = Field(min_length=1, max_length=160)
+    revision: int | None = Field(default=None, ge=1)
+
+
+class SkillAuthoringExecuteResult(CommandResultBase):
+    result_type: Literal["skill-authoring.execute"] = "skill-authoring.execute"
+    status: Literal[
+        "queued",
+        "running",
+        "succeeded",
+        "ready_for_execution",
+        "credential_blocked",
+        "failed",
+        "cancelled",
+    ] = "failed"
+    operation: AuthoringOperation | None = None
+    draft: DraftRevision | None = None
+    events: list[AuthoringEvent] = Field(default_factory=list, max_length=128)
+
+
 class DraftCommandResult(CommandResultBase):
     result_type: Literal["skill-draft.create", "skill-draft.save-manifest"]
     draft: SkillDraft
@@ -496,6 +517,7 @@ CommandResult = Annotated[
     | EvaluationRunResult
     | EvaluationQualityCommandResult
     | SkillAuthoringStartResult
+    | SkillAuthoringExecuteResult
     | SourceGoldenConnectionResult
     | SourceGoldenIngestResult,
     Field(discriminator="result_type"),
@@ -673,6 +695,11 @@ class SkillAuthoringStartCommand(ContractModel):
     payload: SkillAuthoringStartPayload
 
 
+class SkillAuthoringExecuteCommand(ContractModel):
+    command: Literal["skill-authoring.execute"]
+    payload: SkillAuthoringExecutePayload
+
+
 class SourceGoldenConnectionCreateCommand(ContractModel):
     command: Literal["source-golden.connection.create"]
     payload: SourceGoldenConnectionCreatePayload
@@ -717,6 +744,7 @@ CommandRequest = Annotated[
     | RefreshRunCommand
     | InvocationStartCommand
     | SkillAuthoringStartCommand
+    | SkillAuthoringExecuteCommand
     | SourceGoldenConnectionCreateCommand
     | SourceGoldenIngestCommand,
     Field(discriminator="command"),

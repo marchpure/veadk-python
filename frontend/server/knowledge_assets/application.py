@@ -394,6 +394,49 @@ class KnowledgeAssetApplication:
         await authoring_repo.save_idempotency(idempotency_key, operation_id)
         return self._authoring_response(read, request_id)
 
+    async def execute_skill_authoring(
+        self,
+        payload: dict[str, object],
+        *,
+        caller_id: str,
+        request_id: str,
+    ) -> CommandResponse:
+        from .contracts import SkillAuthoringExecuteResult
+
+        if self._authoring is None:
+            result = SkillAuthoringExecuteResult(
+                status="credential_blocked",
+                error=ErrorEnvelope(
+                    code="AUTHORING_NOT_CONFIGURED",
+                    message="生产 authoring repository 尚未配置。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        try:
+            read = await self._authoring.request_execution(
+                str(payload["draft_id"]),
+                caller_id=caller_id,
+                revision=(
+                    int(payload["revision"])
+                    if payload.get("revision") is not None
+                    else None
+                ),
+            )
+        except SkillAuthoringError as error:
+            result = SkillAuthoringExecuteResult(
+                status="failed",
+                error=ErrorEnvelope(
+                    code=error.code.value,
+                    message=error.message,
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        return self._authoring_execute_response(read, request_id)
+
     @staticmethod
     def _authoring_response(read: AuthoringReadModel, request_id: str) -> CommandResponse:
         from .contracts import SkillAuthoringStartResult
@@ -408,6 +451,25 @@ class KnowledgeAssetApplication:
         }
         return CommandResponse(
             accepted=accepted,
+            request_id=request_id,
+            operation_id=read.operation.operation_id,
+            result=result,
+        )
+
+    @staticmethod
+    def _authoring_execute_response(
+        read: AuthoringReadModel, request_id: str
+    ) -> CommandResponse:
+        from .contracts import SkillAuthoringExecuteResult
+
+        result = SkillAuthoringExecuteResult(
+            status=read.operation.status.value,
+            operation=read.operation,
+            draft=read.draft,
+            events=list(read.events),
+        )
+        return CommandResponse(
+            accepted=read.operation.status.value in {"running", "queued", "succeeded"},
             request_id=request_id,
             operation_id=read.operation.operation_id,
             result=result,
