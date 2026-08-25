@@ -670,6 +670,7 @@
             "draft_ready",
             "patch_ready",
             "execution_queued",
+            "execution_succeeded",
             "credential_blocked",
             "cancelled",
             "failed"
@@ -717,6 +718,32 @@
             }
           ],
           "default": null
+        },
+        "artifact_result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Result"
+        },
+        "execution_result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Result"
         },
         "created_at": {
           "format": "date-time",
@@ -2455,6 +2482,7 @@
                   "publication.publish": "#/$defs/PublicationPublishResult",
                   "refresh.run": "#/$defs/RefreshRunResult",
                   "resource.share": "#/$defs/ResourceShareResult",
+                  "skill-authoring.execute": "#/$defs/SkillAuthoringExecuteResult",
                   "skill-authoring.start": "#/$defs/SkillAuthoringStartResult",
                   "skill-draft.create": "#/$defs/DraftCommandResult",
                   "skill-draft.run": "#/$defs/SkillDraftRunResult",
@@ -2508,6 +2536,9 @@
                 },
                 {
                   "$ref": "#/$defs/SkillAuthoringStartResult"
+                },
+                {
+                  "$ref": "#/$defs/SkillAuthoringExecuteResult"
                 },
                 {
                   "$ref": "#/$defs/SourceGoldenConnectionResult"
@@ -4445,6 +4476,74 @@
         "schemaRef"
       ],
       "title": "SemanticViewModel",
+      "type": "object"
+    },
+    "SkillAuthoringExecuteResult": {
+      "additionalProperties": false,
+      "properties": {
+        "resultType": {
+          "const": "skill-authoring.execute",
+          "default": "skill-authoring.execute",
+          "title": "Resulttype",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorEnvelope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "default": "failed",
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "ready_for_execution",
+            "credential_blocked",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AuthoringOperation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "draft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DraftRevision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/AuthoringEvent"
+          },
+          "maxItems": 128,
+          "title": "Events",
+          "type": "array"
+        }
+      },
+      "title": "SkillAuthoringExecuteResult",
       "type": "object"
     },
     "SkillAuthoringStartResult": {
@@ -6949,6 +7048,7 @@
               "publication.publish": "#/$defs/PublicationPublishResult",
               "refresh.run": "#/$defs/RefreshRunResult",
               "resource.share": "#/$defs/ResourceShareResult",
+              "skill-authoring.execute": "#/$defs/SkillAuthoringExecuteResult",
               "skill-authoring.start": "#/$defs/SkillAuthoringStartResult",
               "skill-draft.create": "#/$defs/DraftCommandResult",
               "skill-draft.run": "#/$defs/SkillDraftRunResult",
@@ -7002,6 +7102,9 @@
             },
             {
               "$ref": "#/$defs/SkillAuthoringStartResult"
+            },
+            {
+              "$ref": "#/$defs/SkillAuthoringExecuteResult"
             },
             {
               "$ref": "#/$defs/SourceGoldenConnectionResult"

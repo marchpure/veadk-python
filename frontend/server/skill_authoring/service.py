@@ -592,27 +592,58 @@ class SkillAuthoringService:
             lineage=draft.plan.lineage or draft.lineage,
             budget=draft.budget,
             freshness=draft.manifest.freshness,
+            draft_manifest=draft.manifest,
+            build_plan=draft.plan,
+            trace_id=operation.trace_id,
         )
         accepted = await self.worker3.request_execution(request)
+        accepted_state = getattr(accepted, "state", None)
+        accepted_reason = getattr(accepted, "reason", None)
         operation = operation.model_copy(
             update={
                 "status": (
-                    AuthoringStatus.RUNNING
-                    if getattr(accepted, "state", None) == "accepted"
+                    AuthoringStatus.SUCCEEDED
+                    if accepted_state == "accepted"
+                    else AuthoringStatus.READY_FOR_EXECUTION
+                    if accepted_state == "queued"
+                    else AuthoringStatus.FAILED
+                    if accepted_state == "failed"
                     else AuthoringStatus.CREDENTIAL_BLOCKED
-                    if getattr(accepted, "state", None) == "credential_blocked"
+                    if accepted_state == "credential_blocked"
                     else AuthoringStatus.READY_FOR_EXECUTION
                 ),
                 "current_revision": draft.revision,
-                "stage": "execution_queued",
-                "progress": 85,
+                "stage": (
+                    "execution_succeeded"
+                    if accepted_state == "accepted"
+                    else "execution_queued"
+                ),
+                "progress": 100 if accepted_state == "accepted" else 85,
+                "artifact_result": getattr(accepted, "artifact_result", None),
+                "execution_result": getattr(accepted, "execution_result", None),
+                "error_code": (
+                    AuthoringErrorCode.EXECUTION_BLOCKED
+                    if accepted_state in {"credential_blocked", "failed"}
+                    else None
+                ),
+                "error_message": (
+                    str(accepted_reason)
+                    if accepted_state in {"credential_blocked", "failed"}
+                    and accepted_reason
+                    else None
+                ),
             }
         )
         await self.repository.save_operation(operation)
         await self._event(
             operation,
             "execution_requested",
-            {"draft_id": draft_id, "revision": str(draft.revision)},
+            {
+                "draft_id": draft_id,
+                "revision": str(draft.revision),
+                "state": str(accepted_state),
+                "reason": str(accepted_reason or ""),
+            },
         )
         return await self.read_operation(operation.operation_id)
 

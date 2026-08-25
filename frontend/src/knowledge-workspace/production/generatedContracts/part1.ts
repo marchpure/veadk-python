@@ -1,7 +1,7 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult } from "./part2";
-import type { NotReadyCommandResult, OutputContract, PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
+import type { EvaluationCaseAdoptHistoryPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult } from "./part2";
+import type { NotReadyCommandResult, OutputContract, PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringExecuteResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
 import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
 
 export interface ActionCommand {
@@ -172,11 +172,13 @@ export interface AuthoringOperation {
   patch_id?: string | null;
   retry_of_operation_id?: string | null;
   clarification_questions?: Array<string>;
-  stage?: "received" | "planning" | "context_resolved" | "plan_ready" | "clarification" | "draft_ready" | "patch_ready" | "execution_queued" | "credential_blocked" | "cancelled" | "failed";
+  stage?: "received" | "planning" | "context_resolved" | "plan_ready" | "clarification" | "draft_ready" | "patch_ready" | "execution_queued" | "execution_succeeded" | "credential_blocked" | "cancelled" | "failed";
   progress?: number;
   context_digest?: string | null;
   plan?: BuildPlan | null;
   agent_execution?: AgentExecutionEvidence | null;
+  artifact_result?: Record<string, unknown> | null;
+  execution_result?: Record<string, unknown> | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -280,7 +282,7 @@ export interface CommandResponse {
   accepted: boolean;
   requestId: string;
   operationId?: string | null;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
 }
 
 export interface CompatibilityTargets {
@@ -436,4 +438,9 @@ export interface ErrorEnvelope {
   retryable: boolean;
   requestId: string;
   details?: Record<string, string> | null;
+}
+
+export interface EvaluationCaseAdoptHistoryCommand {
+  command: "evaluation-case.adopt-history";
+  payload: EvaluationCaseAdoptHistoryPayload;
 }

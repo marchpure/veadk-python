@@ -4,18 +4,6 @@ import type { ArtifactExportResult, ArtifactRef, AssistantTurnResult, Audit, Aut
 import type { EvaluationQualityCommandResult, EvaluationRunResult, Event, GoldenAssetRevision, InvocationStartResult, LegacySkillManifestInput } from "./part2";
 import type { SkillManifest, SkillOperation, SkillResult, SkillViewRevision, SkillViewShareGrant, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewIntent } from "./part4";
 
-export interface ManifestInputSchema {
-  type?: "object";
-  properties?: Record<string, ManifestProperty>;
-  required?: Array<string>;
-  additionalProperties?: boolean;
-}
-
-export interface ManifestProperty {
-  type: "string" | "number" | "boolean" | "object" | "array";
-  description?: string;
-}
-
 export interface McpConnectorConfig {
   kind: "mcp";
   serverUrl: string;
@@ -45,7 +33,7 @@ export interface Operation {
   status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
   version: number;
   events: Array<Event>;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
   error?: ErrorEnvelope | null;
   nextActions?: Array<string>;
   audit?: Array<Audit>;
@@ -296,6 +284,25 @@ export interface SemanticViewModel {
   dimensionRefs?: Array<string>;
   relationshipRefs?: Array<string>;
   dataRef?: StorageRef | null;
+}
+
+export interface SkillAuthoringExecuteCommand {
+  command: "skill-authoring.execute";
+  payload: SkillAuthoringExecutePayload;
+}
+
+export interface SkillAuthoringExecutePayload {
+  draftId: string;
+  revision?: number | null;
+}
+
+export interface SkillAuthoringExecuteResult {
+  resultType?: "skill-authoring.execute";
+  error?: ErrorEnvelope | null;
+  status?: "queued" | "running" | "succeeded" | "ready_for_execution" | "credential_blocked" | "failed" | "cancelled";
+  operation?: AuthoringOperation | null;
+  draft?: DraftRevision | null;
+  events?: Array<AuthoringEvent>;
 }
 
 export interface SkillAuthoringStartCommand {
