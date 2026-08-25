@@ -110,7 +110,11 @@ class SourceGoldenApplication:
                 "MCP_TOOL_NOT_ALLOWED",
                 "请求的 MCP tool 不在服务端 profile allowlist 中。",
             )
-        configuration = dict(profile)
+        configuration = {
+            key: value
+            for key, value in profile.items()
+            if key not in {"profileId", "label"}
+        }
         configuration["toolAllowlist"] = requested_tools or configured_tools
         return configuration
 

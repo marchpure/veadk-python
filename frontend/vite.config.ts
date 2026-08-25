@@ -418,6 +418,14 @@ export function transformFrozenProductionMutations(
   productionRoot: string,
 ): { code: string; map: null; mutationCount: number } | null {
   const productionCode = kwStripPrototypeProductionDefaults(code, filePath);
+  // AddDataView now dispatches the typed Source/Golden commands directly
+  // through the production adapter. Wrapping its inline handlers in the
+  // generic prototype action.update fallback would suppress that real flow.
+  if (filePath.endsWith("/components/MainArea/AddDataView.tsx")) {
+    return productionCode === code
+      ? null
+      : { code: productionCode, map: null, mutationCount: 0 };
+  }
   const sourceFile = ts.createSourceFile(
     filePath,
     productionCode,
