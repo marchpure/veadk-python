@@ -96,8 +96,8 @@ export interface GeneratedBootstrap {
     revision: number;
     permission: boolean;
   }>;
-  connections: Array<Record<string, string>>;
-  publications: Array<Record<string, string>>;
+  connections: Array<Record<string, unknown>>;
+  publications: Array<Record<string, unknown>>;
   routes: string[];
   workspaceData: Record<string, unknown>;
   actionLoop: Record<string, unknown[]>;
