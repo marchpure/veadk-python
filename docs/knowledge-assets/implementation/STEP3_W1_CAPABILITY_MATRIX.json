@@ -1,0 +1,2107 @@
+{
+  "schemaVersion": "knowledge-assets.step3b.w1-capability-matrix.v1",
+  "total": 37,
+  "connectors": [
+    {
+      "connectorKey": "lark_doc",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "docx:document:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_doc",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_doc is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "docx:document:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_doc.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_wiki",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "wiki:wiki:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_wiki",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_wiki is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "wiki:wiki:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_wiki.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_drive",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "drive:drive:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_drive",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_drive is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "drive:drive:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_drive.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_meeting",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "calendar:calendar:readonly",
+          "calendar:calendar.event:read",
+          "vc:meeting:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_meeting",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_meeting is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "calendar:calendar:readonly",
+          "calendar:calendar.event:read",
+          "vc:meeting:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_meeting.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_minutes",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "minutes:minutes:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_minutes",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_minutes is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "minutes:minutes:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_minutes.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_group",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "im:chat:readonly",
+          "im:message:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_group",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_group is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "im:chat:readonly",
+          "im:message:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_group.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_chat",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "im:chat:readonly",
+          "im:message:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_chat",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_chat is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "im:chat:readonly",
+          "im:message:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_chat.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_sheet",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "sheets:spreadsheet:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_sheet",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_sheet is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "sheets:spreadsheet:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_sheet.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_lark_adapters.py::test_lark_sheet_discovers_selected_sheet_and_reads_bounded_cells"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_base",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "bitable:app:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_base",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_base is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "bitable:app:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_base.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "lark_mail",
+      "category": "office",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "mail:user_mailbox.message:readonly"
+        ],
+        "inheritsSourceAcl": true
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "driver": "https",
+        "installCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify lark_mail",
+        "missingCondition": "A user access token with the catalog scopes and access to lark_mail is required.",
+        "requiredSecretFields": [
+          "accessToken"
+        ],
+        "providerScopes": [
+          "offline_access",
+          "mail:user_mailbox.message:readonly"
+        ],
+        "checkpoint": "provider page token plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.LarkOfficeConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "provider page token plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for lark_mail.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_lark_reads_apply_source_specific_selection_parameters"
+        ]
+      }
+    },
+    {
+      "connectorKey": "csv",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py::test_markdown_csv_and_sqlite_build_persisted_golden_revisions"
+        ]
+      }
+    },
+    {
+      "connectorKey": "excel",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py::test_excel_builds_persisted_profile_clean_and_golden_revision"
+        ]
+      }
+    },
+    {
+      "connectorKey": "json",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_json_runs_the_real_lifecycle_and_survives_restart"
+        ]
+      }
+    },
+    {
+      "connectorKey": "parquet",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_parquet_discovers_schema_and_builds_a_golden_revision"
+        ]
+      }
+    },
+    {
+      "connectorKey": "doc_txt",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py::test_pdf_builds_persisted_profile_clean_and_golden_revision"
+        ]
+      }
+    },
+    {
+      "connectorKey": "local_file",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py::test_markdown_csv_and_sqlite_build_persisted_golden_revisions"
+        ]
+      }
+    },
+    {
+      "connectorKey": "s3",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "s3:ListBucket",
+          "s3:GetObject"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ObjectStorageAdapter",
+        "driver": "boto3",
+        "installCommand": "uv pip install boto3",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify s3",
+        "missingCondition": "An AWS credential secret with ListBucket/GetObject is required.",
+        "requiredSecretFields": [
+          "accessKeyId",
+          "secretAccessKey"
+        ],
+        "providerScopes": [
+          "s3:ListBucket",
+          "s3:GetObject"
+        ],
+        "checkpoint": "ETag and VersionId"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ObjectStorageAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag and VersionId",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for s3.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_object_storage_maps_dns_failure_to_typed_validation_error"
+        ]
+      }
+    },
+    {
+      "connectorKey": "oss",
+      "category": "file",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "oss:ListObjects",
+          "oss:GetObject"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ObjectStorageAdapter",
+        "driver": "oss2",
+        "installCommand": "uv pip install oss2",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify oss",
+        "missingCondition": "An OSS endpoint and credential secret with list/get permission are required.",
+        "requiredSecretFields": [
+          "accessKeyId",
+          "accessKeySecret"
+        ],
+        "providerScopes": [
+          "oss:ListObjects",
+          "oss:GetObject"
+        ],
+        "checkpoint": "ETag"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ObjectStorageAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for oss.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_object_storage_maps_dns_failure_to_typed_validation_error"
+        ]
+      }
+    },
+    {
+      "connectorKey": "postgresql",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.SqlConnectorAdapter",
+        "driver": "psycopg2",
+        "installCommand": "uv pip install psycopg2-binary",
+        "verificationCommand": "python -c \"import psycopg2; print(psycopg2.__version__)\"",
+        "missingCondition": "A reachable PostgreSQL endpoint and read-only username/password secret are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus selected table identity"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.SqlConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus selected table identity",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "available",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_database_live.py",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_database_adapters_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_database_adapters_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "mysql",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.SqlConnectorAdapter",
+        "driver": "pymysql",
+        "installCommand": "uv pip install pymysql",
+        "verificationCommand": "python -c \"import pymysql; print(pymysql.__version__)\"",
+        "missingCondition": "A reachable MySQL endpoint and read-only username/password secret are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus selected table identity"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.SqlConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus selected table identity",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "available",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_database_live.py",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_database_adapters_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_database_adapters_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "oracle",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "oracledb",
+        "installCommand": "uv pip install oracledb",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify oracle",
+        "missingCondition": "Oracle DSN and a read-only username/password secret are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for oracle.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "sqlserver",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "pyodbc",
+        "installCommand": "uv pip install pyodbc",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify sqlserver",
+        "missingCondition": "SQL Server endpoint, ODBC Driver 18, and read-only credentials are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for sqlserver.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "sqlite",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "driver": "python-standard-library/server-parser",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k step3b_connector",
+        "missingCondition": "none",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "content SHA-256 plus schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.LocalFileConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content SHA-256 plus schema digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py::test_markdown_csv_and_sqlite_build_persisted_golden_revisions"
+        ]
+      }
+    },
+    {
+      "connectorKey": "clickhouse",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "clickhouse_connect",
+        "installCommand": "uv pip install clickhouse-connect",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify clickhouse",
+        "missingCondition": "ClickHouse endpoint and read-only credentials are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for clickhouse.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "doris",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "pymysql",
+        "installCommand": "uv pip install pymysql",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify doris",
+        "missingCondition": "Doris MySQL endpoint and read-only credentials are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for doris.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "starrocks",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "pymysql",
+        "installCommand": "uv pip install pymysql",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify starrocks",
+        "missingCondition": "StarRocks MySQL endpoint and read-only credentials are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for starrocks.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "snowflake",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "snowflake.connector",
+        "installCommand": "uv pip install snowflake-connector-python",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify snowflake",
+        "missingCondition": "Snowflake account/warehouse and read-only credentials are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for snowflake.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style"
+        ]
+      }
+    },
+    {
+      "connectorKey": "bigquery",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "google.cloud.bigquery",
+        "installCommand": "uv pip install google-cloud-bigquery",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify bigquery",
+        "missingCondition": "A BigQuery service-account secret with dataset read permission is required.",
+        "requiredSecretFields": [
+          "type",
+          "project_id",
+          "private_key_id",
+          "private_key",
+          "client_email",
+          "client_id",
+          "token_uri"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "query job id plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "query job id plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for bigquery.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style"
+        ]
+      }
+    },
+    {
+      "connectorKey": "hive",
+      "category": "db",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "driver": "pyhive.hive",
+        "installCommand": "uv pip install 'PyHive[hive]'",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify hive",
+        "missingCondition": "HiveServer2 endpoint and read-only credentials are required.",
+        "requiredSecretFields": [
+          "username",
+          "password"
+        ],
+        "providerScopes": [
+          "schema.metadata.read",
+          "table.data.read"
+        ],
+        "checkpoint": "content digest plus discovered schema digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.ExternalDatabaseAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "content digest plus discovered schema digest",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for hive.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_warehouse_named_parameters_use_the_driver_parameter_style",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_private_endpoint_without_allowlist",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_external_databases_reject_dns_rebinding_during_discovery"
+        ]
+      }
+    },
+    {
+      "connectorKey": "rest_api",
+      "category": "api",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "driver": "httpx",
+        "installCommand": "uv pip install httpx",
+        "verificationCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "missingCondition": "A reachable allowlisted HTTP endpoint is required.",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "ETag and Last-Modified, with response digest lineage"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag and Last-Modified, with response digest lineage",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_rest_http_runs_paginated_lifecycle_with_durable_checkpoint_and_secret_safety"
+        ]
+      }
+    },
+    {
+      "connectorKey": "graphql",
+      "category": "api",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "driver": "httpx",
+        "installCommand": "uv pip install httpx",
+        "verificationCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "missingCondition": "A reachable allowlisted HTTP endpoint is required.",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "ETag and Last-Modified, with response digest lineage"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag and Last-Modified, with response digest lineage",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_graphql_web_and_custom_http_use_real_read_only_endpoints"
+        ]
+      }
+    },
+    {
+      "connectorKey": "web_discovery",
+      "category": "api",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "driver": "httpx",
+        "installCommand": "uv pip install httpx",
+        "verificationCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "missingCondition": "A reachable allowlisted HTTP endpoint is required.",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "ETag and Last-Modified, with response digest lineage"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag and Last-Modified, with response digest lineage",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_graphql_web_and_custom_http_use_real_read_only_endpoints"
+        ]
+      }
+    },
+    {
+      "connectorKey": "webhook",
+      "category": "api",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.WebhookConnectorAdapter",
+        "driver": "ASGI inbound HTTP/HMAC-SHA256",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -m pytest -q tests/frontend -k 'step3b_connector and webhook'",
+        "missingCondition": "A workspace HMAC secretRef is required.",
+        "requiredSecretFields": [
+          "hmacSecret"
+        ],
+        "providerScopes": [
+          "webhook.deliver"
+        ],
+        "checkpoint": "last durable event sequence plus content digest"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.WebhookConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "last durable event sequence plus content digest",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "available",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_webhook_ingress.py"
+        ]
+      }
+    },
+    {
+      "connectorKey": "kafka",
+      "category": "api",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [
+          "topic.describe",
+          "topic.read",
+          "group.read"
+        ],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.provider_adapters.KafkaConnectorAdapter",
+        "driver": "confluent_kafka",
+        "installCommand": "uv pip install confluent-kafka",
+        "verificationCommand": "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' python -m frontend.server.knowledge_assets.sources_golden.provider_verify kafka",
+        "missingCondition": "Kafka brokers and a consumer credential/config secret are required.",
+        "requiredSecretFields": [],
+        "providerScopes": [
+          "topic.describe",
+          "topic.read",
+          "group.read"
+        ],
+        "checkpoint": "topic-partition offsets"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.provider_adapters.KafkaConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "topic-partition offsets",
+        "typedError": "implemented",
+        "liveE2e": "external_blocked",
+        "credentialState": "external_blocked",
+        "blocker": "No live credential or official provider sandbox was supplied for kafka.",
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py::test_kafka_rejects_private_broker_resolution_without_explicit_allowlist"
+        ]
+      }
+    },
+    {
+      "connectorKey": "mcp_custom",
+      "category": "custom",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.mcp_connector.McpConnectorAdapter",
+        "driver": "mcp",
+        "installCommand": "uv pip install 'mcp==1.26.0'",
+        "verificationCommand": "python -c \"import mcp; print(mcp.__version__)\"",
+        "missingCondition": "A server-owned stdio profile or reachable streamable HTTP/SSE endpoint is required.",
+        "requiredSecretFields": [],
+        "providerScopes": [
+          "mcp.tools.list",
+          "mcp.tools.call"
+        ],
+        "checkpoint": "tool result content digest plus MCP trace id"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.mcp_connector.McpConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "tool result content digest plus MCP trace id",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_remote_mcp_live.py"
+        ]
+      }
+    },
+    {
+      "connectorKey": "custom_http",
+      "category": "custom",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "driver": "httpx",
+        "installCommand": "uv pip install httpx",
+        "verificationCommand": "python -c \"import httpx; print(httpx.__version__)\"",
+        "missingCondition": "A reachable allowlisted HTTP endpoint is required.",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "ETag and Last-Modified, with response digest lineage"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.HttpConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag and Last-Modified, with response digest lineage",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_graphql_web_and_custom_http_use_real_read_only_endpoints"
+        ]
+      }
+    },
+    {
+      "connectorKey": "openapi_spec",
+      "category": "custom",
+      "capabilityState": "available",
+      "permissions": {
+        "readScopes": [
+          "workspace.member",
+          "source.read"
+        ],
+        "manageScopes": [
+          "workspace.member",
+          "source.write"
+        ],
+        "providerScopes": [],
+        "inheritsSourceAcl": false
+      },
+      "certification": {
+        "implementation": "frontend.server.knowledge_assets.sources_golden.connector_registry.OpenApiConnectorAdapter",
+        "driver": "PyYAML/httpx",
+        "installCommand": "uv sync --all-extras",
+        "verificationCommand": "python -c \"import yaml, httpx; print(yaml.__version__)\"",
+        "missingCondition": "A readable OpenAPI file and reachable allowlisted server are required.",
+        "requiredSecretFields": [],
+        "providerScopes": [],
+        "checkpoint": "ETag and Last-Modified, with response digest lineage"
+      },
+      "capability": {
+        "catalog": "present",
+        "form": "validated",
+        "adapter": "frontend.server.knowledge_assets.sources_golden.connector_registry.OpenApiConnectorAdapter",
+        "validation": "implemented",
+        "authentication": "implemented",
+        "authorization": "implemented",
+        "discovery": "implemented",
+        "read": "implemented",
+        "refresh": "implemented",
+        "checkpoint": "ETag and Last-Modified, with response digest lineage",
+        "typedError": "implemented",
+        "liveE2e": "passed",
+        "credentialState": "not_required",
+        "blocker": null,
+        "evidence": [
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_catalog_entries_have_a_formal_callable_adapter",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_37_adapters_reject_invalid_configuration_with_typed_errors",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_context_reference_is_pinned_reauthorized_and_freshness_bounded",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_uniform_execution_policy_enforces_retry_timeout_and_cancellation",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_all_adapters_validate_bounded_retry_policy",
+          "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py::test_openapi_allowlisted_operation_reads_real_http_and_detects_schema_drift"
+        ]
+      }
+    }
+  ]
+}

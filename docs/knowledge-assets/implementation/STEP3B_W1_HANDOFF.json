@@ -1,0 +1,335 @@
+{
+  "schemaVersion": "knowledge-assets.step3b.w1-handoff.v1",
+  "status": "WORKER_ADAPTERS_COMPLETE_37_OF_37_MAIN_WIRING_REQUIRED",
+  "worker": "W1",
+  "domain": "sources_connectors_golden_data",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-step3b-w1-connectors",
+  "branch": "feat/knowledge-step3b-connectors",
+  "frozenBaseCommit": "1411d706825546e3aba465d95f468a2729ddf8bb",
+  "deliveryCommit": "SELF_RESOLVE_WITH_GIT_REV_PARSE_HEAD",
+  "supersedes": {
+    "files": [
+      "docs/knowledge-assets/implementation/STEP3_W1_HANDOFF.md",
+      "docs/knowledge-assets/implementation/STEP3_W1_HANDOFF.json"
+    ],
+    "historicalFilesModified": false,
+    "reason": "Step 3B replaces the former partial capability-state conclusion with 37 registered formal adapters and separates adapter availability from credential-dependent live E2E."
+  },
+  "completion": {
+    "catalogEntries": 37,
+    "registeredFormalAdapters": 37,
+    "completeLifecycleAdapters": 37,
+    "capabilityStates": {
+      "available": 37
+    },
+    "categories": {
+      "office": 10,
+      "file": 8,
+      "db": 11,
+      "api": 5,
+      "custom": 3
+    },
+    "requiredCapabilities": {
+      "configurationValidation": 37,
+      "permissions": 37,
+      "authentication": 37,
+      "authorization": 37,
+      "discovery": 37,
+      "read": 37,
+      "refresh": 37,
+      "checkpoint": 37,
+      "typedError": 37,
+      "capabilityMatrixRows": 37
+    },
+    "missingAdapters": [],
+    "migrationChanges": []
+  },
+  "liveE2e": {
+    "passed": {
+      "count": 16,
+      "connectors": [
+        "csv",
+        "excel",
+        "json",
+        "parquet",
+        "doc_txt",
+        "local_file",
+        "postgresql",
+        "mysql",
+        "sqlite",
+        "rest_api",
+        "graphql",
+        "web_discovery",
+        "webhook",
+        "mcp_custom",
+        "custom_http",
+        "openapi_spec"
+      ]
+    },
+    "externalBlocked": {
+      "count": 21,
+      "connectors": [
+        "lark_doc",
+        "lark_wiki",
+        "lark_drive",
+        "lark_meeting",
+        "lark_minutes",
+        "lark_group",
+        "lark_chat",
+        "lark_sheet",
+        "lark_base",
+        "lark_mail",
+        "s3",
+        "oss",
+        "oracle",
+        "sqlserver",
+        "clickhouse",
+        "doris",
+        "starrocks",
+        "snowflake",
+        "bigquery",
+        "hive",
+        "kafka"
+      ],
+      "scope": "live_e2e_only",
+      "adapterAvailabilityReduced": false
+    }
+  },
+  "architecture": {
+    "adapterInterface": "frontend/server/knowledge_assets/sources_golden/connector_adapter.py",
+    "registry": "frontend/server/knowledge_assets/sources_golden/connector_registry.py",
+    "runtimeMatrixMethod": "SourceGoldenApplication.connector_capability_matrix",
+    "typedFailure": "ConnectorAdapterError",
+    "durableLifecycle": true,
+    "durableCheckpoint": true,
+    "secretValuesPersisted": false,
+    "mcpBrowserCatalogFields": [
+      "profileId"
+    ],
+    "mcpServerOnlyFieldsHidden": [
+      "command",
+      "args",
+      "env",
+      "cwd",
+      "secretRef"
+    ]
+  },
+  "evidence": {
+    "capabilityMatrix": {
+      "path": "docs/knowledge-assets/implementation/STEP3_W1_CAPABILITY_MATRIX.json",
+      "sha256": "5be0eed4a386894cfd9b61645ba7c27b365b75cd4a87d50b5c4a6cbd88a771c2",
+      "rows": 37,
+      "incompleteRows": 0
+    },
+    "mcp": {
+      "path": "/Users/bytedance/.codex/runtime/knowledge-step3b-w1-connectors.LZXDkI/mcp-evidence.json",
+      "sha256": "ef71d17dbc4dc93b1ee0cddcb0746e3c08a839274efcdbbd3c63a489b266a324",
+      "status": "PASS_WITHIN_EXECUTED_SCOPE",
+      "sdkPackage": "mcp",
+      "sdkVersion": "1.26.0",
+      "officialProcesses": 3,
+      "fixtureProcesses": 2,
+      "faultScenarios": 13,
+      "spawnedFaultProcesses": 9,
+      "allSpawnedProcessesReaped": true,
+      "secretSentinelPersisted": false
+    },
+    "browser": {
+      "directory": "/Users/bytedance/.codex/runtime/knowledge-step3b-w1-browser-final3.jHyAgL",
+      "report": "browser-evidence.json",
+      "reportSha256": "0523c3a4dc30cefac4cdd80622960f4898ccb42a2a14bc1218c993ce24ed237a",
+      "harSha256": "f4c38645ed31bd12ffcfe2c2ebbe2534edd27f58fe5c442354a9b53efbb2af3b",
+      "videoSha256": "5db1e89ef5a0c05c7e8c366774aca343bf3cc544a0cf86f951413b3f3d4eaf59",
+      "consoleSha256": "30e3784bf24eb20aad8e03353371cb8b076e37a42611b974a51f52a1b4804328",
+      "serverLogSha256": "69f4c23c5188a9b9fb56ba9385cda3d848981fd7f111d5c643339c7bcde19760",
+      "mcpTranscript": "mcp-transcript.json",
+      "mcpTranscriptSha256": "7a6ef232d2fbad756e08cba7cf0c4bf96cff5aa8d84ebc71977420cfbf5cf469",
+      "httpFixture": {
+        "implementation": "node:http",
+        "runtimeVersion": "v22.22.3"
+      },
+      "databaseVersions": {
+        "postgresql": "PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+        "mysql": "8.4.11"
+      },
+      "status": "PASS",
+      "connectorUiAudits": 37,
+      "screenshots": 50,
+      "consoleErrors": 0,
+      "mcpCreateDiscoverCallIngest": true,
+      "mcpChildProcessesReaped": true,
+      "bffRestartRecovery": true,
+      "restoredGoldenRevisions": 13,
+      "executedFlows": [
+        "37 connector catalog/form audits",
+        "CSV, Excel, JSON, Parquet, PDF, Markdown, TXT, HTML, and SQLite upload/discover/read/Golden/context",
+        "REST and OpenAPI discover/read plus OpenAPI schema drift",
+        "PostgreSQL and MySQL discover/parameterized read/refresh/schema drift",
+        "wrong credential, SQL write, row budget, HTTP timeout/oversize, SSRF, cross-workspace, forged-context, and revoked-source negatives",
+        "signed webhook delivery with matching durable operation/event trace",
+        "visible non-MCP add-to-Agent-context with immutable revision",
+        "MCP create/discover/call/ingest and child-process reaping",
+        "browser refresh and BFF restart recovery for all 13 active Golden revisions",
+        "operation and trace consistency for CSV, REST, OpenAPI, PostgreSQL, MySQL, and MCP"
+      ]
+    },
+    "tests": {
+      "directory": "/Users/bytedance/.codex/runtime/knowledge-step3b-w1-test-evidence-final5",
+      "core": {
+        "report": "core.xml",
+        "sha256": "48a13a28b8da738906923fa6dd2b7bf5f672026ef27a4717ff800baab38d265f",
+        "passed": 163,
+        "failed": 0
+      },
+      "databaseLive": {
+        "directory": "/Users/bytedance/.codex/runtime/knowledge-step3b-w1-test-evidence-final",
+        "report": "database-live.xml",
+        "sha256": "427ffeaa2263bfa93dcc3b37c652cbe069785e31a4665c01dcc666eb4d21d40b",
+        "passed": 12,
+        "failed": 0,
+        "servers": [
+          "postgres:16-alpine",
+          "mysql:8.4"
+        ]
+      },
+      "postAuditFocused": {
+        "passed": 163,
+        "failed": 0
+      }
+    }
+  },
+  "verification": {
+    "frontendTests": {
+      "passed": 851,
+      "failed": 0
+    },
+    "frontendBuild": "passed_with_existing_chunk_warnings",
+    "pyrightChangedPython": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "ruffCheck": "passed",
+    "ruffFormat": "passed",
+    "nodeCheck": "passed",
+    "jsonParse": "passed",
+    "compileall": "passed",
+    "preCommit": {
+      "status": "passed",
+      "hooks": [
+        "ruff-check",
+        "ruff-format",
+        "gitleaks"
+      ]
+    },
+    "gitDiffCheck": "passed",
+    "frozenScopeReview": "passed",
+    "knowledgeWorkspaceDirectory": {
+      "passed": 243,
+      "skipped": 25,
+      "failed": 2,
+      "failureScope": "W3 screenshot tests require the absent Python playwright package; no connector test failed."
+    },
+    "productionReadinessDirectory": {
+      "passed": 43,
+      "failed": 1,
+      "failureScope": "The historical Step 2 static guard compares the current repository with an obsolete write-scope baseline."
+    }
+  },
+  "sharedUi": {
+    "mcpWired": true,
+    "mcpFlow": [
+      "source-golden.connection.create",
+      "source-golden.ingest"
+    ],
+    "mcpPersistsAcrossBffRestart": true,
+    "nonMcpSave": "MAIN_WIRING_REQUIRED",
+    "nonMcpBackendAndContextFlowCertified": true,
+    "nonMcpSaveFailsClosed": true,
+    "fakeSuccessCreated": false
+  },
+  "sharedContractProposal": {
+    "implementation": "frontend/server/knowledge_assets/sources_golden/http_api.py::mount_source_golden_routes",
+    "prefix": "/api/source-golden/v1",
+    "upload": "POST /uploads multipart -> {sourceRef, mediaType, bytes, sha256}; sourceRef is content-addressed and workspace-scoped",
+    "create": "POST /connections {connectorKey, displayName, scope, configuration, secretRef}; Idempotency-Key header required",
+    "ingest": "POST /connections/{connectionId}/ingestions {resourceId, recipeOperations}; Idempotency-Key header required",
+    "operations": "GET /connections/{connectionId}/operations and GET /connections/{connectionId}/traces/{traceId}",
+    "read": "GET /golden-revisions/{revisionId}/content through golden_asset_content",
+    "refresh": "POST /golden-assets/{assetId}/refresh and POST /refresh-runs/{runId}/retry",
+    "cancel": "POST /golden-assets/{assetId}/refresh-cancel",
+    "revoke": "DELETE /source-connections/{connectionId} {reason}",
+    "webhook": "mount create_webhook_ingress(application), preserving raw body and signature/delivery/timestamp/trace headers",
+    "context": "submit only {kind, objectId, revision, providerRevision}; derive caller server-side and resolve with golden_resource_binding/golden_asset_content",
+    "authorization": "reject missing, cross-workspace, personal-scope foreign, revoked, and policy-expired revisions; never trust browser caller identity"
+  },
+  "mainIntegrationOrder": [
+    "Integrate this delivery unchanged on the frozen base; no database migration is included.",
+    "Reuse source-golden.connection.create and source-golden.ingest with production artifact storage, secret resolution, provider drivers, network policy, and server-owned MCP profiles.",
+    "Add shared BFF contracts and routes for upload/read, then refresh/retry/cancel and revoke/delete, preserving authorization, idempotency, typed errors, and redaction.",
+    "Mount webhook ingress with its secret resolver and durable event repository.",
+    "Connect the frozen non-MCP UI save flow only after the shared commands are available; retain fail-closed behavior until then.",
+    "Re-run matrix parity, focused tests, database live tests, and the browser certification after composition."
+  ],
+  "packagingFollowUp": {
+    "owner": "MAIN",
+    "required": true,
+    "facts": [
+      "openpyxl is currently transitive rather than directly declared.",
+      "pyarrow is currently transitive rather than directly declared.",
+      "The connector intentionally advertises only .xlsx; legacy .xls is not advertised because xlrd is not a declared runtime dependency."
+    ]
+  },
+  "frozenScopesModified": {
+    "frontend/server/knowledge_assets/application.py": false,
+    "frontend/server/knowledge_assets/routes/http.py": false,
+    "frontend/src/knowledge-workspace/frozen-ui": false,
+    "skill_authoring": false,
+    "kind_runtime": false
+  },
+  "changedFiles": [
+    "docs/knowledge-assets/implementation/STEP3_W1_CAPABILITY_MATRIX.json",
+    "docs/knowledge-assets/implementation/STEP3B_W1_HANDOFF.json",
+    "docs/knowledge-assets/implementation/STEP3B_W1_HANDOFF.md",
+    "frontend/server/knowledge_assets/connector_contracts.py",
+    "frontend/server/knowledge_assets/sources_golden/__init__.py",
+    "frontend/server/knowledge_assets/sources_golden/adapters.py",
+    "frontend/server/knowledge_assets/sources_golden/application.py",
+    "frontend/server/knowledge_assets/sources_golden/catalog.py",
+    "frontend/server/knowledge_assets/sources_golden/catalog_projection.py",
+    "frontend/server/knowledge_assets/sources_golden/catalog_schema.py",
+    "frontend/server/knowledge_assets/sources_golden/connector_adapter.py",
+    "frontend/server/knowledge_assets/sources_golden/connector_registry.py",
+    "frontend/server/knowledge_assets/sources_golden/database_adapter.py",
+    "frontend/server/knowledge_assets/sources_golden/http_adapters.py",
+    "frontend/server/knowledge_assets/sources_golden/http_api.py",
+    "frontend/server/knowledge_assets/sources_golden/http_transport.py",
+    "frontend/server/knowledge_assets/sources_golden/lifecycle.py",
+    "frontend/server/knowledge_assets/sources_golden/local_formats.py",
+    "frontend/server/knowledge_assets/sources_golden/mcp_connector.py",
+    "frontend/server/knowledge_assets/sources_golden/mcp_remote.py",
+    "frontend/server/knowledge_assets/sources_golden/mcp_stdio.py",
+    "frontend/server/knowledge_assets/sources_golden/models.py",
+    "frontend/server/knowledge_assets/sources_golden/openapi_adapter.py",
+    "frontend/server/knowledge_assets/sources_golden/provider_adapters.py",
+    "frontend/server/knowledge_assets/sources_golden/provider_verify.py",
+    "frontend/server/knowledge_assets/sources_golden/repository.py",
+    "frontend/server/knowledge_assets/sources_golden/repository_traces.py",
+    "frontend/server/knowledge_assets/sources_golden/webhook_adapter.py",
+    "frontend/server/knowledge_assets/sources_golden/webhook_ingress.py",
+    "tests/fixtures/knowledge_workspace_v21141/generate_step3b_w1_browser_evidence.mjs",
+    "tests/fixtures/knowledge_workspace_v21141/mcp_sdk_remote_server.py",
+    "tests/fixtures/knowledge_workspace_v21141/prepare_step3b_browser_databases.py",
+    "tests/fixtures/knowledge_workspace_v21141/prepare_step3b_browser_sources.py",
+    "tests/fixtures/knowledge_workspace_v21141/step3b_w1_browser_server.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_adapters.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_connector_contracts.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_database_live.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_lark_adapters.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_provider_adapters.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_remote_mcp_live.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_remote_mcp_security.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_source_golden_http_api.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3b_webhook_ingress.py"
+  ]
+}

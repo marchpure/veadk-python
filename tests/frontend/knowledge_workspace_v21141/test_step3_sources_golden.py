@@ -1,17 +1,19 @@
-from collections import Counter
-from pathlib import Path
-import sqlite3
 import json
 import os
+import sqlite3
 import sys
 import time
+from collections import Counter
+from pathlib import Path
+from typing import Literal, cast
+
+import pytest
 
 from frontend.server.knowledge_assets.sources_golden import (
     AccessContext,
     SourceGoldenApplication,
     SourcesGoldenError,
 )
-import pytest
 
 
 def _application(tmp_path: Path) -> SourceGoldenApplication:
@@ -26,7 +28,7 @@ def _context(
     *,
     workspace_id: str = "workspace-a",
     principal_id: str = "user-1",
-    role: str = "editor",
+    role: Literal["viewer", "editor", "admin"] = "editor",
 ) -> AccessContext:
     return AccessContext(
         workspace_id=workspace_id,
@@ -60,11 +62,11 @@ def test_connector_catalog_is_complete_typed_and_truthful(tmp_path: Path) -> Non
     assert by_key["sqlite"].capability_state == "available"
     assert by_key["local_file"].capability_state == "available"
     assert by_key["doc_txt"].capability_state == "available"
-    assert by_key["oracle"].capability_state == "credential_blocked"
-    assert by_key["postgresql"].capability_state == "credential_blocked"
-    assert by_key["lark_doc"].capability_state == "credential_blocked"
-    assert by_key["web_discovery"].capability_state == "credential_blocked"
-    assert by_key["mcp_custom"].capability_state == "configurable"
+    assert by_key["oracle"].capability_state == "available"
+    assert by_key["postgresql"].capability_state == "available"
+    assert by_key["lark_doc"].capability_state == "available"
+    assert by_key["web_discovery"].capability_state == "available"
+    assert by_key["mcp_custom"].capability_state == "available"
     assert by_key["excel"].capability_state == "available"
 
     assert "host" not in by_key["csv"].input_schema.properties
@@ -74,9 +76,8 @@ def test_connector_catalog_is_complete_typed_and_truthful(tmp_path: Path) -> Non
     assert {"endpoint", "paginationMode", "refreshSeconds"} <= set(
         by_key["rest_api"].input_schema.properties
     )
-    assert {"transport", "endpoint", "toolAllowlist"} <= set(
-        by_key["mcp_custom"].input_schema.properties
-    )
+    assert set(by_key["mcp_custom"].input_schema.properties) == {"profileId"}
+    assert by_key["mcp_custom"].credential_schema.properties == {}
     assert {"documentRef", "scopeRef"} <= set(
         by_key["lark_doc"].input_schema.properties
     )
@@ -186,7 +187,10 @@ def test_external_adapter_contracts_validate_then_fail_closed(
             "host": "db.example",
             "port": 5432,
             "database": "analytics",
+            "schemaAllowlist": ["public"],
+            "tableAllowlist": ["orders"],
             "query": "SELECT * FROM orders WHERE tenant_id = :tenant_id",
+            "queryParameters": {"tenant_id": "validation"},
             "rowLimit": 100,
             "byteLimit": 100_000,
             "timeoutSeconds": 10,
@@ -197,9 +201,11 @@ def test_external_adapter_contracts_validate_then_fail_closed(
     )
     assert blocked.connection.status == "credential_blocked"
     assert blocked.discovery.resources == []
-    assert blocked.discovery.reason.code == "PROVIDER_EXECUTION_BLOCKED"
+    assert blocked.discovery.reason.code == "EXTERNAL_CREDENTIAL_UNAVAILABLE"
     serialized = blocked.model_dump_json(by_alias=True)
-    assert "secret://workspace-a/postgresql" in serialized
+    public_connection = blocked.connection.model_dump(mode="json", by_alias=True)
+    assert "secret://workspace-a/postgresql" not in serialized
+    assert "configuration" not in public_connection
     assert "password" not in serialized.lower()
 
     with pytest.raises(SourcesGoldenError, match="read-only"):
@@ -212,6 +218,8 @@ def test_external_adapter_contracts_validate_then_fail_closed(
                 "host": "db.example",
                 "port": 1521,
                 "serviceName": "ORCL",
+                "schemaAllowlist": ["REPORTING"],
+                "tableAllowlist": ["accounts"],
                 "query": "DELETE FROM accounts",
             },
             secret_ref="secret://workspace-a/oracle",
@@ -226,6 +234,7 @@ def test_external_adapter_contracts_validate_then_fail_closed(
             scope="personal",
             configuration={
                 "endpoint": "https://private.example/data",
+                "operationAllowlist": ["read"],
                 "paginationMode": "none",
                 "refreshSeconds": 60,
             },
@@ -363,6 +372,7 @@ def test_excel_builds_persisted_profile_clean_and_golden_revision(
 
     workbook = Workbook()
     sheet = workbook.active
+    assert sheet is not None
     sheet.title = "capacity"
     sheet.append(["service", "capacity", "owner_email"])
     sheet.append(["gateway", 12, "infra@example.com"])
@@ -492,6 +502,8 @@ def test_refresh_promotes_only_compatible_success_and_preserves_history(
         trace_id="trace-refresh-two",
     )
     assert refreshed.run.status == "succeeded"
+    assert refreshed.golden_asset_revision is not None
+    assert refreshed.run.staging_ref is not None
     assert refreshed.run.previous_revision_id == first.id
     assert refreshed.run.promoted_revision_id == refreshed.golden_asset_revision.id
     assert refreshed.run.staging_ref.sha256 == (
@@ -515,6 +527,7 @@ def test_refresh_promotes_only_compatible_success_and_preserves_history(
     assert drifted.run.status == "schema_drift"
     assert drifted.run.reason.code == "SCHEMA_DRIFT"
     assert drifted.golden_asset_revision is None
+    assert drifted.last_good_revision is not None
     assert drifted.last_good_revision.id == refreshed.golden_asset_revision.id
 
     source.write_bytes(b"\xff\xfe")
@@ -526,6 +539,7 @@ def test_refresh_promotes_only_compatible_success_and_preserves_history(
     )
     assert failed.run.status == "failed"
     assert failed.run.reason.code == "SOURCE_READ_FAILED"
+    assert failed.last_good_revision is not None
     assert failed.last_good_revision.id == refreshed.golden_asset_revision.id
 
     retry = application.retry_refresh(
@@ -656,6 +670,46 @@ def test_workspace_isolation_and_revoke_hide_connection_and_asset(
         application.source_revision(_context(), asset.lineage.source_revision_id)
 
 
+def test_revoked_connection_idempotency_replay_returns_typed_failed_operations(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "notes.md").write_text("workspace note\n", encoding="utf-8")
+    application = _application(tmp_path)
+    created = application.create_connection(
+        _context(),
+        connector_key="local_file",
+        display_name="Notes",
+        scope="personal",
+        configuration={"sourceRef": "notes.md"},
+        secret_ref=None,
+        idempotency_key="revoked-replay",
+        trace_id="trace-create",
+    )
+    application.revoke_connection(
+        _context(),
+        created.connection.id,
+        reason="source permission removed",
+        trace_id="trace-revoke",
+    )
+
+    replay = application.create_connection(
+        _context(),
+        connector_key="local_file",
+        display_name="Ignored",
+        scope="personal",
+        configuration={"sourceRef": "notes.md"},
+        secret_ref=None,
+        idempotency_key="revoked-replay",
+        trace_id="trace-replay",
+    )
+
+    assert replay.replayed is True
+    assert replay.connection.status == "revoked"
+    assert replay.validation.status == "failed"
+    assert replay.discovery.status == "failed"
+    assert replay.validation.reason.code == "PERMISSION_REVOKED"
+
+
 def test_personal_sources_are_principal_isolated_and_team_sources_are_shared(
     tmp_path: Path,
 ) -> None:
@@ -718,9 +772,10 @@ def test_add_data_and_bootstrap_bind_real_read_models(tmp_path: Path) -> None:
     application = _application(tmp_path)
     add_data = application.add_data(_context(), connector_key="postgresql")
     assert add_data.view == "add_data"
+    assert add_data.selected_connector is not None
     assert add_data.selected_connector.connector_key == "postgresql"
     assert add_data.steps == ["configure", "authorize", "discover", "save"]
-    assert add_data.blocked_reason.code == "CREDENTIAL_REQUIRED"
+    assert add_data.blocked_reason is None
     assert (
         application.add_data(_context(role="viewer"), connector_key="csv").can_create
         is False
@@ -732,17 +787,30 @@ def test_add_data_and_bootstrap_bind_real_read_models(tmp_path: Path) -> None:
         "add_data",
         "connector_catalog",
     ]
-    assert len(bootstrap["workspaceData"]["connectorCatalog"]) == 37
+    workspace_data = bootstrap["workspaceData"]
+    assert isinstance(workspace_data, dict)
+    projected_catalog = workspace_data["connectorCatalog"]
+    assert isinstance(projected_catalog, list)
+    assert len(projected_catalog) == 37
     item = next(
         item
-        for item in bootstrap["workspaceData"]["connectorCatalog"]
-        if item["connectorKey"] == "postgresql"
+        for item in projected_catalog
+        if isinstance(item, dict) and item.get("connectorKey") == "postgresql"
     )
     assert item["category"] == "db"
     assert item["inputSchema"]["host"] == "string"
     assert item["credentialSchema"] == {"secretRef": "secret_ref"}
-    assert item["capabilityState"] == "credential_blocked"
-    assert item["reason"]["code"] == "CREDENTIAL_REQUIRED"
+    assert item["capabilityState"] == "available"
+    assert item["reason"]["code"] == "AVAILABLE"
+    mcp_item = next(
+        item
+        for item in projected_catalog
+        if isinstance(item, dict) and item.get("connectorKey") == "mcp_custom"
+    )
+    assert mcp_item["inputSchema"] == {"profileId": "string"}
+    assert mcp_item["credentialSchema"] is None
+    for server_only_field in ('"command"', '"args"', '"env"', '"cwd"', '"secretRef"'):
+        assert server_only_field not in json.dumps(mcp_item)
     assert bootstrap["connections"] == []
 
 
@@ -771,9 +839,9 @@ def test_remote_mcp_contract_is_credential_blocked_without_claiming_success(
     )
 
     assert result.connection.status == "credential_blocked"
-    assert result.validation.status == "credential_blocked"
+    assert result.validation.status == "succeeded"
     assert result.discovery.resources == []
-    assert result.discovery.reason.code == "PROVIDER_EXECUTION_BLOCKED"
+    assert result.discovery.reason.code == "EXTERNAL_CREDENTIAL_UNAVAILABLE"
 
 
 def test_input_revisions_are_distinct_and_each_revision_is_replayable(
@@ -809,6 +877,7 @@ def test_input_revisions_are_distinct_and_each_revision_is_replayable(
     )
 
     assert second.run.status == "succeeded"
+    assert second.golden_asset_revision is not None
     assert second.golden_asset_revision.lineage.source_revision_id != (
         first.source_revision.id
     )
@@ -1081,6 +1150,7 @@ def test_fixture_stdio_mcp_calls_feed_source_and_golden_revisions(
         trace_id="trace-mcp-call-two",
     )
     assert second.run.status == "succeeded"
+    assert second.golden_asset_revision is not None
     assert second.golden_asset_revision.revision == 2
     assert second.golden_asset_revision.storage_ref.sha256 != (
         first.golden_asset_revision.storage_ref.sha256
@@ -1179,6 +1249,8 @@ def test_official_sdk_stdio_mcp_cross_implementation_and_dynamic_revisions(
     )
     tool = created.discovery.resources[0]
     assert tool.name == "infrastructure.metrics"
+    assert tool.input_schema is not None
+    assert tool.output_schema is not None
     assert tool.input_schema["type"] == "object"
     assert tool.output_schema["type"] == "object"
     first = application.ingest(
@@ -1223,6 +1295,7 @@ def test_official_sdk_stdio_mcp_cross_implementation_and_dynamic_revisions(
         _context(), first.golden_asset_revision.asset_id
     )
     assert second.run.status == "succeeded"
+    assert second.golden_asset_revision is not None
     assert second_detail.preview[0]["cpuPercent"] == 52.8
     assert second_detail.preview[0]["dataAsOf"] == "2026-08-25T08:05:00Z"
     assert first.source_revision.id != (
@@ -1322,6 +1395,7 @@ def test_official_sdk_stdio_mcp_cross_implementation_and_dynamic_revisions(
     )
     assert drifted.run.status == "schema_drift"
     assert drifted.golden_asset_revision is None
+    assert drifted.last_good_revision is not None
     assert drifted.last_good_revision.id == second.golden_asset_revision.id
 
 
@@ -1403,7 +1477,9 @@ def test_stdio_mcp_rejects_inline_sensitive_environment_before_spawn(
     tmp_path: Path,
 ) -> None:
     application, config = _mcp_failure_application(tmp_path, "normal")
-    config["env"]["MCP_SECRET_TOKEN"] = "plaintext-super-secret"
+    environment = config["env"]
+    assert isinstance(environment, dict)
+    environment["MCP_SECRET_TOKEN"] = "plaintext-super-secret"
 
     with pytest.raises(SourcesGoldenError) as captured:
         application.create_connection(
@@ -1637,6 +1713,7 @@ def test_stdio_mcp_missing_command_on_refresh_preserves_last_good(
     assert failed.run.status == "failed"
     assert failed.run.reason.code == "MCP_PROCESS_START_FAILED"
     assert failed.run.reason.retryable is True
+    assert failed.last_good_revision is not None
     assert failed.last_good_revision.id == first.golden_asset_revision.id
     assert failed.golden_asset_revision is None
     assert len(application.mcp_process_traces(_context(), connection.id)) == 2
@@ -1677,7 +1754,7 @@ def test_connection_input_is_rejected_before_mcp_process_start(
             _context(),
             connector_key="mcp_custom",
             display_name=" ",
-            scope="invalid",
+            scope=cast(Literal["personal", "team"], "invalid"),
             configuration=config,
             secret_ref=None,
             idempotency_key="invalid-instance-fields",

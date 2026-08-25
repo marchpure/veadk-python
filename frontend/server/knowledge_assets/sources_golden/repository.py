@@ -8,8 +8,8 @@ import threading
 from pathlib import Path
 
 from .models import (
-    CleanRunRecord,
     CleaningRecipeRecord,
+    CleanRunRecord,
     ConnectionInstance,
     GoldenAssetRevisionRecord,
     McpProcessTrace,
@@ -17,9 +17,10 @@ from .models import (
     RefreshRunRecord,
     SourceRevisionRecord,
 )
+from .repository_traces import ConnectorTraceRepositoryMixin
 
 
-class SourcesGoldenRepository:
+class SourcesGoldenRepository(ConnectorTraceRepositoryMixin):
     def __init__(self, path: str | Path) -> None:
         self.path = str(path)
         if self.path != ":memory:":
@@ -123,6 +124,29 @@ class SourcesGoldenRepository:
                 );
                 CREATE INDEX IF NOT EXISTS idx_source_mcp_trace_connection
                     ON source_mcp_process_traces(workspace_id, connection_id);
+                CREATE TABLE IF NOT EXISTS source_connector_traces (
+                    id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_source_connector_trace_connection
+                    ON source_connector_traces(workspace_id, connection_id);
+                CREATE TABLE IF NOT EXISTS source_connector_events (
+                    id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    connection_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    event_type TEXT NOT NULL,
+                    trace_id TEXT NOT NULL,
+                    payload_digest TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (workspace_id, connection_id, sequence),
+                    FOREIGN KEY (connection_id) REFERENCES source_connections(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_source_connector_events
+                    ON source_connector_events(workspace_id, connection_id, sequence);
                 """
             )
 

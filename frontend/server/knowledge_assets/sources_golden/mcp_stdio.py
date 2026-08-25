@@ -10,7 +10,8 @@ import re
 import subprocess
 import threading
 import time
-from collections.abc import Callable, Mapping, Set
+from collections.abc import Callable, Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -18,8 +19,11 @@ from typing import cast
 from ..security import sanitize_mcp_output, validate_mcp_tool
 from .models import (
     McpExchange,
+    McpMethod,
     McpProcessTrace,
+    McpShutdownMode,
     McpStructuredResult,
+    McpTraceStatus,
     StdioMcpConfiguration,
 )
 
@@ -211,7 +215,7 @@ class StdioMcpClient:
                 "stdio MCP process could not be started."
             ) from error
         pid = process.pid
-        output_queue: queue.Queue[bytes | BaseException | None] = queue.Queue()
+        output_queue: queue.Queue[bytes | Exception | None] = queue.Queue()
         output_lock = threading.Lock()
         output_total = 0
         output_limit_reached = threading.Event()
@@ -244,7 +248,7 @@ class StdioMcpClient:
                         output_queue.put(line + b"\n")
                 if pending:
                     output_queue.put(pending)
-            except BaseException as error:
+            except (OSError, ValueError) as error:
                 output_queue.put(error)
             finally:
                 output_queue.put(None)
@@ -254,7 +258,7 @@ class StdioMcpClient:
                 while chunk := os.read(stderr.fileno(), 4096):
                     if not account_output(chunk):
                         return
-            except BaseException as error:
+            except (OSError, ValueError) as error:
                 output_queue.put(error)
 
         stdout_thread = threading.Thread(target=read_stdout, daemon=True)
@@ -264,11 +268,13 @@ class StdioMcpClient:
         next_id = 1
         protocol_version = None
         server_name = None
-        shutdown_mode = "forced_termination"
+        shutdown_mode: McpShutdownMode = "forced_termination"
         process_reaped = False
         result_payloads: list[dict[str, object]] = []
 
-        def trace(status: str, exit_code: int | None = None) -> McpProcessTrace:
+        def trace(
+            status: McpTraceStatus, exit_code: int | None = None
+        ) -> McpProcessTrace:
             return McpProcessTrace(
                 id=(
                     "mcp-trace-"
@@ -298,7 +304,7 @@ class StdioMcpClient:
             )
 
         def request(
-            method: str,
+            method: McpMethod,
             params: dict[str, object],
             timeout: float,
             *,
@@ -370,8 +376,8 @@ class StdioMcpClient:
                         )
                     )
                     raise line
-                if isinstance(line, BaseException):
-                    raise RuntimeError("MCP stdout reader failed") from line
+                if isinstance(line, Exception):
+                    raise line
                 try:
                     response = json.loads(line)
                 except json.JSONDecodeError as error:
@@ -431,7 +437,7 @@ class StdioMcpClient:
                 raise RuntimeError("MCP returned a JSON-RPC error")
             result = response.get("result")
             if not isinstance(result, dict):
-                raise ValueError("MCP response result must be an object")
+                raise TypeError("MCP response result must be an object")
             exchanges.append(
                 McpExchange(
                     sequence=sequence,
@@ -487,7 +493,7 @@ class StdioMcpClient:
             listed = request("tools/list", {}, call_timeout)
             tools = listed.get("tools")
             if not isinstance(tools, list):
-                raise ValueError("MCP tools/list result must contain tools")
+                raise TypeError("MCP tools/list result must contain tools")
             result_payloads.extend(item for item in tools if isinstance(item, dict))
             names = {
                 str(item.get("name")) for item in result_payloads if item.get("name")
@@ -613,7 +619,7 @@ class StdioMcpClient:
         self, raw: object, *, workspace_id: str
     ) -> tuple[dict[str, str], list[str], set[str]]:
         if not isinstance(raw, dict):
-            raise ValueError("stdio MCP env must be an object")
+            raise TypeError("stdio MCP env must be an object")
         environment = {
             key: value
             for key, value in os.environ.items()
@@ -623,7 +629,7 @@ class StdioMcpClient:
         resolved_secrets: set[str] = set()
         for key, raw_value in raw.items():
             if not isinstance(key, str) or not isinstance(raw_value, str):
-                raise ValueError("stdio MCP env keys and values must be strings")
+                raise TypeError("stdio MCP env keys and values must be strings")
             if not key or "=" in key or "\x00" in key:
                 raise ValueError("stdio MCP env key is invalid")
             if raw_value.startswith("secret://"):
@@ -727,7 +733,7 @@ def _infer_schema(
     return result
 
 
-def _sanitize_result(value: object, resolved_secrets: Set[str]) -> object:
+def _sanitize_result(value: object, resolved_secrets: AbstractSet[str]) -> object:
     if isinstance(value, dict):
         return {
             str(key): (
