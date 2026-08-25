@@ -95,6 +95,7 @@ from .contracts import (
     EvaluationFixProposeAllPayload,
     EvaluationFixActionPayload,
     PolicyGateEvaluatePayload,
+    BootstrapConnection,
     adapt_legacy_manifest,
     now_iso,
 )
@@ -516,7 +517,25 @@ class KnowledgeAssetApplication:
             *value.get("resources", []),
             *golden_resources,
         ]
-        value["connections"] = projection["connections"]
+        value["connections"] = [
+            BootstrapConnection(
+                id=connection["id"],
+                workspace_id=connection["workspaceId"],
+                connector_key=connection["connectorKey"],
+                display_name=connection["displayName"],
+                scope=connection["scope"],
+                owner_id=connection["ownerId"],
+                status=connection["status"],
+                sync_mode=connection["syncMode"],
+                created_at=connection["createdAt"],
+                updated_at=connection["updatedAt"],
+                last_success_at=connection.get("lastSuccessAt"),
+                last_error=connection.get("lastError"),
+                discovered_resources=connection.get("discoveredResources", []),
+                golden_revision_ids=connection.get("goldenRevisionIds", []),
+            )
+            for connection in projection["connections"]
+        ]
         value["routes"] = sorted(set(value.get("routes", [])) | set(projection["routes"]))
         return type(base).model_validate(value)
 

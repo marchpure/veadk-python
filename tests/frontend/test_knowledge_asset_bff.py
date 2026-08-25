@@ -145,6 +145,25 @@ def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None
     assert ingest_result["goldenAssetRevision"]["lineage"]["toolArguments"] == {
         "service": "all"
     }
+    bootstrap = client.get(
+        "/api/knowledge-assets/v1/bootstrap",
+        headers={"X-Request-ID": "bff-mcp-bootstrap"},
+    )
+    assert bootstrap.status_code == 200
+    public_connection = next(
+        item
+        for item in bootstrap.json()["connections"]
+        if item["id"] == connection_result["connection"]["id"]
+    )
+    assert public_connection["displayName"] == "Infrastructure MCP"
+    assert public_connection["connectorKey"] == "mcp_custom"
+    assert public_connection["status"] == "ready"
+    assert public_connection["discoveredResources"]
+    assert public_connection["goldenRevisionIds"] == [
+        ingest_result["goldenAssetRevision"]["id"]
+    ]
+    for forbidden in ("configuration", "secretRef", "command", "args", "env", "cwd"):
+        assert forbidden not in public_connection
 
 
 def test_source_golden_mcp_rejects_browser_process_execution_fields(

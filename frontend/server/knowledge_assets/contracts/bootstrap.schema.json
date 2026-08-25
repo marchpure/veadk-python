@@ -1,5 +1,108 @@
 {
   "$defs": {
+    "BootstrapConnection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "workspaceId": {
+          "title": "Workspaceid",
+          "type": "string"
+        },
+        "connectorKey": {
+          "title": "Connectorkey",
+          "type": "string"
+        },
+        "displayName": {
+          "title": "Displayname",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "personal",
+            "team"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "ownerId": {
+          "title": "Ownerid",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "syncMode": {
+          "title": "Syncmode",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "updatedAt": {
+          "title": "Updatedat",
+          "type": "string"
+        },
+        "lastSuccessAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lastsuccessat"
+        },
+        "lastError": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lasterror"
+        },
+        "discoveredResources": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Discoveredresources",
+          "type": "array"
+        },
+        "goldenRevisionIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Goldenrevisionids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "connectorKey",
+        "displayName",
+        "scope",
+        "ownerId",
+        "status",
+        "syncMode",
+        "createdAt",
+        "updatedAt"
+      ],
+      "title": "BootstrapConnection",
+      "type": "object"
+    },
     "ResourceSummary": {
       "additionalProperties": false,
       "properties": {
@@ -120,8 +223,7 @@
     },
     "connections": {
       "items": {
-        "additionalProperties": true,
-        "type": "object"
+        "$ref": "#/$defs/BootstrapConnection"
       },
       "title": "Connections",
       "type": "array"

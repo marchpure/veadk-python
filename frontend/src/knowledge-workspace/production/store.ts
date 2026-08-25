@@ -91,7 +91,9 @@ export function normalizeConnection(value: unknown): ConnectionViewModel {
     status: String(raw.status ?? "config_required"),
     discoveredResources: resources,
     discoveredTools: tools,
-    goldenRevisionIds: [],
+    goldenRevisionIds: Array.isArray(raw.goldenRevisionIds)
+      ? raw.goldenRevisionIds.filter((item): item is string => typeof item === "string")
+      : [],
     isTeam: raw.scope === "team",
   } as ConnectionViewModel;
 }
@@ -375,22 +377,7 @@ export async function bootstrapWorkspace(
       workspaceId = serverWorkspaceId;
     }
     resourceStore.replace(bootstrapped.resources as WorkspaceResource[]);
-    const goldenByConnector = new Map<string, string[]>();
-    for (const resource of bootstrapped.resources as Array<Record<string, unknown>>) {
-      if (resource.resourceKind !== "golden_asset") continue;
-      const key = String(resource.displayName ?? "");
-      const revision = resource.goldenRevisionId;
-      if (typeof revision === "string" && revision) {
-        goldenByConnector.set(key, [...(goldenByConnector.get(key) ?? []), revision]);
-      }
-    }
-    connectionStore.replace(bootstrapped.connections.map((connection) => {
-      const normalized = normalizeConnection(connection);
-      return {
-        ...normalized,
-        goldenRevisionIds: goldenByConnector.get(normalized.discoveredResources[0]?.name as string) ?? [],
-      };
-    }));
+    connectionStore.replace(bootstrapped.connections.map(normalizeConnection));
     agentPublicationStore.replace(bootstrapped.publications);
     customRegistryStore.replace(
       bootstrapped.workspaceData.connectorCatalog as ConnectorDef[],

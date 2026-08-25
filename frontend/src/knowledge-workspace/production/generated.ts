@@ -32,6 +32,23 @@ export interface GeneratedError {
 export type GeneratedManifest = SkillManifest;
 export type GeneratedLegacyManifest = LegacySkillManifestInput;
 
+export interface GeneratedBootstrapConnection {
+  id: string;
+  workspaceId: string;
+  connectorKey: string;
+  displayName: string;
+  scope: "personal" | "team";
+  ownerId: string;
+  status: string;
+  syncMode: string;
+  createdAt: string;
+  updatedAt: string;
+  lastSuccessAt?: string | null;
+  lastError?: Record<string, unknown> | null;
+  discoveredResources: Array<Record<string, unknown>>;
+  goldenRevisionIds: string[];
+}
+
 export interface GeneratedSkillDraft {
   id: string;
   workspaceId: string;
@@ -99,7 +116,7 @@ export interface GeneratedBootstrap {
     goldenRevisionId?: string | null;
     traceId?: string | null;
   }>;
-  connections: Array<Record<string, unknown>>;
+  connections: GeneratedBootstrapConnection[];
   publications: Array<Record<string, unknown>>;
   routes: string[];
   workspaceData: Record<string, unknown>;

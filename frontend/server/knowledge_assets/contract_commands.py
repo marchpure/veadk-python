@@ -53,11 +53,26 @@ class ResourceSummary(ContractModel):
     trace_id: str | None = None
 
 
+class BootstrapConnection(ContractModel):
+    id: str
+    workspace_id: str
+    connector_key: str
+    display_name: str
+    scope: Literal["personal", "team"]
+    owner_id: str
+    status: str
+    sync_mode: str
+    created_at: str
+    updated_at: str
+    last_success_at: str | None = None
+    last_error: dict[str, object] | None = None
+    discovered_resources: list[dict[str, object]] = Field(default_factory=list)
+    golden_revision_ids: list[str] = Field(default_factory=list)
+
+
 class BootstrapResponse(ContractModel):
     resources: list[ResourceSummary]
-    # Source/Golden projections contain nested configuration and discovered
-    # resources; a string-only map caused post-ingest bootstrap HTTP 500.
-    connections: list[dict[str, object]]
+    connections: list[BootstrapConnection]
     publications: list[dict[str, str]]
     routes: list[str]
     workspace_data: dict[str, object]

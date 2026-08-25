@@ -17,6 +17,7 @@ from typing import Protocol
 
 from ..contracts import (
     BootstrapResponse,
+    BootstrapConnection,
     ErrorEnvelope,
     OperationEvent,
     OperationResponse,
@@ -254,8 +255,30 @@ class SqliteKnowledgeAssetRepository:
         return BootstrapResponse(
             resources=resources,
             connections=[
-                {"id": "local-markdown", "type": "markdown", "status": "available"},
-                {"id": "local-csv", "type": "csv", "status": "available"},
+                BootstrapConnection(
+                    id="local-markdown",
+                    workspace_id=workspace_id,
+                    connector_key="markdown",
+                    display_name="Local Markdown",
+                    scope="team" if role == "admin" else "personal",
+                    owner_id=workspace_id,
+                    status="ready",
+                    sync_mode="local",
+                    created_at=now_iso(),
+                    updated_at=now_iso(),
+                ),
+                BootstrapConnection(
+                    id="local-csv",
+                    workspace_id=workspace_id,
+                    connector_key="csv",
+                    display_name="Local CSV",
+                    scope="team" if role == "admin" else "personal",
+                    owner_id=workspace_id,
+                    status="ready",
+                    sync_mode="local",
+                    created_at=now_iso(),
+                    updated_at=now_iso(),
+                ),
             ],
             publications=[
                 {
