@@ -32,6 +32,7 @@ from .contracts import (
     EvaluationRun,
     PolicyGateResult,
     Invocation,
+    PublishedSkillVersion,
     empty_knowledge_manifest,
     now_iso,
 )
@@ -209,6 +210,29 @@ class PostgresKnowledgeAssetRepository:
                 (run.id, run.skill_revision_id, run.model_dump_json(by_alias=True)),
             )
 
+    def evaluation_run(self, run_id: str) -> EvaluationRun | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT run_json FROM evaluation_runs WHERE id = %s",
+                (run_id,),
+            )
+            row = cursor.fetchone()
+        return EvaluationRun.model_validate(row["run_json"]) if row else None
+
+    def latest_evaluation_run(self, skill_revision_id: str) -> EvaluationRun | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT run_json FROM evaluation_runs
+                WHERE skill_revision_id = %s
+                ORDER BY (run_json->>'finished_at') DESC NULLS LAST
+                LIMIT 1
+                """,
+                (skill_revision_id,),
+            )
+            row = cursor.fetchone()
+        return EvaluationRun.model_validate(row["run_json"]) if row else None
+
     def save_policy_gate_result(self, result: PolicyGateResult) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
@@ -223,6 +247,45 @@ class PostgresKnowledgeAssetRepository:
                     result.model_dump_json(by_alias=True),
                 ),
             )
+
+    def policy_gate_result(self, result_id: str) -> PolicyGateResult | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT result_json FROM policy_gate_results WHERE id = %s",
+                (result_id,),
+            )
+            row = cursor.fetchone()
+        return PolicyGateResult.model_validate(row["result_json"]) if row else None
+
+    def save_published_skill_version(self, version: PublishedSkillVersion) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO published_skill_versions
+                (id, skill_id, skill_revision_id, semver, version_json, created_at)
+                VALUES (%s, %s, %s, %s, %s::jsonb, %s)
+                ON CONFLICT (id) DO UPDATE SET version_json = EXCLUDED.version_json
+                """,
+                (
+                    version.id,
+                    version.skill_id,
+                    version.skill_revision_id,
+                    version.semver,
+                    version.model_dump_json(by_alias=True),
+                    version.published_at,
+                ),
+            )
+
+    def published_skill_version(
+        self, version_id: str
+    ) -> PublishedSkillVersion | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT version_json FROM published_skill_versions WHERE id = %s",
+                (version_id,),
+            )
+            row = cursor.fetchone()
+        return PublishedSkillVersion.model_validate(row["version_json"]) if row else None
 
     def save_invocation(self, invocation: Invocation) -> None:
         with self._connection.cursor() as cursor:

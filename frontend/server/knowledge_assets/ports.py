@@ -20,6 +20,7 @@ from .contracts import (
     SkillDraft,
     SkillManifest,
     SkillResult,
+    PublishedSkillVersion,
     StorageRef,
 )
 
@@ -196,6 +197,11 @@ class RepositoryPort(Protocol):
         result: dict[str, object] | None = None,
         error: ErrorEnvelope | None = None,
     ) -> None: ...
+    def policy_gate_result(self, result_id: str) -> object | None: ...
+    def evaluation_run(self, run_id: str) -> object | None: ...
+    def latest_evaluation_run(self, skill_revision_id: str) -> object | None: ...
+    def save_published_skill_version(self, version: PublishedSkillVersion) -> None: ...
+    def published_skill_version(self, version_id: str) -> PublishedSkillVersion | None: ...
 
 
 class FailClosedArtifactStore:

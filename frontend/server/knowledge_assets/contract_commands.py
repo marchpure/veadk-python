@@ -422,8 +422,9 @@ class AssistantTurnResult(CommandResultBase):
 
 class PublicationPublishResult(CommandResultBase):
     result_type: Literal["publication.publish"] = "publication.publish"
-    status: Literal["not_ready"] = "not_ready"
+    status: Literal["not_ready", "succeeded", "failed"] = "not_ready"
     draft_id: str
+    published_version: PublishedSkillVersion | None = None
 
 
 class RefreshRunResult(CommandResultBase):

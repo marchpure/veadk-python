@@ -3854,20 +3854,112 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "draftId": {
           "title": "Draftid",
           "type": "string"
+        },
+        "publishedVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PublishedSkillVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "draftId"
       ],
       "title": "PublicationPublishResult",
+      "type": "object"
+    },
+    "PublishedSkillVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "skillId": {
+          "title": "Skillid",
+          "type": "string"
+        },
+        "semver": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Semver",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        },
+        "skillRevisionId": {
+          "title": "Skillrevisionid",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "status": {
+          "default": "published",
+          "enum": [
+            "published",
+            "deprecated",
+            "revoked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "evaluationRunId": {
+          "title": "Evaluationrunid",
+          "type": "string"
+        },
+        "policyGateResultId": {
+          "title": "Policygateresultid",
+          "type": "string"
+        },
+        "skillViewRef": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skillviewref"
+        },
+        "publishedAt": {
+          "title": "Publishedat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "skillId",
+        "semver",
+        "manifest",
+        "skillRevisionId",
+        "digest",
+        "evaluationRunId",
+        "policyGateResultId",
+        "publishedAt"
+      ],
+      "title": "PublishedSkillVersion",
       "type": "object"
     },
     "QueryPlan": {

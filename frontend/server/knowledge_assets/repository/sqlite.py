@@ -35,6 +35,7 @@ from ..contracts import (
     EvaluationRun,
     PolicyGateResult,
     Invocation,
+    PublishedSkillVersion,
     SourceRevision,
     empty_knowledge_manifest,
     now_iso,
@@ -142,7 +143,12 @@ class KnowledgeAssetRepository(Protocol):
     ) -> None: ...
     def save_evaluation_suite(self, suite: EvaluationSuite) -> None: ...
     def save_evaluation_run(self, run: EvaluationRun) -> None: ...
+    def evaluation_run(self, run_id: str) -> EvaluationRun | None: ...
+    def latest_evaluation_run(self, skill_revision_id: str) -> EvaluationRun | None: ...
     def save_policy_gate_result(self, result: PolicyGateResult) -> None: ...
+    def policy_gate_result(self, result_id: str) -> PolicyGateResult | None: ...
+    def save_published_skill_version(self, version: PublishedSkillVersion) -> None: ...
+    def published_skill_version(self, version_id: str) -> PublishedSkillVersion | None: ...
     def save_invocation(self, invocation: Invocation) -> None: ...
     def save_skill_view_share(self, grant: SkillViewShareGrant) -> None: ...
     def save_patch_history(
@@ -580,6 +586,34 @@ class SqliteKnowledgeAssetRepository:
                 (run.id, run.skill_revision_id, run.model_dump_json(by_alias=True)),
             )
 
+    def evaluation_run(self, run_id: str) -> EvaluationRun | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT run_json FROM evaluation_runs WHERE id = ?",
+                (run_id,),
+            ).fetchone()
+        return (
+            EvaluationRun.model_validate(json.loads(row["run_json"]))
+            if row is not None
+            else None
+        )
+
+    def latest_evaluation_run(self, skill_revision_id: str) -> EvaluationRun | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT run_json FROM evaluation_runs
+                WHERE skill_revision_id = ?
+                ORDER BY rowid DESC LIMIT 1
+                """,
+                (skill_revision_id,),
+            ).fetchone()
+        return (
+            EvaluationRun.model_validate(json.loads(row["run_json"]))
+            if row is not None
+            else None
+        )
+
     def save_policy_gate_result(self, result: PolicyGateResult) -> None:
         with self._lock:
             self._connection.execute(
@@ -613,6 +647,50 @@ class SqliteKnowledgeAssetRepository:
                     invocation.started_at,
                 ),
             )
+
+    def policy_gate_result(self, result_id: str) -> PolicyGateResult | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT result_json FROM policy_gate_results WHERE id = ?",
+                (result_id,),
+            ).fetchone()
+        return (
+            PolicyGateResult.model_validate(json.loads(row["result_json"]))
+            if row is not None
+            else None
+        )
+
+    def save_published_skill_version(self, version: PublishedSkillVersion) -> None:
+        with self._lock:
+            self._connection.execute(
+                """
+                INSERT OR REPLACE INTO published_skill_versions
+                (id, skill_id, skill_revision_id, semver, version_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    version.id,
+                    version.skill_id,
+                    version.skill_revision_id,
+                    version.semver,
+                    version.model_dump_json(by_alias=True),
+                    version.published_at,
+                ),
+            )
+
+    def published_skill_version(
+        self, version_id: str
+    ) -> PublishedSkillVersion | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT version_json FROM published_skill_versions WHERE id = ?",
+                (version_id,),
+            ).fetchone()
+        return (
+            PublishedSkillVersion.model_validate(json.loads(row["version_json"]))
+            if row is not None
+            else None
+        )
 
     def save_skill_view_share(self, grant: SkillViewShareGrant) -> None:
         with self._lock:

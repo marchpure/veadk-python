@@ -5932,14 +5932,29 @@
           "default": null
         },
         "status": {
-          "const": "not_ready",
           "default": "not_ready",
+          "enum": [
+            "not_ready",
+            "succeeded",
+            "failed"
+          ],
           "title": "Status",
           "type": "string"
         },
         "draftId": {
           "title": "Draftid",
           "type": "string"
+        },
+        "publishedVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PublishedSkillVersion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
