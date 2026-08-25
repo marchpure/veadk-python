@@ -17,7 +17,6 @@ from frontend.server.skill_authoring.models import (
     CommentRepairBatchRequest,
     CommentRepairRequest,
     FreshnessPolicy,
-    KnowledgeKindSpec,
     ResourceRef,
     ResolvedResource,
     Scope,
@@ -52,9 +51,7 @@ def resource(
     fields: tuple[str, ...] = ("order_id", "amount", "created_at"),
 ) -> ResolvedResource:
     return ResolvedResource(
-        ref=ResourceRef(
-            kind=kind, object_id=object_id, revision=revision, scope=scope
-        ),
+        ref=ResourceRef(kind=kind, object_id=object_id, revision=revision, scope=scope),
         display_name=object_id,
         provider_revision=revision,
         schema_digest=f"schema_{revision}",
@@ -100,12 +97,19 @@ def test_veadk_build_plan_parser_accepts_structured_transport_wrappers() -> None
             },
         ),
         outputs=({"name": "answer", "type": "answer"},),
-        kind_spec={"kind": "knowledge", "citation_intent": ["source_revision"], "retrieval_mode": "hybrid"},
+        kind_spec={
+            "kind": "knowledge",
+            "citation_intent": ["source_revision"],
+            "retrieval_mode": "hybrid",
+        },
         clarification_questions=("请说明你希望查询或创建的知识内容。",),
         plan_digest="transport-digest",
     )
     payload = plan.model_dump(mode="json")
-    assert VeADKModelGateway._parse_build_plan_output(json.dumps(payload)).plan_id == plan.plan_id
+    assert (
+        VeADKModelGateway._parse_build_plan_output(json.dumps(payload)).plan_id
+        == plan.plan_id
+    )
     fenced = f"```json\n{json.dumps(payload, ensure_ascii=False)}\n```"
     assert VeADKModelGateway._parse_build_plan_output(fenced).plan_id == plan.plan_id
     wrapped = json.dumps({"output": payload}, ensure_ascii=False)
@@ -140,10 +144,10 @@ async def test_local_analysis_query_plan_binds_fixed_golden_revision() -> None:
     assert plan.query_plan.source_revision != "source-r1"
 
 
-def test_build_plan_infers_only_unambiguous_analysis_kind() -> None:
-    payload = {
+def _normalization_plan(kind: str, kind_spec: dict[str, object]) -> dict[str, object]:
+    return {
         "plan_id": "plan-analysis",
-        "intent": "analysis",
+        "intent": kind,
         "purpose": "生成 CPU 分析",
         "nodes": [
             {"node_id": "resolve_intent", "role": "intent_resolution"},
@@ -159,14 +163,7 @@ def test_build_plan_infers_only_unambiguous_analysis_kind() -> None:
             },
         ],
         "outputs": [{"name": "chart", "type": "chart"}],
-        "kind_spec": {
-            "query_plan": {
-                "source_revision": "golden-r1",
-                "selected_fields": ["service", "cpuPercent"],
-            },
-            "analysis_shape": "trend",
-            "unit": "%",
-        },
+        "kind_spec": kind_spec,
         "query_plan": {
             "source_revision": "golden-r1",
             "selected_fields": ["service", "cpuPercent"],
@@ -175,9 +172,53 @@ def test_build_plan_infers_only_unambiguous_analysis_kind() -> None:
         "plan_digest": "plan-digest",
     }
 
-    plan = BuildPlan.model_validate(payload)
 
-    assert plan.kind_spec.kind == SkillKind.ANALYSIS
+@pytest.mark.parametrize(
+    ("intent", "kind_spec", "accepted_kind"),
+    [
+        (
+            "knowledge",
+            {"citation_intent": ["source_revision"], "retrieval_mode": "hybrid"},
+            SkillKind.KNOWLEDGE,
+        ),
+        (
+            "analysis",
+            {
+                "query_plan": {
+                    "source_revision": "golden-r1",
+                    "selected_fields": ["service", "cpuPercent"],
+                },
+                "analysis_shape": "trend",
+            },
+            SkillKind.ANALYSIS,
+        ),
+        (
+            "knowledge",
+            {
+                "kind": "analysis",
+                "query_plan": {
+                    "source_revision": "golden-r1",
+                    "selected_fields": ["service", "cpuPercent"],
+                },
+            },
+            None,
+        ),
+        ("knowledge", {}, None),
+        ("knowledge", {"kind": "knowledge", "retrieval_mode": "hybrid"}, None),
+    ],
+)
+def test_build_plan_narrow_kind_normalization(
+    intent: str,
+    kind_spec: dict[str, object],
+    accepted_kind: SkillKind | None,
+) -> None:
+    payload = _normalization_plan(intent, kind_spec)
+    if accepted_kind is None:
+        with pytest.raises(ValueError):
+            BuildPlan.model_validate(payload)
+        return
+    plan = BuildPlan.model_validate(payload)
+    assert plan.kind_spec.kind == accepted_kind
 
 
 @pytest.fixture
@@ -284,6 +325,7 @@ async def test_credential_blocked_is_typed_and_persisted(setup_authoring):
 @pytest.mark.asyncio
 async def test_awaiting_input_and_permission_patch_are_fail_closed(setup_authoring):
     service, _, ref = setup_authoring
+
     class ClarifyingGateway:
         async def propose_plan(self, context, *, requested_kind):
             plan = await LocalPlanningHarness().propose_plan(
@@ -360,7 +402,9 @@ async def test_fixed_context_and_model_input_are_server_authorized(setup_authori
 
 
 @pytest.mark.asyncio
-async def test_context_binding_is_in_model_input_and_changes_context_digest(setup_authoring):
+async def test_context_binding_is_in_model_input_and_changes_context_digest(
+    setup_authoring,
+):
     service, _, ref = setup_authoring
     first = await service.create_draft(
         envelope(ref, "Explain maintenance reliability by site").model_copy(
@@ -618,10 +662,16 @@ async def test_veadk_agent_allows_typed_clarification_without_mcp_call(setup_aut
         "purpose": "Clarify an underspecified greeting.",
         "nodes": [
             {"node_id": "resolve_intent", "role": "intent_resolution"},
-            {"node_id": "resolve_context", "role": "context_resolution",
-             "depends_on": ["resolve_intent"]},
-            {"node_id": "worker3_execution", "role": "worker3_execution",
-             "depends_on": ["resolve_context"]},
+            {
+                "node_id": "resolve_context",
+                "role": "context_resolution",
+                "depends_on": ["resolve_intent"],
+            },
+            {
+                "node_id": "worker3_execution",
+                "role": "worker3_execution",
+                "depends_on": ["resolve_context"],
+            },
         ],
         "inputs": [{"name": "question", "type": "string"}],
         "outputs": [{"name": "answer", "type": "answer"}],
@@ -659,7 +709,8 @@ async def test_veadk_agent_allows_typed_clarification_without_mcp_call(setup_aut
     assert result.draft is None
     assert result.operation.status == AuthoringStatus.AWAITING_INPUT
     assert result.operation.clarification_questions == (
-        "请说明你希望查询或创建的知识内容。",)
+        "请说明你希望查询或创建的知识内容。",
+    )
     assert result.operation.agent_execution is not None
     assert result.operation.agent_execution.tool_calls == ()
 
@@ -690,9 +741,20 @@ async def test_veadk_greeting_uses_real_runner_without_mcp_tool_injection(
                                     "intent": "knowledge",
                                     "purpose": "Clarify a greeting.",
                                     "nodes": [
-                                        {"node_id": "resolve_intent", "role": "intent_resolution"},
-                                        {"node_id": "resolve_context", "role": "context_resolution", "depends_on": ["resolve_intent"]},
-                                        {"node_id": "worker3_execution", "role": "worker3_execution", "depends_on": ["resolve_context"]},
+                                        {
+                                            "node_id": "resolve_intent",
+                                            "role": "intent_resolution",
+                                        },
+                                        {
+                                            "node_id": "resolve_context",
+                                            "role": "context_resolution",
+                                            "depends_on": ["resolve_intent"],
+                                        },
+                                        {
+                                            "node_id": "worker3_execution",
+                                            "role": "worker3_execution",
+                                            "depends_on": ["resolve_context"],
+                                        },
                                     ],
                                     "inputs": [{"name": "question", "type": "string"}],
                                     "outputs": [{"name": "answer", "type": "answer"}],
@@ -701,9 +763,14 @@ async def test_veadk_greeting_uses_real_runner_without_mcp_tool_injection(
                                         "citation_intent": ["source_revision"],
                                         "retrieval_mode": "hybrid",
                                     },
-                                    "clarification_questions": ["请说明你希望查询或创建的知识内容。"],
+                                    "clarification_questions": [
+                                        "请说明你希望查询或创建的知识内容。"
+                                    ],
                                     "layout_intent": "document",
-                                    "refresh_policy": {"max_age_seconds": 3600, "require_fixed_revision": True},
+                                    "refresh_policy": {
+                                        "max_age_seconds": 3600,
+                                        "require_fixed_revision": True,
+                                    },
                                     "plan_digest": "greeting-plan",
                                 }
                             )
@@ -726,6 +793,55 @@ async def test_veadk_greeting_uses_real_runner_without_mcp_tool_injection(
     assert result.operation.status == AuthoringStatus.AWAITING_INPUT
     assert result.operation.agent_execution is not None
     assert result.operation.agent_execution.tool_calls == ()
+    assert captured["tools"] in (None, [])
+
+
+@pytest.mark.asyncio
+async def test_veadk_typed_answer_uses_real_runner_without_tools_or_artifacts(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    captured: dict[str, object] = {}
+
+    class AnswerModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del stream
+            captured["tools"] = getattr(llm_request, "tools", None)
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps(
+                                {
+                                    "status": "succeeded",
+                                    "text": "你好，我可以帮助你处理知识资产。",
+                                    "citations": [],
+                                    "clarification_questions": [],
+                                },
+                                ensure_ascii=False,
+                            )
+                        )
+                    ],
+                )
+            )
+
+    gateway = VeADKModelGateway(
+        model=AnswerModel(model="answer-model"),
+        model_api_key="test-key",
+    )
+    context = await service.resolver.resolve(envelope(ref, "你好"), (ref,))
+    answer = await gateway.answer(context)
+
+    assert answer.status == "succeeded"
+    assert answer.text == "你好，我可以帮助你处理知识资产。"
+    assert answer.citations == ()
+    assert gateway.execution_evidence is not None
+    assert gateway.execution_evidence.tool_calls == ()
     assert captured["tools"] in (None, [])
 
 
@@ -839,8 +955,7 @@ mcp.run()
     assert result.operation.error_code == AuthoringErrorCode.MODEL_UNAVAILABLE
     assert result.operation.agent_execution is not None
     assert any(
-        call.status == "failed"
-        for call in result.operation.agent_execution.tool_calls
+        call.status == "failed" for call in result.operation.agent_execution.tool_calls
     )
 
 
@@ -868,16 +983,17 @@ async def test_concurrent_accept_has_one_winner_and_execution_rechecks_revoke(
     assert AuthoringStatus.SUCCEEDED in statuses
     assert AuthoringStatus.FAILED in statuses
     assert any(
-        result.operation.error_code == AuthoringErrorCode.CONFLICT
-        for result in results
+        result.operation.error_code == AuthoringErrorCode.CONFLICT for result in results
     )
 
-    service.resolver._resources[(  # noqa: SLF001 - revoke fixture resource
-        ref.scope,
-        ref.kind,
-        ref.object_id,
-        ref.revision,
-    )] = resource().model_copy(update={"authorized": False})
+    service.resolver._resources[
+        (  # noqa: SLF001 - revoke fixture resource
+            ref.scope,
+            ref.kind,
+            ref.object_id,
+            ref.revision,
+        )
+    ] = resource().model_copy(update={"authorized": False})
     with pytest.raises(SkillAuthoringError) as error:
         await service.request_execution(
             created.draft.draft_id, caller_id="user_1", revision=1
@@ -903,9 +1019,7 @@ async def test_failed_create_can_replay_durable_request(setup_authoring):
     # The same repository is now wired to a working gateway. Retry creates a
     # new operation and reuses only the persisted, typed, secret-free request.
     blocked.model_gateway = LocalPlanningHarness()
-    retried = await blocked.retry(
-        failed.operation.operation_id, caller_id="user_1"
-    )
+    retried = await blocked.retry(failed.operation.operation_id, caller_id="user_1")
     assert retried.operation.retry_of_operation_id == failed.operation.operation_id
     assert retried.draft is not None
 
@@ -1027,10 +1141,13 @@ async def test_comment_repairs_are_auditable_and_team_review_is_new_revision(
 
 
 @pytest.mark.asyncio
-async def test_stale_patch_returns_conflict_and_team_object_is_read_only(setup_authoring):
+async def test_stale_patch_returns_conflict_and_team_object_is_read_only(
+    setup_authoring,
+):
     service, _, ref = setup_authoring
     created = await service.create_draft(
-        envelope(ref, "[knowledge] answer from docs"), requested_kind=SkillKind.KNOWLEDGE
+        envelope(ref, "[knowledge] answer from docs"),
+        requested_kind=SkillKind.KNOWLEDGE,
     )
     assert created.draft is not None
     proposal = await service.propose_patch(
@@ -1044,12 +1161,14 @@ async def test_stale_patch_returns_conflict_and_team_object_is_read_only(setup_a
     assert conflicted.operation.error_code == AuthoringErrorCode.CONFLICT
 
     team_ref = resource(scope=Scope.TEAM).ref
-    service.resolver._resources[(  # noqa: SLF001 - test fixture registration
-        Scope.TEAM,
-        team_ref.kind,
-        team_ref.object_id,
-        team_ref.revision,
-    )] = resource(scope=Scope.TEAM)
+    service.resolver._resources[
+        (  # noqa: SLF001 - test fixture registration
+            Scope.TEAM,
+            team_ref.kind,
+            team_ref.object_id,
+            team_ref.revision,
+        )
+    ] = resource(scope=Scope.TEAM)
     service.resolver.grant("user_1", "workspace_1", team_ref)
     team = await service.create_draft(
         envelope(
@@ -1077,9 +1196,7 @@ async def test_execution_is_typed_worker3_boundary(setup_authoring):
         envelope(ref, "[semantic] map the schema"), requested_kind=SkillKind.SEMANTIC
     )
     assert created.draft is not None
-    result = await service.request_execution(
-        created.draft.draft_id, caller_id="user_1"
-    )
+    result = await service.request_execution(created.draft.draft_id, caller_id="user_1")
     assert result.operation.status == AuthoringStatus.READY_FOR_EXECUTION
     assert any(event.event_type == "execution_requested" for event in result.events)
 
@@ -1114,7 +1231,8 @@ async def test_worker3_receives_typed_plan_handoff(setup_authoring):
 async def test_context_add_remove_cancel_and_team_lineage(setup_authoring):
     service, _, ref = setup_authoring
     created = await service.create_draft(
-        envelope(ref, "[knowledge] answer from docs"), requested_kind=SkillKind.KNOWLEDGE
+        envelope(ref, "[knowledge] answer from docs"),
+        requested_kind=SkillKind.KNOWLEDGE,
     )
     assert created.draft is not None
     updated = await service.update_context(
@@ -1126,19 +1244,19 @@ async def test_context_add_remove_cancel_and_team_lineage(setup_authoring):
     assert updated.draft is not None
     assert updated.draft.lineage == ()
 
-    cancelled = await service.cancel(
-        updated.operation.operation_id, caller_id="user_1"
-    )
+    cancelled = await service.cancel(updated.operation.operation_id, caller_id="user_1")
     assert cancelled.operation.status == AuthoringStatus.CANCELLED
     assert cancelled.operation.error_code == AuthoringErrorCode.CANCELLED
 
     team_ref = resource(scope=Scope.TEAM).ref
-    service.resolver._resources[(  # noqa: SLF001 - test fixture registration
-        Scope.TEAM,
-        team_ref.kind,
-        team_ref.object_id,
-        team_ref.revision,
-    )] = resource(scope=Scope.TEAM)
+    service.resolver._resources[
+        (  # noqa: SLF001 - test fixture registration
+            Scope.TEAM,
+            team_ref.kind,
+            team_ref.object_id,
+            team_ref.revision,
+        )
+    ] = resource(scope=Scope.TEAM)
     service.resolver.grant("user_1", "workspace_1", team_ref)
     team = await service.create_draft(
         envelope(team_ref, "[knowledge] team docs"),

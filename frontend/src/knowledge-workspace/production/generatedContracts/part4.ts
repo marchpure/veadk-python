@@ -1,8 +1,48 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionInstance, ConnectorOperation, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, KnowledgeViewModel } from "./part2";
-import type { MonitoringViewModel, OwnerRef, PatchOperation, PermissionRef, PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionViewModel, ConnectorOperation, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
+import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, KnowledgeViewModel, MonitoringViewModel, OwnerRef } from "./part2";
+import type { PatchOperation, PermissionRef, PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+
+export interface SkillDraftRevision {
+  id: string;
+  skillId: string;
+  revision: number;
+  manifest: SkillManifest;
+  sourceRevisionRefs?: Array<string>;
+  goldenAssetRevisionRefs?: Array<string>;
+  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
+  createdAt: string;
+}
+
+export interface SkillDraftRunCommand {
+  command: "skill-draft.run";
+  payload: SkillDraftRunPayload;
+}
+
+export interface SkillDraftRunPayload {
+  draftId: string;
+  revision: number;
+  traceId: string;
+  maxSteps?: number;
+  budget?: number;
+}
+
+export interface SkillDraftRunResult {
+  resultType?: "skill-draft.run";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
+  draftId: string;
+  goldenAssetRevision?: GoldenAssetRevision | null;
+  skillResult?: SkillResult | null;
+  viewIntent?: ViewIntent | null;
+  skillViewRevision?: SkillViewRevision | null;
+  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
+  traceRef?: StorageRef | null;
+  evidenceRef?: StorageRef | null;
+}
+
+export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";
 
 export interface SkillManifest {
   apiVersion?: "knowledge.veadk.io/v1alpha1";
@@ -135,7 +175,7 @@ export interface SourceGoldenConnectionCreatePayload {
 
 export interface SourceGoldenConnectionResult {
   resultType?: "source_golden.connection";
-  connection: Omit<ConnectionInstance, "configuration" | "secretRef">;
+  connection: ConnectionViewModel;
   validation: ConnectorOperation;
   discovery: ConnectorOperation;
   replayed?: boolean;

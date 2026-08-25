@@ -1,22 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { NotReadyCommandResult, OwnerRef, PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SkillAuthoringExecuteResult, SkillAuthoringStartResult, SkillDraftRunResult } from "./part3";
-import type { SkillManifestAction, SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
-
-export interface EvaluationCaseAdoptHistoryPayload {
-  caseId: string;
-  category: string;
-  input: Record<string, unknown>;
-  expected: Record<string, unknown>;
-  provenanceRef: string;
-  source: "historical_conversation" | "historical_run";
-}
-
-export interface EvaluationCaseConfirmCommand {
-  command: "evaluation-case.confirm-candidates";
-  payload: EvaluationCaseConfirmPayload;
-}
+import type { ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
+import type { PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult } from "./part3";
+import type { SkillDraftRunResult, SkillManifestAction, SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
 
 export interface EvaluationCaseConfirmPayload {
   suiteId: string;
@@ -187,7 +173,7 @@ export interface Event {
   occurredAt: string;
   type: "accepted" | "progress" | "succeeded" | "failed" | "cancelled";
   terminal: boolean;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringAnswerResult | SkillAuthoringPatchResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
   error?: ErrorEnvelope | null;
 }
 
@@ -395,4 +381,50 @@ export interface ManifestInputSchema {
 export interface ManifestProperty {
   type: "string" | "number" | "boolean" | "object" | "array";
   description?: string;
+}
+
+export interface McpConnectorConfig {
+  kind: "mcp";
+  serverUrl: string;
+  secretRef: SecretRef;
+  oauthScopeRef: string;
+  toolAllowlist: Array<string>;
+  outputBytes?: number;
+  timeoutSeconds?: number;
+}
+
+export interface MonitoringViewModel {
+  template?: "monitoring";
+  metricRefs?: Array<string>;
+  values?: Array<[string, number]>;
+  alerts?: Array<string>;
+  dataRef?: StorageRef | null;
+}
+
+export interface NotReadyCommandResult {
+  resultType?: "command.not-ready";
+  error: ErrorEnvelope;
+  command: string;
+}
+
+export interface Operation {
+  operationId: string;
+  status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
+  version: number;
+  events: Array<Event>;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringAnswerResult | SkillAuthoringPatchResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
+  error?: ErrorEnvelope | null;
+  nextActions?: Array<string>;
+  audit?: Array<Audit>;
+}
+
+export interface OutputContract {
+  name: string;
+  type: "answer" | "table" | "metric" | "chart" | "schema" | "graph" | "observation";
+  required?: boolean;
+}
+
+export interface OwnerRef {
+  workspaceId: string;
+  principalId: string;
 }

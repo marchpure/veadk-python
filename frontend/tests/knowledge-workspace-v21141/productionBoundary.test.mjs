@@ -552,7 +552,8 @@ test("prototype catalog and seed data are stripped from production modules", asy
     join(frozenRoot, "components/MainArea/KnowledgeGraphView.tsx"),
   );
   assert.doesNotMatch(graph, /Customer \(客户\)|m_sales/);
-  assert.match(graph, /const \[mappings, setMappings\] = useState<any\[\]>\(\[\]\);/);
+  assert.match(graph, /getGraphProjection/);
+  assert.match(graph, /setProjection\(await getGraphProjection\(fileId\)\)/);
 
   const mainArea = stripPrototypeProductionDefaults(
     readFileSync(
@@ -660,7 +661,7 @@ test("neutralized success handlers still dispatch a typed production command", a
   assert.doesNotMatch(publishHandler ?? "", /已成功发布/);
 });
 
-test("real knowledge-base create CTA dispatches the skill draft command", async () => {
+test("real knowledge-base create CTA dispatches the authenticated domain BFF", async () => {
   const { transformFrozenProductionMutations } = await import(
     "./productionTransform.mjs"
   );
@@ -674,10 +675,11 @@ test("real knowledge-base create CTA dispatches the skill draft command", async 
     frozenRoot,
     productionRoot,
   );
-  assert.ok(transformed);
-  assert.match(transformed.code, /"command":"skill-draft\.create"/);
-  assert.match(transformed.code, /handleCreate/);
-  assert.doesNotMatch(transformed.code, /resourceStore\.setState\s*\(/);
+  const emitted = transformed?.code ?? readFileSync(filePath, "utf8");
+  assert.match(emitted, /createKnowledgeBase/);
+  assert.match(emitted, /completeKnowledgeBaseCreation/);
+  assert.doesNotMatch(emitted, /skill-draft\.create/);
+  assert.doesNotMatch(emitted, /resourceStore\.setState\s*\(/);
 });
 
 test("local source preparation remains local until the create CTA", async () => {
@@ -737,6 +739,8 @@ test("assistant composer uses real authoring commands and never emits assistant.
   );
   const emitted = transformed?.code ?? readFileSync(filePath, "utf8");
   assert.match(emitted, /skill-authoring\.start/);
+  assert.match(emitted, /skill-authoring\.answer/);
+  assert.match(emitted, /skill-authoring\.patch/);
   assert.match(emitted, /skill-authoring\.execute/);
   assert.doesNotMatch(emitted, /assistant\.turn/);
   assert.doesNotMatch(emitted, /action\.update/);

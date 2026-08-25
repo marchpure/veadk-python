@@ -363,6 +363,7 @@ export function getResourceDescriptor(
     resourceKind: resource.resourceKind,
     subtype: resource.subtype,
     lineage: resource.lineage,
+    contextRef: resource.contextRef,
   };
 }
 

@@ -54,7 +54,7 @@ export default function ShareModal({ onClose, searchParams, showToast }: any) {
       const grant = asRecord(result.shareGrant ?? result.share_grant);
       if (!grant.id) throw new Error("服务端未返回 shareGrant。");
       setShareGrant(grant);
-      showToast?.("服务端已接受请求。");
+      showToast?.("已发送请求，等待状态刷新。");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "分享失败。");
     } finally {
@@ -86,7 +86,7 @@ export default function ShareModal({ onClose, searchParams, showToast }: any) {
       if (!response.accepted) throw new Error(commandErrorMessage(response));
       const run = asRecord(asRecord(response.result).refreshRun ?? asRecord(response.result).refresh_run);
       if (run.id) setRefreshRuns((current) => [run, ...current]);
-      showToast?.("服务端已接受请求。");
+      showToast?.("已发送请求，等待状态刷新。");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "刷新失败。");
     } finally {
@@ -103,7 +103,7 @@ export default function ShareModal({ onClose, searchParams, showToast }: any) {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      showToast?.("服务端已接受请求。");
+      showToast?.("已发送请求，等待状态刷新。");
     } catch {
       setError("浏览器剪贴板不可用；服务端分享记录未受影响。");
     }

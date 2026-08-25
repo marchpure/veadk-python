@@ -5,6 +5,7 @@ import { dragStore } from '../../lib/dragStore';
 import { getFullCatalog, resourceStore, connectionStore, bootstrapWorkspace, getWorkspaceAdapter } from '../../lib/store';
 import { createRequestContext } from '../../../production/ports';
 import { activeSkillViewRevision } from '../../../production/data';
+import { getServerContextRef } from '../../../production/domainClient';
 
 const getChipIcon = (type: string) => {
   if (!type) return Database;
@@ -76,6 +77,67 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
 
   const totalTokens = chatChips.reduce((acc: number, c: any) => acc + (c.tokenEstimate || 0.5), 0);
   const currentArtifactChip = chatChips.find((c: any) => c.isResourceLevel) || chatChips.find((c: any) => c.id === fileId || c.resourceId === fileId);
+
+  const pinnedResourceRefs = () => {
+    const refs: Array<{kind: string; object_id: string; revision: string; scope: string}> = [];
+    for (const chip of chatChips) {
+      const ref = chip.contextRef || getServerContextRef(
+        String(chip.resourceId || chip.artifactId || chip.id || ''),
+      );
+      if (
+        ref &&
+        typeof ref.kind === 'string' &&
+        typeof ref.objectId === 'string' &&
+        typeof ref.revision === 'string' &&
+        (ref.scope === 'personal' || ref.scope === 'team')
+      ) {
+        refs.push({
+          kind: ref.kind,
+          object_id: ref.objectId,
+          revision: ref.revision,
+          scope: ref.scope,
+        });
+      }
+    }
+    const selected = new Set(chatChips.map((chip: any) => chip.id || chip.identity));
+    for (const resource of resourceStore.getState()) {
+      if (!selected.has(resource.id) && !selected.has(resource.resourceId)) continue;
+      const revision = resource.goldenRevisionId ?? resource.golden_revision_id;
+      const objectId = resource.assetId ?? resource.asset_id;
+      if (typeof revision === 'string' && typeof objectId === 'string') {
+        refs.push({
+          kind: 'golden_asset',
+          object_id: objectId,
+          revision,
+          scope: resource.space === 'team' ? 'team' : 'personal',
+        });
+      }
+    }
+    const view: any = activeSkillViewRevision;
+    const skillRevisionId = String(
+      view?.skillRevisionId ?? view?.skill_revision_id ?? '',
+    );
+    if (view?.id && skillRevisionId.includes(':')) {
+      refs.push({
+        kind: 'artifact',
+        object_id: String(view.id),
+        revision: String(view.id),
+        scope: 'personal',
+      });
+      refs.push({
+        kind: 'skill',
+        object_id: skillRevisionId.slice(0, skillRevisionId.lastIndexOf(':')),
+        revision: skillRevisionId,
+        scope: 'personal',
+      });
+    }
+    return refs.filter((ref, index) => refs.findIndex((item) =>
+      item.kind === ref.kind &&
+      item.object_id === ref.object_id &&
+      item.revision === ref.revision &&
+      item.scope === ref.scope
+    ) === index);
+  };
   const renderAuthoringRun = () => authoringRun ? (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-left">
       <dt className="text-slate-500">sessionId</dt>
@@ -202,28 +264,20 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const runAgent = async (prompt: string, requestedKind: 'knowledge' | 'analysis') => {
     setAgentError('');
     try {
-      const selected = new Set(chatChips.map((chip: any) => chip.id || chip.identity));
       const connectionRefs = connectionStore.getState()
-        .filter((connection: any) => selected.has(connection.id))
+        .filter((connection: any) => chatChips.some((chip: any) => chip.id === connection.id))
         .flatMap((connection: any) => connection.goldenRevisionIds || [])
         .map((revision: string) => {
           const resource: any = resourceStore.getState().find((item: any) => item.goldenRevisionId === revision);
           return resource ? { kind: 'golden_asset', object_id: String(resource.assetId), revision, scope: resource.space === 'team' ? 'team' : 'personal' } : null;
         })
         .filter(Boolean);
-      const resourceRefs = resourceStore.getState()
-        .filter((resource: any) => selected.has(resource.id) || selected.has(resource.resourceId))
-        .filter((resource: any) =>
-          typeof (resource.assetId ?? resource.asset_id) === 'string' &&
-          typeof (resource.goldenRevisionId ?? resource.golden_revision_id) === 'string')
-        .map((resource: any) => ({
-          kind: 'golden_asset',
-          object_id: String(resource.assetId ?? resource.asset_id),
-          revision: String(resource.goldenRevisionId ?? resource.golden_revision_id),
-          scope: resource.space === 'team' ? 'team' : 'personal',
-        }));
-      const pinnedRefs = [...connectionRefs, ...resourceRefs].filter((ref: any, index: number, refs: any[]) =>
-        refs.findIndex((item) => item.revision === ref.revision) === index);
+      const pinnedRefs = [...connectionRefs, ...pinnedResourceRefs()].filter(
+        (ref: any, index: number, refs: any[]) =>
+          refs.findIndex((item) => item.kind === ref.kind &&
+            item.object_id === ref.object_id &&
+            item.revision === ref.revision) === index,
+      );
       const viewRevision: any = activeSkillViewRevision;
       const activeElement = chatChips.find((chip: any) => chip.type === 'element');
       const commentIds = chatChips
@@ -324,11 +378,103 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   };
 
   const runKnowledgeAnswer = async (prompt: string) => {
-    const draft = await runAgent(prompt, 'knowledge');
-    if (!draft) return;
-    setAuthoringDraft(null);
-    setAgentReply('');
-    setAgentError('普通问答需要服务端返回 typed answer；本次仅返回 SkillDraft，未将草稿描述当作回答。');
+    setAgentError('');
+    const resourceRefs = pinnedResourceRefs();
+    const viewRevision: any = activeSkillViewRevision;
+    const currentViewId = viewRevision?.id ? String(viewRevision.id) : undefined;
+    const viewOwner = String(
+      viewRevision?.skillRevisionId ?? viewRevision?.skill_revision_id ?? '',
+    );
+    const currentSkillId = viewOwner.includes(':')
+      ? viewOwner.slice(0, viewOwner.lastIndexOf(':'))
+      : undefined;
+    try {
+      const response = await getWorkspaceAdapter().command({
+        command: 'skill-authoring.answer',
+        payload: {
+          prompt,
+          resourceRefs,
+          fixedRevisions: resourceRefs.map((ref: any) => ref.revision),
+          currentSkillId,
+          currentViewId,
+          currentComponentId: chatChips.find((chip: any) => chip.type === 'element')?.id,
+          commentIds: chatChips
+            .filter((chip: any) => String(chip.type || '').startsWith('comment'))
+            .map((chip: any) => String(chip.id || chip.identity)),
+        },
+      }, createRequestContext());
+      const result: any = response.result ?? {};
+      const answer = result.answer ?? {};
+      const execution = result.agentExecution ?? result.agent_execution ?? {};
+      setAuthoringRun({
+        sessionId: execution.sessionId ?? execution.session_id,
+        traceId: execution.traceId ?? execution.trace_id,
+      });
+      if (!response.accepted) {
+        throw new Error(String(result.error?.message ?? 'Agent 未返回有效响应。'));
+      }
+      if (result.status === 'awaiting_input') {
+        const questions = answer.clarificationQuestions ?? answer.clarification_questions;
+        setAgentReply(Array.isArray(questions) ? questions.join('\n') : '');
+        return;
+      }
+      if (result.status !== 'succeeded' || typeof answer.text !== 'string') {
+        throw new Error('普通问答需要服务端返回 typed answer；Agent 返回了无效响应。');
+      }
+      setAgentReply(answer.text);
+      setAuthoringDraft(null);
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : 'Agent 请求失败。');
+    }
+  };
+
+  const modifyCurrentSkill = async (prompt: string) => {
+    const view: any = activeSkillViewRevision;
+    const skillRevisionId = String(
+      view?.skillRevisionId ?? view?.skill_revision_id ?? '',
+    );
+    const split = skillRevisionId.lastIndexOf(':');
+    const draftId = authoringDraft?.draft_id ||
+      (split > 0 ? skillRevisionId.slice(0, split) : '');
+    const baseRevision = authoringDraft?.revision ||
+      (split > 0 ? Number(skillRevisionId.slice(split + 1)) : 0);
+    if (!draftId || !Number.isInteger(baseRevision) || baseRevision < 1) {
+      throw new Error('当前产物没有可修改的 immutable Skill revision。');
+    }
+    const patched = await getWorkspaceAdapter().command({
+      command: 'skill-authoring.patch',
+      payload: {
+        draftId,
+        baseRevision,
+        patch: { patchType: 'set_title', title: prompt.slice(0, 160) },
+      },
+    }, createRequestContext());
+    const patchResult: any = patched.result ?? {};
+    if (!patched.accepted || !patchResult.draft) {
+      throw new Error(String(patchResult.error?.message ?? 'Agent 修改失败。'));
+    }
+    setAuthoringDraft(patchResult.draft);
+    const nextDraftId = patchResult.draft.draftId ?? patchResult.draft.draft_id;
+    const executed = await getWorkspaceAdapter().command({
+      command: 'skill-authoring.execute',
+      payload: {
+        draftId: nextDraftId,
+        revision: patchResult.draft.revision,
+      },
+    }, createRequestContext());
+    const executeResult: any = executed.result ?? {};
+    if (!executed.accepted || executeResult.status !== 'succeeded') {
+      throw new Error(String(executeResult.error?.message ?? '修改后的 revision 执行失败。'));
+    }
+    await bootstrapWorkspace(undefined, getWorkspaceAdapter());
+    setAuthoringRun({
+      operationId: executeResult.operation?.operation_id,
+      traceId: executeResult.operation?.trace_id,
+      draftId: executeResult.draft?.draftId ?? executeResult.draft?.draft_id,
+      draftRevision: executeResult.draft?.revision,
+      plan: executeResult.operation?.plan ?? executeResult.draft?.plan,
+    });
+    setAgentReply(executeResult.operation?.summary || '修改已生成新的 immutable revision。');
   };
 
   const handleSend = async () => {
@@ -371,6 +517,10 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     const activeChip = chatChips.find((c:any) => ['signal', 'todo', 'review', 'decision'].includes(c.type));
     if (activeChip) {
       await runKnowledgeAnswer(input.trim());
+      setInput('');
+      return;
+    } else if (isModification) {
+      await modifyCurrentSkill(input.trim());
       setInput('');
       return;
     } else if (isCreation) {

@@ -77,6 +77,53 @@ export class DomainRequestError extends Error {
 
 type JsonRecord = Record<string, unknown>;
 
+export interface ImmutableContextRef {
+  kind: "document" | "knowledge" | "semantic" | "graph";
+  objectId: string;
+  revision: string;
+  scope: "personal" | "team";
+}
+
+const contextRefs = new Map<string, ImmutableContextRef>();
+
+function rememberContextRef(value: unknown): void {
+  if (!isRecord(value)) return;
+  const kind = value.kind;
+  const objectId = value.objectId;
+  const revision = value.revision;
+  const scope = value.scope;
+  if (
+    !["document", "knowledge", "semantic", "graph"].includes(String(kind)) ||
+    typeof objectId !== "string" ||
+    typeof revision !== "string" ||
+    !["personal", "team"].includes(String(scope))
+  ) return;
+  contextRefs.set(`${kind}:${objectId}`, {
+    kind: kind as ImmutableContextRef["kind"],
+    objectId,
+    revision,
+    scope: scope as ImmutableContextRef["scope"],
+  });
+}
+
+function rememberResponseContextRefs(body: JsonRecord): void {
+  rememberContextRef(body.contextRef);
+  rememberContextRef(body.documentContextRef);
+  rememberContextRef(body.knowledgeContextRef);
+  if (isRecord(body.knowledgeBase)) {
+    rememberContextRef(body.knowledgeBase.contextRef);
+  }
+}
+
+export function getServerContextRef(
+  objectId: string,
+): ImmutableContextRef | undefined {
+  for (const ref of contextRefs.values()) {
+    if (ref.objectId === objectId) return { ...ref };
+  }
+  return undefined;
+}
+
 function requestId(): string {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `domain-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -157,6 +204,7 @@ async function request(
       status: response.status,
     });
   }
+  rememberResponseContextRefs(body);
   return body;
 }
 
@@ -170,6 +218,9 @@ export interface KnowledgeUploadResult {
   index?: JsonRecord;
   chunks?: JsonRecord[];
   skillDraft?: JsonRecord;
+  contextRef?: ImmutableContextRef;
+  documentContextRef?: ImmutableContextRef;
+  knowledgeContextRef?: ImmutableContextRef;
 }
 
 export async function createKnowledgeBase(

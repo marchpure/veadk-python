@@ -17,10 +17,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
-from pydantic import BaseModel
 
 from .models import (
     AgentEventEvidence,
+    AgentAnswer,
     AgentExecutionEvidence,
     AgentToolCallEvidence,
     BuildPlan,
@@ -70,6 +70,8 @@ class ModelGateway(Protocol):
         self, context: ResolvedContext, *, requested_kind: SkillKind | None
     ) -> BuildPlan: ...
 
+    async def answer(self, context: ResolvedContext) -> AgentAnswer: ...
+
     @property
     def execution_evidence(self) -> AgentExecutionEvidence | None: ...
 
@@ -80,8 +82,12 @@ class AuthoringRepository(Protocol):
     async def save_event(self, event: object) -> None: ...
     async def list_events(self, operation_id: str) -> tuple[object, ...]: ...
     async def save_draft(self, draft: DraftRevision) -> None: ...
-    async def get_draft(self, draft_id: str, revision: int | None = None) -> DraftRevision | None: ...
-    async def list_drafts(self, workspace_id: str, caller_id: str) -> tuple[DraftRevision, ...]: ...
+    async def get_draft(
+        self, draft_id: str, revision: int | None = None
+    ) -> DraftRevision | None: ...
+    async def list_drafts(
+        self, workspace_id: str, caller_id: str
+    ) -> tuple[DraftRevision, ...]: ...
     async def save_create_request(self, operation_id: str, request: object) -> None: ...
     async def get_create_request(self, operation_id: str) -> object | None: ...
     async def save_patch(self, proposal: object) -> None: ...
@@ -128,7 +134,9 @@ class InMemoryResourceResolver:
                     AuthoringErrorCode.RESOURCE_NOT_FOUND,
                     f"resource revision {ref.object_id}@{ref.revision} was not found",
                 )
-            if key not in self._access.get((envelope.caller_id, envelope.workspace_id), set()):
+            if key not in self._access.get(
+                (envelope.caller_id, envelope.workspace_id), set()
+            ):
                 raise SkillAuthoringError(
                     AuthoringErrorCode.PERMISSION_DENIED,
                     f"caller is not authorized for {ref.object_id}@{ref.revision}",
@@ -148,13 +156,7 @@ class InMemoryResourceResolver:
                 )
             unique.append(resource)
         authorized_permissions = tuple(
-            sorted(
-                {
-                    capability
-                    for item in unique
-                    for capability in item.capabilities
-                }
-            )
+            sorted({capability for item in unique for capability in item.capabilities})
         )
         context_digest = digest(
             {
@@ -186,6 +188,13 @@ class CredentialBlockedGateway:
         self, context: ResolvedContext, *, requested_kind: SkillKind | None
     ) -> BuildPlan:
         del context, requested_kind
+        raise SkillAuthoringError(
+            AuthoringErrorCode.CREDENTIAL_BLOCKED,
+            "model gateway credentials are not configured",
+        )
+
+    async def answer(self, context: ResolvedContext) -> AgentAnswer:
+        del context
         raise SkillAuthoringError(
             AuthoringErrorCode.CREDENTIAL_BLOCKED,
             "model gateway credentials are not configured",
@@ -345,9 +354,7 @@ class VeADKModelGateway:
             # cached responses together with a text/schema output.
             "enable_responses": True,
             "enable_responses_cache": False,
-            "model_extra_config": {
-                "extra_body": {"thinking": {"type": "disabled"}}
-            },
+            "model_extra_config": {"extra_body": {"thinking": {"type": "disabled"}}},
         }
         if self._model is not None:
             agent_kwargs["model"] = self._model
@@ -375,7 +382,9 @@ class VeADKModelGateway:
             )
             message = types.Content(
                 role="user",
-                parts=[types.Part(text=json.dumps(context.model_input, ensure_ascii=False))],
+                parts=[
+                    types.Part(text=json.dumps(context.model_input, ensure_ascii=False))
+                ],
             )
             output_text: str | None = None
             async for event in runner.run_async(
@@ -467,8 +476,7 @@ class VeADKModelGateway:
                     session_id=session_id,
                     trace_id=(
                         trace_id
-                        if "trace_id" in locals()
-                        and trace_id != "<unknown_trace_id>"
+                        if "trace_id" in locals() and trace_id != "<unknown_trace_id>"
                         else "unavailable"
                     ),
                     status="failed",
@@ -519,6 +527,224 @@ class VeADKModelGateway:
                 AuthoringErrorCode.MODEL_UNAVAILABLE,
                 "VEADK Agent/Runner execution failed",
             ) from error
+
+    async def answer(self, context: ResolvedContext) -> AgentAnswer:
+        """Run ordinary Q&A through VEADK without exposing authoring tools."""
+        if self._model is None and not (
+            self._model_api_key or os.getenv("MODEL_AGENT_API_KEY")
+        ):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.CREDENTIAL_BLOCKED,
+                "VEADK model credentials are not configured",
+            )
+        try:
+            from google.genai import types
+            from veadk import Agent, Runner
+            from veadk.memory.short_term_memory import ShortTermMemory
+            from veadk.tracing.telemetry.opentelemetry_tracer import (
+                OpentelemetryTracer,
+            )
+        except Exception as error:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.MODEL_UNAVAILABLE,
+                "official VEADK Agent/Runner is unavailable",
+            ) from error
+
+        session_id = f"skill-authoring-answer-{context.envelope.request_id}"
+        agent_kwargs: dict[str, Any] = {
+            "name": "skill_authoring_answer_agent",
+            "description": "Grounded ordinary conversation for Knowledge Asset Studio.",
+            "instruction": self._answer_instruction(context),
+            "tools": [],
+            "output_schema": AgentAnswer,
+            "tracers": [OpentelemetryTracer()],
+            "enable_responses": True,
+            "enable_responses_cache": False,
+            "model_extra_config": {"extra_body": {"thinking": {"type": "disabled"}}},
+        }
+        if self._model is not None:
+            agent_kwargs["model"] = self._model
+        else:
+            if self._model_name:
+                agent_kwargs["model_name"] = self._model_name
+            if self._model_api_base:
+                agent_kwargs["model_api_base"] = self._model_api_base
+            if self._model_api_key:
+                agent_kwargs["model_api_key"] = self._model_api_key
+
+        events: list[AgentEventEvidence] = []
+        tool_calls: list[AgentToolCallEvidence] = []
+        try:
+            agent = Agent(**agent_kwargs)
+            runner = Runner(
+                agent=agent,
+                app_name="skill_authoring_answer",
+                short_term_memory=ShortTermMemory(backend="local"),
+            )
+            await runner.session_service.create_session(
+                app_name=runner.app_name,
+                user_id=context.envelope.caller_id,
+                session_id=session_id,
+            )
+            message = types.Content(
+                role="user",
+                parts=[
+                    types.Part(text=json.dumps(context.model_input, ensure_ascii=False))
+                ],
+            )
+            output_text: str | None = None
+            async for event in runner.run_async(
+                user_id=context.envelope.caller_id,
+                session_id=session_id,
+                new_message=message,
+            ):
+                events.append(
+                    AgentEventEvidence(
+                        event_type=event.__class__.__name__,
+                        author=getattr(event, "author", None),
+                        has_content=bool(getattr(event, "content", None)),
+                        output_present=getattr(event, "output", None) is not None,
+                    )
+                )
+                content = getattr(event, "content", None)
+                for part in getattr(content, "parts", None) or ():
+                    if getattr(part, "function_call", None) is not None:
+                        raise SkillAuthoringError(
+                            AuthoringErrorCode.VALIDATION_FAILED,
+                            "ordinary answer attempted a forbidden tool call",
+                        )
+                    if getattr(part, "text", None):
+                        output_text = part.text
+                if getattr(event, "output", None):
+                    output_text = str(event.output)
+            trace_id = runner.get_trace_id()
+            if not trace_id or trace_id == "<unknown_trace_id>":
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.MODEL_UNAVAILABLE,
+                    "VEADK Runner did not provide a trace_id",
+                )
+            if not output_text:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "VEADK Runner returned no typed answer",
+                )
+            answer = self._parse_answer_output(output_text)
+            authorized = {
+                (item.ref.kind, item.ref.object_id, item.ref.revision, item.ref.scope)
+                for item in context.resources
+            }
+            if any(
+                (item.kind, item.object_id, item.revision, item.scope) not in authorized
+                for item in answer.citations
+            ):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.PERMISSION_DENIED,
+                    "answer cited an unauthorized resource revision",
+                )
+            self._last_execution = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id=trace_id,
+                status="succeeded",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+            )
+            return answer
+        except SkillAuthoringError as error:
+            if (
+                self._last_execution is None
+                or self._last_execution.session_id != session_id
+            ):
+                self._last_execution = AgentExecutionEvidence(
+                    session_id=session_id,
+                    trace_id=(
+                        trace_id
+                        if "trace_id" in locals() and trace_id != "<unknown_trace_id>"
+                        else "unavailable"
+                    ),
+                    status="failed",
+                    events=tuple(events),
+                    tool_calls=tuple(tool_calls),
+                    error_code=error.code,
+                    error_message=error.message,
+                )
+            raise
+        except (ValueError, TimeoutError) as error:
+            code = (
+                AuthoringErrorCode.MODEL_TIMEOUT
+                if isinstance(error, TimeoutError)
+                else AuthoringErrorCode.VALIDATION_FAILED
+            )
+            message = (
+                "VEADK Runner timed out"
+                if code == AuthoringErrorCode.MODEL_TIMEOUT
+                else "VEADK Runner output was not a valid typed answer"
+            )
+            self._last_execution = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id=trace_id if "trace_id" in locals() else "unavailable",
+                status="failed",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+                error_code=code,
+                error_message=message,
+            )
+            raise SkillAuthoringError(code, message) from error
+        except Exception as error:
+            self._last_execution = AgentExecutionEvidence(
+                session_id=session_id,
+                trace_id="unavailable",
+                status="failed",
+                events=tuple(events),
+                tool_calls=tuple(tool_calls),
+                error_code=AuthoringErrorCode.MODEL_UNAVAILABLE,
+                error_message="VEADK Agent/Runner answer execution failed",
+            )
+            raise SkillAuthoringError(
+                AuthoringErrorCode.MODEL_UNAVAILABLE,
+                "VEADK Agent/Runner answer execution failed",
+            ) from error
+
+    @staticmethod
+    def _parse_answer_output(output_text: str) -> AgentAnswer:
+        candidate: object = output_text.strip()
+        if (
+            isinstance(candidate, str)
+            and candidate.startswith("```")
+            and candidate.endswith("```")
+        ):
+            lines = candidate.splitlines()
+            candidate = "\n".join(lines[1:-1]).strip()
+        if isinstance(candidate, str):
+            candidate = json.loads(candidate)
+        if not isinstance(candidate, Mapping):
+            raise ValueError("typed answer output is not an object")
+        for key in ("output", "result", "answer"):
+            nested = candidate.get(key)
+            if isinstance(nested, Mapping):
+                candidate = nested
+                break
+            if isinstance(nested, str) and key in {"output", "result"}:
+                decoded = json.loads(nested)
+                if not isinstance(decoded, Mapping):
+                    raise ValueError("wrapped typed answer output is not an object")
+                candidate = decoded
+                break
+        return AgentAnswer.model_validate(candidate)
+
+    @staticmethod
+    def _answer_instruction(context: ResolvedContext) -> str:
+        return (
+            "Return only a typed ordinary answer. Never create or describe a "
+            "SkillDraft, BuildPlan, Dashboard, artifact, patch, or execution. "
+            "No tools are available and no tool call is allowed. For a greeting, "
+            "reply briefly with status=succeeded, text set to a natural greeting, "
+            "citations=[], and clarification_questions=[]. If the user's question "
+            "cannot be answered from authorized_context, return status=awaiting_input, "
+            "text=null, citations=[], and one concise clarification question. "
+            "For a grounded answer, cite only exact refs copied from "
+            "authorized_context.resources. "
+            f"authorized_context={json.dumps(context.model_input, ensure_ascii=False, sort_keys=True)}"
+        )
 
     @staticmethod
     def _parse_build_plan_output(
@@ -604,7 +830,10 @@ class VeADKModelGateway:
                 "clarification_questions": questions,
                 "layout_intent": "document",
                 "plan_digest": digest(
-                    {"clarification_questions": questions, "kind": clarification_kind.value}
+                    {
+                        "clarification_questions": questions,
+                        "kind": clarification_kind.value,
+                    }
                 ),
             }
         return BuildPlan.model_validate(candidate)
@@ -627,7 +856,7 @@ class VeADKModelGateway:
             "For a simple conversational greeting or underspecified request, return "
             "a concise typed clarification_questions list and do not call MCP or "
             "invent a Dashboard, sales report, or other artifact. For the exact "
-            "prompt 你好, use clarification_questions=[\"请说明你希望查询或创建的知识内容。\"]. "
+            'prompt 你好, use clarification_questions=["请说明你希望查询或创建的知识内容。"]. '
             "The downstream Worker 3 owns execution and rendering. "
             f"requested_kind={requested_kind.value if requested_kind else None}; "
             f"mcp_schemas={json.dumps(bundle.schemas, ensure_ascii=False, sort_keys=True)}; "
@@ -697,7 +926,10 @@ class LocalPlanningHarness:
                 AuthoringErrorCode.AMBIGUOUS,
                 "select at least one authorized resource before creating a skill",
             )
-        variant = int(hashlib.sha256(context.envelope.prompt.encode()).hexdigest()[:2], 16) % 2
+        variant = (
+            int(hashlib.sha256(context.envelope.prompt.encode()).hexdigest()[:2], 16)
+            % 2
+        )
         source = context.resources[0]
         fields = source.semantic_fields or ("value",)
         plan_id = f"plan_{digest({'context': context.context_digest, 'kind': kind})}"
@@ -784,9 +1016,7 @@ class LocalPlanningHarness:
                 analysis_shape="trend" if variant == 0 else "breakdown",
                 unit="count" if variant == 0 else "value",
             )
-            inputs = (
-                InputContract(name="date_range", type="date", required=False),
-            )
+            inputs = (InputContract(name="date_range", type="date", required=False),)
             outputs = (
                 OutputContract(name="table", type="table"),
                 OutputContract(name="metric", type="metric", required=False),
@@ -925,7 +1155,9 @@ class JsonFileAuthoringRepository:
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump(self._state, stream, ensure_ascii=False, sort_keys=True, default=str)
+                json.dump(
+                    self._state, stream, ensure_ascii=False, sort_keys=True, default=str
+                )
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.path)
@@ -984,7 +1216,9 @@ class JsonFileAuthoringRepository:
             return None
         return DraftRevision.model_validate(entries[-1])
 
-    async def list_drafts(self, workspace_id: str, caller_id: str) -> tuple[DraftRevision, ...]:
+    async def list_drafts(
+        self, workspace_id: str, caller_id: str
+    ) -> tuple[DraftRevision, ...]:
         await self._ensure_loaded()
         from .models import DraftRevision
 
@@ -1002,7 +1236,9 @@ class JsonFileAuthoringRepository:
     async def save_create_request(self, operation_id: str, request: object) -> None:
         await self._ensure_loaded()
         async with self._lock:
-            self._state["create_requests"][operation_id] = request.model_dump(mode="json")
+            self._state["create_requests"][operation_id] = request.model_dump(
+                mode="json"
+            )
             await self._write()
 
     async def get_create_request(self, operation_id: str) -> object | None:

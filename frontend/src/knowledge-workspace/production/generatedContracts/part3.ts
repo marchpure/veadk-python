@@ -1,53 +1,14 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactExportResult, ArtifactRef, AssistantTurnResult, Audit, AuthoringEvent, AuthoringOperation, DraftCommandResult, DraftRevision, ErrorEnvelope } from "./part1";
-import type { EvaluationQualityCommandResult, EvaluationRunResult, Event, GoldenAssetRevision, InvocationStartResult, LegacySkillManifestInput } from "./part2";
-import type { SkillManifest, SkillOperation, SkillResult, SkillViewRevision, SkillViewShareGrant, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewIntent } from "./part4";
+import type { AddCitationIntentPatch, AgentAnswer, AgentExecutionEvidence, ArtifactRef, AuthoringEvent, AuthoringOperation, DraftRevision, ErrorEnvelope } from "./part1";
+import type { FreshnessPolicy, LegacySkillManifestInput } from "./part2";
+import type { SkillManifest, SkillOperation, SkillViewShareGrant, StorageRef } from "./part4";
 
-export interface McpConnectorConfig {
-  kind: "mcp";
-  serverUrl: string;
-  secretRef: SecretRef;
-  oauthScopeRef: string;
-  toolAllowlist: Array<string>;
-  outputBytes?: number;
-  timeoutSeconds?: number;
-}
-
-export interface MonitoringViewModel {
-  template?: "monitoring";
-  metricRefs?: Array<string>;
-  values?: Array<[string, number]>;
-  alerts?: Array<string>;
-  dataRef?: StorageRef | null;
-}
-
-export interface NotReadyCommandResult {
-  resultType?: "command.not-ready";
-  error: ErrorEnvelope;
-  command: string;
-}
-
-export interface Operation {
-  operationId: string;
-  status: "accepted" | "running" | "succeeded" | "failed" | "cancelled";
-  version: number;
-  events: Array<Event>;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
-  error?: ErrorEnvelope | null;
-  nextActions?: Array<string>;
-  audit?: Array<Audit>;
-}
-
-export interface OutputContract {
-  name: string;
-  type: "answer" | "table" | "metric" | "chart" | "schema" | "graph" | "observation";
-  required?: boolean;
-}
-
-export interface OwnerRef {
-  workspaceId: string;
-  principalId: string;
+export interface PatchImpact {
+  summary: string;
+  affected_paths: Array<string>;
+  requires_rerun: boolean;
+  reason: "presentation_only" | "query_changed" | "metric_changed" | "permission_changed" | "freshness_changed" | "alert_changed" | "mapping_changed";
 }
 
 export interface PatchOperation {
@@ -55,6 +16,19 @@ export interface PatchOperation {
   path: string;
   before: unknown;
   after: unknown;
+}
+
+export interface PatchProposal {
+  patch_id?: string;
+  operation_id?: string | null;
+  draft_id: string;
+  base_revision: number;
+  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch;
+  impact: PatchImpact;
+  status?: "proposed" | "accepted" | "rejected" | "undone" | "conflicted";
+  proposed_by: string;
+  source_comment_ids?: Array<string>;
+  created_at?: string;
 }
 
 export interface PermissionRef {
@@ -227,7 +201,7 @@ export interface ResourcePayload {
 }
 
 export interface ResourceRef {
-  kind: "golden_asset" | "data_access_skill" | "knowledge_asset" | "skill";
+  kind: "golden_asset" | "document" | "knowledge" | "semantic" | "graph" | "skill" | "artifact" | "data_access_skill" | "knowledge_asset";
   object_id: string;
   revision: string;
   scope: Scope;
@@ -286,6 +260,70 @@ export interface SemanticViewModel {
   dataRef?: StorageRef | null;
 }
 
+export interface SetDescriptionPatch {
+  patch_type?: "set_description";
+  description: string;
+}
+
+export interface SetPermissionScopePatch {
+  patch_type?: "set_permission_scope";
+  permissions: Array<string>;
+}
+
+export interface SetQueryPlanPatch {
+  patch_type?: "set_query_plan";
+  query_plan: QueryPlan;
+}
+
+export interface SetRefreshPolicyPatch {
+  patch_type?: "set_refresh_policy";
+  freshness: FreshnessPolicy;
+}
+
+export interface SetSemanticMappingPatch {
+  patch_type?: "set_semantic_mapping";
+  field: string;
+  entity: string;
+}
+
+export interface SetThresholdPolicyPatch {
+  patch_type?: "set_threshold_policy";
+  threshold: number;
+  comparator: "gt" | "gte" | "lt" | "lte" | "change_rate";
+}
+
+export interface SetTitlePatch {
+  patch_type?: "set_title";
+  title: string;
+}
+
+export interface SkillAuthoringAnswerCommand {
+  command: "skill-authoring.answer";
+  payload: SkillAuthoringAnswerPayload;
+}
+
+export interface SkillAuthoringAnswerPayload {
+  prompt: string;
+  resourceRefs?: Array<ResourceRef>;
+  permissions?: Array<string>;
+  fixedRevisions?: Array<string>;
+  currentSkillId?: string | null;
+  currentViewId?: string | null;
+  currentComponentId?: string | null;
+  commentIds?: Array<string>;
+}
+
+export interface SkillAuthoringAnswerResult {
+  resultType?: "skill-authoring.answer";
+  error?: ErrorEnvelope | null;
+  status?: "succeeded" | "awaiting_input" | "credential_blocked" | "failed";
+  answer?: AgentAnswer | null;
+  agentExecution?: AgentExecutionEvidence | null;
+  contextDigest?: string | null;
+  draft?: null;
+  artifactResult?: null;
+}
+
 export interface SkillAuthoringExecuteCommand {
   command: "skill-authoring.execute";
   payload: SkillAuthoringExecutePayload;
@@ -302,6 +340,27 @@ export interface SkillAuthoringExecuteResult {
   status?: "queued" | "running" | "succeeded" | "ready_for_execution" | "credential_blocked" | "failed" | "cancelled";
   operation?: AuthoringOperation | null;
   draft?: DraftRevision | null;
+  events?: Array<AuthoringEvent>;
+}
+
+export interface SkillAuthoringPatchCommand {
+  command: "skill-authoring.patch";
+  payload: SkillAuthoringPatchPayload;
+}
+
+export interface SkillAuthoringPatchPayload {
+  draftId: string;
+  baseRevision: number;
+  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch;
+}
+
+export interface SkillAuthoringPatchResult {
+  resultType?: "skill-authoring.patch";
+  error?: ErrorEnvelope | null;
+  status?: "succeeded" | "ready_for_execution" | "failed";
+  operation?: AuthoringOperation | null;
+  draft?: DraftRevision | null;
+  patch?: PatchProposal | null;
   events?: Array<AuthoringEvent>;
 }
 
@@ -373,43 +432,3 @@ export interface SkillDraftRetryPayload {
   budget?: number;
   retryOfOperationId: string;
 }
-
-export interface SkillDraftRevision {
-  id: string;
-  skillId: string;
-  revision: number;
-  manifest: SkillManifest;
-  sourceRevisionRefs?: Array<string>;
-  goldenAssetRevisionRefs?: Array<string>;
-  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
-  createdAt: string;
-}
-
-export interface SkillDraftRunCommand {
-  command: "skill-draft.run";
-  payload: SkillDraftRunPayload;
-}
-
-export interface SkillDraftRunPayload {
-  draftId: string;
-  revision: number;
-  traceId: string;
-  maxSteps?: number;
-  budget?: number;
-}
-
-export interface SkillDraftRunResult {
-  resultType?: "skill-draft.run";
-  error?: ErrorEnvelope | null;
-  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
-  draftId: string;
-  goldenAssetRevision?: GoldenAssetRevision | null;
-  skillResult?: SkillResult | null;
-  viewIntent?: ViewIntent | null;
-  skillViewRevision?: SkillViewRevision | null;
-  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
-  traceRef?: StorageRef | null;
-  evidenceRef?: StorageRef | null;
-}
-
-export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";

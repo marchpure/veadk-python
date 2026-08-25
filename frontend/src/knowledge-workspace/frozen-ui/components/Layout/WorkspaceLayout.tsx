@@ -15,6 +15,7 @@ import { CheckCircle2, Database, LayoutDashboard, FilePieChart, FileText, Ban, L
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { resourceStore, useStore, getResourceDescriptor } from '../../lib/store';
+import { getServerContextRef } from '../../../production/domainClient';
 import { actionLoopStore, defaultActionLoopState } from '../../lib/actionLoopStore';
 import HomeComposer from './HomeComposer';
 import V212EntryDrawer from './V212EntryDrawer';
@@ -140,14 +141,20 @@ export default function WorkspaceLayout() {
 
   const addContextItem = (item: any) => {
     setChatChips(prev => {
-      const identity = getChipIdentity(item);
+      const serverContextRef = item.contextRef || getServerContextRef(
+        String(item.resourceId || item.artifactId || item.id || ''),
+      );
+      const nextItem = serverContextRef
+        ? { ...item, contextRef: serverContextRef }
+        : item;
+      const identity = getChipIdentity(nextItem);
       const exists = prev.find(p => getChipIdentity(p) === identity);
       if (exists) {
         setTimeout(() => showToast(`该上下文已加入`), 100);
         return prev;
       }
       setTimeout(() => showToast(`已加入对话上下文`), 100);
-      return [...prev, { ...item, identity, manual: true }];
+      return [...prev, { ...nextItem, identity, manual: true }];
     });
     
     const p = new URLSearchParams(window.location.search);
@@ -196,7 +203,10 @@ export default function WorkspaceLayout() {
           if (prev.some(c => c.identity === descriptor.identity)) return prev;
           const resourceLevelTypes = ['connection', 'source', 'dataset', 'document', 'knowledge_base', 'skill', 'semantic', 'semantic_model', 'chart', 'dashboard', 'knowledge_graph', 'kg', 'evaluation', 'personal_artifact', 'team_artifact', 'artifact', 'resource'];
           const filtered = prev.filter(c => c.manual || (!c.isResourceLevel && !resourceLevelTypes.includes(c.type)));
-          return [...filtered, descriptor];
+          const contextRef = getServerContextRef(
+            String(descriptor.resourceId || descriptor.artifactId || descriptor.id),
+          );
+          return [...filtered, contextRef ? { ...descriptor, contextRef } : descriptor];
         });
       }
     } else {

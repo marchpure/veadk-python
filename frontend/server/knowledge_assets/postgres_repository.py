@@ -7,12 +7,10 @@ operations, idempotency, and audit state.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import threading
 import uuid
 from pathlib import Path
-from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
@@ -24,6 +22,7 @@ from .contracts import (
     OperationResponse,
     ResourceSummary,
     SkillDraft,
+    SkillDraftRevision,
     SkillManifest,
     SkillResult,
     SkillViewRevision,
@@ -81,6 +80,30 @@ class PostgresKnowledgeAssetRepository:
                 ),
             )
 
+    def skill_draft_revision(
+        self, draft_id: str, revision: int
+    ) -> SkillDraftRevision | None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT draft_id, skill_id, revision, manifest_json, status, created_at
+                FROM skill_draft_revisions
+                WHERE draft_id = %s AND revision = %s
+                """,
+                (draft_id, revision),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return None
+        return SkillDraftRevision(
+            id=f"{row['draft_id']}:{row['revision']}",
+            skill_id=row["skill_id"],
+            revision=row["revision"],
+            manifest=SkillManifest.model_validate(row["manifest_json"]),
+            status=row["status"],
+            created_at=str(row["created_at"]),
+        )
+
     def latest_skill_result(
         self, skill_id: str, skill_revision: int
     ) -> SkillResult | None:
@@ -95,9 +118,7 @@ class PostgresKnowledgeAssetRepository:
             )
             row = cursor.fetchone()
         return (
-            SkillResult.model_validate(row["result_json"])
-            if row is not None
-            else None
+            SkillResult.model_validate(row["result_json"]) if row is not None else None
         )
 
     def latest_skill_view_revision(
@@ -196,8 +217,16 @@ class PostgresKnowledgeAssetRepository:
                     description=EXCLUDED.description, revision=EXCLUDED.revision,
                     updated_at=EXCLUDED.updated_at, manifest_json=EXCLUDED.manifest_json
                 """,
-                (draft.id, draft.workspace_id, draft.name, draft.description,
-                 draft.revision, draft.created_at, draft.updated_at, manifest),
+                (
+                    draft.id,
+                    draft.workspace_id,
+                    draft.name,
+                    draft.description,
+                    draft.revision,
+                    draft.created_at,
+                    draft.updated_at,
+                    manifest,
+                ),
             )
             cursor.execute(
                 """
@@ -207,7 +236,14 @@ class PostgresKnowledgeAssetRepository:
                 ON CONFLICT (draft_id, revision) DO UPDATE SET
                     manifest_json=EXCLUDED.manifest_json, status=EXCLUDED.status
                 """,
-                (draft.id, draft.id, draft.revision, manifest, status, draft.updated_at),
+                (
+                    draft.id,
+                    draft.id,
+                    draft.revision,
+                    manifest,
+                    status,
+                    draft.updated_at,
+                ),
             )
             cursor.execute(
                 """
@@ -314,16 +350,16 @@ class PostgresKnowledgeAssetRepository:
                 ),
             )
 
-    def published_skill_version(
-        self, version_id: str
-    ) -> PublishedSkillVersion | None:
+    def published_skill_version(self, version_id: str) -> PublishedSkillVersion | None:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 "SELECT version_json FROM published_skill_versions WHERE id = %s",
                 (version_id,),
             )
             row = cursor.fetchone()
-        return PublishedSkillVersion.model_validate(row["version_json"]) if row else None
+        return (
+            PublishedSkillVersion.model_validate(row["version_json"]) if row else None
+        )
 
     def published_skill_versions_for_workspace(
         self, workspace_id: str
@@ -340,7 +376,9 @@ class PostgresKnowledgeAssetRepository:
                 (workspace_id,),
             )
             rows = cursor.fetchall()
-        return [PublishedSkillVersion.model_validate(row["version_json"]) for row in rows]
+        return [
+            PublishedSkillVersion.model_validate(row["version_json"]) for row in rows
+        ]
 
     def save_invocation(self, invocation: Invocation) -> None:
         with self._connection.cursor() as cursor:
@@ -382,8 +420,14 @@ class PostgresKnowledgeAssetRepository:
             )
 
     def save_patch_history(
-        self, patch_id: str, undo_token: str, skill_id: str, base_revision: int,
-        operation: str, before: str, after: str
+        self,
+        patch_id: str,
+        undo_token: str,
+        skill_id: str,
+        base_revision: int,
+        operation: str,
+        before: str,
+        after: str,
     ) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
@@ -395,7 +439,15 @@ class PostgresKnowledgeAssetRepository:
                   undo_token = EXCLUDED.undo_token,
                   after_value = EXCLUDED.after_value
                 """,
-                (patch_id, undo_token, skill_id, base_revision, operation, before, after),
+                (
+                    patch_id,
+                    undo_token,
+                    skill_id,
+                    base_revision,
+                    operation,
+                    before,
+                    after,
+                ),
             )
 
     def patch_history(self, undo_token: str) -> dict[str, object] | None:
@@ -505,8 +557,14 @@ class PostgresKnowledgeAssetRepository:
         return row["last_good_revision"] if row else None
 
     def create_skill_draft(
-        self, *, workspace_id: str, name: str, description: str,
-        source_refs: list[str], request_id: str, idempotency_key: str,
+        self,
+        *,
+        workspace_id: str,
+        name: str,
+        description: str,
+        source_refs: list[str],
+        request_id: str,
+        idempotency_key: str,
     ) -> tuple[SkillDraft, bool]:
         del source_refs, request_id
         with self._lock, self._connection.cursor() as cursor:
@@ -520,8 +578,12 @@ class PostgresKnowledgeAssetRepository:
             draft_id = f"skill-draft-{uuid.uuid4()}"
             timestamp = now_iso()
             draft = SkillDraft(
-                id=draft_id, workspace_id=workspace_id, name=name.strip(),
-                description=description.strip(), revision=1, created_at=timestamp,
+                id=draft_id,
+                workspace_id=workspace_id,
+                name=name.strip(),
+                description=description.strip(),
+                revision=1,
+                created_at=timestamp,
                 updated_at=timestamp,
                 manifest=empty_knowledge_manifest(
                     draft_id=draft_id,
@@ -537,17 +599,26 @@ class PostgresKnowledgeAssetRepository:
                  updated_at, manifest_json)
                 VALUES (%s, %s, %s, %s, 1, %s, %s, %s::jsonb)
                 """,
-                (draft.id, draft.workspace_id, draft.name, draft.description,
-                 timestamp, timestamp,
-                 json.dumps(draft.manifest.model_dump(mode="json", by_alias=True))),
+                (
+                    draft.id,
+                    draft.workspace_id,
+                    draft.name,
+                    draft.description,
+                    timestamp,
+                    timestamp,
+                    json.dumps(draft.manifest.model_dump(mode="json", by_alias=True)),
+                ),
             )
             cursor.execute(
                 """
                 INSERT INTO idempotency_keys (scope, key, result_json)
                 VALUES (%s, %s, %s::jsonb)
                 """,
-                ("skill-draft.create", idempotency_key,
-                 json.dumps(draft.model_dump(mode="json", by_alias=True))),
+                (
+                    "skill-draft.create",
+                    idempotency_key,
+                    json.dumps(draft.model_dump(mode="json", by_alias=True)),
+                ),
             )
             cursor.execute(
                 """
@@ -573,8 +644,13 @@ class PostgresKnowledgeAssetRepository:
         return draft, False
 
     def save_manifest(
-        self, *, draft_id: str, base_revision: int, manifest: SkillManifest,
-        request_id: str, idempotency_key: str,
+        self,
+        *,
+        draft_id: str,
+        base_revision: int,
+        manifest: SkillManifest,
+        request_id: str,
+        idempotency_key: str,
     ) -> tuple[SkillDraft, bool]:
         del request_id
         with self._lock, self._connection.cursor() as cursor:
@@ -595,10 +671,13 @@ class PostgresKnowledgeAssetRepository:
             )
             row = cursor.fetchone()
             if row is None:
-                raise KnowledgeAssetRepositoryError("DRAFT_NOT_FOUND", "Skill 草稿不存在。")
+                raise KnowledgeAssetRepositoryError(
+                    "DRAFT_NOT_FOUND", "Skill 草稿不存在。"
+                )
             if row["revision"] != base_revision:
                 raise KnowledgeAssetRepositoryError(
-                    "CONFLICT", "Skill 草稿版本已变化，请刷新后重试。",
+                    "CONFLICT",
+                    "Skill 草稿版本已变化，请刷新后重试。",
                     details={
                         "draftId": draft_id,
                         "expectedRevision": str(base_revision),
@@ -614,24 +693,35 @@ class PostgresKnowledgeAssetRepository:
                     updated_at = %s, manifest_json = %s::jsonb
                 WHERE id = %s
                 """,
-                (manifest.metadata.display_name, manifest.metadata.description,
-                 next_revision, timestamp,
-                 json.dumps(manifest.model_dump(mode="json", by_alias=True)), draft_id),
+                (
+                    manifest.metadata.display_name,
+                    manifest.metadata.description,
+                    next_revision,
+                    timestamp,
+                    json.dumps(manifest.model_dump(mode="json", by_alias=True)),
+                    draft_id,
+                ),
             )
             draft = SkillDraft(
-                id=row["id"], workspace_id=row["workspace_id"],
+                id=row["id"],
+                workspace_id=row["workspace_id"],
                 name=manifest.metadata.display_name,
-                description=manifest.metadata.description, revision=next_revision,
+                description=manifest.metadata.description,
+                revision=next_revision,
                 created_at=row["created_at"].isoformat(),
-                updated_at=timestamp, manifest=manifest,
+                updated_at=timestamp,
+                manifest=manifest,
             )
             cursor.execute(
                 """
                 INSERT INTO idempotency_keys (scope, key, result_json)
                 VALUES (%s, %s, %s::jsonb)
                 """,
-                ("skill-draft.save-manifest", idempotency_key,
-                 json.dumps(draft.model_dump(mode="json", by_alias=True))),
+                (
+                    "skill-draft.save-manifest",
+                    idempotency_key,
+                    json.dumps(draft.model_dump(mode="json", by_alias=True)),
+                ),
             )
             cursor.execute(
                 """
@@ -657,9 +747,17 @@ class PostgresKnowledgeAssetRepository:
             )
         return draft, False
 
-    def record_audit(self, *, request_id: str, operation_id: str,
-                     workspace_id: str, action: str, resource_id: str,
-                     outcome: str, details: dict[str, str] | None = None) -> None:
+    def record_audit(
+        self,
+        *,
+        request_id: str,
+        operation_id: str,
+        workspace_id: str,
+        action: str,
+        resource_id: str,
+        outcome: str,
+        details: dict[str, str] | None = None,
+    ) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -668,8 +766,16 @@ class PostgresKnowledgeAssetRepository:
                  outcome, details_json, occurred_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s)
                 """,
-                (request_id, operation_id, workspace_id, action, resource_id,
-                 outcome, json.dumps(details or {}), now_iso()),
+                (
+                    request_id,
+                    operation_id,
+                    workspace_id,
+                    action,
+                    resource_id,
+                    outcome,
+                    json.dumps(details or {}),
+                    now_iso(),
+                ),
             )
 
     def audit_events(self, operation_id: str) -> list[dict[str, object]]:
@@ -685,10 +791,14 @@ class PostgresKnowledgeAssetRepository:
             rows = cursor.fetchall()
         return [
             {
-                "requestId": row["request_id"], "operationId": row["operation_id"],
-                "workspaceId": row["workspace_id"], "action": row["action"],
-                "resourceId": row["resource_id"], "outcome": row["outcome"],
-                "details": row["details_json"], "occurredAt": row["occurred_at"].isoformat(),
+                "requestId": row["request_id"],
+                "operationId": row["operation_id"],
+                "workspaceId": row["workspace_id"],
+                "action": row["action"],
+                "resourceId": row["resource_id"],
+                "outcome": row["outcome"],
+                "details": row["details_json"],
+                "occurredAt": row["occurred_at"].isoformat(),
             }
             for row in rows
         ]
@@ -710,12 +820,17 @@ class PostgresKnowledgeAssetRepository:
             )
             events = cursor.fetchall()
         return OperationResponse(
-            operation_id=row["operation_id"], status=row["status"],
+            operation_id=row["operation_id"],
+            status=row["status"],
             version=row["version"],
-            events=[OperationEvent.model_validate(item["event_json"]) for item in events],
-            result=row["result_json"], error=(
+            events=[
+                OperationEvent.model_validate(item["event_json"]) for item in events
+            ],
+            result=row["result_json"],
+            error=(
                 ErrorEnvelope.model_validate(row["error_json"])
-                if row["error_json"] else None
+                if row["error_json"]
+                else None
             ),
             audit=self.audit_events(operation_id),
         )
@@ -731,10 +846,15 @@ class PostgresKnowledgeAssetRepository:
                 (operation_id,),
             )
 
-    def append_operation_event(self, operation_id: str, event: OperationEvent,
-                               *, status: str,
-                               result: dict[str, object] | None = None,
-                               error: ErrorEnvelope | None = None) -> None:
+    def append_operation_event(
+        self,
+        operation_id: str,
+        event: OperationEvent,
+        *,
+        status: str,
+        result: dict[str, object] | None = None,
+        error: ErrorEnvelope | None = None,
+    ) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 "SELECT status FROM operations WHERE operation_id = %s FOR UPDATE",
@@ -758,8 +878,12 @@ class PostgresKnowledgeAssetRepository:
                     result_json = %s::jsonb, error_json = %s::jsonb
                 WHERE operation_id = %s
                 """,
-                (status, json.dumps(result) if result is not None else None,
-                 error.model_dump_json() if error else None, operation_id),
+                (
+                    status,
+                    json.dumps(result) if result is not None else None,
+                    error.model_dump_json() if error else None,
+                    operation_id,
+                ),
             )
 
     def cancel_operation(self, operation_id: str, request_id: str) -> OperationResponse:
@@ -770,9 +894,12 @@ class PostgresKnowledgeAssetRepository:
         if operation.status in {"succeeded", "failed", "cancelled"}:
             return operation
         event = OperationEvent(
-            operation_id=operation_id, event_id=f"{operation_id}:cancelled",
-            sequence=len(operation.events) + 1, occurred_at=now_iso(),
-            type="cancelled", terminal=True,
+            operation_id=operation_id,
+            event_id=f"{operation_id}:cancelled",
+            sequence=len(operation.events) + 1,
+            occurred_at=now_iso(),
+            type="cancelled",
+            terminal=True,
         )
         self.append_operation_event(operation_id, event, status="cancelled")
         result = self.operation(operation_id)

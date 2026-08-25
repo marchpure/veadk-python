@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from frontend.server.knowledge_assets.application import KnowledgeAssetApplication
+from frontend.server.knowledge_assets.application import _ImmutableResourceResolver
 from frontend.server.knowledge_assets.contracts import (
     EvaluationRun,
     PolicyGateResult,
@@ -39,6 +40,19 @@ from frontend.server.knowledge_assets.sources_golden import (
     SourceGoldenApplication,
 )
 from frontend.server.knowledge_assets.workers import JobFramework, JobLeaseError
+from frontend.server.knowledge_domains.service import DomainService
+from frontend.server.skill_authoring.models import (
+    ContextEnvelope,
+    ResourceRef as AuthoringResourceRef,
+    ResolvedResource,
+    Scope,
+    SkillAuthoringError,
+)
+from frontend.server.skill_authoring.ports import (
+    InMemoryResourceResolver,
+    LocalPlanningHarness,
+    NoopWorker3Executor,
+)
 
 
 def build_client(
@@ -181,12 +195,14 @@ def test_authoring_failure_returns_server_error_envelope(tmp_path: Path) -> None
             "command": "skill-authoring.start",
             "payload": {
                 "prompt": "hello",
-                "resourceRefs": [{
-                    "kind": "golden_asset",
-                    "object_id": "missing-asset",
-                    "revision": "missing-revision",
-                    "scope": "personal",
-                }],
+                "resourceRefs": [
+                    {
+                        "kind": "golden_asset",
+                        "object_id": "missing-asset",
+                        "revision": "missing-revision",
+                        "scope": "personal",
+                    }
+                ],
                 "fixedRevisions": ["missing-revision"],
                 "requestedKind": "knowledge",
             },
@@ -204,6 +220,408 @@ def test_authoring_failure_returns_server_error_envelope(tmp_path: Path) -> None
     assert payload["result"]["error"]["message"] == (
         "Golden revision does not exist in the authenticated workspace."
     )
+
+
+def test_authoring_patch_command_creates_idempotent_new_draft_revision(
+    tmp_path: Path,
+) -> None:
+    ref = AuthoringResourceRef(
+        kind="golden_asset",
+        object_id="asset-orders",
+        revision="golden-orders-r1",
+        scope=Scope.PERSONAL,
+    )
+    resolver = InMemoryResourceResolver(
+        [
+            ResolvedResource(
+                ref=ref,
+                display_name="Orders",
+                provider_revision=ref.revision,
+                schema_digest="schema-orders-r1",
+                capabilities=("read",),
+                semantic_fields=("order_id", "amount"),
+            )
+        ]
+    )
+    resolver.grant("workspace-test", "workspace-test", ref)
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources.sqlite3",
+        artifact_root=tmp_path / "source-artifacts",
+        source_root=tmp_path,
+    )
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=KnowledgeAssetApplication(
+            repository,
+            sources_golden=source_golden,
+            authoring_resolver=resolver,
+            authoring_model_gateway=LocalPlanningHarness(),
+            authoring_worker3=NoopWorker3Executor(),
+        ),
+        identity_resolver=lambda _request: ("workspace-test", "editor"),
+    )
+    client = TestClient(app)
+    start = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-authoring.start",
+            "payload": {
+                "prompt": "[analysis] summarize orders",
+                "resourceRefs": [ref.model_dump(mode="json")],
+                "fixedRevisions": [ref.revision],
+                "requestedKind": "analysis",
+            },
+        },
+        headers={
+            "X-Request-ID": "start-patch-test",
+            "Idempotency-Key": "start-patch-test",
+        },
+    )
+    assert start.status_code == 200
+    original = start.json()["result"]["draft"]
+    request = {
+        "command": "skill-authoring.patch",
+        "payload": {
+            "draftId": original["draft_id"],
+            "baseRevision": original["revision"],
+            "patch": {"patchType": "set_title", "title": "Updated orders"},
+        },
+    }
+    headers = {
+        "X-Request-ID": "patch-test",
+        "Idempotency-Key": "patch-test",
+    }
+    first = client.post(
+        "/api/knowledge-assets/v1/commands", json=request, headers=headers
+    )
+    replay = client.post(
+        "/api/knowledge-assets/v1/commands", json=request, headers=headers
+    )
+
+    assert first.status_code == 200
+    assert first.json()["accepted"] is True
+    assert first.json()["result"]["draft"]["revision"] == 2
+    assert first.json()["result"]["draft"]["manifest"]["name"] == "Updated orders"
+    assert first.json()["result"]["patch"]["status"] == "accepted"
+    assert replay.json()["operationId"] == first.json()["operationId"]
+    assert replay.json()["result"]["draft"]["revision"] == 2
+
+
+def test_immutable_html_route_is_authorized_and_integrity_checked(
+    tmp_path: Path,
+) -> None:
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    artifact_root = tmp_path / "kind-runtime"
+    content = b"<!doctype html><article><h1>Live data</h1></article>"
+    digest = __import__("hashlib").sha256(content).hexdigest()
+    path = artifact_root / "views" / f"{digest}.html"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    draft = repository.create_skill_draft(
+        workspace_id="workspace-test",
+        name="Live dashboard",
+        description="",
+        source_refs=[],
+        request_id="artifact-draft",
+        idempotency_key="artifact-draft",
+    )[0]
+    view = SkillViewRevision(
+        id="view-live",
+        skill_revision_id=f"{draft.id}:1",
+        revision=1,
+        manifest=SkillViewManifest(
+            id="manifest-live",
+            skill_revision_id=f"{draft.id}:1",
+            renderer_ref="renderer://dashboard/v1",
+            view_model_schema_ref=SchemaRef(
+                uri="local://schema/live",
+                version="1",
+                sha256="0" * 64,
+            ),
+            allowed_components=["DashboardView"],
+        ),
+        intent=ViewIntent(
+            id="intent-live",
+            skill_id=draft.id,
+            skill_revision=1,
+            template="dashboard",
+            purpose="overview",
+            result_ref="local://result/live",
+        ),
+        view_model={
+            "template": "dashboard",
+            "fields": [],
+            "kpis": [],
+            "rows": [],
+            "dataRef": {
+                "uri": "local://data/live",
+                "kind": "object",
+                "sha256": "1" * 64,
+                "mediaType": "application/json",
+                "bytes": 1,
+            },
+        },
+        result_ref=StorageRef(
+            uri=(
+                "/api/knowledge-assets/v1/workspaces/workspace-test/"
+                f"skill-view-revisions/view-live/artifacts/{digest}"
+            ),
+            kind="bundle",
+            sha256=digest,
+            media_type="text/html",
+            bytes=len(content),
+        ),
+        created_at="2026-08-25T00:00:00Z",
+    )
+    repository.save_skill_view_revision(view)
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=KnowledgeAssetApplication(
+            repository, artifact_roots=(artifact_root,)
+        ),
+        identity_resolver=lambda request: (
+            request.headers.get("X-Test-Workspace", "workspace-test"),
+            "editor",
+        ),
+    )
+    client = TestClient(app)
+    url = (
+        "/api/knowledge-assets/v1/workspaces/workspace-test/"
+        f"skill-view-revisions/view-live/artifacts/{digest}"
+    )
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response.content == content
+    assert response.headers["etag"] == f'"sha256:{digest}"'
+    assert response.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+    assert (
+        client.get(url, headers={"X-Test-Workspace": "workspace-other"}).status_code
+        == 404
+    )
+    path.write_bytes(content + b"corrupt")
+    assert client.get(url).status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_mixed_context_resolves_exact_authorized_revisions(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "metrics.csv"
+    source.write_text("service,cpu\nedge,21\n", encoding="utf-8")
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources.sqlite3",
+        artifact_root=tmp_path / "source-artifacts",
+        source_root=tmp_path,
+    )
+    access = AccessContext(
+        workspace_id="workspace-test",
+        principal_id="workspace-test",
+        role="editor",
+    )
+    connection = source_golden.create_connection(
+        access,
+        connector_key="csv",
+        display_name="Metrics",
+        scope="personal",
+        configuration={"sourceRef": "metrics.csv"},
+        secret_ref=None,
+        idempotency_key="mixed-source",
+        trace_id="mixed-source",
+    )
+    ingested = source_golden.ingest(
+        access,
+        connection_id=connection.connection.id,
+        resource_id=connection.connection.discovered_resources[0].id,
+        recipe_operations=["trim"],
+        idempotency_key="mixed-ingest",
+        trace_id="mixed-ingest",
+    )
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    draft = repository.create_skill_draft(
+        workspace_id="workspace-test",
+        name="Mixed context",
+        description="",
+        source_refs=[],
+        request_id="mixed-draft",
+        idempotency_key="mixed-draft",
+    )[0]
+    artifact_digest = "a" * 64
+    view = SkillViewRevision(
+        id="view-mixed",
+        skill_revision_id=f"{draft.id}:1",
+        revision=1,
+        manifest=SkillViewManifest(
+            id="manifest-mixed",
+            skill_revision_id=f"{draft.id}:1",
+            renderer_ref="renderer://dashboard/v1",
+            view_model_schema_ref=SchemaRef(
+                uri="schema://mixed", version="1", sha256="b" * 64
+            ),
+            allowed_components=["DashboardView"],
+        ),
+        intent=ViewIntent(
+            id="intent-mixed",
+            skill_id=draft.id,
+            skill_revision=1,
+            template="dashboard",
+            purpose="overview",
+            result_ref="local://mixed",
+        ),
+        view_model={
+            "template": "dashboard",
+            "fields": [],
+            "kpis": [],
+            "rows": [],
+            "dataRef": {
+                "uri": "local://mixed",
+                "kind": "object",
+                "sha256": "c" * 64,
+                "mediaType": "application/json",
+                "bytes": 1,
+            },
+        },
+        result_ref=StorageRef(
+            uri="/api/knowledge-assets/v1/mixed",
+            kind="bundle",
+            sha256=artifact_digest,
+            media_type="text/html",
+            bytes=1,
+        ),
+        created_at="2026-08-25T00:00:00Z",
+    )
+    repository.save_skill_view_revision(view)
+    domains = DomainService(tmp_path / "domains.sqlite3")
+    knowledge = domains.create_knowledge_base(
+        "workspace-test", "Policies", "", "personal"
+    )["contextRef"]
+    uploaded = domains.add_source(
+        knowledge["objectId"],
+        filename="policy.md",
+        title="Policy",
+        description="",
+        tags="",
+        media_type="text/markdown",
+        content=b"# Policy\n\nUse exact revisions.",
+        chunk_strategy="heading",
+    )
+    domain_document = uploaded["documentContextRef"]
+    semantic = domains.save_semantic(
+        "semantic-sales",
+        "model Sales {\n dimension region : string\n}",
+        0,
+        workspace_id="workspace-test",
+    )["contextRef"]
+    graph = domains.mutate_graph(
+        "graph-sales",
+        {
+            "operation": "upsert_entity",
+            "entity": {"id": "customer", "type": "Customer"},
+        },
+        "workspace-test",
+    )["contextRef"]
+    refs = (
+        AuthoringResourceRef(
+            kind="document",
+            object_id=ingested.source_revision.resource_id,
+            revision=ingested.source_revision.id,
+            scope=Scope.PERSONAL,
+        ),
+        AuthoringResourceRef(
+            kind="golden_asset",
+            object_id=ingested.golden_asset_revision.asset_id,
+            revision=ingested.golden_asset_revision.id,
+            scope=Scope.PERSONAL,
+        ),
+        AuthoringResourceRef(
+            kind=domain_document["kind"],
+            object_id=domain_document["objectId"],
+            revision=domain_document["revision"],
+            scope=domain_document["scope"],
+        ),
+        AuthoringResourceRef(
+            kind=knowledge["kind"],
+            object_id=knowledge["objectId"],
+            revision=knowledge["revision"],
+            scope=knowledge["scope"],
+        ),
+        AuthoringResourceRef(
+            kind=semantic["kind"],
+            object_id=semantic["objectId"],
+            revision=semantic["revision"],
+            scope=semantic["scope"],
+        ),
+        AuthoringResourceRef(
+            kind=graph["kind"],
+            object_id=graph["objectId"],
+            revision=graph["revision"],
+            scope=graph["scope"],
+        ),
+        AuthoringResourceRef(
+            kind="skill",
+            object_id=draft.id,
+            revision=f"{draft.id}:1",
+            scope=Scope.PERSONAL,
+        ),
+        AuthoringResourceRef(
+            kind="artifact",
+            object_id=view.id,
+            revision=view.id,
+            scope=Scope.PERSONAL,
+        ),
+    )
+    envelope = ContextEnvelope(
+        caller_id="workspace-test",
+        workspace_id="workspace-test",
+        prompt="Use exact context",
+        resource_refs=refs,
+        fixed_revisions=tuple(ref.revision for ref in refs),
+        current_skill_id=draft.id,
+        current_view_id=view.id,
+        current_component_id="kpi-revenue",
+        comment_ids=("comment-1",),
+    )
+    resolved = await _ImmutableResourceResolver(
+        source_golden, repository, domains
+    ).resolve(envelope, refs)
+    assert [item.ref for item in resolved.resources] == list(refs)
+    assert resolved.context_digest
+
+    mutable = refs[2].model_copy(update={"revision": "latest"})
+    with pytest.raises(SkillAuthoringError):
+        await _ImmutableResourceResolver(source_golden, repository, domains).resolve(
+            envelope.model_copy(
+                update={
+                    "resource_refs": (mutable,),
+                    "fixed_revisions": ("latest",),
+                    "current_skill_id": None,
+                    "current_view_id": None,
+                    "current_component_id": None,
+                    "comment_ids": (),
+                }
+            ),
+            (mutable,),
+        )
+
+    wrong_scope = refs[2].model_copy(update={"scope": Scope.TEAM})
+    with pytest.raises(SkillAuthoringError):
+        await _ImmutableResourceResolver(source_golden, repository, domains).resolve(
+            envelope.model_copy(
+                update={
+                    "resource_refs": (wrong_scope,),
+                    "fixed_revisions": (wrong_scope.revision,),
+                    "current_skill_id": None,
+                    "current_view_id": None,
+                    "current_component_id": None,
+                    "comment_ids": (),
+                }
+            ),
+            (wrong_scope,),
+        )
 
 
 def test_source_golden_mcp_rejects_browser_process_execution_fields(
@@ -246,7 +664,9 @@ def test_authoring_resolves_real_golden_revision_before_model_gate(
         source_root=tmp_path,
     )
     created = source_golden.create_connection(
-        AccessContext(workspace_id="workspace-test", principal_id="workspace-test", role="editor"),
+        AccessContext(
+            workspace_id="workspace-test", principal_id="workspace-test", role="editor"
+        ),
         connector_key="csv",
         display_name="Infrastructure CSV",
         scope="team",
@@ -256,7 +676,9 @@ def test_authoring_resolves_real_golden_revision_before_model_gate(
         trace_id="authoring-source-trace",
     )
     ingested = source_golden.ingest(
-        AccessContext(workspace_id="workspace-test", principal_id="workspace-test", role="editor"),
+        AccessContext(
+            workspace_id="workspace-test", principal_id="workspace-test", role="editor"
+        ),
         connection_id=created.connection.id,
         resource_id=created.connection.discovered_resources[0].id,
         recipe_operations=["trim"],
@@ -397,9 +819,7 @@ def test_skill_authoring_start_is_typed_and_fail_closed_without_w1() -> None:
         },
     }
 
-    first = client.post(
-        "/api/knowledge-assets/v1/commands", json=body, headers=headers
-    )
+    first = client.post("/api/knowledge-assets/v1/commands", json=body, headers=headers)
     assert first.status_code == 200
     first_payload = first.json()
     assert first_payload["accepted"] is False
@@ -407,9 +827,10 @@ def test_skill_authoring_start_is_typed_and_fail_closed_without_w1() -> None:
     assert first_payload["result"]["status"] == "credential_blocked"
     assert first_payload["result"]["operation"]["error_code"] == "credential_blocked"
     assert first_payload["result"]["draft"] is None
-    assert [
-        item["event_type"] for item in first_payload["result"]["events"]
-    ] == ["operation_created", "credential_blocked"]
+    assert [item["event_type"] for item in first_payload["result"]["events"]] == [
+        "operation_created",
+        "credential_blocked",
+    ]
 
     replay = client.post(
         "/api/knowledge-assets/v1/commands", json=body, headers=headers
@@ -417,8 +838,9 @@ def test_skill_authoring_start_is_typed_and_fail_closed_without_w1() -> None:
     assert replay.status_code == 200
     replay_payload = replay.json()
     assert replay_payload["operationId"] == first_payload["operationId"]
-    assert replay_payload["result"]["operation"]["operation_id"] == (
-        first_payload["operationId"]
+    assert (
+        replay_payload["result"]["operation"]["operation_id"]
+        == (first_payload["operationId"])
     )
     read_back = client.get(
         f"/api/knowledge-assets/v1/authoring/operations/{first_payload['operationId']}",
@@ -427,6 +849,8 @@ def test_skill_authoring_start_is_typed_and_fail_closed_without_w1() -> None:
     assert read_back.status_code == 200
     assert read_back.json()["operation"]["status"] == "credential_blocked"
     assert read_back.json()["events"][1]["event_type"] == "credential_blocked"
+
+
 def test_evaluation_quality_commands_use_typed_bff_and_fail_closed_for_candidates() -> (
     None
 ):

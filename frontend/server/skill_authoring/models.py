@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Annotated, Literal, Mapping, Sequence, Union
+from typing import Annotated, Literal, Mapping, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -23,7 +22,9 @@ def utc_now() -> datetime:
 
 
 def digest(value: object) -> str:
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    encoded = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:20]
 
 
@@ -47,7 +48,9 @@ class AuthoringErrorCode(StrEnum):
 class SkillAuthoringError(RuntimeError):
     """Typed domain failure suitable for conversion by the Main BFF."""
 
-    def __init__(self, code: AuthoringErrorCode, message: str, *, operation_id: str | None = None):
+    def __init__(
+        self, code: AuthoringErrorCode, message: str, *, operation_id: str | None = None
+    ):
         super().__init__(message)
         self.code = code
         self.message = message
@@ -84,7 +87,19 @@ class ResourceRef(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    kind: Literal["golden_asset", "data_access_skill", "knowledge_asset", "skill"]
+    kind: Literal[
+        "golden_asset",
+        "document",
+        "knowledge",
+        "semantic",
+        "graph",
+        "skill",
+        "artifact",
+        # Retained for existing callers while the explicit revision kinds
+        # above become the canonical browser contract.
+        "data_access_skill",
+        "knowledge_asset",
+    ]
     object_id: str = Field(min_length=1, max_length=160)
     revision: str = Field(min_length=1, max_length=160)
     scope: Scope
@@ -129,8 +144,12 @@ class ContextEnvelope(BaseModel):
     @classmethod
     def prompt_is_not_a_secret(cls, value: str) -> str:
         lowered = value.casefold()
-        if any(token in lowered for token in ("access_token=", "api_key=", "secret_key=")):
-            raise ValueError("secrets must be represented by server-side secretRef, not prompt text")
+        if any(
+            token in lowered for token in ("access_token=", "api_key=", "secret_key=")
+        ):
+            raise ValueError(
+                "secrets must be represented by server-side secretRef, not prompt text"
+            )
         return value
 
     @model_validator(mode="after")
@@ -218,7 +237,9 @@ class InputContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")
-    type: Literal["string", "number", "boolean", "date", "dimension", "metric", "document_ref"]
+    type: Literal[
+        "string", "number", "boolean", "date", "dimension", "metric", "document_ref"
+    ]
     required: bool = True
 
 
@@ -226,7 +247,9 @@ class OutputContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")
-    type: Literal["answer", "table", "metric", "chart", "schema", "graph", "observation"]
+    type: Literal[
+        "answer", "table", "metric", "chart", "schema", "graph", "observation"
+    ]
     required: bool = True
 
 
@@ -318,7 +341,9 @@ class BuildPlan(BaseModel):
     dependencies: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     kind_spec: KindSpec
     query_plan: QueryPlan | None = None
-    clarification_questions: tuple[str, ...] = Field(default_factory=tuple, max_length=5)
+    clarification_questions: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=5
+    )
     data_refs: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     metrics: tuple[str, ...] = Field(default_factory=tuple, max_length=128)
     dimensions: tuple[str, ...] = Field(default_factory=tuple, max_length=128)
@@ -331,25 +356,35 @@ class BuildPlan(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def infer_structural_analysis_kind(cls, value: object) -> object:
-        """Normalize the one unambiguous Ark structured-output omission.
+    def infer_structural_kind(cls, value: object) -> object:
+        """Normalize only unambiguous Ark structured-output omissions.
 
         Some Responses API models omit the discriminant while returning the
-        complete analysis shape.  The query plan is the canonical structural
-        marker; infer only that exact case so all other malformed or
-        conflicting plans remain rejected by the discriminated union.
+        complete kind-specific shape. Infer only canonical structural markers
+        so malformed, mixed, and conflicting plans remain rejected.
         """
         if not isinstance(value, dict):
             return value
         kind_spec = value.get("kind_spec")
-        if (
-            value.get("intent") == SkillKind.ANALYSIS
-            and isinstance(kind_spec, dict)
-            and "kind" not in kind_spec
-            and isinstance(kind_spec.get("query_plan"), dict)
+        if not isinstance(kind_spec, dict) or "kind" in kind_spec:
+            return value
+        if value.get("intent") == SkillKind.ANALYSIS and isinstance(
+            kind_spec.get("query_plan"), dict
         ):
             normalized = dict(value)
             normalized["kind_spec"] = {**kind_spec, "kind": SkillKind.ANALYSIS}
+            return normalized
+        citation_intent = kind_spec.get("citation_intent")
+        retrieval_mode = kind_spec.get("retrieval_mode")
+        if (
+            value.get("intent") == SkillKind.KNOWLEDGE
+            and isinstance(citation_intent, (list, tuple))
+            and bool(citation_intent)
+            and retrieval_mode in {None, "hybrid", "semantic", "exact"}
+            and set(kind_spec).issubset({"citation_intent", "retrieval_mode"})
+        ):
+            normalized = dict(value)
+            normalized["kind_spec"] = {**kind_spec, "kind": SkillKind.KNOWLEDGE}
             return normalized
         return value
 
@@ -386,15 +421,21 @@ class DraftRevision(BaseModel):
     parent_revision: int | None = Field(default=None, ge=1)
     manifest: DraftManifest
     plan: BuildPlan
-    state: Literal["draft", "awaiting_execution", "execution_requested", "conflicted"] = "draft"
+    state: Literal[
+        "draft", "awaiting_execution", "execution_requested", "conflicted"
+    ] = "draft"
     scope: Scope
     owner_id: str
     workspace_id: str
     budget: Budget = Field(default_factory=Budget)
-    authorized_permissions: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    authorized_permissions: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=64
+    )
     lineage: tuple[ResourceRef, ...] = Field(default_factory=tuple)
     lineage_source_draft_id: str | None = None
-    promotion_state: Literal["personal", "team_read_only", "pre_publish_evaluation"] = "personal"
+    promotion_state: Literal["personal", "team_read_only", "pre_publish_evaluation"] = (
+        "personal"
+    )
     digest: str
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -500,7 +541,9 @@ class PatchProposal(BaseModel):
     base_revision: int = Field(ge=1)
     patch: TypedPatch
     impact: PatchImpact
-    status: Literal["proposed", "accepted", "rejected", "undone", "conflicted"] = "proposed"
+    status: Literal["proposed", "accepted", "rejected", "undone", "conflicted"] = (
+        "proposed"
+    )
     proposed_by: str
     source_comment_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=32)
     created_at: datetime = Field(default_factory=utc_now)
@@ -567,12 +610,38 @@ class AgentExecutionEvidence(BaseModel):
     session_id: str = Field(min_length=1, max_length=160)
     trace_id: str = Field(min_length=1, max_length=160)
     status: Literal["running", "succeeded", "failed"]
-    events: tuple[AgentEventEvidence, ...] = Field(default_factory=tuple, max_length=256)
+    events: tuple[AgentEventEvidence, ...] = Field(
+        default_factory=tuple, max_length=256
+    )
     tool_calls: tuple[AgentToolCallEvidence, ...] = Field(
         default_factory=tuple, max_length=128
     )
     error_code: AuthoringErrorCode | None = None
     error_message: str | None = Field(default=None, max_length=500)
+
+
+class AgentAnswer(BaseModel):
+    """Bounded ordinary-conversation output from the real Agent/Runner."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    status: Literal["succeeded", "awaiting_input"]
+    text: str | None = Field(default=None, min_length=1, max_length=8_000)
+    citations: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
+    clarification_questions: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=5
+    )
+
+    @model_validator(mode="after")
+    def status_has_exact_payload(self) -> "AgentAnswer":
+        if self.status == "succeeded":
+            if not self.text or self.clarification_questions:
+                raise ValueError("succeeded answer requires text and no clarification")
+        elif self.text is not None or not self.clarification_questions:
+            raise ValueError(
+                "awaiting_input answer requires clarification and no answer text"
+            )
+        return self
 
 
 class AuthoringEvent(BaseModel):
@@ -631,7 +700,9 @@ class AuthoringOperation(BaseModel):
     trace_id: str
     patch_id: str | None = None
     retry_of_operation_id: str | None = None
-    clarification_questions: tuple[str, ...] = Field(default_factory=tuple, max_length=8)
+    clarification_questions: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=8
+    )
     stage: Literal[
         "received",
         "planning",

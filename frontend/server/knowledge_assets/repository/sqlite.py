@@ -8,7 +8,6 @@ in the next contract wave.
 from __future__ import annotations
 
 import json
-import hashlib
 import sqlite3
 import threading
 import uuid
@@ -23,6 +22,7 @@ from ..contracts import (
     OperationResponse,
     ResourceSummary,
     SkillDraft,
+    SkillDraftRevision,
     SkillManifest,
     CleanRun,
     CleaningRecipe,
@@ -63,6 +63,9 @@ class KnowledgeAssetRepository(Protocol):
     def bootstrap(self, workspace_id: str, role: str) -> BootstrapResponse: ...
 
     def draft(self, draft_id: str) -> SkillDraft | None: ...
+    def skill_draft_revision(
+        self, draft_id: str, revision: int
+    ) -> SkillDraftRevision | None: ...
 
     def current_pointer(self, *, object_type: str, object_id: str) -> int | None: ...
 
@@ -119,17 +122,29 @@ class KnowledgeAssetRepository(Protocol):
         error: ErrorEnvelope | None = None,
     ) -> None: ...
 
-    def cancel_operation(self, operation_id: str, request_id: str) -> OperationResponse: ...
+    def cancel_operation(
+        self, operation_id: str, request_id: str
+    ) -> OperationResponse: ...
 
     def source_revision(self, source_revision_id: str) -> SourceRevision | None: ...
-    def save_source_revision(self, revision: SourceRevision, workspace_id: str, source_path: str) -> None: ...
-    def source_revisions_for_workspace(self, workspace_id: str) -> list[SourceRevision]: ...
+    def save_source_revision(
+        self, revision: SourceRevision, workspace_id: str, source_path: str
+    ) -> None: ...
+    def source_revisions_for_workspace(
+        self, workspace_id: str
+    ) -> list[SourceRevision]: ...
     def save_profile_run(self, run: ProfileRun) -> None: ...
     def save_cleaning_recipe(self, recipe: CleaningRecipe) -> None: ...
     def save_clean_run(self, run: CleanRun) -> None: ...
-    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> GoldenAssetRevision: ...
-    def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None: ...
-    def revoke_asset(self, asset_id: str, workspace_id: str, request_id: str, reason: str) -> None: ...
+    def save_golden_asset_revision(
+        self, revision: GoldenAssetRevision
+    ) -> GoldenAssetRevision: ...
+    def latest_golden_asset_revision(
+        self, workspace_id: str
+    ) -> GoldenAssetRevision | None: ...
+    def revoke_asset(
+        self, asset_id: str, workspace_id: str, request_id: str, reason: str
+    ) -> None: ...
     def save_refresh_run(self, run: RefreshRun) -> None: ...
     def save_skill_result(self, result: SkillResult) -> None: ...
     def latest_skill_result(
@@ -151,15 +166,23 @@ class KnowledgeAssetRepository(Protocol):
     def save_policy_gate_result(self, result: PolicyGateResult) -> None: ...
     def policy_gate_result(self, result_id: str) -> PolicyGateResult | None: ...
     def save_published_skill_version(self, version: PublishedSkillVersion) -> None: ...
-    def published_skill_version(self, version_id: str) -> PublishedSkillVersion | None: ...
+    def published_skill_version(
+        self, version_id: str
+    ) -> PublishedSkillVersion | None: ...
     def published_skill_versions_for_workspace(
         self, workspace_id: str
     ) -> list[PublishedSkillVersion]: ...
     def save_invocation(self, invocation: Invocation) -> None: ...
     def save_skill_view_share(self, grant: SkillViewShareGrant) -> None: ...
     def save_patch_history(
-        self, patch_id: str, undo_token: str, skill_id: str, base_revision: int,
-        operation: str, before: str, after: str
+        self,
+        patch_id: str,
+        undo_token: str,
+        skill_id: str,
+        base_revision: int,
+        operation: str,
+        before: str,
+        after: str,
     ) -> None: ...
     def patch_history(self, undo_token: str) -> dict[str, object] | None: ...
 
@@ -187,9 +210,7 @@ class SqliteKnowledgeAssetRepository:
         )
         applied = {
             row["version"]
-            for row in self._connection.execute(
-                "SELECT version FROM schema_migrations"
-            )
+            for row in self._connection.execute("SELECT version FROM schema_migrations")
         }
         for migration in sorted(migration_dir.glob("[0-9][0-9][0-9]_*.sql")):
             if migration.name.endswith(".postgresql.sql"):
@@ -290,7 +311,9 @@ class SqliteKnowledgeAssetRepository:
                 }
                 for row in published_rows
                 for version in [
-                    PublishedSkillVersion.model_validate(json.loads(row["version_json"]))
+                    PublishedSkillVersion.model_validate(
+                        json.loads(row["version_json"])
+                    )
                 ]
             ],
             routes=["welcome", "add_kb", "skill_builder"],
@@ -306,8 +329,11 @@ class SqliteKnowledgeAssetRepository:
                 "spaceId": workspace_id,
                 "role": role,
                 "capabilities": [
-                    "skill-draft.create", "skill-draft.save-manifest",
-                    "source.profile", "source.clean", "skill-draft.run",
+                    "skill-draft.create",
+                    "skill-draft.save-manifest",
+                    "source.profile",
+                    "source.clean",
+                    "skill-draft.run",
                 ],
             },
             server_time=now_iso(),
@@ -332,7 +358,9 @@ class SqliteKnowledgeAssetRepository:
                 (idempotency_key,),
             ).fetchone()
             if existing:
-                return SkillDraft.model_validate(json.loads(existing["result_json"])), True
+                return SkillDraft.model_validate(
+                    json.loads(existing["result_json"])
+                ), True
             draft_id = f"skill-draft-{uuid.uuid4()}"
             timestamp = now_iso()
             draft = SkillDraft(
@@ -417,8 +445,16 @@ class SqliteKnowledgeAssetRepository:
                     description=excluded.description, revision=excluded.revision,
                     updated_at=excluded.updated_at, manifest_json=excluded.manifest_json
                 """,
-                (draft.id, draft.workspace_id, draft.name, draft.description,
-                 draft.revision, draft.created_at, draft.updated_at, manifest_json),
+                (
+                    draft.id,
+                    draft.workspace_id,
+                    draft.name,
+                    draft.description,
+                    draft.revision,
+                    draft.created_at,
+                    draft.updated_at,
+                    manifest_json,
+                ),
             )
             self._connection.execute(
                 """
@@ -428,7 +464,14 @@ class SqliteKnowledgeAssetRepository:
                 ON CONFLICT(draft_id, revision) DO UPDATE SET
                     manifest_json=excluded.manifest_json, status=excluded.status
                 """,
-                (draft.id, draft.id, draft.revision, manifest_json, status, draft.updated_at),
+                (
+                    draft.id,
+                    draft.id,
+                    draft.revision,
+                    manifest_json,
+                    status,
+                    draft.updated_at,
+                ),
             )
             self._connection.execute(
                 """
@@ -453,12 +496,17 @@ class SqliteKnowledgeAssetRepository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO NOTHING""",
                 (
-                    revision.id, workspace_id, revision.source_type,
+                    revision.id,
+                    workspace_id,
+                    revision.source_type,
                     revision.content_ref.model_dump_json(by_alias=True),
                     revision.schema_ref.model_dump_json(by_alias=True)
-                    if revision.schema_ref else None,
+                    if revision.schema_ref
+                    else None,
                     revision.permission_ref.model_dump_json(by_alias=True),
-                    revision.source_digest, source_path, revision.created_at,
+                    revision.source_digest,
+                    source_path,
+                    revision.created_at,
                 ),
             )
 
@@ -470,11 +518,15 @@ class SqliteKnowledgeAssetRepository:
         if row is None:
             return None
         return SourceRevision(
-            id=row["id"], source_type=row["source_type"],
+            id=row["id"],
+            source_type=row["source_type"],
             content_ref=json.loads(row["content_ref_json"]),
-            schema_ref=json.loads(row["schema_ref_json"]) if row["schema_ref_json"] else None,
+            schema_ref=json.loads(row["schema_ref_json"])
+            if row["schema_ref_json"]
+            else None,
             permission_ref=json.loads(row["permission_ref_json"]),
-            source_digest=row["source_digest"], created_at=row["created_at"],
+            source_digest=row["source_digest"],
+            created_at=row["created_at"],
         )
 
     def source_path(self, source_revision_id: str) -> str | None:
@@ -501,11 +553,15 @@ class SqliteKnowledgeAssetRepository:
             ).fetchall()
         return [
             SourceRevision(
-                id=row["id"], source_type=row["source_type"],
+                id=row["id"],
+                source_type=row["source_type"],
                 content_ref=json.loads(row["content_ref_json"]),
-                schema_ref=json.loads(row["schema_ref_json"]) if row["schema_ref_json"] else None,
+                schema_ref=json.loads(row["schema_ref_json"])
+                if row["schema_ref_json"]
+                else None,
                 permission_ref=json.loads(row["permission_ref_json"]),
-                source_digest=row["source_digest"], created_at=row["created_at"],
+                source_digest=row["source_digest"],
+                created_at=row["created_at"],
             )
             for row in rows
         ]
@@ -518,14 +574,28 @@ class SqliteKnowledgeAssetRepository:
                  structure_ref_json, quality_score, sensitive_classification_json,
                  estimated_cost_ref_json, error_code, started_at, finished_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (run.id, run.source_revision_id, run.status,
-                 run.sample_ref.model_dump_json(by_alias=True) if run.sample_ref else None,
-                 run.report_ref.model_dump_json(by_alias=True) if run.report_ref else None,
-                 run.structure_ref.model_dump_json(by_alias=True) if run.structure_ref else None,
-                 run.quality_score, json.dumps(run.sensitive_classification),
-                 run.estimated_cost_ref.model_dump_json(by_alias=True)
-                 if run.estimated_cost_ref else None,
-                 run.error_code, run.started_at, run.finished_at),
+                (
+                    run.id,
+                    run.source_revision_id,
+                    run.status,
+                    run.sample_ref.model_dump_json(by_alias=True)
+                    if run.sample_ref
+                    else None,
+                    run.report_ref.model_dump_json(by_alias=True)
+                    if run.report_ref
+                    else None,
+                    run.structure_ref.model_dump_json(by_alias=True)
+                    if run.structure_ref
+                    else None,
+                    run.quality_score,
+                    json.dumps(run.sensitive_classification),
+                    run.estimated_cost_ref.model_dump_json(by_alias=True)
+                    if run.estimated_cost_ref
+                    else None,
+                    run.error_code,
+                    run.started_at,
+                    run.finished_at,
+                ),
             )
 
     def save_refresh_run(self, run: RefreshRun) -> None:
@@ -536,11 +606,18 @@ class SqliteKnowledgeAssetRepository:
                  last_good_revision, error_code, started_at, finished_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    run.id, run.skill_id, run.trigger, run.status,
+                    run.id,
+                    run.skill_id,
+                    run.trigger,
+                    run.status,
                     run.staging_ref.model_dump_json(by_alias=True)
-                    if run.staging_ref else None,
-                    run.current_revision, run.last_good_revision, run.error_code,
-                    run.started_at, run.finished_at,
+                    if run.staging_ref
+                    else None,
+                    run.current_revision,
+                    run.last_good_revision,
+                    run.error_code,
+                    run.started_at,
+                    run.finished_at,
                 ),
             )
 
@@ -767,9 +844,7 @@ class SqliteKnowledgeAssetRepository:
                 ),
             )
 
-    def published_skill_version(
-        self, version_id: str
-    ) -> PublishedSkillVersion | None:
+    def published_skill_version(self, version_id: str) -> PublishedSkillVersion | None:
         with self._lock:
             row = self._connection.execute(
                 "SELECT version_json FROM published_skill_versions WHERE id = ?",
@@ -810,8 +885,14 @@ class SqliteKnowledgeAssetRepository:
         return SkillViewRevision.model_validate(json.loads(row["view_json"]))
 
     def save_patch_history(
-        self, patch_id: str, undo_token: str, skill_id: str, base_revision: int,
-        operation: str, before: str, after: str
+        self,
+        patch_id: str,
+        undo_token: str,
+        skill_id: str,
+        base_revision: int,
+        operation: str,
+        before: str,
+        after: str,
     ) -> None:
         with self._lock:
             self._connection.execute(
@@ -820,7 +901,15 @@ class SqliteKnowledgeAssetRepository:
                 (patch_id, undo_token, skill_id, base_revision, operation, before_value, after_value)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (patch_id, undo_token, skill_id, base_revision, operation, before, after),
+                (
+                    patch_id,
+                    undo_token,
+                    skill_id,
+                    base_revision,
+                    operation,
+                    before,
+                    after,
+                ),
             )
 
     def patch_history(self, undo_token: str) -> dict[str, object] | None:
@@ -837,8 +926,13 @@ class SqliteKnowledgeAssetRepository:
                 """INSERT OR REPLACE INTO cleaning_recipes
                 (id, version, operations_json, source_revision_id, recipe_digest)
                 VALUES (?, ?, ?, ?, ?)""",
-                (recipe.id, recipe.version, json.dumps(recipe.operations),
-                 recipe.source_revision_id, recipe.recipe_digest),
+                (
+                    recipe.id,
+                    recipe.version,
+                    json.dumps(recipe.operations),
+                    recipe.source_revision_id,
+                    recipe.recipe_digest,
+                ),
             )
 
     def save_clean_run(self, run: CleanRun) -> None:
@@ -848,14 +942,26 @@ class SqliteKnowledgeAssetRepository:
                 (id, source_revision_id, recipe_id, status, output_ref_json,
                  quality_report_ref_json, error_code, started_at, finished_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (run.id, run.source_revision_id, run.recipe_id, run.status,
-                 run.output_ref.model_dump_json(by_alias=True) if run.output_ref else None,
-                 run.quality_report_ref.model_dump_json(by_alias=True)
-                 if run.quality_report_ref else None,
-                 run.error_code, run.started_at, run.finished_at),
+                (
+                    run.id,
+                    run.source_revision_id,
+                    run.recipe_id,
+                    run.status,
+                    run.output_ref.model_dump_json(by_alias=True)
+                    if run.output_ref
+                    else None,
+                    run.quality_report_ref.model_dump_json(by_alias=True)
+                    if run.quality_report_ref
+                    else None,
+                    run.error_code,
+                    run.started_at,
+                    run.finished_at,
+                ),
             )
 
-    def save_golden_asset_revision(self, revision: GoldenAssetRevision) -> GoldenAssetRevision:
+    def save_golden_asset_revision(
+        self, revision: GoldenAssetRevision
+    ) -> GoldenAssetRevision:
         with self._lock:
             next_revision = self._connection.execute(
                 "SELECT COALESCE(MAX(revision), 0) + 1 FROM golden_asset_revisions "
@@ -877,34 +983,50 @@ class SqliteKnowledgeAssetRepository:
                  quality_run_ref, owner_json, permissions_ref_json, lineage_digest,
                  freshness_at, last_good)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (revision.id, revision.owner.workspace_id, revision.asset_kind,
-                 revision.revision, revision.schema_ref.model_dump_json(by_alias=True),
-                 revision.storage_ref.model_dump_json(by_alias=True),
-                 json.dumps(revision.source_revision_refs), revision.recipe_ref,
-                 revision.quality_run_ref, revision.owner.model_dump_json(by_alias=True),
-                 revision.permissions_ref.model_dump_json(by_alias=True),
-                 revision.lineage_digest, revision.freshness_at, int(revision.last_good)),
+                (
+                    revision.id,
+                    revision.owner.workspace_id,
+                    revision.asset_kind,
+                    revision.revision,
+                    revision.schema_ref.model_dump_json(by_alias=True),
+                    revision.storage_ref.model_dump_json(by_alias=True),
+                    json.dumps(revision.source_revision_refs),
+                    revision.recipe_ref,
+                    revision.quality_run_ref,
+                    revision.owner.model_dump_json(by_alias=True),
+                    revision.permissions_ref.model_dump_json(by_alias=True),
+                    revision.lineage_digest,
+                    revision.freshness_at,
+                    int(revision.last_good),
+                ),
             )
         return revision
 
-    def latest_golden_asset_revision(self, workspace_id: str) -> GoldenAssetRevision | None:
+    def latest_golden_asset_revision(
+        self, workspace_id: str
+    ) -> GoldenAssetRevision | None:
         with self._lock:
             row = self._connection.execute(
                 "SELECT * FROM golden_asset_revisions WHERE workspace_id = ? "
                 "AND id NOT IN (SELECT asset_id FROM asset_tombstones) "
-                "ORDER BY revision DESC LIMIT 1", (workspace_id,)
+                "ORDER BY revision DESC LIMIT 1",
+                (workspace_id,),
             ).fetchone()
         if row is None:
             return None
         return GoldenAssetRevision(
-            id=row["id"], asset_kind=row["asset_kind"], revision=row["revision"],
+            id=row["id"],
+            asset_kind=row["asset_kind"],
+            revision=row["revision"],
             schema_ref=json.loads(row["schema_ref_json"]),
             storage_ref=json.loads(row["storage_ref_json"]),
             source_revision_refs=json.loads(row["source_revision_refs_json"]),
-            recipe_ref=row["recipe_ref"], quality_run_ref=row["quality_run_ref"],
+            recipe_ref=row["recipe_ref"],
+            quality_run_ref=row["quality_run_ref"],
             owner=json.loads(row["owner_json"]),
             permissions_ref=json.loads(row["permissions_ref_json"]),
-            lineage_digest=row["lineage_digest"], freshness_at=row["freshness_at"],
+            lineage_digest=row["lineage_digest"],
+            freshness_at=row["freshness_at"],
             last_good=bool(row["last_good"]),
         )
 
@@ -942,6 +1064,29 @@ class SqliteKnowledgeAssetRepository:
             manifest=SkillManifest.model_validate(json.loads(row["manifest_json"])),
         )
 
+    def skill_draft_revision(
+        self, draft_id: str, revision: int
+    ) -> SkillDraftRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT draft_id, skill_id, revision, manifest_json, status, created_at
+                FROM skill_draft_revisions
+                WHERE draft_id = ? AND revision = ?
+                """,
+                (draft_id, revision),
+            ).fetchone()
+        if row is None:
+            return None
+        return SkillDraftRevision(
+            id=f"{row['draft_id']}:{row['revision']}",
+            skill_id=row["skill_id"],
+            revision=row["revision"],
+            manifest=SkillManifest.model_validate(json.loads(row["manifest_json"])),
+            status=row["status"],
+            created_at=row["created_at"],
+        )
+
     def save_manifest(
         self,
         *,
@@ -961,7 +1106,9 @@ class SqliteKnowledgeAssetRepository:
                 (idempotency_key,),
             ).fetchone()
             if existing:
-                return SkillDraft.model_validate(json.loads(existing["result_json"])), True
+                return SkillDraft.model_validate(
+                    json.loads(existing["result_json"])
+                ), True
             row = self._connection.execute(
                 """
                 SELECT id, workspace_id, name, description, revision,

@@ -89,11 +89,25 @@ def mount_knowledge_asset_routes(
         if not idempotency_key:
             return _error(400, "IDEMPOTENCY_KEY_REQUIRED", "缺少幂等键。", request_id)
         workspace_id, _role = identity_resolver(request)
+        if body.command == "skill-authoring.answer":
+            return await application.answer_skill_authoring(
+                body.payload.model_dump(mode="python"),
+                caller_id=workspace_id,
+                workspace_id=workspace_id,
+                request_id=request_id,
+            )
         if body.command == "skill-authoring.start":
             return await application.start_skill_authoring(
                 body.payload.model_dump(mode="python"),
                 caller_id=workspace_id,
                 workspace_id=workspace_id,
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
+        if body.command == "skill-authoring.patch":
+            return await application.patch_skill_authoring(
+                body.payload.model_dump(mode="python"),
+                caller_id=workspace_id,
                 request_id=request_id,
                 idempotency_key=idempotency_key,
             )
@@ -137,10 +151,10 @@ def mount_knowledge_asset_routes(
                 )
             except SourcesGoldenError as error:
                 return _error(422, error.code, error.message, request_id)
-        async_mode = (
-            body.command in {"skill-draft.run", "skill-draft.retry"}
-            and "respond-async" in request.headers.get("Prefer", "")
-        )
+        async_mode = body.command in {
+            "skill-draft.run",
+            "skill-draft.retry",
+        } and "respond-async" in request.headers.get("Prefer", "")
         try:
             if body.command == "skill-draft.create":
                 return application.create_skill_draft(
@@ -182,6 +196,58 @@ def mount_knowledge_asset_routes(
                 details=error.details,
                 retryable=error.retryable,
             )
+
+    @app.get(
+        "/api/knowledge-assets/v1/workspaces/{workspace_id}"
+        "/skill-view-revisions/{view_revision_id}/artifacts/{sha256}"
+    )
+    async def immutable_html_artifact(
+        workspace_id: str,
+        view_revision_id: str,
+        sha256: str,
+        request: Request,
+    ) -> Response:
+        request_id = request.headers.get("X-Request-ID", "missing-request-id")
+        authenticated_workspace, _role = identity_resolver(request)
+        if authenticated_workspace != workspace_id:
+            return _error(
+                404, "ARTIFACT_NOT_FOUND", "HTML revision does not exist.", request_id
+            )
+        try:
+            content = application.immutable_html_artifact(
+                workspace_id=workspace_id,
+                view_revision_id=view_revision_id,
+                sha256=sha256,
+            )
+        except KnowledgeAssetRepositoryError as error:
+            status = (
+                500
+                if error.code == "ARTIFACT_INTEGRITY_FAILED"
+                else (422 if error.code == "ARTIFACT_REF_MISMATCH" else 404)
+            )
+            return _error(
+                status,
+                error.code,
+                error.message,
+                request_id,
+                details=error.details,
+                retryable=error.retryable,
+            )
+        return Response(
+            content=content,
+            media_type="text/html; charset=utf-8",
+            headers={
+                "Content-Length": str(len(content)),
+                "ETag": f'"sha256:{sha256}"',
+                "Cache-Control": "private, max-age=31536000, immutable",
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": (
+                    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
+                    "font-src data:; base-uri 'none'; form-action 'none'; "
+                    "frame-ancestors 'none'"
+                ),
+            },
+        )
 
     @app.post("/api/knowledge-assets/v1/streams")
     async def streams(request: Request, body: CommandRequest) -> Response:
@@ -227,7 +293,9 @@ def mount_knowledge_asset_routes(
         ).model_dump(mode="json", by_alias=True)
 
     @app.get("/api/knowledge-assets/v1/operations/{operation_id}/events")
-    async def operation_events(operation_id: str, request: Request) -> StreamingResponse:
+    async def operation_events(
+        operation_id: str, request: Request
+    ) -> StreamingResponse:
         request_id = request.headers.get("X-Request-ID", "missing-request-id")
         value = application.operation(operation_id)
         if value is None:
@@ -238,7 +306,9 @@ def mount_knowledge_asset_routes(
             try:
                 after = max(0, int(last_event_id.rsplit(":", 1)[-1]))
             except ValueError:
-                return _error(400, "LAST_EVENT_ID_INVALID", "事件游标无效。", request_id)
+                return _error(
+                    400, "LAST_EVENT_ID_INVALID", "事件游标无效。", request_id
+                )
         events = application.stream_events(operation_id, after)
 
         async def body():

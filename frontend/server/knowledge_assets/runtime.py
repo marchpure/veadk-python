@@ -16,6 +16,8 @@ from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import SqliteKnowledgeAssetRepository
 from .routes import mount_knowledge_asset_routes
 from .sources_golden import SourceGoldenApplication
+from frontend.server.knowledge_domains import mount_domain_routes
+from frontend.server.knowledge_domains.service import DomainService
 from .contract_data import SkillDraftRevision
 from .contracts import (
     AnalysisKindSpec,
@@ -39,6 +41,7 @@ from .contracts import (
     now_iso,
 )
 from .kind_runtime import (
+    ContentAddressedStore,
     ExecutionBudget,
     KindExecutionRequest,
     KindRuntime,
@@ -53,7 +56,6 @@ from .kind_runtime.dashboard_artifacts import (
     generate_dashboard_artifact,
 )
 from frontend.server.skill_authoring.models import (
-    DraftManifest,
     Worker3ExecutionAccepted,
     Worker3ExecutionRequest,
 )
@@ -125,7 +127,9 @@ class _MainMcpToolProvider:
                     tool_filter=allowlist,
                 )
             )
-            schemas.update({item: {"source": "W1 persisted MCP schema"} for item in allowlist})
+            schemas.update(
+                {item: {"source": "W1 persisted MCP schema"} for item in allowlist}
+            )
         return McpToolBundle(
             tools=tuple(toolsets),
             schemas=schemas,
@@ -146,7 +150,8 @@ class _MainWorker3Executor:
         self._repository = repository
         self._source_golden = source_golden
         self._artifact_root = artifact_root
-        self._runtime = KindRuntime()
+        self._store = ContentAddressedStore(artifact_root.parent / "kind-runtime")
+        self._runtime = KindRuntime(self._store)
 
     async def request_execution(self, request: Worker3ExecutionRequest):
         if request.draft_manifest is None or request.build_plan is None:
@@ -169,9 +174,9 @@ class _MainWorker3Executor:
                     reason="No authorized Golden revision was pinned for execution.",
                 )
             contents = {
-                record.id: self._source_golden.golden_asset_content(context, record.id).decode(
-                    "utf-8"
-                )
+                record.id: self._source_golden.golden_asset_content(
+                    context, record.id
+                ).decode("utf-8")
                 for record in golden_records
             }
             manifest = _canonical_manifest(request)
@@ -188,7 +193,9 @@ class _MainWorker3Executor:
                 ),
                 status="running",
             )
-            canonical_revisions = [_canonical_golden(record) for record in golden_records]
+            canonical_revisions = [
+                _canonical_golden(record) for record in golden_records
+            ]
             draft_revision = SkillDraftRevision(
                 id=f"{request.draft_id}:{request.draft_revision}",
                 skill_id=request.draft_id,
@@ -223,8 +230,6 @@ class _MainWorker3Executor:
             )
             if execution.skill_result is not None:
                 self._repository.save_skill_result(execution.skill_result)
-            if execution.skill_view_revision is not None:
-                self._repository.save_skill_view_revision(execution.skill_view_revision)
             artifact = None
             if execution.status == "succeeded" and request.skill_kind == "analysis":
                 artifact = await asyncio.to_thread(
@@ -234,6 +239,48 @@ class _MainWorker3Executor:
                     canonical_revisions[0],
                     contents[golden_records[0].id],
                 )
+            view_revision = execution.skill_view_revision
+            if view_revision is not None and artifact is not None:
+                dashboard_html = Path(artifact.index_html_path).read_bytes()
+                dashboard_ref = self._store.write_bytes(
+                    "views",
+                    dashboard_html,
+                    media_type="text/html",
+                    suffix=".html",
+                )
+                public_uri = (
+                    f"/api/knowledge-assets/v1/workspaces/{request.workspace_id}"
+                    f"/skill-view-revisions/{view_revision.id}"
+                    f"/artifacts/{dashboard_ref.sha256}"
+                )
+                view_revision = view_revision.model_copy(
+                    update={
+                        "result_ref": dashboard_ref.model_copy(
+                            update={"uri": public_uri}
+                        )
+                    }
+                )
+                execution = execution.model_copy(
+                    update={"skill_view_revision": view_revision}
+                )
+            elif view_revision is not None and view_revision.result_ref is not None:
+                public_uri = (
+                    f"/api/knowledge-assets/v1/workspaces/{request.workspace_id}"
+                    f"/skill-view-revisions/{view_revision.id}"
+                    f"/artifacts/{view_revision.result_ref.sha256}"
+                )
+                view_revision = view_revision.model_copy(
+                    update={
+                        "result_ref": view_revision.result_ref.model_copy(
+                            update={"uri": public_uri}
+                        )
+                    }
+                )
+                execution = execution.model_copy(
+                    update={"skill_view_revision": view_revision}
+                )
+            if view_revision is not None:
+                self._repository.save_skill_view_revision(view_revision)
             if execution.status == "succeeded":
                 self._repository.update_skill_draft_revision_status(
                     request.draft_id, request.draft_revision, "ready_for_evaluation"
@@ -275,15 +322,25 @@ class _MainWorker3Executor:
     ):
         plan = request.build_plan
         selected = list(plan.query_plan.selected_fields) if plan.query_plan else []
-        metric = (plan.metrics or tuple(selected[1:]))[0] if (plan.metrics or selected[1:]) else "value"
-        dimension = (plan.dimensions or tuple(selected[:1]))[0] if (plan.dimensions or selected[:1]) else "label"
+        metric = (
+            (plan.metrics or tuple(selected[1:]))[0]
+            if (plan.metrics or selected[1:])
+            else "value"
+        )
+        dimension = (
+            (plan.dimensions or tuple(selected[:1]))[0]
+            if (plan.dimensions or selected[:1])
+            else "label"
+        )
         fields = list(dict.fromkeys([*selected, dimension, metric]))
         dashboard_plan = DashboardBuildPlan(
             build_plan_id=plan.plan_id,
             user_goal=plan.purpose,
             title=manifest.metadata.display_name,
             required_golden_revision_id=golden.id,
-            data_query_ref=plan.query_plan.source_revision if plan.query_plan else golden.id,
+            data_query_ref=plan.query_plan.source_revision
+            if plan.query_plan
+            else golden.id,
             invocation_ref=f"invocation://{request.operation_id}",
             kpis=[
                 DashboardKpiPlan(
@@ -363,7 +420,9 @@ def _canonical_manifest(request: Worker3ExecutionRequest) -> SkillManifest:
     digest = hashlib.sha256(
         json.dumps(plan.model_dump(mode="json"), sort_keys=True).encode()
     ).hexdigest()
-    schema = SchemaRef(uri=f"schema://skill/{request.draft_id}", version="1", sha256=digest)
+    schema = SchemaRef(
+        uri=f"schema://skill/{request.draft_id}", version="1", sha256=digest
+    )
     kind = plan.intent.value
     if kind == "analysis":
         spec = AnalysisKindSpec(
@@ -456,13 +515,17 @@ def create_app(
         docs_url=None,
         redoc_url=None,
     )
-    repository_path = Path(repository_path).resolve() if not (
-        isinstance(repository_path, str)
-        and (
-            repository_path.startswith("postgres://")
-            or repository_path.startswith("postgresql://")
+    repository_path = (
+        Path(repository_path).resolve()
+        if not (
+            isinstance(repository_path, str)
+            and (
+                repository_path.startswith("postgres://")
+                or repository_path.startswith("postgresql://")
+            )
         )
-    ) else repository_path
+        else repository_path
+    )
     runtime_root = (
         Path(repository_path).parent / "sources-golden"
         if isinstance(repository_path, Path)
@@ -483,24 +546,36 @@ def create_app(
         source_root=runtime_root / "sources",
         mcp_profiles=mcp_profiles,
     )
+    domain_service = DomainService(runtime_root / "knowledge-domains.sqlite3")
     authoring_gateway = VeADKModelGateway(
         mcp_tools=_MainMcpToolProvider(sources_golden),
         model_name=os.getenv("MODEL_AGENT_MODEL") or os.getenv("MODEL_AGENT_NAME"),
-        model_api_base=os.getenv("MODEL_AGENT_API_BASE") or os.getenv("OPENAI_BASE_URL"),
+        model_api_base=os.getenv("MODEL_AGENT_API_BASE")
+        or os.getenv("OPENAI_BASE_URL"),
         model_api_key=os.getenv("MODEL_AGENT_API_KEY") or os.getenv("OPENAI_API_KEY"),
     )
-    mount_knowledge_asset_routes(
-        app,
-        application=KnowledgeAssetApplication(
-            repository,
-            sources_golden=sources_golden,
-            authoring_model_gateway=authoring_gateway,
-            authoring_worker3=_MainWorker3Executor(
-                repository=repository,
-                source_golden=sources_golden,
-                artifact_root=runtime_root / "dashboard-workspaces",
-            ),
+    application = KnowledgeAssetApplication(
+        repository,
+        sources_golden=sources_golden,
+        domain_resolver=domain_service,
+        authoring_model_gateway=authoring_gateway,
+        authoring_worker3=_MainWorker3Executor(
+            repository=repository,
+            source_golden=sources_golden,
+            artifact_root=runtime_root / "dashboard-workspaces",
         ),
+        artifact_roots=(
+            runtime_root / "kind-runtime",
+            runtime_root / "dashboard-workspaces",
+            Path(".veadk/knowledge-assets/bundles"),
+        ),
+    )
+    mount_knowledge_asset_routes(
+        app, application=application, identity_resolver=identity_resolver
+    )
+    mount_domain_routes(
+        app,
+        service=domain_service,
         identity_resolver=identity_resolver,
     )
     return app

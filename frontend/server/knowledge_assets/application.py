@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import csv
 import html
@@ -9,6 +10,7 @@ import io
 import json
 import os
 import sqlite3
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
@@ -147,11 +149,18 @@ from .authoring_repository import (
 )
 
 
-class _W1ResourceResolver:
-    """Resolve pinned W1 Golden revisions into the W2 authoring boundary."""
+class _ImmutableResourceResolver:
+    """Resolve exact, authorized revisions from server-owned stores."""
 
-    def __init__(self, source_golden: SourceGoldenApplication) -> None:
+    def __init__(
+        self,
+        source_golden: SourceGoldenApplication,
+        repository: KnowledgeAssetRepository,
+        domain_resolver: object | None = None,
+    ) -> None:
         self.source_golden = source_golden
+        self.repository = repository
+        self.domain_resolver = domain_resolver
 
     async def resolve(self, envelope, refs):
         context = AccessContext(
@@ -161,30 +170,163 @@ class _W1ResourceResolver:
         )
         resources: list[ResolvedResource] = []
         for ref in refs:
-            if ref.kind != "golden_asset":
-                raise SkillAuthoringError(
-                    AuthoringErrorCode.RESOURCE_NOT_FOUND,
-                    f"unsupported Source/Golden resource kind: {ref.kind}",
-                )
-            binding = self.source_golden.golden_resource_binding(
-                context, ref.revision
-            )
-            if binding.object_id != ref.object_id:
+            if (
+                envelope.freshness.require_fixed_revision
+                and ref.revision not in envelope.fixed_revisions
+            ):
                 raise SkillAuthoringError(
                     AuthoringErrorCode.INVALID_CONTEXT,
-                    f"resource {ref.object_id}@{ref.revision} does not match the pinned Golden Asset",
+                    f"resource {ref.object_id} is not pinned to a fixed revision",
                 )
-            resources.append(
-                ResolvedResource(
-                    ref=ref,
-                    display_name=binding.display_name,
-                    provider_revision=binding.provider_revision,
-                    schema_digest=binding.schema_digest,
-                    capabilities=tuple(binding.capabilities),
-                    semantic_fields=tuple(binding.semantic_fields),
-                    authorized=binding.authorized,
+            if ref.revision.casefold() in {"latest", "current", "head", "draft"}:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.INVALID_CONTEXT,
+                    "mutable revision aliases are forbidden",
                 )
+            if ref.kind == "golden_asset" or ref.kind == "knowledge_asset":
+                binding = self.source_golden.golden_resource_binding(
+                    context, ref.revision
+                )
+                if binding.object_id != ref.object_id:
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.INVALID_CONTEXT,
+                        f"resource {ref.object_id}@{ref.revision} does not match the pinned Golden Asset",
+                    )
+                resources.append(
+                    ResolvedResource(
+                        ref=ref,
+                        display_name=binding.display_name,
+                        provider_revision=binding.provider_revision,
+                        schema_digest=binding.schema_digest,
+                        capabilities=tuple(binding.capabilities),
+                        semantic_fields=tuple(binding.semantic_fields),
+                        authorized=binding.authorized,
+                    )
+                )
+                continue
+            if ref.kind == "document":
+                domain_resolve = getattr(
+                    self.domain_resolver, "resolve_authoring_resource", None
+                )
+                if callable(domain_resolve):
+                    try:
+                        value = domain_resolve(
+                            workspace_id=envelope.workspace_id,
+                            caller_id=envelope.caller_id,
+                            ref=ref,
+                        )
+                        if hasattr(value, "__await__"):
+                            value = await value
+                        resources.append(ResolvedResource.model_validate(value))
+                        continue
+                    except KeyError:
+                        pass
+                    except PermissionError as error:
+                        raise SkillAuthoringError(
+                            AuthoringErrorCode.PERMISSION_DENIED,
+                            "Document revision is not authorized.",
+                        ) from error
+                source = self.source_golden.source_revision(context, ref.revision)
+                if source.resource_id != ref.object_id:
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.INVALID_CONTEXT,
+                        "Document object and revision do not match.",
+                    )
+                resources.append(
+                    ResolvedResource(
+                        ref=ref,
+                        display_name=source.source_locator,
+                        provider_revision=source.id,
+                        schema_digest=source.schema_digest,
+                        capabilities=("source.read", "lineage.read"),
+                        authorized=True,
+                    )
+                )
+                continue
+            if ref.kind in {"skill", "data_access_skill"}:
+                revision_number = self._skill_revision_number(ref)
+                draft = self.repository.draft(ref.object_id)
+                revision = self.repository.skill_draft_revision(
+                    ref.object_id, revision_number
+                )
+                if (
+                    draft is None
+                    or draft.workspace_id != envelope.workspace_id
+                    or revision is None
+                    or revision.id != ref.revision
+                ):
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.RESOURCE_NOT_FOUND,
+                        "Skill revision does not exist in the authenticated workspace.",
+                    )
+                manifest = revision.manifest
+                schema_digest = hashlib.sha256(
+                    manifest.model_dump_json(by_alias=True).encode("utf-8")
+                ).hexdigest()
+                resources.append(
+                    ResolvedResource(
+                        ref=ref,
+                        display_name=manifest.metadata.display_name,
+                        provider_revision=revision.id,
+                        schema_digest=schema_digest,
+                        capabilities=("skill.read",),
+                        authorized=True,
+                    )
+                )
+                continue
+            if ref.kind == "artifact":
+                view = self.repository.skill_view_revision(ref.revision)
+                if (
+                    view is None
+                    or view.id != ref.object_id
+                    or not self._view_in_workspace(view, envelope.workspace_id)
+                ):
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.RESOURCE_NOT_FOUND,
+                        "Artifact revision does not exist in the authenticated workspace.",
+                    )
+                resources.append(
+                    ResolvedResource(
+                        ref=ref,
+                        display_name=view.intent.template,
+                        provider_revision=view.id,
+                        schema_digest=(
+                            view.result_ref.sha256
+                            if view.result_ref is not None
+                            else view.manifest.view_model_schema_ref.sha256
+                        ),
+                        capabilities=("artifact.read",),
+                        authorized=True,
+                    )
+                )
+                continue
+            resolve = getattr(self.domain_resolver, "resolve_authoring_resource", None)
+            if ref.kind in {"knowledge", "semantic", "graph"} and callable(resolve):
+                try:
+                    value = resolve(
+                        workspace_id=envelope.workspace_id,
+                        caller_id=envelope.caller_id,
+                        ref=ref,
+                    )
+                    if hasattr(value, "__await__"):
+                        value = await value
+                    resources.append(ResolvedResource.model_validate(value))
+                    continue
+                except KeyError as error:
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.RESOURCE_NOT_FOUND,
+                        f"{ref.kind.title()} revision does not exist.",
+                    ) from error
+                except PermissionError as error:
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.PERMISSION_DENIED,
+                        f"{ref.kind.title()} revision is not authorized.",
+                    ) from error
+            raise SkillAuthoringError(
+                AuthoringErrorCode.RESOURCE_NOT_FOUND,
+                f"unsupported immutable resource kind: {ref.kind}",
             )
+        self._validate_bindings(envelope)
         authorized_permissions = tuple(
             sorted(
                 {
@@ -206,9 +348,69 @@ class _W1ResourceResolver:
                     "refs": [item.model_dump(mode="json") for item in resources],
                     "permissions": authorized_permissions,
                     "fixed_revisions": envelope.fixed_revisions,
+                    "current_skill_id": envelope.current_skill_id,
+                    "current_view_id": envelope.current_view_id,
+                    "current_component_id": envelope.current_component_id,
+                    "comment_ids": envelope.comment_ids,
                 }
             ),
         )
+
+    @staticmethod
+    def _skill_revision_number(ref: AuthoringResourceRef) -> int:
+        prefix = f"{ref.object_id}:"
+        if not ref.revision.startswith(prefix):
+            raise SkillAuthoringError(
+                AuthoringErrorCode.INVALID_CONTEXT,
+                "Skill revision must be the exact immutable draft revision ID.",
+            )
+        try:
+            revision = int(ref.revision.removeprefix(prefix))
+        except ValueError as error:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.INVALID_CONTEXT,
+                "Skill revision ID is invalid.",
+            ) from error
+        if revision < 1:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.INVALID_CONTEXT, "Skill revision ID is invalid."
+            )
+        return revision
+
+    def _view_in_workspace(self, view: SkillViewRevision, workspace_id: str) -> bool:
+        skill_id = view.skill_revision_id.rsplit(":", 1)[0]
+        draft = self.repository.draft(skill_id)
+        return draft is not None and draft.workspace_id == workspace_id
+
+    def _validate_bindings(self, envelope: ContextEnvelope) -> None:
+        if envelope.current_skill_id:
+            draft = self.repository.draft(envelope.current_skill_id)
+            if draft is None or draft.workspace_id != envelope.workspace_id:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.PERMISSION_DENIED,
+                    "current Skill binding is not authorized.",
+                )
+        if envelope.current_view_id:
+            view = self.repository.skill_view_revision(envelope.current_view_id)
+            if view is None or not self._view_in_workspace(view, envelope.workspace_id):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.PERMISSION_DENIED,
+                    "current ViewRevision binding is not authorized.",
+                )
+            if envelope.current_skill_id and not view.skill_revision_id.startswith(
+                f"{envelope.current_skill_id}:"
+            ):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.INVALID_CONTEXT,
+                    "current Skill and ViewRevision bindings do not match.",
+                )
+        if (
+            envelope.current_component_id or envelope.comment_ids
+        ) and not envelope.current_view_id:
+            raise SkillAuthoringError(
+                AuthoringErrorCode.INVALID_CONTEXT,
+                "component and comment bindings require an authorized ViewRevision.",
+            )
 
 
 class _W1NotConfiguredResolver:
@@ -244,6 +446,9 @@ class KnowledgeAssetApplication:
         authoring_model_gateway: object | None = None,
         authoring_worker3: object | None = None,
         sources_golden: SourceGoldenApplication | None = None,
+        domain_resolver: object | None = None,
+        artifact_roots: tuple[str | Path, ...] = (),
+        public_api_prefix: str = "/api/knowledge-assets/v1",
     ) -> None:
         self.repository = repository
         self.audit_recorder = audit_recorder or repository
@@ -276,6 +481,8 @@ class KnowledgeAssetApplication:
         )
         self._builder_job_ids: dict[str, str] = {}
         self._sources_golden = sources_golden
+        self._artifact_roots = tuple(Path(root).resolve() for root in artifact_roots)
+        self._public_api_prefix = public_api_prefix.rstrip("/")
         self._kind_runtime = KindRuntime(
             ContentAddressedStore(".veadk/knowledge-assets/kind-runtime")
         )
@@ -314,13 +521,129 @@ class KnowledgeAssetApplication:
                 authoring_repository,
                 authoring_resolver
                 or (
-                    _W1ResourceResolver(sources_golden)
+                    _ImmutableResourceResolver(
+                        sources_golden, repository, domain_resolver
+                    )
                     if sources_golden is not None
                     else _W1NotConfiguredResolver()
                 ),
                 authoring_model_gateway or CredentialBlockedGateway(),
                 authoring_worker3 or NoopWorker3Executor(),
             )
+
+    def _authoring_envelope(
+        self,
+        payload: dict[str, object],
+        *,
+        caller_id: str,
+        workspace_id: str,
+        request_id: str,
+    ) -> ContextEnvelope:
+        refs = tuple(
+            AuthoringResourceRef.model_validate(item)
+            for item in payload.get("resource_refs", [])
+        )
+        return ContextEnvelope(
+            request_id=request_id,
+            caller_id=caller_id,
+            workspace_id=workspace_id,
+            prompt=str(payload["prompt"]),
+            resource_refs=refs,
+            permissions=tuple(str(item) for item in payload.get("permissions", [])),
+            fixed_revisions=tuple(
+                str(item) for item in payload.get("fixed_revisions", [])
+            ),
+            budget=Budget(
+                timeout_ms=min(
+                    max(int(os.getenv("MODEL_AGENT_TIMEOUT_MS", "30000")), 100),
+                    120000,
+                )
+            ),
+            freshness=FreshnessPolicy(),
+            current_skill_id=payload.get("current_skill_id"),
+            current_view_id=payload.get("current_view_id"),
+            current_component_id=payload.get("current_component_id"),
+            comment_ids=tuple(str(item) for item in payload.get("comment_ids", [])),
+        )
+
+    async def answer_skill_authoring(
+        self,
+        payload: dict[str, object],
+        *,
+        caller_id: str,
+        workspace_id: str,
+        request_id: str,
+    ) -> CommandResponse:
+        from .contracts import SkillAuthoringAnswerResult
+
+        if self._authoring is None:
+            result = SkillAuthoringAnswerResult(
+                status="credential_blocked",
+                error=ErrorEnvelope(
+                    code="AUTHORING_NOT_CONFIGURED",
+                    message="生产 authoring repository 尚未配置。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        try:
+            envelope = self._authoring_envelope(
+                payload,
+                caller_id=caller_id,
+                workspace_id=workspace_id,
+                request_id=request_id,
+            )
+            context = await self._authoring.resolver.resolve(
+                envelope, envelope.resource_refs
+            )
+            answer = await asyncio.wait_for(
+                self._authoring.model_gateway.answer(context),
+                timeout=envelope.budget.timeout_ms / 1000,
+            )
+            execution = self._authoring.model_gateway.execution_evidence
+            result = SkillAuthoringAnswerResult(
+                status=answer.status,
+                answer=answer,
+                agent_execution=execution,
+                context_digest=context.context_digest,
+            )
+            return CommandResponse(
+                accepted=True,
+                request_id=request_id,
+                result=result,
+            )
+        except asyncio.TimeoutError:
+            error = SkillAuthoringError(
+                AuthoringErrorCode.MODEL_TIMEOUT, "VEADK Runner timed out"
+            )
+        except SkillAuthoringError as caught:
+            error = caught
+        execution = self._authoring.model_gateway.execution_evidence
+        status = (
+            "credential_blocked"
+            if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
+            else "failed"
+        )
+        return CommandResponse(
+            accepted=False,
+            request_id=request_id,
+            result=SkillAuthoringAnswerResult(
+                status=status,
+                agent_execution=execution,
+                error=ErrorEnvelope(
+                    code=error.code.value.upper(),
+                    message=error.message,
+                    retryable=error.code
+                    in {
+                        AuthoringErrorCode.MODEL_TIMEOUT,
+                        AuthoringErrorCode.MODEL_UNAVAILABLE,
+                        AuthoringErrorCode.CREDENTIAL_BLOCKED,
+                    },
+                    request_id=request_id,
+                ),
+            ),
+        )
 
     async def start_skill_authoring(
         self,
@@ -332,6 +655,7 @@ class KnowledgeAssetApplication:
         idempotency_key: str,
     ) -> CommandResponse:
         from .contracts import SkillAuthoringStartResult
+
         if self._authoring is None:
             result = SkillAuthoringStartResult(
                 status="credential_blocked",
@@ -348,42 +672,11 @@ class KnowledgeAssetApplication:
         if previous_id:
             read = await self._authoring.read_operation(previous_id)
             return self._authoring_response(read, request_id)
-        refs = tuple(
-            AuthoringResourceRef.model_validate(item)
-            for item in payload.get("resource_refs", [])
-        )
-        envelope = ContextEnvelope(
-            request_id=request_id,
+        envelope = self._authoring_envelope(
+            payload,
             caller_id=caller_id,
             workspace_id=workspace_id,
-            prompt=str(payload["prompt"]),
-            resource_refs=refs,
-            permissions=tuple(str(item) for item in payload.get("permissions", [])),
-            fixed_revisions=tuple(
-                str(item) for item in payload.get("fixed_revisions", [])
-            ),
-            # Keep browser requests bounded when the upstream model is
-            # unavailable. Operators may explicitly raise this for a
-            # tool-assisted authoring environment.
-            budget=Budget(
-                timeout_ms=min(
-                    max(
-                        int(
-                            os.getenv(
-                                "MODEL_AGENT_TIMEOUT_MS",
-                                "30000",
-                            )
-                        ),
-                        100,
-                    ),
-                    120000,
-                )
-            ),
-            freshness=FreshnessPolicy(),
-            current_skill_id=payload.get("current_skill_id"),
-            current_view_id=payload.get("current_view_id"),
-            current_component_id=payload.get("current_component_id"),
-            comment_ids=tuple(str(item) for item in payload.get("comment_ids", [])),
+            request_id=request_id,
         )
         kind = payload.get("requested_kind")
         try:
@@ -407,9 +700,7 @@ class KnowledgeAssetApplication:
                     request_id=request_id,
                 ),
             )
-            return CommandResponse(
-                accepted=False, request_id=request_id, result=result
-            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
         operation_id = read.operation.operation_id
         await authoring_repo.save_idempotency(idempotency_key, operation_id)
         return self._authoring_response(read, request_id)
@@ -457,15 +748,71 @@ class KnowledgeAssetApplication:
             return CommandResponse(accepted=False, request_id=request_id, result=result)
         return self._authoring_execute_response(read, request_id)
 
+    async def patch_skill_authoring(
+        self,
+        payload: dict[str, object],
+        *,
+        caller_id: str,
+        request_id: str,
+        idempotency_key: str,
+    ) -> CommandResponse:
+        from pydantic import TypeAdapter
+        from frontend.server.skill_authoring.models import TypedPatch
+        from .contracts import SkillAuthoringPatchResult
+
+        if self._authoring is None:
+            result = SkillAuthoringPatchResult(
+                status="failed",
+                error=ErrorEnvelope(
+                    code="AUTHORING_NOT_CONFIGURED",
+                    message="生产 authoring repository 尚未配置。",
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        authoring_repo = self._authoring.repository
+        previous_id = await authoring_repo.get_idempotency(idempotency_key)
+        if previous_id:
+            read = await self._authoring.read_operation(previous_id)
+            return self._authoring_patch_response(read, request_id)
+        try:
+            proposal = await self._authoring.propose_patch(
+                str(payload["draft_id"]),
+                base_revision=int(payload["base_revision"]),
+                patch=TypeAdapter(TypedPatch).validate_python(payload["patch"]),
+                proposed_by=caller_id,
+            )
+            read = await self._authoring.accept_patch(proposal, caller_id=caller_id)
+        except SkillAuthoringError as error:
+            result = SkillAuthoringPatchResult(
+                status="failed",
+                error=ErrorEnvelope(
+                    code=error.code.value,
+                    message=error.message,
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(accepted=False, request_id=request_id, result=result)
+        await authoring_repo.save_idempotency(
+            idempotency_key, read.operation.operation_id
+        )
+        return self._authoring_patch_response(read, request_id)
+
     @staticmethod
-    def _authoring_response(read: AuthoringReadModel, request_id: str) -> CommandResponse:
+    def _authoring_response(
+        read: AuthoringReadModel, request_id: str
+    ) -> CommandResponse:
         from .contracts import SkillAuthoringStartResult
+
         operation_error = None
         if read.operation.error_code is not None and read.operation.error_message:
             operation_error = ErrorEnvelope(
                 code=read.operation.error_code.value,
                 message=read.operation.error_message,
-                retryable=read.operation.error_code.value in {
+                retryable=read.operation.error_code.value
+                in {
                     "model_timeout",
                     "model_unavailable",
                     "credential_blocked",
@@ -480,7 +827,10 @@ class KnowledgeAssetApplication:
             events=list(read.events),
         )
         accepted = read.operation.status.value in {
-            "queued", "planning", "awaiting_input", "ready_for_execution"
+            "queued",
+            "planning",
+            "awaiting_input",
+            "ready_for_execution",
         }
         return CommandResponse(
             accepted=accepted,
@@ -494,12 +844,14 @@ class KnowledgeAssetApplication:
         read: AuthoringReadModel, request_id: str
     ) -> CommandResponse:
         from .contracts import SkillAuthoringExecuteResult
+
         operation_error = None
         if read.operation.error_code is not None and read.operation.error_message:
             operation_error = ErrorEnvelope(
                 code=read.operation.error_code.value,
                 message=read.operation.error_message,
-                retryable=read.operation.error_code.value in {
+                retryable=read.operation.error_code.value
+                in {
                     "model_timeout",
                     "model_unavailable",
                     "credential_blocked",
@@ -516,6 +868,36 @@ class KnowledgeAssetApplication:
         )
         return CommandResponse(
             accepted=read.operation.status.value in {"running", "queued", "succeeded"},
+            request_id=request_id,
+            operation_id=read.operation.operation_id,
+            result=result,
+        )
+
+    @staticmethod
+    def _authoring_patch_response(
+        read: AuthoringReadModel, request_id: str
+    ) -> CommandResponse:
+        from .contracts import SkillAuthoringPatchResult
+
+        operation_error = None
+        if read.operation.error_code is not None and read.operation.error_message:
+            operation_error = ErrorEnvelope(
+                code=read.operation.error_code.value,
+                message=read.operation.error_message,
+                retryable=False,
+                request_id=request_id,
+            )
+        result = SkillAuthoringPatchResult(
+            status=read.operation.status.value,
+            error=operation_error,
+            operation=read.operation,
+            draft=read.draft,
+            patch=read.latest_patch,
+            events=list(read.events),
+        )
+        return CommandResponse(
+            accepted=read.operation.status.value
+            in {"succeeded", "ready_for_execution"},
             request_id=request_id,
             operation_id=read.operation.operation_id,
             result=result,
@@ -581,8 +963,74 @@ class KnowledgeAssetApplication:
             )
             for connection in projection["connections"]
         ]
-        value["routes"] = sorted(set(value.get("routes", [])) | set(projection["routes"]))
+        value["routes"] = sorted(
+            set(value.get("routes", [])) | set(projection["routes"])
+        )
         return type(base).model_validate(value)
+
+    def immutable_html_artifact(
+        self,
+        *,
+        workspace_id: str,
+        view_revision_id: str,
+        sha256: str,
+    ) -> bytes:
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+            raise KnowledgeAssetRepositoryError(
+                "ARTIFACT_NOT_FOUND", "HTML revision does not exist."
+            )
+        revision = self.repository.skill_view_revision(view_revision_id)
+        if revision is None or revision.result_ref is None:
+            raise KnowledgeAssetRepositoryError(
+                "ARTIFACT_NOT_FOUND", "HTML revision does not exist."
+            )
+        skill_id = revision.skill_revision_id.rsplit(":", 1)[0]
+        draft = self.repository.draft(skill_id)
+        if draft is None or draft.workspace_id != workspace_id:
+            raise KnowledgeAssetRepositoryError(
+                "ARTIFACT_NOT_FOUND", "HTML revision does not exist."
+            )
+        ref = revision.result_ref
+        if (
+            ref.media_type != "text/html"
+            or ref.sha256 != sha256
+            or ref.bytes is None
+            or ref.bytes <= 0
+            or ref.bytes > 5 * 1024 * 1024
+        ):
+            raise KnowledgeAssetRepositoryError(
+                "ARTIFACT_REF_MISMATCH",
+                "HTML revision metadata does not match the requested digest.",
+            )
+        candidates: list[Path] = []
+        for root in self._artifact_roots:
+            candidates.extend(
+                (
+                    root / "views" / f"{sha256}.html",
+                    root / f"{sha256}.html",
+                )
+            )
+            candidates.extend(root.glob(f"*/objects/{sha256}.html"))
+        path = None
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if candidate.is_file() and any(
+                resolved.is_relative_to(root) for root in self._artifact_roots
+            ):
+                path = resolved
+                break
+        if path is None:
+            raise KnowledgeAssetRepositoryError(
+                "ARTIFACT_NOT_FOUND", "HTML revision bytes do not exist."
+            )
+        content = path.read_bytes()
+        if len(content) != ref.bytes or hashlib.sha256(content).hexdigest() != sha256:
+            raise KnowledgeAssetRepositoryError(
+                "ARTIFACT_INTEGRITY_FAILED",
+                "Stored HTML revision failed integrity verification.",
+                retryable=False,
+            )
+        return content
 
     def source_golden_connection(
         self,
@@ -595,7 +1043,9 @@ class KnowledgeAssetApplication:
         trace_id: str,
     ) -> CommandResponse:
         if self._sources_golden is None:
-            raise SourcesGoldenError("SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。")
+            raise SourcesGoldenError(
+                "SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。"
+            )
         configuration = dict(payload.configuration)
         if payload.connector_key == "mcp_custom":
             if not payload.mcp_profile_id:
@@ -612,8 +1062,11 @@ class KnowledgeAssetApplication:
                 payload.mcp_profile_id, payload.tool_allowlist
             )
         result = self._sources_golden.create_connection(
-            AccessContext(workspace_id=workspace_id, principal_id=principal_id,
-                          role=role if role in {"viewer", "editor", "admin"} else "viewer"),
+            AccessContext(
+                workspace_id=workspace_id,
+                principal_id=principal_id,
+                role=role if role in {"viewer", "editor", "admin"} else "viewer",
+            ),
             connector_key=payload.connector_key,
             display_name=payload.display_name,
             scope=payload.scope,
@@ -649,10 +1102,15 @@ class KnowledgeAssetApplication:
         trace_id: str,
     ) -> CommandResponse:
         if self._sources_golden is None:
-            raise SourcesGoldenError("SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。")
+            raise SourcesGoldenError(
+                "SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。"
+            )
         result = self._sources_golden.ingest(
-            AccessContext(workspace_id=workspace_id, principal_id=principal_id,
-                          role=role if role in {"viewer", "editor", "admin"} else "viewer"),
+            AccessContext(
+                workspace_id=workspace_id,
+                principal_id=principal_id,
+                role=role if role in {"viewer", "editor", "admin"} else "viewer",
+            ),
             connection_id=payload.connection_id,
             resource_id=payload.resource_id,
             recipe_operations=payload.recipe_operations,

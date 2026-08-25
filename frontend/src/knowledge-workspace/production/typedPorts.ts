@@ -53,6 +53,8 @@ export type KnowledgeCommandName =
   | "refresh.run"
   | "invocation.start"
   | "skill-authoring.start"
+  | "skill-authoring.answer"
+  | "skill-authoring.patch"
   | "skill-authoring.execute";
 
 export interface ActionUpdatePayload {
@@ -133,6 +135,10 @@ export interface InvocationStartPayload {
 }
 export type SkillAuthoringStartPayload =
   import("./generatedContracts").SkillAuthoringStartPayload;
+export type SkillAuthoringAnswerPayload =
+  import("./generatedContracts").SkillAuthoringAnswerPayload;
+export type SkillAuthoringPatchPayload =
+  import("./generatedContracts").SkillAuthoringPatchPayload;
 export type SkillAuthoringExecutePayload =
   import("./generatedContracts").SkillAuthoringExecutePayload;
 export type KnowledgeCommand =
@@ -165,6 +171,8 @@ export type KnowledgeCommand =
   | { command: "refresh.run"; payload: RefreshRunPayload }
   | { command: "invocation.start"; payload: InvocationStartPayload }
   | { command: "skill-authoring.start"; payload: SkillAuthoringStartPayload }
+  | { command: "skill-authoring.answer"; payload: SkillAuthoringAnswerPayload }
+  | { command: "skill-authoring.patch"; payload: SkillAuthoringPatchPayload }
   | { command: "skill-authoring.execute"; payload: SkillAuthoringExecutePayload };
 export type KnowledgeErrorCode =
   | "UNAVAILABLE"

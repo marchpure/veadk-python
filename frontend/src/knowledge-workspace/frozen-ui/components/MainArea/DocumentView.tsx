@@ -35,7 +35,7 @@ export default function DocumentView({ fileId, searchParams, setSearchParams, sh
   const addContext = (locator: string, label: string) => {
     if (!doc) return;
     window.dispatchEvent(new CustomEvent('add_context_item', {
-      detail: { item: { id: `chunk_${fileId}_${locator}`, name: `${doc.name} - ${label}`, type: 'document', artifactId: fileId, locator } },
+      detail: { item: { id: `chunk_${fileId}_${locator}`, name: `${doc.name} - ${label}`, type: 'document', artifactId: fileId, locator, contextRef: doc.contextRef } },
     }));
     showToast?.('已加入片段上下文');
   };
@@ -118,7 +118,7 @@ export default function DocumentView({ fileId, searchParams, setSearchParams, sh
             <p className="text-xs text-blue-700 leading-relaxed mb-4">加入上下文后，助手将能够引用本文档的服务端内容。</p>
             <button onClick={() => {
               if (!doc) return;
-              window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item: { id: fileId, name: doc.name, type: 'document', artifactId: fileId } } }));
+              window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item: { id: fileId, name: doc.name, type: 'document', artifactId: fileId, contextRef: doc.contextRef } } }));
               showToast?.('已加入完整文档上下文');
               const next = new URLSearchParams(searchParams);
               next.set('pane', 'open');

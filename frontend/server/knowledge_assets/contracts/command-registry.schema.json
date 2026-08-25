@@ -36,6 +36,28 @@
         "title": "ActionUpdatePayload",
         "type": "object"
       },
+      "AddCitationIntentPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "add_citation_intent",
+            "default": "add_citation_intent",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "intent": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent"
+        ],
+        "title": "AddCitationIntentPatch",
+        "type": "object"
+      },
       "AnalysisKindSpec": {
         "additionalProperties": false,
         "properties": {
@@ -1228,6 +1250,38 @@
         "title": "EvaluationSuiteRevisePayload",
         "type": "object"
       },
+      "FreshnessPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "As Of"
+          },
+          "max_age_seconds": {
+            "default": 86400,
+            "maximum": 31536000,
+            "minimum": 0,
+            "title": "Max Age Seconds",
+            "type": "integer"
+          },
+          "require_fixed_revision": {
+            "default": true,
+            "title": "Require Fixed Revision",
+            "type": "boolean"
+          }
+        },
+        "title": "FreshnessPolicy",
+        "type": "object"
+      },
       "GraphOntologyKindSpec": {
         "additionalProperties": false,
         "properties": {
@@ -1780,6 +1834,53 @@
         "title": "PublicationPublishPayload",
         "type": "object"
       },
+      "QueryPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "source_revision": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Source Revision",
+            "type": "string"
+          },
+          "selected_fields": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Selected Fields",
+            "type": "array"
+          },
+          "filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 32,
+            "title": "Filters",
+            "type": "object"
+          },
+          "limit": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_revision",
+          "selected_fields"
+        ],
+        "title": "QueryPlan",
+        "type": "object"
+      },
       "RefreshRunCommand": {
         "additionalProperties": false,
         "properties": {
@@ -1880,9 +1981,14 @@
           "kind": {
             "enum": [
               "golden_asset",
+              "document",
+              "knowledge",
+              "semantic",
+              "graph",
+              "skill",
+              "artifact",
               "data_access_skill",
-              "knowledge_asset",
-              "skill"
+              "knowledge_asset"
             ],
             "title": "Kind",
             "type": "string"
@@ -2149,6 +2255,280 @@
         "title": "SemanticKindSpec",
         "type": "object"
       },
+      "SetDescriptionPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_description",
+            "default": "set_description",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "title": "SetDescriptionPatch",
+        "type": "object"
+      },
+      "SetPermissionScopePatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_permission_scope",
+            "default": "set_permission_scope",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "permissions"
+        ],
+        "title": "SetPermissionScopePatch",
+        "type": "object"
+      },
+      "SetQueryPlanPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_query_plan",
+            "default": "set_query_plan",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "query_plan": {
+            "$ref": "#/$defs/QueryPlan"
+          }
+        },
+        "required": [
+          "query_plan"
+        ],
+        "title": "SetQueryPlanPatch",
+        "type": "object"
+      },
+      "SetRefreshPolicyPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_refresh_policy",
+            "default": "set_refresh_policy",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "freshness": {
+            "$ref": "#/$defs/FreshnessPolicy"
+          }
+        },
+        "required": [
+          "freshness"
+        ],
+        "title": "SetRefreshPolicyPatch",
+        "type": "object"
+      },
+      "SetSemanticMappingPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_semantic_mapping",
+            "default": "set_semantic_mapping",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "field": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "entity": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Entity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "entity"
+        ],
+        "title": "SetSemanticMappingPatch",
+        "type": "object"
+      },
+      "SetThresholdPolicyPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_threshold_policy",
+            "default": "set_threshold_policy",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "comparator": {
+            "enum": [
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "change_rate"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "threshold",
+          "comparator"
+        ],
+        "title": "SetThresholdPolicyPatch",
+        "type": "object"
+      },
+      "SetTitlePatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_title",
+            "default": "set_title",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "SetTitlePatch",
+        "type": "object"
+      },
+      "SkillAuthoringAnswerCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "skill-authoring.answer",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/SkillAuthoringAnswerPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "SkillAuthoringAnswerCommand",
+        "type": "object"
+      },
+      "SkillAuthoringAnswerPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "prompt": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "resourceRefs": {
+            "items": {
+              "$ref": "#/$defs/ResourceRef"
+            },
+            "maxItems": 32,
+            "title": "Resourcerefs",
+            "type": "array"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Permissions",
+            "type": "array"
+          },
+          "fixedRevisions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Fixedrevisions",
+            "type": "array"
+          },
+          "currentSkillId": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currentskillid"
+          },
+          "currentViewId": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currentviewid"
+          },
+          "currentComponentId": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currentcomponentid"
+          },
+          "commentIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Commentids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "SkillAuthoringAnswerPayload",
+        "type": "object"
+      },
       "SkillAuthoringExecuteCommand": {
         "additionalProperties": false,
         "properties": {
@@ -2195,6 +2575,90 @@
           "draftId"
         ],
         "title": "SkillAuthoringExecutePayload",
+        "type": "object"
+      },
+      "SkillAuthoringPatchCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "const": "skill-authoring.patch",
+            "title": "Command",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/SkillAuthoringPatchPayload"
+          }
+        },
+        "required": [
+          "command",
+          "payload"
+        ],
+        "title": "SkillAuthoringPatchCommand",
+        "type": "object"
+      },
+      "SkillAuthoringPatchPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "draftId": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Draftid",
+            "type": "string"
+          },
+          "baseRevision": {
+            "minimum": 1,
+            "title": "Baserevision",
+            "type": "integer"
+          },
+          "patch": {
+            "discriminator": {
+              "mapping": {
+                "add_citation_intent": "#/$defs/AddCitationIntentPatch",
+                "set_description": "#/$defs/SetDescriptionPatch",
+                "set_permission_scope": "#/$defs/SetPermissionScopePatch",
+                "set_query_plan": "#/$defs/SetQueryPlanPatch",
+                "set_refresh_policy": "#/$defs/SetRefreshPolicyPatch",
+                "set_semantic_mapping": "#/$defs/SetSemanticMappingPatch",
+                "set_threshold_policy": "#/$defs/SetThresholdPolicyPatch",
+                "set_title": "#/$defs/SetTitlePatch"
+              },
+              "propertyName": "patch_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetTitlePatch"
+              },
+              {
+                "$ref": "#/$defs/SetDescriptionPatch"
+              },
+              {
+                "$ref": "#/$defs/SetQueryPlanPatch"
+              },
+              {
+                "$ref": "#/$defs/SetRefreshPolicyPatch"
+              },
+              {
+                "$ref": "#/$defs/SetThresholdPolicyPatch"
+              },
+              {
+                "$ref": "#/$defs/SetPermissionScopePatch"
+              },
+              {
+                "$ref": "#/$defs/AddCitationIntentPatch"
+              },
+              {
+                "$ref": "#/$defs/SetSemanticMappingPatch"
+              }
+            ],
+            "title": "Patch"
+          }
+        },
+        "required": [
+          "draftId",
+          "baseRevision",
+          "patch"
+        ],
+        "title": "SkillAuthoringPatchPayload",
         "type": "object"
       },
       "SkillAuthoringStartCommand": {
@@ -3360,7 +3824,9 @@
         "resource.revoke": "#/$defs/ResourceCommand",
         "resource.share": "#/$defs/ResourceCommand",
         "resource.update": "#/$defs/ResourceCommand",
+        "skill-authoring.answer": "#/$defs/SkillAuthoringAnswerCommand",
         "skill-authoring.execute": "#/$defs/SkillAuthoringExecuteCommand",
+        "skill-authoring.patch": "#/$defs/SkillAuthoringPatchCommand",
         "skill-authoring.start": "#/$defs/SkillAuthoringStartCommand",
         "skill-draft.create": "#/$defs/CreateSkillDraftCommand",
         "skill-draft.retry": "#/$defs/SkillDraftRetryCommand",
@@ -3475,6 +3941,12 @@
         "$ref": "#/$defs/SkillAuthoringStartCommand"
       },
       {
+        "$ref": "#/$defs/SkillAuthoringAnswerCommand"
+      },
+      {
+        "$ref": "#/$defs/SkillAuthoringPatchCommand"
+      },
+      {
         "$ref": "#/$defs/SkillAuthoringExecuteCommand"
       },
       {
@@ -3487,6 +3959,77 @@
   },
   "commandResponse": {
     "$defs": {
+      "AddCitationIntentPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "add_citation_intent",
+            "default": "add_citation_intent",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "intent": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Intent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent"
+        ],
+        "title": "AddCitationIntentPatch",
+        "type": "object"
+      },
+      "AgentAnswer": {
+        "additionalProperties": false,
+        "description": "Bounded ordinary-conversation output from the real Agent/Runner.",
+        "properties": {
+          "status": {
+            "enum": [
+              "succeeded",
+              "awaiting_input"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/$defs/ResourceRef"
+            },
+            "maxItems": 32,
+            "title": "Citations",
+            "type": "array"
+          },
+          "clarification_questions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Clarification Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AgentAnswer",
+        "type": "object"
+      },
       "AgentEventEvidence": {
         "additionalProperties": false,
         "description": "Safe, durable summary of one event emitted by the real Agent Runner.",
@@ -4759,8 +5302,9 @@
         "title": "CompatibilityTargets",
         "type": "object"
       },
-      "ConnectionInstance": {
+      "ConnectionViewModel": {
         "additionalProperties": false,
+        "description": "The only connection representation safe to expose to browser clients.",
         "properties": {
           "id": {
             "title": "Id",
@@ -4801,55 +5345,12 @@
             "title": "Status",
             "type": "string"
           },
-          "configuration": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "boolean"
-                },
-                {
-                  "items": {
-                    "type": "string"
-                  },
-                  "type": "array"
-                },
-                {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object"
-                }
-              ]
-            },
-            "title": "Configuration",
-            "type": "object"
-          },
-          "secretRef": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Secretref"
-          },
           "syncMode": {
             "enum": [
               "full",
               "incremental",
-              "realtime"
+              "realtime",
+              "local"
             ],
             "title": "Syncmode",
             "type": "string"
@@ -4908,12 +5409,11 @@
           "scope",
           "ownerId",
           "status",
-          "configuration",
           "syncMode",
           "createdAt",
           "updatedAt"
         ],
-        "title": "ConnectionInstance",
+        "title": "ConnectionViewModel",
         "type": "object"
       },
       "ConnectorOperation": {
@@ -6740,6 +7240,51 @@
         "title": "OwnerRef",
         "type": "object"
       },
+      "PatchImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "summary": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "affected_paths": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Affected Paths",
+            "type": "array"
+          },
+          "requires_rerun": {
+            "title": "Requires Rerun",
+            "type": "boolean"
+          },
+          "reason": {
+            "enum": [
+              "presentation_only",
+              "query_changed",
+              "metric_changed",
+              "permission_changed",
+              "freshness_changed",
+              "alert_changed",
+              "mapping_changed"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "affected_paths",
+          "requires_rerun",
+          "reason"
+        ],
+        "title": "PatchImpact",
+        "type": "object"
+      },
       "PatchOperation": {
         "additionalProperties": false,
         "properties": {
@@ -6774,6 +7319,119 @@
           "after"
         ],
         "title": "PatchOperation",
+        "type": "object"
+      },
+      "PatchProposal": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_id": {
+            "title": "Patch Id",
+            "type": "string"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Operation Id"
+          },
+          "draft_id": {
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "base_revision": {
+            "minimum": 1,
+            "title": "Base Revision",
+            "type": "integer"
+          },
+          "patch": {
+            "discriminator": {
+              "mapping": {
+                "add_citation_intent": "#/$defs/AddCitationIntentPatch",
+                "set_description": "#/$defs/SetDescriptionPatch",
+                "set_permission_scope": "#/$defs/SetPermissionScopePatch",
+                "set_query_plan": "#/$defs/SetQueryPlanPatch",
+                "set_refresh_policy": "#/$defs/SetRefreshPolicyPatch",
+                "set_semantic_mapping": "#/$defs/SetSemanticMappingPatch",
+                "set_threshold_policy": "#/$defs/SetThresholdPolicyPatch",
+                "set_title": "#/$defs/SetTitlePatch"
+              },
+              "propertyName": "patch_type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetTitlePatch"
+              },
+              {
+                "$ref": "#/$defs/SetDescriptionPatch"
+              },
+              {
+                "$ref": "#/$defs/SetQueryPlanPatch"
+              },
+              {
+                "$ref": "#/$defs/SetRefreshPolicyPatch"
+              },
+              {
+                "$ref": "#/$defs/SetThresholdPolicyPatch"
+              },
+              {
+                "$ref": "#/$defs/SetPermissionScopePatch"
+              },
+              {
+                "$ref": "#/$defs/AddCitationIntentPatch"
+              },
+              {
+                "$ref": "#/$defs/SetSemanticMappingPatch"
+              }
+            ],
+            "title": "Patch"
+          },
+          "impact": {
+            "$ref": "#/$defs/PatchImpact"
+          },
+          "status": {
+            "default": "proposed",
+            "enum": [
+              "proposed",
+              "accepted",
+              "rejected",
+              "undone",
+              "conflicted"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "proposed_by": {
+            "title": "Proposed By",
+            "type": "string"
+          },
+          "source_comment_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Source Comment Ids",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "draft_id",
+          "base_revision",
+          "patch",
+          "impact",
+          "proposed_by"
+        ],
+        "title": "PatchProposal",
         "type": "object"
       },
       "PermissionRef": {
@@ -7486,9 +8144,14 @@
           "kind": {
             "enum": [
               "golden_asset",
+              "document",
+              "knowledge",
+              "semantic",
+              "graph",
+              "skill",
+              "artifact",
               "data_access_skill",
-              "knowledge_asset",
-              "skill"
+              "knowledge_asset"
             ],
             "title": "Kind",
             "type": "string"
@@ -7757,6 +8420,253 @@
         "title": "SemanticViewModel",
         "type": "object"
       },
+      "SetDescriptionPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_description",
+            "default": "set_description",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "title": "SetDescriptionPatch",
+        "type": "object"
+      },
+      "SetPermissionScopePatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_permission_scope",
+            "default": "set_permission_scope",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "permissions"
+        ],
+        "title": "SetPermissionScopePatch",
+        "type": "object"
+      },
+      "SetQueryPlanPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_query_plan",
+            "default": "set_query_plan",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "query_plan": {
+            "$ref": "#/$defs/QueryPlan"
+          }
+        },
+        "required": [
+          "query_plan"
+        ],
+        "title": "SetQueryPlanPatch",
+        "type": "object"
+      },
+      "SetRefreshPolicyPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_refresh_policy",
+            "default": "set_refresh_policy",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "freshness": {
+            "$ref": "#/$defs/FreshnessPolicy"
+          }
+        },
+        "required": [
+          "freshness"
+        ],
+        "title": "SetRefreshPolicyPatch",
+        "type": "object"
+      },
+      "SetSemanticMappingPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_semantic_mapping",
+            "default": "set_semantic_mapping",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "field": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "entity": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Entity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "entity"
+        ],
+        "title": "SetSemanticMappingPatch",
+        "type": "object"
+      },
+      "SetThresholdPolicyPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_threshold_policy",
+            "default": "set_threshold_policy",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "number"
+          },
+          "comparator": {
+            "enum": [
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "change_rate"
+            ],
+            "title": "Comparator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "threshold",
+          "comparator"
+        ],
+        "title": "SetThresholdPolicyPatch",
+        "type": "object"
+      },
+      "SetTitlePatch": {
+        "additionalProperties": false,
+        "properties": {
+          "patch_type": {
+            "const": "set_title",
+            "default": "set_title",
+            "title": "Patch Type",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "SetTitlePatch",
+        "type": "object"
+      },
+      "SkillAuthoringAnswerResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "skill-authoring.answer",
+            "default": "skill-authoring.answer",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "default": "failed",
+            "enum": [
+              "succeeded",
+              "awaiting_input",
+              "credential_blocked",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AgentAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "agentExecution": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AgentExecutionEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "contextDigest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Contextdigest"
+          },
+          "draft": {
+            "default": null,
+            "title": "Draft",
+            "type": "null"
+          },
+          "artifactResult": {
+            "default": null,
+            "title": "Artifactresult",
+            "type": "null"
+          }
+        },
+        "title": "SkillAuthoringAnswerResult",
+        "type": "object"
+      },
       "SkillAuthoringExecuteResult": {
         "additionalProperties": false,
         "properties": {
@@ -7823,6 +8733,81 @@
           }
         },
         "title": "SkillAuthoringExecuteResult",
+        "type": "object"
+      },
+      "SkillAuthoringPatchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "resultType": {
+            "const": "skill-authoring.patch",
+            "default": "skill-authoring.patch",
+            "title": "Resulttype",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ErrorEnvelope"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "default": "failed",
+            "enum": [
+              "succeeded",
+              "ready_for_execution",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoringOperation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DraftRevision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "patch": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PatchProposal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "events": {
+            "items": {
+              "$ref": "#/$defs/AuthoringEvent"
+            },
+            "maxItems": 128,
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "title": "SkillAuthoringPatchResult",
         "type": "object"
       },
       "SkillAuthoringStartResult": {
@@ -8809,7 +9794,7 @@
             "type": "string"
           },
           "connection": {
-            "$ref": "#/$defs/ConnectionInstance"
+            "$ref": "#/$defs/ConnectionViewModel"
           },
           "validation": {
             "$ref": "#/$defs/ConnectorOperation"
@@ -10321,7 +11306,9 @@
                 "publication.publish": "#/$defs/PublicationPublishResult",
                 "refresh.run": "#/$defs/RefreshRunResult",
                 "resource.share": "#/$defs/ResourceShareResult",
+                "skill-authoring.answer": "#/$defs/SkillAuthoringAnswerResult",
                 "skill-authoring.execute": "#/$defs/SkillAuthoringExecuteResult",
+                "skill-authoring.patch": "#/$defs/SkillAuthoringPatchResult",
                 "skill-authoring.start": "#/$defs/SkillAuthoringStartResult",
                 "skill-draft.create": "#/$defs/DraftCommandResult",
                 "skill-draft.run": "#/$defs/SkillDraftRunResult",
@@ -10375,6 +11362,12 @@
               },
               {
                 "$ref": "#/$defs/SkillAuthoringStartResult"
+              },
+              {
+                "$ref": "#/$defs/SkillAuthoringAnswerResult"
+              },
+              {
+                "$ref": "#/$defs/SkillAuthoringPatchResult"
               },
               {
                 "$ref": "#/$defs/SkillAuthoringExecuteResult"

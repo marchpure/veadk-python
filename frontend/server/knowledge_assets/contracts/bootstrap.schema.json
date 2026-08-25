@@ -1,7 +1,32 @@
 {
   "$defs": {
-    "BootstrapConnection": {
+    "CapabilityReason": {
       "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "CapabilityReason",
+      "type": "object"
+    },
+    "ConnectionViewModel": {
+      "additionalProperties": false,
+      "description": "The only connection representation safe to expose to browser clients.",
       "properties": {
         "id": {
           "title": "Id",
@@ -32,10 +57,23 @@
           "type": "string"
         },
         "status": {
+          "enum": [
+            "ready",
+            "config_required",
+            "credential_blocked",
+            "unsupported",
+            "revoked"
+          ],
           "title": "Status",
           "type": "string"
         },
         "syncMode": {
+          "enum": [
+            "full",
+            "incremental",
+            "realtime",
+            "local"
+          ],
           "title": "Syncmode",
           "type": "string"
         },
@@ -62,20 +100,17 @@
         "lastError": {
           "anyOf": [
             {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/CapabilityReason"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Lasterror"
+          "default": null
         },
         "discoveredResources": {
           "items": {
-            "additionalProperties": true,
-            "type": "object"
+            "$ref": "#/$defs/DiscoveredResource"
           },
           "title": "Discoveredresources",
           "type": "array"
@@ -100,7 +135,129 @@
         "createdAt",
         "updatedAt"
       ],
-      "title": "BootstrapConnection",
+      "title": "ConnectionViewModel",
+      "type": "object"
+    },
+    "DiscoveredField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "dataType": {
+          "title": "Datatype",
+          "type": "string"
+        },
+        "nullable": {
+          "default": true,
+          "title": "Nullable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "dataType"
+      ],
+      "title": "DiscoveredField",
+      "type": "object"
+    },
+    "DiscoveredResource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "resourceType": {
+          "enum": [
+            "file",
+            "table",
+            "document",
+            "operation",
+            "tool"
+          ],
+          "title": "Resourcetype",
+          "type": "string"
+        },
+        "schemaName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Schemaname"
+        },
+        "rowCount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rowcount"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/DiscoveredField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "inputSchema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inputschema"
+        },
+        "outputSchema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputschema"
+        },
+        "permission": {
+          "default": "read",
+          "enum": [
+            "read",
+            "denied"
+          ],
+          "title": "Permission",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "resourceType"
+      ],
+      "title": "DiscoveredResource",
       "type": "object"
     },
     "ResourceSummary": {
@@ -223,7 +380,7 @@
     },
     "connections": {
       "items": {
-        "$ref": "#/$defs/BootstrapConnection"
+        "$ref": "#/$defs/ConnectionViewModel"
       },
       "title": "Connections",
       "type": "array"

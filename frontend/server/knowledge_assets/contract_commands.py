@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# This module intentionally composes the split contract namespaces.
+# ruff: noqa: F403, F405, F722
 from .contract_base import *
 from .contract_data import *
 from .contract_views import *
@@ -14,14 +16,17 @@ from .evaluation_quality.models import (
     TypedPatch as QualityTypedPatch,
 )
 from frontend.server.skill_authoring.models import (
+    AgentAnswer,
+    AgentExecutionEvidence,
     AuthoringEvent,
     AuthoringOperation,
     DraftRevision,
+    PatchProposal,
     ResourceRef as AuthoringResourceRef,
+    TypedPatch as AuthoringTypedPatch,
 )
 from .sources_golden.models import (
     ConnectorOperation,
-    ConnectionInstance,
     ConnectionViewModel,
     GoldenAssetRevisionRecord,
     ProfileRunRecord,
@@ -103,9 +108,9 @@ class SourceGoldenConnectionCreatePayload(ContractModel):
 class SourceGoldenIngestPayload(ContractModel):
     connection_id: str = Field(min_length=1, max_length=256)
     resource_id: str | None = None
-    recipe_operations: list[
-        Literal["trim", "deduplicate", "normalize", "redact"]
-    ] = Field(default_factory=lambda: ["trim"])
+    recipe_operations: list[Literal["trim", "deduplicate", "normalize", "redact"]] = (
+        Field(default_factory=lambda: ["trim"])
+    )
     tool_arguments: dict[str, object] = Field(default_factory=dict)
 
 
@@ -230,18 +235,50 @@ class InvocationStartPayload(ContractModel):
 
 class SkillAuthoringStartPayload(ContractModel):
     prompt: str = Field(min_length=1, max_length=8_000)
-    resource_refs: list[AuthoringResourceRef] = Field(default_factory=list, max_length=32)
+    resource_refs: list[AuthoringResourceRef] = Field(
+        default_factory=list, max_length=32
+    )
     permissions: list[str] = Field(default_factory=list, max_length=64)
     fixed_revisions: list[str] = Field(default_factory=list, max_length=64)
-    requested_kind: Literal[
-        "knowledge", "semantic", "analysis", "graph_ontology", "monitoring"
-    ] | None = None
+    requested_kind: (
+        Literal["knowledge", "semantic", "analysis", "graph_ontology", "monitoring"]
+        | None
+    ) = None
     scope: Literal["personal", "team"] = "personal"
     display_name: str | None = Field(default=None, max_length=160)
     current_skill_id: str | None = Field(default=None, max_length=160)
     current_view_id: str | None = Field(default=None, max_length=160)
     current_component_id: str | None = Field(default=None, max_length=160)
     comment_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
+class SkillAuthoringAnswerPayload(ContractModel):
+    prompt: str = Field(min_length=1, max_length=8_000)
+    resource_refs: list[AuthoringResourceRef] = Field(
+        default_factory=list, max_length=32
+    )
+    permissions: list[str] = Field(default_factory=list, max_length=64)
+    fixed_revisions: list[str] = Field(default_factory=list, max_length=64)
+    current_skill_id: str | None = Field(default=None, max_length=160)
+    current_view_id: str | None = Field(default=None, max_length=160)
+    current_component_id: str | None = Field(default=None, max_length=160)
+    comment_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
+class SkillAuthoringPatchPayload(ContractModel):
+    draft_id: str = Field(min_length=1, max_length=160)
+    base_revision: int = Field(ge=1)
+    patch: AuthoringTypedPatch
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_patch_discriminator(cls, value: object) -> object:
+        if not isinstance(value, dict) or not isinstance(value.get("patch"), dict):
+            return value
+        patch = dict(value["patch"])
+        if "patch_type" not in patch and isinstance(patch.get("patchType"), str):
+            patch["patch_type"] = patch.pop("patchType")
+        return {**value, "patch": patch}
 
 
 class EvaluationSuiteCreatePayload(ContractModel):
@@ -332,11 +369,37 @@ class CommandResultBase(ContractModel):
 class SkillAuthoringStartResult(CommandResultBase):
     result_type: Literal["skill-authoring.start"] = "skill-authoring.start"
     status: Literal[
-        "queued", "planning", "awaiting_input", "ready_for_execution",
-        "credential_blocked", "failed", "cancelled"
+        "queued",
+        "planning",
+        "awaiting_input",
+        "ready_for_execution",
+        "credential_blocked",
+        "failed",
+        "cancelled",
     ] = "failed"
     operation: AuthoringOperation | None = None
     draft: DraftRevision | None = None
+    events: list[AuthoringEvent] = Field(default_factory=list, max_length=128)
+
+
+class SkillAuthoringAnswerResult(CommandResultBase):
+    result_type: Literal["skill-authoring.answer"] = "skill-authoring.answer"
+    status: Literal["succeeded", "awaiting_input", "credential_blocked", "failed"] = (
+        "failed"
+    )
+    answer: AgentAnswer | None = None
+    agent_execution: AgentExecutionEvidence | None = None
+    context_digest: str | None = None
+    draft: None = None
+    artifact_result: None = None
+
+
+class SkillAuthoringPatchResult(CommandResultBase):
+    result_type: Literal["skill-authoring.patch"] = "skill-authoring.patch"
+    status: Literal["succeeded", "ready_for_execution", "failed"] = "failed"
+    operation: AuthoringOperation | None = None
+    draft: DraftRevision | None = None
+    patch: PatchProposal | None = None
     events: list[AuthoringEvent] = Field(default_factory=list, max_length=128)
 
 
@@ -522,6 +585,8 @@ CommandResult = Annotated[
     | EvaluationRunResult
     | EvaluationQualityCommandResult
     | SkillAuthoringStartResult
+    | SkillAuthoringAnswerResult
+    | SkillAuthoringPatchResult
     | SkillAuthoringExecuteResult
     | SourceGoldenConnectionResult
     | SourceGoldenIngestResult,
@@ -700,6 +765,16 @@ class SkillAuthoringStartCommand(ContractModel):
     payload: SkillAuthoringStartPayload
 
 
+class SkillAuthoringAnswerCommand(ContractModel):
+    command: Literal["skill-authoring.answer"]
+    payload: SkillAuthoringAnswerPayload
+
+
+class SkillAuthoringPatchCommand(ContractModel):
+    command: Literal["skill-authoring.patch"]
+    payload: SkillAuthoringPatchPayload
+
+
 class SkillAuthoringExecuteCommand(ContractModel):
     command: Literal["skill-authoring.execute"]
     payload: SkillAuthoringExecutePayload
@@ -749,6 +824,8 @@ CommandRequest = Annotated[
     | RefreshRunCommand
     | InvocationStartCommand
     | SkillAuthoringStartCommand
+    | SkillAuthoringAnswerCommand
+    | SkillAuthoringPatchCommand
     | SkillAuthoringExecuteCommand
     | SourceGoldenConnectionCreateCommand
     | SourceGoldenIngestCommand,

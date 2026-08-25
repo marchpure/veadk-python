@@ -1,8 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationCaseAdoptHistoryPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult } from "./part2";
-import type { NotReadyCommandResult, OutputContract, PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringExecuteResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
-import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
+import type { EvaluationCaseConfirmPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, NotReadyCommandResult, OutputContract } from "./part2";
+import type { PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft } from "./part3";
+import type { SkillDraftRunResult, SkillKind, SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
 
 export interface ActionCommand {
   command: "action.update";
@@ -11,6 +11,18 @@ export interface ActionCommand {
 
 export interface ActionUpdatePayload {
   actionId: string;
+}
+
+export interface AddCitationIntentPatch {
+  patch_type?: "add_citation_intent";
+  intent: string;
+}
+
+export interface AgentAnswer {
+  status: "succeeded" | "awaiting_input";
+  text?: string | null;
+  citations?: Array<ResourceRef>;
+  clarification_questions?: Array<string>;
 }
 
 export interface AgentBinding {
@@ -282,14 +294,14 @@ export interface CommandResponse {
   accepted: boolean;
   requestId: string;
   operationId?: string | null;
-  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
+  result?: DraftCommandResult | NotReadyCommandResult | SourceProfileResult | SourceCleanResult | SkillDraftRunResult | AssistantTurnResult | ArtifactExportResult | ResourceShareResult | PublicationPublishResult | RefreshRunResult | InvocationStartResult | EvaluationRunResult | EvaluationQualityCommandResult | SkillAuthoringStartResult | SkillAuthoringAnswerResult | SkillAuthoringPatchResult | SkillAuthoringExecuteResult | SourceGoldenConnectionResult | SourceGoldenIngestResult | null;
 }
 
 export interface CompatibilityTargets {
   targets?: Array<"agentkit" | "mcp" | "openapi" | "codex">;
 }
 
-export interface ConnectionInstance {
+export interface ConnectionViewModel {
   id: string;
   workspaceId: string;
   connectorKey: string;
@@ -303,7 +315,6 @@ export interface ConnectionInstance {
   lastSuccessAt?: string | null;
   lastError?: CapabilityReason | null;
   discoveredResources?: Array<DiscoveredResource>;
-  discoveredTools?: Array<DiscoveredResource>;
   goldenRevisionIds?: Array<string>;
 }
 
@@ -443,4 +454,18 @@ export interface ErrorEnvelope {
 export interface EvaluationCaseAdoptHistoryCommand {
   command: "evaluation-case.adopt-history";
   payload: EvaluationCaseAdoptHistoryPayload;
+}
+
+export interface EvaluationCaseAdoptHistoryPayload {
+  caseId: string;
+  category: string;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  provenanceRef: string;
+  source: "historical_conversation" | "historical_run";
+}
+
+export interface EvaluationCaseConfirmCommand {
+  command: "evaluation-case.confirm-candidates";
+  payload: EvaluationCaseConfirmPayload;
 }

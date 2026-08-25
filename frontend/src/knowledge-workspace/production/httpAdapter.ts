@@ -548,6 +548,24 @@ function legacyCommand(
           scope: "personal",
         },
       };
+    case "skill-authoring.answer":
+      return {
+        command,
+        payload: {
+          prompt: typeof payload.prompt === "string" ? payload.prompt : "",
+        },
+      };
+    case "skill-authoring.patch":
+      return {
+        command,
+        payload: {
+          draftId: typeof payload.draftId === "string" ? payload.draftId : "",
+          baseRevision: typeof payload.baseRevision === "number"
+            ? payload.baseRevision
+            : 1,
+          patch: payload.patch as import("./generatedContracts").SkillAuthoringPatchPayload["patch"],
+        },
+      };
     case "skill-authoring.execute":
       return {
         command,
