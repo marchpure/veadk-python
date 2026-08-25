@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ArtifactHeader from './ArtifactHeader';
-import { Book, CheckCircle2, Search, MessageSquare, ShieldCheck, Settings, Link as LinkIcon, Users, Play, ToyBrick, FileText, Send, Loader2, ArrowRight } from 'lucide-react';
-import { resourceStore, getResourceDescriptor } from '../../lib/store';
+import { Book, CheckCircle2, Search, MessageSquare, ShieldCheck, Settings, Link as LinkIcon, Users, Play, ToyBrick, FileText, Send, Loader2, ArrowRight, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { askKnowledgeBase, getKnowledgeBase, getKnowledgeQueryResult, publishKnowledgeBase, DomainRequestError } from '../../../production/domainClient';
 
 export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSearchParams, showToast }: any) {
-  const allResources = resourceStore.getState();
-  const descriptor = getResourceDescriptor(fileId, searchParams, allResources);
-  const resource = allResources.find((r:any) => r.id === fileId || r.resourceId === fileId);
+  const [resource, setResource] = useState<any>(null);
+  const [loadError, setLoadError] = useState('');
+  useEffect(() => {
+    void getKnowledgeBase(fileId).then(setResource).catch((error) => {
+      setLoadError(error instanceof DomainRequestError ? error.message : "知识库读取失败");
+    });
+  }, [fileId]);
 
-  const name = descriptor?.name || '销售制度知识库';
-  const version = descriptor?.version || 'V1.0';
-  const sources = resource?.sources || [
-    { id: '1', type: 'local', name: 'sample-sales-policy.pdf', status: 'ready', chunks: 15, size: '2.4MB', time: '10分钟前' },
-    { id: '2', type: 'feishu', name: '销售退货流程指引', status: 'ready', chunks: 8, url: '#', size: '在线文档', time: '10分钟前' }
-  ];
+  const name = resource?.name || searchParams.get('custom_name') || '销售制度知识库';
+  const version = resource?.version || 'V1.0';
+  const sources = resource?.sources || [];
   
   const [activeTab, setActiveTab] = useState('sources');
   const [query, setQuery] = useState('');
@@ -23,38 +24,53 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
   const [publishState, setPublishState] = useState<'idle'|'publishing'|'done'>('idle');
   const [agentBound, setAgentBound] = useState(false);
 
-  const handleTestQA = () => {
+  const [answer, setAnswer] = useState<any>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const queryResultId = searchParams.get('query_result_id');
+    if (!queryResultId) return;
+    let active = true;
+    void getKnowledgeQueryResult(fileId, queryResultId).then((result) => {
+      if (active) {
+        setAnswer(result);
+        setQuery(String(result.question || ''));
+        setQaState('done');
+        setActiveTab('qa');
+      }
+    }).catch((cause) => {
+      if (active) setError(cause instanceof DomainRequestError ? cause.message : "问答结果读取失败");
+    });
+    return () => { active = false; };
+  }, [fileId, searchParams]);
+  const handleTestQA = async () => {
     if (!query.trim()) return;
     setQaState('thinking');
-    setTimeout(() => {
+    setError('');
+    try {
+      const result = await askKnowledgeBase(fileId, { question: query, topK: 5 });
+      setAnswer(result);
       setQaState('done');
-    }, 1500);
+      setActiveTab('qa');
+      const next = new URLSearchParams(searchParams);
+      next.set('query_result_id', String(result.queryResultId || ''));
+      next.set('kb_tab', 'qa');
+      setSearchParams(next);
+    } catch (cause) {
+      setQaState('idle');
+      setError(cause instanceof DomainRequestError ? cause.message : "知识库问答失败");
+    }
   };
 
-  const handlePublish = () => {
+  const performKnowledgeBasePublication = async () => {
     setPublishState('publishing');
-    setTimeout(() => {
+    try {
+      await publishKnowledgeBase(fileId);
       setPublishState('done');
-      showToast?.('发布成功！已生成团队可调用的只读版本 Tool。');
-      
-      const teamId = `res_team_kb_${Date.now()}`;
-      resourceStore.setState(prev => [{
-        ...resource,
-        id: teamId,
-        space: 'team',
-        lifecycle: 'published',
-        capabilities: ['queryable', 'searchable', 'executable'],
-        // Legacy fields mapping
-        type: 'team_artifact',
-        readonly: true,
-        isTeam: true,
-        version: 'V1.0'
-      }, ...prev]);
-      
-      const p = new URLSearchParams(searchParams);
-      p.set('file', teamId);
-      setSearchParams(p);
-    }, 1500);
+      showToast?.('已发送请求，等待状态刷新。');
+    } catch (cause) {
+      setPublishState('idle');
+      setError(cause instanceof DomainRequestError ? cause.message : "发布失败");
+    }
   };
 
   return (
@@ -68,6 +84,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
         setSearchParams={setSearchParams}
         showToast={showToast}
       />
+      {loadError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>}
       
       <div className="flex space-x-6 border-b border-slate-200 mt-2 mb-6 overflow-x-auto custom-scrollbar shrink-0">
         {[
@@ -104,10 +121,10 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                         {s.type === 'local' ? <FileText size={16} className="mr-2 text-slate-400" /> : <LinkIcon size={16} className="mr-2 text-blue-500" />}
                         {s.name}
                       </td>
-                      <td className="px-6 py-4 text-slate-500">{s.type === 'local' ? '本地 PDF' : '飞书文档'}</td>
+                      <td className="px-6 py-4 text-slate-500">{s.type === 'feishu' ? '飞书文档' : (s.mediaType || '本地文件')}</td>
                       <td className="px-6 py-4"><span className="bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded text-xs font-bold flex items-center w-fit"><CheckCircle2 size={12} className="mr-1"/>成功</span></td>
-                      <td className="px-6 py-4 font-mono text-slate-600">{s.chunks}</td>
-                      <td className="px-6 py-4 text-slate-500">{s.time}</td>
+                      <td className="px-6 py-4 font-mono text-slate-600">{s.index?.chunkCount ?? s.chunks ?? 0}</td>
+                      <td className="px-6 py-4 text-slate-500">{s.createdAt || s.time || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 flex items-center"><ShieldCheck size={14} className="mr-1 text-slate-400"/> 继承</td>
                     </tr>
                   ))}
@@ -138,23 +155,21 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                 <div className="flex items-start gap-4 animate-in fade-in">
                   <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-600 shrink-0 shadow-sm"><MessageSquare size={16}/></div>
                   <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-5 text-sm text-slate-800 shadow-sm max-w-[85%] leading-relaxed space-y-4">
-                    <p>退货审批主要需要以下材料：</p>
-                    <ol className="list-decimal pl-5 space-y-1">
-                      <li><strong>退货申请单</strong>：由客户或销售代表填写，说明退货原因及数量 <span className="text-blue-600 font-bold text-[10px] align-super cursor-pointer hover:underline">[1]</span>。</li>
-                      <li><strong>原始订单凭证</strong>：包含发票、装箱单及物流签收底单 <span className="text-blue-600 font-bold text-[10px] align-super cursor-pointer hover:underline">[2]</span>。</li>
-                      <li><strong>质检报告</strong>：若因质量问题退货，需附上质量部门开具的不合格证明 <span className="text-blue-600 font-bold text-[10px] align-super cursor-pointer hover:underline">[1]</span>。</li>
-                    </ol>
+                    <p className="whitespace-pre-wrap">{String(answer?.answer ?? '')}</p>
+                    <div className="text-[11px] text-slate-500">
+                      queryResultId: <span className="font-mono">{String(answer?.queryResultId || '—')}</span>
+                      {' · '}session: <span className="font-mono">{String(answer?.sessionId || '—')}</span>
+                      {' · '}trace: <span className="font-mono">{String(answer?.traceId || '—')}</span>
+                    </div>
                     <div className="mt-4 pt-4 border-t border-slate-100">
                       <div className="text-xs font-bold text-slate-500 mb-2">引用的文档来源 (Citations)</div>
                       <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2">
-                        <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg min-w-[200px] shrink-0">
-                          <div className="text-xs font-bold text-blue-700 mb-1 flex items-center"><span className="bg-blue-100 text-blue-800 w-4 h-4 rounded flex items-center justify-center mr-1 text-[10px]">1</span> sample-sales-policy.pdf</div>
-                          <div className="text-[11px] text-slate-600 line-clamp-2">"退货流程第三条：申请退货时必须提供完整的退货申请单，如属质量问题则必须提供质检报告..."</div>
-                        </div>
-                        <div className="bg-slate-50 border border-slate-200 p-2 rounded-lg min-w-[200px] shrink-0">
-                          <div className="text-xs font-bold text-blue-700 mb-1 flex items-center"><span className="bg-blue-100 text-blue-800 w-4 h-4 rounded flex items-center justify-center mr-1 text-[10px]">2</span> 销售退货流程指引</div>
-                          <div className="text-[11px] text-slate-600 line-clamp-2">"附件材料要求：业务员在系统提交审批前，需收集原始发票、装箱单等凭证照片..."</div>
-                        </div>
+                        {(Array.isArray(answer?.citations) ? answer.citations : []).map((citation: any, index: number) => (
+                          <div key={citation.id ?? index} className="bg-slate-50 border border-slate-200 p-2 rounded-lg min-w-[200px] shrink-0">
+                            <div className="text-xs font-bold text-blue-700 mb-1 flex items-center"><span className="bg-blue-100 text-blue-800 w-4 h-4 rounded flex items-center justify-center mr-1 text-[10px]">{index + 1}</span> {citation.title}</div>
+                            <div className="text-[11px] text-slate-600 line-clamp-2">{citation.snippet}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -162,6 +177,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
               )}
             </div>
             <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+              {error && <div role="alert" className="mb-2 text-xs text-red-700">{error}</div>}
               <div className="flex items-center bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all shadow-sm">
                 <input type="text" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter') handleTestQA()}} placeholder="输入测试问题，如：退货审批需要什么材料？" className="flex-1 bg-transparent border-none outline-none px-3 text-sm" />
                 <button onClick={handleTestQA} disabled={!query || qaState === 'thinking'} className="bg-blue-600 text-white p-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 shadow-sm outline-none"><Send size={16}/></button>
@@ -202,7 +218,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                     </div>
                   </div>
 
-                  <button onClick={handlePublish} disabled={publishState !== 'idle'} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center outline-none focus:ring-2 focus:ring-blue-500">
+                  <button onClick={performKnowledgeBasePublication} disabled={publishState !== 'idle'} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center outline-none focus:ring-2 focus:ring-blue-500">
                     {publishState === 'publishing' ? <><Loader2 size={18} className="animate-spin mr-2"/> 发布中...</> : '确认发布'}
                   </button>
                 </div>
@@ -251,7 +267,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
             <Search size={32} className="mb-4 opacity-50"/>
             <span className="text-sm font-medium">切片详情与向量检索调试界面</span>
-            <span className="text-xs mt-2">（演示已简化，可直接切换到“测试问答”体验效果）</span>
+            <span className="text-xs mt-2">切换到“测试问答”可运行服务端检索。</span>
           </div>
         )}
       </div>

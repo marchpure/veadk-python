@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, ArrowLeft, Upload, Loader2, CheckCircle2 } from 'lucide-react';
-import { resourceStore } from '../../lib/store';
+import { uploadStandaloneKnowledgeDocument, DomainRequestError } from '../../../production/domainClient';
 
 export default function UploadDocView({ searchParams, setSearchParams, showToast }: any) {
   const [file, setFile] = useState<File | null>(null);
@@ -12,9 +12,10 @@ export default function UploadDocView({ searchParams, setSearchParams, showToast
   const [targetFolder, setTargetFolder] = useState('knowledge');
   
   const [uploadState, setUploadState] = useState<'idle'|'uploading'|'parsing'|'chunking'|'indexing'|'done'>('idle');
+  const [chunkCount, setChunkCount] = useState(0);
   const targetSpace = searchParams.get('target_space') || 'personal';
 
-  const [fileContent, setFileContent] = useState<string>('');
+  const [error, setError] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -22,68 +23,37 @@ export default function UploadDocView({ searchParams, setSearchParams, showToast
       setFile(selectedFile);
       if (!title) setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""));
 
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        if (evt.target?.result) setFileContent(evt.target.result as string);
-      };
-      reader.readAsText(selectedFile);
     }
   };
 
   const handleCancel = () => {
     const p = new URLSearchParams(searchParams);
-    const origin = searchParams.get('target_space');
     p.set('file', 'welcome'); p.delete('target_space');
     setSearchParams(p);
-    if (origin) {
-      setTimeout(() => { const el = document.querySelector(`[data-tree-id="${origin}"]`); if (el) { (el as HTMLElement).focus(); } }, 100);
-    }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) return;
     setUploadState('uploading');
-    setTimeout(() => {
+    setError('');
+    try {
       setUploadState('parsing');
-      setTimeout(() => {
-        setUploadState('chunking');
-        setTimeout(() => {
-          setUploadState('indexing');
-          setTimeout(() => {
-            setUploadState('done');
-            
-            const docId = `doc_${Date.now()}`;
-            const chunks = chunkStrategy === 'heading' ? fileContent.split('\n#') : fileContent.split('\n\n');
-            const newDoc = {
-              identity: docId,
-              id: docId,
-              resourceId: docId,
-              name: title || file.name,
-              type: targetSpace === 'team' ? 'team_artifact' : 'personal_artifact',
-              artifactType: 'document',
-              cat: 'file',
-              path: `${targetSpace === 'team' ? '团队' : '个人'}/知识文档/${title || file.name}`,
-              permission: true,
-              tokenEstimate: Math.max(0.5, Math.round(file.size / 1024 / 100) / 10),
-              desc, tags, chunkStrategy, visibility, targetFolder,
-              fileName: file.name, fileSize: (file.size / 1024).toFixed(1) + ' KB',
-              version: 'V1.0', readonly: targetSpace === 'team', isTeam: targetSpace === 'team',
-              content: fileContent,
-              chunksCount: chunks.length > 0 && fileContent ? chunks.length : 12
-            };
-            resourceStore.setState(prev => [newDoc, ...prev]);
-            
-            showToast?.('知识文档解析并入库成功！');
-            setTimeout(() => {
-              const p = new URLSearchParams(searchParams);
-              p.set('file', docId);
-              p.delete('target_space');
-              setSearchParams(p);
-            }, 1000);
-          }, 1000);
-        }, 1000);
-      }, 1000);
-    }, 1000);
+      const result = await uploadStandaloneKnowledgeDocument({
+        file, title: title || file.name, description: desc, tags, chunkStrategy, scope: targetSpace,
+      });
+      setUploadState('done');
+      const docId = String(result.document?.id ?? "");
+      if (!docId) throw new Error("服务端未返回文档 ID");
+      setChunkCount(Number(result.index?.chunkCount ?? 0));
+      showToast?.('知识文档解析并入库成功！');
+      const p = new URLSearchParams(searchParams);
+      p.set('file', docId);
+      p.delete('target_space');
+      setSearchParams(p);
+    } catch (cause) {
+      setUploadState('idle');
+      setError(cause instanceof DomainRequestError ? cause.message : cause instanceof Error ? cause.message : "上传失败");
+    }
   };
 
   return (
@@ -161,13 +131,14 @@ export default function UploadDocView({ searchParams, setSearchParams, showToast
                   {uploadState === 'uploading' ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'parsing' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 文本解析中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 文本解析成功</>}
                 </div>
                 <div className="flex items-center text-sm font-medium text-slate-700">
-                  {['uploading', 'parsing'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'chunking' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 智能分段中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 分段完成 (共 12 段)</>}
+                  {['uploading', 'parsing'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'chunking' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 智能分段中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 分段完成 (共 {chunkCount} 段)</>}
                 </div>
                 <div className="flex items-center text-sm font-medium text-slate-700">
                   {['uploading', 'parsing', 'chunking'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'indexing' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 向量索引构建中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 索引构建完成</>}
                 </div>
               </div>
             )}
+            {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
             
             <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
               <button onClick={handleCancel} disabled={uploadState !== 'idle'} className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 disabled:opacity-50 outline-none">取消</button>
