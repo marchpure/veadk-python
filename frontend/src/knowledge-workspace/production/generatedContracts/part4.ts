@@ -129,6 +129,8 @@ export interface SourceGoldenConnectionCreatePayload {
   scope?: "personal" | "team";
   configuration?: Record<string, unknown>;
   secretRef?: string | null;
+  mcpProfileId?: string | null;
+  toolAllowlist?: Array<string>;
 }
 
 export interface SourceGoldenConnectionResult {

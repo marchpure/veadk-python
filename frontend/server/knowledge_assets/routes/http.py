@@ -99,6 +99,16 @@ def mount_knowledge_asset_routes(
             )
         if body.command == "source-golden.connection.create":
             try:
+                if (
+                    body.payload.connector_key == "mcp_custom"
+                    and body.payload.configuration
+                ):
+                    return _error(
+                        422,
+                        "MCP_CLIENT_EXECUTION_FIELDS_FORBIDDEN",
+                        "浏览器不得提交 MCP command、args、cwd 或 env。",
+                        request_id,
+                    )
                 return application.source_golden_connection(
                     body.payload,
                     workspace_id=workspace_id,

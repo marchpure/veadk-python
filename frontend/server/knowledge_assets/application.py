@@ -425,13 +425,28 @@ class KnowledgeAssetApplication:
     ) -> CommandResponse:
         if self._sources_golden is None:
             raise SourcesGoldenError("SOURCE_GOLDEN_NOT_CONFIGURED", "Source/Golden adapter 未配置。")
+        configuration = dict(payload.configuration)
+        if payload.connector_key == "mcp_custom":
+            if not payload.mcp_profile_id:
+                raise SourcesGoldenError(
+                    "MCP_PROFILE_REQUIRED",
+                    "custom MCP 必须选择服务端注册的 profile。",
+                )
+            if any(key in configuration for key in {"command", "args", "cwd", "env"}):
+                raise SourcesGoldenError(
+                    "MCP_CLIENT_EXECUTION_FIELDS_FORBIDDEN",
+                    "浏览器不得提交 MCP command、args、cwd 或 env。",
+                )
+            configuration = self._sources_golden.mcp_profile_configuration(
+                payload.mcp_profile_id, payload.tool_allowlist
+            )
         result = self._sources_golden.create_connection(
             AccessContext(workspace_id=workspace_id, principal_id=principal_id,
                           role=role if role in {"viewer", "editor", "admin"} else "viewer"),
             connector_key=payload.connector_key,
             display_name=payload.display_name,
             scope=payload.scope,
-            configuration=payload.configuration,
+            configuration=configuration,
             secret_ref=payload.secret_ref,
             idempotency_key=idempotency_key,
             trace_id=trace_id,

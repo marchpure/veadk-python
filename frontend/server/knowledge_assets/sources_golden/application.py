@@ -71,6 +71,7 @@ class SourceGoldenApplication:
         source_root: str | Path,
         web_resolver=None,
         secret_resolver=None,
+        mcp_profiles: dict[str, dict[str, object]] | None = None,
     ) -> None:
         self.database_path = Path(database_path)
         self.artifact_root = Path(artifact_root)
@@ -84,6 +85,34 @@ class SourceGoldenApplication:
         )
         self._web_resolver = web_resolver
         self._mcp_client = StdioMcpClient(secret_resolver=secret_resolver)
+        self._mcp_profiles = {
+            str(key): dict(value) for key, value in (mcp_profiles or {}).items()
+        }
+
+    def mcp_profile_configuration(
+        self, profile_id: str, requested_tools: list[str]
+    ) -> dict[str, object]:
+        profile = self._mcp_profiles.get(profile_id)
+        if profile is None:
+            raise SourcesGoldenError(
+                "MCP_PROFILE_NOT_CONFIGURED",
+                "指定的 MCP server profile 未由服务端配置。",
+            )
+        forbidden = {"command", "args", "cwd", "env"}
+        if any(key in profile for key in forbidden) is False:
+            raise SourcesGoldenError(
+                "MCP_PROFILE_INVALID",
+                "MCP server profile 缺少服务端执行配置。",
+            )
+        configured_tools = [str(item) for item in profile.get("toolAllowlist", [])]
+        if requested_tools and not set(requested_tools).issubset(set(configured_tools)):
+            raise SourcesGoldenError(
+                "MCP_TOOL_NOT_ALLOWED",
+                "请求的 MCP tool 不在服务端 profile allowlist 中。",
+            )
+        configuration = dict(profile)
+        configuration["toolAllowlist"] = requested_tools or configured_tools
+        return configuration
 
     def connector_catalog(
         self,

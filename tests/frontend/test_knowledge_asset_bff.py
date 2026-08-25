@@ -33,7 +33,10 @@ from frontend.server.knowledge_assets.workers import JobFramework, JobLeaseError
 
 def build_client(
     sources_golden: SourceGoldenApplication | None = None,
+    mcp_profiles: dict[str, dict[str, object]] | None = None,
 ) -> TestClient:
+    if sources_golden is not None and mcp_profiles:
+        sources_golden._mcp_profiles.update(mcp_profiles)
     app = FastAPI()
     mount_knowledge_asset_routes(
         app,
@@ -67,6 +70,19 @@ def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None
         database_path=tmp_path / "sources-golden.sqlite3",
         artifact_root=tmp_path / "artifacts",
         source_root=tmp_path,
+        mcp_profiles={
+            "infra-local": {
+                "transport": "stdio",
+                "command": sys.executable,
+                "args": [str(server)],
+                "env": {"MCP_FIXTURE_DATA_PATH": str(data_path)},
+                "cwd": str(tmp_path),
+                "startupTimeoutSeconds": 5,
+                "callTimeoutSeconds": 5,
+                "toolAllowlist": ["infrastructure.metrics"],
+                "outputBytes": 1000000,
+            }
+        },
     )
     client = build_client(source_golden)
     connection = client.post(
@@ -77,17 +93,8 @@ def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None
                 "connectorKey": "mcp_custom",
                 "displayName": "Infrastructure MCP",
                 "scope": "team",
-                "configuration": {
-                    "transport": "stdio",
-                    "command": sys.executable,
-                    "args": [str(server)],
-                    "env": {"MCP_FIXTURE_DATA_PATH": str(data_path)},
-                    "cwd": str(tmp_path),
-                    "startupTimeoutSeconds": 5,
-                    "callTimeoutSeconds": 5,
-                    "toolAllowlist": ["infrastructure.metrics"],
-                    "outputBytes": 1000000,
-                },
+                "mcpProfileId": "infra-local",
+                "toolAllowlist": ["infrastructure.metrics"],
             },
         },
         headers={
@@ -128,6 +135,35 @@ def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None
     assert ingest_result["goldenAssetRevision"]["lineage"]["toolArguments"] == {
         "service": "all"
     }
+
+
+def test_source_golden_mcp_rejects_browser_process_execution_fields(
+    tmp_path: Path,
+) -> None:
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path,
+    )
+    response = build_client(source_golden).post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "source-golden.connection.create",
+            "payload": {
+                "connectorKey": "mcp_custom",
+                "displayName": "Unsafe MCP",
+                "mcpProfileId": "not-registered",
+                "configuration": {
+                    "command": "/bin/sh",
+                    "args": ["-c", "true"],
+                    "cwd": "/",
+                },
+            },
+        },
+        headers={"X-Request-ID": "bff-mcp-unsafe", "Idempotency-Key": "bff-mcp-unsafe"},
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "MCP_CLIENT_EXECUTION_FIELDS_FORBIDDEN"
 
 
 def test_authoring_resolves_real_golden_revision_before_model_gate(

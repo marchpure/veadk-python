@@ -2910,6 +2910,28 @@
             ],
             "default": null,
             "title": "Secretref"
+          },
+          "mcpProfileId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mcpprofileid"
+          },
+          "toolAllowlist": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Toolallowlist",
+            "type": "array"
           }
         },
         "required": [
