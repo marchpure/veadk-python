@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Database, FileSpreadsheet, Server, Cloud, Search, 
-  ArrowLeft, CheckCircle2, XCircle, Info, Webhook, Globe, AlertTriangle, Loader2, ShieldCheck,
-  Check, Lock, Edit3, Save, MessageSquare
+  ArrowLeft, CheckCircle2, Info, Webhook, Loader2, ShieldCheck,
+  Check, Save
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { getRegistry, connectionStore, customRegistryStore, ConnectorDef } from '../../lib/store';
+import { getRegistry, ConnectorDef } from '../../lib/store';
+import { createRequestContext } from '../../../production/ports';
+import {
+  getWorkspaceAdapter,
+  mcpProfileStore,
+  useStore as useProductionStore,
+} from '../../../production/store';
 
 const getRegistryIcon = (category: string) => {
   if (category === 'office') return FileSpreadsheet;
@@ -38,26 +44,23 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
 
   const [finalName, setFinalName] = useState(`${sourceObj.name} 连接`);
   const [space, setSpace] = useState<'personal' | 'team'>('personal');
+  const mcpProfiles = useProductionStore(mcpProfileStore);
+  const [selectedMcpProfile, setSelectedMcpProfile] = useState('');
+  const [operationError, setOperationError] = useState('');
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (wizardStep === 1) {
       if (sourceObj.connectorKey === 'create_custom') {
-        if (!customDef.name) { showToast?.('请输入连接器名称'); return; }
-        // Create custom connector instantly
-        const newConnector: ConnectorDef = {
-          connectorKey: `custom_${Date.now()}`,
-          category: 'custom',
-          name: customDef.name,
-          desc: customDef.desc || '用户自定义的扩展连接器',
-          capabilities: ['自定义接口'],
-          inputSchema: customDef.fields.split(',').reduce((acc:any, curr:string) => { acc[curr.trim()] = 'string'; return acc; }, {}),
-          credentialSchema: { auth_token: 'password' },
-          discoveryPipeline: ['执行连接校验', '获取数据返回'],
-          syncModes: ['realtime']
-        };
-        customRegistryStore.setState(prev => [newConnector, ...prev]);
-        showToast?.('自定义连接器创建成功，已添加到 Registry！');
-        handleClose();
+        setOperationError('自定义连接器定义必须由服务端注册；当前页面不创建浏览器本地连接器。');
+        return;
+      }
+      if (sourceObj.connectorKey === 'mcp_custom') {
+        if (!mcpProfiles.some((item) => item.profileId === selectedMcpProfile)) {
+          setOperationError('未选择服务端 MCP profile，无法启动真实 MCP。');
+          return;
+        }
+        setOperationError('');
+        setWizardStep(4);
         return;
       }
       if (sourceObj.credentialSchema) {
@@ -72,48 +75,67 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     } else if (wizardStep === 3) {
       if (jobState === 'done') setWizardStep(4);
     } else if (wizardStep === 4) {
-      const isTeam = space === 'team';
-      const currentList = connectionStore.getState();
-      const newItem = { 
-        id: `conn_${Date.now()}`, 
-        type: sourceObj.connectorKey, 
-        name: finalName, 
-        status: 'connected',
-        owner: 'haoxingjun',
-        isTeam,
-        readonly: isTeam,
-        syncPolicy: '实时/增量',
-        schemas: [{
-          name: 'public',
-          tables: [
-            { id: `t1_${Date.now()}`, name: 'data_results', perm: true, rows: '1.2k', fields: [{id:'f1', name:'id', type:'string'}] }
-          ]
-        }]
-      };
-      connectionStore.setState(() => [newItem, ...currentList]);
-      showToast?.(`${finalName} 连接已成功添加至${isTeam?'团队':'个人'}工作区！`);
-      setTimeout(() => {
-        const p = new URLSearchParams(window.location.search);
-        p.set('file', newItem.id);
-        p.delete('step'); p.delete('source'); p.delete('target_space'); p.delete('from_file'); p.delete('category');
-        handleClose(); // this uses parent callback state, wait, handleClose removes file parameter if from_file exists! Let's just override query.
-      }, 1500);
+      if (sourceObj.connectorKey === 'mcp_custom') {
+        const profile = mcpProfiles.find((item) => item.profileId === selectedMcpProfile);
+        if (!profile) {
+          setOperationError('未选择服务端 MCP profile，无法启动真实 MCP。');
+          return;
+        }
+        setOperationError('');
+        setJobState('running');
+        try {
+          const created = await getWorkspaceAdapter().command(
+            {
+              command: 'source-golden.connection.create',
+              payload: {
+                connectorKey: 'mcp_custom',
+                displayName: finalName,
+                scope: space,
+                configuration: {},
+                mcpProfileId: profile.profileId,
+                toolAllowlist: profile.toolAllowlist,
+              },
+            },
+            createRequestContext(),
+          );
+          const result = created.result?.connection;
+          const connectionId = result && typeof result === 'object' &&
+            typeof (result as Record<string, unknown>).id === 'string'
+            ? (result as Record<string, unknown>).id
+            : '';
+          if (!created.accepted || !connectionId) {
+            throw new Error('MCP connection was not accepted by the server.');
+          }
+          const ingested = await getWorkspaceAdapter().command(
+            {
+              command: 'source-golden.ingest',
+              payload: {
+                connectionId,
+                recipeOperations: ['trim'],
+                toolArguments: {},
+              },
+            },
+            createRequestContext(),
+          );
+          if (!ingested.accepted) throw new Error('MCP ingest was not accepted by the server.');
+          setJobState('done');
+          showToast?.('真实 MCP 已完成连接、工具发现与 Source/Golden ingest。');
+          handleClose();
+        } catch (error) {
+          setJobState('fail');
+          setOperationError(error instanceof Error ? error.message : 'MCP 操作失败。');
+        }
+        return;
+      }
+      setJobState('fail');
+      setOperationError('该连接器尚未接入 STEP 3 的真实 Source/Golden command，已停止，不创建本地假连接。');
     }
   };
 
   const startJob = () => {
-    setJobState('running');
+    setJobState('fail');
     setJobStepIdx(0);
-    const interval = setInterval(() => {
-      setJobStepIdx(prev => {
-        if (prev + 1 >= sourceObj.discoveryPipeline.length) {
-          clearInterval(interval);
-          setJobState('done');
-          return prev + 1;
-        }
-        return prev + 1;
-      });
-    }, 1200);
+    setOperationError('该连接器的发现流程尚未接入真实服务端执行，不能用定时动画或固定结果代替。');
   };
 
   const renderField = (key: string, type: string) => {
@@ -195,7 +217,25 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
           <div className="animate-in fade-in max-w-2xl mx-auto space-y-6 pt-4">
             <h4 className="text-base font-bold text-slate-800">步骤 1: 选择范围与配置参数</h4>
             <p className="text-sm text-slate-500 mb-6">配置连接所需的基础信息与范围 (Input Schema)。</p>
-            {sourceObj.inputSchema ? (
+            {sourceObj.connectorKey === 'mcp_custom' ? (
+              <div className="col-span-2 space-y-4">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">服务端 MCP Profile</label>
+                {mcpProfiles.length > 0 ? (
+                  <select value={selectedMcpProfile} onChange={(event) => setSelectedMcpProfile(event.target.value)} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white">
+                    <option value="">请选择已注册 profile...</option>
+                    {mcpProfiles.map((profile) => (
+                      <option key={profile.profileId} value={profile.profileId}>
+                        {profile.label} · {profile.transport} · {profile.toolAllowlist.length} tools
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    服务端未注册可用 MCP profile。此处不会接受 command、args、cwd 或 env。
+                  </div>
+                )}
+              </div>
+            ) : sourceObj.inputSchema ? (
               <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl grid grid-cols-2 gap-5">
                 {Object.entries(sourceObj.inputSchema).map(([k, v]) => renderField(k, v as string))}
               </div>
@@ -304,6 +344,11 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
             </div>
           </div>
         )}
+        {operationError && (
+          <div className="mx-auto mt-4 max-w-2xl rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+            {operationError}
+          </div>
+        )}
       </div>
 
       <div className="pt-5 border-t border-slate-100 flex justify-end space-x-3 shrink-0 mt-4">
@@ -338,7 +383,8 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
     p.delete('step'); p.delete('source'); p.delete('target_space'); p.delete('from_file'); p.delete('category');
     setSearchParams(p);
     if (origin) {
-      setTimeout(() => { const el = document.querySelector(`[data-tree-id="${origin}"]`); if (el) { (el as HTMLElement).focus(); } }, 100);
+      const el = document.querySelector(`[data-tree-id="${origin}"]`);
+      if (el) (el as HTMLElement).focus();
     }
   };
 

@@ -177,6 +177,14 @@ export type GeneratedCommand =
     payload: { sourceRevisionId: string; recipeId: string };
   }
   | {
+    command: "source-golden.connection.create";
+    payload: import("./generatedContracts").SourceGoldenConnectionCreatePayload;
+  }
+  | {
+    command: "source-golden.ingest";
+    payload: import("./generatedContracts").SourceGoldenIngestPayload;
+  }
+  | {
     command: "skill-draft.retry";
     payload: {
       draftId: string;

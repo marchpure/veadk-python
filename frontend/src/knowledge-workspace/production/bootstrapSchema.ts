@@ -10,6 +10,13 @@ export interface WorkspaceConnectorDefinition {
   syncModes: string[];
 }
 
+export interface WorkspaceMcpProfile {
+  profileId: string;
+  label: string;
+  transport: string;
+  toolAllowlist: string[];
+}
+
 export interface WorkspaceDatasetField {
   name: string;
   type: string;
@@ -45,6 +52,7 @@ export interface WorkspaceKnowledgeGraphMapping {
 
 export interface WorkspaceBootstrapData {
   connectorCatalog: WorkspaceConnectorDefinition[];
+  mcpProfileCatalog?: WorkspaceMcpProfile[];
   datasetFields: WorkspaceDatasetField[];
   dashboard: {
     kpis: WorkspaceKpi[];
@@ -229,6 +237,17 @@ export function parseBootstrap(
   }
   if (
     !workspaceData.connectorCatalog.every(isConnector) ||
+    (workspaceData.mcpProfileCatalog !== undefined &&
+      (!Array.isArray(workspaceData.mcpProfileCatalog) ||
+      !workspaceData.mcpProfileCatalog.every(
+      (profile) =>
+        isRecord(profile) &&
+        typeof profile.profileId === "string" &&
+        typeof profile.label === "string" &&
+        typeof profile.transport === "string" &&
+        Array.isArray(profile.toolAllowlist) &&
+        profile.toolAllowlist.every((tool) => typeof tool === "string"),
+      ))) ||
     !workspaceData.datasetFields.every(isDatasetField) ||
     !dashboard.kpis.every(isKpi) ||
     !dashboard.trendData.every(isTrendPoint) ||

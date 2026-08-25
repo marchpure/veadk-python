@@ -45,6 +45,8 @@ export type KnowledgeCommandName =
   | "skill-draft.save-manifest"
   | "source.profile"
   | "source.clean"
+  | "source-golden.connection.create"
+  | "source-golden.ingest"
   | "skill-draft.retry"
   | "skill-draft.run"
   | "publication.publish"
@@ -143,6 +145,14 @@ export type KnowledgeCommand =
   | { command: "artifact.export"; payload: ArtifactExportPayload }
   | { command: "source.profile"; payload: SourceProfilePayload }
   | { command: "source.clean"; payload: SourceCleanPayload }
+  | {
+    command: "source-golden.connection.create";
+    payload: import("./generatedContracts").SourceGoldenConnectionCreatePayload;
+  }
+  | {
+    command: "source-golden.ingest";
+    payload: import("./generatedContracts").SourceGoldenIngestPayload;
+  }
   | { command: "skill-draft.retry"; payload: SkillDraftRetryPayload }
   | { command: "skill-draft.run"; payload: SkillDraftRunPayload }
   | { command: "publication.publish"; payload: PublicationPublishPayload }
