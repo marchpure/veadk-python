@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, ToyBrick, ShieldCheck } from 'lucide-react';
+import { X, ToyBrick, AlertTriangle } from 'lucide-react';
 import { resourceStore, agentPublicationStore, getResourceDescriptor } from '../../lib/store';
 import { useSearchParams } from 'react-router-dom';
-import { createRequestContext } from '../../../production/ports';
-import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
+import { asRecord } from '../../lib/qualityPublicationClient';
 
-export default function PublishAgentModal({ onClose, showToast, fileId }: { onClose: () => void, showToast: any, fileId: string }) {
+export default function PublishAgentModal({ onClose, fileId }: any) {
   const [searchParams] = useSearchParams();
   const allResources = resourceStore.getState();
   const descriptor = getResourceDescriptor(fileId, searchParams, allResources);
+  const resource = allResources.find((item: any) => item.id === fileId || item.resourceId === fileId) as any;
   
   const resourceName = descriptor?.name as string;
-  const version = descriptor?.version as string;
+  const version = String(descriptor?.version || resource?.version || '1.0.0');
   const identity = descriptor?.identity as string;
   const artifactType = descriptor?.artifactType as string;
 
   const publications = agentPublicationStore.getState();
-  const existing = publications.find((a:any) => a.resourceId === identity);
+  const existing = publications.find((a:any) => a.skillId === identity || a.resourceId === identity);
 
   const [visibility, setVisibility] = useState(existing?.visibility || 'team');
 
@@ -26,40 +26,21 @@ export default function PublishAgentModal({ onClose, showToast, fileId }: { onCl
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!descriptor) return;
     if (descriptor.resourceKind !== 'skill_draft') {
       setError('只有服务端 SkillDraft 可进入真实 publication.publish。');
       return;
     }
-    setBusy(true); setError('');
-    try {
-      const response = await getWorkspaceAdapter().command({
-        command: 'publication.publish',
-        payload: {
-          draftId: identity,
-          revision: Number(descriptor.revision ?? 1),
-          semver: String(version || '0.1.0').replace(/^V/i, ''),
-        },
-      }, createRequestContext());
-      const result = response.result ?? {};
-      if (!response.accepted || result.status !== 'succeeded') {
-        throw new Error(String(result.error?.message ?? 'Evaluation/PolicyGate 未通过，发布被拒绝。'));
-      }
-      await bootstrapWorkspace(undefined, getWorkspaceAdapter());
-      showToast?.('服务端已确认发布。');
-      onClose();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '发布失败。');
-    } finally { setBusy(false); }
+    setError('共享契约缺少 PublicationPublishPayload.visibility，publication.publish 当前 fail closed；需要 MAIN 合同持久化 visibility 后才允许发布。');
   };
 
   const handleCancelPublish = () => {
     if (!descriptor) return;
     setError('取消发布必须由服务端撤销命令确认；当前未执行本地删除。');
   };
+  const published = asRecord(existing);
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={(e) => { if(e.target===e.currentTarget) onClose(); }}>
@@ -82,8 +63,21 @@ export default function PublishAgentModal({ onClose, showToast, fileId }: { onCl
                 <option value="personal">仅个人可用</option>
                 <option value="team">团队公开可用</option>
               </select>
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>当前 MAIN 契约尚未接收 visibility 字段；publication.publish 当前 fail closed，本 Worker 不会绕过服务端持久化要求。</span>
+              </div>
             </div>
           </div>
+          {existing && (
+            <dl className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+              <div><dt className="font-bold text-slate-500">真实版本</dt><dd className="text-slate-800">{String(published.version ?? published.semver ?? '—')}</dd></div>
+              <div><dt className="font-bold text-slate-500">质量分</dt><dd className="text-slate-800">{String(published.qualityScore ?? '需服务端返回')}</dd></div>
+              <div><dt className="font-bold text-slate-500">调用量</dt><dd className="text-slate-800">{String(published.invocationCount ?? '需服务端返回')}</dd></div>
+              <div><dt className="font-bold text-slate-500">新鲜度</dt><dd className="text-slate-800">{String(published.freshness ?? '需服务端返回')}</dd></div>
+              <div className="col-span-2"><dt className="font-bold text-slate-500">I/O Schema / 依赖 / 权限 / 兼容目标</dt><dd className="break-all text-slate-800">{JSON.stringify({ inputSchema: published.inputSchema, outputSchema: published.outputSchema, dependencies: published.dependencies, permissions: published.permissions, compatibilityTargets: published.compatibilityTargets })}</dd></div>
+            </dl>
+          )}
           {error && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         </div>
 
@@ -94,7 +88,7 @@ export default function PublishAgentModal({ onClose, showToast, fileId }: { onCl
           {!existing && (
             <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
           )}
-          <button onClick={() => void handleConfirm()} disabled={busy} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
+          <button onClick={handleConfirm} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
             {existing ? '更新范围' : '确认发布'}
           </button>
         </div>
