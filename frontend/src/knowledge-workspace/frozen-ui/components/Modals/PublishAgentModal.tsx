@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Send, ToyBrick, ShieldCheck } from 'lucide-react';
 import { resourceStore, agentPublicationStore, getResourceDescriptor } from '../../lib/store';
 import { useSearchParams } from 'react-router-dom';
+import { createRequestContext } from '../../../production/ports';
+import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
 
 export default function PublishAgentModal({ onClose, showToast, fileId }: { onClose: () => void, showToast: any, fileId: string }) {
   const [searchParams] = useSearchParams();
@@ -24,33 +26,39 @@ export default function PublishAgentModal({ onClose, showToast, fileId }: { onCl
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const handleConfirm = () => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const handleConfirm = async () => {
     if (!descriptor) return;
-    
-    if (existing) {
-      const updated = { ...existing, visibility, version };
-      agentPublicationStore.setState(prev => prev.map(a => a.id === existing.id ? updated : a));
-      showToast?.('已更新该资源在 Agent 中的发布配置。');
-    } else {
-      const newPub = {
-        id: `agent_pub_${Date.now()}`,
-        resourceId: identity,
-        name: resourceName,
-        artifactType: artifactType,
-        version,
-        visibility
-      };
-      agentPublicationStore.setState(prev => [newPub, ...prev]);
-      showToast?.('已成功发布到 Agent 资产库！');
+    if (descriptor.resourceKind !== 'skill_draft') {
+      setError('只有服务端 SkillDraft 可进入真实 publication.publish。');
+      return;
     }
-    onClose();
+    setBusy(true); setError('');
+    try {
+      const response = await getWorkspaceAdapter().command({
+        command: 'publication.publish',
+        payload: {
+          draftId: identity,
+          revision: Number(descriptor.revision ?? 1),
+          semver: String(version || '0.1.0').replace(/^V/i, ''),
+        },
+      }, createRequestContext());
+      const result = response.result ?? {};
+      if (!response.accepted || result.status !== 'succeeded') {
+        throw new Error(String(result.error?.message ?? 'Evaluation/PolicyGate 未通过，发布被拒绝。'));
+      }
+      await bootstrapWorkspace(undefined, getWorkspaceAdapter());
+      showToast?.('服务端已确认发布。');
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '发布失败。');
+    } finally { setBusy(false); }
   };
 
   const handleCancelPublish = () => {
     if (!descriptor) return;
-    agentPublicationStore.setState(prev => prev.filter(a => a.resourceId !== identity));
-    showToast?.('已取消发布该资源。');
-    onClose();
+    setError('取消发布必须由服务端撤销命令确认；当前未执行本地删除。');
   };
 
   return (
@@ -76,6 +84,7 @@ export default function PublishAgentModal({ onClose, showToast, fileId }: { onCl
               </select>
             </div>
           </div>
+          {error && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         </div>
 
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end items-center gap-3">
@@ -85,7 +94,7 @@ export default function PublishAgentModal({ onClose, showToast, fileId }: { onCl
           {!existing && (
             <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
           )}
-          <button onClick={handleConfirm} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+          <button onClick={() => void handleConfirm()} disabled={busy} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
             {existing ? '更新范围' : '确认发布'}
           </button>
         </div>

@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { X, Search, ToyBrick, CheckCircle2, FileText, LayoutDashboard, Globe } from 'lucide-react';
 import { agentPublicationStore, useStore } from '../../lib/store';
+import { createRequestContext } from '../../../production/ports';
+import { getWorkspaceAdapter } from '../../../production/store';
 
 export default function AgentResourceSelectorModal({ onClose }: { onClose: () => void }) {
   const publishedAgents = useStore(agentPublicationStore);
   const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -19,6 +24,36 @@ export default function AgentResourceSelectorModal({ onClose }: { onClose: () =>
   };
 
   const filtered = publishedAgents.filter((a:any) => a.name.toLowerCase().includes(query.toLowerCase()));
+
+  const invokeSelected = async () => {
+    const item: any = publishedAgents.find((value: any) => value.id === selectedId);
+    if (!item) { setError('请选择服务端已发布的 Skill。'); return; }
+    const skillVersionId = item.skillVersionId || item.id;
+    setBusy(true); setError('');
+    try {
+      const response = await getWorkspaceAdapter().command({
+        command: 'invocation.start',
+        payload: {
+          skillVersionId,
+          skillViewRevisionId: item.skillViewRevisionId || item.skillViewRef || '',
+          inputRef: {
+            uri: 'inline://agent-selector-input',
+            kind: 'inline',
+            sha256: '0'.repeat(64),
+            mediaType: 'application/json',
+          },
+          callerId: 'browser-not-authoritative',
+        },
+      }, createRequestContext());
+      const result = response.result ?? {};
+      if (!response.accepted || result.status !== 'succeeded') {
+        throw new Error(String(result.error?.message ?? '服务端 invocation 未成功。'));
+      }
+      onClose();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '调用失败。');
+    } finally { setBusy(false); }
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={(e) => { if(e.target===e.currentTarget) onClose(); }}>
@@ -45,7 +80,7 @@ export default function AgentResourceSelectorModal({ onClose }: { onClose: () =>
              <div className="space-y-3">
                {filtered.map((item:any) => (
                  <label key={item.id} className="flex items-start p-4 bg-white border border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:shadow-md shadow-sm transition-all group">
-                   <input type="radio" name="agent_resource" className="mt-1 mr-4 rounded-full text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4" />
+                   <input type="radio" name="agent_resource" checked={selectedId === item.id} onChange={() => setSelectedId(item.id)} className="mt-1 mr-4 rounded-full text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4" />
                    <div className="flex-1 min-w-0">
                      <div className="flex items-center justify-between mb-1">
                        <div className="font-bold text-slate-900 flex items-center">{getIcon(item.artifactType)}<span className="ml-2 truncate max-w-[200px]">{item.name}</span></div>
@@ -62,11 +97,12 @@ export default function AgentResourceSelectorModal({ onClose }: { onClose: () =>
              </div>
            )}
         </div>
+        {error && <div role="alert" className="px-4 py-2 text-sm text-red-700 bg-red-50 border-t border-red-200">{error}</div>}
 
         <div className="p-4 border-t border-slate-100 bg-white flex justify-end space-x-3 shrink-0">
           <button onClick={onClose} className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
-          <button onClick={() => onClose()} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none transition-colors">
-            确认选择
+          <button onClick={() => void invokeSelected()} disabled={busy} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none transition-colors disabled:opacity-50">
+            {busy ? '服务端调用中…' : '调用 Skill'}
           </button>
         </div>
       </div>

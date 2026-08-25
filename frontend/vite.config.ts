@@ -423,7 +423,9 @@ export function transformFrozenProductionMutations(
   // generic prototype action.update fallback would suppress that real flow.
   if (
     filePath.endsWith("/components/MainArea/AddDataView.tsx") ||
-    filePath.endsWith("/components/MainArea/SkillBuilderView.tsx")
+    filePath.endsWith("/components/MainArea/SkillBuilderView.tsx") ||
+    filePath.endsWith("/components/Modals/PublishAgentModal.tsx") ||
+    filePath.endsWith("/components/Modals/AgentResourceSelectorModal.tsx")
   ) {
     return productionCode === code
       ? null
