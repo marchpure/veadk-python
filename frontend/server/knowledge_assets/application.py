@@ -157,10 +157,12 @@ class _ImmutableResourceResolver:
         source_golden: SourceGoldenApplication,
         repository: KnowledgeAssetRepository,
         domain_resolver: object | None = None,
+        authoring_repository: object | None = None,
     ) -> None:
         self.source_golden = source_golden
         self.repository = repository
         self.domain_resolver = domain_resolver
+        self.authoring_repository = authoring_repository
 
     async def resolve(self, envelope, refs):
         context = AccessContext(
@@ -326,7 +328,7 @@ class _ImmutableResourceResolver:
                 AuthoringErrorCode.RESOURCE_NOT_FOUND,
                 f"unsupported immutable resource kind: {ref.kind}",
             )
-        self._validate_bindings(envelope)
+        await self._validate_bindings(envelope)
         authorized_permissions = tuple(
             sorted(
                 {
@@ -382,10 +384,26 @@ class _ImmutableResourceResolver:
         draft = self.repository.draft(skill_id)
         return draft is not None and draft.workspace_id == workspace_id
 
-    def _validate_bindings(self, envelope: ContextEnvelope) -> None:
+    async def _validate_bindings(self, envelope: ContextEnvelope) -> None:
         if envelope.current_skill_id:
             draft = self.repository.draft(envelope.current_skill_id)
-            if draft is None or draft.workspace_id != envelope.workspace_id:
+            if draft is None and self.authoring_repository is not None:
+                draft = await self.authoring_repository.get_draft(
+                    envelope.current_skill_id
+                )
+                authorized = (
+                    draft is not None
+                    and draft.workspace_id == envelope.workspace_id
+                    and (
+                        draft.owner_id == envelope.caller_id
+                        or draft.promotion_state == "team_read_only"
+                    )
+                )
+            else:
+                authorized = (
+                    draft is not None and draft.workspace_id == envelope.workspace_id
+                )
+            if not authorized:
                 raise SkillAuthoringError(
                     AuthoringErrorCode.PERMISSION_DENIED,
                     "current Skill binding is not authorized.",
@@ -522,7 +540,10 @@ class KnowledgeAssetApplication:
                 authoring_resolver
                 or (
                     _ImmutableResourceResolver(
-                        sources_golden, repository, domain_resolver
+                        sources_golden,
+                        repository,
+                        domain_resolver,
+                        authoring_repository,
                     )
                     if sources_golden is not None
                     else _W1NotConfiguredResolver()

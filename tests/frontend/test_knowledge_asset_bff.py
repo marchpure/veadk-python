@@ -42,14 +42,22 @@ from frontend.server.knowledge_assets.sources_golden import (
 from frontend.server.knowledge_assets.workers import JobFramework, JobLeaseError
 from frontend.server.knowledge_domains.service import DomainService
 from frontend.server.skill_authoring.models import (
+    BuildPlan,
     ContextEnvelope,
+    DraftManifest,
+    DraftRevision,
+    FreshnessPolicy,
+    KnowledgeKindSpec,
+    OutputContract,
     ResourceRef as AuthoringResourceRef,
     ResolvedResource,
     Scope,
+    SkillKind,
     SkillAuthoringError,
 )
 from frontend.server.skill_authoring.ports import (
     InMemoryResourceResolver,
+    JsonFileAuthoringRepository,
     LocalPlanningHarness,
     NoopWorker3Executor,
 )
@@ -622,6 +630,79 @@ async def test_mixed_context_resolves_exact_authorized_revisions(
             ),
             (wrong_scope,),
         )
+
+
+@pytest.mark.asyncio
+async def test_immutable_resolver_accepts_owned_authoring_draft_before_main_sync(
+    tmp_path: Path,
+) -> None:
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources.sqlite3",
+        artifact_root=tmp_path / "source-artifacts",
+        source_root=tmp_path,
+    )
+    authoring_repository = JsonFileAuthoringRepository(tmp_path / "authoring.json")
+    draft = DraftRevision(
+        draft_id="draft-authoring-only",
+        revision=1,
+        manifest=DraftManifest(
+            name="Authoring draft",
+            description="Awaiting Worker 3 projection",
+            kind=SkillKind.KNOWLEDGE,
+            kind_spec=KnowledgeKindSpec(
+                citation_intent=("source_revision",),
+                retrieval_mode="hybrid",
+            ),
+            inputs=(),
+            outputs=(OutputContract(name="answer", type="answer"),),
+            dependencies=(),
+            permissions=(),
+            freshness=FreshnessPolicy(),
+        ),
+        plan=BuildPlan(
+            plan_id="plan-authoring-only",
+            intent=SkillKind.KNOWLEDGE,
+            purpose="Verify execution binding.",
+            nodes=(
+                {"node_id": "resolve_intent", "role": "intent_resolution"},
+                {
+                    "node_id": "resolve_context",
+                    "role": "context_resolution",
+                    "depends_on": ("resolve_intent",),
+                },
+                {
+                    "node_id": "worker3_execution",
+                    "role": "worker3_execution",
+                    "depends_on": ("resolve_context",),
+                },
+            ),
+            outputs=(OutputContract(name="answer", type="answer"),),
+            kind_spec=KnowledgeKindSpec(
+                citation_intent=("source_revision",),
+                retrieval_mode="hybrid",
+            ),
+            plan_digest="plan-authoring-only",
+        ),
+        owner_id="workspace-test",
+        workspace_id="workspace-test",
+        scope=Scope.PERSONAL,
+        digest="draft-authoring-only",
+    )
+    await authoring_repository.save_draft(draft)
+    envelope = ContextEnvelope(
+        caller_id="workspace-test",
+        workspace_id="workspace-test",
+        prompt="execute fixed SkillDraft revision",
+        current_skill_id=draft.draft_id,
+    )
+
+    resolved = await _ImmutableResourceResolver(
+        source_golden,
+        SqliteKnowledgeAssetRepository(":memory:"),
+        authoring_repository=authoring_repository,
+    ).resolve(envelope, ())
+
+    assert resolved.envelope.current_skill_id == draft.draft_id
 
 
 def test_source_golden_mcp_rejects_browser_process_execution_fields(
