@@ -520,6 +520,23 @@ function legacyCommand(
           callerId: "legacy",
         },
       };
+    case "skill-authoring.start":
+      return {
+        command,
+        payload: {
+          prompt: typeof payload.prompt === "string" ? payload.prompt : "",
+          requestedKind: "knowledge",
+          scope: "personal",
+        },
+      };
+    case "skill-authoring.execute":
+      return {
+        command,
+        payload: {
+          draftId: typeof payload.draftId === "string" ? payload.draftId : "",
+          revision: typeof payload.revision === "number" ? payload.revision : null,
+        },
+      };
   }
 }
 async function* parseSse(
