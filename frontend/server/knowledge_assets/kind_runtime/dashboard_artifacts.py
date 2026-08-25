@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
+import shutil
 import subprocess
 import time
 import uuid
@@ -32,7 +34,6 @@ from frontend.server.knowledge_assets.contracts import (
 )
 
 from .tabular import parse_rows, sensitive_fields
-
 
 DESIGN_SYSTEM_VERSION = "v2.13.1"
 DASHBOARD_ARTIFACT_SCHEMA_VERSION = "knowledge-assets.worker3.dashboard-artifact.v1"
@@ -136,6 +137,7 @@ class DashboardBuildResult(ContractModel):
     html_ref: StorageRef
     css_ref: StorageRef
     chart_config_ref: StorageRef
+    data_ref: StorageRef
     manifest_ref: StorageRef
     artifact_manifest_ref: StorageRef
     build_ref: StorageRef
@@ -229,9 +231,11 @@ def generate_dashboard_artifact(
     _write_json(data_dir / "golden.json", golden_json)
     _write_json(src / "dashboard-data.json", model)
     _write_json(src / "chart-config.json", chart_config)
-    (src / "index.html").write_text(_html_template(), encoding="utf-8")
+    (src / "index.html").write_text(
+        _render_html(model, request, revision_id=revision_id),
+        encoding="utf-8",
+    )
     (src / "styles.css").write_text(_render_css(), encoding="utf-8")
-    (src / "dashboard.js").write_text(_render_js(), encoding="utf-8")
     (src / "build.mjs").write_text(_build_script(), encoding="utf-8")
     (src / "serve.mjs").write_text(_serve_script(), encoding="utf-8")
     _write_json(workspace / "lineage.json", lineage)
@@ -240,7 +244,27 @@ def generate_dashboard_artifact(
     _write_json(workspace / "package-lock.json", _package_lock(request))
 
     build_output = run_dashboard_build(workspace)
-    html_ref = _storage_ref(dist / "index.html", "text/html", "bundle")
+    _assert_safe_package(dist)
+    html_ref = _content_addressed_ref(
+        workspace, dist / "index.html", "text/html", "bundle", ".html"
+    )
+    css_ref = _content_addressed_ref(
+        workspace, dist / "styles.css", "text/css", "object", ".css"
+    )
+    data_ref = _content_addressed_ref(
+        workspace,
+        dist / "dashboard-data.json",
+        "application/json",
+        "object",
+        ".json",
+    )
+    chart_config_ref = _content_addressed_ref(
+        workspace,
+        dist / "chart-config.json",
+        "application/json",
+        "object",
+        ".json",
+    )
     dist_digest = _directory_digest(dist)
     build = {
         "schemaVersion": "knowledge-assets.worker3.dashboard-build.v1",
@@ -251,7 +275,6 @@ def generate_dashboard_artifact(
         "outputs": [
             "dist/index.html",
             "dist/styles.css",
-            "dist/dashboard.js",
             "dist/dashboard-data.json",
             "dist/chart-config.json",
         ],
@@ -264,13 +287,20 @@ def generate_dashboard_artifact(
     revision["distDigest"] = dist_digest
     revision["generationId"] = generation_id
     _write_json(workspace / "revision.json", revision)
-    build_ref = _storage_ref(workspace / "build.json", "application/json", "object")
-    lineage_ref = _storage_ref(workspace / "lineage.json", "application/json", "object")
+    build_ref = _content_addressed_ref(
+        workspace, workspace / "build.json", "application/json", "object", ".json"
+    )
+    lineage_ref = _content_addressed_ref(
+        workspace, workspace / "lineage.json", "application/json", "object", ".json"
+    )
     artifact_manifest = _artifact_manifest(
         request,
         workspace=workspace,
         revision_id=revision_id,
         html_ref=html_ref,
+        css_ref=css_ref,
+        data_ref=data_ref,
+        chart_config_ref=chart_config_ref,
         build_ref=build_ref,
         lineage_ref=lineage_ref,
         lineage_digest=lineage["lineageDigest"],
@@ -278,8 +308,12 @@ def generate_dashboard_artifact(
         dist_digest=dist_digest,
     )
     _write_json(workspace / "artifact-manifest.json", artifact_manifest)
-    artifact_manifest_ref = _storage_ref(
-        workspace / "artifact-manifest.json", "application/json", "object"
+    artifact_manifest_ref = _content_addressed_ref(
+        workspace,
+        workspace / "artifact-manifest.json",
+        "application/json",
+        "object",
+        ".json",
     )
     publish_ready = PublishReadyArtifactContract(
         artifact_id=request.artifact_id,
@@ -295,7 +329,7 @@ def generate_dashboard_artifact(
         workspace / "publish-ready-artifact.json",
         publish_ready.model_dump(mode="json", by_alias=True),
     )
-    artifact_url = (dist / "index.html").resolve().as_uri()
+    artifact_url = html_ref.uri
     return DashboardBuildResult(
         artifact_id=request.artifact_id,
         status=status,
@@ -308,17 +342,24 @@ def generate_dashboard_artifact(
         build_command=_build_command(workspace),
         serve_command=_serve_command(workspace),
         html_ref=html_ref,
-        css_ref=_storage_ref(dist / "styles.css", "text/css", "object"),
-        chart_config_ref=_storage_ref(
-            dist / "chart-config.json", "application/json", "object"
-        ),
-        manifest_ref=_storage_ref(
-            workspace / "skill-manifest.json", "application/json", "object"
+        css_ref=css_ref,
+        chart_config_ref=chart_config_ref,
+        data_ref=data_ref,
+        manifest_ref=_content_addressed_ref(
+            workspace,
+            workspace / "skill-manifest.json",
+            "application/json",
+            "object",
+            ".json",
         ),
         artifact_manifest_ref=artifact_manifest_ref,
         build_ref=build_ref,
-        revision_ref=_storage_ref(
-            workspace / "revision.json", "application/json", "object"
+        revision_ref=_content_addressed_ref(
+            workspace,
+            workspace / "revision.json",
+            "application/json",
+            "object",
+            ".json",
         ),
         lineage_ref=lineage_ref,
         kpis=model["kpis"],
@@ -382,16 +423,13 @@ def capture_dashboard_screenshot(
                     page.goto(server.url, wait_until="networkidle")
                     page.locator('[data-dashboard-root="true"]').wait_for(timeout=5_000)
                     page.get_by_role("button", name="刷新").click()
-                    page.locator('[data-refresh-state="refreshing"]').wait_for(
-                        timeout=5_000
+                    page.locator('[data-artifact-event="filter.change"]').select_option(
+                        index=1
                     )
-                    page.evaluate(
-                        "window.dispatchEvent(new CustomEvent('dashboard-refresh-complete'))"
-                    )
-                    page.locator('[data-refresh-state="idle"]').wait_for(timeout=5_000)
+                    page.locator('[data-artifact-event="drill.request"]').first.click()
                     title = page.locator("h1").inner_text()
                     visual_checks = _visual_baseline_checks(page)
-                    page.screenshot(path=str(output), full_page=True)
+                    page.screenshot(path=str(output), full_page=False)
                 finally:
                     browser.close()
         finally:
@@ -415,7 +453,7 @@ def capture_dashboard_screenshot(
             visual_checks=visual_checks,
             interaction_checked=True,
         )
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - browser adapters raise backend-specific errors
         return DashboardScreenshotResult(
             status="failed",
             artifact_url=result.artifact_url,
@@ -455,7 +493,7 @@ class _DashboardServer:
                 with urlopen(self.url, timeout=0.25) as response:
                     if response.status == 200:
                         return
-            except Exception:
+            except OSError:
                 time.sleep(0.05)
         raise TimeoutError("dashboard serve did not become ready")
 
@@ -601,7 +639,94 @@ def _empty_model(request: DashboardArtifactRequest) -> dict[str, object]:
     }
 
 
-def _html_template() -> str:
+def _escape(value: object) -> str:
+    return html.escape(_format_value(value), quote=True)
+
+
+def _render_html(
+    model: dict[str, object],
+    request: DashboardArtifactRequest,
+    *,
+    revision_id: str,
+) -> str:
+    """Render the immutable business document without executable content.
+
+    Interactions are declarative ``data-artifact-event`` markers. The Studio
+    trusted renderer owns the bridge and translates those markers into typed
+    host events; generated artifacts never receive Studio origin capabilities.
+    """
+    source = model["source"]
+    assert isinstance(source, dict)
+    chart = model["chart"]
+    assert isinstance(chart, dict)
+    kpis = model["kpis"]
+    rows = model["tableRows"]
+    fields = model["tableFields"]
+    insights = model["insights"]
+    assert isinstance(kpis, list)
+    assert isinstance(rows, list)
+    assert isinstance(fields, list)
+    assert isinstance(insights, list)
+    series = chart["series"]
+    assert isinstance(series, list)
+    values = [
+        float(point[1])
+        for point in series
+        if isinstance(point, (list, tuple))
+        and len(point) == 2
+        and isinstance(point[1], (int, float))
+    ]
+    maximum = max(values, default=1.0) or 1.0
+    filter_options = "".join(
+        f'<option value="{_escape(point[0])}">{_escape(point[0])}</option>'
+        for point in series
+        if isinstance(point, (list, tuple)) and len(point) == 2
+    )
+    kpi_html = "".join(
+        (
+            '<button type="button" class="kpi-card" '
+            'data-artifact-event="selection.change" '
+            f'data-element-id="kpi:{_escape(item.key)}">'
+            f"<span>{_escape(item.label)}</span>"
+            f'<strong data-kpi-key="{_escape(item.key)}">{_escape(item.value)}</strong>'
+            f"<small>{_escape(item.unit)} · {_escape(item.trend)}</small>"
+            "</button>"
+        )
+        for item in kpis
+        if isinstance(item, DashboardKpi)
+    )
+    chart_html = "".join(
+        (
+            '<details class="bar-row" '
+            f'data-element-id="chart:{_escape(point[0])}">'
+            '<summary data-artifact-event="drill.request" '
+            f'data-field="{_escape(chart["xField"])}" '
+            f'data-value="{_escape(point[0])}">'
+            f"<span>{_escape(point[0])}</span>"
+            '<span class="bar-track" aria-hidden="true">'
+            f'<span class="bar-fill" style="width:{max(4, float(point[1]) / maximum * 100):.2f}%"></span>'
+            "</span>"
+            f"<strong>{_escape(point[1])}</strong>"
+            "</summary>"
+            f"<p>钻取请求：{_escape(chart['xField'])} = {_escape(point[0])}</p>"
+            "</details>"
+        )
+        for point in series
+        if isinstance(point, (list, tuple))
+        and len(point) == 2
+        and isinstance(point[1], (int, float))
+    )
+    table_head = "".join(f"<th>{_escape(field)}</th>" for field in fields)
+    table_body = "".join(
+        "<tr>"
+        + "".join(f"<td>{_escape(row.get(str(field)))}</td>" for field in fields)
+        + "</tr>"
+        for row in rows
+        if isinstance(row, dict)
+    )
+    insight_html = "".join(f"<li>{_escape(item)}</li>" for item in insights)
+    status = _escape(model["status"])
+    message = _escape(model["message"])
     return "\n".join(
         [
             "<!doctype html>",
@@ -609,13 +734,59 @@ def _html_template() -> str:
             "<head>",
             '  <meta charset="utf-8" />',
             '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
-            "  <title>Generated Dashboard</title>",
-            '  <link rel="stylesheet" href="./styles.css" />',
+            "  <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; script-src 'none'; form-action 'none'; base-uri 'none'\" />",
+            f"  <title>{_escape(model['title'])}</title>",
+            f"  <style>{_render_css()}</style>",
             "</head>",
             '<body data-dashboard-root="true">',
-            '  <main id="app" class="ka-dashboard" role="main" aria-label="Generated Dashboard"></main>',
-            "  <!--DASHBOARD_DATA-->",
-            '  <script type="module" src="./dashboard.js"></script>',
+            (
+                f'<main class="ka-dashboard" role="main" aria-label="{_escape(model["title"])}" '
+                f'data-artifact-id="{_escape(request.artifact_id)}" '
+                f'data-revision-id="{_escape(revision_id)}">'
+            ),
+            '  <section class="hero">',
+            "    <div>",
+            f"      <h1>{_escape(model['title'])}</h1>",
+            f'      <p class="goal">{_escape(model["userGoal"])}</p>',
+            "    </div>",
+            '    <div class="toolbar">',
+            f'      <span class="status status-{status}">{status}</span>',
+            '      <button type="button" data-artifact-event="refresh.request">刷新</button>',
+            '      <button type="button" data-artifact-event="export.request" data-format="csv">导出</button>',
+            '      <button type="button" data-artifact-event="context.reference">加入上下文</button>',
+            "    </div>",
+            "  </section>",
+            f'  <section class="state-strip" aria-live="polite"><p>{message}</p></section>',
+            '  <section class="filter-bar" aria-label="过滤状态">',
+            f"    <label>筛选 {_escape(chart['xField'])}",
+            (
+                '      <select data-artifact-event="filter.change" '
+                f'data-field="{_escape(chart["xField"])}">'
+                f'<option value="">全部</option>{filter_options}</select>'
+            ),
+            "    </label>",
+            '    <output data-filter-state="all">当前显示：全部数据</output>',
+            "  </section>",
+            f'  <section class="kpi-grid" aria-label="KPI 指标">{kpi_html}</section>',
+            '  <section class="panel chart-panel" aria-label="趋势与分组图">',
+            f"    <h2>{_escape(chart['title'])}</h2>",
+            f'    <div class="chart-bars">{chart_html}</div>',
+            "  </section>",
+            '  <section class="panel table-panel" aria-label="明细表">',
+            "    <h2>明细</h2>",
+            f'    <div class="table-scroll"><table><thead><tr>{table_head}</tr></thead><tbody>{table_body}</tbody></table></div>',
+            "  </section>",
+            '  <section class="panel insight-panel" aria-label="洞察">',
+            "    <h2>洞察</h2>",
+            f"    <ul>{insight_html}</ul>",
+            "  </section>",
+            '  <footer class="lineage">',
+            f"    <span>数据来源</span><code>{_escape(source['queryRef'])}</code>",
+            f"    <span>更新于</span><code>{_escape(source['freshnessAt'])}</code>",
+            f"    <span>revision</span><code>{_escape(revision_id)}</code>",
+            f"    <span>lineage</span><code>{_escape(source['lineageDigest'])}</code>",
+            "  </footer>",
+            "</main>",
             "</body>",
             "</html>",
         ]
@@ -626,6 +797,22 @@ def _render_css() -> str:
     return """
 :root {
   color-scheme: light;
+  --background: #f7f8fa;
+  --panel: #ffffff;
+  --foreground: #111827;
+  --muted: #f1f3f5;
+  --muted-foreground: #5b6472;
+  --border: #d9dee7;
+  --primary: #1f5eff;
+  --warning: #b7791f;
+  --danger: #b42318;
+}
+:host {
+  display: block;
+  min-height: 100%;
+  background: #f7f8fa;
+  color: #111827;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --background: #f7f8fa;
   --panel: #ffffff;
   --foreground: #111827;
@@ -684,6 +871,28 @@ button {
   color: white;
   cursor: pointer;
 }
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.filter-bar label { display: flex; align-items: center; gap: 8px; }
+.filter-bar select {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--foreground);
+  padding: 0 28px 0 10px;
+}
 .toolbar { display: flex; gap: 8px; align-items: center; }
 .status-succeeded { color: #116329; background: #eefbf2; border-color: #bfe8c9; }
 .status-empty { color: var(--warning); background: #fff8e5; border-color: #f1d18a; }
@@ -710,17 +919,31 @@ button {
   gap: 12px;
   margin-top: 16px;
 }
-.kpi-card { padding: 16px; }
+.kpi-card {
+  display: block;
+  min-width: 0;
+  padding: 16px;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
 .kpi-card span, .kpi-card small { color: var(--muted-foreground); font-size: 12px; }
 .kpi-card strong { display: block; margin: 8px 0; font-size: 28px; line-height: 1.1; }
 .panel { margin-top: 16px; padding: 20px; }
 .chart-bars { display: grid; gap: 12px; }
-.bar-row {
+.bar-row summary {
   display: grid;
   grid-template-columns: 144px minmax(0, 1fr) 72px;
   gap: 12px;
   align-items: center;
   font-size: 13px;
+}
+.bar-row summary { cursor: pointer; list-style: none; }
+.bar-row summary::-webkit-details-marker { display: none; }
+.bar-row p {
+  margin: 8px 0 0 156px;
+  color: var(--muted-foreground);
+  font-size: 12px;
 }
 .bar-track { height: 14px; background: var(--muted); border-radius: 999px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--primary); border-radius: 999px; }
@@ -747,143 +970,12 @@ code {
 @media (max-width: 760px) {
   .ka-dashboard { width: calc(100vw - 24px); padding: 16px 0; }
   .hero { display: block; }
+  .toolbar { margin-top: 16px; flex-wrap: wrap; }
+  .filter-bar { align-items: flex-start; flex-direction: column; }
   .kpi-grid { grid-template-columns: 1fr; }
-  .bar-row { grid-template-columns: 96px minmax(0, 1fr) 56px; }
+  .bar-row summary { grid-template-columns: 96px minmax(0, 1fr) 56px; }
+  .bar-row p { margin-left: 0; }
 }
-""".strip()
-
-
-def _render_js() -> str:
-    return r"""
-const app = document.getElementById("app");
-const embedded = document.getElementById("dashboard-data");
-const dashboardData = JSON.parse(embedded.textContent);
-const escapeHtml = (value) => String(value ?? "")
-  .replaceAll("&", "&amp;")
-  .replaceAll("<", "&lt;")
-  .replaceAll(">", "&gt;")
-  .replaceAll('"', "&quot;");
-const formatValue = (value) => (
-  Number.isFinite(value) ? Number(value.toFixed(2)).toLocaleString("zh-CN") : escapeHtml(value)
-);
-
-function stateTemplates(active, message) {
-  const labels = {
-    loading: "正在加载最新数据…",
-    empty: "暂无可展示数据。",
-    error: "生成失败，请检查 BuildPlan 与数据 Schema。",
-    permission_denied: "权限不足，无法展示受限数据。",
-    refreshing: "正在请求主流程刷新数据…",
-  };
-  return Object.entries(labels).map(([name, label]) => (
-    `<div data-state-template="${name}" class="state-template ${name === active ? "is-active" : ""}">` +
-    `${escapeHtml(name === active ? message : label)}</div>`
-  )).join("");
-}
-
-function renderKpis(data) {
-  return `<section class="kpi-grid" aria-label="KPI 指标">${
-    data.kpis.map((kpi) => `
-      <article class="kpi-card">
-        <span>${escapeHtml(kpi.label)}</span>
-        <strong data-kpi-key="${escapeHtml(kpi.key)}">${formatValue(kpi.value)}</strong>
-        <small>${escapeHtml(kpi.unit)} · ${escapeHtml(kpi.trend)}</small>
-      </article>
-    `).join("")
-  }</section>`;
-}
-
-function renderChart(data) {
-  const values = data.chart.series.map((point) => Number(point[1]) || 0);
-  const max = Math.max(...values, 1);
-  return `
-    <section class="panel chart-panel" aria-label="图表">
-      <h2>${escapeHtml(data.chart.title)}</h2>
-      <div class="chart-bars">
-        ${data.chart.series.map(([label, value]) => `
-          <div class="bar-row" data-chart-point="${escapeHtml(label)}">
-            <span>${escapeHtml(label)}</span>
-            <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, value / max * 100).toFixed(2)}%"></div></div>
-            <strong>${formatValue(value)}</strong>
-          </div>
-        `).join("")}
-      </div>
-    </section>`;
-}
-
-function renderTable(data) {
-  return `
-    <section class="panel table-panel" aria-label="明细表">
-      <h2>明细表</h2>
-      <div class="table-scroll"><table>
-        <thead><tr>${data.tableFields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}</tr></thead>
-        <tbody>${data.tableRows.map((row) => `<tr>${
-          data.tableFields.map((field) => `<td>${escapeHtml(row[field])}</td>`).join("")
-        }</tr>`).join("")}</tbody>
-      </table></div>
-    </section>`;
-}
-
-function renderInsights(data) {
-  return `
-    <section class="panel insight-panel" aria-label="洞察">
-      <h2>洞察</h2>
-      <ul>${data.insights.map((insight) => `<li>${escapeHtml(insight)}</li>`).join("")}</ul>
-    </section>`;
-}
-
-function renderLineage(data) {
-  return `
-    <footer class="lineage">
-      <span>数据来源</span><code>${escapeHtml(data.source.queryRef)}</code>
-      <span>更新于</span><code>${escapeHtml(data.source.freshnessAt)}</code>
-      <span>lineage</span><code>${escapeHtml(data.source.lineageDigest)}</code>
-    </footer>`;
-}
-
-function render(data, refreshState = "idle") {
-  const sectionRenderers = {
-    kpis: renderKpis,
-    chart: renderChart,
-    table: renderTable,
-    insights: renderInsights,
-  };
-  app.innerHTML = `
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Generated Skill Dashboard</p>
-        <h1>${escapeHtml(data.title)}</h1>
-        <p class="goal">${escapeHtml(data.userGoal)}</p>
-      </div>
-      <div class="toolbar">
-        <span class="status status-${escapeHtml(data.status)}">${escapeHtml(data.status)}</span>
-        <button type="button" data-refresh-state="${refreshState}" aria-label="刷新">刷新</button>
-      </div>
-    </section>
-    <section class="state-strip" aria-label="运行状态">${stateTemplates(data.status, data.message)}</section>
-    ${data.layout.map((section) => sectionRenderers[section]?.(data) ?? "").join("")}
-    ${renderLineage(data)}
-  `;
-  const button = app.querySelector("button");
-  button.addEventListener("click", () => {
-    button.dataset.refreshState = "refreshing";
-    button.textContent = "刷新中";
-    window.dispatchEvent(new CustomEvent("dashboard-refresh-requested", {
-      detail: {
-        dataQueryRef: data.source.queryRef,
-        invocationRef: data.source.invocationRef,
-      },
-    }));
-  });
-  window.addEventListener("dashboard-refresh-complete", () => {
-    button.dataset.refreshState = "idle";
-    button.textContent = "刷新";
-  });
-}
-
-render(dashboardData);
-document.documentElement.dataset.dashboardReady = "true";
-document.dispatchEvent(new CustomEvent("dashboard-ready", { detail: dashboardData }));
 """.strip()
 
 
@@ -897,22 +989,15 @@ const root = resolve(".");
 const src = resolve(root, "src");
 const dist = resolve(root, "dist");
 mkdirSync(dist, { recursive: true });
-for (const name of ["styles.css", "dashboard.js", "dashboard-data.json", "chart-config.json"]) {
+for (const name of ["index.html", "styles.css", "dashboard-data.json", "chart-config.json"]) {
   copyFileSync(resolve(src, name), resolve(dist, name));
 }
-const data = readFileSync(resolve(src, "dashboard-data.json"), "utf8");
-const escapedData = data.replaceAll("<", "\\u003c");
-const template = readFileSync(resolve(src, "index.html"), "utf8");
-writeFileSync(
-  resolve(dist, "index.html"),
-  template.replace("<!--DASHBOARD_DATA-->", `<script id="dashboard-data" type="application/json">${escapedData}</script>`)
-);
 const html = readFileSync(resolve(dist, "index.html"));
 const digest = createHash("sha256").update(html).digest("hex");
 writeFileSync(resolve(root, "build-result.json"), JSON.stringify({
   status: "succeeded",
   htmlDigest: digest,
-  outputs: ["dist/index.html", "dist/styles.css", "dist/dashboard.js", "dist/dashboard-data.json", "dist/chart-config.json"]
+  outputs: ["dist/index.html", "dist/styles.css", "dist/dashboard-data.json", "dist/chart-config.json"]
 }, null, 2) + "\n");
 """.strip()
 
@@ -985,6 +1070,9 @@ def _artifact_manifest(
     workspace: Path,
     revision_id: str,
     html_ref: StorageRef,
+    css_ref: StorageRef,
+    data_ref: StorageRef,
+    chart_config_ref: StorageRef,
     build_ref: StorageRef,
     lineage_ref: StorageRef,
     lineage_digest: str,
@@ -1016,7 +1104,6 @@ def _artifact_manifest(
         "sourceFiles": [
             "src/index.html",
             "src/styles.css",
-            "src/dashboard.js",
             "src/dashboard-data.json",
             "src/chart-config.json",
             "src/build.mjs",
@@ -1038,7 +1125,6 @@ def _artifact_manifest(
         "outputFiles": [
             "dist/index.html",
             "dist/styles.css",
-            "dist/dashboard.js",
             "dist/dashboard-data.json",
             "dist/chart-config.json",
         ],
@@ -1049,6 +1135,9 @@ def _artifact_manifest(
         },
         "refs": {
             "html": html_ref.model_dump(mode="json", by_alias=True),
+            "css": css_ref.model_dump(mode="json", by_alias=True),
+            "data": data_ref.model_dump(mode="json", by_alias=True),
+            "chartConfig": chart_config_ref.model_dump(mode="json", by_alias=True),
             "build": build_ref.model_dump(mode="json", by_alias=True),
             "lineage": lineage_ref.model_dump(mode="json", by_alias=True),
         },
@@ -1061,6 +1150,9 @@ def _artifact_manifest(
             "mainPublishAction": "MAIN_PUBLISH_CHAIN_REQUIRED",
         },
         "forbiddenPatterns": {
+            "businessScripts": False,
+            "networkRequests": False,
+            "externalIframes": False,
             "mockData": False,
             "fixedSalesContent": False,
             "jsonPreReplacementPage": False,
@@ -1336,6 +1428,44 @@ def _storage_ref(path: Path, media_type: str, kind: str) -> StorageRef:
         media_type=media_type,
         bytes=len(content),
     )
+
+
+def _content_addressed_ref(
+    workspace: Path,
+    source: Path,
+    media_type: str,
+    kind: str,
+    suffix: str,
+) -> StorageRef:
+    digest = _sha256_bytes(source.read_bytes())
+    target = workspace / "objects" / f"{digest}{suffix}"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        shutil.copyfile(source, target)
+    return _storage_ref(target, media_type, kind)
+
+
+def _assert_safe_package(dist: Path) -> None:
+    html_text = (dist / "index.html").read_text(encoding="utf-8").lower()
+    css_text = (dist / "styles.css").read_text(encoding="utf-8").lower()
+    forbidden = {
+        "script": "<script",
+        "iframe": "<iframe",
+        "object": "<object",
+        "embed": "<embed",
+        "network URL": "http://",
+        "secure network URL": "https://",
+        "javascript URL": "javascript:",
+        "CSS network import": "@import",
+        "CSS network resource": "url(",
+    }
+    combined = f"{html_text}\n{css_text}"
+    matches = [name for name, pattern in forbidden.items() if pattern in combined]
+    if matches:
+        raise ValueError(
+            "dashboard package contains forbidden executable/network content: "
+            + ", ".join(matches)
+        )
 
 
 def _free_port() -> int:

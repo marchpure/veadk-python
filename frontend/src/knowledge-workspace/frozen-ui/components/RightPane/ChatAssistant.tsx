@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Paperclip, CheckCircle2, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, ChevronUp, Search, Upload, Undo2, ArrowRight, Wand2, ArrowLeft, Trash2, Command, FileUp } from 'lucide-react';
+import { Send, Bot, User, Paperclip, CheckCircle2, CheckSquare, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, ChevronUp, Search, Upload, Wand2, ArrowLeft, Trash2, Command, FileUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { getFullCatalog, resourceStore, connectionStore, bootstrapWorkspace, getWorkspaceAdapter } from '../../lib/store';
 import { createRequestContext } from '../../../production/ports';
-
-let globalCompletionRunId: string | null = null;
+import { activeSkillViewRevision } from '../../../production/data';
 
 const getChipIcon = (type: string) => {
   if (!type) return Database;
@@ -26,12 +25,12 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const action = searchParams.get('action');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composingRef = useRef(false);
+  const submissionRef = useRef(false);
   const [isFocused, setIsFocused] = useState(false);
 
   const [contextExpanded, setContextExpanded] = useState(false);
   const [step, setStep] = useState(1);
-  const [generationDone, setGenerationDone] = useState(false);
-
   const [showSelector, setShowSelector] = useState(false);
   const [selectorQuery, setSelectorQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -39,6 +38,8 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const [authoringDraft, setAuthoringDraft] = useState<any>(null);
   const [agentReply, setAgentReply] = useState('');
   const [agentError, setAgentError] = useState('');
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [authoringRun, setAuthoringRun] = useState<any>(null);
 
   const [dragStatus, setDragStatus] = useState<string>('idle');
   const [dragMessage, setDragMessage] = useState<string>('');
@@ -75,6 +76,22 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
 
   const totalTokens = chatChips.reduce((acc: number, c: any) => acc + (c.tokenEstimate || 0.5), 0);
   const currentArtifactChip = chatChips.find((c: any) => c.isResourceLevel) || chatChips.find((c: any) => c.id === fileId || c.resourceId === fileId);
+  const renderAuthoringRun = () => authoringRun ? (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-left">
+      <dt className="text-slate-500">sessionId</dt>
+      <dd className="truncate font-mono text-slate-700">{authoringRun.sessionId || '—'}</dd>
+      <dt className="text-slate-500">traceId</dt>
+      <dd className="truncate font-mono text-slate-700">{authoringRun.traceId || '—'}</dd>
+      <dt className="text-slate-500">SkillDraft</dt>
+      <dd className="truncate font-mono text-slate-700">
+        {authoringRun.draftId ? `${authoringRun.draftId}@${authoringRun.draftRevision}` : '—'}
+      </dd>
+      <dt className="text-slate-500">BuildPlan</dt>
+      <dd className="truncate font-mono text-slate-700">
+        {authoringRun.plan?.plan_id || authoringRun.plan?.planId || '—'}
+      </dd>
+    </dl>
+  ) : null;
 
   const getSuggestions = () => {
     // Check non-resource chips first if they exist (for action loop context)
@@ -127,16 +144,9 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     }
 
     if (['解释异常', '生成行动建议', '总结进展', '补充证据', '提交 Review', '比较前后指标', '识别未解决风险', '汇总已验证事实', '生成备选方案'].includes(s)) {
-       setInput(s);
-       const p = new URLSearchParams(searchParams);
-       p.set('chat', 'answering');
-       if (s === '解释异常' || s === '生成行动建议') {
-         p.set('answer_type', 'signal');
-       } else {
-         p.set('answer_type', 'generic');
-       }
-       setSearchParams(p);
-       return;
+      setInput(s);
+      setTimeout(() => inputRef.current?.focus(), 50);
+      return;
     }
 
     setInput(s);
@@ -158,7 +168,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [chatState, input, chatChips, contextExpanded, generationDone, planDetails.stages]);
+  }, [chatState, input, chatChips, contextExpanded, planDetails.stages]);
 
   useEffect(() => {
     const pendingPrompt = searchParams.get('pending_prompt');
@@ -214,18 +224,42 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         }));
       const pinnedRefs = [...connectionRefs, ...resourceRefs].filter((ref: any, index: number, refs: any[]) =>
         refs.findIndex((item) => item.revision === ref.revision) === index);
+      const viewRevision: any = activeSkillViewRevision;
+      const activeElement = chatChips.find((chip: any) => chip.type === 'element');
+      const commentIds = chatChips
+        .filter((chip: any) => String(chip.type || '').startsWith('comment'))
+        .map((chip: any) => String(chip.id || chip.identity))
+        .filter(Boolean);
+      const viewOwner = String(viewRevision?.skillRevisionId ?? viewRevision?.skill_revision_id ?? '');
+      const currentSkillId =
+        authoringDraft?.draft_id ||
+        (viewOwner.includes(':') ? viewOwner.slice(0, viewOwner.lastIndexOf(':')) : viewOwner) ||
+        (currentArtifactChip?.resourceKind === 'skill_draft' ? currentArtifactChip.id : undefined);
       const response = await getWorkspaceAdapter().command({
         command: 'skill-authoring.start',
         payload: {
           prompt,
           resourceRefs: pinnedRefs,
+          fixedRevisions: pinnedRefs.map((ref: any) => ref.revision),
           requestedKind,
           scope: 'personal',
           displayName: prompt.slice(0, 80),
+          currentSkillId: currentSkillId || undefined,
+          currentViewId: viewRevision?.id ? String(viewRevision.id) : undefined,
+          currentComponentId: activeElement?.id ? String(activeElement.id) : undefined,
+          commentIds,
         },
       }, createRequestContext());
       const result: any = response.result ?? {};
       const operation = result.operation ?? {};
+      setAuthoringRun({
+        operationId: operation.operation_id,
+        sessionId: operation.agent_execution?.session_id,
+        traceId: operation.agent_execution?.trace_id ?? operation.trace_id,
+        draftId: result.draft?.draft_id,
+        draftRevision: result.draft?.revision,
+        plan: operation.plan ?? result.draft?.plan,
+      });
       const clarificationQuestions = Array.isArray(
         operation.clarificationQuestions ?? result.clarificationQuestions,
       )
@@ -252,16 +286,28 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   };
 
   const executeAgent = async () => {
-    if (!authoringDraft?.draft_id) {
+    if (submissionRef.current || !authoringDraft?.draft_id) {
       setAgentError('缺少服务端 SkillDraft，无法执行。');
       return false;
     }
+    submissionRef.current = true;
+    setAgentBusy(true);
+    setAgentError('');
     try {
       const response = await getWorkspaceAdapter().command({
         command: 'skill-authoring.execute',
         payload: { draftId: authoringDraft.draft_id, revision: authoringDraft.revision },
       }, createRequestContext());
       const result: any = response.result ?? {};
+      const operation = result.operation ?? {};
+      setAuthoringRun((previous: any) => ({
+        ...previous,
+        operationId: operation.operation_id ?? previous?.operationId,
+        traceId: operation.trace_id ?? previous?.traceId,
+        draftId: result.draft?.draft_id ?? previous?.draftId,
+        draftRevision: result.draft?.revision ?? previous?.draftRevision,
+        plan: operation.plan ?? result.draft?.plan ?? previous?.plan,
+      }));
       if (!response.accepted || !['succeeded', 'ready_for_execution'].includes(String(result.status))) {
         throw new Error(String(result.error?.message ?? 'Runner 未确认执行成功。'));
       }
@@ -271,12 +317,30 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : 'Runner 执行失败。');
       return false;
+    } finally {
+      submissionRef.current = false;
+      setAgentBusy(false);
     }
   };
 
+  const runKnowledgeAnswer = async (prompt: string) => {
+    const draft = await runAgent(prompt, 'knowledge');
+    if (!draft) return;
+    setAuthoringDraft(null);
+    setAgentReply('');
+    setAgentError('普通问答需要服务端返回 typed answer；本次仅返回 SkillDraft，未将草稿描述当作回答。');
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || chatState === 'generating' || chatState === 'planning') return;
-    
+    if (
+      submissionRef.current ||
+      !input.trim() ||
+      chatState === 'generating' ||
+      chatState === 'planning'
+    ) return;
+    submissionRef.current = true;
+    setAgentBusy(true);
+    try {
     const isCreationCommand = [
       '生成金融行情监控看板', 
       '基于 Web API 生成 HTML 报表', 
@@ -287,7 +351,12 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     ].includes(input);
 
     const hasTeamReadonly = chatChips.some((c:any) => c.readonly || c.type === 'team_artifact');
-    const isCreation = isCreationCommand || /(?:生成|创建|构建|看板|报表|知识库|Dashboard|Skill)/i.test(input);
+    const isModification = Boolean(currentArtifactChip) &&
+      /(?:修改|调整|替换|改为|更新|优化|筛选|配色|布局)/i.test(input);
+    const isKnowledgeCreation =
+      /(?:生成|创建|构建).*(?:知识库|knowledge)/i.test(input);
+    const isCreation = isCreationCommand || isModification ||
+      /(?:生成|创建|构建|看板|报表|知识库|Dashboard|Skill)/i.test(input);
     
     if (hasTeamReadonly && !isCreation) {
       const teamChip = chatChips.find((c:any) => c.type === 'team_artifact' || c.readonly);
@@ -301,11 +370,14 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     
     const activeChip = chatChips.find((c:any) => ['signal', 'todo', 'review', 'decision'].includes(c.type));
     if (activeChip) {
-      p.set('chat', 'answering');
-      if (activeChip.type === 'signal') p.set('answer_type', 'signal');
-      else p.set('answer_type', 'generic');
+      await runKnowledgeAnswer(input.trim());
+      setInput('');
+      return;
     } else if (isCreation) {
-      const draft = await runAgent(input.trim(), 'analysis');
+      const draft = await runAgent(
+        input.trim(),
+        isKnowledgeCreation ? 'knowledge' : 'analysis',
+      );
       if (!draft) return;
       p.set('chat', 'planning');
       const planName = input === '生成金融行情监控看板' ? '金融行情监控看板' :
@@ -321,13 +393,15 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         ]
       });
     } else {
-      const draft = await runAgent(input.trim(), 'knowledge');
-      if (!draft) return;
+      await runKnowledgeAnswer(input.trim());
       setInput('');
-      setAgentReply(draft.manifest?.description || 'Agent 已基于当前上下文返回真实回复。');
       return;
     }
     setSearchParams(p);
+    } finally {
+      submissionRef.current = false;
+      setAgentBusy(false);
+    }
   };
 
   const handleAddStage = () => {
@@ -387,7 +461,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const visibleItems = getFullCatalog().filter((i:any) => (i.name || i.displayName || '').toLowerCase().includes(selectorQuery.toLowerCase()));
 
   // Home Chat mode (when fileId === 'welcome' && !chatState)
-  if (isHomeChat && chatState !== 'planning' && chatState !== 'generating' && !generationDone) {
+  if (isHomeChat && chatState !== 'planning' && chatState !== 'generating') {
     return (
       <div className="flex flex-col h-full min-h-0 w-full bg-white relative animate-in fade-in duration-500 justify-center overflow-hidden">
         {showSelector && (
@@ -445,6 +519,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
             <h1 className="text-xl font-medium text-slate-700 tracking-tight mb-2 opacity-80">Knowledge Asset</h1>
             {agentError && <div role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{agentError}</div>}
             {agentReply && <div className="max-w-xl mx-auto text-left text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">{agentReply}</div>}
+            {renderAuthoringRun()}
           </div>
 
           <div 
@@ -467,6 +542,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
             )}
             
             <textarea 
+              ref={inputRef}
               aria-label="分析助手输入框"
               className="w-full bg-transparent border-none outline-none resize-none px-4 py-3 text-sm text-slate-800 leading-relaxed min-h-[90px] placeholder:text-slate-400"
               placeholder="输入分析指令，或添加数据上下文..."
@@ -474,7 +550,15 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
               onChange={e => setInput(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !composingRef.current) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              disabled={agentBusy}
             />
             
             <div className="px-3 py-2 flex items-center justify-between mt-auto">
@@ -492,8 +576,8 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
                 </label>
               </div>
               <button 
-                onClick={handleSend} 
-                disabled={!input.trim() && chatChips.length === 0}
+                onClick={() => void handleSend()} 
+                disabled={agentBusy || (!input.trim() && chatChips.length === 0)}
                 className="bg-blue-600 text-white p-1.5 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 disabled:bg-slate-300 transition-all outline-none flex items-center justify-center transform active:scale-95"
               >
                 <Send size={14} />
@@ -598,7 +682,8 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
              </div>
            </div>
          )}
-         {chatState !== 'generating' && !generationDone && (
+         {renderAuthoringRun()}
+         {chatState !== 'generating' && (
            <div className="animate-in fade-in flex items-start gap-3 w-full">
              <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
              <div className="flex-1 min-w-0">
@@ -614,7 +699,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
            </div>
          )}
          
-         {(chatState === 'planning' || chatState === 'generating' || generationDone) && (
+         {(chatState === 'planning' || chatState === 'generating') && (
            <>
              <div className="animate-in fade-in flex items-start gap-3 flex-row-reverse w-full">
                <div className="w-6 h-6 mt-1 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-500 text-[10px] font-medium">U</div>
@@ -624,70 +709,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
                  </div>
                </div>
              </div>
-             
-             {/* Dynamic generic response for action loop when not generating resources */}
-             {chatChips.some(c => ['signal', 'todo', 'review', 'decision'].includes(c.type)) && chatState === 'generating' && generationDone && (
-               <div className="animate-in fade-in flex items-start gap-3 w-full mt-4">
-                 <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
-                 <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm w-full min-w-0 text-[13px] text-slate-700 leading-relaxed">
-                   <div className="font-bold text-slate-900 mb-2 border-b border-slate-100 pb-2">基于提供上下文的智能答复</div>
-                   <div className="mb-2"><span className="font-bold text-blue-600 mr-2">[事实]</span>当前选中上下文中，指标状态与流程记录已核实无误。引用来源：<span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200 cursor-pointer font-medium ml-1">当前数据快照</span></div>
-                   <div className="mb-2"><span className="font-bold text-purple-600 mr-2">[推断]</span>结合历史阈值，此异常具有高敏感性，预计将直接导致目标达成延期。</div>
-                   <div><span className="font-bold text-amber-600 mr-2">[建议]</span>请在左侧【行动与待办】标签页确认处理行动，或生成决策简报 (Decision Brief) 以供审批。</div>
-                 </div>
-               </div>
-             )}
            </>
-         )}
-
-         {chatState === 'answering' && !generationDone && (
-           <div className="flex items-start gap-3 animate-in fade-in w-full mt-4">
-             <div className="w-6 h-6 mt-1 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-600 shrink-0 shadow-sm"><Bot size={12}/></div>
-             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 text-[13px] text-slate-600 shadow-sm flex items-center">
-               <Loader2 size={14} className="animate-spin mr-2 text-blue-600"/> 正在分析上下文并生成回复...
-             </div>
-           </div>
-         )}
-         
-         {chatState === 'answering' && generationDone && searchParams.get('answer_type') === 'signal' && (
-           <div className="animate-in fade-in flex items-start gap-3 w-full mt-4">
-             <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
-             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm w-full min-w-0 text-[13px] text-slate-700 leading-relaxed">
-               <div className="mb-3"><span className="font-bold text-slate-800">事实：</span>越南销售需求周环比 +38%，缺口 26，附来源 <span onClick={() => {
-                 const p = new URLSearchParams(searchParams);
-                 p.set('file', 'res_dash_recruitment');
-                 p.set('dash_tab', 'data');
-                 p.set('highlight_target', 'card_vn_anomaly');
-                 setSearchParams(p);
-               }} className="text-blue-600 cursor-pointer hover:underline font-medium">全球招聘供需看板 · 越南销售 · 本周快照</span>；</div>
-               <div className="mb-3"><span className="font-bold text-slate-800">推断：</span>可能来自 HC 优先级变化、渠道转化或当地审批瓶颈，明确标记为 <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-xs font-medium mx-1">待核验</span>；</div>
-               <div className="mb-3"><span className="font-bold text-slate-800">建议：</span>核验 HC 来源与优先级、检查渠道转化、调配招聘资源、确认薪酬/审批瓶颈；</div>
-               <div className="pt-2 border-t border-slate-100 flex items-center">
-                 <span className="font-bold text-slate-800 mr-2">引用来源：</span>
-                 <button onClick={() => {
-                   const p = new URLSearchParams(searchParams);
-                   p.set('file', 'res_dash_recruitment');
-                   p.set('dash_tab', 'data');
-                   p.set('highlight_target', 'card_vn_anomaly');
-                   setSearchParams(p);
-                 }} className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-200 transition-colors outline-none font-medium">
-                   越南招聘需求异常 卡片
-                 </button>
-               </div>
-             </div>
-           </div>
-         )}
-
-         {chatState === 'answering' && generationDone && searchParams.get('answer_type') === 'generic' && (
-           <div className="animate-in fade-in flex items-start gap-3 w-full mt-4">
-             <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
-             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm w-full min-w-0 text-[13px] text-slate-700 leading-relaxed">
-               <div className="font-bold text-slate-900 mb-2 border-b border-slate-100 pb-2">基于提供上下文的智能答复</div>
-               <div className="mb-2"><span className="font-bold text-blue-600 mr-2">[事实]</span>当前选中上下文中，指标状态与流程记录已核实无误。引用来源：<span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200 cursor-pointer font-medium ml-1">当前数据快照</span></div>
-               <div className="mb-2"><span className="font-bold text-purple-600 mr-2">[推断]</span>结合历史阈值，此业务情境需要进一步的人工介入。</div>
-               <div><span className="font-bold text-amber-600 mr-2">[建议]</span>请在左侧【行动与待办】标签页执行您的业务判断，AI 助手不会自动替您批准任何 Review 或 Decision。</div>
-             </div>
-           </div>
          )}
 
          {chatState === 'planning' && (
@@ -763,7 +785,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
                        p.delete('chat');
                        setSearchParams(p);
                      }
-                   }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm outline-none flex items-center transition-colors"><CheckCircle2 size={14} className="mr-1.5"/> 顺序执行流水线 (Execute)</button>
+                   }} disabled={agentBusy} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm outline-none flex items-center transition-colors"><CheckCircle2 size={14} className="mr-1.5"/> 顺序执行流水线 (Execute)</button>
                  </div>
                </div>
              </div>
@@ -801,20 +823,6 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
            </div>
          )}
 
-         {generationDone && (
-           <div className="animate-in fade-in flex items-start gap-3">
-             <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={14}/></div>
-             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-3 shadow-sm flex-1 min-w-0">
-               <div className="flex items-center text-[13px] text-slate-800 font-medium mb-3">
-                 <CheckCircle2 size={14} className="text-green-500 mr-1.5 shrink-0"/> Pipeline 执行完毕
-               </div>
-               <div className="flex gap-3">
-                 <button onClick={() => { setGenerationDone(false); setInput(''); }} className="text-xs font-medium text-slate-500 hover:text-slate-800 outline-none flex items-center transition-colors"><Undo2 size={12} className="mr-1"/> 撤销执行</button>
-                 <button onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', 'versions'); setSearchParams(p); }} className="text-xs font-medium text-blue-600 hover:text-blue-700 outline-none flex items-center transition-colors ml-auto">查看血缘记录 <ArrowRight size={12} className="ml-1"/></button>
-               </div>
-             </div>
-           </div>
-         )}
       </div>
 
       <div className="shrink-0 relative p-3 border-t border-slate-200 bg-white">
@@ -850,14 +858,21 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
               placeholder="输入修改要求或分析指令..."
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              disabled={chatState === 'planning' || chatState === 'generating' || dragStatus !== 'idle'}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !composingRef.current) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              disabled={agentBusy || chatState === 'planning' || chatState === 'generating' || dragStatus !== 'idle'}
             />
             <div className="flex justify-between items-center px-2 pb-2">
                <button onClick={() => setShowSelector(true)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors outline-none"><Plus size={14}/></button>
                <button 
-                 onClick={handleSend} 
-                 disabled={!input.trim() || chatState === 'planning' || chatState === 'generating'}
+                 onClick={() => void handleSend()} 
+                 disabled={agentBusy || !input.trim() || chatState === 'planning' || chatState === 'generating'}
                  className="bg-blue-600 text-white p-1.5 rounded-lg text-xs hover:bg-blue-700 disabled:opacity-50 disabled:bg-slate-300 transition-colors outline-none flex items-center justify-center shadow-sm"
                >
                  <Send size={12}/>

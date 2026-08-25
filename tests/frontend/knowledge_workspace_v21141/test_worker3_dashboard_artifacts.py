@@ -4,8 +4,6 @@ import json
 import subprocess
 from pathlib import Path
 
-from scripts.knowledge_step3_w3_dashboard_evidence import generate_evidence
-
 from frontend.server.knowledge_assets.contracts import (
     GoldenAssetRevision,
     OwnerRef,
@@ -24,7 +22,7 @@ from frontend.server.knowledge_assets.kind_runtime.dashboard_artifacts import (
     capture_dashboard_screenshot,
     generate_dashboard_artifact,
 )
-
+from scripts.knowledge_step3_w3_dashboard_evidence import generate_evidence
 
 NOW = "2026-08-25T00:00:00+08:00"
 ZERO = "0" * 64
@@ -196,13 +194,13 @@ def test_dashboard_artifact_workspaces_are_independent_built_and_data_driven(
         assert (workspace / "data" / "golden.json").is_file()
         assert (workspace / "src" / "index.html").is_file()
         assert (workspace / "src" / "styles.css").is_file()
-        assert (workspace / "src" / "dashboard.js").is_file()
+        assert not (workspace / "src" / "dashboard.js").exists()
         assert (workspace / "src" / "build.mjs").is_file()
         assert (workspace / "src" / "serve.mjs").is_file()
         assert (workspace / "src" / "chart-config.json").is_file()
         assert (workspace / "dist" / "index.html").is_file()
         assert (workspace / "dist" / "styles.css").is_file()
-        assert (workspace / "dist" / "dashboard.js").is_file()
+        assert not (workspace / "dist" / "dashboard.js").exists()
         assert (workspace / "dist" / "dashboard-data.json").is_file()
         assert (workspace / "package-lock.json").is_file()
         assert (workspace / "artifact-manifest.json").is_file()
@@ -213,24 +211,33 @@ def test_dashboard_artifact_workspaces_are_independent_built_and_data_driven(
         assert result.build_command[:3] == ["npm", "run", "build"]
         assert result.serve_command[:3] == ["npm", "run", "serve"]
         assert result.artifact_url.startswith("file://")
-        assert result.page_url.startswith("file://")
+        assert "/objects/" in result.artifact_url
+        assert result.page_url == result.artifact_url
         assert result.served_page_url is None
         data = json.loads((workspace / "dist" / "dashboard-data.json").read_text())
         assert data["title"] == "基础设施服务工单健康看板"
         assert data["layout"] == ["kpis", "chart", "table", "insights"]
         html = (workspace / "dist" / "index.html").read_text(encoding="utf-8")
-        js = (workspace / "dist" / "dashboard.js").read_text(encoding="utf-8")
         assert "<pre" not in html.lower()
         assert "mockKpis" not in html
         assert "mockTrendData" not in html
-        assert "mockKpis" not in js
-        assert "mockTrendData" not in js
+        assert "<script" not in html.lower()
+        assert "<iframe" not in html.lower()
+        assert "http://" not in html.lower()
+        assert "https://" not in html.lower()
+        assert "connect-src 'none'" in html
+        assert not (workspace / "dist" / "dashboard.js").exists()
         assert "sales" not in html.lower()
         assert "基础设施服务工单健康看板" in html
         assert "待处理工单" in html
         assert "各服务待处理工单" in html
-        assert "数据来源" in js
+        assert "数据来源" in html
         assert "lineage" in html
+        assert 'data-artifact-event="filter.change"' in html
+        assert 'data-artifact-event="drill.request"' in html
+        assert 'data-artifact-event="selection.change"' in html
+        assert 'data-artifact-event="export.request"' in html
+        assert 'data-artifact-event="context.reference"' in html
         artifact_manifest = json.loads(
             (workspace / "artifact-manifest.json").read_text(encoding="utf-8")
         )
@@ -246,6 +253,9 @@ def test_dashboard_artifact_workspaces_are_independent_built_and_data_driven(
         assert artifact_manifest["dependencies"]["npm"] == "package-lock.json"
         assert "artifact-manifest.json" in artifact_manifest["configFiles"]
         assert artifact_manifest["forbiddenPatterns"] == {
+            "businessScripts": False,
+            "networkRequests": False,
+            "externalIframes": False,
             "mockData": False,
             "fixedSalesContent": False,
             "jsonPreReplacementPage": False,
@@ -283,6 +293,30 @@ def test_dashboard_artifact_creates_new_workspace_for_each_generation(
     assert Path(first.workspace_path).is_dir()
     assert Path(second.workspace_path).is_dir()
     assert first.html_ref.sha256 == second.html_ref.sha256
+
+
+def test_dashboard_artifact_outputs_are_content_addressed(tmp_path: Path) -> None:
+    result = generate_dashboard_artifact(
+        _request(
+            "service,owner_team,open_tickets,response_hours\ngateway,platform,8,1.5\n",
+            tmp_path,
+        )
+    )
+
+    for ref, suffix in (
+        (result.html_ref, ".html"),
+        (result.css_ref, ".css"),
+        (result.data_ref, ".json"),
+        (result.chart_config_ref, ".json"),
+        (result.artifact_manifest_ref, ".json"),
+        (result.lineage_ref, ".json"),
+        (result.build_ref, ".json"),
+        (result.revision_ref, ".json"),
+    ):
+        path = Path(ref.uri.removeprefix("file://"))
+        assert path.parent.name == "objects"
+        assert path.name == f"{ref.sha256}{suffix}"
+        assert path.is_file()
 
 
 def test_dashboard_artifact_uses_build_plan_copy_for_visible_content(
@@ -349,7 +383,7 @@ def test_dashboard_artifact_uses_build_plan_copy_for_visible_content(
     assert "基础设施服务工单健康看板" not in html
 
 
-def test_dashboard_artifact_renders_loading_empty_error_permission_and_refresh_states(
+def test_dashboard_artifact_renders_server_owned_empty_permission_and_refresh_controls(
     tmp_path: Path,
 ) -> None:
     result = generate_dashboard_artifact(
@@ -359,13 +393,8 @@ def test_dashboard_artifact_renders_loading_empty_error_permission_and_refresh_s
         )
     )
     html = Path(result.index_html_path).read_text(encoding="utf-8")
-    js = (Path(result.workspace_path) / "dist" / "dashboard.js").read_text(
-        encoding="utf-8"
-    )
-
-    for state in ("loading", "empty", "error", "permission_denied", "refreshing"):
-        assert 'data-state-template="${name}"' in js
-        assert state in html
+    assert "status-succeeded" in html
+    assert 'data-artifact-event="refresh.request"' in html
 
     empty = generate_dashboard_artifact(
         _request(
@@ -567,6 +596,10 @@ def test_w3_dashboard_evidence_script_generates_repeatable_acceptance_summary(
     assert "Google Chrome" in summary["visualRegression"]["browserVersion"]
     assert summary["screenshots"]["before"]["interactionChecked"] is True
     assert summary["screenshots"]["after"]["interactionChecked"] is True
+    assert summary["screenshots"]["beforeMobile"]["viewport"] == "390x844"
+    assert summary["screenshots"]["afterMobile"]["viewport"] == "390x844"
+    assert summary["screenshots"]["beforeMobile"]["imageWidth"] == 390
+    assert summary["screenshots"]["afterMobile"]["imageHeight"] == 844
     assert summary["publishReady"]["before"]["mainPublishAction"] == (
         "MAIN_PUBLISH_CHAIN_REQUIRED"
     )

@@ -129,7 +129,7 @@ test("production route availability accepts only Capability Matrix deep links", 
   assert.doesNotMatch(source, /CAPABILITY_MATRIX_ROUTE_IDS\.add\(fileId\)/);
 });
 
-test("production Dashboard does not enter static scenario canvases", () => {
+test("production Dashboard renders the exact trusted HTML ViewRevision", () => {
   const source = readFileSync(
     join(
       root,
@@ -137,12 +137,25 @@ test("production Dashboard does not enter static scenario canvases", () => {
     ),
     "utf8",
   );
-  assert.match(source, /const isFinance = false;/);
-  assert.match(source, /const isRecruitment = false;/);
-  assert.match(
-    source,
-    /Dashboard content must come from the typed bootstrap\/ViewRevision/,
+  const renderer = readFileSync(
+    join(
+      root,
+      "frozen-ui/components/MainArea/TrustedHtmlArtifactRenderer.tsx",
+    ),
+    "utf8",
   );
+  assert.match(source, /TrustedHtmlArtifactRenderer/);
+  assert.match(source, /activeSkillViewRevision/);
+  assert.match(source, /selection\.change/);
+  assert.match(source, /context\.reference/);
+  assert.match(source, /add_context_item/);
+  assert.doesNotMatch(source, /isFinance|isRecruitment|mockKpis|mockTrendData/);
+  assert.match(renderer, /resultRef/);
+  assert.match(renderer, /sha256Bytes/);
+  assert.match(renderer, /attachShadow/);
+  assert.match(renderer, /credentials: 'same-origin'/);
+  assert.match(renderer, /parseTrustedContentLength/);
+  assert.doesNotMatch(renderer, /dangerouslySetInnerHTML|<iframe/);
 });
 
 test("all 47 frozen provenance targets are tracked in the checkout", () => {
@@ -731,6 +744,18 @@ test("assistant composer uses real authoring commands and never emits assistant.
     emitted,
     /onKeyDown=\{\(\.\.\.__kwArgs\d+\) => \{ void __runProductionMutation\(/,
   );
+  assert.doesNotMatch(emitted, /当前选中上下文中，指标状态与流程记录已核实无误/);
+  assert.doesNotMatch(emitted, /越南销售需求周环比 \+38%/);
+  assert.match(
+    emitted,
+    /if \(activeChip\) \{[\s\S]{0,300}runKnowledgeAnswer\(input\.trim\(\)\)/,
+  );
+  assert.match(emitted, /普通问答需要服务端返回 typed answer/);
+  assert.match(emitted, /isKnowledgeCreation \? 'knowledge' : 'analysis'/);
+  assert.doesNotMatch(
+    emitted,
+    /setAgentReply\(draft\.manifest\?\.description \|\| 'Agent 已基于当前上下文返回真实回复。'\)/,
+  );
 });
 
 test("connection bootstrap boundary exposes only the canonical public view model", async () => {
@@ -759,4 +784,23 @@ test("assistant consumes server clarification without fabricating a draft", asyn
     source,
     /awaiting_input[\s\S]{0,500}setPlanDetails/,
   );
+});
+
+test("assistant exposes real authoring identity, pins refs, and protects IME submissions", () => {
+  const source = readFileSync(
+    join(frozenRoot, "components/RightPane/ChatAssistant.tsx"),
+    "utf8",
+  );
+  assert.match(source, /sessionId/);
+  assert.match(source, /traceId/);
+  assert.match(source, /SkillDraft/);
+  assert.match(source, /BuildPlan/);
+  assert.match(source, /fixedRevisions/);
+  assert.match(source, /currentSkillId/);
+  assert.match(source, /currentViewId/);
+  assert.match(source, /currentComponentId/);
+  assert.match(source, /commentIds/);
+  assert.match(source, /onCompositionStart/);
+  assert.match(source, /nativeEvent\.isComposing/);
+  assert.match(source, /submissionRef\.current/);
 });

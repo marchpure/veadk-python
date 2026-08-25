@@ -44,7 +44,6 @@ from frontend.server.knowledge_assets.kind_runtime.dashboard_artifacts import ( 
     generate_dashboard_artifact,
 )
 
-
 DEFAULT_EVIDENCE_ROOT = Path(
     "/Users/bytedance/.codex/coordination/knowledge-step3/"
     "w3-dashboard-generation-evidence"
@@ -134,6 +133,20 @@ def generate_evidence(
             output_path=screenshot_root / "after.png",
             executable_path=str(chrome),
         ),
+        "beforeMobile": capture_dashboard_screenshot(
+            before,
+            output_path=screenshot_root / "before-mobile.png",
+            executable_path=str(chrome),
+            width=390,
+            height=844,
+        ),
+        "afterMobile": capture_dashboard_screenshot(
+            after,
+            output_path=screenshot_root / "after-mobile.png",
+            executable_path=str(chrome),
+            width=390,
+            height=844,
+        ),
     }
     for name, screenshot in screenshots.items():
         if screenshot.status != "succeeded":
@@ -219,13 +232,19 @@ def generate_evidence(
         "screenshots": {
             "before": screenshots["before"].model_dump(mode="json", by_alias=True),
             "after": screenshots["after"].model_dump(mode="json", by_alias=True),
+            "beforeMobile": screenshots["beforeMobile"].model_dump(
+                mode="json", by_alias=True
+            ),
+            "afterMobile": screenshots["afterMobile"].model_dump(
+                mode="json", by_alias=True
+            ),
         },
         "visualRegression": {
             "baseline": DESIGN_SYSTEM_VERSION,
             "basis": [
                 "v2.13.1 design-system typography/radius/control-size rules",
                 "real Chrome screenshot of generated artifact served over HTTP",
-                "refresh interaction emits host event and waits for completion",
+                "declarative refresh, filter, and drill controls exercised",
             ],
             "browserExecutable": str(chrome),
             "browserVersion": screenshots["before"].browser_version,
@@ -317,7 +336,7 @@ def _golden(
             uri="permission://workspace/ws/read", version="1"
         ),
         lineage_digest=hashlib.sha256(
-            f"{source_revision_id}:{digest}".encode("utf-8")
+            f"{source_revision_id}:{digest}".encode()
         ).hexdigest(),
         freshness_at="2026-08-25T08:00:00+08:00",
         last_good=True,
@@ -467,6 +486,8 @@ def _assert_summary(summary: dict[str, Any]) -> None:
     assert summary["buildResults"]["after"]["returnCode"] == 0
     assert summary["screenshots"]["before"]["status"] == "succeeded"
     assert summary["screenshots"]["after"]["status"] == "succeeded"
+    assert summary["screenshots"]["beforeMobile"]["status"] == "succeeded"
+    assert summary["screenshots"]["afterMobile"]["status"] == "succeeded"
     assert summary["artifactUrls"]["before"].startswith("file://")
     assert summary["artifactUrls"]["after"].startswith("file://")
     assert summary["servedPageUrls"]["before"].startswith("http://127.0.0.1:")
