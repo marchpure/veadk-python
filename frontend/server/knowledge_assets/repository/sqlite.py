@@ -78,6 +78,8 @@ class KnowledgeAssetRepository(Protocol):
         idempotency_key: str,
     ) -> tuple[SkillDraft, bool]: ...
 
+    def sync_authoring_draft(self, *, draft: SkillDraft, status: str) -> None: ...
+
     def save_manifest(
         self,
         *,
@@ -377,6 +379,45 @@ class SqliteKnowledgeAssetRepository:
                     (draft.id, json.dumps({"sourceRef": source_ref}), "{}"),
                 )
         return draft, False
+
+    def sync_authoring_draft(self, *, draft: SkillDraft, status: str) -> None:
+        """Idempotently bridge the W2 typed draft into MAIN lifecycle storage."""
+        with self._lock:
+            manifest_json = draft.manifest.model_dump_json(by_alias=True)
+            self._connection.execute(
+                """
+                INSERT INTO skill_drafts
+                (id, workspace_id, name, description, revision, created_at, updated_at, manifest_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    workspace_id=excluded.workspace_id, name=excluded.name,
+                    description=excluded.description, revision=excluded.revision,
+                    updated_at=excluded.updated_at, manifest_json=excluded.manifest_json
+                """,
+                (draft.id, draft.workspace_id, draft.name, draft.description,
+                 draft.revision, draft.created_at, draft.updated_at, manifest_json),
+            )
+            self._connection.execute(
+                """
+                INSERT INTO skill_draft_revisions
+                (draft_id, skill_id, revision, manifest_json, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(draft_id, revision) DO UPDATE SET
+                    manifest_json=excluded.manifest_json, status=excluded.status
+                """,
+                (draft.id, draft.id, draft.revision, manifest_json, status, draft.updated_at),
+            )
+            self._connection.execute(
+                """
+                INSERT INTO object_pointers
+                (object_type, object_id, current_revision, last_good_revision)
+                VALUES ('skill_draft', ?, ?, ?)
+                ON CONFLICT(object_type, object_id) DO UPDATE SET
+                    current_revision=excluded.current_revision,
+                    last_good_revision=excluded.last_good_revision
+                """,
+                (draft.id, draft.revision, draft.revision),
+            )
 
     def save_source_revision(
         self, revision: SourceRevision, workspace_id: str, source_path: str

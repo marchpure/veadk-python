@@ -2759,6 +2759,18 @@ class KnowledgeAssetApplication:
             return self._run_evaluation_quality_command(
                 command, payload, request_id=request_id
             )
+        if command in {"evaluation.run", "evaluation.apply"}:
+            typed = EvaluationPayload.model_validate(payload)
+            result = self._run_evaluation(
+                typed,
+                request_id=request_id,
+                result_type=command,
+            )
+            return CommandResponse(
+                accepted=result.status == "succeeded",
+                request_id=request_id,
+                result=result,
+            )
         if command == "source.profile":
             typed = SourceProfilePayload.model_validate(payload)
             if self.repository.source_revision(typed.source_revision_id) is None:
