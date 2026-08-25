@@ -197,7 +197,6 @@ export function SkillViewShell({
   const [retryOperationId, setRetryOperationId] = useState<string | null>(null);
   const [assistantText, setAssistantText] = useState("");
   const [pendingDiff, setPendingDiff] = useState<{
-    token: string;
     baseRevision: number;
     nextRevision: number;
     before: string;
@@ -205,31 +204,54 @@ export function SkillViewShell({
   } | null>(null);
   const adapter = useMemo(() => getWorkspaceAdapter(), []);
 
-  async function run(command: "skill-draft.run" | "evaluation.run") {
+  function applyExecutionResult(result: KnowledgeCommandResult, nextRevision: number) {
+    const next = projectionFromResult(result);
+    const nextView = viewRevisionFromResult(result);
+    if (!next || !nextView) {
+      throw new Error("执行结果缺少 immutable SkillViewRevision。");
+    }
+    setProjection(next);
+    setViewRevision(nextView);
+    setCurrentRevision(nextRevision);
+  }
+
+  async function executeAuthoringRevision(
+    targetDraftId: string,
+    targetRevision: number,
+  ): Promise<void> {
+    const result = await adapter.command(
+      {
+        command: "skill-authoring.execute",
+        payload: { draftId: targetDraftId, revision: targetRevision },
+      },
+      createRequestContext(),
+    );
+    const value = result.result;
+    const status =
+      value && typeof value === "object" &&
+      typeof (value as Record<string, unknown>).status === "string"
+        ? (value as Record<string, unknown>).status
+        : undefined;
+    if (!result.accepted || status !== "succeeded") {
+      throw new Error("Skill revision 执行失败。");
+    }
+    applyExecutionResult(result, targetRevision);
+  }
+
+  async function runEvaluation() {
     setRunning(true);
-    setMessage(command === "evaluation.run" ? "正在运行评测与策略门禁…" : "正在执行 Skill…");
+    setMessage("正在运行评测与策略门禁…");
     try {
       const result = await adapter.command(
-        command === "evaluation.run"
-          ? {
-              command,
-              payload: {
-                targetId: draftId,
-                suiteId: "default-step3",
-                environment: "test",
-                caseIds: [],
-              },
-            }
-          : {
-              command,
-              payload: {
-                draftId,
-                revision: currentRevision,
-                traceId: `trace-${Date.now()}`,
-                maxSteps: 10,
-                budget: 10_000,
-              },
-            },
+        {
+          command: "evaluation.run",
+          payload: {
+            targetId: draftId,
+            suiteId: "default-step3",
+            environment: "test",
+            caseIds: [],
+          },
+        },
         createRequestContext(),
       );
       const next = projectionFromResult(result);
@@ -292,51 +314,53 @@ export function SkillViewShell({
     }
   }
 
-  async function proposeDescriptionPatch() {
+  async function runCurrentRevision() {
+    if (running) return;
+    setRunning(true);
+    setMessage("正在执行 Skill…");
+    try {
+      await executeAuthoringRevision(draftId, currentRevision);
+      setMessage("操作已完成。");
+    } catch {
+      setMessage("操作失败，请检查服务端返回的错误信息。");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function proposeTitlePatch() {
     if (!assistantText.trim() || running) return;
     setRunning(true);
     setMessage("正在校验修改并重新执行 Skill…");
     try {
-      const result = await adapter.command(
+      const title = assistantText.trim().slice(0, 160);
+      const before = projection?.skillName ?? "";
+      const patched = await adapter.command(
         {
-          command: "assistant.turn",
+          command: "skill-authoring.patch",
           payload: {
-            text: assistantText.trim(),
-            contextIds: [],
-            context: {
-              skillId: draftId,
-              viewRevisionId: "current",
-              selectedIds: [],
-              schemaRef: "local://schema/skill-view",
-              permissionScope: "permission://workspace/current",
-            },
-            patch: {
-              patchId: `patch-${Date.now()}`,
-              skillId: draftId,
-              baseRevision: currentRevision,
-              operation: "set_description",
-              value: assistantText.trim(),
-            },
+            draftId,
+            baseRevision: currentRevision,
+            patch: { patchType: "set_title", title },
           },
         },
         createRequestContext(),
       );
-      const value = result.result;
-      if (value && typeof value === "object" && "diff" in value) {
-        const diff = (value as Record<string, unknown>).diff;
-        if (diff && typeof diff === "object") {
-          const record = diff as Record<string, unknown>;
-          setPendingDiff({
-            token: String(record.undoToken),
-            baseRevision: Number(record.baseRevision),
-            nextRevision: Number(record.nextRevision),
-            before: String(record.before),
-            after: String(record.after),
-          });
-          setCurrentRevision(Number(record.nextRevision));
-        }
+      const patchValue = patched.result;
+      const draft =
+        patchValue && typeof patchValue === "object" &&
+        (patchValue as Record<string, unknown>).draft &&
+        typeof (patchValue as Record<string, unknown>).draft === "object"
+          ? (patchValue as Record<string, unknown>).draft as Record<string, unknown>
+          : null;
+      const nextDraftId = draft?.draftId ?? draft?.draft_id;
+      const nextRevision = draft?.revision;
+      if (!patched.accepted || typeof nextDraftId !== "string" || typeof nextRevision !== "number") {
+        throw new Error("修改结果缺少新的 immutable Skill revision。");
       }
-      setMessage(result.accepted ? "修改已应用并重新执行。" : "修改未通过服务端确认。");
+      await executeAuthoringRevision(nextDraftId, nextRevision);
+      setPendingDiff({ baseRevision: currentRevision, nextRevision, before, after: title });
+      setMessage("修改已应用并重新执行。");
       setAssistantText("");
     } catch {
       setMessage("修改失败，请检查服务端返回的错误信息。");
@@ -350,40 +374,32 @@ export function SkillViewShell({
     setRunning(true);
     setMessage("正在撤销修改并重新执行 Skill…");
     try {
-      const result = await adapter.command(
+      const patched = await adapter.command(
         {
-          command: "assistant.turn",
+          command: "skill-authoring.patch",
           payload: {
-            text: "撤销上一次修改",
-            contextIds: [],
-            context: {
-              skillId: draftId,
-              viewRevisionId: "current",
-              selectedIds: [],
-              schemaRef: "local://schema/skill-view",
-              permissionScope: "permission://workspace/current",
-            },
-            patch: {
-              patchId: `undo-${Date.now()}`,
-              skillId: draftId,
-              baseRevision: currentRevision,
-              operation: "set_description",
-              value: "",
-              undoToken: pendingDiff.token,
-            },
+            draftId,
+            baseRevision: currentRevision,
+            patch: { patchType: "set_title", title: pendingDiff.before },
           },
         },
         createRequestContext(),
       );
-      const value = result.result;
-      if (value && typeof value === "object" && "diff" in value) {
-        const diff = (value as Record<string, unknown>).diff;
-        if (diff && typeof diff === "object") {
-          setCurrentRevision(Number((diff as Record<string, unknown>).nextRevision));
-        }
+      const patchValue = patched.result;
+      const draft =
+        patchValue && typeof patchValue === "object" &&
+        (patchValue as Record<string, unknown>).draft &&
+        typeof (patchValue as Record<string, unknown>).draft === "object"
+          ? (patchValue as Record<string, unknown>).draft as Record<string, unknown>
+          : null;
+      const nextDraftId = draft?.draftId ?? draft?.draft_id;
+      const nextRevision = draft?.revision;
+      if (!patched.accepted || typeof nextDraftId !== "string" || typeof nextRevision !== "number") {
+        throw new Error("撤销结果缺少新的 immutable Skill revision。");
       }
+      await executeAuthoringRevision(nextDraftId, nextRevision);
       setPendingDiff(null);
-      setMessage(result.accepted ? "修改已撤销并重新执行。" : "撤销未通过服务端确认。");
+      setMessage("修改已撤销并重新执行。");
     } catch {
       setMessage("撤销失败，请检查服务端返回的错误信息。");
     } finally {
@@ -442,7 +458,7 @@ export function SkillViewShell({
           <span>{projection?.kind ?? "未执行"} · Skill revision {projection?.skillVersion ?? "DRAFT"}</span>
         </div>
         <div className="skill-view-actions">
-          <button type="button" onClick={() => void run("skill-draft.run")} disabled={running}>
+          <button type="button" onClick={() => void runCurrentRevision()} disabled={running}>
             {running ? "运行中…" : "执行 Skill"}
           </button>
           {retryOperationId ? (
@@ -450,7 +466,7 @@ export function SkillViewShell({
               Retry Builder
             </button>
           ) : null}
-          <button type="button" onClick={() => void run("evaluation.run")} disabled={running}>
+          <button type="button" onClick={() => void runEvaluation()} disabled={running}>
             Evaluate
           </button>
           <button type="button" onClick={exportView} disabled={!projection || running}>
@@ -459,7 +475,7 @@ export function SkillViewShell({
           <button type="button" onClick={() => void shareView()} disabled={running}>
             Share to human
           </button>
-          <button type="button" onClick={() => void run("evaluation.run")} disabled={running}>
+          <button type="button" onClick={() => void runEvaluation()} disabled={running}>
             Evaluate &amp; publish
           </button>
         </div>
@@ -544,15 +560,15 @@ export function SkillViewShell({
         <aside className="skill-view-chat" aria-label="Skill assistant">
           <h2>Skill assistant</h2>
           <p>只使用当前 Skill、View、Schema 与权限上下文。</p>
-          <label htmlFor="skill-assistant-input">修改描述</label>
+          <label htmlFor="skill-assistant-input">修改标题</label>
           <textarea
             id="skill-assistant-input"
             value={assistantText}
             onChange={(event) => setAssistantText(event.target.value)}
-            placeholder="输入要应用的描述修改"
+            placeholder="输入要应用的新标题"
             rows={4}
           />
-          <button type="button" onClick={() => void proposeDescriptionPatch()} disabled={running || !assistantText.trim()}>
+          <button type="button" onClick={() => void proposeTitlePatch()} disabled={running || !assistantText.trim()}>
             提议修改并重跑
           </button>
           {pendingDiff ? (

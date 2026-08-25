@@ -167,6 +167,9 @@ test("production Skill View restores the authenticated immutable HTML revision",
   assert.match(source, /projectionFromViewRevision\(restoredView\)/);
   assert.match(source, /TrustedHtmlArtifactRenderer/);
   assert.match(source, /setViewRevision\(nextView\)/);
+  assert.match(source, /command: "skill-authoring\.patch"/);
+  assert.match(source, /command: "skill-authoring\.execute"/);
+  assert.doesNotMatch(source, /command: "assistant\.turn"/);
 });
 
 test("all 47 frozen provenance targets are tracked in the checkout", () => {
