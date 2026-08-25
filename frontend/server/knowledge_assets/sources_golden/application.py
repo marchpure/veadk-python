@@ -134,6 +134,52 @@ class SourceGoldenApplication:
             )
         return profiles
 
+    def mcp_tool_configurations(
+        self,
+        context: AccessContext,
+        revision_ids: list[str],
+    ) -> list[dict[str, object]]:
+        """Return server-owned stdio configurations for authorized Golden refs.
+
+        This is a read-only composition seam for MAIN's Agent/Runner adapter.
+        The browser cannot provide any of these execution fields; they originate
+        from a registered profile and are checked against the persisted,
+        authorized Golden revision.
+        """
+        configurations: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for revision_id in revision_ids:
+            revision = self.golden_revision(context, revision_id)
+            connection = self._connection_for_context(
+                context, revision.lineage.connection_id
+            )
+            if connection.connector_key != "mcp_custom":
+                continue
+            if connection.status != "ready":
+                raise SourcesGoldenError(
+                    "MCP_CONNECTION_NOT_READY",
+                    "The pinned MCP connection is not ready.",
+                )
+            if connection.id in seen:
+                continue
+            configuration = dict(connection.configuration)
+            required = {"command", "args", "cwd"}
+            if not required.issubset(configuration):
+                raise SourcesGoldenError(
+                    "MCP_PROFILE_INVALID",
+                    "The persisted MCP connection lacks server-owned stdio fields.",
+                )
+            if not isinstance(configuration["command"], str) or not isinstance(
+                configuration["args"], list
+            ):
+                raise SourcesGoldenError(
+                    "MCP_PROFILE_INVALID",
+                    "The persisted MCP stdio configuration has invalid types.",
+                )
+            configurations.append(configuration)
+            seen.add(connection.id)
+        return configurations
+
     def connector_catalog(
         self,
         context: AccessContext,
