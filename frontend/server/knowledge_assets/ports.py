@@ -175,6 +175,8 @@ class RepositoryPort(Protocol):
         idempotency_key: str,
     ) -> tuple[SkillDraft, bool]: ...
 
+    def sync_authoring_draft(self, *, draft: SkillDraft, status: str) -> None: ...
+
     def save_manifest(
         self,
         *,

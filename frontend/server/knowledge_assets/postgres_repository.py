@@ -183,6 +183,44 @@ class PostgresKnowledgeAssetRepository:
                 (status, draft_id, revision),
             )
 
+    def sync_authoring_draft(self, *, draft: SkillDraft, status: str) -> None:
+        manifest = draft.manifest.model_dump_json(by_alias=True)
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO skill_drafts
+                (id, workspace_id, name, description, revision, created_at, updated_at, manifest_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                ON CONFLICT (id) DO UPDATE SET
+                    workspace_id=EXCLUDED.workspace_id, name=EXCLUDED.name,
+                    description=EXCLUDED.description, revision=EXCLUDED.revision,
+                    updated_at=EXCLUDED.updated_at, manifest_json=EXCLUDED.manifest_json
+                """,
+                (draft.id, draft.workspace_id, draft.name, draft.description,
+                 draft.revision, draft.created_at, draft.updated_at, manifest),
+            )
+            cursor.execute(
+                """
+                INSERT INTO skill_draft_revisions
+                (draft_id, skill_id, revision, manifest_json, status, created_at)
+                VALUES (%s, %s, %s, %s::jsonb, %s, %s)
+                ON CONFLICT (draft_id, revision) DO UPDATE SET
+                    manifest_json=EXCLUDED.manifest_json, status=EXCLUDED.status
+                """,
+                (draft.id, draft.id, draft.revision, manifest, status, draft.updated_at),
+            )
+            cursor.execute(
+                """
+                INSERT INTO object_pointers
+                (object_type, object_id, current_revision, last_good_revision)
+                VALUES ('skill_draft', %s, %s, %s)
+                ON CONFLICT (object_type, object_id) DO UPDATE SET
+                    current_revision=EXCLUDED.current_revision,
+                    last_good_revision=EXCLUDED.last_good_revision
+                """,
+                (draft.id, draft.revision, draft.revision),
+            )
+
     def save_evaluation_suite(self, suite: EvaluationSuite) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(

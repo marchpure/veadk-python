@@ -31,6 +31,7 @@ from .contracts import (
     SkillManifest,
     SkillMetadata,
     SkillOperation,
+    SkillDraft,
     SkillSpec,
     GraphOntologyKindSpec,
     MonitoringKindSpec,
@@ -174,6 +175,19 @@ class _MainWorker3Executor:
                 for record in golden_records
             }
             manifest = _canonical_manifest(request)
+            self._repository.sync_authoring_draft(
+                draft=SkillDraft(
+                    id=request.draft_id,
+                    workspace_id=request.workspace_id,
+                    name=manifest.metadata.display_name,
+                    description=manifest.metadata.description,
+                    revision=request.draft_revision,
+                    created_at=now_iso(),
+                    updated_at=now_iso(),
+                    manifest=manifest,
+                ),
+                status="running",
+            )
             canonical_revisions = [_canonical_golden(record) for record in golden_records]
             draft_revision = SkillDraftRevision(
                 id=f"{request.draft_id}:{request.draft_revision}",
