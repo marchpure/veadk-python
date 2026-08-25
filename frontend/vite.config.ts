@@ -421,7 +421,10 @@ export function transformFrozenProductionMutations(
   // AddDataView now dispatches the typed Source/Golden commands directly
   // through the production adapter. Wrapping its inline handlers in the
   // generic prototype action.update fallback would suppress that real flow.
-  if (filePath.endsWith("/components/MainArea/AddDataView.tsx")) {
+  if (
+    filePath.endsWith("/components/MainArea/AddDataView.tsx") ||
+    filePath.endsWith("/components/MainArea/SkillBuilderView.tsx")
+  ) {
     return productionCode === code
       ? null
       : { code: productionCode, map: null, mutationCount: 0 };
