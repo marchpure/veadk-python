@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2, ChevronRight, Play, Save, Send, Database, Globe, Server, BookOpen, Search, CheckSquare, FileJson, Link as LinkIcon } from 'lucide-react';
-import { connectionStore } from '../../lib/store';
+import { connectionStore, resourceStore } from '../../lib/store';
 import { cn } from '../../lib/utils';
 import { createRequestContext } from '../../../production/ports';
-import { getWorkspaceAdapter } from '../../../production/store';
+import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
 
 export default function SkillBuilderView({ searchParams, setSearchParams, showToast }: any) {
   const rawAdapter = searchParams.get('adapter') || 'web_api';
@@ -20,6 +20,7 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
   const [prompt, setPrompt] = useState('');
   const [draft, setDraft] = useState<any>(null);
   const [operation, setOperation] = useState<any>(null);
+  const [artifact, setArtifact] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,8 +36,22 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
         command: 'skill-authoring.start',
         payload: {
           prompt: prompt.trim(),
+          resourceRefs: resourceStore.getState()
+            .filter((resource: any) =>
+              typeof (resource.goldenRevisionId ?? resource.golden_revision_id) === 'string' &&
+              typeof (resource.assetId ?? resource.asset_id) === 'string')
+            .map((resource: any) => ({
+              kind: 'golden_asset',
+              object_id: String(resource.assetId ?? resource.asset_id),
+              revision: String(resource.goldenRevisionId ?? resource.golden_revision_id),
+              scope: resource.space === 'team' ? 'team' : 'personal',
+            })),
           scope: 'personal',
-          requestedKind: adapter === 'semantic' ? 'semantic' : 'knowledge',
+          requestedKind: adapter === 'semantic'
+            ? 'semantic'
+            : adapter === 'mcp_custom' || adapter === 'web_api'
+            ? 'analysis'
+            : 'knowledge',
           displayName: prompt.trim().slice(0, 80),
         },
       }, createRequestContext());
@@ -72,6 +87,8 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
       }
       setOperation(result.operation ?? operation);
       setDraft(result.draft ?? draft);
+      setArtifact(result.operation?.artifactResult ?? result.operation?.artifact_result ?? null);
+      await bootstrapWorkspace(undefined, getWorkspaceAdapter());
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Runner execution 失败。');
@@ -185,6 +202,12 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
             <Save size={48} className="text-green-500 mb-4" />
             <h3 className="font-bold text-slate-800 text-lg mb-2">保存通用 Skill 版本</h3>
             <p className="text-slate-500 text-sm">服务端 Draft revision：{draft?.revision ?? '—'}；trace：{operation?.trace_id ?? '—'}</p>
+            {artifact && (
+              <p className="mt-3 max-w-xl break-all rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
+                Dashboard artifact revision：{artifact.revisionId ?? artifact.revision_id ?? '—'}
+                {' · '}HTML digest：{artifact.htmlDigest ?? artifact.html_digest ?? '—'}
+              </p>
+            )}
           </div>
         );
       case 6:

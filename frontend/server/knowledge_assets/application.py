@@ -491,6 +491,31 @@ class KnowledgeAssetApplication:
             **value.get("workspaceData", {}),
             **projection.get("workspaceData", {}),
         }
+        # Keep W1's lifecycle authoritative while exposing its immutable
+        # Golden revisions through the shared bootstrap resource read model.
+        # The UI needs these server-owned references to pin authoring context;
+        # it must never infer an asset or revision from a local label.
+        golden_resources = [
+            {
+                "id": asset["goldenRevisionId"],
+                "displayName": asset["displayName"],
+                "resourceKind": "golden_asset",
+                "subtype": asset["assetKind"],
+                "space": asset["permissions"]["scope"],
+                "lifecycle": "ready",
+                "version": str(asset["revision"]),
+                "revision": asset["revision"],
+                "permission": asset["permissions"]["canRead"],
+                "assetId": asset["assetId"],
+                "goldenRevisionId": asset["goldenRevisionId"],
+                "traceId": asset["traceId"],
+            }
+            for asset in projection.get("resources", [])
+        ]
+        value["resources"] = [
+            *value.get("resources", []),
+            *golden_resources,
+        ]
         value["connections"] = projection["connections"]
         value["routes"] = sorted(set(value.get("routes", [])) | set(projection["routes"]))
         return type(base).model_validate(value)

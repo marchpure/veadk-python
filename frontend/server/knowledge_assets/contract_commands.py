@@ -41,13 +41,16 @@ class ErrorEnvelope(ContractModel):
 class ResourceSummary(ContractModel):
     id: str
     display_name: str
-    resource_kind: Literal["skill_draft"] = "skill_draft"
-    subtype: Literal["skill"] = "skill"
+    resource_kind: Literal["skill_draft", "golden_asset"] = "skill_draft"
+    subtype: Literal["skill", "dataset", "knowledge"] = "skill"
     space: Literal["personal", "team"]
-    lifecycle: Literal["draft"] = "draft"
+    lifecycle: Literal["draft", "ready"] = "draft"
     version: str = "DRAFT"
     revision: int = Field(default=1, ge=1)
     permission: bool = True
+    asset_id: str | None = None
+    golden_revision_id: str | None = None
+    trace_id: str | None = None
 
 
 class BootstrapResponse(ContractModel):

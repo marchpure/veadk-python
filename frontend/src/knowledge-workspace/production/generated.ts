@@ -88,13 +88,16 @@ export interface GeneratedBootstrap {
   resources: Array<{
     id: string;
     displayName: string;
-    resourceKind: "skill_draft";
-    subtype: "skill";
+    resourceKind: "skill_draft" | "golden_asset";
+    subtype: "skill" | "dataset" | "knowledge";
     space: "personal" | "team";
-    lifecycle: "draft";
+    lifecycle: "draft" | "ready";
     version: string;
     revision: number;
     permission: boolean;
+    assetId?: string | null;
+    goldenRevisionId?: string | null;
+    traceId?: string | null;
   }>;
   connections: Array<Record<string, unknown>>;
   publications: Array<Record<string, unknown>>;

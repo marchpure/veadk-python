@@ -12,14 +12,21 @@
           "type": "string"
         },
         "resourceKind": {
-          "const": "skill_draft",
           "default": "skill_draft",
+          "enum": [
+            "skill_draft",
+            "golden_asset"
+          ],
           "title": "Resourcekind",
           "type": "string"
         },
         "subtype": {
-          "const": "skill",
           "default": "skill",
+          "enum": [
+            "skill",
+            "dataset",
+            "knowledge"
+          ],
           "title": "Subtype",
           "type": "string"
         },
@@ -32,8 +39,11 @@
           "type": "string"
         },
         "lifecycle": {
-          "const": "draft",
           "default": "draft",
+          "enum": [
+            "draft",
+            "ready"
+          ],
           "title": "Lifecycle",
           "type": "string"
         },
@@ -52,6 +62,42 @@
           "default": true,
           "title": "Permission",
           "type": "boolean"
+        },
+        "assetId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assetid"
+        },
+        "goldenRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Goldenrevisionid"
+        },
+        "traceId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Traceid"
         }
       },
       "required": [
