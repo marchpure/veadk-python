@@ -18,6 +18,7 @@ def create_app(
     *,
     repository_path: str | Path = ".veadk/knowledge-assets.sqlite3",
     identity_resolver: Callable[[Request], tuple[str, str]] | None = None,
+    mcp_profiles: dict[str, dict[str, object]] | None = None,
 ) -> FastAPI:
     """Compose the browser BFF with durable local metadata persistence.
 
@@ -48,6 +49,7 @@ def create_app(
         database_path=runtime_root / "sources-golden.sqlite3",
         artifact_root=runtime_root / "artifacts",
         source_root=runtime_root / "sources",
+        mcp_profiles=mcp_profiles,
     )
     mount_knowledge_asset_routes(
         app,

@@ -89,6 +89,8 @@ class SourceGoldenConnectionCreatePayload(ContractModel):
     scope: Literal["personal", "team"] = "personal"
     configuration: dict[str, object] = Field(default_factory=dict)
     secret_ref: str | None = None
+    mcp_profile_id: str | None = Field(default=None, min_length=1, max_length=128)
+    tool_allowlist: list[str] = Field(default_factory=list, max_length=100)
 
 
 class SourceGoldenIngestPayload(ContractModel):
