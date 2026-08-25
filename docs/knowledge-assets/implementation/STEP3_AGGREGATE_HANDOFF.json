@@ -1,6 +1,28 @@
 {
   "status": "BLOCKED",
   "step4Ready": false,
+  "latestMainIntegration": {
+    "status": "BLOCKED_PENDING_W4_READ_ONLY_REAUDIT",
+    "commit": "3edcfb99",
+    "previousCommit": "414c0956",
+    "workerInputs": {
+      "W1": "cc444c679185f585de1383f01882b741dfdca329",
+      "W2": "39a1ff975867392c69c1d509da262d66cf3749df",
+      "W3": "8043d4017a6583697ce1099fd5e453c861d2a796",
+      "W4Corrective": "6ee81405d33f30569fa98024392848147849519a"
+    },
+    "changes": [
+      "server-owned stdio MCP profile assembly is fail-closed and excludes display label from executable configuration",
+      "Dashboard artifact lineage carries generationId and complete distDigest in build/revision/manifest/result"
+    ],
+    "verification": {
+      "dashboardArtifactFocused": "7 passed",
+      "w3KindRuntime": "23 passed",
+      "bffAndSourceGolden": "24 passed",
+      "combinedFocused": "54 passed"
+    },
+    "w4Action": "Re-run read-only audit against this exact MAIN commit after all worker worktrees are clean; do not infer P0 pass from component tests."
+  },
   "date": "2026-08-25",
   "mainCommits": ["1a42872c", "a34383cc", "31a26a6f", "62029e91", "aa0cf00b", "513bfb49", "52ee8869", "a4a258e6", "906ca828", "7949f452", "a35220b6", "4aa377fe", "aa535fb1", "205b2c85", "215175a7", "d9d6ab0b", "5f168ebb", "f29170f6", "c7ecb8fb", "a51b132c", "04d1db09", "a51f4c6f", "88955a4b", "4c701045", "9b4345fa", "ab80835c", "4903cda9", "b341f3ec", "08d92a91", "d14403a5", "d73e258e", "ae3793b8", "f3c1c4a6", "9eef0d01", "9139e17f", "400b8774", "ecf54021", "6d89cefb", "ae766572", "bcdcef5a", "bceef745", "e33c09a7", "1713d749", "99fc70a1", "c8ff38cf"],
   "workerCommits": {"W1": ["85b8a19c", "da3fd632", "26c70084", "bcc084d4", "cc444c67(clean_candidate_pending_status)"], "W2": ["65037a4b", "bdb1573d", "a03cb607", "bffeeb88"], "W3": ["d7cb4cb2", "0e2462d8", "45b686af", "1b07a763"], "W4": ["308f1022", "45e44eb6", "6ee81405"]},
