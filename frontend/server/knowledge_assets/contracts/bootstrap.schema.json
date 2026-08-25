@@ -74,9 +74,7 @@
     },
     "connections": {
       "items": {
-        "additionalProperties": {
-          "type": "string"
-        },
+        "additionalProperties": true,
         "type": "object"
       },
       "title": "Connections",

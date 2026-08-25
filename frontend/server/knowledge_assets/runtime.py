@@ -35,6 +35,18 @@ def create_app(
         docs_url=None,
         redoc_url=None,
     )
+    repository_path = Path(repository_path).resolve() if not (
+        isinstance(repository_path, str)
+        and (
+            repository_path.startswith("postgres://")
+            or repository_path.startswith("postgresql://")
+        )
+    ) else repository_path
+    runtime_root = (
+        Path(repository_path).parent / "sources-golden"
+        if isinstance(repository_path, Path)
+        else Path(".veadk/knowledge-assets/sources-golden").resolve()
+    )
     repository = (
         PostgresKnowledgeAssetRepository(repository_path)
         if isinstance(repository_path, str)
@@ -44,7 +56,6 @@ def create_app(
         )
         else SqliteKnowledgeAssetRepository(repository_path)
     )
-    runtime_root = Path(".veadk/knowledge-assets/sources-golden")
     sources_golden = SourceGoldenApplication(
         database_path=runtime_root / "sources-golden.sqlite3",
         artifact_root=runtime_root / "artifacts",
