@@ -339,7 +339,15 @@ class VeADKModelGateway:
             "tools": list(bundle.tools),
             "output_schema": BuildPlan,
             "tracers": [OpentelemetryTracer()],
-            "enable_responses": False,
+            # BuildPlan is sent as Ark's structured response schema.  The
+            # Responses API is the VeADK path that supports this contract;
+            # caching is deliberately disabled because Ark does not support
+            # cached responses together with a text/schema output.
+            "enable_responses": True,
+            "enable_responses_cache": False,
+            "model_extra_config": {
+                "extra_body": {"thinking": {"type": "disabled"}}
+            },
         }
         if self._model is not None:
             agent_kwargs["model"] = self._model
@@ -440,7 +448,9 @@ class VeADKModelGateway:
                     AuthoringErrorCode.VALIDATION_FAILED,
                     "VEADK Runner returned no structured output",
                 )
-            plan = BuildPlan.model_validate_json(output_text)
+            plan = self._parse_build_plan_output(
+                output_text, requested_kind=requested_kind
+            )
             # A simple conversational prompt may be answered with a typed
             # clarification and need no data inspection. Tool-assisted
             # authoring remains mandatory for plans that actually depend on
@@ -509,6 +519,95 @@ class VeADKModelGateway:
                 AuthoringErrorCode.MODEL_UNAVAILABLE,
                 "VEADK Agent/Runner execution failed",
             ) from error
+
+    @staticmethod
+    def _parse_build_plan_output(
+        output_text: str, *, requested_kind: SkillKind | None = None
+    ) -> BuildPlan:
+        """Validate the bounded shapes emitted by structured VeADK responses.
+
+        Ark/ADK can expose a structured response as raw JSON text, a fenced
+        JSON block, or an already-decoded object wrapped once by an event
+        adapter.  Accept only those transport representations; the final
+        ``BuildPlan`` validation remains the authority and no fields are
+        synthesized here.
+        """
+        if not isinstance(output_text, str) or not output_text.strip():
+            raise ValueError("empty BuildPlan output")
+        candidate: object = output_text.strip()
+        if candidate.startswith("```") and candidate.endswith("```"):
+            lines = candidate.splitlines()
+            if len(lines) < 3:
+                raise ValueError("invalid fenced BuildPlan output")
+            candidate = "\n".join(lines[1:-1]).strip()
+        if isinstance(candidate, str):
+            try:
+                candidate = json.loads(candidate)
+            except json.JSONDecodeError as error:
+                raise ValueError("BuildPlan output is not JSON") from error
+        if not isinstance(candidate, Mapping):
+            raise ValueError("BuildPlan output is not an object")
+        # Some Runner event adapters wrap the structured response once. Do
+        # not recursively search arbitrary model output: only canonical
+        # transport keys are unwrapped and the resulting object is validated.
+        for key in ("output", "result", "plan"):
+            nested = candidate.get(key)
+            if isinstance(nested, Mapping):
+                candidate = nested
+                break
+            if isinstance(nested, str):
+                try:
+                    decoded = json.loads(nested)
+                except json.JSONDecodeError as error:
+                    raise ValueError("wrapped BuildPlan output is not JSON") from error
+                if not isinstance(decoded, Mapping):
+                    raise ValueError("wrapped BuildPlan output is not an object")
+                candidate = decoded
+                break
+        # A greeting is a valid non-authoring outcome. VeADK's structured
+        # response may contain only this typed clarification payload; turn it
+        # into the smallest non-executable BuildPlan so the service can
+        # persist the real Agent evidence and return AWAITING_INPUT. No
+        # dependencies, data refs, or execution result are invented.
+        if (
+            "clarification_questions" in candidate
+            and "plan_id" not in candidate
+            and "intent" not in candidate
+        ):
+            questions = candidate["clarification_questions"]
+            if not isinstance(questions, list) or not questions:
+                raise ValueError("clarification_questions must be a non-empty list")
+            clarification_kind = requested_kind or SkillKind.KNOWLEDGE
+            candidate = {
+                "plan_id": f"plan_clarification_{digest(questions)}",
+                "intent": clarification_kind.value,
+                "purpose": "Clarify the user's authoring intent before creating a SkillDraft.",
+                "nodes": [
+                    {"node_id": "resolve_intent", "role": "intent_resolution"},
+                    {
+                        "node_id": "resolve_context",
+                        "role": "context_resolution",
+                        "depends_on": ["resolve_intent"],
+                    },
+                    {
+                        "node_id": "worker3_execution",
+                        "role": "worker3_execution",
+                        "depends_on": ["resolve_context"],
+                    },
+                ],
+                "outputs": [{"name": "answer", "type": "answer"}],
+                "kind_spec": {
+                    "kind": clarification_kind.value,
+                    "citation_intent": ["source_revision"],
+                    "retrieval_mode": "hybrid",
+                },
+                "clarification_questions": questions,
+                "layout_intent": "document",
+                "plan_digest": digest(
+                    {"clarification_questions": questions, "kind": clarification_kind.value}
+                ),
+            }
+        return BuildPlan.model_validate(candidate)
 
     @staticmethod
     def _instruction(

@@ -11,6 +11,7 @@ import {
   getWorkspaceAdapter,
   mcpProfileStore,
   useStore as useProductionStore,
+  bootstrapWorkspace,
 } from '../../../production/store';
 
 const getRegistryIcon = (category: string) => {
@@ -118,6 +119,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
             createRequestContext(),
           );
           if (!ingested.accepted) throw new Error('MCP ingest was not accepted by the server.');
+          await bootstrapWorkspace();
           setJobState('done');
           showToast?.('真实 MCP 已完成连接、工具发现与 Source/Golden ingest。');
           handleClose();

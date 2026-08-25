@@ -22,6 +22,7 @@ from frontend.server.skill_authoring.models import (
 from .sources_golden.models import (
     ConnectorOperation,
     ConnectionInstance,
+    ConnectionViewModel,
     GoldenAssetRevisionRecord,
     ProfileRunRecord,
     CleaningRecipeRecord,
@@ -53,21 +54,7 @@ class ResourceSummary(ContractModel):
     trace_id: str | None = None
 
 
-class BootstrapConnection(ContractModel):
-    id: str
-    workspace_id: str
-    connector_key: str
-    display_name: str
-    scope: Literal["personal", "team"]
-    owner_id: str
-    status: str
-    sync_mode: str
-    created_at: str
-    updated_at: str
-    last_success_at: str | None = None
-    last_error: dict[str, object] | None = None
-    discovered_resources: list[dict[str, object]] = Field(default_factory=list)
-    golden_revision_ids: list[str] = Field(default_factory=list)
+BootstrapConnection = ConnectionViewModel
 
 
 class BootstrapResponse(ContractModel):
@@ -124,7 +111,7 @@ class SourceGoldenIngestPayload(ContractModel):
 
 class SourceGoldenConnectionResult(ContractModel):
     result_type: Literal["source_golden.connection"] = "source_golden.connection"
-    connection: ConnectionInstance
+    connection: ConnectionViewModel
     validation: ConnectorOperation
     discovery: ConnectorOperation
     replayed: bool = False

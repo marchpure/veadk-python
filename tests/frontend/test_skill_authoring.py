@@ -81,6 +81,45 @@ def envelope(
     )
 
 
+def test_veadk_build_plan_parser_accepts_structured_transport_wrappers() -> None:
+    plan = BuildPlan(
+        plan_id="plan_transport",
+        intent=SkillKind.KNOWLEDGE,
+        purpose="Clarify a greeting.",
+        nodes=(
+            {"node_id": "resolve_intent", "role": "intent_resolution"},
+            {
+                "node_id": "resolve_context",
+                "role": "context_resolution",
+                "depends_on": ("resolve_intent",),
+            },
+            {
+                "node_id": "worker3_execution",
+                "role": "worker3_execution",
+                "depends_on": ("resolve_context",),
+            },
+        ),
+        outputs=({"name": "answer", "type": "answer"},),
+        kind_spec={"kind": "knowledge", "citation_intent": ["source_revision"], "retrieval_mode": "hybrid"},
+        clarification_questions=("请说明你希望查询或创建的知识内容。",),
+        plan_digest="transport-digest",
+    )
+    payload = plan.model_dump(mode="json")
+    assert VeADKModelGateway._parse_build_plan_output(json.dumps(payload)).plan_id == plan.plan_id
+    fenced = f"```json\n{json.dumps(payload, ensure_ascii=False)}\n```"
+    assert VeADKModelGateway._parse_build_plan_output(fenced).plan_id == plan.plan_id
+    wrapped = json.dumps({"output": payload}, ensure_ascii=False)
+    assert VeADKModelGateway._parse_build_plan_output(wrapped).plan_id == plan.plan_id
+    clarification = VeADKModelGateway._parse_build_plan_output(
+        '{"clarification_questions":["请说明你希望查询或创建的知识内容。"]}',
+        requested_kind=SkillKind.KNOWLEDGE,
+    )
+    assert clarification.clarification_questions == (
+        "请说明你希望查询或创建的知识内容。",
+    )
+    assert clarification.dependencies == ()
+
+
 @pytest.fixture
 def setup_authoring(tmp_path: Path):
     ref = resource().ref

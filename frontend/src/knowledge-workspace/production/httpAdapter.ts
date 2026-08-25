@@ -339,6 +339,25 @@ function parseCommandResult(
       requestId: requestIdValue,
     });
   }
+  const result = value.result;
+  if (
+    result &&
+    typeof result === "object" &&
+    (result as Record<string, unknown>).resultType === "skill-authoring.start"
+  ) {
+    const authoring = result as Record<string, unknown>;
+    const operation = authoring.operation;
+    if (operation && typeof operation === "object") {
+      const operationRecord = operation as Record<string, unknown>;
+      if (
+        operationRecord.clarification_questions !== undefined &&
+        operationRecord.clarificationQuestions === undefined
+      ) {
+        operationRecord.clarificationQuestions =
+          operationRecord.clarification_questions;
+      }
+    }
+  }
   return body as KnowledgeCommandResult;
 }
 

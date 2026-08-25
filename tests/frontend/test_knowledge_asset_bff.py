@@ -116,6 +116,8 @@ def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None
     connection_payload = connection.json()
     assert connection_payload["accepted"] is True
     connection_result = connection_payload["result"]
+    for forbidden in ("configuration", "secretRef", "command", "args", "env", "cwd"):
+        assert forbidden not in connection_result["connection"]
     assert connection_result["connection"]["status"] == "ready"
     assert connection_result["discovery"]["resources"][0]["name"] == (
         "infrastructure.metrics"
@@ -164,6 +166,44 @@ def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None
     ]
     for forbidden in ("configuration", "secretRef", "command", "args", "env", "cwd"):
         assert forbidden not in public_connection
+
+
+def test_authoring_failure_returns_server_error_envelope(tmp_path: Path) -> None:
+    source_golden = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path,
+    )
+    client = build_client(source_golden)
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-authoring.start",
+            "payload": {
+                "prompt": "hello",
+                "resourceRefs": [{
+                    "kind": "golden_asset",
+                    "object_id": "missing-asset",
+                    "revision": "missing-revision",
+                    "scope": "personal",
+                }],
+                "fixedRevisions": ["missing-revision"],
+                "requestedKind": "knowledge",
+            },
+        },
+        headers={
+            "X-Request-ID": "authoring-error-envelope",
+            "Idempotency-Key": "authoring-error-envelope",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["accepted"] is False
+    assert payload["result"]["status"] == "failed"
+    assert payload["result"]["error"]["code"] == "GOLDEN_REVISION_NOT_FOUND"
+    assert payload["result"]["error"]["message"] == (
+        "Golden revision does not exist in the authenticated workspace."
+    )
 
 
 def test_source_golden_mcp_rejects_browser_process_execution_fields(

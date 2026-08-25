@@ -297,14 +297,13 @@ export interface ConnectionInstance {
   scope: "personal" | "team";
   ownerId: string;
   status: "ready" | "config_required" | "credential_blocked" | "unsupported" | "revoked";
-  configuration: Record<string, string | number | boolean | Array<string> | Record<string, string>>;
-  secretRef?: string | null;
-  syncMode: "full" | "incremental" | "realtime";
+  syncMode: "full" | "incremental" | "realtime" | "local";
   createdAt: string;
   updatedAt: string;
   lastSuccessAt?: string | null;
   lastError?: CapabilityReason | null;
   discoveredResources?: Array<DiscoveredResource>;
+  discoveredTools?: Array<DiscoveredResource>;
   goldenRevisionIds?: Array<string>;
 }
 

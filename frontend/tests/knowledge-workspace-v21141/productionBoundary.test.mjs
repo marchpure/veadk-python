@@ -188,6 +188,40 @@ test("deterministic adapter is test-only and emits a terminal ordered event", as
   assert.equal(events[0].terminal, true);
 });
 
+test("production adapter normalizes canonical authoring clarification fields", async () => {
+  const { portsUrl } = productionModuleUrls();
+  const { ProductionKnowledgeAdapter } = await import(portsUrl);
+  const adapter = new ProductionKnowledgeAdapter({
+    fetcher: async () =>
+      new Response(
+        JSON.stringify({
+          accepted: true,
+          requestId: "authoring-request",
+          operationId: "authoring-operation",
+          result: {
+            resultType: "skill-authoring.start",
+            status: "awaiting_input",
+            operation: {
+              clarification_questions: ["请说明你希望查询或创建的知识内容。"],
+            },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+  });
+  const result = await adapter.command(
+    {
+      command: "skill-authoring.start",
+      payload: { prompt: "你好", requestedKind: "knowledge" },
+    },
+    { requestId: "authoring-request", idempotencyKey: "authoring-idempotency" },
+  );
+  assert.deepEqual(
+    result.result.operation.clarificationQuestions,
+    ["请说明你希望查询或创建的知识内容。"],
+  );
+});
+
 test("production adapter sends typed context and fail-closes malformed streams", async () => {
   const { portsUrl } = productionModuleUrls();
   const { ProductionKnowledgeAdapter, KnowledgeAdapterError } = await import(

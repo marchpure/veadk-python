@@ -81,6 +81,7 @@ from .contracts import (
     SourceGoldenConnectionCreatePayload,
     SourceGoldenIngestPayload,
     SourceGoldenConnectionResult,
+    ConnectionViewModel,
     SourceGoldenIngestResult,
     EvaluationSuiteCreatePayload,
     EvaluationSuiteRevisePayload,
@@ -385,12 +386,30 @@ class KnowledgeAssetApplication:
             comment_ids=tuple(str(item) for item in payload.get("comment_ids", [])),
         )
         kind = payload.get("requested_kind")
-        read = await self._authoring.create_draft(
-            envelope,
-            requested_kind=AuthoringSkillKind(kind) if kind else None,
-            scope=AuthoringScope(str(payload.get("scope", "personal"))),
-            display_name=payload.get("display_name"),
-        )
+        try:
+            read = await self._authoring.create_draft(
+                envelope,
+                requested_kind=AuthoringSkillKind(kind) if kind else None,
+                scope=AuthoringScope(str(payload.get("scope", "personal"))),
+                display_name=payload.get("display_name"),
+            )
+        except (SourcesGoldenError, SkillAuthoringError) as error:
+            result = SkillAuthoringStartResult(
+                status="failed",
+                error=ErrorEnvelope(
+                    code=(
+                        error.code.value
+                        if isinstance(error.code, AuthoringErrorCode)
+                        else error.code
+                    ),
+                    message=error.message,
+                    retryable=False,
+                    request_id=request_id,
+                ),
+            )
+            return CommandResponse(
+                accepted=False, request_id=request_id, result=result
+            )
         operation_id = read.operation.operation_id
         await authoring_repo.save_idempotency(idempotency_key, operation_id)
         return self._authoring_response(read, request_id)
@@ -441,8 +460,21 @@ class KnowledgeAssetApplication:
     @staticmethod
     def _authoring_response(read: AuthoringReadModel, request_id: str) -> CommandResponse:
         from .contracts import SkillAuthoringStartResult
+        operation_error = None
+        if read.operation.error_code is not None and read.operation.error_message:
+            operation_error = ErrorEnvelope(
+                code=read.operation.error_code.value,
+                message=read.operation.error_message,
+                retryable=read.operation.error_code.value in {
+                    "model_timeout",
+                    "model_unavailable",
+                    "credential_blocked",
+                },
+                request_id=request_id,
+            )
         result = SkillAuthoringStartResult(
             status=read.operation.status.value,
+            error=operation_error,
             operation=read.operation,
             draft=read.draft,
             events=list(read.events),
@@ -462,9 +494,22 @@ class KnowledgeAssetApplication:
         read: AuthoringReadModel, request_id: str
     ) -> CommandResponse:
         from .contracts import SkillAuthoringExecuteResult
+        operation_error = None
+        if read.operation.error_code is not None and read.operation.error_message:
+            operation_error = ErrorEnvelope(
+                code=read.operation.error_code.value,
+                message=read.operation.error_message,
+                retryable=read.operation.error_code.value in {
+                    "model_timeout",
+                    "model_unavailable",
+                    "credential_blocked",
+                },
+                request_id=request_id,
+            )
 
         result = SkillAuthoringExecuteResult(
             status=read.operation.status.value,
+            error=operation_error,
             operation=read.operation,
             draft=read.draft,
             events=list(read.events),
@@ -581,7 +626,12 @@ class KnowledgeAssetApplication:
             accepted=result.connection.status == "ready",
             request_id=trace_id,
             result=SourceGoldenConnectionResult(
-                connection=result.connection,
+                connection=ConnectionViewModel.model_validate(
+                    result.connection.model_dump(
+                        mode="json",
+                        exclude={"configuration", "secret_ref"},
+                    )
+                ),
                 validation=result.validation,
                 discovery=result.discovery,
                 replayed=result.replayed,

@@ -135,7 +135,7 @@ export interface SourceGoldenConnectionCreatePayload {
 
 export interface SourceGoldenConnectionResult {
   resultType?: "source_golden.connection";
-  connection: ConnectionInstance;
+  connection: Omit<ConnectionInstance, "configuration" | "secretRef">;
   validation: ConnectorOperation;
   discovery: ConnectorOperation;
   replayed?: boolean;
