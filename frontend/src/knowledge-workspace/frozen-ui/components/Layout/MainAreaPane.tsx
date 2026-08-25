@@ -20,14 +20,14 @@ import JourneyDetailView from '../MainArea/JourneyDetailView';
 import { resourceStore } from '../../lib/store';
 import { activeSkillViewRevision } from '../../../production/data';
 
-export default function MainAreaPane({ fileId, errorState, searchParams, setSearchParams, showToast, isWorkspaceEmpty }: any) {
+export default function MainAreaPane({ fileId, errorState, searchParams, setSearchParams, showToast, isWorkspaceEmpty, telemetryEnabled = true }: any) {
 
   const renderContent = () => {
     if (fileId === 'team_empty') return <EmptyState type="empty_dir" />;
     if (errorState === 'no_permission' || fileId === 'dataset_no_permission') return <EmptyState type="no_permission" />;
     
     if (fileId === 'evaluation_detail') return <EvaluationCenterView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
-    if (fileId.startsWith('journey_')) return <JourneyDetailView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} />;
+    if (fileId.startsWith('journey_')) return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
     if (fileId === 'kg_sales') return <KnowledgeGraphView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
 
     if (fileId === 'data_overview') return <DataOverviewView searchParams={searchParams} setSearchParams={setSearchParams} />;
@@ -37,6 +37,10 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     if (fileId === 'skill_builder') return <SkillBuilderView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     
     const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
+
+    if (resource?.resourceKind === 'skill_draft') {
+      return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
+    }
 
     const generatedViewModel =
       activeSkillViewRevision?.viewModel &&
@@ -66,7 +70,7 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     const isDoc = fileId.startsWith('doc_') || fileId.includes('document') || resource?.artifactType === 'document' || resource?.type === 'document';
     if (isDoc) return <DocumentView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     
-    const isDash = fileId.includes('dashboard') || fileId === 'res_dash_recruitment' || fileId === 'res_dash_finance' || resource?.artifactType === 'dashboard' || resource?.type === 'dashboard';
+    const isDash = fileId.includes('dashboard') || fileId === 'res_dash_recruitment' || fileId === 'res_dash_finance' || fileId === 'res_dash_east' || resource?.artifactType === 'dashboard' || resource?.type === 'dashboard';
     if (isDash) {
       const isTeam = fileId.startsWith('team_') || (fileId.includes('team_') && !fileId.startsWith('personal_'));
       return <DashboardView fileId={fileId} isTeam={isTeam} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;

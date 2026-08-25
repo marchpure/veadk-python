@@ -16,6 +16,9 @@ import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { resourceStore, useStore, getResourceDescriptor } from '../../lib/store';
 import { actionLoopStore, defaultActionLoopState } from '../../lib/actionLoopStore';
+import HomeComposer from './HomeComposer';
+import V212EntryDrawer from './V212EntryDrawer';
+import { trackShellEventOnce } from './shellTelemetry';
 
 const useDragState = () => useSyncExternalStore(dragStore.subscribe, dragStore.getState);
 
@@ -29,7 +32,7 @@ export default function WorkspaceLayout() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const fileId = searchParams.get('file') || 'welcome';
-  const errorState = searchParams.get('error');
+  const errorState = searchParams.get('error') || searchParams.get('error_state');
   const modal = searchParams.get('modal');
   const [toast, setToast] = useState<{message: string, visible: boolean, onUndo?: () => void}>({ message: '', visible: false });
   const filePreview = searchParams.get('file_preview');
@@ -37,21 +40,12 @@ export default function WorkspaceLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileAssistantOpen, setMobileAssistantOpen] = useState(false);
 
-  const [publishedItems, setPublishedItems] = useState<any[]>(() => {
-    try { const saved = localStorage.getItem('demo_published_items_v4'); return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
-  });
-  const [reusedItems, setReusedItems] = useState<any[]>(() => {
-    try { const saved = localStorage.getItem('demo_reused_items_v4'); return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
-  });
-
   const handleResetDemo = (mode: string) => {
     if (mode === 'empty') {
-      localStorage.setItem('demo_workspace_empty', 'true');
       const p = new URLSearchParams(searchParams);
       p.set('file', 'workspace_empty');
       setSearchParams(p);
     } else {
-      localStorage.removeItem('demo_workspace_empty');
       actionLoopStore.setState(() => defaultActionLoopState);
       const p = new URLSearchParams();
       p.set('file', 'welcome');
@@ -59,13 +53,9 @@ export default function WorkspaceLayout() {
     }
     showToast('演示环境已重置');
   };
-  useEffect(() => { localStorage.setItem('demo_published_items_v4', JSON.stringify(publishedItems)); }, [publishedItems]);
-  useEffect(() => { localStorage.setItem('demo_reused_items_v4', JSON.stringify(reusedItems)); }, [reusedItems]);
-  
   const [chatChips, setChatChips] = useState<any[]>(() => {
-    try { const saved = localStorage.getItem('demo_chat_chips_v4'); return saved ? JSON.parse(saved) : []; } catch(e) { return []; }
+    return [];
   });
-  useEffect(() => { localStorage.setItem('demo_chat_chips_v4', JSON.stringify(chatChips)); }, [chatChips]);
 
   const dragState = useDragState();
 
@@ -131,62 +121,13 @@ export default function WorkspaceLayout() {
   };
   
   const handlePublish = (item: any, targetDir: string) => {
-    const newItem = { ...item, id: `team_${item.id}_${Date.now()}`, isTeam: true, publishedAt: '刚刚', version: 'V2.1', published: true, draft: false, readonly: true, teamOrigin: item.name };
-    setPublishedItems(prev => [...prev, newItem]);
-    
-    const p = new URLSearchParams(searchParams);
-    p.set('file', newItem.id);
-    p.set('custom_name', item.name);
-    p.set('version', newItem.version);
-    p.set('team_origin', item.name);
-    p.set('new_publish', newItem.id);
-    setSearchParams(p);
-    
-    showToast(`已将 ${item.name} 发布到团队目录`, () => {
-      setPublishedItems(prev => prev.filter(i => i.id !== newItem.id));
-      const p2 = new URLSearchParams(window.location.search);
-      if (p2.get('file') === newItem.id) p2.set('file', item.id);
-      setSearchParams(p2);
-      showToast('已撤销发布');
-    });
+    void item; void targetDir;
+    showToast('发布必须由服务端确认，请从 Skill 草稿页面提交。');
   };
-
-  const [pendingReuse, setPendingReuse] = useState<{item: any, targetDir: string} | null>(null);
-  const [reuseName, setReuseName] = useState('');
 
   const handleReuseRequest = (item: any, targetDir: string) => {
-    setPendingReuse({ item, targetDir });
-    setReuseName(`${item.name} - 个人副本`);
-  };
-
-  const confirmReuse = () => {
-    if (!pendingReuse) return;
-    const { item, targetDir } = pendingReuse;
-    const newItem = { 
-      ...item, 
-      id: `personal_${item.id}_${Date.now()}`, 
-      name: reuseName,
-      isTeam: false, 
-      isDraft: true, 
-      draft: true, 
-      published: false,
-      readonly: false,
-      fromTeamVersion: item.version || item.teamVersion || 'V2.0', 
-      originalId: item.id,
-      teamOrigin: item.name
-    };
-    setReusedItems(prev => [...prev, newItem]);
-    
-    const p = new URLSearchParams(searchParams);
-    p.set('file', newItem.id);
-    p.set('custom_name', reuseName);
-    p.set('from_team_version', newItem.fromTeamVersion);
-    p.set('team_origin', item.name);
-    setSearchParams(p);
-    
-    showToast(`已为您生成 ${reuseName} 的可编辑副本`);
-    setPendingReuse(null);
-    dragStore.setState({ status: 'cancelled' });
+    void item; void targetDir;
+    showToast('复制 Skill 必须由服务端确认。');
   };
 
   const getChipIdentity = (chip: any) => {
@@ -227,10 +168,14 @@ export default function WorkspaceLayout() {
 
   const isHomeChat = fileId === 'welcome';
   const chatState = searchParams.get('chat');
+
+  useEffect(() => {
+    if (isHomeChat) trackShellEventOnce("workspace_home_view", "home");
+  }, [isHomeChat]);
   
   // RightPane Open/Close Logic
   const allResources = useStore(resourceStore);
-  const isWorkspaceEmpty = searchParams.get('file') === 'workspace_empty' || searchParams.get('workspace_empty') === 'true' || localStorage.getItem('demo_workspace_empty') === 'true';
+  const isWorkspaceEmpty = searchParams.get('file') === 'workspace_empty' || searchParams.get('workspace_empty') === 'true';
 
   const descriptor = getResourceDescriptor(fileId, searchParams, allResources);
   
@@ -267,7 +212,7 @@ export default function WorkspaceLayout() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f8fafc] text-slate-900 font-sans overflow-hidden select-none">
-      <TopNav searchParams={searchParams} setSearchParams={setSearchParams} onOpenMenu={() => { setMobileMenuOpen(true); setMobileAssistantOpen(false); }} onOpenAssistant={() => { setMobileAssistantOpen(true); setMobileMenuOpen(false); }} onResetDemo={handleResetDemo} />
+      <TopNav searchParams={searchParams} setSearchParams={setSearchParams} onOpenMenu={() => { setMobileMenuOpen(true); setMobileAssistantOpen(false); }} onOpenAssistant={() => { setMobileAssistantOpen(true); setMobileMenuOpen(false); }} />
       
       {/* 
         True CSS Grid Shell for Desktop
@@ -288,9 +233,10 @@ export default function WorkspaceLayout() {
             fileId={fileId} 
             searchParams={searchParams} 
             setSearchParams={setSearchParams} 
+            onResetDemo={handleResetDemo}
             isMobile={false}
-            publishedItems={publishedItems}
-            reusedItems={reusedItems}
+            publishedItems={[]}
+            reusedItems={[]}
             onPublish={handlePublish}
             onReuse={handleReuseRequest}
             onAddChip={addContextItem}
@@ -302,19 +248,9 @@ export default function WorkspaceLayout() {
         
         <div className="min-h-0 h-full overflow-hidden min-w-0 w-full relative flex flex-col bg-slate-50/50">
           {!isMobile && isHomeChat ? (
-            <RightPane 
-              fileId={fileId} 
-              searchParams={searchParams} 
-              setSearchParams={setSearchParams} 
-              showToast={showToast} 
-              isMobile={false} 
-              chatChips={chatChips}
-              setChatChips={setChatChips}
-              isHomeChat={true}
-              isRightPaneOpen={true}
-            />
+            <HomeComposer searchParams={searchParams} setSearchParams={setSearchParams} />
           ) : (
-            <MainAreaPane fileId={fileId} errorState={errorState} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
+            <MainAreaPane fileId={fileId} errorState={errorState} telemetryEnabled={!isMobile} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
           )}
         </div>
 
@@ -346,15 +282,15 @@ export default function WorkspaceLayout() {
           aria-modal={mobileMenuOpen ? "true" : undefined}
           aria-label={mobileMenuOpen ? "目录" : undefined}
           >
-            <FileTreePane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} isMobile={true} onClose={closeMenu} publishedItems={publishedItems} reusedItems={reusedItems} onPublish={handlePublish} onReuse={handleReuseRequest} onAddChip={addContextItem} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
+            <FileTreePane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} isMobile={true} onClose={closeMenu} onResetDemo={handleResetDemo} publishedItems={[]} reusedItems={[]} onPublish={handlePublish} onReuse={handleReuseRequest} onAddChip={addContextItem} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
           </div>
           {mobileMenuOpen && <div className="fixed inset-0 bg-slate-900/40 z-[50] backdrop-blur-sm" onClick={closeMenu} />}
           
           <div className="flex-1 overflow-hidden min-w-0 w-full h-full">
             {isMobile && isHomeChat ? (
-              <RightPane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} isMobile={true} chatChips={chatChips} setChatChips={setChatChips} isHomeChat={true} isRightPaneOpen={true} />
+              <HomeComposer searchParams={searchParams} setSearchParams={setSearchParams} />
             ) : (
-              <MainAreaPane fileId={fileId} errorState={errorState} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
+              <MainAreaPane fileId={fileId} errorState={errorState} telemetryEnabled={isMobile} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
             )}
           </div>
           
@@ -380,15 +316,12 @@ export default function WorkspaceLayout() {
       {modal === 'agent_selector' && <AgentResourceSelectorModal onClose={closeModal} />}
       {modal === 'publish_agent' && <PublishAgentModal onClose={closeModal} showToast={showToast} fileId={fileId} />}
       {modal === 'v212_entry' && (
-        <div role="dialog" aria-modal="true" aria-label="验收入口" className="fixed inset-0 z-[80] bg-slate-900/30 flex justify-end">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl p-6">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">Skill 工作区入口</h2><button className="text-slate-400 hover:text-slate-800" onClick={closeModal}>×</button></div>
-            <p className="text-sm text-slate-500 mt-3">从真实数据与知识开始，经过草稿执行和评测，再进入发布边界。</p>
-            <button className="mt-6 w-full rounded-lg bg-blue-600 text-white py-2 text-sm font-medium" onClick={() => { const p = new URLSearchParams(searchParams); p.delete('modal'); p.set('file', 'journey_knowledge'); p.set('step', '1'); setSearchParams(p); }}>进入企业知识旅程</button>
-          </div>
-        </div>
+        <V212EntryDrawer
+          searchParams={searchParams}
+          setSearchParams={setSearchParams}
+          onClose={closeModal}
+        />
       )}
-
       <div role="status" aria-live="polite" className={`fixed top-16 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ${toast.visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
         <div className="bg-white border border-slate-200 shadow-lg rounded-full px-4 py-2.5 flex items-center space-x-3">
           <CheckCircle2 size={16} className="text-green-500 shrink-0" />

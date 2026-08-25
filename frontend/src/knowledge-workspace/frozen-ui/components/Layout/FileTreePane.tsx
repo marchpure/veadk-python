@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronRight, ChevronDown, Folder, FilePieChart, Database, FileText, LayoutDashboard, Users, FileSpreadsheet, X, MoreHorizontal, AlertTriangle, Send, Link, Globe, Plus, Library } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FilePieChart, Database, FileText, LayoutDashboard, Users, FileSpreadsheet, X, MoreHorizontal, AlertTriangle, Send, Link, Globe, Plus, Library, RefreshCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { connectionStore, useStore, resourceStore } from '../../lib/store';
+import { trackShellEvent } from './shellTelemetry';
 
 function UserIcon() {
   return (
@@ -14,9 +15,9 @@ function UserIcon() {
   );
 }
 
-export default function FileTreePane({ fileId, searchParams, setSearchParams, onClose, isMobile, publishedItems, reusedItems, onPublish, onReuse, onAddChip, showToast, isWorkspaceEmpty, isSampleAdded, addedSources = [] }: any) {
+export default function FileTreePane({ fileId, searchParams, setSearchParams, onClose, onResetDemo, isMobile, publishedItems, reusedItems, onPublish, onReuse, onAddChip, showToast, isWorkspaceEmpty, isSampleAdded, addedSources = [] }: any) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    'personal': true, 'team': true, 'p_datasets': true, 'p_analysis': true, 't_sales': true, 'conn_mysql': true, 'schema_public': true
+    'personal': true, 'team': true, 'p_data_knowledge': true, 't_data_knowledge': true, 'conn_mysql': true, 'schema_public': true
   });
   
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
 
   useEffect(() => {
     if (newlyPublishedId) {
-      setExpandedFolders(prev => ({ ...prev, 'team': true, 't_sales': true }));
+      setExpandedFolders(prev => ({ ...prev, 'team': true, 't_published_skills': true }));
       setHighlightId(newlyPublishedId);
       setTimeout(() => { const el = document.querySelector(`[data-tree-id="${newlyPublishedId}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
       const timer = setTimeout(() => { setHighlightId(null); const p = new URLSearchParams(window.location.search); p.delete('new_publish'); setSearchParams(p); }, 1500);
@@ -70,20 +71,9 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     else datasetsChildren = [];
   }
 
-  const defaultPersonal = [
-    { id: 'dashboard_sales_east', name: '华东销售经营看板', type: 'personal_artifact', artifactType: 'dashboard', draft: true, icon: LayoutDashboard },
-    { id: 'res_dash_finance', name: '金融行情监控看板', type: 'personal_artifact', artifactType: 'dashboard', draft: true, icon: LayoutDashboard },
-    { id: 'res_dash_recruitment', name: '全球招聘供需看板', type: 'personal_artifact', artifactType: 'dashboard', draft: true, icon: LayoutDashboard },
-    { id: 'chart_conversion', name: '渠道转化趋势', type: 'personal_artifact', artifactType: 'chart', draft: true, icon: FilePieChart },
-    { id: 'semantic_sales', name: '销售主题模型', type: 'personal_artifact', artifactType: 'semantic', draft: true, icon: FileText },
-    { id: 'kb_sales', name: '销售话术知识库', type: 'personal_artifact', artifactType: 'knowledge_base', draft: true, icon: Library },
-    { id: 'kg_sales', name: '销售业务知识图谱', type: 'personal_artifact', artifactType: 'kg', draft: true, icon: Globe },
-  ];
-  const defaultTeam = [
-    { id: 'team_dashboard_monthly', name: '月度经营复盘', type: 'team_artifact', artifactType: 'dashboard', published: true, version: 'V2.0', icon: LayoutDashboard, readonly: true },
-  ];
-
   const allResources = useStore(resourceStore);
+  const defaultPersonal = [];
+  const defaultTeam = [];
   
   const newPersonalArtifacts = allResources
     .filter((r:any) => r.space === 'personal' && r.subtype !== 'template')
@@ -125,46 +115,48 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     }))
   }));
 
-  const teamChildren = isWorkspaceEmpty ? [] : [...teamConnections, ...defaultTeam, ...publishedItems, ...newTeamArtifacts].reduce((acc: any[], curr) => {
+  const teamChildren = isWorkspaceEmpty ? [] : [...defaultTeam, ...teamConnections, ...publishedItems, ...newTeamArtifacts].reduce((acc: any[], curr) => {
     if (!acc.find(x => x.id === curr.id)) acc.push(curr);
     return acc;
   }, []);
 
-  const personalDocs = personalChildren.filter((c:any) => c.artifactType === 'document' || c.isDocs || c.artifactType === 'knowledge_base');
-  const personalKgs = personalChildren.filter((c:any) => c.artifactType === 'kg');
-  const teamDocs = teamChildren.filter((c:any) => c.artifactType === 'document' || c.isDocs || c.artifactType === 'knowledge_base');
-  const teamOthers = teamChildren.filter((c:any) => c.artifactType !== 'document' && !c.isDocs && c.type !== 'connection' && c.type !== 'schema' && c.type !== 'table');
-
-  const personalSkills = personalChildren.filter((c:any) => c.type === 'skill');
-  const teamSkills = teamOthers.filter((c:any) => c.type === 'skill' || c.artifactType === 'semantic');
-  
   const personalSources = personalChildren.filter((c:any) => c.type === 'source' || c.type === 'dataset').map((s:any) => ({ ...s, icon: s.type === 'dataset' ? FileSpreadsheet : Database }));
   datasetsChildren = [...datasetsChildren, ...personalSources];
-  
-  const personalAnalysis = personalChildren.filter((c:any) => c.artifactType !== 'kg' && c.artifactType !== 'document' && !c.isDocs && c.type !== 'skill' && c.type !== 'source' && c.type !== 'dataset');
-  const teamAnalysis = teamOthers.filter((c:any) => c.type !== 'skill' && c.artifactType !== 'semantic');
+
+  const isDraftSkill = (item: any) =>
+    item.type === 'skill' || item.resourceKind === 'skill_draft' || item.lifecycle === 'draft';
+  const isPublishedSkill = (item: any) =>
+    item.type === 'published_skill' || item.type === 'skill_version' ||
+    item.resourceKind === 'published_skill' || item.resourceKind === 'publication' ||
+    item.published === true ||
+    (item.type === 'skill' && !item.draft);
+  const toTreeItem = (item: any) => ({
+    ...item,
+    type: item.type === 'skill' ? 'skill' : item.type,
+    icon: item.icon || (isDraftSkill(item) ? FileText : Library),
+  });
+  const personalDataKnowledge = personalChildren.filter((item: any) => !isDraftSkill(item) && !isPublishedSkill(item)).map(toTreeItem);
+  const personalDrafts = personalChildren.filter(isDraftSkill).map(toTreeItem);
+  const personalPublished = personalChildren.filter(isPublishedSkill).map(toTreeItem);
+  const teamDataKnowledge = teamChildren.filter((item: any) => item.type === 'connection' || item.type === 'schema' || item.type === 'table' || (!isDraftSkill(item) && !isPublishedSkill(item))).map(toTreeItem);
+  const teamDrafts = teamChildren.filter(isDraftSkill).map(toTreeItem);
+  const teamPublished = teamChildren.filter(isPublishedSkill).map(toTreeItem);
 
   const treeData = [
     {
       id: 'personal', name: '个人工作区', type: 'root', icon: UserIcon,
       children: [
-        { id: 'p_datasets', name: `数据连接 ${datasetsChildren.length}`, type: 'folder', children: datasetsChildren },
-        { id: 'p_knowledge', name: `知识与图谱`, type: 'folder', children: [
-          { id: 'p_docs', name: `知识文档/库 ${personalDocs.length}`, type: 'folder', isDocs: true, space: 'personal', children: personalDocs },
-          { id: 'p_kgs', name: `知识图谱 ${personalKgs.length}`, type: 'folder', children: personalKgs }
-        ] },
-        { id: 'p_skills', name: `语义与 Skill ${personalSkills.length}`, type: 'folder', children: personalSkills },
-        { id: 'p_analysis', name: `分析与看板 ${personalAnalysis.length}`, type: 'folder', allowDrop: 'team_artifact', children: personalAnalysis },
+        { id: 'p_data_knowledge', name: `数据与知识 ${personalDataKnowledge.length + datasetsChildren.length}`, type: 'folder', children: [...datasetsChildren, ...personalDataKnowledge] },
+        { id: 'p_skill_drafts', name: `Skill 草稿 ${personalDrafts.length}`, type: 'folder', children: personalDrafts },
+        { id: 'p_published_skills', name: `已发布 Skill ${personalPublished.length}`, type: 'folder', children: personalPublished },
       ]
     },
     {
       id: 'team', name: '团队工作区', type: 'root', icon: Users,
       children: [
-        { id: 't_knowledge', name: `知识与图谱`, type: 'folder', children: [
-          { id: 't_docs', name: `知识库与文档 ${teamDocs.length}`, type: 'folder', isDocs: true, space: 'team', children: teamDocs }
-        ]},
-        { id: 't_skills', name: `语义与 Skill ${teamSkills.length}`, type: 'folder', children: teamSkills },
-        { id: 't_sales', name: `分析与看板 ${teamAnalysis.length}`, type: 'folder', allowDrop: 'personal_artifact', children: teamAnalysis },
+        { id: 't_data_knowledge', name: `数据与知识 ${teamDataKnowledge.length}`, type: 'folder', children: teamDataKnowledge },
+        { id: 't_skill_drafts', name: `Skill 草稿 ${teamDrafts.length}`, type: 'folder', children: teamDrafts },
+        { id: 't_published_skills', name: `已发布 Skill ${teamPublished.length}`, type: 'folder', allowDrop: 'personal_artifact', children: teamPublished },
       ]
     }
   ];
@@ -255,7 +247,7 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
                       const p = new URLSearchParams(searchParams); p.delete('explore'); p.set('file', 'data_overview'); setSearchParams(p);
                       if (isMobile) onClose?.();
                     }
-                    if (isFolderOrRoot) return;
+                        if (isFolderOrRoot) return;
                   }
                 }
                 if (!isFolderOrRoot && node.type !== 'field') {
@@ -392,6 +384,22 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     <div className={cn("bg-white border-r border-slate-200 flex flex-col h-full shrink-0 z-10 bg-slate-50/30", isMobile ? "w-full" : "hidden md:flex w-[260px]")}>
       {isMobile && <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white"><span className="font-semibold text-slate-800">所有资源</span><button onClick={onClose} className="p-1 text-slate-500 hover:bg-slate-100 rounded-md"><X size={20}/></button></div>}
       <div role="tree" className="flex-1 overflow-y-auto py-2 pb-10 custom-scrollbar relative">{renderTree(treeData)}</div>
+      <div className="relative shrink-0 border-t border-slate-200 bg-white p-2">
+        <details>
+          <summary
+            aria-label="更多"
+            className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100"
+            onClick={() => trackShellEvent("workspace_menu_more_click")}
+          >
+            <MoreHorizontal size={15} /><span>更多</span>
+          </summary>
+          <div className="absolute bottom-full left-2 z-50 mb-1 w-44 rounded-lg border border-slate-200 bg-white py-1.5 shadow-lg">
+            <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100" onClick={() => onResetDemo?.('empty')}><RefreshCcw size={13} />切换为空工作区</button>
+            <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100" onClick={() => onResetDemo?.('full')}><RefreshCcw size={13} />恢复工作区</button>
+            <button className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100" onClick={() => { const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); setSearchParams(p); }}>验收与评测</button>
+          </div>
+        </details>
+      </div>
       {pendingPublish && (
         <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" onClick={(e) => { if(e.target===e.currentTarget) setPendingPublish(null); }}>
            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden p-6 animate-in zoom-in-95">
