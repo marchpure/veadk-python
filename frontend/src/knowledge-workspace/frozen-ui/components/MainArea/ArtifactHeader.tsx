@@ -98,7 +98,7 @@ export default function ArtifactHeader({
                   <Info size={14} className="mr-2 text-slate-400" /> 版本历史
                 </button>
                 {!isDoc && (
-                  <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); p.set('eval_target', searchParams.get('file') || 'dashboard_sales_east'); setSearchParams(p); }}>
+                <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); p.set('eval_target', searchParams.get('file') || 'current_resource'); setSearchParams(p); }}>
                     <BadgeCheck size={14} className="mr-2 text-slate-400" /> 评测中心
                   </button>
                 )}
@@ -108,7 +108,7 @@ export default function ArtifactHeader({
                 <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'share'); setSearchParams(p); }}>
                   <Share size={14} className="mr-2 text-slate-400" /> 分享
                 </button>
-                {(isDash || isKB || searchParams.get('file') === 'kb_sales') && (
+                {(isDash || isKB) && (
                   <>
                     <div className="h-px bg-slate-100 my-1"></div>
                     <button className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center outline-none font-medium" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'publish_agent'); setSearchParams(p); }}>

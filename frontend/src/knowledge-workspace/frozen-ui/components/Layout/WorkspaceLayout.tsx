@@ -16,7 +16,6 @@ import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { resourceStore, useStore, getResourceDescriptor } from '../../lib/store';
 import { getServerContextRef } from '../../../production/domainClient';
-import { actionLoopStore, defaultActionLoopState } from '../../lib/actionLoopStore';
 import HomeComposer from './HomeComposer';
 import V212EntryDrawer from './V212EntryDrawer';
 import { trackShellEventOnce } from './shellTelemetry';
@@ -41,19 +40,6 @@ export default function WorkspaceLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileAssistantOpen, setMobileAssistantOpen] = useState(false);
 
-  const handleResetDemo = (mode: string) => {
-    if (mode === 'empty') {
-      const p = new URLSearchParams(searchParams);
-      p.set('file', 'workspace_empty');
-      setSearchParams(p);
-    } else {
-      actionLoopStore.setState(() => defaultActionLoopState);
-      const p = new URLSearchParams();
-      p.set('file', 'welcome');
-      setSearchParams(p);
-    }
-    showToast('演示环境已重置');
-  };
   const [chatChips, setChatChips] = useState<any[]>(() => {
     return [];
   });
@@ -70,7 +56,7 @@ export default function WorkspaceLayout() {
     };
     const handleDragEnd = (e: DragEvent) => {
       const state = dragStore.getState();
-      if (state.status !== 'drop-pending' && state.status !== 'success' && state.status !== 'idle') {
+      if (state.status !== 'drop-pending' && state.status !== 'idle') {
          dragStore.setState({ status: 'cancelled' });
          setTimeout(() => dragStore.setState({ status: 'idle', item: null }), 200);
       }
@@ -149,11 +135,7 @@ export default function WorkspaceLayout() {
         : item;
       const identity = getChipIdentity(nextItem);
       const exists = prev.find(p => getChipIdentity(p) === identity);
-      if (exists) {
-        setTimeout(() => showToast(`该上下文已加入`), 100);
-        return prev;
-      }
-      setTimeout(() => showToast(`已加入对话上下文`), 100);
+      if (exists) return prev;
       return [...prev, { ...nextItem, identity, manual: true }];
     });
     
@@ -190,8 +172,9 @@ export default function WorkspaceLayout() {
 
   useEffect(() => {
     if (descriptor) {
-      if (previousResourceIdentityRef.current !== descriptor.identity) {
-        previousResourceIdentityRef.current = descriptor.identity;
+      const descriptorIdentity = String(descriptor.identity);
+      if (previousResourceIdentityRef.current !== descriptorIdentity) {
+        previousResourceIdentityRef.current = descriptorIdentity;
         
         const p = new URLSearchParams(searchParams);
         if (p.get('pane') === 'closed') {
@@ -243,7 +226,6 @@ export default function WorkspaceLayout() {
             fileId={fileId} 
             searchParams={searchParams} 
             setSearchParams={setSearchParams} 
-            onResetDemo={handleResetDemo}
             isMobile={false}
             publishedItems={[]}
             reusedItems={[]}
@@ -292,7 +274,7 @@ export default function WorkspaceLayout() {
           aria-modal={mobileMenuOpen ? "true" : undefined}
           aria-label={mobileMenuOpen ? "目录" : undefined}
           >
-            <FileTreePane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} isMobile={true} onClose={closeMenu} onResetDemo={handleResetDemo} publishedItems={[]} reusedItems={[]} onPublish={handlePublish} onReuse={handleReuseRequest} onAddChip={addContextItem} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
+            <FileTreePane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} isMobile={true} onClose={closeMenu} publishedItems={[]} reusedItems={[]} onPublish={handlePublish} onReuse={handleReuseRequest} onAddChip={addContextItem} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
           </div>
           {mobileMenuOpen && <div className="fixed inset-0 bg-slate-900/40 z-[50] backdrop-blur-sm" onClick={closeMenu} />}
           
@@ -321,7 +303,7 @@ export default function WorkspaceLayout() {
       {modal === 'share' && <ShareModal onClose={closeModal} searchParams={searchParams} showToast={showToast} />}
       {modal === 'export' && <ExportModal onClose={closeModal} showToast={showToast} />}
       {modal === 'versions' && <VersionHistoryModal onClose={closeModal} searchParams={searchParams} />}
-      {modal === 'publish' && <PublishModal onClose={closeModal} onConfirm={() => { closeModal(); showToast('已成功发布到团队工作区'); }} isTeam={fileId.includes('team')} />}
+      {modal === 'publish' && <PublishModal onClose={closeModal} showToast={showToast} isTeam={fileId.includes('team')} />}
       {modal === 'create_resource' && <CreateResourceModal onClose={closeModal} searchParams={searchParams} setSearchParams={setSearchParams} />}
       {modal === 'agent_selector' && <AgentResourceSelectorModal onClose={closeModal} />}
       {modal === 'publish_agent' && <PublishAgentModal onClose={closeModal} showToast={showToast} fileId={fileId} />}

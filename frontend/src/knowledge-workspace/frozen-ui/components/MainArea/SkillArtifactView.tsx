@@ -76,10 +76,10 @@ export default function SkillArtifactView({ fileId, searchParams, setSearchParam
           {activeTab === 'test' && (
             <div className="p-8 flex-1 flex flex-col items-center justify-center bg-slate-50/50 animate-in fade-in">
               <Play size={48} className="text-blue-500 mb-6" />
-              <h3 className="font-bold text-slate-800 mb-2 text-lg">测试控制台已就绪</h3>
-              <p className="text-sm text-slate-500 mb-6">可对该 Skill 进行独立调用测试。</p>
-              <button onClick={() => showToast?.('测试执行成功：返回 200 OK 且校验一致。')} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-blue-700 outline-none focus:ring-2 focus:ring-blue-500">
-                运行 Test
+              <h3 className="font-bold text-slate-800 mb-2 text-lg">等待服务端调用接口</h3>
+              <p className="text-sm text-slate-500 mb-6">独立调用测试需要 Invocation seam 返回 operation/result；当前不会创建本地成功态。</p>
+              <button disabled className="bg-slate-300 text-white px-8 py-3 rounded-xl font-bold shadow-md outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70">
+                等待 Invocation
               </button>
             </div>
           )}

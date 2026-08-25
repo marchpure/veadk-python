@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Paperclip, CheckCircle2, CheckSquare, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, ChevronUp, Search, Upload, Wand2, ArrowLeft, Trash2, Command, FileUp } from 'lucide-react';
+import { Send, Bot, CheckCircle2, CheckSquare, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, ChevronUp, Search, Upload, Wand2, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { getFullCatalog, resourceStore, connectionStore, bootstrapWorkspace, getWorkspaceAdapter } from '../../lib/store';
 import { createRequestContext } from '../../../production/ports';
 import { activeSkillViewRevision } from '../../../production/data';
 import { getServerContextRef } from '../../../production/domainClient';
+import type { ResourceRef } from '../../../production/generatedContracts';
 
 const getChipIcon = (type: string) => {
   if (!type) return Database;
@@ -31,7 +32,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const [isFocused, setIsFocused] = useState(false);
 
   const [contextExpanded, setContextExpanded] = useState(false);
-  const [step, setStep] = useState(1);
+  const [planExpanded, setPlanExpanded] = useState(false);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorQuery, setSelectorQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -45,15 +46,17 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const [dragStatus, setDragStatus] = useState<string>('idle');
   const [dragMessage, setDragMessage] = useState<string>('');
 
-  const [planDetails, setPlanDetails] = useState<{name:string, type:string, isDownstreamCreation?: boolean, stages:any[]}>({
-    name: '新建产物',
-    type: 'dashboard',
-    isDownstreamCreation: false,
-    stages: [
-      { id: `st_${Date.now()}_1`, operation: 'build_skill', status: 'pending', outputType: 'skill', targetScope: 'personal', dependsOn: [] },
-      { id: `st_${Date.now()}_2`, operation: 'render_artifact', status: 'pending', outputType: 'artifact', targetScope: 'personal', dependsOn: [] }
-    ]
-  });
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
+
+  const focusInputAtEnd = () => {
+    const inputElement = inputRef.current;
+    if (!inputElement) return;
+    inputElement.focus();
+    const len = inputElement.value.length;
+    inputElement.setSelectionRange(len, len);
+  };
 
   useEffect(() => {
     const unique: any[] = [];
@@ -78,8 +81,8 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const totalTokens = chatChips.reduce((acc: number, c: any) => acc + (c.tokenEstimate || 0.5), 0);
   const currentArtifactChip = chatChips.find((c: any) => c.isResourceLevel) || chatChips.find((c: any) => c.id === fileId || c.resourceId === fileId);
 
-  const pinnedResourceRefs = () => {
-    const refs: Array<{kind: string; object_id: string; revision: string; scope: string}> = [];
+  const pinnedResourceRefs = (): ResourceRef[] => {
+    const refs: ResourceRef[] = [];
     for (const chip of chatChips) {
       const ref = chip.contextRef || getServerContextRef(
         String(chip.resourceId || chip.artifactId || chip.id || ''),
@@ -92,10 +95,10 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         (ref.scope === 'personal' || ref.scope === 'team')
       ) {
         refs.push({
-          kind: ref.kind,
+          kind: ref.kind as ResourceRef['kind'],
           object_id: ref.objectId,
           revision: ref.revision,
-          scope: ref.scope,
+          scope: ref.scope as ResourceRef['scope'],
         });
       }
     }
@@ -168,55 +171,41 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       if (type === 'todo') return ['总结进展', '补充证据', '提交 Review'];
       if (type === 'review') return ['比较前后指标', '识别未解决风险'];
       if (type === 'decision') return ['汇总已验证事实', '生成备选方案', '补充证据'];
-      if (type === 'dashboard' || type === 'artifact') {
-        if (activeChip.id === 'res_dash_recruitment' || activeChip.name?.includes('招聘')) {
-          return ['分析越南招聘缺口原因', '生成填补缺口的行动建议', '汇总各国家 HC 现状'];
-        }
-        return ['分析各区域销售差异', '对比本月与上月趋势', '生成数据摘要'];
-      }
+      if (type === 'dashboard' || type === 'artifact') return ['解释当前视图', '生成下一步建议', '导出审计摘要'];
       if (type === 'chart') return ['修改图表类型为柱状图', '调整配色对比度', '导出数据明细'];
       if (type === 'knowledge_base') return ['测试问答效果', '补充新文档来源'];
       if (type === 'document') return ['根据文档生成测验用例', '提取文档关键指标', '加入知识库中'];
       if (type === 'connection' || type === 'source' || type === 'dataset') return ['了解数据表结构', '分析此数据源关联的产物', '预览核心字段质量'];
       if (type === 'knowledge_graph' || type === 'kg') return ['基于该图谱执行推理查询', '发现并合并相似实体', '补充缺失的关系节点'];
       if (type === 'evaluation') return ['查看最新的评测维度得分', '应用并回归 AI 修复建议', '导出评测对比报告'];
-      if (type === 'skill') {
-        const isFinance = activeChip.name?.includes('金融') || activeChip.subtype === 'custom_http';
-        const isWebApi = activeChip.name?.includes('web') || activeChip.subtype === 'web_api';
-        const isSemantic = activeChip.name?.includes('semantic') || activeChip.name?.includes('语义') || activeChip.subtype === 'semantic';
-
-        if (isFinance) return ['生成金融行情监控看板', '查询最新市场指标'];
-        if (isWebApi) return ['基于 Web API 生成 HTML 报表', '查询接口状态'];
-        if (isSemantic) return ['结合当前数据生成经营 Dashboard', '检查计算字段依赖', '修改净利润口径'];
-      }
-      if (type === 'semantic' || type === 'semantic_model') return ['结合当前数据生成经营 Dashboard', '检查计算字段依赖', '修改净利润口径'];
+      if (type === 'skill') return ['查看 Skill 契约', '生成调用示例', '创建监控视图'];
+      if (type === 'semantic' || type === 'semantic_model') return ['生成 Dashboard Skill', '检查计算字段依赖', '修改指标口径'];
       return ['总结当前资源', '生成相关报告', '导出快照'];
     }
-    return ['结合 Oracle 语义与 Excel 目标生成经营 Dashboard', '创建一份新的数据大盘', '生成销售数据周报', '导入本地 Excel 数据'];
+    return ['添加真实数据连接', '选择 Skill 模板', '描述要生成的 Skill'];
   };
 
   const handleSuggestionClick = (s: string) => {
     if (s === '创建待办') {
        showToast?.('请通过服务端 Agent 确认后创建待办。');
        const p = new URLSearchParams(searchParams);
-       p.set('file', 'res_dash_recruitment');
-       p.set('dash_tab', 'action');
+       p.set('pane', 'open');
        setSearchParams(p);
        return;
     }
 
     if (['解释异常', '生成行动建议', '总结进展', '补充证据', '提交 Review', '比较前后指标', '识别未解决风险', '汇总已验证事实', '生成备选方案'].includes(s)) {
       setInput(s);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      focusInput();
       return;
     }
 
     setInput(s);
-    setTimeout(() => inputRef.current?.focus(), 50);
+    focusInput();
   };
 
   useEffect(() => {
-    return dragStore.subscribe(() => {
+    const unsubscribe = dragStore.subscribe(() => {
       const state = dragStore.getState();
       if (state.targetId === 'chat_input') {
          setDragStatus(state.status);
@@ -226,11 +215,14 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
          setDragMessage('');
       }
     });
+    return () => {
+      unsubscribe();
+    };
   }, [dragStatus]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [chatState, input, chatChips, contextExpanded, planDetails.stages]);
+  }, [chatState, input, chatChips, contextExpanded, planExpanded, authoringRun, agentReply]);
 
   useEffect(() => {
     const pendingPrompt = searchParams.get('pending_prompt');
@@ -244,7 +236,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         ? `统一调整所选 ${targets.length} 个元素的层级与间距。` 
         : `对该元素进行样式与格式优化。`;
       setInput(prompt);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      focusInput();
     }
     if (action === 'open_selector') {
       setShowSelector(true);
@@ -253,11 +245,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       setSearchParams(p, { replace: true });
     }
     if (action && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-        const len = inputRef.current?.value.length || 0;
-        inputRef.current?.setSelectionRange(len, len);
-      }, 50);
+      focusInputAtEnd();
     }
   }, [action]);
 
@@ -267,11 +255,11 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       const connectionRefs = connectionStore.getState()
         .filter((connection: any) => chatChips.some((chip: any) => chip.id === connection.id))
         .flatMap((connection: any) => connection.goldenRevisionIds || [])
-        .map((revision: string) => {
+        .map((revision: string): ResourceRef | null => {
           const resource: any = resourceStore.getState().find((item: any) => item.goldenRevisionId === revision);
           return resource ? { kind: 'golden_asset', object_id: String(resource.assetId), revision, scope: resource.space === 'team' ? 'team' : 'personal' } : null;
         })
-        .filter(Boolean);
+        .filter((ref): ref is ResourceRef => Boolean(ref));
       const pinnedRefs = [...connectionRefs, ...pinnedResourceRefs()].filter(
         (ref: any, index: number, refs: any[]) =>
           refs.findIndex((item) => item.kind === ref.kind &&
@@ -446,7 +434,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       payload: {
         draftId,
         baseRevision,
-        patch: { patchType: 'set_title', title: prompt.slice(0, 160) },
+        patch: { patch_type: 'set_title', title: prompt.slice(0, 160) },
       },
     }, createRequestContext());
     const patchResult: any = patched.result ?? {};
@@ -487,14 +475,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     submissionRef.current = true;
     setAgentBusy(true);
     try {
-    const isCreationCommand = [
-      '生成金融行情监控看板', 
-      '基于 Web API 生成 HTML 报表', 
-      '结合当前数据生成经营 Dashboard',
-      '创建一份新的数据大盘',
-      '生成销售数据周报',
-      '创建华东区的销售经营看板'
-    ].includes(input);
+    const isCreationCommand = /(?:生成|创建|构建).*(?:Dashboard|看板|报表|知识库|Skill|图谱|语义|监控)/i.test(input);
 
     const hasTeamReadonly = chatChips.some((c:any) => c.readonly || c.type === 'team_artifact');
     const isModification = Boolean(currentArtifactChip) &&
@@ -530,18 +511,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       );
       if (!draft) return;
       p.set('chat', 'planning');
-      const planName = input === '生成金融行情监控看板' ? '金融行情监控看板' :
-                       input === '基于 Web API 生成 HTML 报表' ? 'Web API 数据报表' :
-                       input === '结合当前数据生成经营 Dashboard' ? '经营分析 Dashboard' : '新建资源产物';
-      setPlanDetails({
-        name: planName,
-        type: 'dashboard',
-        isDownstreamCreation: true,
-        stages: [
-          { id: `st_${Date.now()}_1`, operation: 'build_skill', status: 'pending', outputType: 'skill', targetScope: 'personal', publishPolicy: 'personal', automationPolicy: 'manual', dependsOn: [] },
-          { id: `st_${Date.now()}_2`, operation: 'render_artifact', status: 'pending', outputType: 'artifact', targetScope: 'personal', publishPolicy: 'personal', automationPolicy: 'manual', dependsOn: [] }
-        ]
-      });
+      setPlanExpanded(false);
     } else {
       await runKnowledgeAnswer(input.trim());
       setInput('');
@@ -554,33 +524,12 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     }
   };
 
-  const handleAddStage = () => {
-    setPlanDetails(p => ({
-      ...p,
-      stages: [...p.stages, { id: `st_${Date.now()}`, operation: 'create_automation', status: 'pending', outputType: 'automation', targetScope: 'personal', publishPolicy: 'personal', automationPolicy: 'manual', dependsOn: [] }]
-    }));
-  };
-
-  const handleRemoveStage = (id: string) => {
-    setPlanDetails(p => ({
-      ...p,
-      stages: p.stages.filter(st => st.id !== id)
-    }));
-  };
-
-  const handleStageChange = (id: string, key: string, value: any) => {
-    setPlanDetails(p => ({
-      ...p,
-      stages: p.stages.map(st => st.id === id ? { ...st, [key]: value } : st)
-    }));
-  };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     const state = dragStore.getState();
     if (state.status !== 'dragging' && state.status !== 'valid-over' && state.status !== 'invalid-over') return;
     if (!state.item) return;
-    if (state.item.type === 'folder' || state.item.type === 'root' || state.item.permission === false) {
+    if (state.item.type === 'folder' || state.item.type === 'root' || state.item.hasPermission === false) {
       dragStore.setState({ status: 'invalid-over', message: '无效的上下文实体', targetId: 'chat_input' });
     } else {
       dragStore.setState({ status: 'valid-over', message: '添加至上下文', targetId: 'chat_input' });
@@ -592,7 +541,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     const state = dragStore.getState();
     if (state.targetId === 'chat_input' && state.status === 'valid-over' && state.item) {
       window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item: state.item } }));
-      dragStore.setState({ status: 'success', targetId: null });
+      dragStore.setState({ status: 'idle', targetId: null, item: null, message: '' });
     } else {
       dragStore.setState({ status: 'cancelled', targetId: null });
     }
@@ -736,7 +685,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
           </div>
 
           <div className="mt-8 flex gap-3 w-full justify-center flex-wrap">
-            {["创建华东区的销售经营看板", "分析本月销售额下降原因", "基于飞书文档生成话术知识库"].map((s, i) => (
+            {["添加真实数据连接", "选择 Skill 模板", "描述要生成的 Skill"].map((s, i) => (
               <button 
                 key={i} 
                 onClick={() => setInput(s)}
@@ -866,77 +815,40 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
            <div className="animate-in fade-in flex items-start gap-3">
              <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={14}/></div>
              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm w-full min-w-0">
-               <h4 className="font-bold text-slate-800 mb-2 flex items-center"><Wand2 size={16} className="mr-2 text-purple-600"/> 多阶段产物生成计划 (Artifact Plan)</h4>
-               <p className="text-xs text-slate-500 mb-4 leading-relaxed">我已为您规划好多阶段依赖的 Pipeline。您可以自由编辑 Stage 的顺序、操作和产出目标策略。</p>
-               
-               <div className="space-y-4">
-                 <div>
-                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">产物名称</label>
-                   <input type="text" value={planDetails.name} onChange={e=>setPlanDetails(p=>({...p, name: e.target.value}))} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
-                 </div>
-                 <div>
-                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">最终产物类型</label>
-                   <select value={planDetails.type} onChange={e=>setPlanDetails(p=>({...p, type: e.target.value}))} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-blue-500 shadow-sm bg-white font-medium text-slate-700">
-                     <option value="dashboard">Dashboard 看板</option>
-                     <option value="report">HTML 报表</option>
-                     <option value="chart">单图表</option>
-                     <option value="semantic">Semantic 语义模型</option>
-                     <option value="knowledge_base">Knowledge Base 知识库</option>
-                     <option value="skill">通用 Skill 实体</option>
-                   </select>
-                 </div>
-                 
-                 <div>
-                   <div className="flex justify-between items-center mb-1.5">
-                     <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">执行阶段列表 (Stages)</label>
-                     <button onClick={handleAddStage} className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded hover:bg-blue-100 outline-none flex items-center"><Plus size={12} className="mr-1"/>添加 Stage</button>
-                   </div>
-                   <div className="space-y-2">
-                     {planDetails.stages.map((stage, idx) => (
-                       <div key={stage.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm flex flex-col gap-2 relative group">
-                         <button onClick={() => handleRemoveStage(stage.id)} className="absolute right-2 top-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 outline-none"><Trash2 size={14}/></button>
-                         <div className="flex items-center text-xs font-bold text-slate-800">
-                           <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center mr-2 text-[10px] shrink-0">{idx+1}</span>
-                           <select value={stage.operation} onChange={e=>handleStageChange(stage.id, 'operation', e.target.value)} className="bg-white border border-slate-200 rounded px-2 py-1 outline-none focus:border-blue-500">
-                             <option value="build_skill">构建通用 Skill (build_skill)</option>
-                             <option value="compose_resources">组合与解析 (compose_resources)</option>
-                             <option value="render_artifact">渲染视图产物 (render_artifact)</option>
-                             <option value="create_automation">创建自动化/告警 (create_automation)</option>
-                             <option value="publish_resource">发布与快照 (publish_resource)</option>
-                           </select>
-                         </div>
-                         <div className="flex gap-2 items-center">
-                           <select value={stage.outputType} onChange={e=>handleStageChange(stage.id, 'outputType', e.target.value)} className="bg-white border border-slate-200 rounded px-2 py-1 outline-none text-[10px] text-slate-600 flex-1">
-                             <option value="skill">产出类型: Skill</option>
-                             <option value="artifact">产出类型: Artifact</option>
-                             <option value="knowledge_base">产出类型: Knowledge Base</option>
-                             <option value="automation">产出类型: Automation</option>
-                             <option value="publication">产出类型: Publication</option>
-                           </select>
-                           <select value={stage.publishPolicy} onChange={e=>handleStageChange(stage.id, 'publishPolicy', e.target.value)} className="bg-white border border-slate-200 rounded px-2 py-1 outline-none text-[10px] text-slate-600 flex-1">
-                             <option value="personal">策略: 存为个人草稿</option>
-                             <option value="team">策略: 存为团队快照</option>
-                           </select>
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-                 
-                 <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100 mt-4">
-                   <button onClick={() => {
+               <h4 className="font-semibold text-slate-800 mb-2 flex items-center"><Wand2 size={16} className="mr-2 text-blue-600"/> 已生成可执行草稿</h4>
+               <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                 BuildPlan 由服务端 Agent 返回，用户在这里只确认执行；技术计划默认折叠，仅用于审计与排错。
+               </p>
+               <button
+                 type="button"
+                 aria-expanded={planExpanded}
+                 onClick={() => setPlanExpanded((value) => !value)}
+                 className="mb-3 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+               >
+                 <ChevronDown size={13} className={cn("mr-1.5 transition-transform", planExpanded && "rotate-180")} />
+                 折叠执行详情
+               </button>
+               {planExpanded && (
+                 <pre className="mb-3 max-h-44 overflow-auto rounded-lg border border-slate-200 bg-slate-950 p-3 text-[10px] leading-relaxed text-slate-100">
+                   {JSON.stringify(authoringRun?.plan ?? { status: 'awaiting_server_build_plan' }, null, 2)}
+                 </pre>
+               )}
+               <div className="flex justify-end space-x-2 border-t border-slate-100 pt-3">
+                 <button onClick={() => {
+                   const p = new URLSearchParams(searchParams);
+                   p.delete('chat');
+                   setSearchParams(p);
+                 }} className="px-4 py-2 border border-slate-200 text-slate-600 bg-white rounded-lg text-xs font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
+                 <button onClick={async () => {
+                   if (await executeAgent()) {
                      const p = new URLSearchParams(searchParams);
                      p.delete('chat');
                      setSearchParams(p);
-                   }} className="px-4 py-2 border border-slate-200 text-slate-600 bg-white rounded-lg text-xs font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消计划</button>
-                   <button onClick={async () => {
-                     if (await executeAgent()) {
-                       const p = new URLSearchParams(searchParams);
-                       p.delete('chat');
-                       setSearchParams(p);
-                     }
-                   }} disabled={agentBusy} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm outline-none flex items-center transition-colors"><CheckCircle2 size={14} className="mr-1.5"/> 顺序执行流水线 (Execute)</button>
-                 </div>
+                   }
+                 }} disabled={agentBusy} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm outline-none flex items-center transition-colors">
+                   {agentBusy ? <Loader2 size={14} className="mr-1.5 animate-spin"/> : <ArrowRight size={14} className="mr-1.5"/>}
+                   执行并渲染
+                 </button>
                </div>
              </div>
            </div>
@@ -946,29 +858,11 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
            <div className="animate-in fade-in flex items-start gap-3">
              <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={14}/></div>
              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm min-w-[250px] flex flex-col gap-3">
-               {(planDetails.stages || []).map((stage, idx) => {
-                 const s = idx + 1;
-                 if (step < s) return null;
-                 return (
-                   <div key={stage.id} className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-left-2">
-                     <div className="flex items-center text-xs font-medium text-slate-700">
-                       {step === s ? <Loader2 size={14} className="animate-spin text-blue-600 mr-2 shrink-0"/> : <CheckCircle2 size={14} className="text-green-500 mr-2 shrink-0"/>}
-                       <span className="truncate">{stage.operation}</span>
-                     </div>
-                     {step > s && (
-                       <div className="text-[10px] text-slate-500 ml-6 flex items-center">
-                         ↳ 写入 Registry: 产物 {stage.outputType} 
-                         {stage.publishPolicy === 'team' && <span className="ml-1 bg-green-50 text-green-700 px-1 rounded border border-green-200">已发布团队</span>}
-                       </div>
-                     )}
-                   </div>
-                 );
-               })}
-               {step > (planDetails.stages || []).length && (
-                 <div className="flex items-center text-xs font-medium text-slate-700 animate-in fade-in slide-in-from-left-2 pt-2 border-t border-slate-100">
-                   <CheckCircle2 size={14} className="text-green-500 mr-2 shrink-0"/> 依赖构建完成，即将加载产物
-                 </div>
-               )}
+               <div className="flex items-center text-xs font-medium text-slate-700">
+                 <Loader2 size={14} className="animate-spin text-blue-600 mr-2 shrink-0"/>
+                 服务端正在执行 SkillDraft revision
+               </div>
+               <div className="text-[11px] text-slate-500">执行进度、工具调用与 trace 由 W2 timeline seam 返回后在此增量展示。</div>
              </div>
            </div>
          )}

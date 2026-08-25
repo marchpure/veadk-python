@@ -16,9 +16,13 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
   const artifactType = descriptor?.artifactType as string;
 
   const publications = agentPublicationStore.getState();
-  const existing = publications.find((a:any) => a.skillId === identity || a.resourceId === identity);
+  const existing = publications.find((item: unknown) => {
+    const record = asRecord(item);
+    return record.skillId === identity || record.resourceId === identity;
+  });
+  const existingRecord = asRecord(existing);
 
-  const [visibility, setVisibility] = useState(existing?.visibility || 'team');
+  const [visibility, setVisibility] = useState(String(existingRecord.visibility ?? 'team'));
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -40,7 +44,8 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
     if (!descriptor) return;
     setError('取消发布必须由服务端撤销命令确认；当前未执行本地删除。');
   };
-  const published = asRecord(existing);
+  const published = existingRecord;
+  const hasExistingPublication = Boolean(existing);
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={(e) => { if(e.target===e.currentTarget) onClose(); }}>
@@ -69,7 +74,7 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
               </div>
             </div>
           </div>
-          {existing && (
+          {hasExistingPublication && (
             <dl className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
               <div><dt className="font-bold text-slate-500">真实版本</dt><dd className="text-slate-800">{String(published.version ?? published.semver ?? '—')}</dd></div>
               <div><dt className="font-bold text-slate-500">质量分</dt><dd className="text-slate-800">{String(published.qualityScore ?? '需服务端返回')}</dd></div>
@@ -82,14 +87,14 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
         </div>
 
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end items-center gap-3">
-          {existing && (
+          {hasExistingPublication && (
             <button onClick={handleCancelPublish} className="text-sm text-red-600 font-bold hover:bg-red-50 px-4 py-2 rounded-lg transition-colors outline-none mr-auto">取消发布</button>
           )}
-          {!existing && (
+          {!hasExistingPublication && (
             <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
           )}
           <button onClick={handleConfirm} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
-            {existing ? '更新范围' : '确认发布'}
+            {hasExistingPublication ? '更新范围' : '确认发布'}
           </button>
         </div>
       </div>

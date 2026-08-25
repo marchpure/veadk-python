@@ -7,17 +7,10 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
   const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
   const connStoreItem = connectionStore.getState().find((c:any) => c.id === fileId);
   
-  const item = resource || connStoreItem || { 
-    name: '数据库连接', 
-    type: 'postgresql', 
-    subtype: 'postgresql', 
-    status: 'connected', 
-    owner: 'haoxingjun', 
-    createdAt: '刚刚'
-  };
+  const item = (resource || connStoreItem || {}) as Record<string, any>;
 
-  const name = item.displayName;
-  const subtype = item.connectorKey;
+  const name = item?.displayName || item?.name || 'Data Connection';
+  const subtype = item?.connectorKey || item?.subtype || item?.type || 'unknown';
   
   const registry = getRegistry();
   const def = registry.find(r => r.connectorKey === subtype);
@@ -33,9 +26,9 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
       <ArtifactHeader 
         title={name} 
         typeLabel="Data Connection"
-        isTeam={item.isTeam || item.space === 'team'} 
-        version={item.version || 'V1.0'} 
-        fromTeamVersion={item.fromTeamVersion}
+        isTeam={item?.isTeam || item?.space === 'team'} 
+        version={item?.version || '等待 revision'} 
+        fromTeamVersion={item?.fromTeamVersion}
         editTarget={null} 
         onElementClick={() => {}} 
         searchParams={searchParams}
@@ -55,16 +48,16 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
             </div>
             <div className="p-5">
               <div className="grid grid-cols-2 gap-4 text-sm text-slate-600">
-                {!isFile && !isOffice && (
+                {!isFile && !isOffice && item?.endpointRef && (
                   <>
-                    <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Host / Endpoint</span><span className="font-mono text-slate-800">database.internal.env</span></div>
-                    <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Port</span><span className="font-mono text-slate-800">5432</span></div>
+                    <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Host / Endpoint</span><span className="font-mono text-slate-800">{item.endpointRef}</span></div>
+                    <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Port</span><span className="font-mono text-slate-800">{item.port || '—'}</span></div>
                   </>
                 )}
                 {isOffice && (
                   <div className="flex flex-col col-span-2"><span className="text-xs font-bold text-slate-400 mb-1">Scope (选择范围)</span><span className="font-medium text-slate-800">指定文件夹及其子文档，保持权限继承。</span></div>
                 )}
-                <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Auth Type</span><span className="font-medium text-slate-800">{isOffice ? 'OAuth 2.0 (已授权)' : 'Basic Auth / SASL'}</span></div>
+	                <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Auth Type</span><span className="font-medium text-slate-800">{item?.authType || (isOffice ? 'OAuth 2.0' : '等待服务端返回')}</span></div>
                 {!isOffice && <div className="flex flex-col"><span className="text-xs font-bold text-slate-400 mb-1">Credential</span><span className="font-mono text-slate-800">********</span></div>}
               </div>
             </div>
@@ -78,20 +71,21 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
                </h3>
             </div>
             <div className="p-5">
-               {isDB ? (
-                 <div className="space-y-4">
-                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                     <div className="text-xs font-bold text-slate-500 mb-2">Schema: public</div>
-                     <div className="flex gap-2 flex-wrap">
-                       <span className="bg-white border border-slate-200 px-2.5 py-1 rounded text-xs font-medium text-slate-700 shadow-sm">orders (1.2k rows)</span>
-                       <span className="bg-white border border-slate-200 px-2.5 py-1 rounded text-xs font-medium text-slate-700 shadow-sm">customers (800 rows)</span>
-                     </div>
-                   </div>
-                 </div>
+		               {isDB && Array.isArray(item.discoveredResources) && item.discoveredResources.length > 0 ? (
+	                 <div className="space-y-4">
+	                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+	                     <div className="text-xs font-bold text-slate-500 mb-2">服务端发现资源</div>
+	                     <div className="flex gap-2 flex-wrap">
+	                       {item.discoveredResources.map((resourceItem: any) => (
+	                         <span key={resourceItem.id || resourceItem.name} className="bg-white border border-slate-200 px-2.5 py-1 rounded text-xs font-medium text-slate-700 shadow-sm">{resourceItem.name || resourceItem.id}</span>
+	                       ))}
+	                     </div>
+	                   </div>
+	                 </div>
                ) : (
                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-start text-sm text-slate-700">
                    <Info size={16} className="mr-2 text-blue-600 shrink-0 mt-0.5" />
-                   已探测到 {item.discoveredResources?.length || 0} 个有效工具/资源，均可通过分析助手直接查询或加入上下文。
+	                   已探测到 {Array.isArray(item.discoveredResources) ? item.discoveredResources.length : 0} 个有效工具/资源，均可通过分析助手直接查询或加入上下文。
                  </div>
                )}
             </div>
@@ -108,22 +102,22 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-slate-500">最近同步</span>
-                <span className="font-medium text-slate-800">{item.createdAt || '刚刚'}</span>
+	                <span className="font-medium text-slate-800">{item?.lastSuccessAt || item?.updatedAt || item?.createdAt || '—'}</span>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-slate-500">同步历史记录</span>
-                <span className="font-medium text-blue-600 cursor-pointer hover:underline">共 15 次执行</span>
+	                <span className="font-medium text-slate-800">{item?.syncRunCount ? `共 ${item.syncRunCount} 次执行` : '等待服务端返回'}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">连接状态</span>
-                <span className="font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">健康 (Connected)</span>
+	                <span className="font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">{item?.status || '等待服务端返回'}</span>
               </div>
             </div>
           </div>
           
           <div className="space-y-3">
-             <button onClick={() => showToast?.('触发同步成功，任务进入后台队列。')} className="w-full bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm outline-none flex items-center justify-center">
-               <Play size={16} className="mr-2" /> 立即同步
+	             <button disabled className="w-full bg-slate-300 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm outline-none flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-70">
+	               <Play size={16} className="mr-2" /> 同步等待服务端命令
              </button>
              <button onClick={() => showToast?.('进入编辑配置向导...')} className="w-full bg-white border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm outline-none flex items-center justify-center">
                编辑配置

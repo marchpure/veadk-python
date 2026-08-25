@@ -7,7 +7,7 @@ import {
   GeneratedClientHttpError,
   type KnowledgeAssetClient,
 } from "./generatedClient";
-import type { GeneratedCommand, GeneratedLegacyManifest, GeneratedManifest } from "./generated";
+import type { GeneratedLegacyManifest, GeneratedManifest } from "./generated";
 import {
   KnowledgeAdapterError,
   type KnowledgeCommand,
@@ -17,6 +17,8 @@ import {
   type KnowledgeErrorCode,
   type KnowledgeRequestContext,
   type KnowledgeStream,
+  type KnowledgeStreamEvent,
+  type KnowledgeStreamCommand,
   type WorkspaceAdapter,
 } from "./typedPorts";
 import {
@@ -28,6 +30,9 @@ import {
   readJson,
   TRANSPORT_SCHEMA_VERSION,
 } from "./httpSupport";
+
+type LegacyCommandName = KnowledgeCommandName;
+type KnowledgeCommandEnvelope = Parameters<KnowledgeAssetClient["command"]>[0];
 
 export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
   readonly kind = "production-http" as const;
@@ -80,7 +85,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     const context = normalized.context;
     try {
       const generated = await this.generatedClient.command(
-        normalized.command as GeneratedCommand,
+        toGeneratedCommand(normalized.command),
         context,
       );
       if (
@@ -143,10 +148,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     });
   }
   async stream(
-    command: Extract<
-      KnowledgeCommand,
-      { command: "import.start" | "assistant.turn" }
-    > | "assistant.turn",
+    command: KnowledgeStreamCommand | "assistant.turn",
     contextOrPayload: KnowledgeRequestContext | Record<string, unknown>,
     legacyContext?: KnowledgeRequestContext,
   ): Promise<KnowledgeStream> {
@@ -172,7 +174,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
     let response: Response;
     try {
       response = await this.generatedClient.stream(
-        normalized.command as GeneratedCommand,
+        toGeneratedCommand(normalized.command),
         { ...context, signal: controller.signal },
       );
     } catch (error) {
@@ -230,10 +232,7 @@ export class ProductionKnowledgeAdapter implements WorkspaceAdapter {
                 ? {
                   command: "import.cancel",
                   payload: {
-                    sourceId: (normalized.command as Extract<
-                      KnowledgeCommand,
-                      { command: "import.start" }
-                    >).payload.sourceId,
+                    sourceId: normalized.command.payload.sourceId,
                   },
                 }
                 : {
@@ -376,29 +375,24 @@ function normalizeCommand(
 }
 
 function normalizeStreamCommand(
-  command: Extract<
-    KnowledgeCommand,
-    { command: "import.start" | "assistant.turn" }
-  > | "assistant.turn",
+  command: KnowledgeStreamCommand | "assistant.turn",
   contextOrPayload: KnowledgeRequestContext | Record<string, unknown>,
   legacyContext?: KnowledgeRequestContext,
 ): {
-  command: Extract<
-    KnowledgeCommand,
-    { command: "import.start" | "assistant.turn" }
-  >;
+  command: KnowledgeStreamCommand;
   context: KnowledgeRequestContext;
 } {
   if (typeof command !== "string") {
     return { command, context: contextOrPayload as KnowledgeRequestContext };
   }
   return {
-    command: legacyCommand(command, contextOrPayload as Record<string, unknown>) as Extract<
-      KnowledgeCommand,
-      { command: "import.start" | "assistant.turn" }
-    >,
+    command: legacyCommand(command, contextOrPayload as Record<string, unknown>) as KnowledgeStreamCommand,
     context: legacyContext ?? (contextOrPayload as KnowledgeRequestContext),
   };
+}
+
+function toGeneratedCommand(command: KnowledgeCommand): KnowledgeCommandEnvelope {
+  return command as unknown as KnowledgeCommandEnvelope;
 }
 
 function legacyCommand(
@@ -492,6 +486,31 @@ function legacyCommand(
         command,
         payload: { sourceRevisionId: "legacy", recipeId: "legacy" },
       };
+    case "source-golden.connection.create":
+      return {
+        command,
+        payload: {
+          connectorKey: typeof payload.connectorKey === "string"
+            ? payload.connectorKey
+            : "legacy",
+          displayName: typeof payload.displayName === "string"
+            ? payload.displayName
+            : "Legacy connection",
+          scope: payload.scope === "team" ? "team" : "personal",
+          configuration: {},
+        },
+      };
+    case "source-golden.ingest":
+      return {
+        command,
+        payload: {
+          connectionId: typeof payload.connectionId === "string"
+            ? payload.connectionId
+            : "legacy",
+          recipeOperations: ["trim"],
+          toolArguments: {},
+        },
+      };
     case "skill-draft.run":
       return {
         command,
@@ -530,6 +549,7 @@ function legacyCommand(
         command,
         payload: {
           skillVersionId: "legacy",
+          skillViewRevisionId: "legacy",
           inputRef: {
             uri: "inline://legacy",
             kind: "inline",

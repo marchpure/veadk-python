@@ -185,31 +185,6 @@ const SERVER_FEATURE_ROUTES = new Set([
   "data_overview",
   "evaluation_detail",
 ]);
-// These are high-fidelity Workspace deep links from the frozen 43-state
-// capability matrix. They are route capabilities, not resource facts: the
-// rendered view must still use server-hydrated data or show its own honest
-// gated/empty state.
-const CAPABILITY_MATRIX_ROUTE_IDS = new Set([
-  "add_data",
-  "connector_catalog",
-  "upload_doc",
-  "data_overview",
-  "add_kb",
-  "skill_builder",
-  "evaluation_detail",
-  "journey_knowledge",
-  "journey_oracle_excel",
-  "journey_web_api",
-  "journey_financial_monitor",
-  "journey_workday_mcp",
-  "res_dash_finance",
-  "res_dash_east",
-  "res_dash_recruitment",
-  "kg_sales",
-  "semantic_sales",
-  "res_sample_postgres",
-  "kb_sales",
-]);
 const errorListeners = new Set<(error: KnowledgeAdapterError | null) => void>();
 
 export function getWorkspaceAdapter(): WorkspaceAdapter {
@@ -226,8 +201,10 @@ export function installWorkspaceAdapter(next: WorkspaceAdapter): void {
 
 export function isWorkspaceRouteAvailable(fileId: string): boolean {
   return (
-    (SERVER_FEATURE_ROUTES.has(fileId) && workspaceRoutes.has(fileId)) ||
-    CAPABILITY_MATRIX_ROUTE_IDS.has(fileId) ||
+    (
+      workspaceRoutes.has(fileId) &&
+      (SERVER_FEATURE_ROUTES.has(fileId) || fileId.startsWith("journey_"))
+    ) ||
     resourceStore
       .getState()
       .some(
@@ -425,7 +402,7 @@ export async function runProductionMutation(
       command: "skill-draft.create",
       payload: {
         workspaceId,
-        name: "销售制度知识库",
+        name: "Knowledge Base Skill",
         description: "由知识库创建动作生成的 Skill 草稿",
         sourceRefs: [],
       },
@@ -437,12 +414,12 @@ export async function runProductionMutation(
         draftId: selectedDraft?.id ?? "",
         baseRevision: Number(selectedDraft?.revision ?? 1),
         manifest: {
-          name: "销售制度知识库",
+          name: "Knowledge Base Skill",
           version: "1.0.0",
-          description: "聚合各渠道的销售制度与流程规范",
+          description: "基于真实知识来源生成回答。",
           actions: [{
             name: "answer",
-            description: "回答销售制度与流程问题",
+            description: "回答知识库范围内的问题",
           }],
           schema: {
             type: "object",
@@ -484,9 +461,11 @@ export async function runProductionMutation(
     }
     if (intent.command === "skill-draft.create") {
       const draft = result.result?.draft;
-      const draftId = draft && typeof draft === "object" &&
-          typeof draft.id === "string"
-        ? draft.id
+      const draftRecord = draft && typeof draft === "object"
+        ? draft as Record<string, unknown>
+        : null;
+      const draftId = typeof draftRecord?.id === "string"
+        ? draftRecord.id
         : undefined;
       if (draftId && typeof window !== "undefined") {
         const next = new URL(window.location.href);

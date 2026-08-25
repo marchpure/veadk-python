@@ -41,11 +41,11 @@ export default function UploadDocView({ searchParams, setSearchParams, showToast
       const result = await uploadStandaloneKnowledgeDocument({
         file, title: title || file.name, description: desc, tags, chunkStrategy, scope: targetSpace,
       });
-      setUploadState('done');
       const docId = String(result.document?.id ?? "");
       if (!docId) throw new Error("服务端未返回文档 ID");
+      setUploadState('done');
       setChunkCount(Number(result.index?.chunkCount ?? 0));
-      showToast?.('知识文档解析并入库成功！');
+      showToast?.('服务端已返回文档 ID，等待工作区状态刷新。');
       const p = new URLSearchParams(searchParams);
       p.set('file', docId);
       p.delete('target_space');
@@ -97,7 +97,7 @@ export default function UploadDocView({ searchParams, setSearchParams, showToast
               </div>
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-slate-800 mb-2">标签 (Tags)</label>
-                <input type="text" value={tags} onChange={e=>setTags(e.target.value)} disabled={uploadState !== 'idle'} placeholder="以逗号分隔，如：销售, 指标口径" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+                <input type="text" value={tags} onChange={e=>setTags(e.target.value)} disabled={uploadState !== 'idle'} placeholder="以逗号分隔，如：政策, 指标口径" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-800 mb-2">分段策略 (Chunking)</label>
@@ -125,16 +125,16 @@ export default function UploadDocView({ searchParams, setSearchParams, showToast
             {uploadState !== 'idle' && (
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
                 <div className="flex items-center text-sm font-medium text-slate-700">
-                  {uploadState === 'uploading' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 上传中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 上传完成</>}
+                  {uploadState === 'uploading' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 上传中...</> : <><CheckCircle2 size={16} className="text-slate-500 mr-2"/> 服务端已接收文件</>}
                 </div>
                 <div className="flex items-center text-sm font-medium text-slate-700">
-                  {uploadState === 'uploading' ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'parsing' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 文本解析中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 文本解析成功</>}
+                  {uploadState === 'uploading' ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'parsing' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 文本解析中...</> : <><CheckCircle2 size={16} className="text-slate-500 mr-2"/> 服务端已返回解析状态</>}
                 </div>
                 <div className="flex items-center text-sm font-medium text-slate-700">
-                  {['uploading', 'parsing'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'chunking' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 智能分段中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 分段完成 (共 {chunkCount} 段)</>}
+                  {['uploading', 'parsing'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'chunking' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 智能分段中...</> : <><CheckCircle2 size={16} className="text-slate-500 mr-2"/> 服务端分段数：{chunkCount}</>}
                 </div>
                 <div className="flex items-center text-sm font-medium text-slate-700">
-                  {['uploading', 'parsing', 'chunking'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'indexing' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 向量索引构建中...</> : <><CheckCircle2 size={16} className="text-green-500 mr-2"/> 索引构建完成</>}
+                  {['uploading', 'parsing', 'chunking'].includes(uploadState) ? <div className="w-4 h-4 rounded-full border-2 border-slate-300 mr-2"/> : uploadState === 'indexing' ? <><Loader2 size={16} className="animate-spin text-blue-600 mr-2"/> 向量索引构建中...</> : <><CheckCircle2 size={16} className="text-slate-500 mr-2"/> 等待服务端索引状态刷新</>}
                 </div>
               </div>
             )}

@@ -203,5 +203,5 @@ export function buildEvaluationCase(
 }
 
 export function nextStableId(prefix: string): string {
-  return `${prefix}-${requestId().replaceAll("-", "").slice(0, 16)}`;
+  return `${prefix}-${requestId().replace(/-/g, "").slice(0, 16)}`;
 }

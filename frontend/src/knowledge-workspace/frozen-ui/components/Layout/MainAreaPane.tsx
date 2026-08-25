@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { type SVGProps } from 'react';
 import WelcomeView from '../MainArea/WelcomeView';
 import DatasetView from '../MainArea/DatasetView';
 import DashboardView from '../MainArea/DashboardView';
@@ -15,81 +15,150 @@ import AddKnowledgeBaseView from '../MainArea/AddKnowledgeBaseView';
 import KnowledgeBaseView from '../MainArea/KnowledgeBaseView';
 import SkillBuilderView from '../MainArea/SkillBuilderView';
 import SkillArtifactView from '../MainArea/SkillArtifactView';
+import SkillMonitoringView from '../MainArea/SkillMonitoringView';
+import SkillSOPView from '../MainArea/SkillSOPView';
 import ConnectionDetailView from '../MainArea/ConnectionDetailView';
 import JourneyDetailView from '../MainArea/JourneyDetailView';
 import { resourceStore } from '../../lib/store';
 import { activeSkillViewRevision } from '../../../production/data';
+import { isWorkspaceRouteAvailable as isProductionRouteAvailable } from '../../../production/store';
+
+function IconBase({ children, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      {children}
+    </svg>
+  );
+}
+
+function AlertIcon(props: SVGProps<SVGSVGElement>) {
+  return <IconBase {...props}><path d="M12 4 3.5 19h17L12 4Z" /><path d="M12 9v4" /><path d="M12 16h.01" /></IconBase>;
+}
+
+function normalizedSubtype(resource: any): string {
+  return String(resource?.subtype ?? resource?.artifactType ?? resource?.type ?? '').toLowerCase();
+}
+
+function activeRevisionMatchesRoute(revision: Record<string, unknown> | null, fileId: string, searchParams: URLSearchParams, resource: any): boolean {
+  if (!revision) return false;
+  const urlRevisionId = searchParams.get('view_revision_id') || searchParams.get('revision_id');
+  if (urlRevisionId && revision.id === urlRevisionId) return true;
+  const intent = revision.intent && typeof revision.intent === 'object'
+    ? revision.intent as Record<string, unknown>
+    : {};
+  if (intent.skillId === fileId) return true;
+  if (resource && intent.skillId === resource.id) return true;
+  const skillRevisionId = String(revision.skill_revision_id ?? revision.skillRevisionId ?? '');
+  return Boolean(skillRevisionId && (skillRevisionId === fileId || skillRevisionId.startsWith(`${fileId}:`) || (resource?.id && skillRevisionId.startsWith(`${resource.id}:`))));
+}
+
+function ProductionRouteUnavailable({ fileId }: { fileId: string }) {
+  return (
+    <section className="flex h-full min-h-[360px] items-center justify-center bg-slate-50 p-4 md:p-8" role="alert">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm md:p-8">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
+          <AlertIcon className="h-5 w-5" />
+        </div>
+        <h2 className="mt-5 text-lg font-semibold text-slate-900">等待服务端返回数据</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          当前深链已保留，但资源目录、ViewRevision 或 route capability 尚未由服务端 bootstrap 返回。页面不会用固定示例数据填充成功状态。
+        </p>
+        <code className="mt-4 block break-all rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">{fileId}</code>
+      </div>
+    </section>
+  );
+}
 
 export default function MainAreaPane({ fileId, errorState, searchParams, setSearchParams, showToast, isWorkspaceEmpty, telemetryEnabled = true }: any) {
 
   const renderContent = () => {
     if (fileId === 'team_empty') return <EmptyState type="empty_dir" />;
     if (errorState === 'no_permission' || fileId === 'dataset_no_permission') return <EmptyState type="no_permission" />;
+    const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
+    const subtype = normalizedSubtype(resource);
+    const isTeamResource = resource?.space === 'team' || resource?.readonly === true;
+    const activeRevision =
+      activeSkillViewRevision && typeof activeSkillViewRevision === 'object'
+        ? activeSkillViewRevision as Record<string, unknown>
+        : null;
+
+    const generatedViewModel =
+      activeRevisionMatchesRoute(activeRevision, fileId, searchParams, resource) &&
+      activeRevision?.viewModel &&
+      typeof activeRevision.viewModel === 'object'
+        ? activeRevision.viewModel as Record<string, unknown>
+        : null;
+    if (generatedViewModel?.template === 'dashboard' || generatedViewModel?.template === 'chart') {
+      return <DashboardView fileId={fileId} isTeam={false} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+    if (generatedViewModel?.template === 'semantic') {
+      return <SemanticView fileId={fileId} isTeam={false} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+    if (generatedViewModel?.template === 'graph_ontology') {
+      return <KnowledgeGraphView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+    if (generatedViewModel?.template === 'sop') {
+      return <SkillSOPView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+    if (generatedViewModel?.template === 'monitoring') {
+      return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+
+    if (fileId !== 'welcome' && !isProductionRouteAvailable(fileId)) {
+      return <ProductionRouteUnavailable fileId={fileId} />;
+    }
     
     if (fileId === 'evaluation_detail') return <EvaluationCenterView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
-    if (fileId.startsWith('journey_')) return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
-    if (fileId === 'kg_sales') return <KnowledgeGraphView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
 
     if (fileId === 'data_overview') return <DataOverviewView searchParams={searchParams} setSearchParams={setSearchParams} />;
     if (fileId === 'add_data' || fileId === 'connector_catalog') return <AddDataView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     if (fileId === 'add_kb') return <AddKnowledgeBaseView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     if (fileId === 'upload_doc') return <UploadDocView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     if (fileId === 'skill_builder') return <SkillBuilderView searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
-    
-    const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
+    if (fileId.startsWith('journey_')) return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
 
     if (resource?.resourceKind === 'skill_draft') {
       return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
     }
 
-    const generatedViewModel =
-      activeSkillViewRevision?.viewModel &&
-      typeof activeSkillViewRevision.viewModel === 'object'
-        ? activeSkillViewRevision.viewModel as Record<string, unknown>
-        : null;
-    const generatedViewOwner = activeSkillViewRevision?.skill_revision_id;
-    if (
-      resource?.resourceKind === 'skill_draft' &&
-      generatedViewOwner === `${fileId}:${resource.revision ?? 1}` &&
-      (generatedViewModel?.template === 'dashboard' || generatedViewModel?.template === 'chart')
-    ) {
-      return <DashboardView fileId={fileId} isTeam={resource.space === 'team'} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
-    }
-
-    if (resource?.resourceKind === 'source' || resource?.resourceKind === 'connection' || fileId === 'res_sample_postgres') {
+    if (resource?.resourceKind === 'source' || resource?.resourceKind === 'connection') {
       return <ConnectionDetailView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
 
-    if (fileId.startsWith('skill_') || resource?.resourceKind === 'skill') return <SkillArtifactView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    if (resource?.resourceKind === 'skill' && resource?.subtype === 'sop') {
+      return <SkillSOPView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
 
-    if (fileId.startsWith('dataset_') && fileId !== 'dataset_no_permission') return <DatasetView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} />;
+    if (resource?.resourceKind === 'skill' && resource?.subtype === 'monitoring') {
+      return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+
+    if (resource?.resourceKind === 'skill') return <SkillArtifactView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+
+    if (resource?.resourceKind === 'dataset') return <DatasetView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} />;
     
-    const isKb = fileId.startsWith('kb_') || fileId.startsWith('team_kb_') || resource?.artifactType === 'knowledge_base';
-    if (isKb) return <KnowledgeBaseView fileId={fileId} isTeam={fileId.startsWith('team_kb_') || resource?.readonly} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    const isKb = resource?.resourceKind === 'knowledge_base' || subtype === 'knowledge_base';
+    if (isKb) return <KnowledgeBaseView fileId={fileId} isTeam={isTeamResource} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
 
-    const isDoc = fileId.startsWith('doc_') || fileId.includes('document') || resource?.artifactType === 'document' || resource?.type === 'document';
+    const isDoc = resource?.resourceKind === 'document' || subtype === 'document';
     if (isDoc) return <DocumentView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     
-    const isDash = fileId.includes('dashboard') || fileId === 'res_dash_recruitment' || fileId === 'res_dash_finance' || fileId === 'res_dash_east' || resource?.artifactType === 'dashboard' || resource?.type === 'dashboard';
+    const isDash = subtype === 'dashboard';
     if (isDash) {
-      const isTeam = fileId.startsWith('team_') || (fileId.includes('team_') && !fileId.startsWith('personal_'));
-      return <DashboardView fileId={fileId} isTeam={isTeam} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+      return <DashboardView fileId={fileId} isTeam={isTeamResource} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
     
-    const isSemantic = fileId.includes('semantic') || resource?.artifactType === 'semantic' || resource?.type === 'semantic_model';
+    const isSemantic = subtype === 'semantic' || resource?.type === 'semantic_model';
     if (isSemantic) {
-      const isTeam = fileId.startsWith('team_') || (fileId.includes('team_') && !fileId.startsWith('personal_'));
-      return <SemanticView fileId={fileId} isTeam={isTeam} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+      return <SemanticView fileId={fileId} isTeam={isTeamResource} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
     
-    const isChart = fileId.includes('chart') || resource?.artifactType === 'chart' || resource?.type === 'chart';
+    const isChart = subtype === 'chart';
     if (isChart) {
-      const isTeam = fileId.startsWith('team_') || (fileId.includes('team_') && !fileId.startsWith('personal_'));
-      return <ChartView fileId={fileId} isTeam={isTeam} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+      return <ChartView fileId={fileId} isTeam={isTeamResource} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
 
-    // Invalid resource -> fallback to home_chat
-    return <InvalidRouteHandler searchParams={searchParams} setSearchParams={setSearchParams} />;
+    return <ProductionRouteUnavailable fileId={fileId} />;
   };
 
   return (
@@ -97,13 +166,4 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
       {renderContent()}
     </div>
   );
-}
-
-function InvalidRouteHandler({ searchParams, setSearchParams }: any) {
-  useEffect(() => {
-    const p = new URLSearchParams(searchParams);
-    p.set('file', 'welcome');
-    setSearchParams(p, { replace: true });
-  }, [searchParams, setSearchParams]);
-  return null;
 }

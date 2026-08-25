@@ -124,9 +124,12 @@ export function getServerContextRef(
   return undefined;
 }
 
+let fallbackRequestCounter = 0;
+
 function requestId(): string {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-  return `domain-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  fallbackRequestCounter += 1;
+  return `domain-${Date.now()}-${fallbackRequestCounter}`;
 }
 
 function idempotencyKey(): string {

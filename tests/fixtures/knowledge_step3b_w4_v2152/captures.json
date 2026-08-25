@@ -1,0 +1,111 @@
+{
+  "schemaVersion": "1.0",
+  "prototypeSha256": "0a672e34dd8f5cf416a73334b519679ee756f2c50ea8710166dae4b6b6c41b15",
+  "states": [
+    {
+      "name": "home",
+      "stateUrl": "/?file=welcome",
+      "routeId": "welcome",
+      "entryAction": "open workspace root",
+      "serverObject": "workspace bootstrap"
+    },
+    {
+      "name": "agent-clarify",
+      "stateUrl": "/?file=welcome&chat=clarify",
+      "routeId": "welcome",
+      "entryAction": "submit ambiguous SOP request",
+      "serverObject": "skill-authoring.start awaiting_input"
+    },
+    {
+      "name": "bluetooth-sop-draft",
+      "stateUrl": "/?file=draft_sop_bluetooth&pane=open",
+      "routeId": "draft_sop_bluetooth",
+      "entryAction": "confirm recommended SOP template",
+      "serverObject": "SkillDraft revision"
+    },
+    {
+      "name": "edit-sop-step",
+      "stateUrl": "/?file=draft_sop_bluetooth&edit_step=Step_2&pane=open",
+      "routeId": "draft_sop_bluetooth",
+      "entryAction": "select SOP step 2",
+      "serverObject": "AssistantContextEnvelope element reference"
+    },
+    {
+      "name": "bluetooth-sop-input",
+      "stateUrl": "/?file=draft_sop_bluetooth&run_state=input&pane=open",
+      "routeId": "draft_sop_bluetooth",
+      "entryAction": "click trial run",
+      "serverObject": "skill-draft.run pending input"
+    },
+    {
+      "name": "bluetooth-sop-result",
+      "stateUrl": "/?file=draft_sop_bluetooth&run_state=result&pane=open",
+      "routeId": "draft_sop_bluetooth",
+      "entryAction": "Runner returns succeeded trace",
+      "serverObject": "SkillDraftRunResult"
+    },
+    {
+      "name": "publish-to-agent",
+      "stateUrl": "/?file=draft_sop_bluetooth&run_state=result&pane=open&modal=publish_agent",
+      "routeId": "draft_sop_bluetooth",
+      "entryAction": "open publish-to-Agent modal from current Skill",
+      "serverObject": "publication.publish gate"
+    },
+    {
+      "name": "anta-dashboard-draft",
+      "stateUrl": "/?file=draft_dash_anta&pane=open",
+      "routeId": "draft_dash_anta",
+      "entryAction": "generate dashboard from template",
+      "serverObject": "SkillViewRevision dashboard"
+    },
+    {
+      "name": "anta-dashboard-result",
+      "stateUrl": "/?file=draft_dash_anta&run_state=result&pane=open",
+      "routeId": "draft_dash_anta",
+      "entryAction": "Runner renders dashboard HTML",
+      "serverObject": "Trusted HTML artifact revision"
+    },
+    {
+      "name": "publish-team",
+      "stateUrl": "/?file=draft_dash_anta&run_state=result&pane=open&modal=publish",
+      "routeId": "draft_dash_anta",
+      "entryAction": "open publish-to-team modal from Skill menu",
+      "serverObject": "policy-gate.evaluate + publication.publish"
+    },
+    {
+      "name": "haidilao-sop-draft",
+      "stateUrl": "/?file=draft_sop_haidilao&pane=open",
+      "routeId": "draft_sop_haidilao",
+      "entryAction": "generate Haidilao SOP template",
+      "serverObject": "SkillDraft revision"
+    },
+    {
+      "name": "haidilao-sop-input",
+      "stateUrl": "/?file=draft_sop_haidilao&run_state=input&pane=open",
+      "routeId": "draft_sop_haidilao",
+      "entryAction": "click trial run",
+      "serverObject": "skill-draft.run pending input"
+    },
+    {
+      "name": "haidilao-sop-result",
+      "stateUrl": "/?file=draft_sop_haidilao&run_state=result&pane=open",
+      "routeId": "draft_sop_haidilao",
+      "entryAction": "Runner returns succeeded trace",
+      "serverObject": "SkillDraftRunResult"
+    },
+    {
+      "name": "published-sop-monitoring",
+      "stateUrl": "/?file=pub_sop_bluetooth",
+      "routeId": "pub_sop_bluetooth",
+      "entryAction": "open published Skill monitoring",
+      "serverObject": "MonitoringViewModel invocations"
+    },
+    {
+      "name": "optimization-draft",
+      "stateUrl": "/?file=draft_sop_bluetooth_opt",
+      "routeId": "draft_sop_bluetooth_opt",
+      "entryAction": "create optimization draft from failed case",
+      "serverObject": "SkillAuthoringPatchResult"
+    }
+  ]
+}

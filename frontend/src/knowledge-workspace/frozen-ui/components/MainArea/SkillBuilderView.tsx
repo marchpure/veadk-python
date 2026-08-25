@@ -5,6 +5,11 @@ import { cn } from '../../lib/utils';
 import { createRequestContext } from '../../../production/ports';
 import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
 
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+
 export default function SkillBuilderView({ searchParams, setSearchParams, showToast }: any) {
   const rawAdapter = searchParams.get('adapter') || 'web_api';
   const adapter = rawAdapter === 'web_discovery' ? 'web_api' : rawAdapter;
@@ -55,11 +60,15 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
           displayName: prompt.trim().slice(0, 80),
         },
       }, createRequestContext());
-      const result = response.result ?? {};
-      if (!response.accepted || !result.draft) throw new Error(String(result.error?.message ?? 'Agent 未返回 SkillDraft。'));
-      setDraft(result.draft);
+      const result = asRecord(response.result);
+      const draftResult = asRecord(result.draft);
+      const errorResult = asRecord(result.error);
+      if (!response.accepted || !draftResult.id && !draftResult.draft_id) {
+        throw new Error(String(errorResult.message ?? 'Agent 未返回 SkillDraft。'));
+      }
+      setDraft(draftResult);
       setOperation(result.operation ?? null);
-      setManifest(JSON.stringify(result.draft.manifest ?? {}, null, 2));
+      setManifest(JSON.stringify(asRecord(draftResult.manifest), null, 2));
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Agent authoring 失败。');
@@ -81,13 +90,14 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
         command: 'skill-authoring.execute',
         payload: { draftId: draft.draft_id, revision: draft.revision },
       }, createRequestContext());
-      const result = response.result ?? {};
+      const result = asRecord(response.result);
       if (!response.accepted || (result.status && !['succeeded', 'ready_for_execution'].includes(String(result.status)))) {
-        throw new Error(String(result.error?.message ?? 'Runner 未确认执行成功。'));
+        throw new Error(String(asRecord(result.error).message ?? 'Runner 未确认执行成功。'));
       }
+      const operationResult = asRecord(result.operation);
       setOperation(result.operation ?? operation);
       setDraft(result.draft ?? draft);
-      setArtifact(result.operation?.artifactResult ?? result.operation?.artifact_result ?? null);
+      setArtifact(operationResult.artifactResult ?? operationResult.artifact_result ?? null);
       await bootstrapWorkspace(undefined, getWorkspaceAdapter());
       return true;
     } catch (cause) {
@@ -119,8 +129,8 @@ export default function SkillBuilderView({ searchParams, setSearchParams, showTo
         command: 'publication.publish',
         payload: { draftId: draft.draft_id, revision: draft.revision, semver: '0.1.0' },
       }, createRequestContext());
-      const result = response.result ?? {};
-      if (!response.accepted || result.status !== 'succeeded') throw new Error(String(result.error?.message ?? '评测门禁未通过，Skill 未发布。'));
+      const result = asRecord(response.result);
+      if (!response.accepted || result.status !== 'succeeded') throw new Error(String(asRecord(result.error).message ?? '评测门禁未通过，Skill 未发布。'));
       showToast?.(`Skill 已由服务端发布至 ${space === 'team' ? '团队' : '个人'}空间。`);
     const p = new URLSearchParams(searchParams);
     p.set('file', draft.draft_id);

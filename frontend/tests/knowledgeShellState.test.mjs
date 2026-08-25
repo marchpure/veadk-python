@@ -53,9 +53,11 @@ test("the review acceptance drawer is reachable as the v212 entry route", () => 
   assert.match(entryDrawer, /进入企业知识旅程/);
 });
 
-test("Capability Matrix east dashboard routes do not fall back to home", () => {
-  assert.match(mainArea, /fileId === 'res_dash_east'/);
-  assert.match(mainArea, /const isDash = .*res_dash_east/);
+test("unknown Capability Matrix artifact routes keep a gated deep link instead of falling back to home", () => {
+  assert.match(mainArea, /ProductionRouteUnavailable/);
+  assert.match(mainArea, /isProductionRouteAvailable\(fileId\)/);
+  assert.doesNotMatch(mainArea, /res_dash_east/);
+  assert.doesNotMatch(mainArea, /set\('file', 'welcome'\)/);
 });
 
 test("journey stages are server-derived and expose one primary CTA", () => {

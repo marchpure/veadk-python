@@ -31,12 +31,15 @@ type StageId = "prepare" | "debug" | "publish";
 type ServerReadModel = Record<string, unknown>;
 type CommandName = "skill-draft.run" | "skill-draft.retry" | "evaluation.run" | "publication.publish" | "invocation.start";
 
-const JOURNEYS: Record<string, { title: string; description: string }> = {
-  journey_knowledge: { title: "企业知识", description: "将可信知识素材调试为可评测的 Skill 草稿。" },
-  journey_oracle_excel: { title: "Oracle + Excel", description: "外部凭证就绪后，可接入数据库与表格素材。" },
-  journey_web_api: { title: "网页 / API", description: "Web/API 连接器的生产读取由凭证与策略控制。" },
-  journey_financial_monitor: { title: "金融监控", description: "使用历史数据评测监控类 Skill 的质量与新鲜度。" },
-  journey_workday_mcp: { title: "Workday MCP", description: "MCP 连接保持 allowlist 与凭证边界。" },
+const stringField = (value: unknown, key: string): string | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const field = (value as Record<string, unknown>)[key];
+  return typeof field === "string" && field ? field : undefined;
+};
+
+const DEFAULT_JOURNEY = {
+  title: "Skill",
+  description: "服务端返回 SkillDraft、BuildPlan、operation 和 ViewRevision 后，页面按真实状态展示。",
 };
 
 const STAGES: Array<{ id: StageId; label: string; description: string }> = [
@@ -220,7 +223,9 @@ export default function JourneyDetailView({
   setSearchParams,
 }: any) {
   const resources = useStore(resourceStore);
-  const journey = JOURNEYS[fileId] ?? JOURNEYS.journey_knowledge;
+  const fallbackTitle = fileId.startsWith("journey_")
+    ? "Skill Builder"
+    : "Skill";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<KnowledgeCommandResult | null>(null);
@@ -254,9 +259,19 @@ export default function JourneyDetailView({
       : resource;
   }, [resource, lastResult]);
   const operation = resultModel(lastResult);
+  const effectiveModel = operation ?? serverModel;
+  const journey = {
+    title: stringField(effectiveModel ?? serverModel, "title") ??
+      stringField(effectiveModel ?? serverModel, "name") ??
+      stringField(resource, "displayName") ??
+      stringField(resource, "name") ??
+      fallbackTitle,
+    description: stringField(effectiveModel ?? serverModel, "description") ??
+      stringField(resource, "description") ??
+      DEFAULT_JOURNEY.description,
+  };
   const currentStage = stageFromReadModel(operation) ?? stageFromReadModel(serverModel);
   const currentIndex = STAGES.findIndex((stage) => stage.id === currentStage);
-  const effectiveModel = operation ?? serverModel;
   const retryable = readModelRetryable(effectiveModel);
   const modelAuthError = authErrorFromReadModel(effectiveModel);
   const serverArtifactError = textFromUnknown(effectiveModel?.renderError);
@@ -429,7 +444,7 @@ export default function JourneyDetailView({
                     skillVersionId: String(publishedVersion?.id ?? effectiveModel?.skillVersionId ?? currentDraftId),
                     skillViewRevisionId: String(
                       effectiveModel?.skillViewRevisionId ??
-                      effectiveModel?.skillViewRevision?.id ??
+                      stringField(effectiveModel?.skillViewRevision, "id") ??
                       "server-selected",
                     ),
                     inputRef: {

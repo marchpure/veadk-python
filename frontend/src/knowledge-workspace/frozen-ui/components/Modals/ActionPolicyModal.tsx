@@ -9,15 +9,15 @@ export default function ActionPolicyModal({ onClose, searchParams }: any) {
   const policy = policyId ? policies.find(p => p.id === policyId) : policies[0];
 
   const [form, setForm] = useState({
-    metric: policy?.metric || '招聘需求',
-    dimensionScope: policy?.dimensionScope || '国家=越南；岗位=销售',
-    threshold: policy?.threshold || '周环比 > 30%',
+    metric: policy?.metric || '',
+    dimensionScope: policy?.dimensionScope || '',
+    threshold: policy?.threshold || '',
     severity: policy?.severity || 'high',
     agentStrategy: policy?.agentStrategy || '',
     autoCreateTodo: policy?.autoCreateTodo || false,
-    defaultOwner: policy?.defaultOwner || 'Linh Nguyen',
-    slaHours: policy?.slaHours || 24,
-    reviewer: policy?.reviewer || '张总监 (VP of HR)'
+    defaultOwner: policy?.defaultOwner || '',
+    slaHours: policy?.slaHours || '',
+    reviewer: policy?.reviewer || ''
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -32,6 +32,10 @@ export default function ActionPolicyModal({ onClose, searchParams }: any) {
     setBusy(true);
     setError('');
     try {
+      if (!form.metric.trim() || !form.threshold.trim()) {
+        setError('请先填写服务端可识别的指标和阈值。');
+        return;
+      }
       const response = await runTypedCommand({
         command: 'action.update',
         payload: { actionId: `action-policy.upsert:${policy?.id || 'new'}:${form.metric}:${form.threshold}` },
@@ -62,18 +66,18 @@ export default function ActionPolicyModal({ onClose, searchParams }: any) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-slate-800 mb-1.5">指标 (Metric)</label>
-              <input type="text" value={form.metric} onChange={e=>setForm({...form, metric: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
+              <input type="text" value={form.metric} onChange={e=>setForm({...form, metric: e.target.value})} placeholder="选择或输入服务端指标 ID" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-800 mb-1.5">维度范围 (Scope)</label>
-              <input type="text" value={form.dimensionScope} onChange={e=>setForm({...form, dimensionScope: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
+              <input type="text" value={form.dimensionScope} onChange={e=>setForm({...form, dimensionScope: e.target.value})} placeholder="可选，使用服务端维度表达式" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-slate-800 mb-1.5">触发阈值 (Threshold)</label>
-              <input type="text" value={form.threshold} onChange={e=>setForm({...form, threshold: e.target.value})} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
+              <input type="text" value={form.threshold} onChange={e=>setForm({...form, threshold: e.target.value})} placeholder="例如 comparator + value，由服务端校验" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 shadow-sm" />
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-800 mb-1.5">严重级别 (Severity)</label>
