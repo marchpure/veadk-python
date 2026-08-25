@@ -52,7 +52,9 @@ class ResourceSummary(ContractModel):
 
 class BootstrapResponse(ContractModel):
     resources: list[ResourceSummary]
-    connections: list[dict[str, str]]
+    # Source/Golden projections contain nested configuration and discovered
+    # resources; a string-only map caused post-ingest bootstrap HTTP 500.
+    connections: list[dict[str, object]]
     publications: list[dict[str, str]]
     routes: list[str]
     workspace_data: dict[str, object]
