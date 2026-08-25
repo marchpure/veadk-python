@@ -622,6 +622,8 @@ class VeADKModelGateway:
             "For dependencies, data_refs, and lineage, copy the exact authorized "
             "resource references from authorized_context.resources, including kind, "
             "object_id, revision, and scope. Do not infer, broaden, or change scope. "
+            "For analysis query_plan.source_revision, copy the exact revision from "
+            "the selected authorized Golden resource ref; never use provider_revision. "
             "For a simple conversational greeting or underspecified request, return "
             "a concise typed clarification_questions list and do not call MCP or "
             "invent a Dashboard, sales report, or other artifact. For the exact "
@@ -752,7 +754,10 @@ class LocalPlanningHarness:
             ),
         )
         query = QueryPlan(
-            source_revision=source.provider_revision,
+            # The query plan binds to the fixed Golden revision exposed in
+            # Context Envelope. provider_revision is server-side lineage and
+            # is intentionally not a valid user context pin.
+            source_revision=source.ref.revision,
             selected_fields=tuple(fields[: 3 + variant]),
             filters={},
             limit=50 if variant == 0 else 100,

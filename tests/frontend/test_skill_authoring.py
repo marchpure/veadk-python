@@ -120,6 +120,26 @@ def test_veadk_build_plan_parser_accepts_structured_transport_wrappers() -> None
     assert clarification.dependencies == ()
 
 
+@pytest.mark.asyncio
+async def test_local_analysis_query_plan_binds_fixed_golden_revision() -> None:
+    golden = resource(revision="golden-r1")
+    provider_backing = golden.model_copy(update={"provider_revision": "source-r1"})
+    resolver = InMemoryResourceResolver((provider_backing,))
+    resolver.grant("user_1", "workspace_1", golden.ref)
+    context = await resolver.resolve(
+        envelope(golden.ref, "基于当前指标生成分析看板"),
+        (golden.ref,),
+    )
+
+    plan = await LocalPlanningHarness().propose_plan(
+        context, requested_kind=SkillKind.ANALYSIS
+    )
+
+    assert plan.query_plan is not None
+    assert plan.query_plan.source_revision == "golden-r1"
+    assert plan.query_plan.source_revision != "source-r1"
+
+
 @pytest.fixture
 def setup_authoring(tmp_path: Path):
     ref = resource().ref
