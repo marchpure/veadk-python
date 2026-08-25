@@ -7,6 +7,7 @@ import csv
 import html
 import io
 import json
+import os
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -123,6 +124,7 @@ from .evaluation_quality.models import (
 from frontend.server.skill_authoring.models import (
     AuthoringErrorCode,
     AuthoringReadModel,
+    Budget,
     ContextEnvelope,
     FreshnessPolicy,
     ResourceRef as AuthoringResourceRef,
@@ -357,6 +359,23 @@ class KnowledgeAssetApplication:
             permissions=tuple(str(item) for item in payload.get("permissions", [])),
             fixed_revisions=tuple(
                 str(item) for item in payload.get("fixed_revisions", [])
+            ),
+            # Real VEADK tool-assisted authoring can require more than the
+            # short unit-test default before it emits its typed BuildPlan.
+            # Keep the frozen upper bound and allow operators to lower it.
+            budget=Budget(
+                timeout_ms=min(
+                    max(
+                        int(
+                            os.getenv(
+                                "MODEL_AGENT_TIMEOUT_MS",
+                                "120000",
+                            )
+                        ),
+                        100,
+                    ),
+                    120000,
+                )
             ),
             freshness=FreshnessPolicy(),
             current_skill_id=payload.get("current_skill_id"),

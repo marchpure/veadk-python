@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from pathlib import Path
 
@@ -12,6 +13,80 @@ from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import SqliteKnowledgeAssetRepository
 from .routes import mount_knowledge_asset_routes
 from .sources_golden import SourceGoldenApplication
+from frontend.server.skill_authoring.ports import (
+    McpToolBundle,
+    VeADKModelGateway,
+)
+
+
+class _MainMcpToolProvider:
+    """Expose only persisted, authorized W1 MCP configs to the W2 gateway."""
+
+    def __init__(self, source_golden: SourceGoldenApplication) -> None:
+        self._source_golden = source_golden
+
+    async def tools_for(self, context) -> McpToolBundle:
+        from google.adk.tools.mcp_tool.mcp_session_manager import (
+            StdioConnectionParams,
+            StdioServerParameters,
+        )
+        from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
+        from .sources_golden import AccessContext
+
+        revision_ids = [
+            ref.revision
+            for ref in context.envelope.resource_refs
+            if ref.kind == "golden_asset"
+        ]
+        configurations = self._source_golden.mcp_tool_configurations(
+            AccessContext(
+                workspace_id=context.envelope.workspace_id,
+                principal_id=context.envelope.caller_id,
+                role="editor",
+            ),
+            revision_ids,
+        )
+        if not configurations:
+            return McpToolBundle(tools=(), schemas={}, credentialed=False)
+        toolsets = []
+        schemas: dict[str, object] = {}
+        for configuration in configurations:
+            env = configuration.get("env")
+            if env is not None and (
+                not isinstance(env, dict)
+                or not all(
+                    isinstance(key, str) and isinstance(value, str)
+                    for key, value in env.items()
+                )
+            ):
+                raise RuntimeError("MCP profile env must be a string mapping")
+            args = configuration["args"]
+            if not all(isinstance(item, str) for item in args):
+                raise RuntimeError("MCP profile args must be strings")
+            allowlist = configuration.get("toolAllowlist", [])
+            if not isinstance(allowlist, list) or not all(
+                isinstance(item, str) for item in allowlist
+            ):
+                raise RuntimeError("MCP profile toolAllowlist must be strings")
+            toolsets.append(
+                McpToolset(
+                    connection_params=StdioConnectionParams(
+                        server_params=StdioServerParameters(
+                            command=configuration["command"],
+                            args=args,
+                            cwd=configuration.get("cwd"),
+                            env=env,
+                        )
+                    ),
+                    tool_filter=allowlist,
+                )
+            )
+            schemas.update({item: {"source": "W1 persisted MCP schema"} for item in allowlist})
+        return McpToolBundle(
+            tools=tuple(toolsets),
+            schemas=schemas,
+            credentialed=True,
+        )
 
 
 def create_app(
@@ -62,11 +137,18 @@ def create_app(
         source_root=runtime_root / "sources",
         mcp_profiles=mcp_profiles,
     )
+    authoring_gateway = VeADKModelGateway(
+        mcp_tools=_MainMcpToolProvider(sources_golden),
+        model_name=os.getenv("MODEL_AGENT_MODEL") or os.getenv("MODEL_AGENT_NAME"),
+        model_api_base=os.getenv("MODEL_AGENT_API_BASE") or os.getenv("OPENAI_BASE_URL"),
+        model_api_key=os.getenv("MODEL_AGENT_API_KEY") or os.getenv("OPENAI_API_KEY"),
+    )
     mount_knowledge_asset_routes(
         app,
         application=KnowledgeAssetApplication(
             repository,
             sources_golden=sources_golden,
+            authoring_model_gateway=authoring_gateway,
         ),
         identity_resolver=identity_resolver,
     )
