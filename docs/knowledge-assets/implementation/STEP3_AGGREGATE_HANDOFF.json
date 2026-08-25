@@ -3,8 +3,8 @@
   "step4Ready": false,
   "latestMainIntegration": {
     "status": "BLOCKED_PENDING_W4_READ_ONLY_REAUDIT",
-    "commit": "61b2db88",
-    "previousCommit": "414c0956",
+    "commit": "3f982a77577567684b879add06048ca797f00d68",
+    "previousCommit": "61b2db88",
     "workerInputs": {
       "W1": "cc444c679185f585de1383f01882b741dfdca329",
       "W2": "39a1ff975867392c69c1d509da262d66cf3749df",
@@ -15,7 +15,9 @@
       "server-owned stdio MCP profile assembly is fail-closed and excludes display label from executable configuration",
       "Dashboard artifact lineage carries generationId and complete distDigest in build/revision/manifest/result",
       "Bootstrap accepts nested Source/Golden connection projections without HTTP 500",
-      "Source/Golden runtime roots are derived from the durable repository path rather than process cwd"
+      "Source/Golden runtime roots are derived from the durable repository path rather than process cwd",
+      "MAIN composes persisted W1 MCP configuration into the official VEADK Agent/Runner gateway",
+      "MAIN authoring uses an operator-configurable timeout bounded by the frozen 120-second maximum"
     ],
     "verification": {
       "dashboardArtifactFocused": "7 passed",
@@ -24,11 +26,26 @@
       "combinedFocused": "54 passed",
       "bootstrapAndSourceGoldenRegression": "63 passed",
       "realMcpApi": "bootstrap 200; connection.create 200; stdio initialize/tools/list/tools/call; ingest 200; post-ingest bootstrap 200",
-      "realBrowserMcpCommands": "Chrome clicked Add Data → MCP Server → infra-local → 下一步 → 保存连接; typed connection.create and ingest requests observed"
+      "realBrowserMcpCommands": "Chrome clicked Add Data → MCP Server → infra-local → 下一步 → 保存连接; typed connection.create and ingest requests observed",
+      "realMainMcpAuthoring": {
+        "status": "SUCCEEDED_PENDING_W4_READ_ONLY_REAUDIT",
+        "bffPort": 8820,
+        "connectionId": "connection-5e94c9786e8c1ac2060913a6",
+        "mcpResourceId": "mcp-tool-42d01c0892083109e8ef4d27",
+        "goldenAssetRevisionId": "golden-2fbea70483267c421a137722-r1-866d7fa7",
+        "skillDraftId": "draft_a47f19c0bf82479a9f2685dcea5d6020",
+        "operationId": "op_0ced745c7a3b4917a2a686a149834392",
+        "sessionId": "skill-authoring-main-real-authoring-4",
+        "traceId": "df8e4ad2b74eb0246699fbe6264a780e",
+        "toolCall": "infrastructure.metrics requested+succeeded",
+        "planId": "plan_infra_cpu_utilization_highest",
+        "planDigest": "fc8167eb7f5f07311d11",
+        "result": "typed SkillDraft and BuildPlan persisted with status ready_for_execution"
+      }
     },
     "knownDebt": [
       "Browser final success-state/render evidence after save is incomplete",
-      "Credentialed veadk.Agent/Runner success is not available on MAIN",
+      "W4 must re-audit the new credentialed veadk.Agent/Runner success on exact MAIN SHA 3f982a77577567684b879add06048ca797f00d68",
       "Dashboard build/render is not yet bound to the same real MCP correlation",
       "Production publish and second-session invocation UI chain remains unproven"
     ],
@@ -61,7 +78,8 @@
   "studioUrl": "http://127.0.0.1:4173/?studio=knowledge",
   "apiUrl": "http://127.0.0.1:8793",
   "knownDebt": [
-    "W1 READY_FOR_INTEGRATION cc444c67 is integrated through bcdcef5a/bceef745/e33c09a7/1713d749; Main 99fc70a1 wires typed source-golden commands, bootstrap projection, and W1 Golden revision resolution into authoring",
+      "W1 READY_FOR_INTEGRATION cc444c67 is integrated through bcdcef5a/bceef745/e33c09a7/1713d749; Main 99fc70a1 wires typed source-golden commands, bootstrap projection, and W1 Golden revision resolution into authoring",
+      "MAIN 3f982a77 wires persisted W1 MCP tool configurations into real veadk.Agent/Runner; real non-sales authoring succeeded with typed SkillDraft/BuildPlan, but W4 final read-only verification remains required",
     "W3 dashboard artifact integration 9eef0d01 exposed a JSON numeric-value coercion regression; MAIN fixed the narrow parser boundary in 9139e17f and verified dashboard artifact 7 passed plus kind runtime 23 passed; this does not constitute P0-3 acceptance",
     "W3 hardening 1b07a763 is integrated as MAIN 6d89cefb; W2 hardening a03cb607 is integrated as MAIN 400b8774 with semantic conflict resolution preserving MAIN stage/progress/context binding; W4 corrective commit 6ee81405 is integrated as MAIN ecf54021; W4 duplicate-test audit is fixed in ae766572 but W4 final read-only verification has not audited the resulting Main/W1 wiring",
     "Main W1 BFF seam proves custom stdio initialize/tools/list/tools/call and Source/Golden ingest; c8ff38cf restricts browser MCP requests to server-registered profiles and rejects arbitrary command/args/cwd/env. Final P0-1 still requires UI-configured evidence and P0-2 still requires credentialed real Agent/Runner output",
@@ -90,12 +108,12 @@
       "result": "Temporary evidence exists, but W4 strict audit rejects it as final P0 evidence; formal protocol/failure/chain evidence remains required"
     },
     "P0-2": {
-      "status": "BLOCKED",
-      "sessionId": "step3-real-agent-20260825",
-      "traceId": "b9b2aaed581c621fd545fee7e97b086a",
-      "evidence": "/tmp/knowledge-step3-evidence-final-20260825/agent-evidence.json",
-      "traceFile": "/tmp/knowledge-step3-evidence-final-20260825/veadk_opentelemetry_tracer_veadk_default_user_step3-real-agent-20260825_b9b2aaed581c621fd545fee7e97b086a.json",
-      "result": "Temporary evidence exists, but W4 strict audit rejects it as final P0 evidence; credentialed non-sales production chain remains unproven"
+      "status": "PENDING_W4_READ_ONLY_REAUDIT",
+      "sessionId": "skill-authoring-main-real-authoring-4",
+      "traceId": "df8e4ad2b74eb0246699fbe6264a780e",
+      "operationId": "op_0ced745c7a3b4917a2a686a149834392",
+      "skillDraftId": "draft_a47f19c0bf82479a9f2685dcea5d6020",
+      "result": "Real MAIN Agent/Runner produced and persisted typed SkillDraft/BuildPlan from pinned Golden data; W4 read-only audit required before gate status changes"
     },
     "P0-3": {
       "status": "BLOCKED",
