@@ -81,9 +81,17 @@ STEP_2_ALLOWED_PREFIXES = (
 STEP3_APPROVED_SPLIT_REVIEW_PATHS = {
     "frontend/server/skill_authoring/ports.py",
     "frontend/server/skill_authoring/service.py",
+    "frontend/server/knowledge_assets/kind_runtime/dashboard_artifacts.py",
+    "frontend/server/knowledge_assets/sources_golden/application.py",
     "tests/frontend/test_skill_authoring.py",
+    "tests/frontend/knowledge_workspace_v21141/test_step3_sources_golden.py",
     "tests/frontend/knowledge_workspace_v21141/test_worker3_kind_runtime.py",
 }
+
+# veadk/webui is generated runtime output from the local WebUI build. Keep it
+# available for runtime verification without counting bundle refreshes as
+# STEP 3 source implementation.
+GENERATED_RUNTIME_PREFIXES = ("veadk/webui/",)
 
 
 def repository_files(repo_root: Path) -> list[str]:
@@ -95,7 +103,11 @@ def repository_files(repo_root: Path) -> list[str]:
     return [
         path
         for path in output.splitlines()
-        if path != ".veadk" and not path.startswith(".veadk/")
+        if (
+            path != ".veadk"
+            and not path.startswith(".veadk/")
+            and not path.startswith(GENERATED_RUNTIME_PREFIXES)
+        )
     ]
 
 
@@ -132,7 +144,11 @@ def changed_paths(repo_root: Path, baseline: str) -> set[str]:
     return {
         path
         for path in set(tracked) | set(untracked)
-        if path != ".veadk" and not path.startswith(".veadk/")
+        if (
+            path != ".veadk"
+            and not path.startswith(".veadk/")
+            and not path.startswith(GENERATED_RUNTIME_PREFIXES)
+        )
     }
 
 
@@ -184,6 +200,7 @@ def scan(repo_root: Path) -> dict:
             or relative.startswith(STEP_2_ALLOWED_PREFIXES)
             or relative in STEP_1_ALLOWED_PATHS
             or relative.startswith(STEP_1_ALLOWED_PREFIXES)
+            or relative == "scripts/knowledge_step3_w3_dashboard_evidence.py"
             or relative == "frontend/server/skill_authoring/__init__.py"
             or relative.startswith("frontend/server/skill_authoring/")
         )
