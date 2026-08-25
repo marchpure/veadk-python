@@ -134,7 +134,7 @@
       "command": "STEP3_MCP_PROFILE_ID=infra-evidence STEP3_MCP_SERVER_PATH=$PWD/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py STEP3_MCP_DATA_PATH=$PWD/.veadk/mcp-evidence/metrics.json MODEL_AGENT_TIMEOUT_MS=120000 python -m uvicorn scripts.knowledge_asset_step3_server:app --host 127.0.0.1 --port 8837",
       "daemonPid": 81192,
       "probePid": 0,
-      "evidence": "/tmp/main-mcp-mutation-evidence.json",
+      "evidence": "/Users/bytedance/.codex/coordination/knowledge-step3/main-final-evidence-4de57f94/main-mcp-mutation-evidence.json",
       "result": "Independent persistent MCP profile completed initialize/tools/list/tools/call, two typed ingests and Source/Golden revisions; W4 strict final audit remains required"
     },
     "P0-2": {
@@ -153,9 +153,9 @@
       "httpPid": 74243,
       "beforeHtmlDigest": "3047d0928c0e31540b51391f190fced94d9b1e19e32c36684361ffc5dbeede45",
       "afterHtmlDigest": "1bd84c396504ad0357dab710aa0040b190f2566e4cd8acd0afd236c9d9e6c0f8",
-      "screenshot": "/tmp/main-dashboard-mutated.png",
+      "screenshot": "/Users/bytedance/.codex/coordination/knowledge-step3/main-final-evidence-4de57f94/main-dashboard-mutated.png",
       "screenshotSha256": "7603bcb1b36f539e6f94c33c30a140b65fe15124335a7efdcf1c7f51623dcd06",
-      "evidence": "/tmp/main-mcp-mutated-execution-after-sync.json",
+      "evidence": "/Users/bytedance/.codex/coordination/knowledge-step3/main-final-evidence-4de57f94/main-mcp-mutated-execution-after-sync.json",
       "result": "Both real Chromium renders succeeded with no page errors; KPI changed 52.15 to 65.1, chart changed 41.2/63.1 to 58.4/71.8, and HTML/dist digests changed"
     }
   },
