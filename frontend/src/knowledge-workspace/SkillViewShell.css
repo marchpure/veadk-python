@@ -91,7 +91,13 @@
   background: hsl(var(--panel));
 }
 
+.skill-view-content {
+  overflow: hidden;
+}
+
 .skill-view-chat {
+  position: relative;
+  z-index: 1;
   align-self: start;
 }
 

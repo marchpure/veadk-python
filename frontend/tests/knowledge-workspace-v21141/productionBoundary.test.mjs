@@ -163,6 +163,10 @@ test("production Skill View restores the authenticated immutable HTML revision",
     join(root, "SkillViewShell.tsx"),
     "utf8",
   );
+  const styles = readFileSync(
+    join(root, "SkillViewShell.css"),
+    "utf8",
+  );
   assert.match(source, /activeSkillViewRevision/);
   assert.match(source, /projectionFromViewRevision\(restoredView\)/);
   assert.match(source, /TrustedHtmlArtifactRenderer/);
@@ -170,6 +174,8 @@ test("production Skill View restores the authenticated immutable HTML revision",
   assert.match(source, /command: "skill-authoring\.patch"/);
   assert.match(source, /command: "skill-authoring\.execute"/);
   assert.doesNotMatch(source, /command: "assistant\.turn"/);
+  assert.match(styles, /\.skill-view-content\s*\{\s*overflow: hidden;/);
+  assert.match(styles, /\.skill-view-chat\s*\{\s*position: relative;\s*z-index: 1;/);
 });
 
 test("all 47 frozen provenance targets are tracked in the checkout", () => {
