@@ -329,6 +329,30 @@ class BuildPlan(BaseModel):
     lineage: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     plan_digest: str
 
+    @model_validator(mode="before")
+    @classmethod
+    def infer_structural_analysis_kind(cls, value: object) -> object:
+        """Normalize the one unambiguous Ark structured-output omission.
+
+        Some Responses API models omit the discriminant while returning the
+        complete analysis shape.  The query plan is the canonical structural
+        marker; infer only that exact case so all other malformed or
+        conflicting plans remain rejected by the discriminated union.
+        """
+        if not isinstance(value, dict):
+            return value
+        kind_spec = value.get("kind_spec")
+        if (
+            value.get("intent") == SkillKind.ANALYSIS
+            and isinstance(kind_spec, dict)
+            and "kind" not in kind_spec
+            and isinstance(kind_spec.get("query_plan"), dict)
+        ):
+            normalized = dict(value)
+            normalized["kind_spec"] = {**kind_spec, "kind": SkillKind.ANALYSIS}
+            return normalized
+        return value
+
     @model_validator(mode="after")
     def plan_kind_matches_spec(self) -> "BuildPlan":
         if self.kind_spec.kind != self.intent:

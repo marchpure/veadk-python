@@ -140,6 +140,46 @@ async def test_local_analysis_query_plan_binds_fixed_golden_revision() -> None:
     assert plan.query_plan.source_revision != "source-r1"
 
 
+def test_build_plan_infers_only_unambiguous_analysis_kind() -> None:
+    payload = {
+        "plan_id": "plan-analysis",
+        "intent": "analysis",
+        "purpose": "生成 CPU 分析",
+        "nodes": [
+            {"node_id": "resolve_intent", "role": "intent_resolution"},
+            {
+                "node_id": "retrieve_data",
+                "role": "retrieval",
+                "depends_on": ["resolve_intent"],
+            },
+            {
+                "node_id": "worker3_execution",
+                "role": "worker3_execution",
+                "depends_on": ["retrieve_data"],
+            },
+        ],
+        "outputs": [{"name": "chart", "type": "chart"}],
+        "kind_spec": {
+            "query_plan": {
+                "source_revision": "golden-r1",
+                "selected_fields": ["service", "cpuPercent"],
+            },
+            "analysis_shape": "trend",
+            "unit": "%",
+        },
+        "query_plan": {
+            "source_revision": "golden-r1",
+            "selected_fields": ["service", "cpuPercent"],
+            "limit": 100,
+        },
+        "plan_digest": "plan-digest",
+    }
+
+    plan = BuildPlan.model_validate(payload)
+
+    assert plan.kind_spec.kind == SkillKind.ANALYSIS
+
+
 @pytest.fixture
 def setup_authoring(tmp_path: Path):
     ref = resource().ref
