@@ -1,0 +1,1 @@
+{"templateId":"knowledge","version":"1.1.0","viewModel":"knowledge","directions":["editorial","compact","executive"],"events":["search","open-citation","add-context","refresh"],"visualProfile":"knowledge-reader","compatibility":["agentkit","mcp","openapi","codex"]}

@@ -1152,6 +1152,20 @@
           "title": "Yfield",
           "type": "string"
         },
+        "chartType": {
+          "default": "line",
+          "enum": [
+            "line",
+            "bar",
+            "stacked_bar",
+            "area",
+            "donut",
+            "scatter",
+            "table"
+          ],
+          "title": "Charttype",
+          "type": "string"
+        },
         "series": {
           "items": {
             "$ref": "#/$defs/ChartSeries"
@@ -1554,6 +1568,177 @@
       "title": "ConnectorOperation",
       "type": "object"
     },
+    "ContextRevisionRef": {
+      "additionalProperties": false,
+      "description": "A pinned input context; mutable resource ids are intentionally rejected.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "source",
+            "golden_asset",
+            "document",
+            "semantic_skill",
+            "published_skill",
+            "tool"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "resourceId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Resourceid",
+          "type": "string"
+        },
+        "revisionId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Revisionid",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "permissionRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "resourceId",
+        "revisionId",
+        "digest"
+      ],
+      "title": "ContextRevisionRef",
+      "type": "object"
+    },
+    "DashboardChart": {
+      "additionalProperties": false,
+      "properties": {
+        "chartId": {
+          "title": "Chartid",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "xField": {
+          "title": "Xfield",
+          "type": "string"
+        },
+        "yField": {
+          "title": "Yfield",
+          "type": "string"
+        },
+        "chartType": {
+          "default": "line",
+          "enum": [
+            "line",
+            "bar",
+            "stacked_bar",
+            "area",
+            "donut",
+            "scatter",
+            "table"
+          ],
+          "title": "Charttype",
+          "type": "string"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/ChartSeries"
+          },
+          "title": "Series",
+          "type": "array"
+        }
+      },
+      "required": [
+        "chartId",
+        "title",
+        "xField",
+        "yField"
+      ],
+      "title": "DashboardChart",
+      "type": "object"
+    },
+    "DashboardDrill": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceField": {
+          "title": "Sourcefield",
+          "type": "string"
+        },
+        "targetFields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Targetfields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sourceField"
+      ],
+      "title": "DashboardDrill",
+      "type": "object"
+    },
+    "DashboardFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "in",
+            "gte",
+            "lte",
+            "between"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "operator"
+      ],
+      "title": "DashboardFilter",
+      "type": "object"
+    },
     "DashboardKpi": {
       "additionalProperties": false,
       "properties": {
@@ -1604,6 +1789,62 @@
       "title": "DashboardKpi",
       "type": "object"
     },
+    "DashboardPresentationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "kpiLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Kpilabels",
+          "type": "object"
+        },
+        "chartTitle": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Charttitle"
+        },
+        "filterFields": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Filterfields",
+          "type": "array"
+        },
+        "drillFields": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Drillfields",
+          "type": "array"
+        }
+      },
+      "title": "DashboardPresentationSpec",
+      "type": "object"
+    },
     "DashboardViewModel": {
       "additionalProperties": false,
       "properties": {
@@ -1611,6 +1852,11 @@
           "const": "dashboard",
           "default": "dashboard",
           "title": "Template",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
           "type": "string"
         },
         "fields": {
@@ -1627,6 +1873,13 @@
           "title": "Kpis",
           "type": "array"
         },
+        "charts": {
+          "items": {
+            "$ref": "#/$defs/DashboardChart"
+          },
+          "title": "Charts",
+          "type": "array"
+        },
         "rows": {
           "items": {
             "items": {
@@ -1636,6 +1889,52 @@
           },
           "title": "Rows",
           "type": "array"
+        },
+        "filters": {
+          "items": {
+            "$ref": "#/$defs/DashboardFilter"
+          },
+          "title": "Filters",
+          "type": "array"
+        },
+        "drills": {
+          "items": {
+            "$ref": "#/$defs/DashboardDrill"
+          },
+          "title": "Drills",
+          "type": "array"
+        },
+        "insights": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Insights",
+          "type": "array"
+        },
+        "freshnessAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshnessat"
+        },
+        "status": {
+          "default": "populated",
+          "enum": [
+            "populated",
+            "partial",
+            "stale",
+            "empty",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
         },
         "dataRef": {
           "$ref": "#/$defs/StorageRef"
@@ -3019,6 +3318,32 @@
         "relation": {
           "title": "Relation",
           "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "evidenceLocator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidencelocator"
         }
       },
       "required": [
@@ -3086,9 +3411,72 @@
             }
           ],
           "default": null
+        },
+        "evidenceLocators": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidencelocators",
+          "type": "array"
+        },
+        "conflicts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "selectedNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selectednodeid"
         }
       },
       "title": "GraphOntologyViewModel",
+      "type": "object"
+    },
+    "GraphRelationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "relation": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Relation",
+          "type": "string"
+        },
+        "evidenceLocator": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Evidencelocator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "relation",
+        "evidenceLocator"
+      ],
+      "title": "GraphRelationSpec",
       "type": "object"
     },
     "InputContract": {
@@ -3368,6 +3756,72 @@
       "title": "KnowledgeViewModel",
       "type": "object"
     },
+    "MonitoringObservationView": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "latest": {
+          "title": "Latest",
+          "type": "number"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous"
+        },
+        "changeRate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Changerate"
+        },
+        "durationSeconds": {
+          "minimum": 0,
+          "title": "Durationseconds",
+          "type": "integer"
+        },
+        "freshnessAt": {
+          "title": "Freshnessat",
+          "type": "string"
+        },
+        "lastGoodRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lastgoodrevisionid"
+        }
+      },
+      "required": [
+        "metric",
+        "latest",
+        "durationSeconds",
+        "freshnessAt"
+      ],
+      "title": "MonitoringObservationView",
+      "type": "object"
+    },
     "MonitoringViewModel": {
       "additionalProperties": false,
       "properties": {
@@ -3418,6 +3872,75 @@
             }
           ],
           "default": null
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/MonitoringObservationView"
+          },
+          "title": "Observations",
+          "type": "array"
+        },
+        "failureTrace": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failuretrace",
+          "type": "array"
+        },
+        "callVolume": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Callvolume"
+        },
+        "successRate": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Successrate"
+        },
+        "latencyMs": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latencyms"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "status": {
+          "default": "healthy",
+          "enum": [
+            "healthy",
+            "stale",
+            "alert",
+            "failed",
+            "empty"
+          ],
+          "title": "Status",
+          "type": "string"
         }
       },
       "title": "MonitoringViewModel",
@@ -4633,6 +5156,59 @@
       "title": "SecretRef",
       "type": "object"
     },
+    "SemanticViewField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "entity",
+            "dimension",
+            "measure",
+            "time"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "aggregation": {
+          "default": "none",
+          "enum": [
+            "sum",
+            "count",
+            "avg",
+            "min",
+            "max",
+            "none"
+          ],
+          "title": "Aggregation",
+          "type": "string"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "sourceField": {
+          "title": "Sourcefield",
+          "type": "string"
+        },
+        "primaryKey": {
+          "default": false,
+          "title": "Primarykey",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "role",
+        "sourceField"
+      ],
+      "title": "SemanticViewField",
+      "type": "object"
+    },
     "SemanticViewModel": {
       "additionalProperties": false,
       "properties": {
@@ -4676,12 +5252,106 @@
             }
           ],
           "default": null
+        },
+        "entities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/SemanticViewField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/SemanticViewRelationship"
+          },
+          "title": "Relationships",
+          "type": "array"
+        },
+        "mdl": {
+          "default": "",
+          "title": "Mdl",
+          "type": "string"
+        },
+        "ambiguities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ambiguities",
+          "type": "array"
+        },
+        "dependencyErrors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencyerrors",
+          "type": "array"
         }
       },
       "required": [
         "schemaRef"
       ],
       "title": "SemanticViewModel",
+      "type": "object"
+    },
+    "SemanticViewRelationship": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "relation": {
+          "title": "Relation",
+          "type": "string"
+        },
+        "joinType": {
+          "enum": [
+            "one_to_one",
+            "one_to_many",
+            "many_to_one",
+            "many_to_many"
+          ],
+          "title": "Jointype",
+          "type": "string"
+        },
+        "evidenceLocator": {
+          "title": "Evidencelocator",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "relation",
+        "joinType",
+        "evidenceLocator"
+      ],
+      "title": "SemanticViewRelationship",
       "type": "object"
     },
     "SetDescriptionPatch": {
@@ -5628,6 +6298,7 @@
             "data_access",
             "semantic",
             "analysis",
+            "sop",
             "knowledge",
             "graph_ontology",
             "monitoring"
@@ -5694,6 +6365,7 @@
             "data_access",
             "semantic",
             "analysis",
+            "sop",
             "knowledge",
             "graph_ontology",
             "monitoring"
@@ -5745,6 +6417,45 @@
         "compatibility": {
           "$ref": "#/$defs/CompatibilityTargets"
         },
+        "templateRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "defaultRenderer": {
+          "anyOf": [
+            {
+              "enum": [
+                "dashboard",
+                "semantic",
+                "sop",
+                "knowledge",
+                "graph_ontology",
+                "monitoring"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defaultrenderer"
+        },
+        "contextRevisionRefs": {
+          "items": {
+            "$ref": "#/$defs/ContextRevisionRef"
+          },
+          "maxItems": 100,
+          "title": "Contextrevisionrefs",
+          "type": "array"
+        },
         "kindSpec": {
           "discriminator": {
             "mapping": {
@@ -5753,7 +6464,8 @@
               "graph_ontology": "#/$defs/frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec",
               "knowledge": "#/$defs/frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec",
-              "semantic": "#/$defs/frontend__server__knowledge_assets__contract_base__SemanticKindSpec"
+              "semantic": "#/$defs/frontend__server__knowledge_assets__contract_base__SemanticKindSpec",
+              "sop": "#/$defs/SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -5775,6 +6487,9 @@
             },
             {
               "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec"
+            },
+            {
+              "$ref": "#/$defs/SopKindSpec"
             }
           ],
           "title": "Kindspec"
@@ -5862,7 +6577,8 @@
               "graph_ontology": "#/$defs/GraphOntologyViewModel",
               "knowledge": "#/$defs/KnowledgeViewModel",
               "monitoring": "#/$defs/MonitoringViewModel",
-              "semantic": "#/$defs/SemanticViewModel"
+              "semantic": "#/$defs/SemanticViewModel",
+              "sop": "#/$defs/SopViewModel"
             },
             "propertyName": "template"
           },
@@ -5884,6 +6600,9 @@
             },
             {
               "$ref": "#/$defs/MonitoringViewModel"
+            },
+            {
+              "$ref": "#/$defs/SopViewModel"
             }
           ],
           "title": "Viewmodel"
@@ -5910,6 +6629,57 @@
             }
           ],
           "default": null
+        },
+        "htmlDigest": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Htmldigest"
+        },
+        "etag": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Etag"
+        },
+        "csp": {
+          "default": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
+          "title": "Csp",
+          "type": "string"
+        },
+        "dataRevisionRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Datarevisionrefs",
+          "type": "array"
+        },
+        "traceId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Traceid"
         },
         "createdAt": {
           "title": "Createdat",
@@ -5978,6 +6748,614 @@
         "createdAt"
       ],
       "title": "SkillViewShareGrant",
+      "type": "object"
+    },
+    "SopActionProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "proposalId": {
+          "title": "Proposalid",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "risk": {
+          "enum": [
+            "external_write",
+            "high_risk"
+          ],
+          "title": "Risk",
+          "type": "string"
+        },
+        "confirmationRequired": {
+          "const": true,
+          "default": true,
+          "title": "Confirmationrequired",
+          "type": "boolean"
+        },
+        "challenge": {
+          "title": "Challenge",
+          "type": "string"
+        },
+        "toolRef": {
+          "title": "Toolref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId",
+        "title",
+        "risk",
+        "challenge",
+        "toolRef"
+      ],
+      "title": "SopActionProposal",
+      "type": "object"
+    },
+    "SopCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Field",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "contains",
+            "exists"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "field",
+        "operator"
+      ],
+      "title": "SopCondition",
+      "type": "object"
+    },
+    "SopEvidenceRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "tool_result",
+            "source_citation",
+            "input",
+            "decision"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SopEvidenceRequirement",
+      "type": "object"
+    },
+    "SopInputField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "valueType": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum"
+          ],
+          "title": "Valuetype",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "enumValues": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Enumvalues",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "valueType"
+      ],
+      "title": "SopInputField",
+      "type": "object"
+    },
+    "SopKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sop",
+          "default": "sop",
+          "title": "Kind",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Trigger",
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        },
+        "inputFields": {
+          "items": {
+            "$ref": "#/$defs/SopInputField"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Inputfields",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SopStep"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/SopOutputField"
+          },
+          "maxItems": 100,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "failureHandling": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Failurehandling",
+          "type": "string"
+        },
+        "actionProposal": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Actionproposal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger",
+        "scope",
+        "inputFields",
+        "steps",
+        "failureHandling",
+        "actionProposal"
+      ],
+      "title": "SopKindSpec",
+      "type": "object"
+    },
+    "SopOutputField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        },
+        "valueType": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array"
+          ],
+          "title": "Valuetype",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "valueType"
+      ],
+      "title": "SopOutputField",
+      "type": "object"
+    },
+    "SopStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "instruction": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SopCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "toolRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SopToolRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidenceRequirements": {
+          "items": {
+            "$ref": "#/$defs/SopEvidenceRequirement"
+          },
+          "maxItems": 32,
+          "title": "Evidencerequirements",
+          "type": "array"
+        },
+        "onTrue": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ontrue"
+        },
+        "onFalse": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Onfalse"
+        },
+        "failureMode": {
+          "default": "stop",
+          "enum": [
+            "stop",
+            "continue",
+            "request_input",
+            "propose_action"
+          ],
+          "title": "Failuremode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "instruction"
+      ],
+      "title": "SopStep",
+      "type": "object"
+    },
+    "SopStepEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "tool_result",
+            "source_citation",
+            "input",
+            "decision"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "locator": {
+          "title": "Locator",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "locator",
+        "summary"
+      ],
+      "title": "SopStepEvidence",
+      "type": "object"
+    },
+    "SopStepResult": {
+      "additionalProperties": false,
+      "properties": {
+        "stepId": {
+          "title": "Stepid",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "skipped",
+            "failed",
+            "awaiting_confirmation"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "branch": {
+          "default": "unconditional",
+          "enum": [
+            "true",
+            "false",
+            "unconditional"
+          ],
+          "title": "Branch",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/SopStepEvidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        },
+        "toolRefs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Toolrefs",
+          "type": "array"
+        },
+        "inputSummary": {
+          "default": "",
+          "title": "Inputsummary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stepId",
+        "title",
+        "status"
+      ],
+      "title": "SopStepResult",
+      "type": "object"
+    },
+    "SopToolRef": {
+      "additionalProperties": false,
+      "properties": {
+        "toolId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Toolid",
+          "type": "string"
+        },
+        "revision": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "operation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Operation",
+          "type": "string"
+        },
+        "risk": {
+          "default": "read_only",
+          "enum": [
+            "read_only",
+            "external_write",
+            "high_risk"
+          ],
+          "title": "Risk",
+          "type": "string"
+        }
+      },
+      "required": [
+        "toolId",
+        "revision",
+        "operation"
+      ],
+      "title": "SopToolRef",
+      "type": "object"
+    },
+    "SopViewModel": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "sop",
+          "default": "sop",
+          "title": "Template",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "trigger": {
+          "title": "Trigger",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        },
+        "stepResults": {
+          "items": {
+            "$ref": "#/$defs/SopStepResult"
+          },
+          "title": "Stepresults",
+          "type": "array"
+        },
+        "recommendation": {
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "outputs": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Outputs",
+          "type": "object"
+        },
+        "actionProposals": {
+          "items": {
+            "$ref": "#/$defs/SopActionProposal"
+          },
+          "title": "Actionproposals",
+          "type": "array"
+        },
+        "runState": {
+          "default": "succeeded",
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "awaiting_confirmation"
+          ],
+          "title": "Runstate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "trigger",
+        "scope",
+        "recommendation"
+      ],
+      "title": "SopViewModel",
       "type": "object"
     },
     "SourceCleanResult": {
@@ -6306,6 +7684,36 @@
       "title": "StorageRef",
       "type": "object"
     },
+    "TemplateRef": {
+      "additionalProperties": false,
+      "description": "Immutable reference to the method used to build a Skill revision.",
+      "properties": {
+        "templateId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Templateid",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 32,
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "templateId",
+        "version",
+        "digest"
+      ],
+      "title": "TemplateRef",
+      "type": "object"
+    },
     "TypedPatch": {
       "additionalProperties": false,
       "properties": {
@@ -6421,6 +7829,7 @@
             "dashboard",
             "chart",
             "semantic",
+            "sop",
             "knowledge",
             "graph_ontology",
             "monitoring"
@@ -6502,6 +7911,17 @@
           ],
           "default": null,
           "title": "Alertpolicyref"
+        },
+        "dashboard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DashboardPresentationSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -6532,6 +7952,22 @@
           },
           "maxItems": 100,
           "title": "Constraintrefs",
+          "type": "array"
+        },
+        "entities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 500,
+          "title": "Entities",
+          "type": "array"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/GraphRelationSpec"
+          },
+          "maxItems": 1000,
+          "title": "Relationships",
           "type": "array"
         },
         "evidencePolicyRef": {

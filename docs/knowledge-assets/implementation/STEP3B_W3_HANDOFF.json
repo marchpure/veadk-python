@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "step3b.worker3.handoff.v1",
+  "baseSha": "62cc08a5e6387aa08c167d39fd591c8028a6ad88",
+  "branch": "feat/knowledge-step3b-skill-templates",
+  "commit": "HEAD (single squashed commit; see git rev-parse HEAD)",
+  "migration": ["007_template_specs.sql", "007_template_specs.postgresql.sql"],
+  "htmlCompiler": {
+    "rendererVersion": "skill-html-compiler-v2",
+    "designDirections": ["editorial", "executive", "analytical", "operational", "compact"],
+    "visualEvaluator": {"minimumCoreScore": 4.0, "maxRounds": 3, "dimensions": 10},
+    "bundles": ["dashboard", "semantic", "sop", "knowledge", "graph-ontology", "monitoring"],
+    "acceptanceHarness": "frontend.server.knowledge_assets.html_acceptance",
+    "visualAudit": "tools/skill_html_visual_audit.mjs",
+    "browserEvidence": {"screenshots": 36, "scenarios": 2, "viewports": ["1440x900", "1024x768", "390x844"], "directory": "/tmp/veadk-w3-html-evidence-v3", "scores": "/tmp/veadk-w3-html-acceptance-v3/visual-evaluation.json", "finalScore": 4.67, "allCorePass": true}
+  },
+  "contracts": [
+    "TemplateSpec",
+    "TemplateRef",
+    "ContextRevisionRef",
+    "SopKindSpec",
+    "SopViewModel",
+    "DashboardViewModel"
+  ],
+  "integration": {
+    "w2": ["TemplateSkillBuilder.build", "TemplateSkillBuilder.patch"],
+    "w4": ["SopViewModel", "DashboardViewModel", "SkillViewRevision"],
+    "mainProposal": [
+      "instantiate persistent Template registry in application.py",
+      "add template list/copy/get commands in routes/http.py",
+      "regenerate shared API client"
+    ]
+  },
+  "tests": {
+    "command": "pytest -q tests/frontend/knowledge_workspace_v21141",
+    "passed": 202,
+    "skipped": 13
+  },
+  "limitations": [
+    "remote authenticated tool transports are injected by Integration MAIN"
+  ]
+}

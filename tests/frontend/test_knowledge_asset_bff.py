@@ -1416,6 +1416,38 @@ def test_publish_and_reinvoke_require_and_consume_real_revision_evidence() -> No
     assert invoked["accepted"] is True
     assert invoked["result"]["status"] == "succeeded"
     assert invoked["result"]["invocation"]["skillVersionId"] == version["id"]
+    reinvoked = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "invocation.start",
+            "payload": {
+                "skillVersionId": version["id"],
+                "skillViewRevisionId": view.id,
+                "inputRef": {
+                    "uri": "local://input/second-session",
+                    "kind": "object",
+                    "sha256": "5" * 64,
+                    "mediaType": "application/json",
+                    "bytes": 1,
+                },
+                "callerId": "second-session",
+            },
+        },
+        headers={
+            "X-Request-ID": "invoke-second-request",
+            "Idempotency-Key": "invoke-second-key",
+        },
+    ).json()
+    assert reinvoked["accepted"] is True
+    assert reinvoked["result"]["invocation"]["skillVersionId"] == version["id"]
+    assert (
+        reinvoked["result"]["invocation"]["traceId"]
+        != (invoked["result"]["invocation"]["traceId"])
+    )
+    assert (
+        reinvoked["result"]["skillResult"]["id"]
+        == (invoked["result"]["skillResult"]["id"])
+    )
 
 
 def test_manifest_kind_discriminator_rejects_mismatched_kind_spec() -> None:

@@ -1,14 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult } from "./part3";
-import type { SkillDraftRunResult, SkillManifestAction, SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
-
-export interface EvaluationCaseConfirmPayload {
-  suiteId: string;
-  version: number;
-  caseIds: Array<string>;
-}
+import type { AddCitationIntentPatch, ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
+import type { PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SetDescriptionPatch, SetPermissionScopePatch, SetQueryPlanPatch, SetRefreshPolicyPatch, SetSemanticMappingPatch, SetThresholdPolicyPatch, SetTitlePatch, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraftRunResult, SkillManifestAction } from "./part3";
+import type { SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
 
 export interface EvaluationCaseGenerateCandidateCommand {
   command: "evaluation-case.generate-candidates";
@@ -257,6 +251,8 @@ export interface GraphEdge {
   source: string;
   target: string;
   relation: string;
+  confidence?: number | null;
+  evidenceLocator?: string | null;
 }
 
 export interface GraphNode {
@@ -270,6 +266,16 @@ export interface GraphOntologyViewModel {
   nodes?: Array<GraphNode>;
   edges?: Array<GraphEdge>;
   evidenceRef?: StorageRef | null;
+  evidenceLocators?: Array<string>;
+  conflicts?: Array<string>;
+  selectedNodeId?: string | null;
+}
+
+export interface GraphRelationSpec {
+  source: string;
+  target: string;
+  relation: string;
+  evidenceLocator: string;
 }
 
 export interface ImportCommand {
@@ -393,12 +399,29 @@ export interface McpConnectorConfig {
   timeoutSeconds?: number;
 }
 
+export interface MonitoringObservationView {
+  metric: string;
+  latest: number;
+  previous?: number | null;
+  changeRate?: number | null;
+  durationSeconds: number;
+  freshnessAt: string;
+  lastGoodRevisionId?: string | null;
+}
+
 export interface MonitoringViewModel {
   template?: "monitoring";
   metricRefs?: Array<string>;
   values?: Array<[string, number]>;
   alerts?: Array<string>;
   dataRef?: StorageRef | null;
+  observations?: Array<MonitoringObservationView>;
+  failureTrace?: Array<string>;
+  callVolume?: number | null;
+  successRate?: number | null;
+  latencyMs?: number | null;
+  stale?: boolean;
+  status?: "healthy" | "stale" | "alert" | "failed" | "empty";
 }
 
 export interface NotReadyCommandResult {
@@ -427,4 +450,44 @@ export interface OutputContract {
 export interface OwnerRef {
   workspaceId: string;
   principalId: string;
+}
+
+export interface PatchImpact {
+  summary: string;
+  affected_paths: Array<string>;
+  requires_rerun: boolean;
+  reason: "presentation_only" | "query_changed" | "metric_changed" | "permission_changed" | "freshness_changed" | "alert_changed" | "mapping_changed";
+}
+
+export interface PatchOperation {
+  op: "replace_query" | "replace_metric" | "replace_retrieval_policy" | "replace_view_binding" | "replace_interaction" | "replace_budget";
+  path: string;
+  before: unknown;
+  after: unknown;
+}
+
+export interface PatchProposal {
+  patch_id?: string;
+  operation_id?: string | null;
+  draft_id: string;
+  base_revision: number;
+  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch;
+  impact: PatchImpact;
+  status?: "proposed" | "accepted" | "rejected" | "undone" | "conflicted";
+  proposed_by: string;
+  source_comment_ids?: Array<string>;
+  created_at?: string;
+}
+
+export interface PermissionRef {
+  uri: string;
+  version: string;
+}
+
+export interface PlanNode {
+  node_id: string;
+  role: "intent_resolution" | "context_resolution" | "query_plan" | "retrieval" | "schema_mapping" | "threshold_policy" | "worker3_execution";
+  depends_on?: Array<string>;
+  input_names?: Array<string>;
+  output_names?: Array<string>;
 }

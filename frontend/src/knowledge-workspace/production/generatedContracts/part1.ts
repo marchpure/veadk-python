@@ -1,8 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationCaseConfirmPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, NotReadyCommandResult, OutputContract } from "./part2";
-import type { PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft } from "./part3";
-import type { SkillDraftRunResult, SkillKind, SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
+import type { EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, NotReadyCommandResult, OutputContract, PermissionRef, PlanNode } from "./part2";
+import type { PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
+import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
 
 export interface ActionCommand {
   command: "action.update";
@@ -243,6 +243,7 @@ export interface ChartViewModel {
   title: string;
   xField: string;
   yField: string;
+  chartType?: "line" | "bar" | "stacked_bar" | "area" | "donut" | "scatter" | "table";
   series?: Array<ChartSeries>;
   dataRef: StorageRef;
 }
@@ -335,6 +336,14 @@ export interface ConnectorPayload {
   connectorKey: string;
 }
 
+export interface ContextRevisionRef {
+  kind: "source" | "golden_asset" | "document" | "semantic_skill" | "published_skill" | "tool";
+  resourceId: string;
+  revisionId: string;
+  digest: string;
+  permissionRef?: PermissionRef | null;
+}
+
 export interface CreateSkillDraftCommand {
   command: "skill-draft.create";
   payload: CreateSkillDraftPayload;
@@ -347,6 +356,26 @@ export interface CreateSkillDraftPayload {
   sourceRefs?: Array<string>;
 }
 
+export interface DashboardChart {
+  chartId: string;
+  title: string;
+  xField: string;
+  yField: string;
+  chartType?: "line" | "bar" | "stacked_bar" | "area" | "donut" | "scatter" | "table";
+  series?: Array<ChartSeries>;
+}
+
+export interface DashboardDrill {
+  sourceField: string;
+  targetFields?: Array<string>;
+}
+
+export interface DashboardFilter {
+  field: string;
+  operator: "eq" | "in" | "gte" | "lte" | "between";
+  values?: Array<string | number | boolean>;
+}
+
 export interface DashboardKpi {
   key: string;
   label: string;
@@ -355,11 +384,26 @@ export interface DashboardKpi {
   trend?: "up" | "down" | "flat" | "unknown";
 }
 
+export interface DashboardPresentationSpec {
+  title?: string | null;
+  kpiLabels?: Record<string, string>;
+  chartTitle?: string | null;
+  filterFields?: Array<string>;
+  drillFields?: Array<string>;
+}
+
 export interface DashboardViewModel {
   template?: "dashboard";
+  title?: string;
   fields?: Array<ViewField>;
   kpis?: Array<DashboardKpi>;
+  charts?: Array<DashboardChart>;
   rows?: Array<Array<ViewCell>>;
+  filters?: Array<DashboardFilter>;
+  drills?: Array<DashboardDrill>;
+  insights?: Array<string>;
+  freshnessAt?: string | null;
+  status?: "populated" | "partial" | "stale" | "empty" | "error";
   dataRef: StorageRef;
 }
 
@@ -468,4 +512,10 @@ export interface EvaluationCaseAdoptHistoryPayload {
 export interface EvaluationCaseConfirmCommand {
   command: "evaluation-case.confirm-candidates";
   payload: EvaluationCaseConfirmPayload;
+}
+
+export interface EvaluationCaseConfirmPayload {
+  suiteId: string;
+  version: number;
+  caseIds: Array<string>;
 }

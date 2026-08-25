@@ -1,0 +1,1 @@
+{"templateId":"monitoring","version":"1.1.0","viewModel":"monitoring","directions":["operational","analytical","compact"],"events":["view-alert","acknowledge-alert","view-trace","refresh"],"visualProfile":"monitoring-ops","compatibility":["agentkit","mcp","openapi","codex"]}

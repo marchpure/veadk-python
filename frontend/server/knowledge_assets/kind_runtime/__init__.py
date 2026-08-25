@@ -17,6 +17,7 @@ from .models import (
     QueryPlan,
     RetrievalHit,
     SemanticField,
+    SemanticDependencySnapshot,
     SemanticModelProjection,
     SemanticRelationship,
     SkillKindExecutionRecord,
@@ -42,6 +43,7 @@ from .providers import (
     QueryExecutor,
     RetrievalProvider,
     SemanticProvider,
+    SopToolExecutor,
 )
 from .repository import KindRuntimeRepository, SqliteKindRuntimeRepository
 from .store import ContentAddressedStore
@@ -79,8 +81,10 @@ __all__ = [
     "RetrievalProvider",
     "PublishReadyArtifactContract",
     "SemanticField",
+    "SemanticDependencySnapshot",
     "SemanticModelProjection",
     "SemanticProvider",
+    "SopToolExecutor",
     "SemanticRelationship",
     "SkillKindExecutionRecord",
     "SqliteKindRuntimeRepository",

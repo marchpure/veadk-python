@@ -1,77 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionViewModel, ConnectorOperation, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, KnowledgeViewModel, MonitoringViewModel, OwnerRef } from "./part2";
-import type { PatchOperation, PermissionRef, PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
-
-export interface SkillDraftRevision {
-  id: string;
-  skillId: string;
-  revision: number;
-  manifest: SkillManifest;
-  sourceRevisionRefs?: Array<string>;
-  goldenAssetRevisionRefs?: Array<string>;
-  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
-  createdAt: string;
-}
-
-export interface SkillDraftRunCommand {
-  command: "skill-draft.run";
-  payload: SkillDraftRunPayload;
-}
-
-export interface SkillDraftRunPayload {
-  draftId: string;
-  revision: number;
-  traceId: string;
-  maxSteps?: number;
-  budget?: number;
-}
-
-export interface SkillDraftRunResult {
-  resultType?: "skill-draft.run";
-  error?: ErrorEnvelope | null;
-  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
-  draftId: string;
-  goldenAssetRevision?: GoldenAssetRevision | null;
-  skillResult?: SkillResult | null;
-  viewIntent?: ViewIntent | null;
-  skillViewRevision?: SkillViewRevision | null;
-  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
-  traceRef?: StorageRef | null;
-  evidenceRef?: StorageRef | null;
-}
-
-export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";
-
-export interface SkillManifest {
-  apiVersion?: "knowledge.veadk.io/v1alpha1";
-  kind?: "Skill";
-  metadata: SkillMetadata;
-  spec: SkillSpec;
-}
-
-export interface SkillManifestAction {
-  name: string;
-  description?: string;
-}
-
-export interface SkillMetadata {
-  id: string;
-  version: string;
-  displayName: string;
-  description?: string;
-  owner: OwnerRef;
-  digest?: string | null;
-}
-
-export interface SkillOperation {
-  name: string;
-  description?: string;
-  inputSchemaRef: SchemaRef;
-  outputSchemaRef: SchemaRef;
-  risk?: "read_only" | "external_write" | "high_risk";
-}
+import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionViewModel, ConnectorOperation, ContextRevisionRef, DashboardPresentationSpec, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
+import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, GraphRelationSpec, KnowledgeViewModel, MonitoringViewModel, PatchOperation, PermissionRef } from "./part2";
+import type { PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
 
 export interface SkillPatch {
   patchId: string;
@@ -86,7 +17,7 @@ export interface SkillResult {
   id: string;
   skillId: string;
   skillRevision: number;
-  kind: "data_access" | "semantic" | "analysis" | "knowledge" | "graph_ontology" | "monitoring";
+  kind: "data_access" | "semantic" | "analysis" | "sop" | "knowledge" | "graph_ontology" | "monitoring";
   outputSchemaRef: SchemaRef;
   resultRef: StorageRef;
   sourceRevisionRefs?: Array<string>;
@@ -96,7 +27,7 @@ export interface SkillResult {
 }
 
 export interface SkillSpec {
-  kind: "data_access" | "semantic" | "analysis" | "knowledge" | "graph_ontology" | "monitoring";
+  kind: "data_access" | "semantic" | "analysis" | "sop" | "knowledge" | "graph_ontology" | "monitoring";
   contract: SkillContract;
   dependencies?: SkillDependencies;
   policyRef: PermissionRef;
@@ -104,7 +35,10 @@ export interface SkillSpec {
   evaluationSuiteRef?: string | null;
   skillViewRef?: string | null;
   compatibility?: CompatibilityTargets;
-  kindSpec: DataAccessKindSpec | frontend__server__knowledge_assets__contract_base__SemanticKindSpec | frontend__server__knowledge_assets__contract_base__AnalysisKindSpec | frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec | frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec | frontend__server__knowledge_assets__contract_base__MonitoringKindSpec;
+  templateRef?: TemplateRef | null;
+  defaultRenderer?: "dashboard" | "semantic" | "sop" | "knowledge" | "graph_ontology" | "monitoring" | null;
+  contextRevisionRefs?: Array<ContextRevisionRef>;
+  kindSpec: DataAccessKindSpec | frontend__server__knowledge_assets__contract_base__SemanticKindSpec | frontend__server__knowledge_assets__contract_base__AnalysisKindSpec | frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec | frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec | frontend__server__knowledge_assets__contract_base__MonitoringKindSpec | SopKindSpec;
 }
 
 export interface SkillViewManifest {
@@ -122,9 +56,14 @@ export interface SkillViewRevision {
   revision: number;
   manifest: SkillViewManifest;
   intent: ViewIntent;
-  viewModel: DashboardViewModel | ChartViewModel | SemanticViewModel | KnowledgeViewModel | GraphOntologyViewModel | MonitoringViewModel;
+  viewModel: DashboardViewModel | ChartViewModel | SemanticViewModel | KnowledgeViewModel | GraphOntologyViewModel | MonitoringViewModel | SopViewModel;
   invocationId?: string | null;
   resultRef?: StorageRef | null;
+  htmlDigest?: string | null;
+  etag?: string | null;
+  csp?: string;
+  dataRevisionRefs?: Array<string>;
+  traceId?: string | null;
   createdAt: string;
 }
 
@@ -136,6 +75,101 @@ export interface SkillViewShareGrant {
   permission?: "read";
   expiresAt?: string | null;
   createdAt: string;
+}
+
+export interface SopActionProposal {
+  proposalId: string;
+  title: string;
+  risk: "external_write" | "high_risk";
+  confirmationRequired?: true;
+  challenge: string;
+  toolRef: string;
+}
+
+export interface SopCondition {
+  field: string;
+  operator: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "contains" | "exists";
+  value?: string | number | boolean | null;
+}
+
+export interface SopEvidenceRequirement {
+  kind: "tool_result" | "source_citation" | "input" | "decision";
+  required?: boolean;
+  locator?: string | null;
+}
+
+export interface SopInputField {
+  name: string;
+  label: string;
+  valueType: "string" | "number" | "boolean" | "enum";
+  required?: boolean;
+  enumValues?: Array<string>;
+  description?: string;
+}
+
+export interface SopKindSpec {
+  kind?: "sop";
+  trigger: string;
+  scope: string;
+  inputFields: Array<SopInputField>;
+  steps: Array<SopStep>;
+  outputs?: Array<SopOutputField>;
+  failureHandling: string;
+  actionProposal: string;
+}
+
+export interface SopOutputField {
+  name: string;
+  description?: string;
+  valueType: "string" | "number" | "boolean" | "object" | "array";
+}
+
+export interface SopStep {
+  id: string;
+  title: string;
+  instruction: string;
+  condition?: SopCondition | null;
+  toolRef?: SopToolRef | null;
+  evidenceRequirements?: Array<SopEvidenceRequirement>;
+  onTrue?: string | null;
+  onFalse?: string | null;
+  failureMode?: "stop" | "continue" | "request_input" | "propose_action";
+}
+
+export interface SopStepEvidence {
+  kind: "tool_result" | "source_citation" | "input" | "decision";
+  locator: string;
+  summary: string;
+}
+
+export interface SopStepResult {
+  stepId: string;
+  title: string;
+  status: "succeeded" | "skipped" | "failed" | "awaiting_confirmation";
+  branch?: "true" | "false" | "unconditional";
+  evidence?: Array<SopStepEvidence>;
+  message?: string;
+  toolRefs?: Array<string>;
+  inputSummary?: string;
+}
+
+export interface SopToolRef {
+  toolId: string;
+  revision: string;
+  operation: string;
+  risk?: "read_only" | "external_write" | "high_risk";
+}
+
+export interface SopViewModel {
+  template?: "sop";
+  title: string;
+  trigger: string;
+  scope: string;
+  stepResults?: Array<SopStepResult>;
+  recommendation: string;
+  outputs?: Record<string, string | number | boolean | null>;
+  actionProposals?: Array<SopActionProposal>;
+  runState?: "queued" | "running" | "succeeded" | "failed" | "awaiting_confirmation";
 }
 
 export interface SourceCleanCommand {
@@ -264,6 +298,44 @@ export interface StreamCancelPayload {
   sourceCommand: "import.start" | "assistant.turn";
 }
 
+export interface TemplateEvidenceRule {
+  evidenceKind: "data_revision" | "source_citation" | "tool_result" | "schema" | "trace";
+  description: string;
+  minimumCount?: number;
+}
+
+export interface TemplateQualityGate {
+  gateId: string;
+  description: string;
+  required?: boolean;
+}
+
+export interface TemplateRef {
+  templateId: string;
+  version: string;
+  digest: string;
+}
+
+export interface TemplateSpec {
+  templateId: string;
+  version: string;
+  displayName: string;
+  scenario: string;
+  requiredContextKinds: Array<"tabular" | "document" | "semantic_skill" | "knowledge" | "graph" | "tool" | "observation">;
+  inputSchema: Record<string, unknown>;
+  capabilityIntent: "data_access" | "semantic" | "analysis" | "sop" | "knowledge" | "graph_ontology" | "monitoring";
+  executionInstructions: Array<string>;
+  evidenceRules: Array<TemplateEvidenceRule>;
+  qualityGates: Array<TemplateQualityGate>;
+  defaultRenderer: "dashboard" | "semantic" | "sop" | "knowledge" | "graph_ontology" | "monitoring";
+  allowedTools?: Array<string>;
+  allowedActions?: Array<string>;
+  compatibility?: CompatibilityTargets;
+  builtin?: boolean;
+  ownerWorkspaceId?: string | null;
+  copiedFrom?: TemplateRef | null;
+}
+
 export interface TypedPatch {
   id: string;
   baseDraftRevision: string;
@@ -285,7 +357,7 @@ export interface ViewIntent {
   id: string;
   skillId: string;
   skillRevision: number;
-  template: "dashboard" | "chart" | "semantic" | "knowledge" | "graph_ontology" | "monitoring";
+  template: "dashboard" | "chart" | "semantic" | "sop" | "knowledge" | "graph_ontology" | "monitoring";
   purpose: "overview" | "compare" | "schema" | "answer" | "explore" | "monitor";
   resultRef: string;
 }
@@ -307,6 +379,7 @@ export interface frontend__server__knowledge_assets__contract_base__AnalysisKind
   queryPlanRef: string;
   refreshPolicyRef?: string | null;
   alertPolicyRef?: string | null;
+  dashboard?: DashboardPresentationSpec | null;
 }
 
 export interface frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec {
@@ -314,6 +387,8 @@ export interface frontend__server__knowledge_assets__contract_base__GraphOntolog
   entitySchemaRef: SchemaRef;
   relationshipSchemaRef: SchemaRef;
   constraintRefs?: Array<string>;
+  entities?: Array<string>;
+  relationships?: Array<GraphRelationSpec>;
   evidencePolicyRef?: PermissionRef | null;
 }
 

@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 
 from frontend.server.knowledge_assets.contracts import (
     ChartViewModel,
+    DashboardViewModel,
     GraphOntologyViewModel,
     KnowledgeViewModel,
     MonitoringViewModel,
     SchemaRef,
     SemanticViewModel,
+    SopViewModel,
     SkillResult,
     SkillViewManifest,
     SkillViewRevision,
@@ -23,6 +24,7 @@ from frontend.server.knowledge_assets.contracts import (
 
 from .models import ExecutionEvidence, KindExecutionRequest, KindHandlerOutput
 from .store import ContentAddressedStore
+from ..trusted_renderers import compile_with_visual_feedback, render_trusted_html
 
 
 class SkillViewProjector:
@@ -67,7 +69,11 @@ class SkillViewProjector:
         )
         html_ref = self.store.write_bytes(
             "views",
-            trusted_html(handler_output.template, handler_output.view_model),
+            compile_with_visual_feedback(
+                handler_output.template,
+                handler_output.view_model,
+                data_revision_refs=[item.id for item in request.golden_asset_revisions],
+            ).html,
             media_type="text/html",
             suffix=".html",
         )
@@ -80,7 +86,9 @@ class SkillViewProjector:
             output_schema_ref=skill.manifest.spec.contract.output_schema_ref,
             result_ref=result_ref,
             source_revision_refs=_source_refs(request, handler_output.evidence),
-            golden_asset_revision_refs=[item.id for item in request.golden_asset_revisions],
+            golden_asset_revision_refs=[
+                item.id for item in request.golden_asset_revisions
+            ],
             trace_id=request.trace_id,
             freshness_at=request.freshness_at,
         )
@@ -109,7 +117,7 @@ class SkillViewProjector:
         view_revision = SkillViewRevision(
             id=f"view-{view_digest[:24]}",
             skill_revision_id=f"{skill.skill_id}:{skill.revision}",
-            revision=1,
+            revision=skill.revision,
             manifest=SkillViewManifest(
                 id=f"view-manifest-{view_digest[:24]}",
                 skill_revision_id=f"{skill.skill_id}:{skill.revision}",
@@ -127,23 +135,17 @@ class SkillViewProjector:
             intent=view_intent,
             view_model=handler_output.view_model,
             result_ref=html_ref,
+            html_digest=html_ref.sha256,
+            etag=f'"sha256-{html_ref.sha256}"',
+            data_revision_refs=[item.id for item in request.golden_asset_revisions],
+            trace_id=request.trace_id,
             created_at=request.now,
         )
         return skill_result, view_intent, view_revision, evidence_ref, html_ref
 
 
 def trusted_html(template: str, view_model: ViewModel) -> bytes:
-    title = html.escape(template.replace("_", " ").title())
-    body = _text_alternative(view_model)
-    return (
-        "<!doctype html>"
-        f'<article data-renderer="{html.escape(template)}-v1" '
-        'data-csp="trusted-renderer-v1" role="region" '
-        f'aria-label="{title}">'
-        f"<h1>{title}</h1>"
-        f'<pre data-node-kind="text-alternative">{html.escape(body)}</pre>'
-        "</article>"
-    ).encode("utf-8")
+    return render_trusted_html(template, view_model)
 
 
 def _text_alternative(view_model: ViewModel) -> str:
@@ -157,6 +159,18 @@ def _text_alternative(view_model: ViewModel) -> str:
                 "dimensions": view_model.dimension_refs,
                 "relationships": view_model.relationship_refs,
             },
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    if isinstance(view_model, DashboardViewModel):
+        return json.dumps(
+            view_model.model_dump(mode="json", by_alias=True),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    if isinstance(view_model, SopViewModel):
+        return json.dumps(
+            view_model.model_dump(mode="json", by_alias=True),
             ensure_ascii=False,
             sort_keys=True,
         )
@@ -176,8 +190,14 @@ def _text_alternative(view_model: ViewModel) -> str:
     if isinstance(view_model, GraphOntologyViewModel):
         return json.dumps(
             {
-                "nodes": [node.model_dump(mode="json", by_alias=True) for node in view_model.nodes],
-                "edges": [edge.model_dump(mode="json", by_alias=True) for edge in view_model.edges],
+                "nodes": [
+                    node.model_dump(mode="json", by_alias=True)
+                    for node in view_model.nodes
+                ],
+                "edges": [
+                    edge.model_dump(mode="json", by_alias=True)
+                    for edge in view_model.edges
+                ],
             },
             ensure_ascii=False,
             sort_keys=True,

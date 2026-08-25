@@ -1,48 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { AddCitationIntentPatch, AgentAnswer, AgentExecutionEvidence, ArtifactRef, AuthoringEvent, AuthoringOperation, DraftRevision, ErrorEnvelope } from "./part1";
-import type { FreshnessPolicy, LegacySkillManifestInput } from "./part2";
-import type { SkillManifest, SkillOperation, SkillViewShareGrant, StorageRef } from "./part4";
-
-export interface PatchImpact {
-  summary: string;
-  affected_paths: Array<string>;
-  requires_rerun: boolean;
-  reason: "presentation_only" | "query_changed" | "metric_changed" | "permission_changed" | "freshness_changed" | "alert_changed" | "mapping_changed";
-}
-
-export interface PatchOperation {
-  op: "replace_query" | "replace_metric" | "replace_retrieval_policy" | "replace_view_binding" | "replace_interaction" | "replace_budget";
-  path: string;
-  before: unknown;
-  after: unknown;
-}
-
-export interface PatchProposal {
-  patch_id?: string;
-  operation_id?: string | null;
-  draft_id: string;
-  base_revision: number;
-  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch;
-  impact: PatchImpact;
-  status?: "proposed" | "accepted" | "rejected" | "undone" | "conflicted";
-  proposed_by: string;
-  source_comment_ids?: Array<string>;
-  created_at?: string;
-}
-
-export interface PermissionRef {
-  uri: string;
-  version: string;
-}
-
-export interface PlanNode {
-  node_id: string;
-  role: "intent_resolution" | "context_resolution" | "query_plan" | "retrieval" | "schema_mapping" | "threshold_policy" | "worker3_execution";
-  depends_on?: Array<string>;
-  input_names?: Array<string>;
-  output_names?: Array<string>;
-}
+import type { AddCitationIntentPatch, AgentAnswer, AgentExecutionEvidence, ArtifactRef, AuthoringEvent, AuthoringOperation, ContextRevisionRef, DraftRevision, ErrorEnvelope } from "./part1";
+import type { FreshnessPolicy, GoldenAssetRevision, LegacySkillManifestInput, OwnerRef, PatchProposal } from "./part2";
+import type { SkillResult, SkillSpec, SkillViewRevision, SkillViewShareGrant, StorageRef, TemplateRef, ViewIntent } from "./part4";
 
 export interface PolicyCheck {
   dimension: "schema" | "data_quality" | "freshness" | "permission" | "security" | "evaluation" | "visual_interaction" | "compatibility" | "budget";
@@ -251,6 +211,15 @@ export interface SecretRef {
   version: string;
 }
 
+export interface SemanticViewField {
+  name: string;
+  role: "entity" | "dimension" | "measure" | "time";
+  aggregation?: "sum" | "count" | "avg" | "min" | "max" | "none";
+  unit?: string;
+  sourceField: string;
+  primaryKey?: boolean;
+}
+
 export interface SemanticViewModel {
   template?: "semantic";
   schemaRef: SchemaRef;
@@ -258,6 +227,21 @@ export interface SemanticViewModel {
   dimensionRefs?: Array<string>;
   relationshipRefs?: Array<string>;
   dataRef?: StorageRef | null;
+  entities?: Array<string>;
+  fields?: Array<SemanticViewField>;
+  relationships?: Array<SemanticViewRelationship>;
+  mdl?: string;
+  ambiguities?: Array<string>;
+  dependencyErrors?: Array<string>;
+}
+
+export interface SemanticViewRelationship {
+  source: string;
+  target: string;
+  relation: string;
+  joinType: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+  evidenceLocator: string;
+  confidence?: number | null;
 }
 
 export interface SetDescriptionPatch {
@@ -431,4 +415,75 @@ export interface SkillDraftRetryPayload {
   maxSteps?: number;
   budget?: number;
   retryOfOperationId: string;
+}
+
+export interface SkillDraftRevision {
+  id: string;
+  skillId: string;
+  revision: number;
+  manifest: SkillManifest;
+  sourceRevisionRefs?: Array<string>;
+  goldenAssetRevisionRefs?: Array<string>;
+  templateRef?: TemplateRef | null;
+  contextRevisionRefs?: Array<ContextRevisionRef>;
+  status?: "draft" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "ready_for_evaluation" | "evaluating" | "publishable" | "publishing" | "published";
+  createdAt: string;
+}
+
+export interface SkillDraftRunCommand {
+  command: "skill-draft.run";
+  payload: SkillDraftRunPayload;
+}
+
+export interface SkillDraftRunPayload {
+  draftId: string;
+  revision: number;
+  traceId: string;
+  maxSteps?: number;
+  budget?: number;
+}
+
+export interface SkillDraftRunResult {
+  resultType?: "skill-draft.run";
+  error?: ErrorEnvelope | null;
+  status?: "not_ready" | "planning" | "awaiting_input" | "running" | "partially_succeeded" | "failed" | "cancelled" | "ready_for_evaluation";
+  draftId: string;
+  goldenAssetRevision?: GoldenAssetRevision | null;
+  skillResult?: SkillResult | null;
+  viewIntent?: ViewIntent | null;
+  skillViewRevision?: SkillViewRevision | null;
+  executionState?: "ok" | "no_data" | "unable_to_answer" | "permission_denied" | "schema_drift" | "validation_failed" | "timeout" | "over_budget" | "cancelled" | "credential_blocked" | "awaiting_input" | null;
+  traceRef?: StorageRef | null;
+  evidenceRef?: StorageRef | null;
+}
+
+export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";
+
+export interface SkillManifest {
+  apiVersion?: "knowledge.veadk.io/v1alpha1";
+  kind?: "Skill";
+  metadata: SkillMetadata;
+  spec: SkillSpec;
+}
+
+export interface SkillManifestAction {
+  name: string;
+  description?: string;
+}
+
+export interface SkillMetadata {
+  id: string;
+  version: string;
+  displayName: string;
+  description?: string;
+  owner: OwnerRef;
+  digest?: string | null;
+}
+
+export interface SkillOperation {
+  name: string;
+  description?: string;
+  inputSchemaRef: SchemaRef;
+  outputSchemaRef: SchemaRef;
+  risk?: "read_only" | "external_write" | "high_risk";
 }
