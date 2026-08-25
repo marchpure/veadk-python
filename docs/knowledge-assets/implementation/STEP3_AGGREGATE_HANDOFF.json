@@ -3,7 +3,7 @@
   "step4Ready": false,
   "latestMainIntegration": {
     "status": "BLOCKED_PENDING_W4_READ_ONLY_REAUDIT",
-    "commit": "3edcfb99",
+    "commit": "61b2db88",
     "previousCommit": "414c0956",
     "workerInputs": {
       "W1": "cc444c679185f585de1383f01882b741dfdca329",
@@ -13,14 +13,25 @@
     },
     "changes": [
       "server-owned stdio MCP profile assembly is fail-closed and excludes display label from executable configuration",
-      "Dashboard artifact lineage carries generationId and complete distDigest in build/revision/manifest/result"
+      "Dashboard artifact lineage carries generationId and complete distDigest in build/revision/manifest/result",
+      "Bootstrap accepts nested Source/Golden connection projections without HTTP 500",
+      "Source/Golden runtime roots are derived from the durable repository path rather than process cwd"
     ],
     "verification": {
       "dashboardArtifactFocused": "7 passed",
       "w3KindRuntime": "23 passed",
       "bffAndSourceGolden": "24 passed",
-      "combinedFocused": "54 passed"
+      "combinedFocused": "54 passed",
+      "bootstrapAndSourceGoldenRegression": "63 passed",
+      "realMcpApi": "bootstrap 200; connection.create 200; stdio initialize/tools/list/tools/call; ingest 200; post-ingest bootstrap 200",
+      "realBrowserMcpCommands": "Chrome clicked Add Data → MCP Server → infra-local → 下一步 → 保存连接; typed connection.create and ingest requests observed"
     },
+    "knownDebt": [
+      "Browser final success-state/render evidence after save is incomplete",
+      "Credentialed veadk.Agent/Runner success is not available on MAIN",
+      "Dashboard build/render is not yet bound to the same real MCP correlation",
+      "Production publish and second-session invocation UI chain remains unproven"
+    ],
     "w4Action": "Re-run read-only audit against this exact MAIN commit after all worker worktrees are clean; do not infer P0 pass from component tests."
   },
   "date": "2026-08-25",
