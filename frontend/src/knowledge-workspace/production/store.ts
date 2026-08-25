@@ -7,6 +7,7 @@ import {
   type WorkspaceAdapter,
 } from "./ports";
 import { hydrateWorkspaceData } from "./data";
+import type { WorkspaceMcpProfile } from "./bootstrapSchema";
 import type { ActionLoopState } from "./actionLoop";
 
 type Listener = () => void;
@@ -262,6 +263,10 @@ export const customRegistryStore = new WorkspaceStore<ConnectorDef[]>(
   "connectors",
   [],
 );
+export const mcpProfileStore = new WorkspaceStore<WorkspaceMcpProfile[]>(
+  "mcp-profiles",
+  [],
+);
 
 export function useStore<T>(store: WorkspaceStore<T>): T {
   return useSyncExternalStore(store.subscribe, store.getState, store.getState);
@@ -324,6 +329,7 @@ export async function bootstrapWorkspace(
     customRegistryStore.replace(
       bootstrapped.workspaceData.connectorCatalog as ConnectorDef[],
     );
+    mcpProfileStore.replace(bootstrapped.workspaceData.mcpProfileCatalog ?? []);
     hydrateWorkspaceData(bootstrapped.workspaceData);
     actionLoopStore.replace(bootstrapped.actionLoop as ActionLoopState);
     workspaceRoutes = new Set([

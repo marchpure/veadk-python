@@ -114,6 +114,22 @@ class SourceGoldenApplication:
         configuration["toolAllowlist"] = requested_tools or configured_tools
         return configuration
 
+    def mcp_profile_catalog(self) -> list[dict[str, object]]:
+        """Expose selectable MCP metadata without exposing execution fields."""
+        profiles: list[dict[str, object]] = []
+        for profile_id, profile in sorted(self._mcp_profiles.items()):
+            profiles.append(
+                {
+                    "profileId": profile_id,
+                    "label": str(profile.get("label") or profile_id),
+                    "transport": str(profile.get("transport") or "stdio"),
+                    "toolAllowlist": [
+                        str(item) for item in profile.get("toolAllowlist", [])
+                    ],
+                }
+            )
+        return profiles
+
     def connector_catalog(
         self,
         context: AccessContext,
@@ -156,7 +172,10 @@ class SourceGoldenApplication:
                 asset.model_dump(mode="json", by_alias=True)
                 for asset in overview.golden_assets
             ],
-            "workspaceData": {"connectorCatalog": bootstrap_connector_catalog()},
+            "workspaceData": {
+                "connectorCatalog": bootstrap_connector_catalog(),
+                "mcpProfileCatalog": self.mcp_profile_catalog(),
+            },
         }
 
     def create_connection(
