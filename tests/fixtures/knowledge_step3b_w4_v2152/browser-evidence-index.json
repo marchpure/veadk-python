@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "session": "01a038c9-c29d-7e73-93dc-9bb67813ded0",
+  "branch": "feat/knowledge-step3b-v2152-workspace",
+  "startHead": "6905f074e31a77686e69a0594b35f5ad22ce2ff1",
+  "prototype": {
+    "archiveSha256": "0a672e34dd8f5cf416a73334b519679ee756f2c50ea8710166dae4b6b6c41b15",
+    "unpackedDir": "/tmp/knowledge-v2152-rerun3.enFUPp",
+    "referenceSource": "captures.json TOS PNG fallback",
+    "onlinePrototypeStatus": "HTTP 404 during capture"
+  },
+  "browserEvidence": {
+    "runtimeRoot": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602",
+    "report": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602/report.json",
+    "reportSha256": "f89b7f2e7e34a35bf1815c388bde2df354e4575c587c7fa9e9fb9d2d8abcce5e",
+    "status": "pass",
+    "states": 15,
+    "viewports": [
+      "desktop-1920",
+      "studio-1440",
+      "mobile-390"
+    ],
+    "screenshots": {
+      "actual": 45,
+      "reference": 45,
+      "overlayDiff": 45
+    },
+    "checks": {
+      "consoleErrors": "pass",
+      "failedRequests": "pass",
+      "horizontalOverflow": "pass",
+      "keyboardNavigation": "pass",
+      "modalAndDrawerObstruction": "pass",
+      "agentPaneWidthCollapsedExpanded": "pass",
+      "homeToBuilderPromptHandoff": "pass"
+    }
+  },
+  "states": [
+    "home",
+    "agent-clarify",
+    "bluetooth-sop-draft",
+    "edit-sop-step",
+    "bluetooth-sop-input",
+    "bluetooth-sop-result",
+    "publish-to-agent",
+    "anta-dashboard-draft",
+    "anta-dashboard-result",
+    "publish-team",
+    "haidilao-sop-draft",
+    "haidilao-sop-input",
+    "haidilao-sop-result",
+    "published-sop-monitoring",
+    "optimization-draft"
+  ],
+  "note": "This index points to runtime screenshots and reports. Large PNG artifacts are intentionally not committed."
+}

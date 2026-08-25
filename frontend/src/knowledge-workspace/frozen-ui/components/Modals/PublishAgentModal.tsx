@@ -31,14 +31,11 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
   }, [onClose]);
 
   const [error, setError] = useState('');
-  const handleConfirm = () => {
-    if (!descriptor) return;
-    if (descriptor.resourceKind !== 'skill_draft') {
-      setError('只有服务端 SkillDraft 可进入真实 publication.publish。');
-      return;
-    }
-    setError('共享契约缺少 PublicationPublishPayload.visibility，publication.publish 当前 fail closed；需要 MAIN 合同持久化 visibility 后才允许发布。');
-  };
+  const cannotPublishReason = !descriptor
+    ? '缺少服务端资源描述，无法发布到 Agent。'
+    : descriptor.resourceKind !== 'skill_draft'
+    ? '只有服务端 SkillDraft 可进入真实 publication.publish。'
+    : '共享契约缺少 PublicationPublishPayload.visibility，publication.publish 当前 fail closed；需要 MAIN 合同持久化 visibility 后才允许发布。';
 
   const handleCancelPublish = () => {
     if (!descriptor) return;
@@ -83,6 +80,9 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
               <div className="col-span-2"><dt className="font-bold text-slate-500">I/O Schema / 依赖 / 权限 / 兼容目标</dt><dd className="break-all text-slate-800">{JSON.stringify({ inputSchema: published.inputSchema, outputSchema: published.outputSchema, dependencies: published.dependencies, permissions: published.permissions, compatibilityTargets: published.compatibilityTargets })}</dd></div>
             </dl>
           )}
+          <div id="publish-agent-gate" role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {cannotPublishReason}
+          </div>
           {error && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         </div>
 
@@ -93,7 +93,12 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
           {!hasExistingPublication && (
             <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
           )}
-          <button onClick={handleConfirm} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
+          <button
+            disabled
+            aria-describedby="publish-agent-gate"
+            title={cannotPublishReason}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {hasExistingPublication ? '更新范围' : '确认发布'}
           </button>
         </div>

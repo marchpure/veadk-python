@@ -25,7 +25,9 @@ test("home is a single central Composer and does not persist demo completion sta
     "desktop and mobile home must share the same central Composer",
   );
   assert.doesNotMatch(layout, /demo_(published|reused|chat_chips|workspace_empty)/);
-  assert.match(read("frozen-ui/components/Layout/HomeComposer.tsx"), /你想把哪些数据或知识加工成什么能力/);
+  assert.match(read("frozen-ui/components/Layout/HomeComposer.tsx"), /今天想解决什么业务问题/);
+  assert.match(layout, /isHomeChat \? \(paneState !== 'closed'\)/);
+  assert.match(layout, /<RightPane[\s\S]*isHomeChat=\{isHomeChat\}/);
 });
 
 test("personal and team navigation expose exactly the three lifecycle roots", () => {

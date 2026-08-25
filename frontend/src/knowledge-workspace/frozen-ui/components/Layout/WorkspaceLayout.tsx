@@ -176,12 +176,6 @@ export default function WorkspaceLayout() {
       if (previousResourceIdentityRef.current !== descriptorIdentity) {
         previousResourceIdentityRef.current = descriptorIdentity;
         
-        const p = new URLSearchParams(searchParams);
-        if (p.get('pane') === 'closed') {
-          p.delete('pane');
-          setSearchParams(p, { replace: true });
-        }
-        
         setChatChips(prev => {
           if (prev.some(c => c.identity === descriptor.identity)) return prev;
           const resourceLevelTypes = ['connection', 'source', 'dataset', 'document', 'knowledge_base', 'skill', 'semantic', 'semantic_model', 'chart', 'dashboard', 'knowledge_graph', 'kg', 'evaluation', 'personal_artifact', 'team_artifact', 'artifact', 'resource'];
@@ -201,7 +195,7 @@ export default function WorkspaceLayout() {
   const isTaskSplit = !!chatState;
   
   // Determine if right pane should be open
-  const isRightPaneOpen = !isHomeChat && (isTaskSplit || paneState === 'open' || searchParams.has('comment_target') || searchParams.has('edit') || (descriptor && paneState !== 'closed'));
+  const isRightPaneOpen = isHomeChat ? (paneState !== 'closed') : (isTaskSplit || paneState === 'open' || searchParams.has('comment_target') || searchParams.has('edit') || (descriptor && paneState !== 'closed'));
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f8fafc] text-slate-900 font-sans overflow-hidden select-none">
@@ -212,16 +206,17 @@ export default function WorkspaceLayout() {
         Layout: [248px Left] [1fr Center] [380px Right (if open) or 0px]
       */}
       <div 
+        data-kw-shell="desktop"
         className={cn(
           "flex-1 min-h-0 h-auto max-w-[1440px] mx-auto w-full bg-white border-x border-slate-200 shadow-sm overflow-hidden",
           "hidden md:grid"
         )}
         style={{
-          gridTemplateColumns: `248px minmax(0, 1fr) ${isHomeChat ? '0px' : (isRightPaneOpen ? '380px' : '0px')}`,
+          gridTemplateColumns: `248px minmax(0, 1fr) ${isRightPaneOpen ? '380px' : '0px'}`,
           transition: 'grid-template-columns 300ms ease-in-out'
         }}
       >
-        <div className="min-h-0 h-full overflow-hidden border-r border-slate-200">
+        <div data-kw-region="left-nav" className="min-h-0 h-full overflow-hidden border-r border-slate-200">
           <FileTreePane 
             fileId={fileId} 
             searchParams={searchParams} 
@@ -238,7 +233,7 @@ export default function WorkspaceLayout() {
           />
         </div>
         
-        <div className="min-h-0 h-full overflow-hidden min-w-0 w-full relative flex flex-col bg-slate-50/50">
+        <div data-kw-region="main" className="min-h-0 h-full overflow-hidden min-w-0 w-full relative flex flex-col bg-slate-50/50">
           {!isMobile && isHomeChat ? (
             <HomeComposer searchParams={searchParams} setSearchParams={setSearchParams} />
           ) : (
@@ -246,8 +241,8 @@ export default function WorkspaceLayout() {
           )}
         </div>
 
-        <div className="min-h-0 h-full overflow-hidden min-w-0 w-full relative">
-          {!isMobile && !isHomeChat && (
+        <div data-kw-region="agent" className="min-h-0 h-full overflow-hidden min-w-0 w-full relative">
+          {!isMobile && (
             <RightPane 
               fileId={fileId} 
               searchParams={searchParams} 
@@ -256,7 +251,7 @@ export default function WorkspaceLayout() {
               isMobile={false} 
               chatChips={chatChips}
               setChatChips={setChatChips}
-              isHomeChat={false}
+              isHomeChat={isHomeChat}
               isRightPaneOpen={isRightPaneOpen}
             />
           )}
@@ -264,7 +259,7 @@ export default function WorkspaceLayout() {
       </div>
 
       {/* Mobile Layout Fallback */}
-      <div className="flex-1 w-full h-full relative overflow-hidden md:hidden flex flex-col">
+      <div data-kw-shell="mobile" className="flex-1 w-full h-full relative overflow-hidden md:hidden flex flex-col">
          {/* Mobile Menu Drawer */}
          <div className={cn(
             "fixed inset-y-0 left-0 z-[60] bg-white transition-transform duration-300 shadow-2xl w-[280px]",
@@ -301,7 +296,7 @@ export default function WorkspaceLayout() {
 
       {/* Modals Layer */}
       {modal === 'share' && <ShareModal onClose={closeModal} searchParams={searchParams} showToast={showToast} />}
-      {modal === 'export' && <ExportModal onClose={closeModal} showToast={showToast} />}
+      {modal === 'export' && <ExportModal onClose={closeModal} showToast={showToast} searchParams={searchParams} />}
       {modal === 'versions' && <VersionHistoryModal onClose={closeModal} searchParams={searchParams} />}
       {modal === 'publish' && <PublishModal onClose={closeModal} showToast={showToast} isTeam={fileId.includes('team')} />}
       {modal === 'create_resource' && <CreateResourceModal onClose={closeModal} searchParams={searchParams} setSearchParams={setSearchParams} />}

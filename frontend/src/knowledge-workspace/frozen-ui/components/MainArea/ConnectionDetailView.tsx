@@ -4,6 +4,7 @@ import { Database, FileSpreadsheet, Server, Cloud, Webhook, ShieldCheck, Activit
 import { resourceStore, connectionStore, getRegistry } from '../../lib/store';
 
 export default function ConnectionDetailView({ fileId, searchParams, setSearchParams, showToast }: any) {
+  void showToast;
   const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
   const connStoreItem = connectionStore.getState().find((c:any) => c.id === fileId);
   
@@ -119,9 +120,17 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
 	             <button disabled className="w-full bg-slate-300 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm outline-none flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-70">
 	               <Play size={16} className="mr-2" /> 同步等待服务端命令
              </button>
-             <button onClick={() => showToast?.('进入编辑配置向导...')} className="w-full bg-white border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm outline-none flex items-center justify-center">
-               编辑配置
+             <button
+               disabled
+               title="Connection 编辑需要 connector.update typed command；W4 不在浏览器本地改配置。"
+               aria-describedby="connection-edit-gated-reason"
+               className="w-full bg-white border border-slate-300 text-slate-400 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm outline-none flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-70"
+             >
+               编辑配置等待服务端命令
              </button>
+             <div id="connection-edit-gated-reason" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+               Connection 编辑需要 connector.update typed command；W4 不在浏览器本地改配置。
+             </div>
              <button onClick={() => {
                 const p = new URLSearchParams(searchParams);
                 p.set('file', 'skill_builder');

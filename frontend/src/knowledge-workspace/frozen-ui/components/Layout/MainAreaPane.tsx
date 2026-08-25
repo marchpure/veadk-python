@@ -14,6 +14,7 @@ import DocumentView from '../MainArea/DocumentView';
 import AddKnowledgeBaseView from '../MainArea/AddKnowledgeBaseView';
 import KnowledgeBaseView from '../MainArea/KnowledgeBaseView';
 import SkillBuilderView from '../MainArea/SkillBuilderView';
+import SkillHtmlRevisionView from '../MainArea/SkillHtmlRevisionView';
 import SkillArtifactView from '../MainArea/SkillArtifactView';
 import SkillMonitoringView from '../MainArea/SkillMonitoringView';
 import SkillSOPView from '../MainArea/SkillSOPView';
@@ -37,6 +38,26 @@ function AlertIcon(props: SVGProps<SVGSVGElement>) {
 
 function normalizedSubtype(resource: any): string {
   return String(resource?.subtype ?? resource?.artifactType ?? resource?.type ?? '').toLowerCase();
+}
+
+const HTML_PRIMARY_TEMPLATES = new Set([
+  'dashboard',
+  'chart',
+  'semantic',
+  'sop',
+  'knowledge',
+  'graph_ontology',
+  'monitoring',
+  'html',
+]);
+
+function revisionHasTrustedHtml(revision: Record<string, unknown> | null): boolean {
+  const resultRef = revision?.resultRef ?? revision?.result_ref;
+  return Boolean(
+    resultRef &&
+    typeof resultRef === 'object' &&
+    !Array.isArray(resultRef),
+  );
 }
 
 function activeRevisionMatchesRoute(revision: Record<string, unknown> | null, fileId: string, searchParams: URLSearchParams, resource: any): boolean {
@@ -88,19 +109,23 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
       typeof activeRevision.viewModel === 'object'
         ? activeRevision.viewModel as Record<string, unknown>
         : null;
-    if (generatedViewModel?.template === 'dashboard' || generatedViewModel?.template === 'chart') {
+    const generatedTemplate = String(generatedViewModel?.template ?? generatedViewModel?.viewTemplate ?? '');
+    if (HTML_PRIMARY_TEMPLATES.has(generatedTemplate) && revisionHasTrustedHtml(activeRevision)) {
+      return <SkillHtmlRevisionView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+    if (generatedTemplate === 'dashboard' || generatedTemplate === 'chart') {
       return <DashboardView fileId={fileId} isTeam={false} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
-    if (generatedViewModel?.template === 'semantic') {
+    if (generatedTemplate === 'semantic') {
       return <SemanticView fileId={fileId} isTeam={false} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
-    if (generatedViewModel?.template === 'graph_ontology') {
+    if (generatedTemplate === 'graph_ontology') {
       return <KnowledgeGraphView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
-    if (generatedViewModel?.template === 'sop') {
+    if (generatedTemplate === 'sop') {
       return <SkillSOPView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
-    if (generatedViewModel?.template === 'monitoring') {
+    if (generatedTemplate === 'monitoring') {
       return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
 
@@ -123,6 +148,10 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
 
     if (resource?.resourceKind === 'source' || resource?.resourceKind === 'connection') {
       return <ConnectionDetailView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+
+    if (resource?.resourceKind === 'skill' && HTML_PRIMARY_TEMPLATES.has(subtype) && activeRevisionMatchesRoute(activeRevision, fileId, searchParams, resource) && revisionHasTrustedHtml(activeRevision)) {
+      return <SkillHtmlRevisionView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
 
     if (resource?.resourceKind === 'skill' && resource?.subtype === 'sop') {

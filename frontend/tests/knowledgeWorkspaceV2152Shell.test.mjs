@@ -11,6 +11,10 @@ const fixture = JSON.parse(
     "utf8",
   ),
 );
+const visualEvidenceScript = readFileSync(
+  new URL("frontend/scripts/knowledge_step3b_w4_v2152_visual_evidence.mjs", repoRoot),
+  "utf8",
+);
 
 const host = read("WorkspaceHost.tsx");
 const mainArea = read("frozen-ui/components/Layout/MainAreaPane.tsx");
@@ -20,16 +24,20 @@ const tree = read("frozen-ui/components/Layout/FileTreePane.tsx");
 const dataset = read("frozen-ui/components/MainArea/DatasetView.tsx");
 const explore = read("frozen-ui/components/MainArea/ExploreView.tsx");
 const layout = read("frozen-ui/components/Layout/WorkspaceLayout.tsx");
+const homeComposer = read("frozen-ui/components/Layout/HomeComposer.tsx");
 const publishModal = read("frozen-ui/components/Modals/PublishModal.tsx");
 const store = read("production/store.ts");
+const typedPorts = read("production/typedPorts.ts");
 const sop = read("frozen-ui/components/MainArea/SkillSOPView.tsx");
 const monitoring = read("frozen-ui/components/MainArea/SkillMonitoringView.tsx");
 const dashboard = read("frozen-ui/components/MainArea/DashboardView.tsx");
+const artifactHeader = read("frozen-ui/components/MainArea/ArtifactHeader.tsx");
 const semantic = read("frozen-ui/components/MainArea/SemanticView.tsx");
 const graph = read("frozen-ui/components/MainArea/KnowledgeGraphView.tsx");
 const knowledgeBase = read("frozen-ui/components/MainArea/KnowledgeBaseView.tsx");
 const addKnowledgeBase = read("frozen-ui/components/MainArea/AddKnowledgeBaseView.tsx");
 const skillArtifact = read("frozen-ui/components/MainArea/SkillArtifactView.tsx");
+const skillHtmlRevision = read("frozen-ui/components/MainArea/SkillHtmlRevisionView.tsx");
 const connectionDetail = read("frozen-ui/components/MainArea/ConnectionDetailView.tsx");
 const uploadDoc = read("frozen-ui/components/MainArea/UploadDocView.tsx");
 const evaluationCenter = read("frozen-ui/components/MainArea/EvaluationCenterView.tsx");
@@ -37,6 +45,7 @@ const actionPolicy = read("frozen-ui/components/Modals/ActionPolicyModal.tsx");
 const propertyEditor = read("frozen-ui/components/RightPane/PropertyEditor.tsx");
 const frozenStore = read("frozen-ui/lib/store.ts");
 const addData = read("frozen-ui/components/MainArea/AddDataView.tsx");
+const skillBuilder = read("frozen-ui/components/MainArea/SkillBuilderView.tsx");
 
 test("v2.15.2 capture matrix tracks exactly the frozen 15 states", () => {
   assert.equal(fixture.prototypeSha256, "0a672e34dd8f5cf416a73334b519679ee756f2c50ea8710166dae4b6b6c41b15");
@@ -61,6 +70,23 @@ test("v2.15.2 capture matrix tracks exactly the frozen 15 states", () => {
       "/?file=draft_sop_bluetooth_opt",
     ],
   );
+});
+
+test("v2.15.2 browser evidence gate captures prototype and W4 across required viewports", () => {
+  assert.match(visualEvidenceScript, /desktop-1920/);
+  assert.match(visualEvidenceScript, /studio-1440/);
+  assert.match(visualEvidenceScript, /mobile-390/);
+  assert.match(visualEvidenceScript, /capturePrototypeReference/);
+  assert.match(visualEvidenceScript, /captureW4Actual/);
+  assert.match(visualEvidenceScript, /createDiffArtifacts/);
+  assert.match(visualEvidenceScript, /collectDomAndLayoutSummary/);
+  assert.match(visualEvidenceScript, /collectKeyboardEvidence/);
+  assert.match(visualEvidenceScript, /collectAgentPaneWidthEvidence/);
+  assert.match(visualEvidenceScript, /consoleErrors/);
+  assert.match(visualEvidenceScript, /failedRequests/);
+  assert.match(visualEvidenceScript, /horizontalOverflowPx/);
+  assert.match(visualEvidenceScript, /skill-authoring\.start/);
+  assert.match(visualEvidenceScript, /Trusted HTML artifact/);
 });
 
 test("legacy skill deep links normalize into the shared workspace shell", () => {
@@ -91,6 +117,95 @@ test("right assistant no longer exposes editable artifact stage plan controls", 
   assert.match(assistant, /BuildPlan 由服务端 Agent 返回/);
   assert.match(assistant, /aria-expanded=\{planExpanded\}/);
   assert.match(assistant, /执行并渲染/);
+});
+
+test("home composer restores the v2.15.2 core journey without URL-only handoff", () => {
+  for (const label of [
+    "今天想解决什么业务问题",
+    "上传文件",
+    "拖入",
+    "@",
+    "上下文",
+    "来源",
+    "revision",
+    "模板库",
+    "Dashboard",
+    "Semantic",
+    "SOP",
+    "Knowledge",
+    "Graph",
+    "Ontology",
+    "Monitoring",
+    "spec.md",
+    "预览",
+    "复用",
+    "Agent 推荐模板",
+    "澄清",
+    "重试",
+    "取消",
+  ]) {
+    assert.match(homeComposer, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(homeComposer, /getFullCatalog/);
+  assert.match(homeComposer, /getWorkspaceAdapter\(\)\.command/);
+  assert.match(homeComposer, /command:\s*['"]skill-authoring\.start['"]/);
+  assert.match(homeComposer, /resourceRefs/);
+  assert.match(homeComposer, /requestedKind/);
+  assert.match(homeComposer, /draft_id|draftId/);
+  assert.match(homeComposer, /operation_id|operationId/);
+  assert.doesNotMatch(homeComposer, /from ['"]lucide-react['"]/);
+  assert.doesNotMatch(homeComposer, /params\.set\(["']request["'], request\.trim\(\)\);\s*setSearchParams\(params\)/);
+  assert.doesNotMatch(homeComposer, /localStorage|setTimeout|setInterval|蓝牙|海底捞|LS6|LS7|经营分析看板/);
+});
+
+test("skill builder preserves home prompt, context, template, and hides legacy wizard", () => {
+  assert.match(skillBuilder, /searchParams\.get\(['"]request['"]\)/);
+  assert.match(skillBuilder, /searchParams\.get\(['"]template['"]\)/);
+  assert.match(skillBuilder, /searchParams\.get\(['"]context_refs['"]\)/);
+  assert.match(skillBuilder, /searchParams\.get\(['"]workspace_scope['"]\)/);
+  assert.match(skillBuilder, /resourceStore\.getState\(\)/);
+  assert.match(skillBuilder, /authoringSession|authoring_session/);
+  assert.match(skillBuilder, /serverPrompt/);
+  assert.match(skillBuilder, /serverTemplate/);
+  assert.match(skillBuilder, /serverContextRefs/);
+  assert.match(skillBuilder, /SkillAuthoringStartPayload/);
+  assert.match(skillBuilder, /TrustedHtmlArtifactRenderer/);
+  assert.match(skillBuilder, /高级详情|审计/);
+  assert.match(skillBuilder, /Manifest/);
+  assert.match(skillBuilder, /BuildPlan/);
+  assert.doesNotMatch(skillBuilder, /const steps = \['选择输入', '发现\/解析', '编辑 Manifest', '测试', '保存版本', '发布'\]/);
+  assert.doesNotMatch(skillBuilder, />上一步<|>下一步</);
+  assert.doesNotMatch(skillBuilder, /textarea[^>]+value=\{manifest\}[^>]+onChange=\{e=>setManifest/);
+  assert.doesNotMatch(skillBuilder, /setPrompt\(''\)/);
+  assert.doesNotMatch(skillBuilder, /localStorage|setTimeout|setInterval|测试成功|返回 200 OK/);
+});
+
+test("right assistant consumes the typed streaming/timeline seam instead of one-shot replies", () => {
+  assert.match(typedPorts, /command:\s*"skill-authoring\.start"/);
+  assert.match(typedPorts, /command:\s*"skill-authoring\.answer"/);
+  assert.match(assistant, /getWorkspaceAdapter\(\)\.stream/);
+  assert.match(assistant, /assistant\.delta|assistant_delta|message\.delta/);
+  assert.match(assistant, /tool-call|tool_call|toolCalls|tool_calls/);
+  assert.match(assistant, /clarification|clarification_required/);
+  assert.match(assistant, /warning|credential_blocked/);
+  assert.match(assistant, /stop|stream\.cancel|resume|retry/);
+  assert.match(assistant, /nearBottomRef|userScrolledAway|scrollTop/);
+  assert.doesNotMatch(assistant, /setAgentReply\(result\.draft\.manifest\?\.description \|\| result\.operation\?\.summary \|\| ['"]已收到真实上下文/);
+  assert.doesNotMatch(assistant, /setAgentReply\(result\.operation\?\.summary \|\| ['"]Runner 已完成执行/);
+  assert.doesNotMatch(assistant, /chain-of-thought|system prompt|系统提示词|密钥|secret/i);
+});
+
+test("dashboard and header visible actions are command-backed or explicitly gated", () => {
+  assert.match(dashboard, /command:\s*['"]refresh\.run['"]/);
+  assert.match(dashboard, /command:\s*['"]artifact\.export['"]/);
+  assert.match(dashboard, /bootstrapWorkspace/);
+  assert.match(dashboard, /缺少.*command seam|尚未集成|等待服务端/);
+  assert.doesNotMatch(dashboard, /showToast\?\(`筛选请求|showToast\?\(`钻取请求|showToast\?\(['"]导出请求已交给|showToast\?\(['"]刷新请求已交给/);
+
+  assert.match(artifactHeader, /command:\s*['"]refresh\.run['"]/);
+  assert.match(artifactHeader, /bootstrapWorkspace/);
+  assert.match(artifactHeader, /disabled=\{[^}]*!canRefresh/);
+  assert.doesNotMatch(artifactHeader, /showToast\?\(['"]刷新中\.\.\.['"]\)/);
 });
 
 test("SOP and monitoring states use backend command seams instead of local fake success", () => {
@@ -142,6 +257,7 @@ test("touched production actions do not use toast-only success or local persiste
   assert.match(propertyEditor, /等待服务端属性面板|action', 'ai_edit_element'|add_context_item/);
   assert.doesNotMatch(frozenStore, /localStorage|fixtureMap|defaultResourcesV3|res_sample_postgres|res_dash_east|skill_finance_monitor/);
   assert.doesNotMatch(layout, /setTimeout\(\(\) => showToast\(`(?:该上下文已加入|已加入对话上下文)`\), 100\)/);
+  assert.match(layout, /<ExportModal onClose=\{closeModal\} showToast=\{showToast\} searchParams=\{searchParams\} \/>/);
 });
 
 test("new v2.15.2 production views do not hardcode business facts or fake metrics", () => {
@@ -203,6 +319,30 @@ test("typed Skill visual forms stay ViewModel-driven", () => {
   assert.match(semantic, /getSemanticModel|SemanticViewModel/);
   assert.match(graph, /getGraphProjection|GraphOntologyViewModel/);
   assert.doesNotMatch(fixture.states.map((state) => state.serverObject).join("\n"), /蓝牙|海底捞|LS6|1,245|tr_89112/);
+});
+
+test("generated Skill templates use trusted HTML revision as the main view", () => {
+  assert.match(mainArea, /SkillHtmlRevisionView/);
+  assert.match(mainArea, /HTML_PRIMARY_TEMPLATES/);
+  for (const template of [
+    "dashboard",
+    "chart",
+    "semantic",
+    "sop",
+    "knowledge",
+    "graph_ontology",
+    "monitoring",
+    "html",
+  ]) {
+    assert.match(mainArea, new RegExp(template.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.match(skillHtmlRevision, /TrustedHtmlArtifactRenderer/);
+  assert.match(skillHtmlRevision, /artifact\.export/);
+  assert.match(skillHtmlRevision, /refresh\.run/);
+  assert.match(skillHtmlRevision, /高级详情|审计/);
+  assert.match(skillHtmlRevision, /等待服务端返回 HTML ViewRevision/);
+  assert.doesNotMatch(skillHtmlRevision, /from ['"]lucide-react['"]/);
+  assert.doesNotMatch(skillHtmlRevision, /蓝牙|海底捞|LS6|LS7|1,245|98\.2%|1\.4s|setTimeout|setInterval|localStorage/);
 });
 
 test("15-state fixture route ids do not leak into production routing or state", () => {

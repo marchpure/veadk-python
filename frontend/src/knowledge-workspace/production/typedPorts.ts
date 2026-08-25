@@ -177,7 +177,11 @@ export type KnowledgeCommand =
 
 export type KnowledgeStreamCommand =
   | { command: "import.start"; payload: ImportCommandPayload }
-  | { command: "assistant.turn"; payload: AssistantTurnPayload };
+  | { command: "assistant.turn"; payload: AssistantTurnPayload }
+  | { command: "skill-authoring.start"; payload: SkillAuthoringStartPayload }
+  | { command: "skill-authoring.answer"; payload: SkillAuthoringAnswerPayload }
+  | { command: "skill-authoring.patch"; payload: SkillAuthoringPatchPayload }
+  | { command: "skill-authoring.execute"; payload: SkillAuthoringExecutePayload };
 export type KnowledgeErrorCode =
   | "UNAVAILABLE"
   | "UNAUTHENTICATED"

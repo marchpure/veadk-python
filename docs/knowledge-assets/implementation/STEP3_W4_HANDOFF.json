@@ -1,43 +1,122 @@
 {
-  "schemaVersion": "1.0",
-  "status": "READY_FOR_INTEGRATION",
-  "baseCommit": "31a26a6fd0547a7696af62b97b42a842f07f8339",
-  "branch": "feat/knowledge-step3-worker4-evaluation-quality",
-  "contractDigest": "108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12",
-  "uiDeltaDigest": "dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30",
-  "prototypeSha256": "ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571",
-  "tests": {
-    "worker4": {"passed": 20, "failed": 0},
-    "backendCombined": {"passed": 41, "failed": 0},
-    "compile": "PASS",
-    "diffCheck": "PASS",
-    "ruff": "BLOCKED_BY_CHECKPOINT_TAG_VERSION"
+  "schemaVersion": "2.15.2-w4-ui",
+  "status": "STEP3B_W4_UI_READY_FOR_INTEGRATION",
+  "session": "01a038c9-c29d-7e73-93dc-9bb67813ded0",
+  "branch": "feat/knowledge-step3b-v2152-workspace",
+  "startHead": "6905f074e31a77686e69a0594b35f5ad22ce2ff1",
+  "prototype": {
+    "archiveSha256": "0a672e34dd8f5cf416a73334b519679ee756f2c50ea8710166dae4b6b6c41b15",
+    "unpackedDir": "/tmp/knowledge-v2152-rerun3.enFUPp",
+    "referenceSource": "captures.json TOS PNG fallback",
+    "onlinePrototypeStatus": "HTTP_404_DURING_CAPTURE"
   },
-  "capabilityMatrix": {
-    "states": 43,
-    "oldRoutes": 23,
-    "classificationAudit": "PASS",
-    "browserAudit": "BLOCKED_PENDING_MAIN_INTEGRATION_URL"
-  },
-  "security": {
-    "productionBrowserState": "PASS",
-    "productionIframe": "PASS",
-    "browserDirectProvider": "PASS",
-    "fullIntegratedScan": "BLOCKED_PENDING_MAIN_INTEGRATION"
-  },
-  "external": {
-    "lark": "EXTERNAL_CREDENTIAL_BLOCKED",
-    "oracle": "EXTERNAL_CREDENTIAL_BLOCKED",
-    "webApi": "EXTERNAL_CREDENTIAL_BLOCKED",
-    "workdayMcp": "EXTERNAL_CREDENTIAL_BLOCKED"
-  },
-  "proposals": [
-    "STEP3_W4_CONTRACT_PROPOSAL.md",
-    "STEP3_W4_UI_PROPOSAL.md"
+  "delivered": [
+    "Restored v2.15.2 Home composer journey with real bootstrap/read-model resource search and template selection",
+    "Replaced visible six-step legacy wizard with Skill authoring journey and audit-only Manifest/BuildPlan details",
+    "Fixed Home to Builder prompt/context/template/workspace handoff and reload restore without localStorage",
+    "Added trusted HTML SkillViewRevision main renderer for Dashboard/Semantic/SOP/Knowledge/Graph/Monitoring/HTML templates",
+    "Connected right Agent panel to typed W2 stream/timeline seam with stop/retry/resume states",
+    "Converted visible operations to typed commands or explicit gated disabled states",
+    "Fixed Agent pane closed/open deep-link and main-area width behavior"
   ],
-  "finalReadOnlyVerification": {
-    "status": "PENDING_MAIN_INTEGRATION",
-    "integrationCommit": null,
-    "studioUrl": null
-  }
+  "removedFakePaths": [
+    "Fixed SOP Bluetooth/Haidilao/LS/OS/firmware/dBm/ticket/diagnosis/remediation facts",
+    "Fixed Monitoring invocation/success-rate/latency/trace/alarm/Skill-name facts",
+    "sample_data_added and dataset_mock_upload production success entries",
+    "route-driven new publication success",
+    "localStorage demo business state",
+    "timer-simulated Agent thinking/tool/progress/success",
+    "request-complete-to-fixed-success page transition"
+  ],
+  "browserEvidence": {
+    "runtimeRoot": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602",
+    "reportSha256": "f89b7f2e7e34a35bf1815c388bde2df354e4575c587c7fa9e9fb9d2d8abcce5e",
+    "status": "PASS",
+    "states": 15,
+    "viewports": [
+      "desktop-1920",
+      "studio-1440",
+      "mobile-390"
+    ],
+    "screenshots": {
+      "actual": 45,
+      "reference": 45,
+      "overlayDiff": 45
+    },
+    "checks": {
+      "consoleErrors": "PASS",
+      "failedRequests": "PASS",
+      "horizontalOverflow": "PASS",
+      "keyboardNavigation": "PASS",
+      "modalAndDrawerObstruction": "PASS",
+      "agentPaneWidthCollapsedExpanded": "PASS",
+      "homeToBuilderPromptHandoff": "PASS"
+    }
+  },
+  "tests": {
+    "focusedNode": {
+      "command": "node --test frontend/tests/knowledgeWorkspaceV2152Shell.test.mjs frontend/tests/knowledgeShellState.test.mjs frontend/tests/knowledgeWorkspaceV21141Contracts.test.mjs frontend/tests/knowledge-workspace-v21141/contracts.test.mjs frontend/tests/knowledge-workspace-v21141/trustedHtmlArtifactRenderer.test.mjs frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs",
+      "passed": 124,
+      "failed": 0
+    },
+    "frontendFull": {
+      "command": "cd frontend && npm test",
+      "passed": 873,
+      "failed": 0
+    },
+    "typescript": {
+      "command": "cd frontend && npx tsc --noEmit --noUnusedLocals false --noUnusedParameters false --pretty false",
+      "status": "PASS"
+    },
+    "productionBuild": {
+      "command": "cd frontend && npm run build",
+      "status": "PASS",
+      "warnings": "Existing dynamic import/chunk-size warnings only"
+    },
+    "pythonContracts": {
+      "command": "pytest -q tests/frontend/knowledge_workspace_v21141 tests/frontend/test_knowledge_asset_bff.py tests/frontend/test_knowledge_web_import.py tests/frontend/test_knowledge_uploads.py",
+      "passed": 290,
+      "skipped": 13,
+      "failed": 0
+    },
+    "staticScans": {
+      "fixedBusinessFacts": "PASS",
+      "mockSuccessRoutes": "PASS",
+      "localStorageDemoState": "PASS",
+      "timerSimulatedStreamingSuccess": "PASS"
+    }
+  },
+  "mainSeams": [
+    "Workspace bootstrap typed resource catalog with resource id, kind/subtype, scope, revision, display name, and server context ref",
+    "Authoring session bootstrap with prompt, requested kind/template, context refs, draftId, operationId, and latest SkillViewRevision",
+    "Typed command accepted/operation/draft/revision/error results",
+    "Read-model refresh after command terminal events with immutable SkillViewRevision"
+  ],
+  "w2Proposal": [
+    "assistant delta",
+    "tool call",
+    "plan summary",
+    "context/revision",
+    "clarification",
+    "warning/error",
+    "stop/retry/resume",
+    "operation recovery after refresh"
+  ],
+  "w3Proposal": [
+    "trusted HTML renderer registration",
+    "SkillViewRevision artifact metadata and digest",
+    "DashboardViewModel",
+    "SemanticViewModel",
+    "SopViewModel",
+    "GraphViewModel",
+    "MonitoringViewModel",
+    "template/kind mapping for all Skill visual forms"
+  ],
+  "evidenceFiles": [
+    "tests/fixtures/knowledge_step3b_w4_v2152/evidence.md",
+    "tests/fixtures/knowledge_step3b_w4_v2152/browser-evidence-index.json",
+    "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602"
+  ],
+  "push": false,
+  "step3bCompleteClaimed": false
 }

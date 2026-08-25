@@ -713,7 +713,7 @@ test("local source preparation remains local until the create CTA", async () => 
   assert.equal(transformed, null);
 });
 
-test("real Skill Builder publish CTA dispatches manifest persistence", async () => {
+test("real Skill Builder uses service-side authoring and keeps Manifest audit-only", async () => {
   const { transformFrozenProductionMutations } = await import(
     "./productionTransform.mjs"
   );
@@ -728,8 +728,13 @@ test("real Skill Builder publish CTA dispatches manifest persistence", async () 
     productionRoot,
   );
   assert.ok(transformed);
-  assert.match(transformed.code, /"command":"skill-draft\.save-manifest"/);
-  assert.match(transformed.code, /handlePublish/);
+  assert.match(transformed.code, /skill-authoring\.start/);
+  assert.match(transformed.code, /skill-authoring\.execute/);
+  assert.match(transformed.code, /TrustedHtmlArtifactRenderer/);
+  assert.match(transformed.code, /高级详情|审计/);
+  assert.doesNotMatch(transformed.code, /"command":"skill-draft\.save-manifest"/);
+  assert.doesNotMatch(transformed.code, /handlePublish/);
+  assert.doesNotMatch(transformed.code, /编辑 Manifest/);
   assert.doesNotMatch(transformed.code, /resourceStore\.setState\s*\(/);
 });
 
@@ -793,7 +798,9 @@ test("assistant consumes server clarification without fabricating a draft", asyn
   );
   assert.match(source, /result\.status === 'awaiting_input'/);
   assert.match(source, /clarificationQuestions/);
-  assert.match(source, /setAgentReply\(clarificationQuestions\.join/);
+  assert.match(source, /appendTimelineItem\(\{[\s\S]{0,220}type: 'clarification'/);
+  assert.match(source, /body: clarificationQuestions\.map\(safeText\)\.join/);
+  assert.doesNotMatch(source, /setAgentReply\(clarificationQuestions\.join/);
   assert.doesNotMatch(
     source,
     /awaiting_input[\s\S]{0,500}setPlanDetails/,
