@@ -566,6 +566,71 @@ async def test_veadk_agent_allows_typed_clarification_without_mcp_call(setup_aut
 
 
 @pytest.mark.asyncio
+async def test_veadk_greeting_uses_real_runner_without_mcp_tool_injection(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    captured: dict[str, object] = {}
+
+    class GreetingModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del stream
+            captured["tools"] = getattr(llm_request, "tools", None)
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps(
+                                {
+                                    "plan_id": "plan_greeting",
+                                    "intent": "knowledge",
+                                    "purpose": "Clarify a greeting.",
+                                    "nodes": [
+                                        {"node_id": "resolve_intent", "role": "intent_resolution"},
+                                        {"node_id": "resolve_context", "role": "context_resolution", "depends_on": ["resolve_intent"]},
+                                        {"node_id": "worker3_execution", "role": "worker3_execution", "depends_on": ["resolve_context"]},
+                                    ],
+                                    "inputs": [{"name": "question", "type": "string"}],
+                                    "outputs": [{"name": "answer", "type": "answer"}],
+                                    "kind_spec": {
+                                        "kind": "knowledge",
+                                        "citation_intent": ["source_revision"],
+                                        "retrieval_mode": "hybrid",
+                                    },
+                                    "clarification_questions": ["请说明你希望查询或创建的知识内容。"],
+                                    "layout_intent": "document",
+                                    "refresh_policy": {"max_age_seconds": 3600, "require_fixed_revision": True},
+                                    "plan_digest": "greeting-plan",
+                                }
+                            )
+                        )
+                    ],
+                )
+            )
+
+    service.model_gateway = VeADKModelGateway(
+        mcp_tools=McpToolBundle(
+            tools=(lambda: {"must_not_run": True},),
+            schemas={"must_not_run": {"kind": "mcp"}},
+        ),
+        model=GreetingModel(model="greeting-model"),
+        model_api_key="test-key",
+    )
+    result = await service.create_draft(
+        envelope(ref, "你好"), requested_kind=SkillKind.KNOWLEDGE
+    )
+    assert result.operation.status == AuthoringStatus.AWAITING_INPUT
+    assert result.operation.agent_execution is not None
+    assert result.operation.agent_execution.tool_calls == ()
+    assert captured["tools"] in (None, [])
+
+
+@pytest.mark.asyncio
 async def test_veadk_runner_invalid_output_fails_without_fixed_plan(setup_authoring):
     service, _, ref = setup_authoring
     from google.adk.models.base_llm import BaseLlm

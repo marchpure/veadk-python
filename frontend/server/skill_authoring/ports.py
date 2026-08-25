@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -302,7 +303,12 @@ class VeADKModelGateway:
     async def propose_plan(
         self, context: ResolvedContext, *, requested_kind: SkillKind | None
     ) -> BuildPlan:
-        bundle = await self._resolve_tools(context)
+        requires_tools = self._requires_mcp_tools(context, requested_kind)
+        bundle = (
+            await self._resolve_tools(context)
+            if requires_tools
+            else McpToolBundle(tools=(), schemas={}, credentialed=True)
+        )
         if self._model is None and not (
             self._model_api_key or os.getenv("MODEL_AGENT_API_KEY")
         ):
@@ -525,6 +531,26 @@ class VeADKModelGateway:
             f"requested_kind={requested_kind.value if requested_kind else None}; "
             f"mcp_schemas={json.dumps(bundle.schemas, ensure_ascii=False, sort_keys=True)}; "
             f"authorized_context={json.dumps(context.model_input, ensure_ascii=False, sort_keys=True)}"
+        )
+
+    @staticmethod
+    def _requires_mcp_tools(
+        context: ResolvedContext, requested_kind: SkillKind | None
+    ) -> bool:
+        """Keep ordinary conversation out of the data-tool execution path.
+
+        The request still goes through the real Agent/Runner. This narrow
+        classifier only recognizes conversational greetings; all authoring
+        kinds and non-greeting knowledge requests retain the MCP tool gate.
+        """
+        if requested_kind != SkillKind.KNOWLEDGE:
+            return True
+        prompt = context.envelope.prompt.strip().casefold()
+        return not bool(
+            re.fullmatch(
+                r"(?:你好|您好|嗨|哈喽|hello|hi|hey|你好呀|您好呀)[!！。．，, ]*",
+                prompt,
+            )
         )
 
     @staticmethod

@@ -361,16 +361,16 @@ class KnowledgeAssetApplication:
             fixed_revisions=tuple(
                 str(item) for item in payload.get("fixed_revisions", [])
             ),
-            # Real VEADK tool-assisted authoring can require more than the
-            # short unit-test default before it emits its typed BuildPlan.
-            # Keep the frozen upper bound and allow operators to lower it.
+            # Keep browser requests bounded when the upstream model is
+            # unavailable. Operators may explicitly raise this for a
+            # tool-assisted authoring environment.
             budget=Budget(
                 timeout_ms=min(
                     max(
                         int(
                             os.getenv(
                                 "MODEL_AGENT_TIMEOUT_MS",
-                                "120000",
+                                "30000",
                             )
                         ),
                         100,
