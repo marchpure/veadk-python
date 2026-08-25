@@ -51,7 +51,9 @@ export type KnowledgeCommandName =
   | "skill-draft.run"
   | "publication.publish"
   | "refresh.run"
-  | "invocation.start";
+  | "invocation.start"
+  | "skill-authoring.start"
+  | "skill-authoring.execute";
 
 export interface ActionUpdatePayload {
   actionId: string;
@@ -129,6 +131,10 @@ export interface InvocationStartPayload {
   inputRef: import("./generatedContracts").StorageRef;
   callerId: string;
 }
+export type SkillAuthoringStartPayload =
+  import("./generatedContracts").SkillAuthoringStartPayload;
+export type SkillAuthoringExecutePayload =
+  import("./generatedContracts").SkillAuthoringExecutePayload;
 export type KnowledgeCommand =
   | { command: "action.update"; payload: ActionUpdatePayload }
   | { command: "skill-draft.create"; payload: SkillDraftCreatePayload }
@@ -157,7 +163,9 @@ export type KnowledgeCommand =
   | { command: "skill-draft.run"; payload: SkillDraftRunPayload }
   | { command: "publication.publish"; payload: PublicationPublishPayload }
   | { command: "refresh.run"; payload: RefreshRunPayload }
-  | { command: "invocation.start"; payload: InvocationStartPayload };
+  | { command: "invocation.start"; payload: InvocationStartPayload }
+  | { command: "skill-authoring.start"; payload: SkillAuthoringStartPayload }
+  | { command: "skill-authoring.execute"; payload: SkillAuthoringExecutePayload };
 export type KnowledgeErrorCode =
   | "UNAVAILABLE"
   | "UNAUTHENTICATED"

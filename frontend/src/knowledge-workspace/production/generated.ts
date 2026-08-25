@@ -222,8 +222,10 @@ export type GeneratedCommand =
       skillVersionId: string;
       inputRef: import("./generatedContracts").StorageRef;
       callerId: string;
-    };
-  };
+    }
+  }
+  | import("./generatedContracts").SkillAuthoringStartCommand
+  | import("./generatedContracts").SkillAuthoringExecuteCommand;
 
 export interface GeneratedCommandResponse {
   accepted: boolean;
