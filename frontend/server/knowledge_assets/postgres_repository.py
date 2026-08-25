@@ -287,6 +287,23 @@ class PostgresKnowledgeAssetRepository:
             row = cursor.fetchone()
         return PublishedSkillVersion.model_validate(row["version_json"]) if row else None
 
+    def published_skill_versions_for_workspace(
+        self, workspace_id: str
+    ) -> list[PublishedSkillVersion]:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.version_json
+                FROM published_skill_versions AS p
+                JOIN skill_drafts AS d ON d.id = p.skill_id
+                WHERE d.workspace_id = %s AND p.version_json->>'status' = 'published'
+                ORDER BY p.created_at
+                """,
+                (workspace_id,),
+            )
+            rows = cursor.fetchall()
+        return [PublishedSkillVersion.model_validate(row["version_json"]) for row in rows]
+
     def save_invocation(self, invocation: Invocation) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(

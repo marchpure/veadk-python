@@ -149,6 +149,9 @@ class KnowledgeAssetRepository(Protocol):
     def policy_gate_result(self, result_id: str) -> PolicyGateResult | None: ...
     def save_published_skill_version(self, version: PublishedSkillVersion) -> None: ...
     def published_skill_version(self, version_id: str) -> PublishedSkillVersion | None: ...
+    def published_skill_versions_for_workspace(
+        self, workspace_id: str
+    ) -> list[PublishedSkillVersion]: ...
     def save_invocation(self, invocation: Invocation) -> None: ...
     def save_skill_view_share(self, grant: SkillViewShareGrant) -> None: ...
     def save_patch_history(
@@ -216,6 +219,16 @@ class SqliteKnowledgeAssetRepository:
                 """,
                 (workspace_id,),
             ).fetchall()
+            published_rows = self._connection.execute(
+                """
+                SELECT p.version_json
+                FROM published_skill_versions AS p
+                JOIN skill_drafts AS d ON d.id = p.skill_id
+                WHERE d.workspace_id = ? AND json_extract(p.version_json, '$.status') = 'published'
+                ORDER BY p.created_at
+                """,
+                (workspace_id,),
+            ).fetchall()
         resources = [
             ResourceSummary(
                 id=row["id"],
@@ -242,7 +255,19 @@ class SqliteKnowledgeAssetRepository:
                 {"id": "local-markdown", "type": "markdown", "status": "available"},
                 {"id": "local-csv", "type": "csv", "status": "available"},
             ],
-            publications=[],
+            publications=[
+                {
+                    "id": version.id,
+                    "skillId": version.skill_id,
+                    "revision": version.skill_revision_id.rsplit(":", 1)[-1],
+                    "version": version.semver,
+                    "status": version.status,
+                }
+                for row in published_rows
+                for version in [
+                    PublishedSkillVersion.model_validate(json.loads(row["version_json"]))
+                ]
+            ],
             routes=["welcome", "add_kb", "skill_builder"],
             workspace_data=workspace_data,
             action_loop={
