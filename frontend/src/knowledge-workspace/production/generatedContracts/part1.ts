@@ -305,6 +305,7 @@ export interface ConnectionInstance {
   lastSuccessAt?: string | null;
   lastError?: CapabilityReason | null;
   discoveredResources?: Array<DiscoveredResource>;
+  goldenRevisionIds?: Array<string>;
 }
 
 export interface ConnectorCommand {

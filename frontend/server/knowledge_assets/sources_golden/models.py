@@ -141,6 +141,7 @@ class ConnectionInstance(ContractModel):
     last_success_at: str | None = None
     last_error: CapabilityReason | None = None
     discovered_resources: list[DiscoveredResource] = Field(default_factory=list)
+    golden_revision_ids: list[str] = Field(default_factory=list)
 
 
 class CreateConnectionResult(ContractModel):

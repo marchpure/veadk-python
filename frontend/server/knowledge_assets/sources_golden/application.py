@@ -500,6 +500,22 @@ class SourceGoldenApplication:
             for revision in self.repository.latest_golden_assets(context.workspace_id)
             if revision.lineage.connection_id in by_id
         ]
+        revisions_by_connection: dict[str, list[str]] = {}
+        for revision in self.repository.latest_golden_assets(context.workspace_id):
+            if revision.lineage.connection_id in by_id:
+                revisions_by_connection.setdefault(
+                    revision.lineage.connection_id, []
+                ).append(revision.id)
+        connections = [
+            connection.model_copy(
+                update={
+                    "golden_revision_ids": revisions_by_connection.get(
+                        connection.id, []
+                    )
+                }
+            )
+            for connection in connections
+        ]
         return DataOverviewView(
             workspace_id=context.workspace_id,
             connections=connections,

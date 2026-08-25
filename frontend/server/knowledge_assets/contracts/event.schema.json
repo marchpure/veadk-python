@@ -1404,6 +1404,13 @@
           },
           "title": "Discoveredresources",
           "type": "array"
+        },
+        "goldenRevisionIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Goldenrevisionids",
+          "type": "array"
         }
       },
       "required": [

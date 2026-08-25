@@ -128,6 +128,7 @@ def test_local_connection_validation_discovery_and_overview_survive_restart(
         result.connection.id
     ]
     assert overview.connections[0].discovered_resources[0].name == "orders.csv"
+    assert overview.connections[0].golden_revision_ids == []
     assert (
         reopened.connection_detail(
             _context(), result.connection.id
