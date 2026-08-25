@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { inflateSync, deflateSync } from "node:zlib";
+import { createServer } from "node:http";
 
 import playwright from "/Users/bytedance/node_modules/playwright/index.js";
 
@@ -94,6 +95,234 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function pathnameFor(url) {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return "";
+  }
+}
+
+function isKnowledgeAssetsApi(url) {
+  return pathnameFor(url).startsWith("/api/knowledge-assets/v1/");
+}
+
+function isDevServerAuxiliary(url) {
+  const pathname = pathnameFor(url);
+  return pathname === "/__vite_ping" || pathname === "/@vite/client";
+}
+
+function isStaticResourceType(resourceType) {
+  return ["document", "script", "stylesheet", "image", "font", "media"].includes(resourceType);
+}
+
+function hasProvenNavigationAction(action) {
+  return [
+    "playwright-navigation:agent-pane-width",
+    "page-close-after-capture",
+    "prototype-page-close-after-capture",
+  ].includes(action);
+}
+
+export function classifyFailedRequest(request) {
+  const failure = request.failure ?? "";
+  const resourceType = request.resourceType ?? "unknown";
+  const action = request.action ?? "unknown";
+  if (isKnowledgeAssetsApi(request.url)) {
+    return {
+      ignored: false,
+      reason: failure === "net::ERR_ABORTED"
+        ? "critical business API aborted"
+        : "critical business API request failed",
+      request,
+    };
+  }
+  if (failure === "net::ERR_ABORTED" && isDevServerAuxiliary(request.url) && hasProvenNavigationAction(action)) {
+    return {
+      ignored: true,
+      reason: "dev-server navigation abort; non-business auxiliary request; scenario already captured",
+      request,
+    };
+  }
+  if (isStaticResourceType(resourceType)) {
+    return { ignored: false, reason: "static resource request failed", request };
+  }
+  return { ignored: false, reason: "request failed", request };
+}
+
+function shouldRecordResponseError(response) {
+  const status = response.status;
+  if (isKnowledgeAssetsApi(response.url)) return status < 200 || status >= 300;
+  if (isStaticResourceType(response.resourceType)) return status >= 400;
+  return status >= 400;
+}
+
+function installPageEvidenceObservers(page, initialAction) {
+  let action = initialAction;
+  const consoleErrors = [];
+  const pageErrors = [];
+  const failedRequests = [];
+  const responseErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("requestfailed", (request) => {
+    failedRequests.push({
+      url: request.url(),
+      failure: request.failure()?.errorText ?? "",
+      method: request.method(),
+      resourceType: request.resourceType(),
+      action,
+    });
+  });
+  page.on("response", (response) => {
+    const request = response.request();
+    const record = {
+      url: response.url(),
+      status: response.status(),
+      statusText: response.statusText(),
+      method: request.method(),
+      resourceType: request.resourceType(),
+      action,
+    };
+    if (shouldRecordResponseError(record)) responseErrors.push(record);
+  });
+  return {
+    consoleErrors,
+    pageErrors,
+    failedRequests,
+    responseErrors,
+    setAction(nextAction) {
+      action = nextAction;
+    },
+  };
+}
+
+function createRequiredResponseWaiters(page, state) {
+  const waiters = [
+    page
+      .waitForResponse((response) => response.url().includes("/api/knowledge-assets/v1/bootstrap"), { timeout: 15_000 })
+      .then((response) => ({
+        name: "bootstrap",
+        url: response.url(),
+        status: response.status(),
+        ok: response.status() >= 200 && response.status() < 300,
+      }))
+      .catch((error) => ({
+        name: "bootstrap",
+        url: "/api/knowledge-assets/v1/bootstrap",
+        status: 0,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      })),
+  ];
+  if (stateNameToRoute(state) !== "welcome") {
+    waiters.push(
+      page
+        .waitForResponse((response) =>
+          response.url().includes("/__w4_v2152_artifacts/") &&
+          response.url().endsWith(".html"),
+        { timeout: 15_000 })
+        .then((response) => ({
+          name: "trusted-html-artifact",
+          url: response.url(),
+          status: response.status(),
+          ok: response.status() >= 200 && response.status() < 300,
+        }))
+        .catch((error) => ({
+          name: "trusted-html-artifact",
+          url: "/__w4_v2152_artifacts/*.html",
+          status: 0,
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        })),
+    );
+  }
+  return waiters;
+}
+
+async function settleRequiredResponses(waiters, responseErrors, action) {
+  const results = await Promise.all(waiters);
+  for (const result of results) {
+    if (!result.ok) {
+      responseErrors.push({
+        url: result.url,
+        status: result.status,
+        statusText: result.error ?? "required response was not successful",
+        method: "GET",
+        resourceType: result.name === "bootstrap" ? "fetch" : "document",
+        action,
+        required: result.name,
+      });
+    }
+  }
+  return results;
+}
+
+export function evaluateEvidenceGate(entries, promptHandoff) {
+  const failures = [];
+  const ignoredRequests = [];
+  const unhandledFailedRequests = [];
+  let failedRequestsTotal = 0;
+  let responseErrorsTotal = 0;
+  let consoleErrorsTotal = 0;
+  let pageErrorsTotal = 0;
+  for (const entry of entries) {
+    const label = `${entry.viewport}/${entry.state}`;
+    const checks = entry.checks ?? {};
+    for (const message of checks.layoutFailures ?? []) failures.push(`${label}: ${message}`);
+    for (const message of checks.consoleErrors ?? []) {
+      consoleErrorsTotal += 1;
+      failures.push(`${label}: console ${message}`);
+    }
+    for (const message of checks.pageErrors ?? []) {
+      pageErrorsTotal += 1;
+      failures.push(`${label}: page ${message}`);
+    }
+    for (const response of checks.responseErrors ?? []) {
+      responseErrorsTotal += 1;
+      failures.push(`${label}: response ${response.url} HTTP ${response.status} ${response.statusText ?? ""}`.trim());
+    }
+    for (const request of checks.failedRequests ?? []) {
+      failedRequestsTotal += 1;
+      const classified = classifyFailedRequest(request);
+      if (classified.ignored) {
+        ignoredRequests.push({
+          ...request,
+          reason: classified.reason,
+          state: entry.state,
+          viewport: entry.viewport,
+        });
+      } else {
+        unhandledFailedRequests.push({
+          ...request,
+          reason: classified.reason,
+          state: entry.state,
+          viewport: entry.viewport,
+        });
+        failures.push(`${label}: ${classified.reason}: ${request.url} ${request.failure}`);
+      }
+    }
+    for (const message of checks.keyboardFailures ?? []) failures.push(`${label}: keyboard ${message}`);
+    for (const message of checks.agentPaneFailures ?? []) failures.push(`${label}: agent pane ${message}`);
+  }
+  if (promptHandoff?.status && promptHandoff.status !== "pass") {
+    failures.push(`prompt handoff: ${promptHandoff.status}`);
+  }
+  return {
+    status: failures.length === 0 ? "pass" : "fail",
+    failures,
+    failedRequestsTotal,
+    ignoredRequestsTotal: ignoredRequests.length,
+    unhandledFailedRequests,
+    ignoredRequests,
+    responseErrorsTotal,
+    consoleErrorsTotal,
+    pageErrorsTotal,
+  };
+}
+
 async function waitForHttp(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
@@ -139,6 +368,97 @@ async function startVite(root, port) {
       child.kill("SIGTERM");
       await Promise.race([once(child, "exit"), sleep(5_000)]);
       if (child.exitCode === null) child.kill("SIGKILL");
+    },
+  };
+}
+
+async function runChild(command, args, options) {
+  const child = spawn(command, args, options);
+  const logs = [];
+  child.stdout?.on("data", (chunk) => logs.push(chunk.toString()));
+  child.stderr?.on("data", (chunk) => logs.push(chunk.toString()));
+  const [code] = await once(child, "exit");
+  if (code !== 0) {
+    throw new Error(`${command} ${args.join(" ")} exited ${code}\n${logs.join("")}`);
+  }
+  return logs.join("");
+}
+
+function contentTypeFor(pathname) {
+  if (pathname.endsWith(".html")) return "text/html; charset=utf-8";
+  if (pathname.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (pathname.endsWith(".css")) return "text/css; charset=utf-8";
+  if (pathname.endsWith(".svg")) return "image/svg+xml";
+  if (pathname.endsWith(".json")) return "application/json; charset=utf-8";
+  if (pathname.endsWith(".ttf")) return "font/ttf";
+  if (pathname.endsWith(".woff2")) return "font/woff2";
+  if (pathname.endsWith(".png")) return "image/png";
+  return "application/octet-stream";
+}
+
+async function startStaticServer(root, port) {
+  const server = createServer((request, response) => {
+    try {
+      const parsed = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
+      let pathname = decodeURIComponent(parsed.pathname);
+      if (pathname === "/") pathname = "/index.html";
+      const candidate = resolve(root, `.${pathname}`);
+      const normalizedRoot = resolve(root);
+      const filePath = candidate.startsWith(normalizedRoot) && existsSync(candidate)
+        ? candidate
+        : resolve(root, "index.html");
+      response.writeHead(200, {
+        "content-type": contentTypeFor(filePath),
+        "cache-control": "no-store",
+      });
+      response.end(readFileSync(filePath));
+    } catch (error) {
+      response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+      response.end(error instanceof Error ? error.message : String(error));
+    }
+  });
+  await new Promise((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(port, "127.0.0.1", () => {
+      server.off("error", rejectListen);
+      resolveListen();
+    });
+  });
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    async close() {
+      await new Promise((resolveClose) => server.close(resolveClose));
+    },
+  };
+}
+
+async function startProductionWorkspaceServer(frontendDir, port) {
+  const outputDir = resolve(
+    "/tmp",
+    `knowledge-v2152-w4-production-${process.pid}-${Date.now()}`,
+  );
+  mkdirp(outputDir);
+  await runChild(
+    process.execPath,
+    [
+      resolve(frontendDir, "node_modules/vite/bin/vite.js"),
+      "build",
+      "--outDir",
+      outputDir,
+      "--emptyOutDir",
+    ],
+    {
+      cwd: frontendDir,
+      env: { ...process.env, FORCE_COLOR: "0" },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  const server = await startStaticServer(outputDir, port);
+  return {
+    origin: server.origin,
+    async close() {
+      await server.close();
+      await rm(outputDir, { recursive: true, force: true });
     },
   };
 }
@@ -1069,20 +1389,49 @@ async function collectKeyboardEvidence(page) {
   return { steps, failures };
 }
 
-async function collectAgentPaneWidthEvidence(page, localOrigin, state, viewport) {
+async function collectAgentPaneWidthEvidence(browser, localOrigin, state, viewport) {
   if (viewport.isMobile) {
-    return { skipped: "mobile uses overlay assistant drawer", collapsed: null, expanded: null, failures: [] };
+    return {
+      skipped: "mobile uses overlay assistant drawer",
+      collapsed: null,
+      expanded: null,
+      failures: [],
+      consoleErrors: [],
+      pageErrors: [],
+      failedRequests: [],
+      responseErrors: [],
+    };
   }
   const url = new URL(state.stateUrl, localOrigin);
   url.searchParams.set("studio", "knowledge");
   url.searchParams.set("pane", "closed");
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await waitForRendered(page, state);
-  const collapsed = await collectDomAndLayoutSummary(page);
+  const openPanePage = async (paneState) => {
+    const page = await browser.newPage({
+      viewport: { width: viewport.width, height: viewport.height },
+      isMobile: viewport.isMobile,
+      deviceScaleFactor: 1,
+      locale: "zh-CN",
+      colorScheme: "light",
+    });
+    await routeW4Api(page, state, localOrigin);
+    const observed = installPageEvidenceObservers(page, "playwright-navigation:agent-pane-width");
+    const paneUrl = new URL(state.stateUrl, localOrigin);
+    paneUrl.searchParams.set("studio", "knowledge");
+    paneUrl.searchParams.set("pane", paneState);
+    const waiters = createRequiredResponseWaiters(page, state);
+    await page.goto(paneUrl.toString(), { waitUntil: "networkidle", timeout: 30_000 });
+    await settleRequiredResponses(waiters, observed.responseErrors, "playwright-navigation:agent-pane-width");
+    await waitForRendered(page, state);
+    const summary = await collectDomAndLayoutSummary(page);
+    observed.setAction("page-close-after-capture");
+    await page.close();
+    return { summary, observed };
+  };
+  const closedCapture = await openPanePage("closed");
+  const collapsed = closedCapture.summary;
   url.searchParams.set("pane", "open");
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await waitForRendered(page, state);
-  const expanded = await collectDomAndLayoutSummary(page);
+  const openCapture = await openPanePage("open");
+  const expanded = openCapture.summary;
   const failures = [];
   if (collapsed.horizontalOverflowPx > 0 || expanded.horizontalOverflowPx > 0) {
     failures.push("horizontal overflow when toggling agent pane");
@@ -1096,19 +1445,23 @@ async function collectAgentPaneWidthEvidence(page, localOrigin, state, viewport)
     collapsed: collapsed.main,
     expanded: expanded.main,
     failures,
+    consoleErrors: [
+      ...closedCapture.observed.consoleErrors,
+      ...openCapture.observed.consoleErrors,
+    ],
+    pageErrors: [
+      ...closedCapture.observed.pageErrors,
+      ...openCapture.observed.pageErrors,
+    ],
+    failedRequests: [
+      ...closedCapture.observed.failedRequests,
+      ...openCapture.observed.failedRequests,
+    ],
+    responseErrors: [
+      ...closedCapture.observed.responseErrors,
+      ...openCapture.observed.responseErrors,
+    ],
   };
-}
-
-function isIgnorableFailedRequest(request) {
-  return (
-    request.failure === "net::ERR_ABORTED" &&
-    (
-      request.url.includes("/api/knowledge-assets/v1/bootstrap") ||
-      request.url.includes("/__w4_v2152_artifacts/") ||
-      request.url.includes("__vite_ping") ||
-      request.url.includes("/@vite/client")
-    )
-  );
 }
 
 function analyzeLayout(summary, state, viewport) {
@@ -1154,26 +1507,28 @@ async function captureW4Actual(browser, state, viewport, outputDir, localOrigin)
   const consoleErrors = [];
   const pageErrors = [];
   const failedRequests = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => pageErrors.push(error.message));
-  page.on("requestfailed", (request) => {
-    failedRequests.push({ url: request.url(), failure: request.failure()?.errorText ?? "" });
-  });
+  const responseErrors = [];
   await routeW4Api(page, state, localOrigin);
+  const observed = installPageEvidenceObservers(page, "initial-capture");
   const url = new URL(state.stateUrl, localOrigin);
   url.searchParams.set("studio", "knowledge");
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+  const waiters = createRequiredResponseWaiters(page, state);
+  await page.goto(url.toString(), { waitUntil: "networkidle", timeout: 30_000 });
+  await settleRequiredResponses(waiters, observed.responseErrors, "initial-capture");
   await waitForRendered(page, state);
   await sleep(300);
   const screenshotPath = join(outputDir, "actual.png");
   await page.screenshot({ path: screenshotPath, fullPage: false });
   const dom = await collectDomAndLayoutSummary(page);
   const keyboard = await collectKeyboardEvidence(page);
-  const agentPane = await collectAgentPaneWidthEvidence(page, localOrigin, state, viewport);
-  const layoutFailures = analyzeLayout(dom, state, viewport);
+  observed.setAction("page-close-after-capture");
   await page.close();
+  const agentPane = await collectAgentPaneWidthEvidence(browser, localOrigin, state, viewport);
+  const layoutFailures = analyzeLayout(dom, state, viewport);
+  consoleErrors.push(...observed.consoleErrors, ...(agentPane.consoleErrors ?? []));
+  pageErrors.push(...observed.pageErrors, ...(agentPane.pageErrors ?? []));
+  failedRequests.push(...observed.failedRequests, ...(agentPane.failedRequests ?? []));
+  responseErrors.push(...observed.responseErrors, ...(agentPane.responseErrors ?? []));
   return {
     source: "w4-current-worktree",
     path: screenshotPath,
@@ -1181,6 +1536,7 @@ async function captureW4Actual(browser, state, viewport, outputDir, localOrigin)
     consoleErrors,
     pageErrors,
     failedRequests,
+    responseErrors,
     dom,
     keyboard,
     agentPane,
@@ -1199,6 +1555,7 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot) {
   });
   const state = { name: "home", stateUrl: "/?file=welcome", routeId: "welcome" };
   await routeW4Api(page, state, localOrigin);
+  const observed = installPageEvidenceObservers(page, "home-to-builder-prompt");
   const prompt = "请基于真实工作区资源生成一个 Dashboard Skill，并保留上下文。";
   const readPromptValues = async () => {
     const fields = page.getByTestId("skill-builder-prompt");
@@ -1210,7 +1567,9 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot) {
     }
     return values;
   };
+  let waiters = createRequiredResponseWaiters(page, state);
   await page.goto(`${localOrigin}/?studio=knowledge&file=welcome`, { waitUntil: "networkidle", timeout: 30_000 });
+  await settleRequiredResponses(waiters, observed.responseErrors, "home-to-builder-prompt:initial");
   await page.getByLabel("描述要构建的 Skill").fill(`${prompt} @Workspace`);
   await page
     .locator("button")
@@ -1223,7 +1582,10 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot) {
   await page.waitForURL(/file=skill_builder/, { timeout: 15_000 });
   const builderValues = await readPromptValues();
   const url = new URL(page.url());
+  observed.setAction("home-to-builder-prompt:reload");
+  waiters = createRequiredResponseWaiters(page, state);
   await page.reload({ waitUntil: "networkidle", timeout: 30_000 });
+  await settleRequiredResponses(waiters, observed.responseErrors, "home-to-builder-prompt:reload");
   const reloadedValues = await readPromptValues();
   const result = {
     status: builderValues.includes(prompt) && reloadedValues.includes(prompt) ? "pass" : "fail",
@@ -1238,11 +1600,30 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot) {
     workspaceScope: url.searchParams.get("workspace_scope"),
     draftId: url.searchParams.get("draft_id"),
     operationId: url.searchParams.get("operation_id"),
+    failedRequests: observed.failedRequests,
+    responseErrors: observed.responseErrors,
+    consoleErrors: observed.consoleErrors,
+    pageErrors: observed.pageErrors,
   };
   await page.screenshot({ path: join(outputDir, "after-reload.png"), fullPage: false });
   writeFileSync(join(outputDir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
   await page.close();
-  if (result.status !== "pass") {
+  const gate = evaluateEvidenceGate([
+    {
+      viewport: "studio-1440",
+      state: "home-to-builder-prompt",
+      checks: {
+        layoutFailures: [],
+        consoleErrors: observed.consoleErrors,
+        pageErrors: observed.pageErrors,
+        responseErrors: observed.responseErrors,
+        failedRequests: observed.failedRequests,
+        keyboardFailures: [],
+        agentPaneFailures: [],
+      },
+    },
+  ], result);
+  if (result.status !== "pass" || gate.status !== "pass") {
     throw new Error(`home-to-builder prompt handoff failed: ${JSON.stringify(result)}`);
   }
   return result;
@@ -1261,7 +1642,7 @@ async function main() {
     readFileSync(resolve(options.prototypeDir, "prototype/captures.json"), "utf8"),
   );
   const capturesByUrl = stateCaptureMap(prototypeCaptures);
-      const localServer = await startVite(FRONTEND_DIR, 5179);
+      const localServer = await startProductionWorkspaceServer(FRONTEND_DIR, 5179);
       const prototypeServer = options.prototypeSourceServer
         ? await startPrototypeServer(options.prototypeDir, 5180)
         : { origin: null, skippedReason: "using captures.json TOS PNG reference", close: async () => {} };
@@ -1315,6 +1696,7 @@ async function main() {
             consoleErrors: actual.consoleErrors,
             pageErrors: actual.pageErrors,
             failedRequests: actual.failedRequests,
+            responseErrors: actual.responseErrors,
           },
           diff: {
             overlayPath,
@@ -1330,6 +1712,7 @@ async function main() {
             layoutFailures: actual.layoutFailures,
             consoleErrors: actual.consoleErrors,
             pageErrors: actual.pageErrors,
+            responseErrors: actual.responseErrors,
             failedRequests: actual.failedRequests,
             keyboardFailures: actual.keyboard.failures,
             agentPaneFailures: actual.agentPane.failures,
@@ -1340,26 +1723,35 @@ async function main() {
       }
     }
     const promptHandoff = await runPromptHandoffRegression(browser, localServer.origin, outputRoot);
-    const failures = entries.flatMap((entry) => [
-      ...entry.checks.layoutFailures.map((message) => `${entry.viewport}/${entry.state}: ${message}`),
-      ...entry.checks.consoleErrors.map((message) => `${entry.viewport}/${entry.state}: console ${message}`),
-      ...entry.checks.pageErrors.map((message) => `${entry.viewport}/${entry.state}: page ${message}`),
-      ...entry.checks.failedRequests
-        .filter((request) => !isIgnorableFailedRequest(request))
-        .map((request) => `${entry.viewport}/${entry.state}: request ${request.url} ${request.failure}`),
-      ...entry.checks.keyboardFailures.map((message) => `${entry.viewport}/${entry.state}: keyboard ${message}`),
-      ...entry.checks.agentPaneFailures.map((message) => `${entry.viewport}/${entry.state}: agent pane ${message}`),
-    ]);
+    const networkGate = evaluateEvidenceGate(entries, promptHandoff);
+    const failures = networkGate.failures;
     const report = {
-      status: failures.length === 0 ? "pass" : "fail",
+      status: networkGate.status,
       generatedAt: new Date().toISOString(),
       prototypeDir: options.prototypeDir,
       prototypeReference: prototypeServer.origin ? "prototype source server" : "captures.json TOS PNG fallback",
+      validationScope: "w4-ui-typed-seam",
+      productionPass: false,
+      integrationPending: [
+        "W1 connector/backend services",
+        "W2 authoring/runtime streaming backend",
+        "W3 trusted renderer/template registry/runtime",
+        "Integration MAIN vertical production wiring",
+      ],
       localOrigin: localServer.origin,
       states: fixture.states.length,
       viewports: VIEWPORTS.map((viewport) => viewport.name),
       screenshots: entries.length,
       promptHandoff,
+      networkGate: {
+        failedRequestsTotal: networkGate.failedRequestsTotal,
+        ignoredRequestsTotal: networkGate.ignoredRequestsTotal,
+        responseErrorsTotal: networkGate.responseErrorsTotal,
+        consoleErrorsTotal: networkGate.consoleErrorsTotal,
+        pageErrorsTotal: networkGate.pageErrorsTotal,
+        ignoredRequests: networkGate.ignoredRequests,
+        unhandledFailedRequests: networkGate.unhandledFailedRequests,
+      },
       failures,
       entries,
     };
@@ -1372,12 +1764,19 @@ async function main() {
         `Generated at: ${report.generatedAt}`,
         `Prototype dir: ${options.prototypeDir}`,
         `Reference source: ${report.prototypeReference}`,
+        `Validation scope: ${report.validationScope}`,
+        `Production pass: ${report.productionPass}`,
         `Status: ${report.status}`,
         "",
         "Artifacts are grouped as `<viewport>/<state>/{reference,actual,diff}`.",
         "Each state has `summary.json` with DOM, layout, console, failed request, overflow, keyboard, modal, and Agent pane width checks.",
         "",
         `Prompt handoff regression: ${promptHandoff.status}`,
+        `Failed requests: ${networkGate.failedRequestsTotal}`,
+        `Ignored requests: ${networkGate.ignoredRequestsTotal}`,
+        `Response errors: ${networkGate.responseErrorsTotal}`,
+        `Console errors: ${networkGate.consoleErrorsTotal}`,
+        `Page errors: ${networkGate.pageErrorsTotal}`,
       ].join("\n"),
     );
     process.stdout.write(`${JSON.stringify({
@@ -1395,7 +1794,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : error}\n`);
-  process.exitCode = 1;
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.stack || error.message : error}\n`);
+    process.exitCode = 1;
+  });
+}

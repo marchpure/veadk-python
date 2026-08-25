@@ -10,9 +10,9 @@
     "onlinePrototypeStatus": "HTTP 404 during capture"
   },
   "browserEvidence": {
-    "runtimeRoot": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602",
-    "report": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602/report.json",
-    "reportSha256": "f89b7f2e7e34a35bf1815c388bde2df354e4575c587c7fa9e9fb9d2d8abcce5e",
+    "runtimeRoot": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631",
+    "report": "/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631/report.json",
+    "reportSha256": "cd095d7fa8c5998df81bba1cc34e7ad7f6dad82d05e46fa28d6c269285aea96f",
     "status": "pass",
     "states": 15,
     "viewports": [
@@ -32,7 +32,24 @@
       "keyboardNavigation": "pass",
       "modalAndDrawerObstruction": "pass",
       "agentPaneWidthCollapsedExpanded": "pass",
-      "homeToBuilderPromptHandoff": "pass"
+      "homeToBuilderPromptHandoff": "pass",
+      "responseErrors": "pass",
+      "topLevelStatusConsistency": "pass",
+      "criticalApiAbortFailsGate": "pass",
+      "unclassifiedRequestFailureFailsGate": "pass",
+      "consoleAndPageErrorFailGate": "pass",
+      "allowedNavigationAbortRequiresReason": "pass"
+    },
+    "validationScope": "w4-ui-typed-seam",
+    "productionPass": false,
+    "networkGate": {
+      "failedRequestsTotal": 0,
+      "ignoredRequestsTotal": 0,
+      "responseErrorsTotal": 0,
+      "consoleErrorsTotal": 0,
+      "pageErrorsTotal": 0,
+      "ignoredRequests": [],
+      "unhandledFailedRequests": []
     }
   },
   "states": [
@@ -52,5 +69,6 @@
     "published-sop-monitoring",
     "optimization-draft"
   ],
-  "note": "This index points to runtime screenshots and reports. Large PNG artifacts are intentionally not committed."
+  "note": "This index points to runtime screenshots and reports. Large PNG artifacts are intentionally not committed. Evidence scope is W4 UI typed seam, not MAIN production vertical pass.",
+  "correctiveBaseHead": "8106292d55c44d2a330967a646b2069b692041e2"
 }

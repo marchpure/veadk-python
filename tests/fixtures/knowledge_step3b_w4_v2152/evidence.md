@@ -20,11 +20,13 @@ Start HEAD: `6905f074e31a77686e69a0594b35f5ad22ce2ff1`
 
 ## Browser evidence
 
-Runtime evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602`
+Runtime evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631`
 
 - Report: `report.json`
-- Report SHA-256: `f89b7f2e7e34a35bf1815c388bde2df354e4575c587c7fa9e9fb9d2d8abcce5e`
+- Report SHA-256: `cd095d7fa8c5998df81bba1cc34e7ad7f6dad82d05e46fa28d6c269285aea96f`
 - Status: `pass`
+- Validation scope: `w4-ui-typed-seam`
+- Production pass: `false`; W1/W2/W3/MAIN vertical integration remains pending.
 - Screenshots: `45` W4 actual + `45` prototype reference + `45` overlay/diff
 - Viewports:
   - `desktop-1920` (`1920×1080`)
@@ -39,6 +41,11 @@ Runtime evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v215
   - modal/drawer obstruction
   - Agent pane collapsed/expanded main-area width
 - Failures: `0`
+- Failed requests: `0`
+- Ignored requests: `0`
+- Response errors: `0`
+- Console errors: `0`
+- Page errors: `0`
 - Home → Builder browser regression: `pass`
   - prompt preserved
   - context refs preserved
@@ -46,6 +53,31 @@ Runtime evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v215
   - workspace scope preserved
   - `operation_id` and `draft_id` from typed command preserved
   - reload restores the Builder input
+
+## Corrective network-gate audit
+
+The previous report at `visual-evidence-final2-20260826010602` was invalid for final evidence because it recorded failed requests internally while the top-level status remained `pass`.
+
+Root cause:
+
+- the evidence script captured `requestfailed` events but filtered `net::ERR_ABORTED` for `/api/knowledge-assets/v1/bootstrap`;
+- the same page was reused for screenshot capture and Agent-pane width navigation, which aborted earlier bootstrap/trusted-artifact fetches;
+- the top-level `failures` array was computed after this broad filter, so internal failed requests did not fail the report.
+
+Corrective changes:
+
+- business API failures under `/api/knowledge-assets/v1/**` always fail, including `net::ERR_ABORTED`;
+- static resource failures fail;
+- unclassified request failures fail;
+- console errors and page errors fail;
+- HTTP response errors are recorded and fail;
+- only explicitly documented non-business dev-server auxiliary navigation aborts can be ignored;
+- ignored requests must include URL, method, resource type, triggering action, and reason;
+- current final run has no ignored requests.
+
+Regression coverage:
+
+- `frontend/tests/knowledgeWorkspaceV2152EvidenceGate.test.mjs` verifies critical API aborts, unclassified failures, console/page errors, allowed navigation abort classification, and top-level status consistency.
 
 ## 15-state acceptance
 
@@ -168,12 +200,13 @@ Final gate commands for this handoff:
 
 ```bash
 node --test frontend/tests/knowledgeWorkspaceV2152Shell.test.mjs
+node --test frontend/tests/knowledgeWorkspaceV2152EvidenceGate.test.mjs
 node --test frontend/tests/knowledgeWorkspaceV2152Shell.test.mjs frontend/tests/knowledgeShellState.test.mjs frontend/tests/knowledgeWorkspaceV21141Contracts.test.mjs frontend/tests/knowledge-workspace-v21141/contracts.test.mjs frontend/tests/knowledge-workspace-v21141/trustedHtmlArtifactRenderer.test.mjs frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs
 cd frontend && npm test
 cd frontend && npx tsc --noEmit --noUnusedLocals false --noUnusedParameters false --pretty false
 cd frontend && npm run build
 pytest -q tests/frontend/knowledge_workspace_v21141 tests/frontend/test_knowledge_asset_bff.py tests/frontend/test_knowledge_web_import.py tests/frontend/test_knowledge_uploads.py
-KNOWLEDGE_V2152_EVIDENCE_DIR=/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602 node frontend/scripts/knowledge_step3b_w4_v2152_visual_evidence.mjs --prototype-dir /tmp/knowledge-v2152-rerun3.enFUPp
+KNOWLEDGE_V2152_EVIDENCE_DIR=/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631 node frontend/scripts/knowledge_step3b_w4_v2152_visual_evidence.mjs --prototype-dir /tmp/knowledge-v2152-rerun3.enFUPp
 ```
 
 Results are recorded in the final W4 handoff after the full gate run.

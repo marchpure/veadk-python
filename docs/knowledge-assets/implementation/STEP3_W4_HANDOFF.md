@@ -1,14 +1,33 @@
 # STEP3B W4 v2.15.2 UI Handoff
 
-Status: `STEP3B_W4_UI_READY_FOR_INTEGRATION`
+Status: `STEP3B_W4_CORRECTIVE_READY_FOR_INTEGRATION`
 
 ## Baseline
 
 - Session: `01a038c9-c29d-7e73-93dc-9bb67813ded0`
 - Branch: `feat/knowledge-step3b-v2152-workspace`
 - Start HEAD: `6905f074e31a77686e69a0594b35f5ad22ce2ff1`
+- Corrective base HEAD: `8106292d55c44d2a330967a646b2069b692041e2`
 - Prototype export SHA-256: `0a672e34dd8f5cf416a73334b519679ee756f2c50ea8710166dae4b6b6c41b15`
 - Prototype unpacked at: `/tmp/knowledge-v2152-rerun3.enFUPp`
+
+## Corrective closure
+
+The previous W4 browser report at `visual-evidence-final2-20260826010602` is not used as final evidence. It had top-level `status: pass` while internal `failedRequests` were non-empty.
+
+Root cause:
+
+- failed request events were captured but `net::ERR_ABORTED` for `/api/knowledge-assets/v1/bootstrap` was broadly filtered;
+- screenshot capture and Agent-pane width navigation reused the same page, aborting in-flight bootstrap/trusted-artifact requests from the previous navigation;
+- the final failure list was computed after that broad filter, so the report could be self-contradictory.
+
+Corrective changes:
+
+- critical `/api/knowledge-assets/v1/**` request failures always fail the report, including `ERR_ABORTED`;
+- static resource failures, unclassified `requestfailed`, response errors, console errors, page errors, and prompt-handoff gate errors fail the report;
+- only explicitly documented non-business dev-server auxiliary navigation aborts can be ignored, with URL, method, resource type, action, and reason recorded;
+- W4 actual evidence now uses a temporary production build and static server, not Vite dev HMR, so dev-only StrictMode/HMR aborts do not pollute network evidence;
+- screenshot capture and Agent-pane width checks use isolated pages and wait for required bootstrap/artifact responses before capture or navigation.
 
 ## Delivered
 
@@ -82,9 +101,11 @@ Status: `STEP3B_W4_UI_READY_FOR_INTEGRATION`
 
 ## Browser evidence
 
-- Evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602`
-- Report SHA-256: `f89b7f2e7e34a35bf1815c388bde2df354e4575c587c7fa9e9fb9d2d8abcce5e`
+- Evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631`
+- Report SHA-256: `cd095d7fa8c5998df81bba1cc34e7ad7f6dad82d05e46fa28d6c269285aea96f`
 - Status: `pass`
+- Validation scope: `w4-ui-typed-seam`
+- Production pass: `false`; W1/W2/W3/MAIN vertical integration remains pending.
 - Screenshots:
   - `45` W4 actual screenshots;
   - `45` prototype reference screenshots;
@@ -101,6 +122,13 @@ Status: `STEP3B_W4_UI_READY_FOR_INTEGRATION`
   - modal/drawer obstruction: pass;
   - Agent pane collapsed/open width: pass;
   - Home → Builder prompt/context/template/workspace handoff: pass.
+- Network gate:
+  - failed requests: `0`
+  - ignored requests: `0`
+  - response errors: `0`
+  - console errors: `0`
+  - page errors: `0`
+  - unhandled failed requests: `0`
 - Reference source: `captures.json` TOS PNG fallback because the online prototype URL returned 404 during capture.
 
 ## 15-state acceptance
@@ -129,10 +157,13 @@ The names above are fixture/evidence identifiers. Production code does not infer
 
 - Focused Node gate:
   - `node --test frontend/tests/knowledgeWorkspaceV2152Shell.test.mjs frontend/tests/knowledgeShellState.test.mjs frontend/tests/knowledgeWorkspaceV21141Contracts.test.mjs frontend/tests/knowledge-workspace-v21141/contracts.test.mjs frontend/tests/knowledge-workspace-v21141/trustedHtmlArtifactRenderer.test.mjs frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs`
-  - Result: `124 passed`.
+  - Result: `129 passed`.
+- Evidence gate regression:
+  - `node --test frontend/tests/knowledgeWorkspaceV2152EvidenceGate.test.mjs`
+  - Result: `5 passed`.
 - Frontend full test:
   - `cd frontend && npm test`
-  - Result: `873 passed`.
+  - Result: `878 passed`.
 - TypeScript:
   - `cd frontend && npx tsc --noEmit --noUnusedLocals false --noUnusedParameters false --pretty false`
   - Result: passed.
@@ -201,7 +232,7 @@ W4 did not copy W3 compiler/runtime implementation and did not cherry-pick W3 co
 
 - `tests/fixtures/knowledge_step3b_w4_v2152/evidence.md`
 - `tests/fixtures/knowledge_step3b_w4_v2152/browser-evidence-index.json`
-- Runtime artifacts: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-final2-20260826010602`
+- Runtime artifacts: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631`
 
 ## Integration note
 
