@@ -6,6 +6,8 @@ import {
 import {
   getWorkspaceAdapter,
 } from "./production/store";
+import { activeSkillViewRevision } from "./production/data";
+import { TrustedHtmlArtifactRenderer } from "./frozen-ui/components/MainArea/TrustedHtmlArtifactRenderer";
 import "./SkillViewShell.css";
 
 type ViewProjection = {
@@ -31,13 +33,14 @@ type ViewProjection = {
 type GraphNodeProjection = { id: string; label: string; entityType: string };
 type GraphEdgeProjection = { source: string; target: string; relation: string };
 
-function projectionFromResult(result: KnowledgeCommandResult): ViewProjection | null {
-  const value = result.result;
-  if (!value || typeof value !== "object") return null;
-  const view = value.skillViewRevision;
+function projectionFromViewRevision(
+  view: unknown,
+  value: Record<string, unknown> = {},
+): ViewProjection | null {
   if (!view || typeof view !== "object") return null;
-  const model = (view as Record<string, unknown>).viewModel;
-  const intent = (view as Record<string, unknown>).intent;
+  const viewRecord = view as Record<string, unknown>;
+  const model = viewRecord.viewModel;
+  const intent = viewRecord.intent;
   if (!model || typeof model !== "object" || !intent || typeof intent !== "object") {
     return null;
   }
@@ -65,16 +68,31 @@ function projectionFromResult(result: KnowledgeCommandResult): ViewProjection | 
       ? (skillResult as Record<string, unknown>).traceId as string
       : "trace-unavailable";
   return {
-    skillName: "Skill View",
+    skillName:
+      typeof modelRecord.title === "string" ? modelRecord.title : "Skill View",
     kind: typeof intentRecord.template === "string" ? intentRecord.template : "skill",
     template,
-    skillVersion: String(value.draftRevision ?? "DRAFT"),
+    skillVersion: String(
+      value.draftRevision ?? intentRecord.skillRevision ?? "DRAFT",
+    ),
     dataVersion:
       typeof goldenAsset?.id === "string"
         ? goldenAsset.id
-        : String(value.goldenAssetRevision ?? "revision"),
-    dataTime: new Date().toISOString(),
-    renderTime: new Date().toISOString(),
+        : (
+            modelRecord.dataRef &&
+            typeof modelRecord.dataRef === "object" &&
+            typeof (modelRecord.dataRef as Record<string, unknown>).sha256 === "string"
+          )
+          ? (modelRecord.dataRef as Record<string, unknown>).sha256 as string
+          : String(value.goldenAssetRevision ?? "revision"),
+    dataTime:
+      typeof viewRecord.createdAt === "string"
+        ? viewRecord.createdAt
+        : new Date().toISOString(),
+    renderTime:
+      typeof viewRecord.createdAt === "string"
+        ? viewRecord.createdAt
+        : new Date().toISOString(),
     traceId,
     answer: typeof modelRecord.answer === "string" ? modelRecord.answer : undefined,
     rows: Array.isArray(modelRecord.rows) ? modelRecord.rows as ViewProjection["rows"] : undefined,
@@ -123,6 +141,35 @@ function projectionFromResult(result: KnowledgeCommandResult): ViewProjection | 
   };
 }
 
+function viewRevisionFromResult(
+  result: KnowledgeCommandResult,
+): Record<string, unknown> | null {
+  const value = result.result;
+  if (!value || typeof value !== "object") return null;
+  const direct = value.skillViewRevision;
+  if (direct && typeof direct === "object") {
+    return direct as Record<string, unknown>;
+  }
+  const operation = value.operation;
+  const execution =
+    operation && typeof operation === "object"
+      ? (operation as Record<string, unknown>).execution_result
+      : null;
+  const nested =
+    execution && typeof execution === "object"
+      ? (execution as Record<string, unknown>).skillViewRevision
+      : null;
+  return nested && typeof nested === "object"
+    ? nested as Record<string, unknown>
+    : null;
+}
+
+function projectionFromResult(result: KnowledgeCommandResult): ViewProjection | null {
+  const value = result.result;
+  if (!value || typeof value !== "object") return null;
+  return projectionFromViewRevision(viewRevisionFromResult(result), value);
+}
+
 export function SkillViewShell({
   draftId = "current-skill",
   revision = 1,
@@ -130,8 +177,21 @@ export function SkillViewShell({
   draftId?: string;
   revision?: number;
 }) {
-  const [projection, setProjection] = useState<ViewProjection | null>(null);
-  const [message, setMessage] = useState("选择一个 Skill 操作开始构建视图。");
+  const restoredView =
+    activeSkillViewRevision &&
+    typeof activeSkillViewRevision.intent === "object" &&
+    (activeSkillViewRevision.intent as Record<string, unknown>).skillId === draftId
+      ? activeSkillViewRevision
+      : null;
+  const [viewRevision, setViewRevision] = useState<Record<string, unknown> | null>(
+    restoredView,
+  );
+  const [projection, setProjection] = useState<ViewProjection | null>(() =>
+    projectionFromViewRevision(restoredView),
+  );
+  const [message, setMessage] = useState(
+    restoredView ? "已恢复最近一次执行结果。" : "选择一个 Skill 操作开始构建视图。",
+  );
   const [running, setRunning] = useState(false);
   const [currentRevision, setCurrentRevision] = useState(revision);
   const [retryOperationId, setRetryOperationId] = useState<string | null>(null);
@@ -174,6 +234,8 @@ export function SkillViewShell({
       );
       const next = projectionFromResult(result);
       if (next) setProjection(next);
+      const nextView = viewRevisionFromResult(result);
+      if (nextView) setViewRevision(nextView);
       const resultValue = result.result;
       const resultStatus =
         resultValue && typeof resultValue === "object" &&
@@ -431,6 +493,9 @@ export function SkillViewShell({
               </div>
               <p className="skill-view-status">数据表</p>
             </section>
+          ) : null}
+          {viewRevision ? (
+            <TrustedHtmlArtifactRenderer revision={viewRevision as any} />
           ) : null}
           {projection?.template === "knowledge" && projection.answer ? (
             <section aria-label="Knowledge answer" className="skill-view-typed-section">

@@ -158,6 +158,17 @@ test("production Dashboard renders the exact trusted HTML ViewRevision", () => {
   assert.doesNotMatch(renderer, /dangerouslySetInnerHTML|<iframe/);
 });
 
+test("production Skill View restores the authenticated immutable HTML revision", () => {
+  const source = readFileSync(
+    join(root, "SkillViewShell.tsx"),
+    "utf8",
+  );
+  assert.match(source, /activeSkillViewRevision/);
+  assert.match(source, /projectionFromViewRevision\(restoredView\)/);
+  assert.match(source, /TrustedHtmlArtifactRenderer/);
+  assert.match(source, /setViewRevision\(nextView\)/);
+});
+
 test("all 47 frozen provenance targets are tracked in the checkout", () => {
   const manifest = JSON.parse(
     readFileSync(
