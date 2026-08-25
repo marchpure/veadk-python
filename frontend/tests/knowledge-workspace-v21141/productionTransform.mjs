@@ -384,6 +384,13 @@ export function transformFrozenProductionMutations(
   productionRoot,
 ) {
   const productionCode = stripPrototypeProductionDefaults(code, filePath);
+  // AddDataView dispatches typed Source/Golden commands itself; do not wrap
+  // its handlers in the generic action.update prototype fallback.
+  if (filePath.endsWith("/components/MainArea/AddDataView.tsx")) {
+    return productionCode === code
+      ? null
+      : { code: productionCode, map: null, mutationCount: 0 };
+  }
   const sourceFile = ts.createSourceFile(
     filePath,
     productionCode,
