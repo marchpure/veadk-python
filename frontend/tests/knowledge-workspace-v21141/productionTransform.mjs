@@ -391,6 +391,11 @@ export function transformFrozenProductionMutations(
       ? null
       : { code: productionCode, map: null, mutationCount: 0 };
   }
+  if (filePath.endsWith("/components/RightPane/ChatAssistant.tsx")) {
+    return productionCode === code
+      ? null
+      : { code: productionCode, map: null, mutationCount: 0 };
+  }
   const sourceFile = ts.createSourceFile(
     filePath,
     productionCode,

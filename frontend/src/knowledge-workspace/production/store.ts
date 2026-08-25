@@ -43,6 +43,59 @@ export interface ConnectorDef {
   [key: string]: unknown;
 }
 
+export interface ConnectionViewModel {
+  id: string;
+  displayName: string;
+  connectorKey: string;
+  scope: "personal" | "team";
+  ownerId?: string;
+  status: string;
+  syncMode?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lastSuccessAt?: string | null;
+  discoveredResources: Array<Record<string, unknown>>;
+  discoveredTools: Array<Record<string, unknown>>;
+  goldenRevisionIds: string[];
+  isTeam: boolean;
+  lineage?: Record<string, unknown>;
+}
+
+const PUBLIC_CONNECTION_KEYS = new Set([
+  "id", "workspaceId", "connectorKey", "displayName", "scope", "ownerId",
+  "status", "syncMode", "createdAt", "updatedAt", "lastSuccessAt",
+  "lastError", "discoveredResources", "discoveredTools", "isTeam", "lineage",
+]);
+
+export function normalizeConnection(value: unknown): ConnectionViewModel {
+  const raw = value && typeof value === "object"
+    ? value as Record<string, unknown>
+    : {};
+  const resources = Array.isArray(raw.discoveredResources)
+    ? raw.discoveredResources.filter((item): item is Record<string, unknown> =>
+      Boolean(item) && typeof item === "object")
+    : [];
+  const tools = Array.isArray(raw.discoveredTools)
+    ? raw.discoveredTools.filter((item): item is Record<string, unknown> =>
+      Boolean(item) && typeof item === "object")
+    : resources.filter((item) => item.kind === "tool" || item.type === "tool");
+  const safe = Object.fromEntries(
+    Object.entries(raw).filter(([key]) => PUBLIC_CONNECTION_KEYS.has(key)),
+  );
+  return {
+    ...safe,
+    id: String(raw.id ?? ""),
+    displayName: String(raw.displayName ?? raw.name ?? "未命名连接"),
+    connectorKey: String(raw.connectorKey ?? raw.type ?? "unknown"),
+    scope: raw.scope === "team" ? "team" : "personal",
+    status: String(raw.status ?? "config_required"),
+    discoveredResources: resources,
+    discoveredTools: tools,
+    goldenRevisionIds: [],
+    isTeam: raw.scope === "team",
+  } as ConnectionViewModel;
+}
+
 export class WorkspaceStore<T> {
   private state: T;
   private readonly key: string;
@@ -251,7 +304,7 @@ export const resourceStore = new WorkspaceStore<WorkspaceResource[]>(
   "resources",
   [],
 );
-export const connectionStore = new WorkspaceStore<Record<string, unknown>[]>(
+export const connectionStore = new WorkspaceStore<ConnectionViewModel[]>(
   "connections",
   [],
 );
@@ -322,9 +375,22 @@ export async function bootstrapWorkspace(
       workspaceId = serverWorkspaceId;
     }
     resourceStore.replace(bootstrapped.resources as WorkspaceResource[]);
-    connectionStore.replace(
-      bootstrapped.connections as Record<string, unknown>[],
-    );
+    const goldenByConnector = new Map<string, string[]>();
+    for (const resource of bootstrapped.resources as Array<Record<string, unknown>>) {
+      if (resource.resourceKind !== "golden_asset") continue;
+      const key = String(resource.displayName ?? "");
+      const revision = resource.goldenRevisionId;
+      if (typeof revision === "string" && revision) {
+        goldenByConnector.set(key, [...(goldenByConnector.get(key) ?? []), revision]);
+      }
+    }
+    connectionStore.replace(bootstrapped.connections.map((connection) => {
+      const normalized = normalizeConnection(connection);
+      return {
+        ...normalized,
+        goldenRevisionIds: goldenByConnector.get(normalized.discoveredResources[0]?.name as string) ?? [],
+      };
+    }));
     agentPublicationStore.replace(bootstrapped.publications);
     customRegistryStore.replace(
       bootstrapped.workspaceData.connectorCatalog as ConnectorDef[],

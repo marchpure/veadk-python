@@ -16,8 +16,8 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
     createdAt: '刚刚'
   };
 
-  const name = item.displayName || item.name;
-  const subtype = item.subtype || item.type;
+  const name = item.displayName;
+  const subtype = item.connectorKey;
   
   const registry = getRegistry();
   const def = registry.find(r => r.connectorKey === subtype);
@@ -91,7 +91,7 @@ export default function ConnectionDetailView({ fileId, searchParams, setSearchPa
                ) : (
                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-start text-sm text-slate-700">
                    <Info size={16} className="mr-2 text-blue-600 shrink-0 mt-0.5" />
-                   已探测到 12 个有效数据对象，均可通过分析助手直接查询或加入上下文。
+                   已探测到 {item.discoveredResources?.length || 0} 个有效工具/资源，均可通过分析助手直接查询或加入上下文。
                  </div>
                )}
             </div>

@@ -674,7 +674,7 @@ test("real Skill Builder publish CTA dispatches manifest persistence", async () 
   assert.doesNotMatch(transformed.code, /resourceStore\.setState\s*\(/);
 });
 
-test("assistant composer keeps the frozen Enter transition behind adapter acceptance", async () => {
+test("assistant composer uses real authoring commands and never emits assistant.turn", async () => {
   const { transformFrozenProductionMutations } = await import(
     "./productionTransform.mjs"
   );
@@ -688,16 +688,27 @@ test("assistant composer keeps the frozen Enter transition behind adapter accept
     frozenRoot,
     productionRoot,
   );
-  assert.ok(transformed);
-  assert.match(transformed.code, /"command":"assistant\.turn"/);
-  assert.match(transformed.code, /__kwAccepted/);
-  assert.match(
-    transformed.code,
-    /key !== "Enter"[\s\S]{0,120}shiftKey/,
-  );
-  assert.doesNotMatch(transformed.code, /isComposing/);
+  const emitted = transformed?.code ?? readFileSync(filePath, "utf8");
+  assert.match(emitted, /skill-authoring\.start/);
+  assert.match(emitted, /skill-authoring\.execute/);
+  assert.doesNotMatch(emitted, /assistant\.turn/);
+  assert.doesNotMatch(emitted, /action\.update/);
   assert.doesNotMatch(
-    transformed.code,
+    emitted,
     /onKeyDown=\{\(\.\.\.__kwArgs\d+\) => \{ void __runProductionMutation\(/,
   );
+});
+
+test("connection bootstrap boundary exposes only the canonical public view model", async () => {
+  const source = readFileSync(
+    join(productionRoot, "store.ts"),
+    "utf8",
+  );
+  assert.match(source, /export interface ConnectionViewModel/);
+  assert.match(source, /normalizeConnection/);
+  assert.match(source, /displayName: String\(raw\.displayName/);
+  assert.match(source, /discoveredResources/);
+  assert.doesNotMatch(source, /PUBLIC_CONNECTION_KEYS[\s\S]{0,500}command/);
+  assert.doesNotMatch(source, /PUBLIC_CONNECTION_KEYS[\s\S]{0,500}secretRef/);
+  assert.doesNotMatch(source, /PUBLIC_CONNECTION_KEYS[\s\S]{0,500}cwd/);
 });

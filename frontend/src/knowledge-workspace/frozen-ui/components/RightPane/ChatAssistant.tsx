@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Paperclip, CheckCircle2, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, ChevronUp, Search, Upload, Undo2, ArrowRight, Wand2, ArrowLeft, Trash2, Command, FileUp } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
-import { getFullCatalog, resourceStore } from '../../lib/store';
-import { actionLoopStore } from '../../lib/actionLoopStore';
+import { getFullCatalog, resourceStore, connectionStore, bootstrapWorkspace, getWorkspaceAdapter } from '../../lib/store';
+import { createRequestContext } from '../../../production/ports';
 
 let globalCompletionRunId: string | null = null;
 
@@ -36,6 +36,9 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const [selectorQuery, setSelectorQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [uploadState, setUploadState] = useState<'idle'|'parsing'|'success'>('idle');
+  const [authoringDraft, setAuthoringDraft] = useState<any>(null);
+  const [agentReply, setAgentReply] = useState('');
+  const [agentError, setAgentError] = useState('');
 
   const [dragStatus, setDragStatus] = useState<string>('idle');
   const [dragMessage, setDragMessage] = useState<string>('');
@@ -115,24 +118,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
 
   const handleSuggestionClick = (s: string) => {
     if (s === '创建待办') {
-       const loopState = actionLoopStore.getState();
-       if (loopState.todos.some(t => t.signalId === 'sig_vn_hc_anomaly')) {
-         showToast?.('该异常已存在关联的待办，已跳转至行动视图。');
-       } else {
-         const newTodo: any = {
-           id: 'todo_vn_hc_1',
-           signalId: 'sig_vn_hc_anomaly',
-           title: '核验越南销售 HC 与优先级',
-           recommendedActions: ['核验 HC 来源与审批链路', '确认 18 个高优先 HC', '冻结 8 个低优先需求'],
-           owner: 'Linh Nguyen',
-           dueAt: new Date(Date.now() + 24*3600000).toISOString(),
-           status: 'open',
-           createdBy: 'agent',
-           createdAt: new Date().toISOString()
-         };
-         actionLoopStore.setState((prev:any) => ({ ...prev, todos: [newTodo, ...prev.todos] }));
-         showToast?.('待办任务已创建！');
-       }
+       showToast?.('请通过服务端 Agent 确认后创建待办。');
        const p = new URLSearchParams(searchParams);
        p.set('file', 'res_dash_recruitment');
        p.set('dash_tab', 'action');
@@ -203,7 +189,78 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     }
   }, [action]);
 
-  const handleSend = () => {
+  const runAgent = async (prompt: string, requestedKind: 'knowledge' | 'analysis') => {
+    setAgentError('');
+    try {
+      const selected = new Set(chatChips.map((chip: any) => chip.id || chip.identity));
+      const connectionRefs = connectionStore.getState()
+        .filter((connection: any) => selected.has(connection.id))
+        .flatMap((connection: any) => connection.goldenRevisionIds || [])
+        .map((revision: string) => {
+          const resource: any = resourceStore.getState().find((item: any) => item.goldenRevisionId === revision);
+          return resource ? { kind: 'golden_asset', object_id: String(resource.assetId), revision, scope: resource.space === 'team' ? 'team' : 'personal' } : null;
+        })
+        .filter(Boolean);
+      const resourceRefs = resourceStore.getState()
+        .filter((resource: any) => selected.has(resource.id) || selected.has(resource.resourceId))
+        .filter((resource: any) =>
+          typeof (resource.assetId ?? resource.asset_id) === 'string' &&
+          typeof (resource.goldenRevisionId ?? resource.golden_revision_id) === 'string')
+        .map((resource: any) => ({
+          kind: 'golden_asset',
+          object_id: String(resource.assetId ?? resource.asset_id),
+          revision: String(resource.goldenRevisionId ?? resource.golden_revision_id),
+          scope: resource.space === 'team' ? 'team' : 'personal',
+        }));
+      const pinnedRefs = [...connectionRefs, ...resourceRefs].filter((ref: any, index: number, refs: any[]) =>
+        refs.findIndex((item) => item.revision === ref.revision) === index);
+      const response = await getWorkspaceAdapter().command({
+        command: 'skill-authoring.start',
+        payload: {
+          prompt,
+          resourceRefs: pinnedRefs,
+          requestedKind,
+          scope: 'personal',
+          displayName: prompt.slice(0, 80),
+        },
+      }, createRequestContext());
+      const result: any = response.result ?? {};
+      if (!response.accepted || !result.draft) {
+        throw new Error(String(result.error?.message ?? 'Agent 未返回有效响应。'));
+      }
+      setAuthoringDraft(result.draft);
+      setAgentReply(result.draft.manifest?.description || result.operation?.summary || '已收到真实上下文，Agent 已返回可执行草稿。');
+      return result.draft;
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : 'Agent 请求失败。');
+      return null;
+    }
+  };
+
+  const executeAgent = async () => {
+    if (!authoringDraft?.draft_id) {
+      setAgentError('缺少服务端 SkillDraft，无法执行。');
+      return false;
+    }
+    try {
+      const response = await getWorkspaceAdapter().command({
+        command: 'skill-authoring.execute',
+        payload: { draftId: authoringDraft.draft_id, revision: authoringDraft.revision },
+      }, createRequestContext());
+      const result: any = response.result ?? {};
+      if (!response.accepted || !['succeeded', 'ready_for_execution'].includes(String(result.status))) {
+        throw new Error(String(result.error?.message ?? 'Runner 未确认执行成功。'));
+      }
+      await bootstrapWorkspace(undefined, getWorkspaceAdapter());
+      setAgentReply(result.operation?.summary || 'Runner 已完成执行，结果已写入服务端链路。');
+      return true;
+    } catch (error) {
+      setAgentError(error instanceof Error ? error.message : 'Runner 执行失败。');
+      return false;
+    }
+  };
+
+  const handleSend = async () => {
     if (!input.trim() || chatState === 'generating' || chatState === 'planning') return;
     
     const isCreationCommand = [
@@ -216,7 +273,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     ].includes(input);
 
     const hasTeamReadonly = chatChips.some((c:any) => c.readonly || c.type === 'team_artifact');
-    const isCreation = isCreationCommand || !currentArtifactChip; 
+    const isCreation = isCreationCommand || /(?:生成|创建|构建|看板|报表|知识库|Dashboard|Skill)/i.test(input);
     
     if (hasTeamReadonly && !isCreation) {
       const teamChip = chatChips.find((c:any) => c.type === 'team_artifact' || c.readonly);
@@ -234,6 +291,8 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       if (activeChip.type === 'signal') p.set('answer_type', 'signal');
       else p.set('answer_type', 'generic');
     } else if (isCreation) {
+      const draft = await runAgent(input.trim(), 'analysis');
+      if (!draft) return;
       p.set('chat', 'planning');
       const planName = input === '生成金融行情监控看板' ? '金融行情监控看板' :
                        input === '基于 Web API 生成 HTML 报表' ? 'Web API 数据报表' :
@@ -248,8 +307,11 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         ]
       });
     } else {
-      setPlanDetails(p => ({ ...p, isDownstreamCreation: false }));
-      p.set('chat', 'generating');
+      const draft = await runAgent(input.trim(), 'knowledge');
+      if (!draft) return;
+      setInput('');
+      setAgentReply(draft.manifest?.description || 'Agent 已基于当前上下文返回真实回复。');
+      return;
     }
     setSearchParams(p);
   };
@@ -274,102 +336,6 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       stages: p.stages.map(st => st.id === id ? { ...st, [key]: value } : st)
     }));
   };
-
-  useEffect(() => {
-    if (chatState === 'answering') {
-      setGenerationDone(false);
-      const t = setTimeout(() => {
-        setGenerationDone(true);
-      }, 1500);
-      return () => clearTimeout(t);
-    }
-
-    if (chatState === 'generating') {
-      setStep(1);
-      setGenerationDone(false);
-      const currentRunId = `run_${Date.now()}_${Math.random()}`;
-      globalCompletionRunId = currentRunId;
-      
-      const stagesLen = planDetails.stages?.length || 1;
-      const timers: NodeJS.Timeout[] = [];
-      
-      for (let i = 0; i <= stagesLen; i++) {
-        timers.push(setTimeout(() => {
-          setStep(i + 1);
-          if (i === stagesLen) setGenerationDone(true);
-        }, 800 * (i + 1)));
-      }
-      
-      timers.push(setTimeout(() => {
-         if (globalCompletionRunId !== currentRunId) return;
-         globalCompletionRunId = null;
-         
-         const isCreation = planDetails.isDownstreamCreation || !currentArtifactChip;
-         let finalFileId = 'welcome';
-         
-         if (isCreation) {
-             planDetails.stages.forEach(stage => {
-                const newId = `res_${stage.outputType}_${Date.now()}_${Math.random().toString(36).substring(2,6)}`;
-                stage.outputId = newId;
-                
-                const resourceKindMap: any = {
-                  'skill': 'skill',
-                  'artifact': planDetails.type === 'knowledge_base' ? 'knowledge_base' : planDetails.type === 'semantic' ? 'semantic_model' : 'artifact',
-                  'automation': 'automation',
-                  'publication': 'publication'
-                };
-                
-                const newItem = {
-                  id: newId,
-                  displayName: `${planDetails.name} - ${stage.operation}`,
-                  resourceKind: resourceKindMap[stage.outputType] || 'artifact',
-                  subtype: stage.outputType === 'automation' ? 'alert_rule' : planDetails.type,
-                  space: stage.targetScope === 'team' || stage.publishPolicy === 'team' ? 'team' : 'personal',
-                  owner: 'haoxingjun',
-                  version: 'V1.0',
-                  lifecycle: stage.publishPolicy === 'team' ? 'published' : 'draft',
-                  permission: true,
-                  capabilities: ['executable', 'shareable'],
-                  lineage: { sourceIds: chatChips.map((c:any) => c.id || c.identity) },
-                  createdAt: '刚刚',
-                  updatedAt: '刚刚',
-                  type: stage.targetScope === 'team' || stage.publishPolicy === 'team' ? 'team_artifact' : 'personal_artifact',
-                  artifactType: planDetails.type,
-                  name: `${planDetails.name}`
-                };
-                
-                resourceStore.setState(prev => [newItem as any, ...prev]);
-                
-                if (stage.outputType === 'artifact' || stage.outputType === 'knowledge_base') {
-                   finalFileId = newId;
-                }
-             });
-             
-             if (finalFileId !== 'welcome') {
-               localStorage.setItem(`context_snapshot_${finalFileId}`, JSON.stringify(chatChips));
-             }
-         }
-         
-         setSearchParams(prevParams => {
-            const p = new URLSearchParams(prevParams);
-            p.delete('chat');
-            p.delete('action');
-            p.delete('pending_prompt');
-            p.delete('from_reuse');
-            p.delete('reuse_team_version');
-            
-            if (isCreation && finalFileId !== 'welcome') {
-              p.set('file', finalFileId);
-              p.set('custom_name', planDetails.name);
-              p.set('snapshot_id', finalFileId);
-            }
-            return p;
-         });
-      }, 800 * (stagesLen + 2)));
-      
-      return () => timers.forEach(clearTimeout);
-    }
-  }, [chatState]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -399,16 +365,9 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const handleRealFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    setUploadState('parsing');
-    setTimeout(() => {
-      const newFiles = Array.from(files).map(file => ({
-        identity: `file_${Date.now()}_${Math.random()}`, resourceId: `file_${Date.now()}`, name: file.name, type: 'document', cat: 'file', permission: true, tokenEstimate: 0.5
-      }));
-      newFiles.forEach(f => resourceStore.setState(prev => [f, ...prev]));
-      setUploadState('success');
-      setSelectedIds(p => [...p, ...newFiles.map(f => f.identity)]);
-      showToast?.(`已成功上传并解析`);
-    }, 800);
+    void files;
+    setUploadState('idle');
+    showToast?.('文件上传需要通过服务端导入链路，目前未提交。');
   };
 
   const visibleItems = getFullCatalog().filter((i:any) => (i.name || i.displayName || '').toLowerCase().includes(selectorQuery.toLowerCase()));
@@ -470,6 +429,8 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         <div className="max-w-2xl mx-auto w-full px-6 flex flex-col items-center">
           <div className="text-center mb-6">
             <h1 className="text-xl font-medium text-slate-700 tracking-tight mb-2 opacity-80">Knowledge Asset</h1>
+            {agentError && <div role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{agentError}</div>}
+            {agentReply && <div className="max-w-xl mx-auto text-left text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">{agentReply}</div>}
           </div>
 
           <div 
@@ -492,6 +453,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
             )}
             
             <textarea 
+              aria-label="分析助手输入框"
               className="w-full bg-transparent border-none outline-none resize-none px-4 py-3 text-sm text-slate-800 leading-relaxed min-h-[90px] placeholder:text-slate-400"
               placeholder="输入分析指令，或添加数据上下文..."
               value={input}
@@ -609,6 +571,19 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-5" ref={scrollRef}>
+         {agentError && (
+           <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+             {agentError}
+           </div>
+         )}
+         {agentReply && (
+           <div className="flex items-start gap-3">
+             <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
+             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-2.5 text-[13px] text-slate-700 leading-relaxed max-w-[90%]">
+               {agentReply}
+             </div>
+           </div>
+         )}
          {chatState !== 'generating' && !generationDone && (
            <div className="animate-in fade-in flex items-start gap-3 w-full">
              <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
@@ -768,10 +743,12 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
                      p.delete('chat');
                      setSearchParams(p);
                    }} className="px-4 py-2 border border-slate-200 text-slate-600 bg-white rounded-lg text-xs font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消计划</button>
-                   <button onClick={() => {
-                     const p = new URLSearchParams(searchParams);
-                     p.set('chat', 'generating');
-                     setSearchParams(p);
+                   <button onClick={async () => {
+                     if (await executeAgent()) {
+                       const p = new URLSearchParams(searchParams);
+                       p.delete('chat');
+                       setSearchParams(p);
+                     }
                    }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm outline-none flex items-center transition-colors"><CheckCircle2 size={14} className="mr-1.5"/> 顺序执行流水线 (Execute)</button>
                  </div>
                </div>

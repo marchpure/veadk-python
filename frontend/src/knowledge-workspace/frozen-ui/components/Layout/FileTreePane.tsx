@@ -52,10 +52,10 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
 
   // Convert connectionStore state to tree hierarchy
   const mappedConnections = storeConnections.filter((c:any) => !c.isTeam).map((conn: any) => ({
-    id: conn.id, name: conn.name, type: 'connection', icon: conn.type === 'Local' ? FileSpreadsheet : Database,
-    children: conn.schemas?.map((schema: any) => ({
+    id: conn.id, name: conn.displayName, type: 'connection', icon: conn.connectorKey === 'excel' ? FileSpreadsheet : Database,
+    children: conn.discoveredResources?.map((schema: any) => ({
       id: `${conn.id}_${schema.name}`, name: schema.name, type: 'schema', icon: Folder,
-      children: schema.tables?.map((table: any) => ({
+      children: (schema.tables || []).map((table: any) => ({
         id: table.id, name: table.name, type: 'table', hasPermission: table.perm, icon: conn.type === 'Local' ? FileSpreadsheet : Database,
         children: table.fields?.map((field: any) => ({
           id: field.id, name: field.name, type: 'field', icon: Database
@@ -113,10 +113,10 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
   }, []);
   
   const teamConnections = storeConnections.filter((c:any) => c.isTeam).map((conn: any) => ({
-    id: conn.id, name: conn.name, type: 'connection', icon: conn.type === 'Local' ? FileSpreadsheet : Database,
-    children: conn.schemas?.map((schema: any) => ({
+    id: conn.id, name: conn.displayName, type: 'connection', icon: conn.connectorKey === 'excel' ? FileSpreadsheet : Database,
+    children: conn.discoveredResources?.map((schema: any) => ({
       id: `${conn.id}_${schema.name}`, name: schema.name, type: 'schema', icon: Folder,
-      children: schema.tables?.map((table: any) => ({
+      children: (schema.tables || []).map((table: any) => ({
         id: table.id, name: table.name, type: 'table', hasPermission: true, icon: conn.type === 'Local' ? FileSpreadsheet : Database,
         children: table.fields?.map((field: any) => ({
           id: field.id, name: field.name, type: 'field', icon: Database

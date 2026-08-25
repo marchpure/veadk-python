@@ -84,8 +84,8 @@ export default function DataOverviewView({ setSearchParams, searchParams }: any)
           </thead>
           <tbody className="divide-y divide-slate-100">
             {connections.map((conn: any) => {
-              const Icon = getIconForType(conn.type);
-              const colorClass = getIconColors(conn.type);
+              const Icon = getIconForType(conn.connectorKey);
+              const colorClass = getIconColors(conn.connectorKey);
               const isExpanded = expandedInstance === conn.id;
 
               return (
@@ -99,7 +99,7 @@ export default function DataOverviewView({ setSearchParams, searchParams }: any)
                         <div className="mr-2 text-slate-400 shrink-0">{isExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</div>
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center mr-3 shrink-0 ${colorClass}`}><Icon size={16} /></div>
                         <div className="min-w-0">
-                          <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors truncate">{conn.name}</div>
+                          <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors truncate">{conn.displayName}</div>
                           <div className="text-[11px] text-slate-500 mt-0.5 truncate flex items-center space-x-2">
                             <span className="flex items-center"><User size={10} className="mr-1"/>{conn.owner || 'haoxingjun'}</span>
                             <span>层级: Schema {'>'} Table {'>'} Field</span>
@@ -107,29 +107,29 @@ export default function DataOverviewView({ setSearchParams, searchParams }: any)
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 md:px-6 py-4 text-slate-600 hidden sm:table-cell">{conn.type}</td>
+                    <td className="px-4 md:px-6 py-4 text-slate-600 hidden sm:table-cell">{conn.connectorKey}</td>
                     <td className="px-4 md:px-6 py-4 hidden sm:table-cell">
                       <div className="flex flex-col space-y-1">
-                        <span className="flex items-center text-green-700 bg-green-50 px-2 py-0.5 rounded text-[11px] font-medium border border-green-200 w-fit"><CheckCircle2 size={10} className="mr-1" /> {conn.status === 'connected' ? '健康' : '待同步'}</span>
-                        <span className="text-[10px] text-slate-400 flex items-center"><Activity size={10} className="mr-1"/> {conn.syncPolicy || '实时/增量同步'}</span>
+                        <span className={`flex items-center px-2 py-0.5 rounded text-[11px] font-medium border w-fit ${conn.status === 'ready' ? 'text-green-700 bg-green-50 border-green-200' : 'text-amber-700 bg-amber-50 border-amber-200'}`}><CheckCircle2 size={10} className="mr-1" /> {conn.status === 'ready' ? 'ready' : conn.status}</span>
+                        <span className="text-[10px] text-slate-400 flex items-center"><Activity size={10} className="mr-1"/> {conn.discoveredResources.length} tools/resources · {conn.syncMode || '未设置同步'}</span>
                       </div>
                     </td>
                     <td className="px-4 md:px-6 py-4 text-right">
-                      <button onClick={(e) => handleAddContext({ id: conn.id, name: conn.name, type: 'connection' }, e)} className="text-blue-600 hover:text-blue-800 bg-white border border-blue-200 px-3 py-1.5 rounded-md font-medium text-xs mr-2 transition-colors outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                      <button onClick={(e) => handleAddContext({ ...conn, identity: conn.id, name: conn.displayName, type: 'connection' }, e)} className="text-blue-600 hover:text-blue-800 bg-white border border-blue-200 px-3 py-1.5 rounded-md font-medium text-xs mr-2 transition-colors outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
                         作为上下文加入
                       </button>
                     </td>
                   </tr>
                   
-                  {isExpanded && conn.schemas?.map((schema: any) => (
-                    <tr key={`${conn.id}_${schema.name}`} className="bg-slate-50/50 border-t-0">
+                  {isExpanded && conn.discoveredResources.map((schema: any) => (
+                    <tr key={`${conn.id}_${schema.id || schema.name}`} className="bg-slate-50/50 border-t-0">
                       <td colSpan={4} className="px-4 md:px-6 py-3">
                         <div className="pl-11 pr-2 space-y-3 relative before:absolute before:left-6 before:top-0 before:bottom-4 before:w-px before:bg-slate-200">
                           <div className="text-[10px] font-bold text-slate-500 flex items-center mt-2 relative uppercase tracking-wider">
-                            <span className="absolute -left-6 w-3 h-px bg-slate-200"></span> SCHEMA: <span className="text-slate-700 ml-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm">{schema.name}</span>
+                            <span className="absolute -left-6 w-3 h-px bg-slate-200"></span> RESOURCE: <span className="text-slate-700 ml-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm">{schema.name || schema.displayName || schema.id}</span>
                           </div>
                           
-                          {schema.tables?.map((table: any) => (
+                          {(schema.tables || []).map((table: any) => (
                             <div 
                               key={table.id}
                               className={cn("bg-white border rounded-[12px] p-3.5 flex flex-col justify-center transition-all cursor-pointer group outline-none relative ml-4", table.perm ? "border-slate-200 hover:border-blue-300 focus:ring-2 focus:ring-blue-400" : "border-slate-100 opacity-60 hover:opacity-100")}
