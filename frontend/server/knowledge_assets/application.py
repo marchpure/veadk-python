@@ -68,6 +68,7 @@ from .contracts import (
     SkillViewManifest,
     SkillViewRevision,
     SkillViewShareGrant,
+    PublishedSkillVersion,
     ViewIntent,
     Invocation,
     EvaluationSuite,
@@ -1746,7 +1747,41 @@ class KnowledgeAssetApplication:
         request_id: str,
         workspace_id: str,
     ) -> InvocationStartResult:
-        if not payload.skill_version_id.startswith(("draft://", "test://")):
+        published = None
+        effective_skill_version_id = payload.skill_version_id
+        if payload.skill_version_id.startswith("published://"):
+            published = self.repository.published_skill_version(
+                payload.skill_version_id
+            )
+            if published is None:
+                return InvocationStartResult(
+                    skill_version_id=payload.skill_version_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="PUBLISHED_SKILL_NOT_FOUND",
+                        message="已发布 Skill 版本不存在或已被撤销。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            draft = self.repository.draft(published.skill_id)
+            if (
+                draft is None
+                or draft.workspace_id != workspace_id
+                or published.status != "published"
+            ):
+                return InvocationStartResult(
+                    skill_version_id=payload.skill_version_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="PUBLISHED_SKILL_FORBIDDEN",
+                        message="已发布 Skill 不属于当前工作区。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            effective_skill_version_id = f"draft://{published.skill_revision_id}"
+        if not effective_skill_version_id.startswith(("draft://", "test://")):
             return InvocationStartResult(
                 skill_version_id=payload.skill_version_id,
                 status="not_ready",
@@ -1764,7 +1799,7 @@ class KnowledgeAssetApplication:
                     request_id=request_id,
                 ),
             )
-        expected_skill_revision = payload.skill_version_id.rsplit(":", 1)[-1]
+        expected_skill_revision = effective_skill_version_id.rsplit(":", 1)[-1]
         if view.id != payload.skill_view_revision_id:
             return InvocationStartResult(
                 skill_version_id=payload.skill_version_id,
@@ -1791,6 +1826,29 @@ class KnowledgeAssetApplication:
             )
         skill_id = view.skill_revision_id.rsplit(":", 1)[0]
         skill_revision = int(expected_skill_revision)
+        if published is not None:
+            if published.skill_revision_id != view.skill_revision_id:
+                return InvocationStartResult(
+                    skill_version_id=payload.skill_version_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="PUBLISHED_SKILL_REVISION_MISMATCH",
+                        message="Published Skill revision 与 View revision 不匹配。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            if published.skill_view_ref and published.skill_view_ref != view.id:
+                return InvocationStartResult(
+                    skill_version_id=payload.skill_version_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="PUBLISHED_SKILL_VIEW_MISMATCH",
+                        message="Published Skill 未绑定当前 SkillViewRevision。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
         skill_result = self.repository.latest_skill_result(skill_id, skill_revision)
         if skill_result is None:
             return InvocationStartResult(
@@ -2818,10 +2876,82 @@ class KnowledgeAssetApplication:
             )
         elif command == "publication.publish":
             typed = PublicationPublishPayload.model_validate(payload)
-            result = PublicationPublishResult(
-                draft_id=typed.draft_id,
-                error=self._not_ready_error(command, request_id),
-            )
+            draft = self.repository.draft(typed.draft_id)
+            skill_revision_id = f"{typed.draft_id}:{typed.revision}"
+            view = self.repository.latest_skill_view_revision(skill_revision_id)
+            if draft is None or draft.revision != typed.revision:
+                result = PublicationPublishResult(
+                    draft_id=typed.draft_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="DRAFT_REVISION_NOT_FOUND",
+                        message="待发布的 SkillDraft revision 不存在。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            elif view is None:
+                result = PublicationPublishResult(
+                    draft_id=typed.draft_id,
+                    status="failed",
+                    error=ErrorEnvelope(
+                        code="SKILL_VIEW_REVISION_NOT_FOUND",
+                        message="发布必须绑定真实 SkillViewRevision。",
+                        retryable=False,
+                        request_id=request_id,
+                    ),
+                )
+            else:
+                run = self.repository.latest_evaluation_run(skill_revision_id)
+                gate = None
+                if run is not None:
+                    gate = self.repository.policy_gate_result(f"gate-{run.id}")
+                if (
+                    run is None
+                    or run.skill_revision_id != skill_revision_id
+                    or run.status != "succeeded"
+                    or gate is None
+                    or gate.decision != "publishable"
+                    or gate.evaluation_run_id != run.id
+                ):
+                    result = PublicationPublishResult(
+                        draft_id=typed.draft_id,
+                        status="failed",
+                        error=ErrorEnvelope(
+                            code="POLICY_GATE_REQUIRED",
+                            message="发布前必须存在当前 revision 的成功 EvaluationRun 与 publishable PolicyGate。",
+                            retryable=False,
+                            request_id=request_id,
+                        ),
+                    )
+                else:
+                    manifest_bytes = draft.manifest.model_dump_json(
+                        by_alias=True, exclude_none=False
+                    ).encode()
+                    digest = hashlib.sha256(
+                        manifest_bytes + view.model_dump_json(by_alias=True).encode()
+                    ).hexdigest()
+                    version = PublishedSkillVersion(
+                        id=f"published://{typed.draft_id}:{typed.semver}",
+                        skill_id=typed.draft_id,
+                        semver=typed.semver,
+                        manifest=draft.manifest,
+                        skill_revision_id=skill_revision_id,
+                        digest=digest,
+                        evaluation_run_id=run.id,
+                        policy_gate_result_id=gate.id,
+                        skill_view_ref=view.id,
+                        published_at=now_iso(),
+                    )
+                    self.repository.save_published_skill_version(version)
+                    self.repository.update_skill_draft_revision_status(
+                        typed.draft_id, typed.revision, "published"
+                    )
+                    result = PublicationPublishResult(
+                        draft_id=typed.draft_id,
+                        status="succeeded",
+                        published_version=version,
+                    )
         elif command == "refresh.run":
             typed = RefreshRunPayload.model_validate(payload)
             draft = self.repository.draft(typed.skill_id)

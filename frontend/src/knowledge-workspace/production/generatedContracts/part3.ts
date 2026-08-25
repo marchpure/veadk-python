@@ -160,8 +160,9 @@ export interface PublicationPublishPayload {
 export interface PublicationPublishResult {
   resultType?: "publication.publish";
   error?: ErrorEnvelope | null;
-  status?: "not_ready";
+  status?: "not_ready" | "succeeded" | "failed";
   draftId: string;
+  publishedVersion?: PublishedSkillVersion | null;
 }
 
 export interface PublishedSkillConnectorConfig {

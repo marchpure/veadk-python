@@ -11,8 +11,18 @@ import pytest
 
 from frontend.server.knowledge_assets.application import KnowledgeAssetApplication
 from frontend.server.knowledge_assets.contracts import (
+    EvaluationRun,
+    PolicyGateResult,
+    SkillResult,
+    SkillViewManifest,
+    SkillViewRevision,
+    ViewIntent,
+    ChartViewModel,
+    ChartSeries,
     LegacySkillManifestInput,
     SkillManifest,
+    StorageRef,
+    SchemaRef,
     adapt_legacy_manifest,
 )
 from frontend.server.knowledge_assets.ports import (
@@ -681,6 +691,159 @@ def test_legacy_adapter_normalizes_to_canonical_discriminated_manifest() -> None
     assert "actions" not in manifest.model_dump(mode="json")
 
 
+def test_publish_and_reinvoke_require_and_consume_real_revision_evidence() -> None:
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=application,
+        identity_resolver=lambda request: ("workspace-test", "editor"),
+    )
+    client = TestClient(app)
+    created = repository.create_skill_draft(
+        workspace_id="workspace-test",
+        name="Infrastructure health",
+        description="",
+        source_refs=[],
+        request_id="draft-request",
+        idempotency_key="draft-key",
+    )[0]
+    manifest = adapt_legacy_manifest(
+        LegacySkillManifestInput(
+            name="Infrastructure health",
+            version="1.0.0",
+            actions=[{"name": "answer", "description": "answer"}],
+        ),
+        draft_id=created.id,
+        workspace_id=created.workspace_id,
+    )
+    draft = repository.save_manifest(
+        draft_id=created.id,
+        base_revision=created.revision,
+        manifest=manifest,
+        request_id="manifest-request",
+        idempotency_key="manifest-key",
+    )[0]
+    revision_id = f"{draft.id}:{draft.revision}"
+    view = SkillViewRevision(
+        id="view-publishable",
+        skill_revision_id=revision_id,
+        revision=1,
+        manifest=SkillViewManifest(
+            id="view-manifest",
+            skill_revision_id=revision_id,
+            renderer_ref="renderer://chart/v1",
+            view_model_schema_ref=SchemaRef(
+                uri="local://schema/view",
+                version="1",
+                sha256="0" * 64,
+            ),
+            allowed_components=["ChartView"],
+        ),
+        intent=ViewIntent(
+            id="view-intent",
+            skill_id=draft.id,
+            skill_revision=draft.revision,
+            template="chart",
+            purpose="compare",
+            result_ref="local://result/infrastructure",
+        ),
+        view_model=ChartViewModel(
+            title="Infrastructure health",
+            x_field="service",
+            y_field="cpu",
+            series=[ChartSeries(name="cpu", points=[("edge", 0.2)])],
+            data_ref=StorageRef(
+                uri="local://golden/infrastructure",
+                kind="object",
+                sha256="1" * 64,
+                media_type="application/json",
+                bytes=1,
+            ),
+        ),
+        created_at="2026-08-25T00:00:00Z",
+    )
+    repository.save_skill_view_revision(view)
+    result = SkillResult(
+        id="result-infrastructure",
+        skill_id=draft.id,
+        skill_revision=draft.revision,
+        kind="analysis",
+        output_schema_ref=SchemaRef(
+            uri="local://schema/output",
+            version="1",
+            sha256="2" * 64,
+        ),
+        result_ref=StorageRef(
+            uri="local://result/infrastructure",
+            kind="object",
+            sha256="3" * 64,
+            media_type="application/json",
+            bytes=1,
+        ),
+        trace_id="trace-infrastructure",
+    )
+    repository.save_skill_result(result)
+    evaluation = EvaluationRun(
+        id="evaluation-infrastructure",
+        suite_id="suite-infrastructure",
+        suite_version=1,
+        skill_revision_id=revision_id,
+        status="succeeded",
+        score=1.0,
+        started_at="2026-08-25T00:00:00Z",
+        finished_at="2026-08-25T00:00:01Z",
+    )
+    gate = PolicyGateResult(
+        id="gate-evaluation-infrastructure",
+        skill_revision_id=revision_id,
+        evaluation_run_id=evaluation.id,
+        decision="publishable",
+        machine_reasons=["EVAL_SCORE_AT_OR_ABOVE_THRESHOLD"],
+        checked_at="2026-08-25T00:00:02Z",
+    )
+    repository.save_evaluation_run(evaluation)
+    repository.save_policy_gate_result(gate)
+    published = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "publication.publish",
+            "payload": {
+                "draftId": draft.id,
+                "revision": draft.revision,
+                "semver": "1.0.0",
+            },
+        },
+        headers={"X-Request-ID": "publish-request", "Idempotency-Key": "publish-key"},
+    ).json()
+    assert published["accepted"] is True
+    version = published["result"]["publishedVersion"]
+    assert version["id"] == f"published://{draft.id}:1.0.0"
+    invoked = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "invocation.start",
+            "payload": {
+                "skillVersionId": version["id"],
+                "skillViewRevisionId": view.id,
+                "inputRef": {
+                    "uri": "local://input/request",
+                    "kind": "object",
+                    "sha256": "4" * 64,
+                    "mediaType": "application/json",
+                    "bytes": 1,
+                },
+                "callerId": "new-session",
+            },
+        },
+        headers={"X-Request-ID": "invoke-request", "Idempotency-Key": "invoke-key"},
+    ).json()
+    assert invoked["accepted"] is True
+    assert invoked["result"]["status"] == "succeeded"
+    assert invoked["result"]["invocation"]["skillVersionId"] == version["id"]
+
+
 def test_manifest_kind_discriminator_rejects_mismatched_kind_spec() -> None:
     with pytest.raises(ValueError, match="spec.kind must match"):
         SkillManifest.model_validate(
@@ -764,7 +927,9 @@ def test_registered_not_ready_commands_return_typed_failure(
     body = response.json()
     assert body["accepted"] is False
     expected_status = (
-        "failed" if command in {"refresh.run", "skill-draft.run"} else "not_ready"
+        "failed"
+        if command in {"refresh.run", "skill-draft.run", "publication.publish"}
+        else "not_ready"
     )
     assert body["result"]["status"] == expected_status
     expected_code = (
@@ -772,6 +937,8 @@ def test_registered_not_ready_commands_return_typed_failure(
         if command == "refresh.run"
         else "SKILL_DRAFT_NOT_FOUND"
         if command == "skill-draft.run"
+        else "DRAFT_REVISION_NOT_FOUND"
+        if command == "publication.publish"
         else "COMMAND_NOT_READY"
     )
     assert body["result"]["error"]["code"] == expected_code
