@@ -3,7 +3,7 @@
   "step4Ready": false,
   "latestMainIntegration": {
     "status": "BLOCKED_PENDING_W4_READ_ONLY_REAUDIT",
-    "commit": "3f982a77577567684b879add06048ca797f00d68",
+    "commit": "59cc495dc2be01096845dba422a27d83874ff983",
     "previousCommit": "61b2db88",
     "workerInputs": {
       "W1": "cc444c679185f585de1383f01882b741dfdca329",
@@ -17,7 +17,8 @@
       "Bootstrap accepts nested Source/Golden connection projections without HTTP 500",
       "Source/Golden runtime roots are derived from the durable repository path rather than process cwd",
       "MAIN composes persisted W1 MCP configuration into the official VEADK Agent/Runner gateway",
-      "MAIN authoring uses an operator-configurable timeout bounded by the frozen 120-second maximum"
+      "MAIN authoring uses an operator-configurable timeout bounded by the frozen 120-second maximum",
+      "typed W2 DraftManifest/BuildPlan execution is composed into the frozen W3 artifact runtime and persists execution/artifact results"
     ],
     "verification": {
       "dashboardArtifactFocused": "7 passed",
@@ -44,9 +45,8 @@
       }
     },
     "knownDebt": [
-      "Browser final success-state/render evidence after save is incomplete",
-      "W4 must re-audit the new credentialed veadk.Agent/Runner success on exact MAIN SHA 3f982a77577567684b879add06048ca797f00d68",
-      "Dashboard build/render is not yet bound to the same real MCP correlation",
+      "W4 must re-audit the new credentialed veadk.Agent/Runner and W2-to-W3 execution on exact MAIN SHA 59cc495dc2be01096845dba422a27d83874ff983",
+      "Dashboard browser evidence is available on the stable served artifact, but a second MCP data revision and before/after mutation evidence are still required",
       "Production publish and second-session invocation UI chain remains unproven"
     ],
     "w4Action": "Re-run read-only audit against this exact MAIN commit after all worker worktrees are clean; do not infer P0 pass from component tests."
@@ -100,12 +100,12 @@
   ],
   "p0Gates": {
     "P0-1": {
-      "status": "BLOCKED",
-      "command": "/Users/bytedance/.pyenv/versions/3.13.7/bin/python /tmp/knowledge-step3-evidence-final-20260825/mcp_daemon.py",
-      "daemonPid": 31402,
-      "probePid": 46968,
-      "evidence": "/tmp/knowledge-step3-evidence-final-20260825/mcp-daemon-evidence.json",
-      "result": "Temporary evidence exists, but W4 strict audit rejects it as final P0 evidence; formal protocol/failure/chain evidence remains required"
+      "status": "PENDING_W4_READ_ONLY_REAUDIT",
+      "command": "STEP3_MCP_PROFILE_ID=infra-local STEP3_MCP_SERVER_PATH=$PWD/tests/fixtures/knowledge_workspace_v21141/mcp_sdk_infrastructure_server.py STEP3_MCP_DATA_PATH=$PWD/tests/fixtures/knowledge_workspace_v21141/mcp_infrastructure_metrics.initial.json MODEL_AGENT_TIMEOUT_MS=120000 python -m uvicorn scripts.knowledge_asset_step3_server:app --host 127.0.0.1 --port 8827",
+      "daemonPid": 62252,
+      "probePid": 63108,
+      "evidence": "/tmp/main-final-execution-evidence.json",
+      "result": "Browser-configured typed connection.create and ingest were observed; live MCP initialize/tools/list/tools/call and W1 revisions succeeded; W4 strict final audit remains required"
     },
     "P0-2": {
       "status": "PENDING_W4_READ_ONLY_REAUDIT",
@@ -116,17 +116,17 @@
       "result": "Real MAIN Agent/Runner produced and persisted typed SkillDraft/BuildPlan from pinned Golden data; W4 read-only audit required before gate status changes"
     },
     "P0-3": {
-      "status": "BLOCKED",
-      "artifactWorkspace": "/tmp/knowledge-step3-evidence-final-20260825/dashboard-artifact-workspace",
-      "buildArtifact": "/tmp/knowledge-step3-evidence-final-20260825/dashboard-artifact-workspace/dist/index.html",
-      "dashboardUrl": "http://127.0.0.1:8794/",
-      "httpPid": 24943,
-      "beforeHtmlDigest": "737051fd76304b64f695da4feb29b17983cf60dcf73d7badbf59936339b1576a",
-      "afterHtmlDigest": "b803b7b1ce3f0e9d2f4c2c133f0d6af4851804689aed1963af4f439315cb0cc3",
-      "screenshot": "/tmp/knowledge-step3-evidence-final-20260825/dashboard-after.png",
-      "screenshotSha256": "5eaa57c914d51442e3b9c0378735ecffc3896c030aaf4afcd38efa582f21bedd",
-      "evidence": "/tmp/knowledge-step3-evidence-final-20260825/vertical-chain.json",
-      "result": "Temporary artifact evidence exists, but W4 rejects file/test publication evidence as final production Dashboard acceptance; formal single-URL chain remains unproven"
+      "status": "BLOCKED_PENDING_DATA_MUTATION_AND_W4",
+      "artifactWorkspace": "/Users/bytedance/.codex/worktrees/knowledge-skill-factory-step-1-corrective-quality/.veadk/sources-golden/dashboard-workspaces/dashboard-draft_a47f19c0bf82479a9f2685dcea5d6020-1-acdd32ca3d5a-0003",
+      "buildArtifact": "/Users/bytedance/.codex/worktrees/knowledge-skill-factory-step-1-corrective-quality/.veadk/sources-golden/dashboard-workspaces/dashboard-draft_a47f19c0bf82479a9f2685dcea5d6020-1-acdd32ca3d5a-0003/dist/index.html",
+      "dashboardUrl": "http://127.0.0.1:8891/",
+      "httpPid": 63108,
+      "beforeHtmlDigest": "3047d0928c0e31540b51391f190fced94d9b1e19e32c36684361ffc5dbeede45",
+      "afterHtmlDigest": null,
+      "screenshot": "/tmp/main-dashboard-real.png",
+      "screenshotSha256": "dbf9b837081e2f2a1228137dc17bff3789f7736414b34756805a75dff6d0773d",
+      "evidence": "/tmp/main-final-execution-evidence.json",
+      "result": "Stable HTTP-served artifact renders in real Chromium with KPI, chart, table, Golden revision, and no page errors; second revision comparison and W4 final audit remain required"
     }
   },
   "unifiedChain": {
