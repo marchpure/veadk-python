@@ -712,3 +712,17 @@ test("connection bootstrap boundary exposes only the canonical public view model
   assert.doesNotMatch(source, /PUBLIC_CONNECTION_KEYS[\s\S]{0,500}secretRef/);
   assert.doesNotMatch(source, /PUBLIC_CONNECTION_KEYS[\s\S]{0,500}cwd/);
 });
+
+test("assistant consumes server clarification without fabricating a draft", async () => {
+  const source = readFileSync(
+    join(frozenRoot, "components/RightPane/ChatAssistant.tsx"),
+    "utf8",
+  );
+  assert.match(source, /result\.status === 'awaiting_input'/);
+  assert.match(source, /clarificationQuestions/);
+  assert.match(source, /setAgentReply\(clarificationQuestions\.join/);
+  assert.doesNotMatch(
+    source,
+    /awaiting_input[\s\S]{0,500}setPlanDetails/,
+  );
+});

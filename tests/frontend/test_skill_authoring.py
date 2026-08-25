@@ -502,7 +502,67 @@ mcp.run()
     assert model_input["workspace_id"] == "workspace_1"
     assert model_input["caller_id"] == "user_1"
     assert model_input["fixed_revisions"] == [ref.revision]
+    assert model_input["resources"][0]["scope"] == ref.scope.value
     assert model_input["context_binding"]["current_view_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_veadk_agent_allows_typed_clarification_without_mcp_call(setup_authoring):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    plan = {
+        "plan_id": "plan_clarification",
+        "intent": "knowledge",
+        "purpose": "Clarify an underspecified greeting.",
+        "nodes": [
+            {"node_id": "resolve_intent", "role": "intent_resolution"},
+            {"node_id": "resolve_context", "role": "context_resolution",
+             "depends_on": ["resolve_intent"]},
+            {"node_id": "worker3_execution", "role": "worker3_execution",
+             "depends_on": ["resolve_context"]},
+        ],
+        "inputs": [{"name": "question", "type": "string"}],
+        "outputs": [{"name": "answer", "type": "answer"}],
+        "kind_spec": {
+            "kind": "knowledge",
+            "citation_intent": ["source_revision"],
+            "retrieval_mode": "hybrid",
+        },
+        "clarification_questions": ["请说明你希望查询或创建的知识内容。"],
+        "layout_intent": "document",
+        "refresh_policy": {
+            "max_age_seconds": 3600,
+            "require_fixed_revision": True,
+        },
+        "plan_digest": "clarification-plan",
+    }
+
+    class ClarificationModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del llm_request, stream
+            yield LlmResponse(
+                content=types.Content(
+                    role="model", parts=[types.Part(text=json.dumps(plan))]
+                )
+            )
+
+    service.model_gateway = VeADKModelGateway(
+        mcp_tools=McpToolBundle(tools=(lambda: {"unused": True},), schemas={}),
+        model=ClarificationModel(model="clarification-model"),
+        model_api_key="test-key",
+    )
+    result = await service.create_draft(
+        envelope(ref, "你好"), requested_kind=SkillKind.KNOWLEDGE
+    )
+    assert result.draft is None
+    assert result.operation.status == AuthoringStatus.AWAITING_INPUT
+    assert result.operation.clarification_questions == (
+        "请说明你希望查询或创建的知识内容。",)
+    assert result.operation.agent_execution is not None
+    assert result.operation.agent_execution.tool_calls == ()
 
 
 @pytest.mark.asyncio

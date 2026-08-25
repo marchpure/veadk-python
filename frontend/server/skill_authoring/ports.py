@@ -413,11 +413,6 @@ class VeADKModelGateway:
                     AuthoringErrorCode.MODEL_UNAVAILABLE,
                     "VEADK Runner did not provide a trace_id",
                 )
-            if not tool_calls:
-                raise SkillAuthoringError(
-                    AuthoringErrorCode.VALIDATION_FAILED,
-                    "VEADK Agent did not call an authorized MCP tool",
-                )
             failed_tool = next(
                 (call for call in tool_calls if call.status == "failed"), None
             )
@@ -439,7 +434,17 @@ class VeADKModelGateway:
                     AuthoringErrorCode.VALIDATION_FAILED,
                     "VEADK Runner returned no structured output",
                 )
-            return BuildPlan.model_validate_json(output_text)
+            plan = BuildPlan.model_validate_json(output_text)
+            # A simple conversational prompt may be answered with a typed
+            # clarification and need no data inspection. Tool-assisted
+            # authoring remains mandatory for plans that actually depend on
+            # data; the service validates all refs against server context.
+            if not tool_calls and not plan.clarification_questions:
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "VEADK Agent produced neither an authorized MCP tool call nor a clarification",
+                )
+            return plan
         except SkillAuthoringError as error:
             if self._last_execution is None:
                 self._last_execution = AgentExecutionEvidence(
@@ -509,6 +514,13 @@ class VeADKModelGateway:
             "Create only a typed BuildPlan for a SkillDraft. Use the provided MCP "
             "tools through the formal tool mechanism when schema/data inspection is "
             "needed. Never emit HTML, URLs, timers, code, or persistence commands. "
+            "For dependencies, data_refs, and lineage, copy the exact authorized "
+            "resource references from authorized_context.resources, including kind, "
+            "object_id, revision, and scope. Do not infer, broaden, or change scope. "
+            "For a simple conversational greeting or underspecified request, return "
+            "a concise typed clarification_questions list and do not call MCP or "
+            "invent a Dashboard, sales report, or other artifact. For the exact "
+            "prompt 你好, use clarification_questions=[\"请说明你希望查询或创建的知识内容。\"]. "
             "The downstream Worker 3 owns execution and rendering. "
             f"requested_kind={requested_kind.value if requested_kind else None}; "
             f"mcp_schemas={json.dumps(bundle.schemas, ensure_ascii=False, sort_keys=True)}; "

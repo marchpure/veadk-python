@@ -225,6 +225,20 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         },
       }, createRequestContext());
       const result: any = response.result ?? {};
+      const operation = result.operation ?? {};
+      const clarificationQuestions = Array.isArray(
+        operation.clarificationQuestions ?? result.clarificationQuestions,
+      )
+        ? (operation.clarificationQuestions ?? result.clarificationQuestions)
+        : [];
+      if (
+        response.accepted &&
+        result.status === 'awaiting_input' &&
+        clarificationQuestions.length > 0
+      ) {
+        setAgentReply(clarificationQuestions.join('\n'));
+        return null;
+      }
       if (!response.accepted || !result.draft) {
         throw new Error(String(result.error?.message ?? 'Agent 未返回有效响应。'));
       }

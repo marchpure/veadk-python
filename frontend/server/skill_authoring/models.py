@@ -175,6 +175,7 @@ class ResolvedContext(BaseModel):
                     "kind": resource.ref.kind,
                     "object_id": resource.ref.object_id,
                     "revision": resource.ref.revision,
+                    "scope": resource.ref.scope.value,
                     "provider_revision": resource.provider_revision,
                     "schema_digest": resource.schema_digest,
                     "capabilities": resource.capabilities,
