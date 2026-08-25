@@ -148,7 +148,9 @@ class DashboardBuildResult(ContractModel):
     )
     insights: list[str] = Field(default_factory=list)
     revision_id: str
+    generation_id: str
     lineage_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dist_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     publish_ready: PublishReadyArtifactContract
 
 
@@ -207,6 +209,7 @@ def generate_dashboard_artifact(
     }
     lineage = _lineage(request, model, status)
     revision_id = f"dashboard-revision-{lineage['lineageDigest'][:24]}"
+    generation_id = str(lineage["generationId"])
     revision = {
         "schemaVersion": "knowledge-assets.worker3.dashboard-revision.v1",
         "revisionId": revision_id,
@@ -238,6 +241,7 @@ def generate_dashboard_artifact(
 
     build_output = run_dashboard_build(workspace)
     html_ref = _storage_ref(dist / "index.html", "text/html", "bundle")
+    dist_digest = _directory_digest(dist)
     build = {
         "schemaVersion": "knowledge-assets.worker3.dashboard-build.v1",
         "status": "succeeded",
@@ -252,9 +256,13 @@ def generate_dashboard_artifact(
             "dist/chart-config.json",
         ],
         "htmlDigest": html_ref.sha256,
+        "distDigest": dist_digest,
+        "generationId": generation_id,
     }
     _write_json(workspace / "build.json", build)
     revision["htmlDigest"] = html_ref.sha256
+    revision["distDigest"] = dist_digest
+    revision["generationId"] = generation_id
     _write_json(workspace / "revision.json", revision)
     build_ref = _storage_ref(workspace / "build.json", "application/json", "object")
     lineage_ref = _storage_ref(workspace / "lineage.json", "application/json", "object")
@@ -266,6 +274,8 @@ def generate_dashboard_artifact(
         build_ref=build_ref,
         lineage_ref=lineage_ref,
         lineage_digest=lineage["lineageDigest"],
+        generation_id=generation_id,
+        dist_digest=dist_digest,
     )
     _write_json(workspace / "artifact-manifest.json", artifact_manifest)
     artifact_manifest_ref = _storage_ref(
@@ -319,7 +329,9 @@ def generate_dashboard_artifact(
         table_rows=model["tableRows"],
         insights=model["insights"],
         revision_id=revision_id,
+        generation_id=generation_id,
         lineage_digest=lineage["lineageDigest"],
+        dist_digest=dist_digest,
         publish_ready=publish_ready,
     )
 
@@ -976,6 +988,8 @@ def _artifact_manifest(
     build_ref: StorageRef,
     lineage_ref: StorageRef,
     lineage_digest: str,
+    generation_id: str,
+    dist_digest: str,
 ) -> dict[str, object]:
     return {
         "schemaVersion": DASHBOARD_ARTIFACT_SCHEMA_VERSION,
@@ -987,6 +1001,7 @@ def _artifact_manifest(
         "designSystemVersion": DESIGN_SYSTEM_VERSION,
         "trustedTemplate": "worker3-dashboard-executive-overview",
         "entrypoint": "dist/index.html",
+        "generationId": generation_id,
         "buildCommand": _build_command(workspace),
         "serveCommand": _serve_command(workspace),
         "inputs": {
@@ -1009,7 +1024,9 @@ def _artifact_manifest(
         ],
         "configFiles": [
             "skill-manifest.json",
+            "src/skill-manifest.json",
             "build-plan.json",
+            "src/build-plan.json",
             "data/golden.json",
             "package.json",
             "package-lock.json",
@@ -1036,6 +1053,9 @@ def _artifact_manifest(
             "lineage": lineage_ref.model_dump(mode="json", by_alias=True),
         },
         "lineageDigest": lineage_digest,
+        "distDigest": dist_digest,
+        "skillManifest": "skill-manifest.json",
+        "invocationReference": request.build_plan.invocation_ref,
         "publish": {
             "ready": True,
             "mainPublishAction": "MAIN_PUBLISH_CHAIN_REQUIRED",
@@ -1169,8 +1189,10 @@ def _lineage(
         "generatedAt": request.now,
         "modelDigest": _sha256_json(_jsonable(model)),
     }
+    generation_id = f"{request.artifact_id}-{_sha256_json(payload)[:16]}"
     return {
         **payload,
+        "generationId": generation_id,
         "lineageDigest": _sha256_json(payload),
     }
 
@@ -1350,6 +1372,15 @@ def _sha256_json(payload: object) -> str:
 
 def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _directory_digest(directory: Path) -> str:
+    parts: list[str] = []
+    for path in sorted(item for item in directory.rglob("*") if item.is_file()):
+        parts.append(
+            f"{path.relative_to(directory).as_posix()}:{_sha256_bytes(path.read_bytes())}"
+        )
+    return _sha256_bytes("\n".join(parts).encode("utf-8"))
 
 
 def _build_command(workspace: Path) -> list[str]:
