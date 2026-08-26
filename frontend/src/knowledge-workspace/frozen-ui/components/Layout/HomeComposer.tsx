@@ -377,11 +377,11 @@ export default function HomeComposer({
         </div>
 
         <div className="flex flex-1 flex-col">
-          <section className="flex min-h-0 flex-1 -translate-y-[5px] flex-col items-center justify-center md:translate-y-[3px]">
+          <section className="flex min-h-0 flex-1 -translate-y-[4px] flex-col items-center justify-center md:translate-y-[3px]">
             <div className="w-full max-w-[704px]">
               <div className="mb-6 text-center">
-                <h1 className="mx-auto w-fit max-w-full text-3xl font-bold tracking-tight text-slate-900">今天想解决什么业务问题？</h1>
-                <p className="mx-auto mt-3 max-w-[327px] text-xs leading-5 text-slate-500 md:text-sm md:leading-6">
+                <h1 className="mx-auto w-fit max-w-full text-left text-3xl font-bold tracking-tight text-slate-900">今天想解决什么业务问题？</h1>
+                <p className="mx-auto mt-3 max-w-[327px] text-sm leading-5 text-slate-500">
                   输入问题或拖入上下文，AI 将自动匹配模板生成 Skill
                 </p>
               </div>
@@ -422,7 +422,7 @@ export default function HomeComposer({
                     }}
                     placeholder="描述目标，或输入 @ 搜索并引用真实工作区资源…"
                     rows={2}
-                    className="min-h-[80px] w-full resize-none border-0 bg-transparent px-4 py-4 text-base leading-6 text-slate-800 outline-none placeholder:text-slate-300 md:min-h-[95px] md:py-4 md:leading-7"
+                    className="block min-h-[80px] w-full resize-none border-0 bg-transparent px-4 py-4 text-base leading-6 text-slate-800 outline-none placeholder:text-slate-300 md:min-h-[95px] md:py-4 md:leading-7"
                     disabled={status === "submitting"}
                   />
                   {mentionQuery !== "" && (
@@ -449,11 +449,11 @@ export default function HomeComposer({
                   )}
                 </div>
 
-                    <div className="flex flex-row flex-nowrap items-center justify-center gap-2 border-t border-slate-100 bg-slate-50/70 px-3 py-2 md:justify-between md:gap-3 md:py-3">
-                      <div className="contents md:flex md:flex-wrap md:items-center md:gap-2">
+                    <div className="flex flex-row items-center justify-between gap-0 border-t border-slate-100 bg-slate-50/70 px-3 py-3 md:gap-3 md:py-3">
+                      <div className="flex flex-nowrap items-center gap-2">
                     <label
                       title="通过服务端导入真实数据文件"
-                      className="inline-flex h-[58px] cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500 md:h-auto md:py-2"
+                      className="inline-flex h-[58px] w-[100px] cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-2.5 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500 md:h-auto md:w-auto md:py-2"
                     >
                       <UploadIcon className="mr-1.5 h-4 w-4" /> 上传文件
                       <input
@@ -467,12 +467,12 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => setTemplatePanelOpen((value) => !value)}
                       aria-expanded={templatePanelOpen}
-                      className="inline-flex h-[58px] items-center rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:h-auto md:py-2"
+                      className="inline-flex h-[58px] w-[86px] items-center rounded-lg border border-slate-200 bg-white px-2.5 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:h-auto md:w-auto md:py-2"
                     >
                       <TemplateIcon className="mr-1.5 h-4 w-4" /> 模板库
                     </button>
                   </div>
-                      <div className="contents md:flex md:items-center md:gap-3">
+                      <div className="flex items-center gap-0 md:gap-3">
                     {status !== "idle" && (
                       <span className="text-xs text-slate-500" aria-live="polite">{statusLabel}</span>
                     )}
@@ -492,7 +492,7 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => void startAuthoring()}
                       disabled={!canSubmit || status === "submitting"}
-                        className="inline-flex h-[56px] items-center rounded-lg bg-blue-600 px-5 py-0 text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:h-auto md:py-2"
+                        className="inline-flex h-[56px] w-[121px] items-center rounded-lg bg-blue-600 px-5 py-0 text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:h-auto md:w-auto md:py-2"
                     >
                       {status === "submitting" ? "生成中…" : "生成 Skill"}
                       <ArrowIcon className="ml-1.5 h-4 w-4" />
