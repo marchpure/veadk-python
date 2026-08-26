@@ -82,6 +82,7 @@ export interface WorkspaceBootstrapData {
   connectorCatalog: WorkspaceConnectorDefinition[];
   mcpProfileCatalog?: WorkspaceMcpProfile[];
   templateSpecs?: WorkspaceTemplateSpec[];
+  recommendedPrompts?: Array<{ id: string; label: string; prompt: string }>;
   datasetFields: WorkspaceDatasetField[];
   dashboard: {
     kpis: WorkspaceKpi[];

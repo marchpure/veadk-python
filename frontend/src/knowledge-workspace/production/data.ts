@@ -17,6 +17,7 @@ export const mockTrendData = workspaceTrendData;
 export const knowledgeGraphEntities: WorkspaceKnowledgeGraphEntity[] = [];
 export const knowledgeGraphMappings: WorkspaceKnowledgeGraphMapping[] = [];
 export let activeSkillViewRevision: Record<string, unknown> | null = null;
+export let workspaceRecommendedPrompts: Array<{ id: string; label: string; prompt: string }> = [];
 export let workspaceChartConfig: {
   title: string;
   xField: string;
@@ -36,6 +37,14 @@ export function hydrateWorkspaceData(data: WorkspaceBootstrapData): void {
   replaceContents(knowledgeGraphEntities, data.knowledgeGraph.entities);
   replaceContents(knowledgeGraphMappings, data.knowledgeGraph.mappings);
   activeSkillViewRevision = data.skillViewRevision ?? null;
+  workspaceRecommendedPrompts = Array.isArray(data.recommendedPrompts)
+    ? data.recommendedPrompts.filter((item) =>
+      Boolean(item) &&
+      typeof item.id === "string" &&
+      typeof item.label === "string" &&
+      typeof item.prompt === "string",
+    )
+    : [];
   workspaceChartConfig = null;
   const viewModel =
     activeSkillViewRevision?.viewModel &&

@@ -136,16 +136,16 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
       id: 'personal', name: '个人工作区', type: 'root', icon: UserIcon,
       children: [
         { id: 'p_data_knowledge', name: `数据与知识 ${personalDataKnowledge.length + datasetsChildren.length}`, type: 'folder', children: [...datasetsChildren, ...personalDataKnowledge] },
-        { id: 'p_skill_drafts', name: `Skill 草稿 ${personalDrafts.length}`, type: 'folder', children: personalDrafts },
-        { id: 'p_published_skills', name: `已发布 Skill ${personalPublished.length}`, type: 'folder', children: personalPublished },
+        { id: 'p_skill_drafts', name: `工作草稿 ${personalDrafts.length}`, type: 'folder', children: personalDrafts },
+        { id: 'p_published_skills', name: `已发布能力 ${personalPublished.length}`, type: 'folder', children: personalPublished },
       ]
     },
     {
       id: 'team', name: '团队工作区', type: 'root', icon: Users,
       children: [
         { id: 't_data_knowledge', name: `数据与知识 ${teamDataKnowledge.length}`, type: 'folder', children: teamDataKnowledge },
-        { id: 't_skill_drafts', name: `Skill 草稿 ${teamDrafts.length}`, type: 'folder', children: teamDrafts },
-        { id: 't_published_skills', name: `已发布 Skill ${teamPublished.length}`, type: 'folder', allowDrop: 'personal_artifact', children: teamPublished },
+        { id: 't_skill_drafts', name: `工作草稿 ${teamDrafts.length}`, type: 'folder', children: teamDrafts },
+        { id: 't_published_skills', name: `已发布能力 ${teamPublished.length}`, type: 'folder', allowDrop: 'personal_artifact', children: teamPublished },
       ]
     }
   ];

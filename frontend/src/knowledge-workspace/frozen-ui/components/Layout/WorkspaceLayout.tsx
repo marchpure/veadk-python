@@ -195,7 +195,9 @@ export default function WorkspaceLayout() {
   const isTaskSplit = !!chatState;
   
   // Determine if right pane should be open
-  const isRightPaneOpen = isHomeChat ? (paneState !== 'closed') : (isTaskSplit || paneState === 'open' || searchParams.has('comment_target') || searchParams.has('edit') || (descriptor && paneState !== 'closed'));
+  const isRightPaneOpen = isHomeChat
+    ? paneState === 'open' || Boolean(chatState)
+    : (isTaskSplit || paneState === 'open' || searchParams.has('comment_target') || searchParams.has('edit') || (descriptor && paneState !== 'closed'));
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f8fafc] text-slate-900 font-sans overflow-hidden select-none">

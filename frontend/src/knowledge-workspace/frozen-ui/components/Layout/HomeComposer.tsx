@@ -8,6 +8,7 @@ import {
   getWorkspaceAdapter,
   templateSpecStore,
 } from "../../lib/store";
+import { workspaceRecommendedPrompts } from "../../../production/data";
 
 type WorkspaceScope = "personal" | "team";
 type RequestedKind = NonNullable<SkillAuthoringStartPayload["requestedKind"]>;
@@ -209,7 +210,7 @@ export default function HomeComposer({
     searchParams.get("workspace_scope") === "team" ? "team" : "personal",
   );
   const [mentionQuery, setMentionQuery] = useState("");
-  const [templatePanelOpen, setTemplatePanelOpen] = useState(true);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [specEditorOpen, setSpecEditorOpen] = useState(false);
   const [specMarkdown, setSpecMarkdown] = useState(DEFAULT_SPEC);
   const [status, setStatus] = useState<"idle" | "submitting" | "awaiting_input" | "failed" | "completed" | "cancelled">("idle");
@@ -367,7 +368,7 @@ export default function HomeComposer({
     >
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-5 py-6 md:px-8 md:py-10">
         <div className="hidden items-center justify-center gap-3 pb-7 text-sm font-semibold text-slate-700 md:flex">
-          {["选工作方法", "放入业务材料", "生成能力", "试运行并发布"].map((label, index) => (
+          {["选择数据与上下文", "选择模板", "生成 Skill", "调试并发布"].map((label, index) => (
             <div key={label} className="flex items-center gap-3">
               <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs text-slate-500">{index + 1}</span>
               <span>{label}</span>
@@ -376,7 +377,7 @@ export default function HomeComposer({
           ))}
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="flex flex-1 flex-col">
           <section className="flex min-h-0 flex-col items-center justify-center">
             <div className="w-full max-w-3xl">
               <div className="mb-6 text-center">
@@ -425,7 +426,7 @@ export default function HomeComposer({
                       }
                     }}
                     placeholder="描述目标，或输入 @ 搜索并引用真实工作区资源…"
-                    rows={5}
+                    rows={3}
                     className="w-full resize-none border-0 bg-transparent px-4 py-4 text-base leading-7 text-slate-800 outline-none placeholder:text-slate-300"
                     disabled={status === "submitting"}
                   />
@@ -507,6 +508,24 @@ export default function HomeComposer({
                 </div>
               </div>
 
+              {workspaceRecommendedPrompts.length > 0 && (
+                <div className="mt-4 flex flex-wrap justify-center gap-2" aria-label="推荐问题">
+                  {workspaceRecommendedPrompts.slice(0, 3).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setRequest(item.prompt);
+                        inputRef.current?.focus();
+                      }}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm outline-none hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {(error || message) && (
                 <div className={error ? "mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" : "mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700"} role={error ? "alert" : "status"}>
                   {error || message}
@@ -518,32 +537,47 @@ export default function HomeComposer({
             </div>
           </section>
 
-          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          {templatePanelOpen && (
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-[1px]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="模板库"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setTemplatePanelOpen(false);
+            }}
+          >
+          <aside className="flex max-h-[min(720px,calc(100vh-40px))] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-slate-900">模板库</h2>
-                <span className="text-[11px] text-slate-400">Skill HTML 形态</span>
+                <button
+                  type="button"
+                  aria-label="关闭模板库"
+                  onClick={() => setTemplatePanelOpen(false)}
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
               </div>
-              {templatePanelOpen && (
-                <div className="space-y-2">
-                  {TEMPLATE_CARDS.map((template) => (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => setSelectedTemplate(template.id)}
-                      className={`w-full rounded-xl border p-3 text-left outline-none focus:ring-2 focus:ring-blue-500 ${
-                        selectedTemplate === template.id ? "border-blue-300 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-slate-800">{template.label}</span>
-                        <span className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{template.kind}</span>
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{template.subtitle}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                {TEMPLATE_CARDS.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTemplate(template.id);
+                      setTemplatePanelOpen(false);
+                    }}
+                    className={`rounded-xl border p-3 text-left outline-none focus:ring-2 focus:ring-blue-500 ${
+                      selectedTemplate === template.id ? "border-blue-300 bg-blue-50 shadow-sm" : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-slate-800">{template.label}</span>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{template.subtitle}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -572,7 +606,7 @@ export default function HomeComposer({
                   </div>
                 </div>
               ) : (
-                <p className="text-xs leading-5 text-slate-500">可以创建、预览和复用 spec.md 模板；保存需要 W3 Template Registry typed seam。</p>
+                <p className="text-xs leading-5 text-slate-500">可以创建、预览和复用工作区模板。</p>
               )}
             </div>
 
@@ -581,7 +615,7 @@ export default function HomeComposer({
                 <AgentIcon className="mr-2 h-4 w-4" /> Agent 推荐模板
               </div>
               <p className="mt-2 text-xs leading-5 text-blue-800">
-                当前按用户目标和真实上下文提交到服务端，由 Agent 澄清并返回 SkillDraft / BuildPlan；前端不按关键词生成成功结果。
+                当前按你的目标和真实上下文生成建议，由分析助手协助确认后创建能力。
               </p>
             </div>
 
@@ -597,6 +631,8 @@ export default function HomeComposer({
               <PlusIcon className="mr-2 h-4 w-4" /> 添加真实数据连接 / MCP
             </button>
           </aside>
+          </div>
+          )}
         </div>
       </section>
     </main>
