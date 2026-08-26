@@ -456,7 +456,7 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => setTemplatePanelOpen((value) => !value)}
                       aria-expanded={templatePanelOpen}
-                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-[18px] text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:py-2"
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-5 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:py-2"
                     >
                       <TemplateIcon className="mr-1.5 h-4 w-4" /> 模板库
                     </button>
@@ -481,7 +481,7 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => void startAuthoring()}
                       disabled={!canSubmit || status === "submitting"}
-                        className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-[18px] text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:px-5 md:py-2"
+                        className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-5 text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:px-5 md:py-2"
                     >
                       {status === "submitting" ? "生成中…" : "生成 Skill"}
                       <ArrowIcon className="ml-1.5 h-4 w-4" />
@@ -500,7 +500,7 @@ export default function HomeComposer({
                         setRequest(item.prompt);
                         inputRef.current?.focus();
                       }}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm outline-none hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500"
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm outline-none hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500"
                     >
                       {item.label}
                     </button>
