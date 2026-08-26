@@ -66,6 +66,9 @@ class ResourceSummary(ContractModel):
     asset_id: str | None = None
     golden_revision_id: str | None = None
     trace_id: str | None = None
+    view_revision_id: str | None = None
+    read_model: dict[str, object] | None = None
+    skill_view_revision: dict[str, object] | None = None
 
 
 BootstrapConnection = ConnectionViewModel

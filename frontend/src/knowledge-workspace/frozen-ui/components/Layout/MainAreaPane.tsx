@@ -21,7 +21,7 @@ import SkillSOPView from '../MainArea/SkillSOPView';
 import ConnectionDetailView from '../MainArea/ConnectionDetailView';
 import JourneyDetailView from '../MainArea/JourneyDetailView';
 import { resourceStore } from '../../lib/store';
-import { activeSkillViewRevision } from '../../../production/data';
+import { activeSkillViewRevision, setActiveSkillViewRevision } from '../../../production/data';
 import { isWorkspaceRouteAvailable as isProductionRouteAvailable } from '../../../production/store';
 
 function IconBase({ children, ...props }: SVGProps<SVGSVGElement>) {
@@ -96,6 +96,12 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     if (fileId === 'team_empty') return <EmptyState type="empty_dir" />;
     if (errorState === 'no_permission' || fileId === 'dataset_no_permission') return <EmptyState type="no_permission" />;
     const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
+    const resourceRevision = resource?.skillViewRevision;
+    if (resourceRevision && typeof resourceRevision === 'object') {
+      setActiveSkillViewRevision(resourceRevision as Record<string, unknown>);
+    } else if (fileId === 'welcome') {
+      setActiveSkillViewRevision(null);
+    }
     const subtype = normalizedSubtype(resource);
     const isTeamResource = resource?.space === 'team' || resource?.readonly === true;
     const activeRevision =

@@ -102,6 +102,12 @@ export function hydrateWorkspaceData(data: WorkspaceBootstrapData): void {
   }
 }
 
+export function setActiveSkillViewRevision(
+  revision: Record<string, unknown> | null,
+): void {
+  activeSkillViewRevision = revision;
+}
+
 export function getKnowledgeGraphData(): {
   entities: WorkspaceKnowledgeGraphEntity[];
   mappings: WorkspaceKnowledgeGraphMapping[];

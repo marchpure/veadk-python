@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import sys
+from urllib.parse import quote
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -44,6 +45,8 @@ from frontend.server.knowledge_assets.contract_views import (
     GraphEdge,
     GraphNode,
     GraphOntologyViewModel,
+    KnowledgeCitation,
+    KnowledgeViewModel,
     Invocation,
     MonitoringViewModel,
     PolicyGateResult,
@@ -61,6 +64,7 @@ from frontend.server.knowledge_assets.contract_views import (
 from frontend.server.knowledge_assets.repository.sqlite import (
     SqliteKnowledgeAssetRepository,
 )
+from frontend.server.knowledge_assets.trusted_renderers import render_trusted_html
 from frontend.server.knowledge_assets.sources_golden import (
     AccessContext,
     SourceGoldenApplication,
@@ -278,6 +282,19 @@ def view_for(
             evidence_locators=[golden_id],
         )
         purpose = "explore"
+    elif template == "knowledge":
+        model = KnowledgeViewModel(
+            answer=f"基于真实验收数据，为「{draft.name}」生成可追溯回答。",
+            citations=[
+                KnowledgeCitation(
+                    citation_id=f"citation-{index}",
+                    source_revision_id=golden_id,
+                    title="验收数据集",
+                    locator="acceptance.csv:1-3",
+                )
+            ],
+        )
+        purpose = "answer"
     else:
         raise ValueError(template)
     revision_id = f"view-{draft.id}-{index}"
@@ -305,6 +322,40 @@ def view_for(
         data_revision_refs=[golden_id],
         trace_id=f"trace-{draft.id}",
         created_at="2026-08-26T00:00:00Z",
+    )
+
+
+def materialize_html(
+    *,
+    view: SkillViewRevision,
+    workspace: str,
+    artifact_root: Path,
+) -> SkillViewRevision:
+    html_bytes = render_trusted_html(
+        view.intent.template,
+        view.view_model,
+        data_revision_refs=view.data_revision_refs,
+    )
+    html_digest = hashlib.sha256(html_bytes).hexdigest()
+    views_root = artifact_root / "kind-runtime" / "views"
+    views_root.mkdir(parents=True, exist_ok=True)
+    (views_root / f"{html_digest}.html").write_bytes(html_bytes)
+    return view.model_copy(
+        update={
+            "result_ref": StorageRef(
+                uri=(
+                    f"/api/knowledge-assets/v1/workspaces/{workspace}"
+                    f"/skill-view-revisions/{view.id}/artifacts/{html_digest}"
+                    f"?workspace={quote(workspace)}"
+                ),
+                kind="object",
+                sha256=html_digest,
+                media_type="text/html",
+                bytes=len(html_bytes),
+            ),
+            "html_digest": html_digest,
+            "etag": html_digest[:32],
+        }
     )
 
 
@@ -390,30 +441,46 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
         )
         repository.sync_authoring_draft(draft=hydrated, status="ready_for_evaluation")
         drafts.append(hydrated)
-        if index < 3:
-            result = SkillResult(
-                id=f"result-{draft.id}",
-                skill_id=draft.id,
-                skill_revision=1,
-                kind=kind,
-                output_schema_ref=hydrated.manifest.spec.contract.output_schema_ref,
-                result_ref=ref(f"local://result/{draft.id}"),
-                golden_asset_revision_refs=[golden_ids[index % len(golden_ids)]],
-                trace_id=f"trace-{draft.id}",
-            )
-            if repository.latest_skill_result(draft.id, 1) is None:
-                repository.save_skill_result(result)
-            if repository.latest_skill_view_revision(f"{draft.id}:1") is None:
-                repository.save_skill_view_revision(
-                    view_for(
+        result = SkillResult(
+            id=f"result-{draft.id}",
+            skill_id=draft.id,
+            skill_revision=1,
+            kind=kind,
+            output_schema_ref=hydrated.manifest.spec.contract.output_schema_ref,
+            result_ref=ref(f"local://result/{draft.id}"),
+            golden_asset_revision_refs=[golden_ids[index % len(golden_ids)]],
+            trace_id=f"trace-{draft.id}",
+        )
+        if repository.latest_skill_result(draft.id, 1) is None:
+            repository.save_skill_result(result)
+        if repository.latest_skill_view_revision(f"{draft.id}:1") is None:
+            repository.save_skill_view_revision(
+                materialize_html(
+                    view=view_for(
                         draft=hydrated,
                         golden_id=golden_ids[index % len(golden_ids)],
                         template=template,
                         index=index,
-                    )
+                    ),
+                    workspace=workspace,
+                    artifact_root=runtime_source_root,
                 )
+            )
     published_draft = drafts[0]
-    view = repository.latest_skill_view_revision(f"{published_draft.id}:1")
+    view = repository.skill_view_revision_for_template(
+        f"{published_draft.id}:1", "sop"
+    )
+    monitoring_view = materialize_html(
+        view=view_for(
+            draft=published_draft,
+            golden_id=golden_ids[0],
+            template="monitoring",
+            index=99,
+        ),
+        workspace=workspace,
+        artifact_root=runtime_source_root,
+    )
+    repository.save_skill_view_revision(monitoring_view)
     evaluation = EvaluationRun(
         id=f"evaluation-{published_draft.id}",
         suite_id=f"suite-{published_draft.id}",
@@ -442,10 +509,10 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
             semver="1.0.0",
             manifest=published_draft.manifest,
             skill_revision_id=published_draft.id + ":1",
-            digest=digest(view.id),
+            digest=digest(monitoring_view.id),
             evaluation_run_id=evaluation.id,
             policy_gate_result_id=gate.id,
-            skill_view_ref=view.id,
+            skill_view_ref=monitoring_view.id,
             published_at="2026-08-26T00:00:03Z",
         )
         repository.save_published_skill_version(published)
@@ -453,7 +520,7 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
             Invocation(
                 id=f"invocation-{published.id}",
                 skill_version_id=published.id,
-                skill_view_revision_id=view.id,
+                skill_view_revision_id=monitoring_view.id,
                 caller_id=workspace,
                 workspace_id=workspace,
                 status="succeeded",

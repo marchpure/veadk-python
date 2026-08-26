@@ -153,6 +153,9 @@ class KnowledgeAssetRepository(Protocol):
     def latest_skill_view_revision(
         self, skill_revision_id: str
     ) -> SkillViewRevision | None: ...
+    def skill_view_revision_for_template(
+        self, skill_revision_id: str, template: str
+    ) -> SkillViewRevision | None: ...
     def latest_dashboard_view(self, workspace_id: str) -> SkillViewRevision | None: ...
     def save_skill_view_revision(self, revision: SkillViewRevision) -> None: ...
     def skill_view_revision(self, revision_id: str) -> SkillViewRevision | None: ...
@@ -239,7 +242,7 @@ class SqliteKnowledgeAssetRepository:
             rows = self._connection.execute(
                 """
                 SELECT id, workspace_id, name, revision, created_at, updated_at,
-                       manifest_json
+                       manifest_json, description
                 FROM skill_drafts WHERE workspace_id = ? ORDER BY created_at
                 """,
                 (workspace_id,),
@@ -267,15 +270,64 @@ class SqliteKnowledgeAssetRepository:
                 "dashboard", "semantic", "sop", "knowledge",
                 "graph_ontology", "monitoring",
             } else "skill"
+            draft_id = row["id"]
+            revision = int(row["revision"])
+            draft_revision = self.skill_draft_revision(draft_id, revision)
+            view = self.skill_view_revision_for_template(
+                f"{draft_id}:{revision}", subtype
+            )
+            evaluation = self.latest_evaluation_run(f"{draft_id}:{revision}")
+            gate = None
+            if evaluation is not None:
+                gate_row = self._connection.execute(
+                    "SELECT result_json FROM policy_gate_results "
+                    "WHERE skill_revision_id = ? ORDER BY rowid DESC LIMIT 1",
+                    (f"{draft_id}:{revision}",),
+                ).fetchone()
+                if gate_row is not None:
+                    gate = PolicyGateResult.model_validate(
+                        json.loads(gate_row["result_json"])
+                    )
+            view_payload = (
+                view.model_dump(mode="json", by_alias=True) if view is not None else None
+            )
+            read_model: dict[str, object] = {
+                "id": draft_id,
+                "resourceId": draft_id,
+                "name": row["name"],
+                "title": row["name"],
+                "description": row["description"] or "",
+                "status": draft_revision.status if draft_revision else "draft",
+                "stage": (
+                    "publish" if gate is not None or evaluation is not None
+                    else "debug"
+                ),
+                "revision": revision,
+                "draftId": draft_id,
+                "skillRevisionId": f"{draft_id}:{revision}",
+            }
+            if view_payload is not None:
+                read_model["skillViewRevision"] = view_payload
+            if evaluation is not None:
+                read_model["evaluationRun"] = evaluation.model_dump(
+                    mode="json", by_alias=True
+                )
+            if gate is not None:
+                read_model["policyGateResult"] = gate.model_dump(
+                    mode="json", by_alias=True
+                )
             resources.append(
                 ResourceSummary(
-                    id=row["id"],
+                    id=draft_id,
                     display_name=row["name"],
                     resource_kind="skill_draft",
                     subtype=subtype,
                     space="team" if role == "admin" else "personal",
                     lifecycle="draft",
-                    revision=row["revision"],
+                    revision=revision,
+                    view_revision_id=view.id if view is not None else None,
+                    skill_view_revision=view_payload,
+                    read_model=read_model,
                 )
             )
         resources.extend(
@@ -283,12 +335,47 @@ class SqliteKnowledgeAssetRepository:
                 id=version.id,
                 display_name=version.manifest.metadata.display_name,
                 resource_kind="published_skill",
-                subtype="skill",
+                subtype=(
+                    self.skill_view_revision(version.skill_view_ref).intent.template
+                    if version.skill_view_ref
+                    and self.skill_view_revision(version.skill_view_ref)
+                    else "skill"
+                ),
                 space="team" if role == "admin" else "personal",
                 lifecycle="ready",
                 version=version.semver,
                 revision=int(version.skill_revision_id.rsplit(":", 1)[-1]),
                 permission=True,
+                view_revision_id=(
+                    version.skill_view_ref
+                    if version.skill_view_ref
+                    else None
+                ),
+                skill_view_revision=(
+                    self.skill_view_revision(version.skill_view_ref).model_dump(
+                        mode="json", by_alias=True
+                    )
+                    if version.skill_view_ref and self.skill_view_revision(version.skill_view_ref)
+                    else None
+                ),
+                read_model={
+                    "id": version.id,
+                    "resourceId": version.id,
+                    "name": version.manifest.metadata.display_name,
+                    "title": version.manifest.metadata.display_name,
+                    "status": version.status,
+                    "stage": "publish",
+                    "published": version.status == "published",
+                    "publishedVersion": version.model_dump(mode="json", by_alias=True),
+                    "skillViewRevision": (
+                        self.skill_view_revision(version.skill_view_ref).model_dump(
+                            mode="json", by_alias=True
+                        )
+                        if version.skill_view_ref
+                        and self.skill_view_revision(version.skill_view_ref)
+                        else None
+                    ),
+                },
             )
             for row in published_rows
             for version in [
@@ -701,6 +788,25 @@ class SqliteKnowledgeAssetRepository:
                 ORDER BY created_at DESC LIMIT 1
                 """,
                 (skill_revision_id,),
+            ).fetchone()
+        return (
+            SkillViewRevision.model_validate(json.loads(row["view_json"]))
+            if row is not None
+            else None
+        )
+
+    def skill_view_revision_for_template(
+        self, skill_revision_id: str, template: str
+    ) -> SkillViewRevision | None:
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT view_json FROM skill_view_revisions
+                WHERE skill_revision_id = ?
+                  AND json_extract(view_json, '$.viewModel.template') = ?
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (skill_revision_id, template),
             ).fetchone()
         return (
             SkillViewRevision.model_validate(json.loads(row["view_json"]))
