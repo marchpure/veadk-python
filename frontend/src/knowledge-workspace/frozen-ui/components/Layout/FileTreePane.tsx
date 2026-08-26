@@ -17,7 +17,15 @@ function UserIcon() {
 
 export default function FileTreePane({ fileId, searchParams, setSearchParams, onClose, isMobile, publishedItems, reusedItems, onPublish, onReuse, onAddChip, showToast, isWorkspaceEmpty, addedSources = [] }: any) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    'personal': true, 'team': true, 'p_data_knowledge': true, 't_data_knowledge': true, 'conn_mysql': true, 'schema_public': true
+    'personal': true,
+    'team': true,
+    'p_data_knowledge': true,
+    'p_skill_drafts': true,
+    'p_published_skills': true,
+    't_data_knowledge': true,
+    't_published_skills': true,
+    'conn_mysql': true,
+    'schema_public': true,
   });
   
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);

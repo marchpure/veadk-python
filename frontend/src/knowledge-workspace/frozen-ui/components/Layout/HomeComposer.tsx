@@ -370,7 +370,7 @@ export default function HomeComposer({
         </div>
 
         <div className="flex flex-1 flex-col">
-          <section className="flex min-h-0 flex-col items-center justify-center">
+              <section className="flex min-h-0 flex-1 flex-col items-center justify-center">
             <div className="w-full max-w-3xl">
               <div className="mb-6 text-center">
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">今天想解决什么业务问题？</h1>
@@ -460,29 +460,23 @@ export default function HomeComposer({
                     >
                       <TemplateIcon className="mr-1.5 h-4 w-4" /> 模板库
                     </button>
-                    <select
-                      aria-label="workspace scope"
-                      value={scope}
-                      onChange={(event) => setScope(event.currentTarget.value === "team" ? "team" : "personal")}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500"
-                    >
-                      <option value="personal">个人空间</option>
-                      <option value="team">团队空间</option>
-                    </select>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500" aria-live="polite">{statusLabel}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStatus("cancelled");
-                        setMessage("已取消本地提交；未写入任何成功状态。");
-                      }}
-                      disabled={status !== "submitting"}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      取消
-                    </button>
+                    {status !== "idle" && (
+                      <span className="text-xs text-slate-500" aria-live="polite">{statusLabel}</span>
+                    )}
+                    {status === "submitting" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatus("cancelled");
+                          setMessage("已取消本地提交；未写入任何成功状态。");
+                        }}
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500"
+                      >
+                        取消
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => void startAuthoring()}
