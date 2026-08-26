@@ -68,9 +68,19 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     .filter((r:any) => r.space === 'personal' && r.subtype !== 'template')
     .map((r:any) => ({ 
       id: r.id, name: r.displayName || r.name, 
-      type: r.resourceKind, 
+      type: r.resourceKind === 'skill_draft'
+        ? 'skill'
+        : r.resourceKind === 'published_skill'
+          ? 'published_skill'
+          : r.resourceKind === 'golden_asset'
+            ? 'dataset'
+            : r.resourceKind,
+      resourceKind: r.resourceKind,
       artifactType: r.subtype, 
       draft: r.lifecycle === 'draft', 
+      lifecycle: r.lifecycle,
+      version: r.version,
+      revision: r.revision,
       icon: (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') ? FileText : LayoutDashboard, 
       isDocs: (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') 
     }));
@@ -79,9 +89,19 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     .filter((r:any) => r.space === 'team' && r.subtype !== 'template')
     .map((r:any) => ({ 
       id: r.id, name: r.displayName || r.name, 
-      type: r.resourceKind, 
+      type: r.resourceKind === 'skill_draft'
+        ? 'skill'
+        : r.resourceKind === 'published_skill'
+          ? 'published_skill'
+          : r.resourceKind === 'golden_asset'
+            ? 'dataset'
+            : r.resourceKind,
+      resourceKind: r.resourceKind,
       artifactType: r.subtype, 
       readonly: true, 
+      lifecycle: r.lifecycle,
+      version: r.version,
+      revision: r.revision,
       icon: (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') ? FileText : LayoutDashboard, 
       isDocs: (r.resourceKind === 'document' || r.resourceKind === 'knowledge_base') 
     }));
