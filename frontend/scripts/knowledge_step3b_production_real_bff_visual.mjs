@@ -78,6 +78,7 @@ function readPng(path) {
   const raw = inflateSync(Buffer.concat(idat));
   const bytesPerPixel = colorType === 6 ? 4 : 3;
   const stride = width * bytesPerPixel;
+  const decoded = Buffer.alloc(height * stride);
   const pixels = Buffer.alloc(height * width * 4);
   let source = 0;
   for (let y = 0; y < height; y += 1) {
@@ -85,7 +86,7 @@ function readPng(path) {
     const row = raw.subarray(source, source + stride);
     source += stride;
     const out = Buffer.alloc(stride);
-    const prior = y === 0 ? null : pixels.subarray((y - 1) * width * 4, y * width * 4);
+    const prior = y === 0 ? null : decoded.subarray((y - 1) * stride, y * stride);
     for (let x = 0; x < stride; x += 1) {
       const left = x >= bytesPerPixel ? out[x - bytesPerPixel] : 0;
       const up = prior ? prior[Math.floor(x / bytesPerPixel) * 4 + (x % bytesPerPixel)] : 0;
@@ -106,6 +107,7 @@ function readPng(path) {
         out[x] = (value + predictor) & 255;
       } else throw new Error(`unsupported PNG filter ${filter}`);
     }
+    out.copy(decoded, y * stride);
     for (let x = 0; x < width; x += 1) {
       const sourceOffset = x * bytesPerPixel;
       const targetOffset = (y * width + x) * 4;
