@@ -176,6 +176,9 @@ class KnowledgeAssetRepository(Protocol):
         self, workspace_id: str
     ) -> list[PublishedSkillVersion]: ...
     def save_invocation(self, invocation: Invocation) -> None: ...
+    def invocations_for_skill_version(
+        self, skill_version_id: str, workspace_id: str
+    ) -> list[Invocation]: ...
     def save_skill_view_share(self, grant: SkillViewShareGrant) -> None: ...
     def save_patch_history(
         self,
@@ -957,6 +960,24 @@ class SqliteKnowledgeAssetRepository:
                     invocation.started_at,
                 ),
             )
+
+    def invocations_for_skill_version(
+        self, skill_version_id: str, workspace_id: str
+    ) -> list[Invocation]:
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT invocation_json
+                FROM invocations
+                WHERE skill_version_id = ? AND workspace_id = ?
+                ORDER BY created_at DESC
+                """,
+                (skill_version_id, workspace_id),
+            ).fetchall()
+        return [
+            Invocation.model_validate(json.loads(row["invocation_json"]))
+            for row in rows
+        ]
 
     def policy_gate_result(self, result_id: str) -> PolicyGateResult | None:
         with self._lock:

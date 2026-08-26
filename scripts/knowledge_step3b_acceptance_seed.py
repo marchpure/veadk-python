@@ -50,6 +50,7 @@ from frontend.server.knowledge_assets.contract_views import (
     KnowledgeCitation,
     KnowledgeViewModel,
     Invocation,
+    MonitoringInvocationView,
     MonitoringViewModel,
     PolicyGateResult,
     PublishedSkillVersion,
@@ -581,13 +582,50 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
     view = repository.skill_view_revision_for_template(
         f"{published_draft.id}:1", "sop"
     )
+    published_skill_id = f"published://{published_draft.id}:1.0.0"
+    invocations = [
+        Invocation(
+            id=f"invocation-published-{published_draft.id}-{index}",
+            skill_version_id=published_skill_id,
+            skill_view_revision_id=f"view-{published_draft.id}-99",
+            caller_id=workspace,
+            workspace_id=workspace,
+            status="succeeded",
+            input_ref=ref(f"local://input/published-{published_draft.id}-{index}"),
+            result_ref=ref(f"local://result/published-{published_draft.id}-{index}"),
+            trace_id=f"trace-published-{published_draft.id}-{index}",
+            actual_data_revision_refs=[golden_ids[0]],
+            started_at=f"2026-08-26T00:00:0{4 + index}Z",
+            finished_at=f"2026-08-26T00:00:0{5 + index}Z",
+        )
+        for index in range(3)
+    ]
+    monitoring_model = view_for(
+            draft=published_draft,
+            golden_id=golden_ids[0],
+            template="monitoring",
+            index=99,
+        ).view_model.model_copy(
+            update={
+                "invocation_rows": [
+                    MonitoringInvocationView(
+                        started_at=f"验收调用 {index + 1}",
+                        trace_id=invocation.trace_id,
+                        duration_ms=1200 - index * 200,
+                        status=invocation.status,
+                        summary="成功断言",
+                        operation_id=invocation.id,
+                    ) for index, invocation in enumerate(invocations)
+                ]
+            }
+        )
     monitoring_view = materialize_html(
         view=view_for(
             draft=published_draft,
             golden_id=golden_ids[0],
             template="monitoring",
             index=99,
-        ),
+        ).model_copy(update={"view_model": monitoring_model}),
         workspace=workspace,
         artifact_root=runtime_source_root,
     )
@@ -627,22 +665,12 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
             published_at="2026-08-26T00:00:03Z",
         )
         repository.save_published_skill_version(published)
-        repository.save_invocation(
-            Invocation(
-                id=f"invocation-{published.id}",
-                skill_version_id=published.id,
-                skill_view_revision_id=monitoring_view.id,
-                caller_id=workspace,
-                workspace_id=workspace,
-                status="succeeded",
-                input_ref=ref(f"local://input/{published.id}"),
-                result_ref=ref(f"local://result/{published.id}"),
-                trace_id=f"trace-{published.id}",
-                actual_data_revision_refs=[golden_ids[0]],
-                started_at="2026-08-26T00:00:04Z",
-                finished_at="2026-08-26T00:00:05Z",
-            )
-        )
+        for invocation in invocations:
+            repository.save_invocation(invocation.model_copy(update={
+                "skill_version_id": published.id,
+                "skill_view_revision_id": monitoring_view.id,
+                "trace_id": f"{invocation.trace_id}-{published.semver}",
+            }))
     repository.record_audit(
         request_id="acceptance-conversation",
         operation_id="acceptance-conversation",

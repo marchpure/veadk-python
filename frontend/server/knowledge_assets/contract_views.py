@@ -182,6 +182,17 @@ class MonitoringObservationView(ContractModel):
     last_good_revision_id: str | None = None
 
 
+class MonitoringInvocationView(ContractModel):
+    """Product-facing projection of a persisted Invocation for monitoring."""
+
+    started_at: str
+    trace_id: str
+    duration_ms: float | None = None
+    status: str
+    summary: str = ""
+    operation_id: str | None = None
+
+
 class MonitoringViewModel(ContractModel):
     template: Literal["monitoring"] = "monitoring"
     metric_refs: list[str] = Field(default_factory=list)
@@ -190,6 +201,7 @@ class MonitoringViewModel(ContractModel):
     data_ref: StorageRef | None = None
     observations: list[MonitoringObservationView] = Field(default_factory=list)
     failure_trace: list[str] = Field(default_factory=list)
+    invocation_rows: list[MonitoringInvocationView] = Field(default_factory=list)
     call_volume: float | None = None
     success_rate: float | None = Field(default=None, ge=0, le=1)
     latency_ms: float | None = None

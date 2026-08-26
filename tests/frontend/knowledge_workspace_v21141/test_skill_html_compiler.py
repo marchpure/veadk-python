@@ -57,8 +57,10 @@ def test_compiler_emits_professional_typed_views_without_executable_surface() ->
         assert "data-artifact-event=" in output
         assert 'data-direction="' in output
         assert 'class="state-coverage"' in output
-        if template in {"dashboard", "monitoring"}:
+        if template == "dashboard":
             assert "<svg" in output
+        if template == "monitoring":
+            assert "monitor-log-panel" in output
         if template == "graph-ontology":
             assert "<svg" in output and "data-node-id=" in output
         if template == "sop":

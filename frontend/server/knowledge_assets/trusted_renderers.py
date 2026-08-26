@@ -616,32 +616,25 @@ def _knowledge(model: KnowledgeViewModel) -> str:
 
 
 def _monitoring(model: MonitoringViewModel) -> str:
-    observations = "".join(
-        f'<article class="observation"><div><span class="eyebrow">{_e(item.metric)}</span><strong>{_e(item.latest)}</strong>'
-        f'<span class="quiet">{_e(item.freshness_at)}</span></div><span class="state state-{"failed" if item.change_rate is not None and item.change_rate < 0 else "succeeded"}">'
-        f"{_e(item.change_rate) if item.change_rate is not None else 'stable'}</span></article>"
-        for item in model.observations
+    rows = "".join(
+        f'<tr><td>{_e(item.started_at)}</td><td><code>{_e(item.trace_id)}</code></td>'
+        f'<td>{_e(f"{item.duration_ms / 1000:g}s" if item.duration_ms is not None else "—")}</td>'
+        f'<td><span class="state state-{"succeeded" if item.status == "succeeded" else "failed"}">'
+        f'{_e("成功断言" if item.status == "succeeded" else item.status)}</span>'
+        f'<small>{_e(item.summary)}</small></td><td><button class="text-action" type="button" '
+        f'data-artifact-event="context.reference" data-action="{_e(item.operation_id or item.trace_id)}">查看 Payload</button></td></tr>'
+        for item in model.invocation_rows
     )
-    alerts = "".join(
-        f'<article class="alert-row"><span class="alert-dot"></span><div><strong>{_e(alert)}</strong><p class="quiet">Observed in the latest pinned revision.</p></div>'
-        f'<button class="text-action" type="button" data-artifact-event="view-alert" data-value="{_e(alert)}">Inspect</button></article>'
-        for alert in model.alerts
+    stats = (
+        _monitor_published_stat("近 7 天调用次数", model.call_volume if model.call_volume is not None else "—")
+        + _monitor_published_stat("成功率", f"{model.success_rate:.1%}" if model.success_rate is not None else "—")
+        + _monitor_published_stat("平均耗时 (LATENCY)", f"{model.latency_ms / 1000:g}s" if model.latency_ms is not None else "—")
+        + _monitor_published_stat("底层数据新鲜度", "实时连接 (Realtime)")
     )
-    series = [ChartSeries(name="observed", points=model.values)]
     return (
-        _page_header(
-            "Monitoring",
-            "SKILL / MONITORING",
-            "Current observations, thresholds and recovery state.",
-            f'<span class="state state-{"failed" if model.status == "failed" else "stale" if model.stale or model.status == "stale" else "succeeded"}">{_e(model.status)}</span>',
-        )
-        + f'<section class="stat-strip">{_monitor_stat("calls", model.call_volume if model.call_volume is not None else "—")}{_monitor_stat("success", f"{model.success_rate:.0%}" if model.success_rate is not None else "—")}{_monitor_stat("latency", f"{model.latency_ms:g} ms" if model.latency_ms is not None else "—")}</section>'
-        + '<section class="monitor-grid"><div><section class="panel"><div class="section-head"><div><p class="eyebrow">OBSERVATIONS</p><h2>Current signal</h2></div><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh now</button></div>'
-        f'<div class="observation-list">{observations or _empty("No observations in this revision.")}</div></section>'
-        + f'<section class="panel chart-panel trend-panel"><div class="section-head"><div><p class="eyebrow">TREND</p><h2>Recent values</h2></div></div>{_svg_chart(series, "time", "value", "monitoring-trend")}</section></div>'
-        + '<aside class="panel"><p class="eyebrow">ALERT CENTER</p><h2>Needs attention</h2>'
-        f'<div class="alert-list">{alerts or _empty("No active alert.")}</div><button class="text-action" type="button" data-artifact-event="context.reference" data-action="acknowledge-alert">Acknowledge visible alerts</button><h3 class="subhead">Failure trace</h3>'
-        f'<ol class="trace-list trace-panel">{"".join(f"<li>{_e(item)}</li>" for item in model.failure_trace) or '<li class="quiet">No failure recorded.</li>'}</ol><button class="text-action" type="button" data-artifact-event="context.reference" data-action="view-trace">View trace</button></aside></section>'
+        f'<section class="monitor-published-stats">{stats}</section>'
+        + '<section class="monitor-log-panel"><div class="monitor-log-toolbar"><h2>运行记录与失败追踪 (Logs)</h2><button class="secondary-action" type="button" data-artifact-event="filter.change">仅看失败</button></div>'
+        + f'<div class="monitor-log-table"><table><thead><tr><th>调用时间</th><th>Trace ID</th><th>耗时</th><th>执行状态</th><th>操作</th></tr></thead><tbody>{rows or _empty_row(5)}</tbody></table></div></section>'
     )
 
 
@@ -719,6 +712,10 @@ def _definition(label: str, values: list[str]) -> str:
 
 def _monitor_stat(label: str, value: object) -> str:
     return f"<div><strong>{_e(value)}</strong><span>{_e(label)}</span></div>"
+
+
+def _monitor_published_stat(label: str, value: object) -> str:
+    return f"<div><span>{_e(label)}</span><strong>{_e(value)}</strong></div>"
 
 
 def _empty(message: str) -> str:
@@ -836,6 +833,8 @@ def _css(tokens: DesignTokens) -> str:
 .artifact.direction-executive[data-template="dashboard"]{padding-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{padding:6px;margin-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps button{min-width:118px;padding:10px 7px;font-size:11px}.artifact.direction-executive[data-template="dashboard"] .kpi{min-height:94px;padding:13px}.artifact.direction-executive[data-template="dashboard"] .metric{font-size:22px}.artifact.direction-executive[data-template="dashboard"] .toolbar{display:block}.artifact.direction-executive[data-template="dashboard"] .toolbar-actions{margin-top:8px}.artifact.direction-executive[data-template="dashboard"] .panel{padding:14px}.artifact.direction-executive[data-template="dashboard"] .table-wrap{max-width:100%;overflow-x:auto}
 @media (max-width:520px){.artifact.direction-executive[data-template="dashboard"] .dashboard-ready{min-height:0;margin-bottom:24px;padding:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-ready-title{font-size:18px}.artifact.direction-executive[data-template="dashboard"] .dashboard-ready-copy{font-size:14px;line-height:1.5}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{margin-bottom:16px}.artifact.direction-executive[data-template="dashboard"] .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
 .artifact.direction-operational[data-template="sop"] .sop-document{margin:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.artifact.direction-operational[data-template="monitoring"]{max-width:none;padding:0 0 32px;background:var(--surface)}.artifact.direction-operational[data-template="monitoring"]>h1{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.monitor-published-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:27px 0 32px}.monitor-published-stats>div{height:95px;padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 1px 2px rgba(16,24,40,.04)}.monitor-published-stats span{display:block;color:var(--muted);font-size:11px;line-height:1.2}.monitor-published-stats strong{display:block;margin-top:10px;font-size:25px;line-height:1.1}.monitor-log-panel{border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.04)}.monitor-log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border-bottom:1px solid var(--line);background:#f8fafc}.monitor-log-toolbar h2{margin:0;font-size:17px}.monitor-log-table{overflow:auto;min-height:300px}.monitor-log-table table{min-width:800px}.monitor-log-table td{vertical-align:top}.monitor-log-table td small{margin-top:5px}.monitor-log-table .secondary-action{margin:0}
+@media (max-width:520px){.artifact.direction-operational[data-template="monitoring"]{padding:16px 0 24px}.monitor-published-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:27px 0 32px}.monitor-published-stats>div{height:95px;padding:20px}.monitor-published-stats strong{font-size:25px}.monitor-log-toolbar{align-items:flex-start;padding:16px}.monitor-log-toolbar h2{font-size:15px}.monitor-log-table{min-height:300px}.monitor-log-table table{min-width:760px}}
 """
     )
 
