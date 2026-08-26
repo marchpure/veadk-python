@@ -38,10 +38,32 @@ export function TrustedHtmlArtifactRenderer({
   onEvent?: (event: TrustedArtifactEvent) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const onEventRef = useRef(onEvent);
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
   const [state, setState] = useState<'empty' | 'loading' | 'ready' | 'error'>(
     revision ? 'loading' : 'empty',
   );
   const [message, setMessage] = useState('');
+
+  const resultRef = revision?.resultRef ?? revision?.result_ref;
+  const mediaType = resultRef?.mediaType ?? resultRef?.media_type;
+  const profile =
+    revision?.manifest?.cspProfile ?? revision?.manifest?.csp_profile;
+  // Fetch identity is the immutable artifact identity, not the parent
+  // render's object/callback identities. Re-rendering the shell must not
+  // clean up and abort a valid artifact request.
+  const revisionKey = revision
+    ? [
+        revision.id,
+        profile ?? '',
+        resultRef?.uri ?? '',
+        resultRef?.sha256 ?? '',
+        resultRef?.bytes ?? '',
+        mediaType ?? '',
+      ].join('|')
+    : '';
 
   useEffect(() => {
     if (!revision) {
@@ -52,10 +74,6 @@ export function TrustedHtmlArtifactRenderer({
     const host = hostRef.current;
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
-    const profile =
-      revision.manifest?.cspProfile ?? revision.manifest?.csp_profile;
-    const resultRef = revision.resultRef ?? revision.result_ref;
-    const mediaType = resultRef?.mediaType ?? resultRef?.media_type;
     if (
       profile !== 'trusted-renderer-v1' ||
       !resultRef ||
@@ -121,6 +139,17 @@ export function TrustedHtmlArtifactRenderer({
         setMessage(error instanceof Error ? error.message : 'HTML revision 加载失败。');
       });
 
+    return () => {
+      controller.abort();
+      root.replaceChildren();
+    };
+  }, [revisionKey]);
+
+  useEffect(() => {
+    if (!revision) return;
+    const host = hostRef.current;
+    if (!host) return;
+    const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
     const dispatch = (target: EventTarget | null) => {
       const element =
         target instanceof Element
@@ -129,7 +158,7 @@ export function TrustedHtmlArtifactRenderer({
       if (!element) return;
       const detail = eventFromElement(element, revision.id);
       if (!detail) return;
-      onEvent?.(detail);
+      onEventRef.current?.(detail);
       host.dispatchEvent(
         new CustomEvent<TrustedArtifactEvent>('trusted-artifact-event', {
           bubbles: true,
@@ -154,11 +183,10 @@ export function TrustedHtmlArtifactRenderer({
     root.addEventListener('click', click);
     root.addEventListener('change', change);
     return () => {
-      controller.abort();
       root.removeEventListener('click', click);
       root.removeEventListener('change', change);
     };
-  }, [onEvent, revision]);
+  }, [revision?.id]);
 
   if (!revision) {
     return (
