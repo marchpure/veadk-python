@@ -262,6 +262,23 @@ class SqliteKnowledgeAssetRepository:
             )
             for row in rows
         ]
+        resources.extend(
+            ResourceSummary(
+                id=version.id,
+                display_name=version.manifest.metadata.display_name,
+                resource_kind="published_skill",
+                subtype="skill",
+                space="team" if role == "admin" else "personal",
+                lifecycle="ready",
+                version=version.semver,
+                revision=int(version.skill_revision_id.rsplit(":", 1)[-1]),
+                permission=True,
+            )
+            for row in published_rows
+            for version in [
+                PublishedSkillVersion.model_validate(json.loads(row["version_json"]))
+            ]
+        )
         latest_view = self.latest_dashboard_view(workspace_id)
         workspace_data = {
             "connectorCatalog": [],

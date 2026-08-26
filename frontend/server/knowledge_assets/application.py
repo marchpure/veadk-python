@@ -1170,10 +1170,17 @@ class KnowledgeAssetApplication:
             }
             for asset in projection.get("resources", [])
         ]
-        value["resources"] = [
+        merged_resources = [
             *value.get("resources", []),
             *golden_resources,
         ]
+        value["resources"] = list(
+            {
+                str(item.get("id")): item
+                for item in merged_resources
+                if isinstance(item, dict) and item.get("id")
+            }.values()
+        )
         value["connections"] = [
             BootstrapConnection(
                 id=connection["id"],

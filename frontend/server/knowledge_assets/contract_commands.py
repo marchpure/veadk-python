@@ -47,7 +47,7 @@ class ErrorEnvelope(ContractModel):
 class ResourceSummary(ContractModel):
     id: str
     display_name: str
-    resource_kind: Literal["skill_draft", "golden_asset"] = "skill_draft"
+    resource_kind: Literal["skill_draft", "golden_asset", "published_skill"] = "skill_draft"
     subtype: Literal["skill", "dataset", "knowledge"] = "skill"
     space: Literal["personal", "team"]
     lifecycle: Literal["draft", "ready"] = "draft"
