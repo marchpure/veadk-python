@@ -938,6 +938,24 @@ class AgentExecutionEvidence(BaseModel):
     error_code: AuthoringErrorCode | None = None
     error_message: str | None = Field(default=None, max_length=500)
 
+    @model_validator(mode="before")
+    @classmethod
+    def bound_runner_evidence(cls, value: object) -> object:
+        """Persist a bounded tail of verbose Runner diagnostics.
+
+        The public event stream remains lossless; durable evidence is
+        intentionally capped by this contract so verbose model traces cannot
+        turn an otherwise successful response into a validation error.
+        """
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if "events" in normalized:
+            normalized["events"] = tuple(normalized["events"])[-256:]
+        if "tool_calls" in normalized:
+            normalized["tool_calls"] = tuple(normalized["tool_calls"])[-128:]
+        return normalized
+
 
 class AgentRuntimeEvent(BaseModel):
     """One bounded public event emitted while a gateway invocation is running."""
