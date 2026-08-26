@@ -5,20 +5,30 @@ from __future__ import annotations
 import csv
 import hashlib
 import sqlite3
+import zipfile
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from collections.abc import Callable
 
 from ..security import (
+    validate_archive_limits,
     validate_database_limits,
     validate_mcp_tool,
     validate_read_only_sql,
-    validate_web_endpoint,
+)
+from .local_formats import (
+    _bounded_integer,
+    _infer_mapping_fields,
+    _read_json_rows,
+    _read_parquet,
+    _read_pdf_rows,
+    _read_text_document,
 )
 from .models import (
     AdapterContract,
     CapabilityReason,
     ConnectorDefinition,
     ConnectorOperation,
+    ConnectorOperationName,
     DiscoveredField,
     DiscoveredResource,
 )
@@ -44,16 +54,38 @@ class LocalSourceAdapter:
             raise ValueError("source exceeds the configured byte limit")
         expected = {
             "csv": {".csv"},
-            "doc_txt": {".pdf"},
-            "excel": {".xlsx", ".xls"},
+            "json": {".json", ".jsonl", ".ndjson"},
+            "parquet": {".parquet"},
+            "doc_txt": {".pdf", ".md", ".markdown", ".txt", ".html", ".htm"},
+            "excel": {".xlsx"},
             "local_file": {".md", ".markdown"},
             "sqlite": {".sqlite", ".sqlite3", ".db"},
         }[connector_key]
         if path.suffix.lower() not in expected:
             raise ValueError(f"{connector_key} source has an unsupported extension")
-        if connector_key in {"csv", "local_file"} and b"\x00" in path.read_bytes():
+        if connector_key == "excel":
+            self._validate_xlsx_archive(path)
+        if (
+            connector_key in {"csv", "json", "local_file"}
+            or connector_key == "doc_txt"
+            and path.suffix.lower() != ".pdf"
+        ) and b"\x00" in path.read_bytes():
             raise ValueError("text source contains binary NUL bytes")
         return path
+
+    @staticmethod
+    def _validate_xlsx_archive(path: Path) -> None:
+        try:
+            with zipfile.ZipFile(path) as archive:
+                members = archive.infolist()
+                validate_archive_limits(
+                    compressed_bytes=sum(item.compress_size for item in members),
+                    expanded_bytes=sum(item.file_size for item in members),
+                    file_count=len(members),
+                    member_names=[item.filename.replace("\\", "/") for item in members],
+                )
+        except zipfile.BadZipFile as error:
+            raise ValueError("Excel workbook is not a valid XLSX archive") from error
 
     def validate(
         self,
@@ -99,9 +131,84 @@ class LocalSourceAdapter:
                     ],
                 )
             ]
+        elif connector_key == "json":
+            rows = _read_json_rows(
+                path,
+                max_depth=_bounded_integer(
+                    configuration or {}, "maxDepth", default=32, maximum=128
+                ),
+                max_rows=_bounded_integer(
+                    configuration or {}, "maxRows", default=10_000, maximum=1_000_000
+                ),
+            )
+            fields = _infer_mapping_fields(rows)
+            resources = [
+                DiscoveredResource(
+                    id=f"file-{digest[:24]}",
+                    name=path.name,
+                    resource_type="file",
+                    row_count=len(rows),
+                    fields=[
+                        DiscoveredField(
+                            name=name,
+                            data_type=data_type,
+                            nullable=nullable,
+                        )
+                        for name, data_type, nullable in fields
+                    ],
+                )
+            ]
+        elif connector_key == "parquet":
+            rows, fields = _read_parquet(
+                path,
+                max_rows=_bounded_integer(
+                    configuration or {}, "maxRows", default=10_000, maximum=1_000_000
+                ),
+                max_columns=_bounded_integer(
+                    configuration or {}, "maxColumns", default=1_000, maximum=10_000
+                ),
+                max_uncompressed_bytes=_bounded_integer(
+                    configuration or {},
+                    "maxUncompressedBytes",
+                    default=100 * 1024 * 1024,
+                    maximum=1024 * 1024 * 1024,
+                ),
+                max_nesting_depth=_bounded_integer(
+                    configuration or {},
+                    "maxNestingDepth",
+                    default=16,
+                    maximum=64,
+                ),
+            )
+            resources = [
+                DiscoveredResource(
+                    id=f"file-{digest[:24]}",
+                    name=path.name,
+                    resource_type="file",
+                    row_count=len(rows),
+                    fields=[
+                        DiscoveredField(
+                            name=name,
+                            data_type=data_type,
+                            nullable=nullable,
+                        )
+                        for name, data_type, nullable in fields
+                    ],
+                )
+            ]
         elif connector_key == "excel":
             resources = self._discover_excel(path, digest, configuration or {})
         elif connector_key in {"local_file", "doc_txt"}:
+            max_chars = _bounded_integer(
+                configuration or {},
+                "maxTextChars",
+                default=2_000_000,
+                maximum=10_000_000,
+            )
+            if connector_key == "doc_txt" and path.suffix.lower() == ".pdf":
+                _read_pdf_rows(path, max_chars=max_chars)
+            elif connector_key == "doc_txt":
+                _read_text_document(path, max_chars=max_chars)
             resources = [
                 DiscoveredResource(
                     id=f"document-{digest[:24]}",
@@ -112,7 +219,7 @@ class LocalSourceAdapter:
                             DiscoveredField(name="page", data_type="integer"),
                             DiscoveredField(name="text", data_type="string"),
                         ]
-                        if connector_key == "doc_txt"
+                        if connector_key == "doc_txt" and path.suffix.lower() == ".pdf"
                         else [DiscoveredField(name="text", data_type="string")]
                     ),
                 )
@@ -142,52 +249,27 @@ class LocalSourceAdapter:
         ):
             raise ValueError("Excel sheetAllowlist must contain sheet names")
         resources: list[DiscoveredResource] = []
-        if path.suffix.lower() == ".xlsx":
-            from openpyxl import load_workbook
-
-            workbook = load_workbook(
-                path, read_only=True, data_only=True, keep_links=False
-            )
-            try:
-                available = set(workbook.sheetnames)
-                unknown = set(sheet_allowlist) - available
-                if unknown:
-                    raise ValueError(f"Excel sheets were not found: {sorted(unknown)}")
-                selected = sheet_allowlist or workbook.sheetnames
-                for sheet_name in selected:
-                    sheet = workbook[sheet_name]
-                    rows = sheet.iter_rows(values_only=True)
-                    header = next(rows, ())
-                    names = _excel_header(header)
-                    values = [tuple(row) for row in rows]
-                    resources.append(
-                        _excel_resource(
-                            digest=digest,
-                            sheet_name=sheet_name,
-                            names=names,
-                            rows=values,
-                        )
-                    )
-            finally:
-                workbook.close()
-            return resources
-
-        import xlrd
-
-        workbook = xlrd.open_workbook(path, on_demand=True, ragged_rows=True)
         try:
-            available = set(workbook.sheet_names())
+            from openpyxl import load_workbook
+        except ImportError as error:
+            raise ValueError(
+                "Excel adapter requires the server-side openpyxl dependency"
+            ) from error
+        workbook = load_workbook(
+            str(path), read_only=True, data_only=True, keep_links=False
+        )
+        try:
+            available = set(workbook.sheetnames)
             unknown = set(sheet_allowlist) - available
             if unknown:
                 raise ValueError(f"Excel sheets were not found: {sorted(unknown)}")
-            selected = sheet_allowlist or workbook.sheet_names()
+            selected = sheet_allowlist or workbook.sheetnames
             for sheet_name in selected:
-                sheet = workbook.sheet_by_name(sheet_name)
-                header = sheet.row_values(0) if sheet.nrows else []
+                sheet = workbook[sheet_name]
+                rows = sheet.iter_rows(values_only=True)
+                header = next(rows, ())
                 names = _excel_header(header)
-                values = [
-                    tuple(sheet.row_values(index)) for index in range(1, sheet.nrows)
-                ]
+                values = [tuple(row) for row in rows]
                 resources.append(
                     _excel_resource(
                         digest=digest,
@@ -197,11 +279,12 @@ class LocalSourceAdapter:
                     )
                 )
         finally:
-            workbook.release_resources()
+            workbook.close()
         return resources
 
     @staticmethod
     def _discover_sqlite(path: Path, digest: str) -> list[DiscoveredResource]:
+        connection: sqlite3.Connection | None = None
         try:
             connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
             connection.row_factory = sqlite3.Row
@@ -241,7 +324,7 @@ class LocalSourceAdapter:
         except sqlite3.DatabaseError as error:
             raise ValueError("invalid or unsafe SQLite database") from error
         finally:
-            if "connection" in locals():
+            if connection is not None:
                 connection.close()
 
 
@@ -261,7 +344,7 @@ def _excel_resource(
     digest: str,
     sheet_name: str,
     names: list[str],
-    rows: list[tuple[object, ...]],
+    rows: Sequence[Sequence[object]],
 ) -> DiscoveredResource:
     return DiscoveredResource(
         id=(
@@ -303,7 +386,10 @@ def _excel_field_type(values: list[object]) -> str:
 
 
 def blocked_operation(
-    definition: ConnectorDefinition, *, operation: str, trace_id: str
+    definition: ConnectorDefinition,
+    *,
+    operation: ConnectorOperationName,
+    trace_id: str,
 ) -> ConnectorOperation:
     status = (
         "config_required"
@@ -362,17 +448,7 @@ def adapter_contract(definition: ConnectorDefinition) -> AdapterContract:
     operations = list(definition.discovery_modes)
     if key == "mcp_custom":
         operations = ["validate", "discover_tools", "read", "checkpoint", "close"]
-    elif key in database:
-        operations = [
-            "validate",
-            "discover",
-            "introspect",
-            "sample",
-            "read",
-            "checkpoint",
-            "close",
-        ]
-    elif key in lark or key in web:
+    elif key in database or key in lark or key in web:
         operations = [
             "validate",
             "discover",
@@ -419,6 +495,7 @@ def validate_external_configuration(
     configuration: dict[str, object],
     *,
     web_resolver: Callable[[str], list[str]] | None,
+    allow_private_hosts: set[str] | None = None,
 ) -> None:
     key = definition.connector_key
     database = {
@@ -436,8 +513,14 @@ def validate_external_configuration(
     web = {"rest_api", "graphql", "web_discovery", "custom_http"}
     if key in database:
         query = str(configuration.get("query") or "SELECT 1")
+        parameters = configuration.get("queryParameters", {})
+        if not isinstance(parameters, dict):
+            raise ValueError("queryParameters must be an object")
         try:
-            validate_read_only_sql(query, parameters={"tenant_id": "validation"})
+            validate_read_only_sql(
+                query,
+                parameters={str(name): value for name, value in parameters.items()},
+            )
             validate_database_limits(
                 row_limit=_integer_option(configuration, "rowLimit", 10_000),
                 byte_limit=_integer_option(
@@ -450,7 +533,13 @@ def validate_external_configuration(
     if key in web:
         endpoint = configuration.get("endpoint")
         if isinstance(endpoint, str):
-            validate_web_endpoint(endpoint, resolver=web_resolver)
+            from .http_transport import validate_network_endpoint
+
+            validate_network_endpoint(
+                endpoint,
+                resolver=web_resolver,
+                allow_private_hosts=allow_private_hosts,
+            )
     if key == "mcp_custom":
         transport = configuration.get("transport")
         if transport not in {"stdio", "streamable_http", "sse"}:
@@ -468,11 +557,17 @@ def validate_external_configuration(
             endpoint = configuration.get("endpoint")
             if not isinstance(endpoint, str) or not endpoint:
                 raise ValueError("remote MCP endpoint is required")
-            validate_web_endpoint(endpoint, resolver=web_resolver)
+            from .http_transport import validate_network_endpoint
+
+            validate_network_endpoint(
+                endpoint,
+                resolver=web_resolver,
+                allow_private_hosts=allow_private_hosts,
+            )
 
 
 def _integer_option(configuration: dict[str, object], key: str, default: int) -> int:
     value = configuration.get(key, default)
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{key} must be an integer")
+        raise TypeError(f"{key} must be an integer")
     return value

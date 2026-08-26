@@ -4,18 +4,64 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, JsonValue
 
 from ..contract_base import ContractModel
-
 
 ConnectorCategory = Literal["office", "file", "db", "api", "custom"]
 CapabilityState = Literal[
     "available", "configurable", "credential_blocked", "unsupported"
 ]
+SyncMode = Literal["full", "incremental", "realtime"]
+SourceType = Literal[
+    "markdown",
+    "text",
+    "html",
+    "csv",
+    "excel",
+    "json",
+    "parquet",
+    "pdf",
+    "sqlite",
+    "mcp",
+    "http",
+    "database",
+    "office",
+]
+CleaningOperation = Literal["trim", "deduplicate", "normalize", "redact"]
+McpMethod = Literal[
+    "initialize",
+    "notifications/initialized",
+    "tools/list",
+    "tools/call",
+    "shutdown",
+    "stdio/eof",
+]
+RemoteMcpMethod = Literal["initialize", "tools/list", "tools/call", "close"]
+McpTraceStatus = Literal["succeeded", "failed", "timed_out"]
+McpShutdownMode = Literal["jsonrpc", "stdio_eof", "forced_termination"]
+ConnectorOperationName = Literal[
+    "validate",
+    "authenticate",
+    "authorize",
+    "discover",
+    "introspect",
+    "sample",
+    "read",
+    "ingest",
+    "profile",
+    "clean",
+    "golden",
+    "refresh",
+    "checkpoint",
+    "close",
+    "revoke",
+    "delete",
+]
 FormFieldType = Literal[
     "string",
     "integer",
+    "number",
     "boolean",
     "file",
     "url",
@@ -70,7 +116,7 @@ class ConnectorDefinition(ContractModel):
     input_schema: FormSchema
     credential_schema: FormSchema
     discovery_modes: list[str]
-    sync_modes: list[Literal["full", "incremental", "realtime"]]
+    sync_modes: list[SyncMode]
     permissions: ConnectorPermission
     reason: CapabilityReason
 
@@ -118,11 +164,90 @@ class DiscoveredResource(ContractModel):
 
 
 class ConnectorOperation(ContractModel):
-    operation: Literal["validate", "discover", "revoke", "delete"]
+    operation: ConnectorOperationName
     status: OperationStatus
     trace_id: str
     reason: CapabilityReason
     resources: list[DiscoveredResource] = Field(default_factory=list)
+
+
+class ConnectorOperationRecord(ContractModel):
+    id: str
+    workspace_id: str
+    connection_id: str
+    trace_id: str
+    operation: str
+    status: OperationStatus
+    reason: CapabilityReason
+    resources: list[DiscoveredResource] = Field(default_factory=list)
+    checkpoint: dict[str, str] = Field(default_factory=dict)
+    created_at: str
+
+
+class ConnectorEventRecord(ContractModel):
+    id: str
+    workspace_id: str
+    connection_id: str
+    sequence: int = Field(ge=1)
+    event_type: str
+    trace_id: str
+    payload_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    payload: JsonValue
+    created_at: str
+
+
+class ConnectorTraceView(ContractModel):
+    trace_id: str
+    workspace_id: str
+    connection_id: str
+    operations: list[ConnectorOperationRecord] = Field(default_factory=list)
+    events: list[ConnectorEventRecord] = Field(default_factory=list)
+
+
+class ConnectorCapabilityEvidence(ContractModel):
+    catalog: Literal["present"] = "present"
+    form: Literal["validated"] = "validated"
+    adapter: str
+    validation: Literal["implemented"] = "implemented"
+    authentication: Literal["implemented"] = "implemented"
+    authorization: Literal["implemented"] = "implemented"
+    discovery: Literal["implemented"] = "implemented"
+    read: Literal["implemented"] = "implemented"
+    refresh: Literal["implemented"] = "implemented"
+    checkpoint: str
+    typed_error: Literal["implemented"] = "implemented"
+    live_e2e: Literal["passed", "external_blocked"]
+    credential_state: Literal["not_required", "available", "external_blocked"]
+    blocker: str | None = None
+    evidence: list[str] = Field(min_length=1)
+
+
+class ConnectorCapabilityRow(ContractModel):
+    connector_key: str
+    category: ConnectorCategory
+    capability_state: CapabilityState
+    permissions: ConnectorPermission
+    certification: ConnectorCertificationView
+    capability: ConnectorCapabilityEvidence
+
+
+class ConnectorCertificationView(ContractModel):
+    implementation: str
+    driver: str
+    install_command: str
+    verification_command: str
+    missing_condition: str
+    required_secret_fields: list[str]
+    provider_scopes: list[str]
+    checkpoint: str
+
+
+class ConnectorCapabilityMatrix(ContractModel):
+    schema_version: Literal["knowledge-assets.step3b.w1-capability-matrix.v1"] = (
+        "knowledge-assets.step3b.w1-capability-matrix.v1"
+    )
+    total: Literal[37] = 37
+    connectors: list[ConnectorCapabilityRow] = Field(min_length=37, max_length=37)
 
 
 class ConnectionInstance(ContractModel):
@@ -133,7 +258,7 @@ class ConnectionInstance(ContractModel):
     scope: Literal["personal", "team"]
     owner_id: str
     status: ConnectionStatus
-    configuration: dict[str, str | int | float | bool | list[str] | dict[str, str]]
+    configuration: dict[str, JsonValue]
     secret_ref: str | None = None
     sync_mode: Literal["full", "incremental", "realtime", "local"]
     created_at: str
@@ -164,7 +289,7 @@ class ConnectionViewModel(ContractModel):
 
 
 class CreateConnectionResult(ContractModel):
-    connection: ConnectionInstance
+    connection: ConnectionViewModel
     validation: ConnectorOperation
     discovery: ConnectorOperation
     replayed: bool = False
@@ -173,8 +298,8 @@ class CreateConnectionResult(ContractModel):
 class DataOverviewView(ContractModel):
     view: Literal["data_overview"] = "data_overview"
     workspace_id: str
-    connections: list[ConnectionInstance]
-    golden_assets: list["GoldenAssetSummary"] = Field(default_factory=list)
+    connections: list[ConnectionViewModel]
+    golden_assets: list[GoldenAssetSummary] = Field(default_factory=list)
     can_create: bool
     add_data_route: Literal["add_data"] = "add_data"
     empty_state: str | None = None
@@ -182,7 +307,7 @@ class DataOverviewView(ContractModel):
 
 class ConnectionDetailView(ContractModel):
     view: Literal["connection_detail"] = "connection_detail"
-    connection: ConnectionInstance
+    connection: ConnectionViewModel
     connector: ConnectorDefinition
     actions: list[str]
 
@@ -225,12 +350,13 @@ class SourceRevisionRecord(ContractModel):
     workspace_id: str
     connection_id: str
     resource_id: str
-    source_type: Literal["markdown", "csv", "excel", "pdf", "sqlite", "mcp"]
+    source_type: SourceType
     content_ref: ArtifactRef
     source_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     schema_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_locator: str
     permission_version: int = Field(ge=1)
+    checkpoint: dict[str, str] = Field(default_factory=dict)
     created_at: str
     trace_id: str
 
@@ -264,7 +390,7 @@ class CleaningRecipeRecord(ContractModel):
     asset_id: str
     version: int = Field(ge=1)
     source_revision_id: str
-    operations: list[Literal["trim", "deduplicate", "normalize", "redact"]]
+    operations: list[CleaningOperation]
     recipe_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     created_at: str
 
@@ -292,6 +418,7 @@ class GoldenLineage(ContractModel):
     content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     correlation_id: str
     adapter_run_id: str | None = None
+    checkpoint: dict[str, str] = Field(default_factory=dict)
     lineage_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     tool_arguments: dict[str, object] = Field(default_factory=dict)
 
@@ -377,6 +504,15 @@ class GoldenResourceBinding(ContractModel):
     authorized: bool = True
 
 
+class GoldenContextReference(ContractModel):
+    """Browser-safe immutable reference resolved again at execution time."""
+
+    kind: Literal["golden_asset"] = "golden_asset"
+    object_id: str = Field(min_length=1, max_length=160)
+    revision: str = Field(min_length=1, max_length=160)
+    provider_revision: str = Field(min_length=1, max_length=160)
+
+
 class GoldenDataView(ContractModel):
     view: Literal["golden_data"] = "golden_data"
     binding: GoldenResourceBinding
@@ -417,14 +553,7 @@ class RefreshResult(ContractModel):
 
 class McpExchange(ContractModel):
     sequence: int = Field(ge=1)
-    method: Literal[
-        "initialize",
-        "notifications/initialized",
-        "tools/list",
-        "tools/call",
-        "shutdown",
-        "stdio/eof",
-    ]
+    method: McpMethod
     request_id: int | None = None
     status: Literal["sent", "succeeded", "failed"]
     response_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -446,10 +575,36 @@ class McpProcessTrace(ContractModel):
     protocol_version: str | None = None
     server_name: str | None = None
     exit_code: int | None = None
-    status: Literal["succeeded", "failed", "timed_out"]
-    shutdown_mode: Literal["jsonrpc", "stdio_eof", "forced_termination"]
+    status: McpTraceStatus
+    shutdown_mode: McpShutdownMode
     process_reaped: bool
     exchanges: list[McpExchange]
+    started_at: str
+    finished_at: str
+
+
+class RemoteMcpExchange(ContractModel):
+    sequence: int = Field(ge=1)
+    method: RemoteMcpMethod
+    status: Literal["succeeded", "failed"]
+    response_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    error_code: str | None = None
+
+
+class RemoteMcpTrace(ContractModel):
+    id: str
+    workspace_id: str
+    principal_id: str
+    connection_id: str
+    correlation_id: str
+    transport: Literal["streamable_http", "sse"]
+    endpoint: str
+    protocol_version: str | None = None
+    server_name: str | None = None
+    session_id_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    status: McpTraceStatus
+    error_code: str | None = None
+    exchanges: list[RemoteMcpExchange]
     started_at: str
     finished_at: str
 
@@ -462,6 +617,17 @@ class StdioMcpConfiguration(ContractModel):
     cwd: str = Field(min_length=1, max_length=2048)
     startup_timeout_seconds: float = Field(default=10, gt=0, le=300)
     call_timeout_seconds: float = Field(default=30, gt=0, le=300)
+    tool_allowlist: list[str] = Field(min_length=1, max_length=100)
+    output_bytes: int = Field(default=1_000_000, ge=1, le=10_000_000)
+
+
+class RemoteMcpConfiguration(ContractModel):
+    transport: Literal["streamable_http", "sse"]
+    endpoint: str = Field(min_length=1, max_length=2048)
+    oauth_scope_ref: str | None = Field(default=None, max_length=2048)
+    startup_timeout_seconds: float = Field(default=10, gt=0, le=300)
+    call_timeout_seconds: float = Field(default=30, gt=0, le=300)
+    max_pages: int = Field(default=10, ge=1, le=100)
     tool_allowlist: list[str] = Field(min_length=1, max_length=100)
     output_bytes: int = Field(default=1_000_000, ge=1, le=10_000_000)
 

@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
-from collections import Counter
-
+from .catalog_projection import bootstrap_catalog, connector_catalog_view
+from .catalog_schema import (
+    EMPTY_SCHEMA,
+    OPTIONAL_SECRET_REF_SCHEMA,
+    SECRET_REF_SCHEMA,
+)
+from .catalog_schema import (
+    definition as _definition,
+)
+from .catalog_schema import (
+    field as _field,
+)
+from .catalog_schema import (
+    permission_policy as _permissions,
+)
+from .catalog_schema import (
+    schema as _schema,
+)
 from .models import (
-    CapabilityReason,
-    CapabilityState,
     ConnectorCatalogView,
     ConnectorCategory,
     ConnectorDefinition,
@@ -16,118 +30,35 @@ from .models import (
 )
 
 
-def _field(
-    field_type: str,
-    title: str,
-    *,
-    required: bool = False,
-    description: str = "",
-    default: str | int | bool | list[str] | None = None,
-    options: list[str] | None = None,
-    secret_reference: bool = False,
-) -> FormField:
-    return FormField(
-        type=field_type,
-        title=title,
-        required=required,
-        description=description,
-        default=default,
-        options=options or [],
-        secret_reference=secret_reference,
-    )
-
-
-def _schema(**fields: FormField) -> FormSchema:
-    return FormSchema(
-        properties=fields,
-        required=[key for key, value in fields.items() if value.required],
-    )
-
-
-EMPTY_SCHEMA = FormSchema(properties={})
-SECRET_REF_SCHEMA = _schema(
-    secretRef=_field(
-        "string",
-        "Secret reference",
-        required=True,
-        description="Reference in the server-side secret store (secret://…), never a value.",
-        secret_reference=True,
-    )
-)
-
-
-def _reason(state: CapabilityState, code: str | None = None) -> CapabilityReason:
-    defaults = {
-        "available": (
-            "AVAILABLE",
-            "This connector has a real local adapter and durable lifecycle.",
-        ),
-        "configurable": (
-            "CONFIG_REQUIRED",
-            "A definition can be configured, but no provider result is claimed.",
-        ),
-        "credential_blocked": (
-            "CREDENTIAL_REQUIRED",
-            "A real provider adapter contract exists; usable secretRef/configuration is required.",
-        ),
-        "unsupported": (
-            "ADAPTER_NOT_IMPLEMENTED",
-            "The catalog entry is visible, but no production adapter is implemented.",
-        ),
-    }
-    default_code, message = defaults[state]
-    return CapabilityReason(code=code or default_code, message=message)
-
-
-def _permissions(
-    *,
-    provider_scopes: list[str] | None = None,
-    inherits_source_acl: bool = False,
-) -> ConnectorPermission:
-    return ConnectorPermission(
-        read_scopes=["workspace.member", "source.read"],
-        manage_scopes=["workspace.member", "source.write"],
-        provider_scopes=provider_scopes or [],
-        inherits_source_acl=inherits_source_acl,
-    )
-
-
-def _definition(
-    key: str,
-    category: ConnectorCategory,
-    name: str,
-    description: str,
-    capabilities: list[str],
-    state: CapabilityState,
-    input_schema: FormSchema,
-    credential_schema: FormSchema = EMPTY_SCHEMA,
-    discovery_modes: list[str] | None = None,
-    sync_modes: list[str] | None = None,
-    permissions: ConnectorPermission | None = None,
-    reason_code: str | None = None,
-) -> ConnectorDefinition:
-    return ConnectorDefinition(
-        connector_key=key,
-        category=category,
-        name=name,
-        description=description,
-        capabilities=capabilities,
-        capability_state=state,
-        input_schema=input_schema,
-        credential_schema=credential_schema,
-        discovery_modes=discovery_modes or ["validate", "discover", "introspect"],
-        sync_modes=sync_modes or ["incremental"],
-        permissions=permissions or _permissions(),
-        reason=_reason(state, reason_code),
-    )
-
-
 def _office_definitions() -> list[ConnectorDefinition]:
     oauth = SECRET_REF_SCHEMA
-    inherited = _permissions(
-        provider_scopes=["offline_access", "resource.read"],
-        inherits_source_acl=True,
-    )
+
+    def office_schema(**fields: FormField) -> FormSchema:
+        return _schema(
+            **fields,
+            apiBaseUrl=_field(
+                "url",
+                "Lark OpenAPI base URL",
+                default="https://open.feishu.cn/open-apis",
+            ),
+            pageSize=_field("integer", "Page size", default=100),
+            maxPages=_field("integer", "Maximum pages", default=10),
+            maxResponseBytes=_field(
+                "integer", "Maximum response bytes", default=5 * 1024 * 1024
+            ),
+            rateLimitPerMinute=_field(
+                "integer", "Maximum requests per minute", default=60
+            ),
+            timeoutSeconds=_field("integer", "Request timeout", default=30),
+            refreshSeconds=_field("integer", "Refresh interval", default=3600),
+        )
+
+    def inherited(*provider_scopes: str) -> ConnectorPermission:
+        return _permissions(
+            provider_scopes=["offline_access", *provider_scopes],
+            inherits_source_acl=True,
+        )
+
     return [
         _definition(
             "lark_doc",
@@ -135,13 +66,13 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书文档",
             "同步飞书文档内容",
             ["unstructured", "permission_inheritance"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 documentRef=_field("string", "Document URL or token", required=True),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("docx:document:readonly"),
         ),
         _definition(
             "lark_wiki",
@@ -149,13 +80,13 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书知识库 Wiki",
             "整库同步与结构解析",
             ["unstructured", "hierarchy"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 wikiRef=_field("string", "Wiki space or node", required=True),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("wiki:wiki:readonly"),
         ),
         _definition(
             "lark_drive",
@@ -163,13 +94,13 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书云盘",
             "读取云盘文件资源",
             ["file", "multi_format"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 folderRef=_field("string", "Drive folder", required=True),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("drive:drive:readonly"),
         ),
         _definition(
             "lark_meeting",
@@ -177,8 +108,8 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书会议",
             "按条件选取并导入会议纪要",
             ["meeting_notes", "date_range"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 calendarRef=_field("string", "Calendar", required=True),
                 dateFrom=_field("string", "Start date", required=True),
                 dateTo=_field("string", "End date", required=True),
@@ -186,7 +117,11 @@ def _office_definitions() -> list[ConnectorDefinition]:
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited(
+                "calendar:calendar:readonly",
+                "calendar:calendar.event:read",
+                "vc:meeting:readonly",
+            ),
         ),
         _definition(
             "lark_minutes",
@@ -194,13 +129,13 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书妙记",
             "单篇或批量会议纪要",
             ["transcript"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 minutesRef=_field("string", "Minutes URL or token", required=True),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("minutes:minutes:readonly"),
         ),
         _definition(
             "lark_group",
@@ -208,8 +143,8 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书群聊/话题消息",
             "读取有权限的群聊与话题",
             ["conversation", "attachments"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 chatRef=_field("string", "Group chat", required=True),
                 timeRange=_field("string", "Time range", required=True),
                 includeAttachments=_field(
@@ -218,7 +153,7 @@ def _office_definitions() -> list[ConnectorDefinition]:
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("im:chat:readonly", "im:message:readonly"),
         ),
         _definition(
             "lark_chat",
@@ -226,14 +161,14 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "单聊记录",
             "读取有权限的单聊对话",
             ["conversation"],
-            "credential_blocked",
-            _schema(
-                userRef=_field("string", "Conversation participant", required=True),
+            "available",
+            office_schema(
+                chatRef=_field("string", "Direct-message chat ID", required=True),
                 timeRange=_field("string", "Time range", required=True),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("im:chat:readonly", "im:message:readonly"),
         ),
         _definition(
             "lark_sheet",
@@ -241,14 +176,19 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书电子表格",
             "读取表格数据为结构化表",
             ["structured"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 sheetRef=_field("string", "Spreadsheet URL or token", required=True),
                 sheetName=_field("string", "Sheet name"),
+                cellRange=_field(
+                    "string",
+                    "Bounded A1 cell range",
+                    default="A1:Z1000",
+                ),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("sheets:spreadsheet:readonly"),
         ),
         _definition(
             "lark_base",
@@ -256,15 +196,15 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书多维表格 Base",
             "读取 Base 数据表与视图",
             ["relational"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 appRef=_field("string", "Base app token", required=True),
                 tableRef=_field("string", "Table ID", required=True),
                 viewRef=_field("string", "View ID"),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("bitable:app:readonly"),
         ),
         _definition(
             "lark_mail",
@@ -272,14 +212,14 @@ def _office_definitions() -> list[ConnectorDefinition]:
             "飞书邮件",
             "提取指定条件的邮件内容",
             ["mail_search"],
-            "credential_blocked",
-            _schema(
+            "available",
+            office_schema(
                 folder=_field("string", "Mail folder", required=True),
                 query=_field("string", "Search query"),
                 scopeRef=_field("string", "Authorized scope", required=True),
             ),
             oauth,
-            permissions=inherited,
+            permissions=inherited("mail:user_mailbox.message:readonly"),
         ),
     ]
 
@@ -304,7 +244,7 @@ def _file_definitions() -> list[ConnectorDefinition]:
             "excel",
             "file",
             "Excel",
-            "Excel workbook (.xlsx/.xls)",
+            "Excel workbook (.xlsx)",
             ["structured", "multi_sheet", "profile", "clean"],
             "available",
             _schema(
@@ -319,9 +259,14 @@ def _file_definitions() -> list[ConnectorDefinition]:
             "file",
             "JSON",
             "Nested or line-delimited JSON",
-            ["semi_structured"],
-            "unsupported",
-            file_ref("JSON file"),
+            ["semi_structured", "profile", "clean"],
+            "available",
+            _schema(
+                sourceRef=_field("file", "JSON file", required=True),
+                maxDepth=_field("integer", "Maximum nesting depth", default=32),
+                maxRows=_field("integer", "Maximum records", default=10_000),
+            ),
+            discovery_modes=["validate", "introspect", "sample"],
             sync_modes=["full"],
         ),
         _definition(
@@ -329,22 +274,42 @@ def _file_definitions() -> list[ConnectorDefinition]:
             "file",
             "Parquet",
             "Columnar Parquet object",
-            ["structured", "columnar"],
-            "unsupported",
-            file_ref("Parquet file"),
+            ["structured", "columnar", "profile", "clean"],
+            "available",
+            _schema(
+                sourceRef=_field("file", "Parquet file", required=True),
+                maxRows=_field("integer", "Maximum records", default=10_000),
+                maxColumns=_field("integer", "Maximum columns", default=1_000),
+                maxUncompressedBytes=_field(
+                    "integer",
+                    "Maximum uncompressed bytes",
+                    default=100 * 1024 * 1024,
+                ),
+                maxNestingDepth=_field(
+                    "integer", "Maximum schema nesting depth", default=16
+                ),
+            ),
+            discovery_modes=["validate", "introspect", "sample"],
             sync_modes=["full"],
         ),
         _definition(
             "doc_txt",
             "file",
             "PDF/Markdown/TXT/HTML",
-            "PDF import is available; Markdown uses local_file; TXT/HTML remain unsupported.",
-            ["document", "pdf", "profile", "clean"],
+            "Bounded text extraction for PDF, Markdown, plain text, and HTML.",
+            ["document", "pdf", "markdown", "text", "html", "profile", "clean"],
             "available",
-            file_ref("PDF document"),
+            _schema(
+                sourceRef=_field(
+                    "file", "PDF, Markdown, TXT, or HTML file", required=True
+                ),
+                maxTextChars=_field(
+                    "integer", "Maximum extracted characters", default=2_000_000
+                ),
+            ),
             discovery_modes=["validate", "introspect", "sample"],
             sync_modes=["full"],
-            reason_code="PDF_ADAPTER_AVAILABLE",
+            reason_code="DOCUMENT_ADAPTER_AVAILABLE",
         ),
         _definition(
             "local_file",
@@ -363,12 +328,20 @@ def _file_definitions() -> list[ConnectorDefinition]:
             "AWS S3",
             "Amazon object storage",
             ["object_storage"],
-            "credential_blocked",
+            "available",
             _schema(
                 bucket=_field("string", "Bucket", required=True),
                 objectPrefix=_field("string", "Object prefix"),
+                region=_field("string", "Region"),
+                endpoint=_field("url", "S3-compatible endpoint"),
+                maxObjects=_field("integer", "Maximum objects", default=1_000),
+                maxObjectBytes=_field(
+                    "integer", "Maximum object bytes", default=10 * 1024 * 1024
+                ),
+                timeoutSeconds=_field("integer", "Request timeout", default=30),
             ),
             SECRET_REF_SCHEMA,
+            permissions=_permissions(provider_scopes=["s3:ListBucket", "s3:GetObject"]),
         ),
         _definition(
             "oss",
@@ -376,12 +349,22 @@ def _file_definitions() -> list[ConnectorDefinition]:
             "Aliyun OSS",
             "Aliyun object storage",
             ["object_storage"],
-            "credential_blocked",
+            "available",
             _schema(
                 bucket=_field("string", "Bucket", required=True),
                 objectPrefix=_field("string", "Object prefix"),
+                endpoint=_field("url", "OSS endpoint", required=True),
+                region=_field("string", "Region"),
+                maxObjects=_field("integer", "Maximum objects", default=1_000),
+                maxObjectBytes=_field(
+                    "integer", "Maximum object bytes", default=10 * 1024 * 1024
+                ),
+                timeoutSeconds=_field("integer", "Request timeout", default=30),
             ),
             SECRET_REF_SCHEMA,
+            permissions=_permissions(
+                provider_scopes=["oss:ListObjects", "oss:GetObject"]
+            ),
         ),
     ]
 
@@ -393,8 +376,11 @@ def _db_form(*, oracle: bool = False) -> FormSchema:
         ("serviceName" if oracle else "database"): _field(
             "string", "Service name" if oracle else "Database", required=True
         ),
-        "schemaAllowlist": _field("string_array", "Allowed schemas"),
+        "schemaAllowlist": _field("string_array", "Allowed schemas", required=True),
+        "tableAllowlist": _field("string_array", "Allowed tables", required=True),
         "query": _field("string", "Read-only parameterized query"),
+        "queryParameters": _field("object", "Bound query parameters"),
+        "pageSize": _field("integer", "Fetch page size", default=1_000),
         "rowLimit": _field("integer", "Maximum rows", default=10_000),
         "byteLimit": _field("integer", "Maximum bytes", default=52_428_800),
         "timeoutSeconds": _field("integer", "Timeout in seconds", default=30),
@@ -410,7 +396,7 @@ def _database_definitions() -> list[ConnectorDefinition]:
             "PostgreSQL",
             "Open-source relational database",
             ["relational", "read_only"],
-            "credential_blocked",
+            "available",
             _db_form(),
             SECRET_REF_SCHEMA,
             sync_modes=["full", "incremental"],
@@ -421,7 +407,7 @@ def _database_definitions() -> list[ConnectorDefinition]:
             "MySQL",
             "Relational database",
             ["relational", "read_only"],
-            "credential_blocked",
+            "available",
             _db_form(),
             SECRET_REF_SCHEMA,
             sync_modes=["full", "incremental"],
@@ -432,7 +418,7 @@ def _database_definitions() -> list[ConnectorDefinition]:
             "Oracle",
             "Enterprise relational database",
             ["relational", "read_only"],
-            "credential_blocked",
+            "available",
             _db_form(oracle=True),
             SECRET_REF_SCHEMA,
             sync_modes=["full", "incremental"],
@@ -443,7 +429,7 @@ def _database_definitions() -> list[ConnectorDefinition]:
             "SQL Server",
             "Microsoft relational database",
             ["relational", "read_only"],
-            "credential_blocked",
+            "available",
             _db_form(),
             SECRET_REF_SCHEMA,
             sync_modes=["full", "incremental"],
@@ -478,11 +464,35 @@ def _database_definitions() -> list[ConnectorDefinition]:
                 account=_field("string", "Account", required=True),
                 warehouse=_field("string", "Warehouse", required=True),
                 database=_field("string", "Database", required=True),
+                schemaAllowlist=_field(
+                    "string_array", "Allowed schemas", required=True
+                ),
+                tableAllowlist=_field("string_array", "Allowed tables", required=True),
+                query=_field("string", "Read-only parameterized query"),
+                queryParameters=_field("object", "Bound query parameters"),
+                pageSize=_field("integer", "Fetch page size", default=1_000),
+                rowLimit=_field("integer", "Maximum rows", default=10_000),
+                byteLimit=_field(
+                    "integer", "Maximum bytes billed/result bytes", default=52_428_800
+                ),
+                timeoutSeconds=_field("integer", "Timeout in seconds", default=30),
             )
         elif key == "bigquery":
             form = _schema(
                 projectId=_field("string", "Project ID", required=True),
                 datasetId=_field("string", "Dataset ID", required=True),
+                schemaAllowlist=_field(
+                    "string_array", "Allowed datasets", required=True
+                ),
+                tableAllowlist=_field("string_array", "Allowed tables", required=True),
+                query=_field("string", "Read-only parameterized query"),
+                queryParameters=_field("object", "Bound query parameters"),
+                pageSize=_field("integer", "Fetch page size", default=1_000),
+                rowLimit=_field("integer", "Maximum rows", default=10_000),
+                byteLimit=_field(
+                    "integer", "Maximum bytes billed/result bytes", default=52_428_800
+                ),
+                timeoutSeconds=_field("integer", "Timeout in seconds", default=30),
             )
         else:
             form = _db_form()
@@ -493,9 +503,12 @@ def _database_definitions() -> list[ConnectorDefinition]:
                 name,
                 f"{name} data source",
                 capabilities,
-                "credential_blocked",
+                "available",
                 form,
                 SECRET_REF_SCHEMA,
+                permissions=_permissions(
+                    provider_scopes=["schema.metadata.read", "table.data.read"]
+                ),
             )
         )
     return definitions
@@ -504,13 +517,21 @@ def _database_definitions() -> list[ConnectorDefinition]:
 def _web_form(label: str = "Endpoint") -> FormSchema:
     return _schema(
         endpoint=_field("url", label, required=True),
-        operationAllowlist=_field("string_array", "Allowed operations"),
+        operationAllowlist=_field("string_array", "Allowed operations", required=True),
         paginationMode=_field(
             "select",
             "Pagination",
             default="none",
             options=["none", "cursor", "offset", "link_header"],
         ),
+        pageSize=_field("integer", "Page size", default=100),
+        maxPages=_field("integer", "Maximum pages", default=10),
+        maxRows=_field("integer", "Maximum records", default=10_000),
+        maxResponseBytes=_field(
+            "integer", "Maximum response bytes", default=5 * 1024 * 1024
+        ),
+        rateLimitPerMinute=_field("integer", "Maximum requests per minute", default=60),
+        timeoutSeconds=_field("integer", "Request timeout in seconds", default=30),
         refreshSeconds=_field("integer", "Refresh interval", default=3600),
         termsRef=_field("url", "Terms reference"),
     )
@@ -524,9 +545,9 @@ def _api_definitions() -> list[ConnectorDefinition]:
             "REST / OpenAPI",
             "HTTP API endpoint",
             ["http", "pagination", "read_only"],
-            "credential_blocked",
+            "available",
             _web_form(),
-            SECRET_REF_SCHEMA,
+            OPTIONAL_SECRET_REF_SCHEMA,
             sync_modes=["realtime"],
         ),
         _definition(
@@ -535,17 +556,28 @@ def _api_definitions() -> list[ConnectorDefinition]:
             "GraphQL",
             "GraphQL query endpoint",
             ["graphql", "read_only"],
-            "credential_blocked",
+            "available",
             _schema(
                 endpoint=_field("url", "Endpoint", required=True),
                 query=_field("string", "Query", required=True),
-                operationAllowlist=_field("string_array", "Allowed operations"),
-                paginationMode=_field(
-                    "select", "Pagination", options=["none", "cursor"]
+                operationAllowlist=_field(
+                    "string_array", "Allowed operations", required=True
+                ),
+                maxRows=_field("integer", "Maximum records", default=10_000),
+                maxResponseBytes=_field(
+                    "integer",
+                    "Maximum response bytes",
+                    default=5 * 1024 * 1024,
+                ),
+                rateLimitPerMinute=_field(
+                    "integer", "Maximum requests per minute", default=60
+                ),
+                timeoutSeconds=_field(
+                    "integer", "Request timeout in seconds", default=30
                 ),
                 refreshSeconds=_field("integer", "Refresh interval", default=3600),
             ),
-            SECRET_REF_SCHEMA,
+            OPTIONAL_SECRET_REF_SCHEMA,
             sync_modes=["realtime"],
         ),
         _definition(
@@ -554,9 +586,9 @@ def _api_definitions() -> list[ConnectorDefinition]:
             "Web API Discovery",
             "Discover a public site's API surface without fabricating operations",
             ["web", "discovery"],
-            "credential_blocked",
+            "available",
             _web_form("Target URL"),
-            SECRET_REF_SCHEMA,
+            OPTIONAL_SECRET_REF_SCHEMA,
             sync_modes=["realtime"],
         ),
         _definition(
@@ -565,10 +597,17 @@ def _api_definitions() -> list[ConnectorDefinition]:
             "Webhook",
             "Inbound event receiver",
             ["event_driven"],
-            "configurable",
+            "available",
             _schema(
                 listenPath=_field("string", "Listener path", required=True),
                 schemaRef=_field("string", "Payload schema reference", required=True),
+                maxEventBytes=_field(
+                    "integer", "Maximum event bytes", default=1_000_000
+                ),
+                maxEvents=_field("integer", "Maximum retained events", default=10_000),
+                rateLimitPerMinute=_field(
+                    "integer", "Maximum deliveries per minute", default=60
+                ),
             ),
             SECRET_REF_SCHEMA,
             discovery_modes=["validate"],
@@ -580,16 +619,24 @@ def _api_definitions() -> list[ConnectorDefinition]:
             "Kafka",
             "Kafka topic stream",
             ["stream"],
-            "credential_blocked",
+            "available",
             _schema(
                 bootstrapServers=_field(
                     "string_array", "Bootstrap servers", required=True
                 ),
                 topics=_field("string_array", "Topic allowlist", required=True),
                 consumerGroup=_field("string", "Consumer group", required=True),
+                maxMessages=_field("integer", "Maximum messages", default=1_000),
+                maxMessageBytes=_field(
+                    "integer", "Maximum message bytes", default=1_000_000
+                ),
+                timeoutSeconds=_field("integer", "Poll timeout", default=30),
             ),
             SECRET_REF_SCHEMA,
             sync_modes=["realtime"],
+            permissions=_permissions(
+                provider_scopes=["topic.describe", "topic.read", "group.read"]
+            ),
         ),
     ]
 
@@ -602,7 +649,7 @@ def _custom_definitions() -> list[ConnectorDefinition]:
             "MCP Server",
             "Model Context Protocol server",
             ["tools", "untrusted_output"],
-            "configurable",
+            "available",
             _schema(
                 transport=_field(
                     "select",
@@ -614,8 +661,9 @@ def _custom_definitions() -> list[ConnectorDefinition]:
                 args=_field("string_array", "Arguments"),
                 env=_field("object", "Environment variable references"),
                 cwd=_field("string", "Working directory"),
-                startupTimeoutSeconds=_field("integer", "Startup timeout", default=10),
-                callTimeoutSeconds=_field("integer", "Call timeout", default=30),
+                startupTimeoutSeconds=_field("number", "Startup timeout", default=10),
+                callTimeoutSeconds=_field("number", "Call timeout", default=30),
+                maxPages=_field("integer", "Maximum discovery pages", default=10),
                 endpoint=_field("url", "Remote endpoint"),
                 oauthScopeRef=_field("string", "OAuth scope reference"),
                 toolAllowlist=_field("string_array", "Allowed tools", required=True),
@@ -633,19 +681,36 @@ def _custom_definitions() -> list[ConnectorDefinition]:
             "自定义 HTTP Connector",
             "User-authored bounded HTTP definition",
             ["http", "custom_definition"],
-            "configurable",
+            "available",
             _schema(
                 name=_field("string", "Definition name", required=True),
                 endpoint=_field("url", "Base URL", required=True),
+                operationAllowlist=_field(
+                    "string_array", "Allowed operations", required=True
+                ),
                 method=_field(
                     "select", "Method", options=["GET", "HEAD"], default="GET"
                 ),
                 paginationMode=_field(
                     "select", "Pagination", options=["none", "cursor", "offset"]
                 ),
+                pageSize=_field("integer", "Page size", default=100),
+                maxPages=_field("integer", "Maximum pages", default=10),
+                maxRows=_field("integer", "Maximum records", default=10_000),
+                maxResponseBytes=_field(
+                    "integer",
+                    "Maximum response bytes",
+                    default=5 * 1024 * 1024,
+                ),
+                rateLimitPerMinute=_field(
+                    "integer", "Maximum requests per minute", default=60
+                ),
+                timeoutSeconds=_field(
+                    "integer", "Request timeout in seconds", default=30
+                ),
                 refreshSeconds=_field("integer", "Refresh interval", default=3600),
             ),
-            SECRET_REF_SCHEMA,
+            OPTIONAL_SECRET_REF_SCHEMA,
             discovery_modes=["validate"],
             sync_modes=["realtime"],
         ),
@@ -654,14 +719,27 @@ def _custom_definitions() -> list[ConnectorDefinition]:
             "custom",
             "上传 OpenAPI Spec",
             "Static OpenAPI definition upload",
-            ["openapi", "static_definition"],
-            "unsupported",
+            ["openapi", "static_definition", "read_only", "profile", "clean"],
+            "available",
             _schema(
                 specRef=_field("file", "OpenAPI YAML or JSON", required=True),
-                operationAllowlist=_field("string_array", "Allowed operations"),
+                operationAllowlist=_field(
+                    "string_array", "Allowed operations", required=True
+                ),
+                serverUrl=_field("url", "Server URL override"),
+                maxRows=_field("integer", "Maximum records", default=10_000),
+                maxResponseBytes=_field(
+                    "integer", "Maximum response bytes", default=5 * 1024 * 1024
+                ),
+                rateLimitPerMinute=_field(
+                    "integer", "Maximum requests per minute", default=60
+                ),
+                timeoutSeconds=_field(
+                    "integer", "Request timeout in seconds", default=30
+                ),
             ),
-            SECRET_REF_SCHEMA,
-            discovery_modes=["parse", "list_operations"],
+            OPTIONAL_SECRET_REF_SCHEMA,
+            discovery_modes=["validate", "parse", "list_operations", "sample"],
             sync_modes=["realtime"],
         ),
     ]
@@ -682,67 +760,13 @@ assert len({item.connector_key for item in BUILTIN_CONNECTORS}) == 37
 def connector_catalog(
     *, category: ConnectorCategory | None = None, query: str | None = None
 ) -> ConnectorCatalogView:
-    normalized = (query or "").strip().casefold()
-    rows = [
-        item
-        for item in BUILTIN_CONNECTORS
-        if (category is None or item.category == category)
-        and (
-            not normalized
-            or normalized in item.connector_key.casefold()
-            or normalized in item.name.casefold()
-            or normalized in item.description.casefold()
-        )
-    ]
-    counts = Counter(item.category for item in BUILTIN_CONNECTORS)
-    category_names: tuple[ConnectorCategory, ...] = (
-        "office",
-        "file",
-        "db",
-        "api",
-        "custom",
-    )
-    return ConnectorCatalogView(
-        connectors=rows,
-        categories={
-            category_name: counts[category_name] for category_name in category_names
-        },
-        total=len(rows),
+    return connector_catalog_view(
+        BUILTIN_CONNECTORS,
+        category=category,
+        query=query,
     )
 
 
 def bootstrap_connector_catalog() -> list[dict[str, object]]:
     """Project the typed catalog into the frozen Workspace bootstrap shape."""
-    field_types = {
-        "integer": "number",
-        "url": "string",
-        "string_array": "string",
-    }
-    return [
-        {
-            "connectorKey": definition.connector_key,
-            "category": definition.category,
-            "name": definition.name,
-            "desc": definition.description,
-            "capabilities": definition.capabilities,
-            "inputSchema": {
-                key: field_types.get(field.type, field.type)
-                for key, field in definition.input_schema.properties.items()
-            },
-            "credentialSchema": (
-                {
-                    key: ("secret_ref" if field.secret_reference else field.type)
-                    for key, field in definition.credential_schema.properties.items()
-                }
-                or None
-            ),
-            "discoveryPipeline": definition.discovery_modes,
-            "syncModes": definition.sync_modes,
-            "capabilityState": definition.capability_state,
-            "reason": definition.reason.model_dump(mode="json", by_alias=True),
-            "permissions": definition.permissions.model_dump(
-                mode="json", by_alias=True
-            ),
-        }
-        for definition in BUILTIN_CONNECTORS
-    ]
+    return bootstrap_catalog(BUILTIN_CONNECTORS)

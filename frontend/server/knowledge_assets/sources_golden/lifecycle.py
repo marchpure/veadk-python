@@ -11,18 +11,29 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from .adapters import (
+    LocalSourceAdapter,
+    _bounded_integer,
+    _infer_mapping_fields,
+    _read_json_rows,
+    _read_parquet,
+    _read_pdf_rows,
+    _read_text_document,
+)
 from .models import (
     ArtifactRef,
     AssetOwner,
     AssetPermission,
-    CleanRunRecord,
+    CleaningOperation,
     CleaningRecipeRecord,
+    CleanRunRecord,
     ConnectionInstance,
     GoldenAssetRevisionRecord,
     GoldenLineage,
     ProfileField,
     ProfileRunRecord,
     SourceRevisionRecord,
+    SourceType,
 )
 
 
@@ -63,13 +74,14 @@ class ContentAddressedArtifactStore:
 
 @dataclass(frozen=True)
 class MaterializedSource:
-    source_type: str
+    source_type: SourceType
     source_locator: str
     raw_content: bytes
     rows: list[dict[str, object]]
     fields: list[tuple[str, str, bool]]
     media_type: str
     adapter_run_id: str | None = None
+    checkpoint: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -93,7 +105,7 @@ class LocalLifecycle:
         *,
         connection: ConnectionInstance,
         resource_id: str,
-        operations: list[str],
+        operations: list[CleaningOperation],
         recipe_version: int,
         golden_revision: int,
         principal_id: str,
@@ -102,7 +114,7 @@ class LocalLifecycle:
         materialized: MaterializedSource | None = None,
         tool_arguments: dict[str, object] | None = None,
     ) -> LifecycleRecords:
-        materialized = materialized or self._materialize(connection, resource_id)
+        materialized = materialized or self.materialize(connection, resource_id)
         raw_ref = self.artifact_store.put(
             materialized.raw_content, materialized.media_type
         )
@@ -136,6 +148,7 @@ class LocalLifecycle:
             schema_digest=schema_digest,
             source_locator=materialized.source_locator,
             permission_version=1,
+            checkpoint=materialized.checkpoint or {},
             created_at=timestamp,
             trace_id=trace_id,
         )
@@ -267,6 +280,7 @@ class LocalLifecycle:
                 "contentDigest": source.source_digest,
                 "correlationId": trace_id,
                 "adapterRunId": materialized.adapter_run_id,
+                "checkpoint": materialized.checkpoint or {},
                 "outputDigest": output_ref.sha256,
                 "toolArguments": tool_arguments or {},
             }
@@ -282,6 +296,7 @@ class LocalLifecycle:
             content_digest=source.source_digest,
             correlation_id=trace_id,
             adapter_run_id=materialized.adapter_run_id,
+            checkpoint=materialized.checkpoint or {},
             lineage_digest=lineage_digest,
             tool_arguments=tool_arguments or {},
         )
@@ -341,15 +356,15 @@ class LocalLifecycle:
             adapter_run_id=adapter_run_id,
         )
 
-    def _materialize(
+    def materialize(
         self, connection: ConnectionInstance, resource_id: str
     ) -> MaterializedSource:
         source_ref = connection.configuration.get("sourceRef")
         if not isinstance(source_ref, str):
-            raise ValueError("persisted connection has no sourceRef")
-        path = (self.source_root / source_ref).resolve()
-        if path != self.source_root and self.source_root not in path.parents:
-            raise ValueError("source escapes the configured workspace root")
+            raise TypeError("persisted connection has no sourceRef")
+        path = LocalSourceAdapter(root=self.source_root).resolve(
+            source_ref, connection.connector_key
+        )
         raw = path.read_bytes()
         if connection.connector_key == "local_file":
             text = raw.decode("utf-8")
@@ -362,29 +377,27 @@ class LocalLifecycle:
                 media_type="text/markdown",
             )
         if connection.connector_key == "doc_txt":
-            import pypdfium2 as pdfium
-
-            document = pdfium.PdfDocument(path)
-            rows: list[dict[str, object]] = []
-            try:
-                for page_number, page in enumerate(document, 1):
-                    text_page = page.get_textpage()
-                    try:
-                        rows.extend(
-                            {
-                                "page": page_number,
-                                "text": line.strip(),
-                            }
-                            for line in text_page.get_text_bounded().splitlines()
-                            if line.strip()
-                        )
-                    finally:
-                        text_page.close()
-                        page.close()
-            finally:
-                document.close()
-            if not rows:
-                raise ValueError("PDF contains no extractable text")
+            if path.suffix.lower() != ".pdf":
+                max_chars = connection.configuration.get("maxTextChars", 2_000_000)
+                if isinstance(max_chars, bool) or not isinstance(max_chars, int):
+                    raise ValueError("document character limit must be an integer")
+                source_type, text = _read_text_document(path, max_chars=max_chars)
+                return MaterializedSource(
+                    source_type=source_type,
+                    source_locator=source_ref,
+                    raw_content=raw,
+                    rows=[{"text": line} for line in text.splitlines() if line.strip()],
+                    fields=[("text", "string", False)],
+                    media_type={
+                        "markdown": "text/markdown",
+                        "text": "text/plain",
+                        "html": "text/html",
+                    }[source_type],
+                )
+            max_chars = connection.configuration.get("maxTextChars", 2_000_000)
+            if isinstance(max_chars, bool) or not isinstance(max_chars, int):
+                raise ValueError("document character limit must be an integer")
+            rows = _read_pdf_rows(path, max_chars=max_chars)
             return MaterializedSource(
                 source_type="pdf",
                 source_locator=source_ref,
@@ -414,6 +427,66 @@ class LocalLifecycle:
                 fields=fields,
                 media_type="text/csv",
             )
+        if connection.connector_key == "json":
+            max_depth = connection.configuration.get("maxDepth", 32)
+            max_rows = connection.configuration.get("maxRows", 10_000)
+            if (
+                isinstance(max_depth, bool)
+                or not isinstance(max_depth, int)
+                or isinstance(max_rows, bool)
+                or not isinstance(max_rows, int)
+            ):
+                raise ValueError("JSON limits must be integers")
+            rows = _read_json_rows(
+                path,
+                max_depth=max_depth,
+                max_rows=max_rows,
+            )
+            return MaterializedSource(
+                source_type="json",
+                source_locator=source_ref,
+                raw_content=raw,
+                rows=rows,
+                fields=_infer_mapping_fields(rows),
+                media_type="application/json",
+            )
+        if connection.connector_key == "parquet":
+            options = connection.configuration
+            rows, fields = _read_parquet(
+                path,
+                max_rows=_bounded_integer(
+                    options,
+                    "maxRows",
+                    default=10_000,
+                    maximum=1_000_000,
+                ),
+                max_columns=_bounded_integer(
+                    options,
+                    "maxColumns",
+                    default=1_000,
+                    maximum=10_000,
+                ),
+                max_uncompressed_bytes=_bounded_integer(
+                    options,
+                    "maxUncompressedBytes",
+                    default=100 * 1024 * 1024,
+                    maximum=1024 * 1024 * 1024,
+                ),
+                max_nesting_depth=_bounded_integer(
+                    options,
+                    "maxNestingDepth",
+                    default=16,
+                    maximum=64,
+                ),
+            )
+            return MaterializedSource(
+                source_type="parquet",
+                source_locator=source_ref,
+                raw_content=raw,
+                rows=rows,
+                fields=fields,
+                media_type="application/vnd.apache.parquet",
+            )
         if connection.connector_key == "excel":
             return self._materialize_excel(connection, resource_id, path, raw)
         if connection.connector_key != "sqlite":
@@ -431,7 +504,7 @@ class LocalLifecycle:
         quoted = resource.name.replace('"', '""')
         row_limit_value = connection.configuration.get("rowLimit", 10_000)
         if isinstance(row_limit_value, bool) or not isinstance(row_limit_value, int):
-            raise ValueError("SQLite rowLimit must be an integer")
+            raise TypeError("SQLite rowLimit must be an integer")
         row_limit = row_limit_value
         database = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         database.row_factory = sqlite3.Row
@@ -473,34 +546,25 @@ class LocalLifecycle:
         )
         if resource is None:
             raise ValueError("Excel sheet was not discovered by this connection")
-        if path.suffix.lower() == ".xlsx":
+        values: list[tuple[object, ...]]
+        try:
             from openpyxl import load_workbook
-
-            workbook = load_workbook(
-                path, read_only=True, data_only=True, keep_links=False
-            )
-            try:
-                sheet = workbook[resource.name]
-                iterator = sheet.iter_rows(values_only=True)
-                header = next(iterator, ())
-                names = _validated_header(header, "Excel")
-                values = [tuple(row) for row in iterator]
-            finally:
-                workbook.close()
-        else:
-            import xlrd
-
-            workbook = xlrd.open_workbook(path, on_demand=True, ragged_rows=True)
-            try:
-                sheet = workbook.sheet_by_name(resource.name)
-                header = sheet.row_values(0) if sheet.nrows else []
-                names = _validated_header(header, "Excel")
-                values = [
-                    tuple(sheet.row_values(index)) for index in range(1, sheet.nrows)
-                ]
-            finally:
-                workbook.release_resources()
-        rows = [
+        except ImportError as error:
+            raise ValueError(
+                "Excel adapter requires the server-side openpyxl dependency"
+            ) from error
+        workbook = load_workbook(
+            str(path), read_only=True, data_only=True, keep_links=False
+        )
+        try:
+            sheet = workbook[resource.name]
+            iterator = sheet.iter_rows(values_only=True)
+            header = next(iterator, ())
+            names = _validated_header(header, "Excel")
+            values = [tuple(row) for row in iterator]
+        finally:
+            workbook.close()
+        rows: list[dict[str, object]] = [
             {
                 name: row[index] if index < len(row) else None
                 for index, name in enumerate(names)
@@ -519,14 +583,20 @@ class LocalLifecycle:
             ],
             media_type=(
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                if path.suffix.lower() == ".xlsx"
-                else "application/vnd.ms-excel"
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             ),
         )
 
     @staticmethod
-    def _validate_operations(operations: list[str]):
-        allowed = {"trim", "deduplicate", "normalize", "redact"}
+    def _validate_operations(
+        operations: list[CleaningOperation],
+    ) -> list[CleaningOperation]:
+        allowed: set[CleaningOperation] = {
+            "trim",
+            "deduplicate",
+            "normalize",
+            "redact",
+        }
         unknown = set(operations) - allowed
         if unknown:
             raise ValueError(f"unsupported cleaning operations: {sorted(unknown)}")
@@ -639,7 +709,7 @@ def _is_number(value: str) -> bool:
 
 def _clean_rows(
     rows: list[dict[str, object]],
-    operations: list[str],
+    operations: list[CleaningOperation],
     sensitive_fields: list[str],
 ) -> list[dict[str, object]]:
     cleaned: list[dict[str, object]] = []
