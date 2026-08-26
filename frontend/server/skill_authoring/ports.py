@@ -405,7 +405,12 @@ class VeADKModelGateway:
             bundle = self._mcp_tools
         else:
             bundle = await self._mcp_tools.tools_for(context)
-        if not bundle.credentialed or not bundle.tools:
+        # A non-MCP Source/Golden resource is intentionally represented by a
+        # credentialed, empty bundle: W1 has already authorized and pinned the
+        # data, so the Agent may produce a typed plan without opening an MCP
+        # process. MCP-backed resources still provide one or more server-owned
+        # toolsets and remain subject to this same credential gate.
+        if not bundle.credentialed:
             raise SkillAuthoringError(
                 AuthoringErrorCode.CREDENTIAL_BLOCKED,
                 "authorized MCP tools and usable credentials are required",

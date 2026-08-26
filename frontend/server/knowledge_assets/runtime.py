@@ -101,7 +101,13 @@ class _MainMcpToolProvider:
             revision_ids,
         )
         if not configurations:
-            return McpToolBundle(tools=(), schemas={}, credentialed=False)
+            # Non-MCP connectors (CSV, SQL, HTTP, etc.) are already resolved
+            # through W1's Source/Golden lifecycle.  They do not need an MCP
+            # process to produce a typed BuildPlan.  Keep the bundle
+            # credentialed so W2 can run the real Agent/Runner with zero tools;
+            # MCP-backed resources still return their persisted server-owned
+            # tool configuration below and remain fail-closed.
+            return McpToolBundle(tools=(), schemas={}, credentialed=True)
         toolsets = []
         schemas: dict[str, object] = {}
         for configuration in configurations:

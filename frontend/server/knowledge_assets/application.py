@@ -2201,6 +2201,62 @@ class KnowledgeAssetApplication:
                 error=self._not_ready_error("evaluation.run", request_id),
             )
         golden = self.repository.latest_golden_asset_revision(draft.workspace_id)
+        if golden is None and self._sources_golden is not None:
+            # Authoring and Worker 3 consume W1's Source/Golden store directly.
+            # Evaluation must use that same immutable revision rather than
+            # assuming the legacy MAIN repository has a duplicate row.
+            context = AccessContext(
+                workspace_id=draft.workspace_id,
+                principal_id=draft.workspace_id,
+                role="editor",
+            )
+            dependency_refs = draft.manifest.spec.dependencies.golden_assets
+            source_record = None
+            for revision_id in dependency_refs:
+                try:
+                    source_record = self._sources_golden.golden_revision(
+                        context, revision_id
+                    )
+                    break
+                except SourcesGoldenError:
+                    continue
+            if source_record is None:
+                latest = self._sources_golden.repository.latest_golden_assets(
+                    draft.workspace_id
+                )
+                source_record = latest[-1] if latest else None
+            if source_record is not None:
+                golden = GoldenAssetRevision(
+                    id=source_record.id,
+                    asset_kind=source_record.asset_kind,
+                    revision=source_record.revision,
+                    schema_ref=SchemaRef(
+                        uri=f"schema://golden/{source_record.id}",
+                        version="1",
+                        sha256=source_record.schema_digest,
+                    ),
+                    storage_ref=StorageRef(
+                        uri=source_record.storage_ref.uri,
+                        kind="table",
+                        sha256=source_record.storage_ref.sha256,
+                        media_type=source_record.storage_ref.media_type,
+                        bytes=source_record.storage_ref.bytes,
+                    ),
+                    source_revision_refs=[source_record.lineage.source_revision_id],
+                    recipe_ref=source_record.lineage.recipe_id,
+                    quality_run_ref=source_record.lineage.profile_run_id,
+                    owner=OwnerRef(
+                        workspace_id=source_record.owner.workspace_id,
+                        principal_id=source_record.owner.principal_id,
+                    ),
+                    permissions_ref=PermissionRef(
+                        uri=f"permission://golden/{source_record.id}",
+                        version=str(source_record.permissions.version),
+                    ),
+                    lineage_digest=source_record.lineage.lineage_digest,
+                    freshness_at=source_record.freshness_at,
+                    last_good=source_record.last_good,
+                )
         if golden is None:
             return EvaluationRunResult(
                 result_type="evaluation.run",
