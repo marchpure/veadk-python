@@ -578,7 +578,12 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
                     artifact_root=runtime_source_root,
                 )
             )
-    published_draft = drafts[0]
+    # Keep the Bluetooth journey as a genuinely unpublished draft so the
+    # publish-to-agent acceptance state exercises a new publication.  Use the
+    # persisted Haidilao SOP draft for the already-published monitoring
+    # journey; this keeps the workspace at exactly eleven drafts and one
+    # published version without making the browser infer state from labels.
+    published_draft = drafts[3]
     view = repository.skill_view_revision_for_template(
         f"{published_draft.id}:1", "sop"
     )
