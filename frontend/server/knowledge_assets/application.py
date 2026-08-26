@@ -1387,6 +1387,47 @@ class KnowledgeAssetApplication:
             idempotency_key=idempotency_key,
             trace_id=trace_id,
         )
+        # W1 owns the source/Golden lifecycle, while the shared execution
+        # repository owns the canonical STEP3B runtime objects. Project the
+        # immutable ingest result into that repository so a real Builder run
+        # can resolve the same authorized Golden revision without duplicating
+        # browser-side state.
+        golden_record = result.golden_asset_revision
+        projected = self.repository.latest_golden_asset_revision(workspace_id)
+        if projected is None or projected.id != golden_record.id:
+            self.repository.save_golden_asset_revision(
+            GoldenAssetRevision(
+                id=golden_record.id,
+                asset_kind=golden_record.asset_kind,
+                revision=golden_record.revision,
+                schema_ref=SchemaRef(
+                    uri=f"schema://golden/{golden_record.id}",
+                    version="1",
+                    sha256=golden_record.schema_digest,
+                ),
+                storage_ref=StorageRef(
+                    uri=golden_record.storage_ref.uri,
+                    kind="table",
+                    sha256=golden_record.storage_ref.sha256,
+                    media_type=golden_record.storage_ref.media_type,
+                    bytes=golden_record.storage_ref.bytes,
+                ),
+                source_revision_refs=[golden_record.lineage.source_revision_id],
+                recipe_ref=golden_record.lineage.recipe_id,
+                quality_run_ref=golden_record.lineage.profile_run_id,
+                owner=OwnerRef(
+                    workspace_id=golden_record.owner.workspace_id,
+                    principal_id=golden_record.owner.principal_id,
+                ),
+                permissions_ref=PermissionRef(
+                    uri=f"permission://golden/{golden_record.id}",
+                    version=str(golden_record.permissions.version),
+                ),
+                lineage_digest=golden_record.lineage.lineage_digest,
+                freshness_at=golden_record.freshness_at,
+                last_good=golden_record.last_good,
+                )
+            )
         return CommandResponse(
             accepted=True,
             request_id=trace_id,
@@ -1979,7 +2020,19 @@ class KnowledgeAssetApplication:
             )
         if cancelled():
             return cancelled_result(golden)
-        content = self._golden_content.read_many([golden])
+        if self._sources_golden is not None:
+            content = {
+                golden.id: self._sources_golden.golden_asset_content(
+                    AccessContext(
+                        workspace_id=draft.workspace_id,
+                        principal_id=draft.workspace_id,
+                        role="editor",
+                    ),
+                    golden.id,
+                ).decode("utf-8")
+            }
+        else:
+            content = self._golden_content.read_many([golden])
         draft_revision = SkillDraftRevision(
             id=f"{draft.id}:{payload.revision}",
             skill_id=draft.id,
