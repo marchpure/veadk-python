@@ -2926,6 +2926,17 @@ class KnowledgeAssetApplication:
         workspace_id: str,
     ) -> ArtifactExportResult:
         draft = self.repository.draft(payload.resource_id)
+        if draft is None and payload.resource_id.startswith("published://"):
+            published = self.repository.published_skill_version(payload.resource_id)
+            if published is not None:
+                draft = self.repository.draft(published.skill_id)
+            if draft is None:
+                # Bootstrap exposes the immutable publication id as the
+                # resource identity. Keep export compatible with that
+                # identity even when a repository adapter only indexes the
+                # publication row by its opaque id.
+                published_skill_id = payload.resource_id.removeprefix("published://").rsplit(":", 1)[0]
+                draft = self.repository.draft(published_skill_id)
         if draft is None or draft.workspace_id != workspace_id:
             return ArtifactExportResult(
                 resource_id=payload.resource_id,
@@ -2952,9 +2963,19 @@ class KnowledgeAssetApplication:
                 ),
             )
         if payload.format == "html":
-            source = (
-                Path(".veadk/knowledge-assets/bundles")
-                / f"{view.result_ref.sha256}.html"
+            digest = view.result_ref.sha256
+            html_candidates: list[Path] = []
+            for root in self._artifact_roots:
+                html_candidates.extend(
+                    (
+                        root / "views" / f"{digest}.html",
+                        root / f"{digest}.html",
+                        root / "kind-runtime" / "views" / f"{digest}.html",
+                    )
+                )
+            source = next(
+                (candidate for candidate in html_candidates if candidate.is_file()),
+                Path(".veadk/knowledge-assets/bundles") / f"{digest}.html",
             )
             media_type = "text/html"
             suffix = "html"

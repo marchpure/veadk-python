@@ -131,6 +131,17 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     // otherwise the opaque published:// URL is rendered as the personal
     // draft artifact and loses publication/Invocation/monitoring semantics.
     if (resource?.resourceKind === 'published_skill') {
+      if (resourceRevision && revisionHasTrustedHtml(resourceRevision)) {
+        return (
+          <SkillHtmlRevisionView
+            fileId={fileId}
+            searchParams={searchParams}
+            setSearchParams={setSearchParams}
+            showToast={showToast}
+            isPublished
+          />
+        );
+      }
       return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
 

@@ -114,7 +114,15 @@ export function createKnowledgeAssetClient(
     },
     command: (command, context) =>
       request(
-        "/commands",
+        (() => {
+          const workspace =
+            typeof globalThis.location !== "undefined"
+              ? new URLSearchParams(globalThis.location.search).get("workspace")
+              : null;
+          return workspace
+            ? `/commands?workspace=${encodeURIComponent(workspace)}`
+            : "/commands";
+        })(),
         {
           method: "POST",
           headers: {

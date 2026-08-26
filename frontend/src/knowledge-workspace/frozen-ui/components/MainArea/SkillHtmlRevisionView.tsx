@@ -162,7 +162,7 @@ function GatedHtmlRevisionState({
   );
 }
 
-export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchParams }: any) {
+export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchParams, isPublished = false }: any) {
   const revision = isRecord(activeSkillViewRevision) ? activeSkillViewRevision : null;
   const [pending, setPending] = useState('');
   const [message, setMessage] = useState('');
@@ -174,11 +174,46 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
   const contextTags = useMemo(() => contextTagsFromRevision(revision), [revision]);
   const canRenderHtml = hasTrustedHtmlRevision(revision);
   const revisionId = stringValue(revision?.id);
+  const resource = resourceStore.getState().find((item) => item.id === fileId || item.resourceId === fileId) as any;
+  const publishedTitle = String(resource?.displayName ?? resource?.name ?? title);
+  const publishedKind = String(
+    resource?.readModel?.publishedVersion?.manifest?.spec?.kind ??
+    resource?.readModel?.publishedVersion?.manifest?.spec?.defaultRenderer ??
+    'sop',
+  );
+  const publishedTypeLabel = publishedKind === 'sop'
+    ? 'Published SOP Skill'
+    : publishedKind === 'dashboard' || publishedKind === 'analysis'
+      ? 'Published Dashboard Skill'
+      : 'Published Skill';
 
   const gate = useCallback((reason: string) => {
     setError(reason);
     setMessage('');
   }, []);
+
+  const exportPublishedSkill = useCallback(async () => {
+    const resourceId = isPublished ? fileId : (revisionId || fileId);
+    if (!resourceId) {
+      gate('缺少 resourceId，无法请求 artifact.export。');
+      return;
+    }
+    setPending('artifact.export');
+    setError('');
+    setMessage('');
+    try {
+      const response = await getWorkspaceAdapter().command({
+        command: 'artifact.export',
+        payload: { resourceId, format: 'html' },
+      }, createRequestContext());
+      if (!response.accepted) throw new Error('服务端未接受 artifact.export。');
+      setMessage(`artifact.export accepted: ${response.operationId ?? response.requestId}`);
+    } catch (cause) {
+      gate(cause instanceof Error ? cause.message : 'artifact.export 失败。');
+    } finally {
+      setPending('');
+    }
+  }, [fileId, gate, isPublished, revisionId]);
 
   const runArtifactCommand = useCallback(async (event: TrustedArtifactEvent) => {
     setError('');
@@ -248,14 +283,28 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-slate-50/50 p-4 pb-20 md:p-8">
       <div className="mx-auto flex w-full max-w-7xl flex-1 min-w-0 flex-col">
         <ArtifactHeader
-          title={title}
-          typeLabel={typeLabel}
-          isTeam={false}
-          version={revisionId ? `ViewRevision ${revisionId}` : '等待 ViewRevision'}
+          title={isPublished ? publishedTitle : title}
+          typeLabel={isPublished ? publishedTypeLabel : typeLabel}
+          isTeam={isPublished}
+          version={isPublished
+            ? `V${String(resource?.version ?? '1.0.0').replace(/^v/i, '').split('.')[0]}.0 发布版`
+            : revisionId ? `ViewRevision ${revisionId}` : '等待 ViewRevision'}
           searchParams={searchParams}
           setSearchParams={setSearchParams}
-          productMode
+          productMode={!isPublished}
           contextTags={contextTags}
+          customActions={isPublished ? [
+            { label: '导出 Skill 文件', primary: false, onClick: () => void exportPublishedSkill() },
+            {
+              label: '在 Agent 中使用',
+              primary: true,
+              onClick: () => {
+                const params = new URLSearchParams(searchParams);
+                params.set('pane', 'open');
+                setSearchParams(params);
+              },
+            },
+          ] : []}
         />
 
         {(pending || message || error) && (
