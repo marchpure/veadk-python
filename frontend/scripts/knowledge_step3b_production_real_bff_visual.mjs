@@ -297,7 +297,8 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
       await page.waitForTimeout(1200);
       await page
         .waitForFunction(() => {
-          const host = document.querySelector(".trusted-artifact-host");
+          const host = [...document.querySelectorAll(".trusted-artifact-host")]
+            .find((item) => item.getBoundingClientRect().width > 0 && item.getBoundingClientRect().height > 0);
           if (!host) return true;
           const shell = host.closest("[aria-busy]");
           if (shell?.getAttribute("aria-busy") === "false") return true;
@@ -311,13 +312,26 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
   } catch (error) {
     navigationError = error instanceof Error ? error.message : String(error);
   }
-  const dom = await page.evaluate(() => ({
-    readyState: document.readyState,
-    scrollWidth: document.documentElement.scrollWidth,
-    innerWidth: window.innerWidth,
-    agentWidth: document.querySelector('[aria-label="分析助手"]')?.getBoundingClientRect().width ?? 0,
-    bodyText: document.body.innerText.slice(0, 5000),
-  })).catch(() => ({ scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" }));
+  const dom = await page.evaluate(() => {
+    const host = [...document.querySelectorAll(".trusted-artifact-host")]
+      .find((item) => item.getBoundingClientRect().width > 0 && item.getBoundingClientRect().height > 0);
+    const shadow = host?.shadowRoot;
+    const artifact = shadow?.querySelector(".artifact");
+    return {
+      readyState: document.readyState,
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+      agentWidth: document.querySelector('[aria-label="分析助手"]')?.getBoundingClientRect().width ?? 0,
+      bodyText: document.body.innerText.slice(0, 5000),
+      shadow: {
+        hostVisible: Boolean(host),
+        textLength: shadow?.textContent?.trim().length ?? 0,
+        artifactWidth: artifact?.getBoundingClientRect().width ?? 0,
+        artifactHeight: artifact?.getBoundingClientRect().height ?? 0,
+        template: artifact?.getAttribute("data-template") ?? "",
+      },
+    };
+  }).catch(() => ({ scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "", shadow: { hostVisible: false, textLength: 0, artifactWidth: 0, artifactHeight: 0, template: "" } }));
   // The remote prototype can keep a stylesheet/font request open after the
   // application has rendered. A navigation timeout is therefore not by
   // itself a missing reference. Only a screenshot backed by a meaningful DOM

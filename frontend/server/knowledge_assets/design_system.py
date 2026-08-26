@@ -175,7 +175,13 @@ def profile_for(template: str) -> VisualEvaluationProfile:
         "dashboard": VisualEvaluationProfile(
             "dashboard-data-report",
             required_markers=("kpi-grid", "chart-svg", "table-wrap", "insight-panel"),
-            required_events=("filter", "drill", "refresh", "export", "cite"),
+            required_events=(
+                "filter.change",
+                "drill.request",
+                "refresh.request",
+                "export.request",
+                "context.reference",
+            ),
         ),
         "semantic": VisualEvaluationProfile(
             "semantic-workbench",

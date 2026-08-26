@@ -99,7 +99,10 @@ def bundle_for(
     }
     template_id = aliases.get(template, template)
     capabilities = {
-        "dashboard": ("filter.change", "drill.request", "refresh.request"),
+        "dashboard": (
+            "filter.change", "drill.request", "refresh.request",
+            "export", "cite",
+        ),
         "semantic": ("selection.change", "filter.change", "refresh.request"),
         "sop": ("selection.change", "context.reference", "refresh.request"),
         "knowledge": ("selection.change", "context.reference", "refresh.request"),
@@ -179,7 +182,7 @@ class HTMLCompiler:
         data-artifact-events="{_e(root_events)}"
         data-csp="trusted-renderer-v1" role="region" aria-label="{_e(title)}">
     {body}
-    <details class="state-coverage"><summary>State coverage</summary>
+    <details class="state-coverage" hidden><summary>State coverage</summary>
       <span class="state state-succeeded">populated</span>
       <span class="state state-empty">empty</span>
       <span class="state state-failed">error</span>
@@ -377,17 +380,36 @@ def _dashboard(model: DashboardViewModel, recipe: PresentationRecipe) -> str:
         f"{_e(_join(item.target_fields))}</button>"
         for item in model.drills
     )
+    # Dashboard result views intentionally start with the same compact
+    # confirmation and step rail as the product workspace.  The values below
+    # remain projected from the typed revision; this is presentation chrome,
+    # not a mock result or a route-specific fixture.
+    readiness = (
+        "数据已就绪，图表交互正常，可以继续协作。"
+        if model.status == "populated"
+        else f"当前数据状态：{model.status}。请检查后再继续。"
+    )
+    dashboard_intro = (
+        f'<h1>{_e(model.title or "Dashboard")}</h1>'
+        '<section class="dashboard-ready" aria-label="View readiness">'
+        '<div><span class="dashboard-ready-icon">✓</span><div>'
+        '<p class="dashboard-ready-title">试运行验证通过</p>'
+        f'<p class="dashboard-ready-copy">{_e(readiness)}</p></div></div>'
+        '<button class="dashboard-ready-action" type="button" '
+        'data-artifact-event="context.reference">立即发布</button></section>'
+        '<nav class="dashboard-steps" aria-label="Dashboard workflow">'
+        '<button class="active" type="button" data-artifact-event="filter.change">1. 数据与信号</button>'
+        '<button type="button" data-artifact-event="filter.change">2. 行动与待办</button>'
+        '<button type="button" data-artifact-event="filter.change">3. Review 验收</button>'
+        '<button type="button" data-artifact-event="filter.change">4. 决策沉淀</button>'
+        '</nav>'
+    )
     return (
-        _page_header(
-            model.title or "Dashboard",
-            "SKILL / DASHBOARD",
-            "A typed view of the selected data revision.",
-            f'<span class="status-dot"></span><span>Source</span><strong>{freshness}</strong>',
-        )
+        dashboard_intro
         + f'<section class="kpi-grid" aria-label="Key performance indicators">{kpis}</section>'
         + f'<section class="toolbar"><div class="filters">{filters or '<span class="quiet">No filters applied</span>'}</div>'
         '<div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh.request" data-action="refresh">Refresh view</button>'
-        '<button class="secondary-action" type="button" data-artifact-event="context.reference" data-action="export">Export</button>'
+        '<button class="secondary-action" type="button" data-artifact-event="export.request" data-action="export">Export</button>'
         '<button class="secondary-action" type="button" data-artifact-event="context.reference" data-action="cite">Cite</button></div></section>'
         + f'<section class="chart-grid">{charts or _empty("No chart series in this revision.")}</section>'
         + '<section class="panel"><div class="section-head"><div><p class="eyebrow">ROW-LEVEL EVIDENCE</p>'
@@ -495,12 +517,26 @@ def _graph(model: GraphOntologyViewModel) -> str:
 
 
 def _sop(model: SopViewModel) -> str:
+    def evidence_rows(step: SopStepResult) -> str:
+        return "".join(
+            f'<li><code>{_e(item.locator)}</code><span>{_e(item.summary)}</span></li>'
+            for item in step.evidence
+        )
+
     steps = "".join(
-        f'<article class="step-card step-{_e(step.status)}" data-step-id="{_e(step.step_id)}"><div class="step-index">{index:02d}</div>'
-        f'<div class="step-content"><div class="step-top"><h3>{_e(step.title)}</h3><span class="state state-{_e(step.status)}">{_status_label(step.status)}</span></div>'
-        f'<p>{_e(step.message) or "Step completed with typed evidence."}</p><div class="step-meta"><span>Branch: {_e(step.branch)}</span>'
-        f'<span>{len(step.evidence)} evidence items</span><span class="tool-trace">{_e(_join(step.tool_refs) or "No tool reference")}</span></div>'
-        f'<p class="input-summary">{_e(step.input_summary)}</p><ul class="evidence-list compact">{"".join(f"<li><code>{_e(e.locator)}</code> · {_e(e.summary)}</li>" for e in step.evidence) or '<li class="quiet">No evidence recorded.</li>'}</ul><div class="step-actions"><button class="text-action" type="button" data-artifact-event="selection.change" data-step-id="{_e(step.step_id)}">Run step</button><button class="text-action" type="button" data-artifact-event="refresh.request" data-step-id="{_e(step.step_id)}">Retry</button><button class="text-action" type="button" data-artifact-event="context.reference" data-step-id="{_e(step.step_id)}">Inspect evidence</button></div></div></article>'
+        f'<article class="step-card step-{_e(step.status)}" data-step-id="{_e(step.step_id)}">'
+        f'<div class="step-index">{index}</div><div class="step-content">'
+        f'<div class="step-top"><h3>{_e(step.title)}</h3>'
+        f'<span class="state state-{_e(step.status)}">{_status_label(step.status)}</span></div>'
+        f'<p class="step-message">{_e(step.message) or "已完成该步骤，并保留了可追溯证据。"}</p>'
+        f'<div class="step-detail"><span>{_e(_join(step.tool_refs) or "服务端步骤")}</span>'
+        f'<span>{len(step.evidence)} 条证据</span><span>{_e(_status_label(step.branch))}</span></div>'
+        f'{f"<p class=\"input-summary\">{_e(step.input_summary)}</p>" if step.input_summary else ""}'
+        f'<ul class="evidence-list compact">{evidence_rows(step) or "<li class=\"quiet\">该步骤没有附加证据。</li>"}</ul>'
+        f'<div class="step-actions"><button class="text-action" type="button" '
+        f'data-artifact-event="selection.change" data-step-id="{_e(step.step_id)}">查看步骤</button>'
+        f'<button class="text-action" type="button" data-artifact-event="refresh.request" '
+        f'data-step-id="{_e(step.step_id)}">重新执行</button></div></div></article>'
         for index, step in enumerate(model.step_results, 1)
     )
     outputs = "".join(
@@ -508,33 +544,49 @@ def _sop(model: SopViewModel) -> str:
         for key, value in model.outputs.items()
     )
     actions = "".join(
-        f'<article class="action-card"><div><span class="state state-awaiting_confirmation">Confirmation required</span><h3>{_e(item.title)}</h3>'
-        f'<p>{_e(item.challenge)}</p><code>{_e(item.tool_ref)}</code></div><button class="danger-action" type="button" data-artifact-event="context.reference" '
-        f'data-action="{_e(item.proposal_id)}" data-tool-ref="{_e(item.tool_ref)}">Review & confirm</button></article>'
+        f'<article class="action-card"><div><span class="state state-awaiting_confirmation">需要确认</span>'
+        f'<h3>{_e(item.title)}</h3><p>{_e(item.challenge)}</p>'
+        f'<code>{_e(item.tool_ref)}</code></div><button class="danger-action" type="button" '
+        f'data-artifact-event="context.reference" data-action="{_e(item.proposal_id)}" '
+        f'data-tool-ref="{_e(item.tool_ref)}">查看处置</button></article>'
         for item in model.action_proposals
     )
-    confirmation_actions = actions or (
-        _empty("No action proposal.")
-        + '<button class="text-action" type="button" data-artifact-event="context.reference" '
-        'data-action="none" disabled>Nothing to confirm</button>'
+    result_actions = actions or (
+        '<div class="result-actions"><button class="result-positive" type="button" '
+        'data-artifact-event="context.reference" data-action="accepted">标记有效</button>'
+        '<button class="result-negative" type="button" data-artifact-event="context.reference" '
+        'data-action="rejected">结果不对</button></div>'
+        '<button class="result-link" type="button" data-artifact-event="context.reference" '
+        'data-action="feedback">补充更多处理经验</button>'
+    )
+    run_case = next((step.input_summary for step in model.step_results if step.input_summary), "")
+    case = (
+        f'<div class="sop-run-case"><div><span class="quiet">当前执行案例</span>'
+        f'<strong>{_e(run_case)}</strong></div><span class="state state-{_e(model.run_state)}">'
+        f'{_status_label(model.run_state)}</span></div>'
+        if run_case
+        else ""
+    )
+    result = (
+        f'<section class="sop-result"><p class="eyebrow">运行结论</p><h2>排查结论与建议处置</h2>'
+        f'<p class="result-copy">{_e(model.recommendation)}</p>'
+        f'<div class="output-list result-outputs">{outputs or "<div class=\"output-row\"><span>执行结果</span><strong>已完成</strong></div>"}</div>'
+        f'{result_actions}</section>'
+        if model.run_state in {"succeeded", "failed", "awaiting_confirmation"} and (
+            model.recommendation or model.outputs or model.action_proposals
+        )
+        else ""
     )
     return (
-        _page_header(
-            model.title,
-            "SKILL / SOP",
-            f"{model.trigger} · {model.scope}",
-            f'<span class="state state-{_e(model.run_state)} run-state">{_status_label(model.run_state)}</span>',
-        )
-        + '<section class="panel sop-context-panel"><div class="section-head"><div><p class="eyebrow">TRIGGER & SCOPE</p><h2>适用范围与触发条件</h2></div>'
+        '<section class="panel sop-context-panel"><div class="section-head"><div>'
+        '<p class="eyebrow">运行范围</p><h2>适用范围与触发条件</h2></div>'
         '<button class="secondary-action" type="button" data-artifact-event="selection.change">修改设定</button></div>'
-        f'<p class="lead">{_e(model.trigger)}</p><p class="quiet">工作范围：{_e(model.scope)}</p></section>'
-        + '<section class="sop-layout"><div><div class="section-head"><div><p class="eyebrow">EXECUTION TRACE</p><h2>Procedure</h2></div>'
-        f'<button class="secondary-action" type="button" data-artifact-event="refresh.request">Re-run with fresh evidence</button></div><div class="step-flow">{steps or _empty("No steps were executed.")}</div></div>'
-        + '<aside class="sop-aside"><section class="panel"><p class="eyebrow">RECOMMENDATION</p><h2>Next best action</h2><p class="lead">{}</p></section>'.format(
-            _e(model.recommendation)
-        )
-        + f'<section class="panel"><p class="eyebrow">TYPED OUTPUTS</p><h2>Run result</h2><div class="output-list">{outputs or _empty("No outputs.")}</div></section></aside></section>'
-        + f'<section class="panel action-panel safety-boundary"><div class="section-head"><div><p class="eyebrow">SAFETY BOUNDARY</p><h2>Actions requiring confirmation</h2></div><span class="quiet">No external write is performed during trial runs</span></div>{confirmation_actions}</section>'
+        f'<p class="lead">{_e(model.trigger)}</p><p class="quiet">工作范围：{_e(model.scope)}</p>{case}</section>'
+        + '<section class="sop-flow"><div class="section-head"><div><p class="eyebrow">执行步骤</p>'
+        '<h2>可视化诊断决策树</h2></div><button class="secondary-action" type="button" '
+        'data-artifact-event="refresh.request">重新执行</button></div>'
+        f'<div class="step-flow">{steps or _empty("还没有可执行步骤。")}</div></section>'
+        + result
     )
 
 
@@ -768,11 +820,19 @@ def _css(tokens: DesignTokens) -> str:
         + """
 .direction-editorial .page-head{border-bottom:0;padding-bottom:40px}.direction-editorial .page-head h1{font-family:var(--font-display);font-size:48px;font-weight:500;letter-spacing:-.035em}.direction-editorial .panel{border-radius:0;box-shadow:none}.direction-editorial .answer{font-family:var(--font-display);font-size:28px}.direction-editorial .eyebrow{color:var(--accent)}
 .direction-executive .kpi{border-radius:6px;border-top:3px solid var(--accent)}.direction-executive .metric{font-size:34px}.direction-executive .panel h2{font-family:var(--font-display);font-size:20px}.direction-executive .chart-panel{min-height:340px}
+.artifact.direction-executive[data-template="dashboard"]{max-width:none;padding:0 0 32px;background:var(--surface)}
+.artifact.direction-executive[data-template="dashboard"]>h1{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.artifact.direction-executive[data-template="dashboard"] .dashboard-ready{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:102px;margin:0 0 32px;padding:20px 24px;background:#ecfdf3;border:1px solid #b7ebca;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.dashboard-ready>div{display:flex;align-items:center;gap:12px;min-width:0}.dashboard-ready-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#d1fae5;color:#16835b;font-weight:800;flex:none}.dashboard-ready-title{margin:0 0 2px;color:#166534;font-size:16px;font-weight:750}.dashboard-ready-copy{margin:0;color:#3f7d59;font-size:12px}.dashboard-ready-action{border:0;border-radius:8px;background:#16a05d;color:white;padding:10px 16px;font:inherit;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer}.dashboard-steps{display:flex;gap:6px;width:100%;margin:0 0 22px;padding:5px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;overflow-x:auto}.dashboard-steps button{flex:1;min-width:130px;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:9px 10px;font:inherit;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}.dashboard-steps button.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.artifact.direction-executive[data-template="dashboard"] .kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:18px}.artifact.direction-executive[data-template="dashboard"] .kpi{min-height:108px;padding:15px 16px}.artifact.direction-executive[data-template="dashboard"] .metric{font-size:25px;margin:10px 0 6px}.artifact.direction-executive[data-template="dashboard"] .chart-grid{grid-template-columns:1fr;gap:10px}.artifact.direction-executive[data-template="dashboard"] .panel{padding:18px;margin-bottom:14px;border-radius:10px}.artifact.direction-executive[data-template="dashboard"] .chart-panel{min-height:300px}
 .direction-analytical .panel{border-radius:8px}.direction-analytical .chart-panel{background:linear-gradient(180deg,var(--surface),#fbfcfe)}.direction-analytical .chart-svg{min-height:250px}
 .direction-operational{background:var(--canvas)}.direction-operational .panel{border-radius:6px}.direction-operational .sop-layout{grid-template-columns:1fr}.direction-operational .sop-aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.direction-operational .sop-aside .panel{margin-bottom:0}.direction-operational .state-banner{border-left:3px solid var(--accent);background:var(--accent-soft)}
+.artifact.direction-operational[data-template="sop"]{max-width:none;padding:17px 0 32px;background:var(--surface)}.artifact.direction-operational[data-template="sop"] .sop-flow{margin:0;padding:24px 32px 0}.artifact.direction-operational[data-template="sop"] .sop-flow>.section-head{margin:0 0 12px}.artifact.direction-operational[data-template="sop"] .sop-context-panel{margin:0;border-radius:0;padding:32px;background:#f8fafc;border-left:0;border-right:0}.artifact.direction-operational .sop-run-case{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.artifact.direction-operational .sop-run-case strong{display:block;margin-top:3px;font-size:13px;font-weight:600}.artifact.direction-operational[data-template="sop"] .sop-result{margin-top:24px;padding:32px;background:#202a3a;border:0;border-top:1px solid #182230;border-radius:0;color:#f8fafc}.artifact.direction-operational .sop-result .eyebrow{color:#9fb8df}.artifact.direction-operational .sop-result h2{color:#fff}.artifact.direction-operational .result-copy{margin:10px 0 16px;color:#e2e8f0;line-height:1.7}.artifact.direction-operational .result-outputs{border-color:#3e4a5d;background:#2b3749}.artifact.direction-operational .result-outputs .output-row{background:#2b3749;color:#e2e8f0;border-color:#3e4a5d}.artifact.direction-operational .result-outputs .output-row strong{color:#fff}.artifact.direction-operational .result-actions{display:flex;gap:8px;margin-top:18px}.artifact.direction-operational .result-positive,.artifact.direction-operational .result-negative{flex:1;border-radius:7px;padding:10px 14px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}.artifact.direction-operational .result-positive{border:1px solid #3f8068;background:#214c41;color:#bce8d5}.artifact.direction-operational .result-negative{border:1px solid #8b514f;background:#513139;color:#ffd1cc}.artifact.direction-operational .result-link{display:block;margin:14px auto 0;border:0;background:none;color:#cbd5e1;font:inherit;font-size:12px;cursor:pointer}.artifact.direction-operational .step-detail{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px}.artifact.direction-operational .step-message{color:var(--ink)}.artifact.direction-operational .step-card{border-radius:8px}
 .direction-compact .artifact{padding-top:24px}.direction-compact .panel{padding:14px;border-radius:6px}.direction-compact .kpi{padding:13px;min-height:96px}.direction-compact .metric{font-size:24px}.direction-compact td{padding:8px 10px}
 .toolbar-actions{display:flex;gap:7px;flex-wrap:wrap}.insight-panel{margin-top:0}.insight-list{margin:0;padding-left:20px;display:grid;gap:8px}.state-banner{display:flex;gap:10px;align-items:center;margin-top:18px;padding:11px 13px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}.state-banner strong{text-transform:uppercase;color:var(--ink);font-size:10px;letter-spacing:.08em}.relationship-canvas{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:8px}.relationship-svg{display:block;width:100%;height:auto}.relationship-line{stroke:var(--accent);stroke-width:2;stroke-dasharray:5 3}.relationship-node{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}.relationship-svg text{font-size:10px;fill:var(--ink);font-weight:650}.relationship-actions{display:flex;gap:10px;margin:9px 0}.graph-legend .legend-conflict{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--danger)}.node-detail{min-height:300px}.input-summary{font-size:12px;color:var(--ink);margin:6px 0}.tool-trace{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.step-actions{display:flex;gap:10px;margin-top:12px}.access-note{border-top:1px solid var(--line);margin-top:16px;padding-top:12px;color:var(--muted);font-size:12px}.access-note p{margin:4px 0}.chart-bar{fill:var(--accent);opacity:.85}.bar-1{fill:var(--violet)}.bar-2{fill:var(--positive)}.chart-area{fill:var(--accent);opacity:.12}.state-queued{background:#eef1f5;color:var(--muted)}.state-running{background:var(--accent-soft);color:var(--accent)}.state-alert,.state-stale{background:#fff5dd;color:var(--warning)}.state-failed{background:#fff0ed;color:var(--danger)}.state-empty{background:#f2f3f5;color:var(--muted)}
-.direction-editorial .panel,.direction-executive .panel{box-shadow:0 1px 0 rgba(16,24,40,.04)}.direction-operational .page-head h1{font-size:32px}.direction-compact .page-head h1{font-size:28px}@media (max-width:520px){.direction-operational .sop-aside{grid-template-columns:1fr}}
+.direction-editorial .panel,.direction-executive .panel{box-shadow:0 1px 0 rgba(16,24,40,.04)}.direction-operational .page-head h1{font-size:32px}.direction-compact .page-head h1{font-size:28px}@media (max-width:520px){.direction-operational .sop-aside{grid-template-columns:1fr}.artifact.direction-operational[data-template="sop"]{padding:0 0 24px}.artifact.direction-operational[data-template="sop"] .sop-context-panel{padding:20px 16px}.artifact.direction-operational .sop-run-case{display:block}.artifact.direction-operational .sop-run-case .state{display:inline-block;margin-top:8px}.artifact.direction-operational[data-template="sop"] .sop-flow{padding:20px 16px 0}.artifact.direction-operational .sop-flow>.section-head{display:block}.artifact.direction-operational .sop-flow>.section-head .secondary-action{margin-top:10px}.artifact.direction-operational .step-card{grid-template-columns:34px minmax(0,1fr);gap:9px;padding:12px}.artifact.direction-operational .step-index{font-size:18px}.artifact.direction-operational .step-top{display:block}.artifact.direction-operational .step-top .state{display:inline-block;margin-top:8px}.artifact.direction-operational .step-detail{gap:6px;display:block}.artifact.direction-operational .step-detail span{display:block;margin-top:3px}.artifact.direction-operational[data-template="sop"] .sop-result{padding:22px 16px}.artifact.direction-operational .result-actions{gap:8px}}
+.artifact.direction-executive[data-template="dashboard"]{padding-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{padding:6px;margin-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps button{min-width:118px;padding:10px 7px;font-size:11px}.artifact.direction-executive[data-template="dashboard"] .kpi{min-height:94px;padding:13px}.artifact.direction-executive[data-template="dashboard"] .metric{font-size:22px}.artifact.direction-executive[data-template="dashboard"] .toolbar{display:block}.artifact.direction-executive[data-template="dashboard"] .toolbar-actions{margin-top:8px}.artifact.direction-executive[data-template="dashboard"] .panel{padding:14px}.artifact.direction-executive[data-template="dashboard"] .table-wrap{max-width:100%;overflow-x:auto}
+@media (max-width:520px){.artifact.direction-executive[data-template="dashboard"] .dashboard-ready{min-height:0;margin-bottom:16px;padding:16px}.artifact.direction-executive[data-template="dashboard"] .dashboard-ready-title{font-size:15px}.artifact.direction-executive[data-template="dashboard"] .dashboard-ready-copy{font-size:11px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{margin-bottom:16px}.artifact.direction-executive[data-template="dashboard"] .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
 """
     )
 
