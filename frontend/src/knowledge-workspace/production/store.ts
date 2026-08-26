@@ -33,6 +33,20 @@ export interface WorkspaceResource {
   [key: string]: unknown;
 }
 
+function projectResourceViewRevision(resource: WorkspaceResource): WorkspaceResource {
+  if (resource.skillViewRevision && typeof resource.skillViewRevision === "object") {
+    return resource;
+  }
+  const readModel = resource.readModel;
+  if (!readModel || typeof readModel !== "object" || Array.isArray(readModel)) {
+    return resource;
+  }
+  const revision = (readModel as Record<string, unknown>).skillViewRevision;
+  return revision && typeof revision === "object" && !Array.isArray(revision)
+    ? { ...resource, skillViewRevision: revision }
+    : resource;
+}
+
 export interface ConnectorDef {
   connectorKey: string;
   category: string;
@@ -362,7 +376,9 @@ export async function bootstrapWorkspace(
     if (typeof serverWorkspaceId === "string" && serverWorkspaceId) {
       workspaceId = serverWorkspaceId;
     }
-    resourceStore.replace(bootstrapped.resources as WorkspaceResource[]);
+    resourceStore.replace(
+      (bootstrapped.resources as WorkspaceResource[]).map(projectResourceViewRevision),
+    );
     connectionStore.replace(bootstrapped.connections.map(normalizeConnection));
     agentPublicationStore.replace(bootstrapped.publications);
     customRegistryStore.replace(
