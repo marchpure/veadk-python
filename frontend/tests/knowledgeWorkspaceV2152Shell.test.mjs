@@ -136,11 +136,7 @@ test("home composer restores the v2.15.2 core journey without URL-only handoff",
     "Graph",
     "Ontology",
     "Monitoring",
-    "spec.md",
-    "预览",
-    "复用",
     "Agent 推荐模板",
-    "澄清",
     "重试",
     "取消",
   ]) {
@@ -153,6 +149,9 @@ test("home composer restores the v2.15.2 core journey without URL-only handoff",
   assert.match(homeComposer, /requestedKind/);
   assert.match(homeComposer, /templateRef:\s*selectedTemplateRef/);
   assert.match(homeComposer, /templateSpecStore/);
+  assert.match(homeComposer, /selectedTemplateRef/);
+  assert.match(homeComposer, /模板库/);
+  assert.doesNotMatch(homeComposer, /Template Registry|typed seam|production adapter|spec\.md/);
   assert.doesNotMatch(homeComposer, /id:\s*["']html["']/);
   assert.match(homeComposer, /draft_id|draftId/);
   assert.match(homeComposer, /operation_id|operationId/);
