@@ -42,7 +42,7 @@ CSP = (
     "base-uri 'none'; form-action 'none'; connect-src 'none'; "
     "font-src 'none'; frame-src 'none'; object-src 'none'"
 )
-RENDERER_VERSION = "skill-html-compiler-v2"
+RENDERER_VERSION = "skill-html-compiler-v3-shadow-tokens"
 
 
 @dataclass(frozen=True)
@@ -525,6 +525,9 @@ def _sop(model: SopViewModel) -> str:
             f"{model.trigger} · {model.scope}",
             f'<span class="state state-{_e(model.run_state)} run-state">{_status_label(model.run_state)}</span>',
         )
+        + '<section class="panel sop-context-panel"><div class="section-head"><div><p class="eyebrow">TRIGGER & SCOPE</p><h2>适用范围与触发条件</h2></div>'
+        '<button class="secondary-action" type="button" data-artifact-event="selection.change">修改设定</button></div>'
+        f'<p class="lead">{_e(model.trigger)}</p><p class="quiet">工作范围：{_e(model.scope)}</p></section>'
         + '<section class="sop-layout"><div><div class="section-head"><div><p class="eyebrow">EXECUTION TRACE</p><h2>Procedure</h2></div>'
         f'<button class="secondary-action" type="button" data-artifact-event="refresh.request">Re-run with fresh evidence</button></div><div class="step-flow">{steps or _empty("No steps were executed.")}</div></div>'
         + '<aside class="sop-aside"><section class="panel"><p class="eyebrow">RECOMMENDATION</p><h2>Next best action</h2><p class="lead">{}</p></section>'.format(
@@ -748,7 +751,7 @@ def _css(tokens: DesignTokens) -> str:
     colors = tokens.semantic_colors
     palette = ", ".join(tokens.chart_palette)
     root = (
-        ":root{"
+        ":host{display:block;"
         f"--ink:{colors['ink']};--muted:{colors['muted']};--line:{colors['line']};"
         f"--surface:{colors['surface']};--canvas:{colors['canvas']};"
         f"--accent:{tokens.chart_palette[0]};--accent-soft:{colors['selected']};"
@@ -766,10 +769,10 @@ def _css(tokens: DesignTokens) -> str:
 .direction-editorial .page-head{border-bottom:0;padding-bottom:40px}.direction-editorial .page-head h1{font-family:var(--font-display);font-size:48px;font-weight:500;letter-spacing:-.035em}.direction-editorial .panel{border-radius:0;box-shadow:none}.direction-editorial .answer{font-family:var(--font-display);font-size:28px}.direction-editorial .eyebrow{color:var(--accent)}
 .direction-executive .kpi{border-radius:6px;border-top:3px solid var(--accent)}.direction-executive .metric{font-size:34px}.direction-executive .panel h2{font-family:var(--font-display);font-size:20px}.direction-executive .chart-panel{min-height:340px}
 .direction-analytical .panel{border-radius:8px}.direction-analytical .chart-panel{background:linear-gradient(180deg,var(--surface),#fbfcfe)}.direction-analytical .chart-svg{min-height:250px}
-.direction-operational{background:#eef5f4}.direction-operational .panel{border-radius:6px}.direction-operational .state-banner{border-left:3px solid var(--accent);background:var(--accent-soft)}
+.direction-operational{background:var(--canvas)}.direction-operational .panel{border-radius:6px}.direction-operational .sop-layout{grid-template-columns:1fr}.direction-operational .sop-aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.direction-operational .sop-aside .panel{margin-bottom:0}.direction-operational .state-banner{border-left:3px solid var(--accent);background:var(--accent-soft)}
 .direction-compact .artifact{padding-top:24px}.direction-compact .panel{padding:14px;border-radius:6px}.direction-compact .kpi{padding:13px;min-height:96px}.direction-compact .metric{font-size:24px}.direction-compact td{padding:8px 10px}
 .toolbar-actions{display:flex;gap:7px;flex-wrap:wrap}.insight-panel{margin-top:0}.insight-list{margin:0;padding-left:20px;display:grid;gap:8px}.state-banner{display:flex;gap:10px;align-items:center;margin-top:18px;padding:11px 13px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}.state-banner strong{text-transform:uppercase;color:var(--ink);font-size:10px;letter-spacing:.08em}.relationship-canvas{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:8px}.relationship-svg{display:block;width:100%;height:auto}.relationship-line{stroke:var(--accent);stroke-width:2;stroke-dasharray:5 3}.relationship-node{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}.relationship-svg text{font-size:10px;fill:var(--ink);font-weight:650}.relationship-actions{display:flex;gap:10px;margin:9px 0}.graph-legend .legend-conflict{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--danger)}.node-detail{min-height:300px}.input-summary{font-size:12px;color:var(--ink);margin:6px 0}.tool-trace{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.step-actions{display:flex;gap:10px;margin-top:12px}.access-note{border-top:1px solid var(--line);margin-top:16px;padding-top:12px;color:var(--muted);font-size:12px}.access-note p{margin:4px 0}.chart-bar{fill:var(--accent);opacity:.85}.bar-1{fill:var(--violet)}.bar-2{fill:var(--positive)}.chart-area{fill:var(--accent);opacity:.12}.state-queued{background:#eef1f5;color:var(--muted)}.state-running{background:var(--accent-soft);color:var(--accent)}.state-alert,.state-stale{background:#fff5dd;color:var(--warning)}.state-failed{background:#fff0ed;color:var(--danger)}.state-empty{background:#f2f3f5;color:var(--muted)}
-.direction-editorial .panel,.direction-executive .panel{box-shadow:0 1px 0 rgba(16,24,40,.04)}.direction-operational .page-head h1{font-size:32px}.direction-compact .page-head h1{font-size:28px}
+.direction-editorial .panel,.direction-executive .panel{box-shadow:0 1px 0 rgba(16,24,40,.04)}.direction-operational .page-head h1{font-size:32px}.direction-compact .page-head h1{font-size:28px}@media (max-width:520px){.direction-operational .sop-aside{grid-template-columns:1fr}}
 """
     )
 

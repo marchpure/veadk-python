@@ -312,11 +312,19 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
     navigationError = error instanceof Error ? error.message : String(error);
   }
   const dom = await page.evaluate(() => ({
+    readyState: document.readyState,
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth: window.innerWidth,
     agentWidth: document.querySelector('[aria-label="分析助手"]')?.getBoundingClientRect().width ?? 0,
     bodyText: document.body.innerText.slice(0, 5000),
   })).catch(() => ({ scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" }));
+  // The remote prototype can keep a stylesheet/font request open after the
+  // application has rendered. A navigation timeout is therefore not by
+  // itself a missing reference. Only a screenshot backed by a meaningful DOM
+  // is eligible for comparison or cache reuse.
+  const usableDom = dom.bodyText.trim().length >= 40 && dom.innerWidth === viewport.width;
+  const navigationWarning = navigationError && usableDom ? navigationError : "";
+  if (usableDom && navigationWarning) navigationError = "";
   const screenshot = join(output, `${label}.png`);
   let screenshotError = "";
   try {
@@ -341,6 +349,7 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
       downloadedAt: new Date().toISOString(),
       sha256: screenshotSha,
       dom,
+      navigationWarning,
     });
   }
   return {
@@ -353,6 +362,7 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
     pageErrors,
     failedRequests,
     dom,
+    navigationWarning,
   };
 }
 
@@ -438,6 +448,7 @@ async function main() {
             pageErrors: [],
             failedRequests: [],
             dom: { scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" },
+            navigationWarning: "",
           };
         }
         try {
@@ -457,6 +468,7 @@ async function main() {
               pageErrors: [],
               failedRequests: [],
               dom: { scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" },
+              navigationWarning: "",
             };
           } else {
             reference = await visit(
@@ -484,7 +496,16 @@ async function main() {
         }
         const ratio = actual.dom.scrollWidth > actual.dom.innerWidth ? 1 : 0;
         let diff = { ratio: 1, mean: 1, width: 0, height: 0 };
-        if (actual.screenshot && reference.screenshot && !actual.screenshotError && !reference.screenshotError) {
+        if (
+          actual.screenshot &&
+          reference.screenshot &&
+          actual.sha256 &&
+          reference.sha256 &&
+          !actual.navigationError &&
+          !reference.navigationError &&
+          !actual.screenshotError &&
+          !reference.screenshotError
+        ) {
           try {
             diff = pixelDiff(actual.screenshot, reference.screenshot);
           } catch {

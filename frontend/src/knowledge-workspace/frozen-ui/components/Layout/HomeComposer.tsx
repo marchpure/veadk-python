@@ -9,6 +9,7 @@ import {
   templateSpecStore,
 } from "../../lib/store";
 import { workspaceRecommendedPrompts } from "../../../production/data";
+import { cn } from "../../lib/utils";
 
 type WorkspaceScope = "personal" | "team";
 type RequestedKind = NonNullable<SkillAuthoringStartPayload["requestedKind"]>;
@@ -175,6 +176,7 @@ export default function HomeComposer({
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams) => void;
 }) {
+  const isClarifyState = searchParams.get("chat") === "clarify";
   const [request, setRequest] = useState(searchParams.get("request") ?? "");
   const [contextChips, setContextChips] = useState<ContextChip[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(
@@ -377,7 +379,10 @@ export default function HomeComposer({
         </div>
 
         <div className="flex flex-1 flex-col">
-          <section className="flex min-h-0 flex-1 -translate-y-[4px] flex-col items-center justify-center md:translate-y-[1px]">
+          <section className={cn(
+            "flex min-h-0 flex-1 -translate-y-[4px] flex-col items-center justify-center",
+            isClarifyState ? "md:translate-y-[14px]" : "md:translate-y-[1px]",
+          )}>
             <div className="w-full max-w-[704px]">
               <div className="mb-6 text-center">
                 <h1 className="mx-auto w-fit max-w-full text-left text-3xl font-bold tracking-tight text-slate-900">今天想解决什么业务问题？</h1>
@@ -502,7 +507,10 @@ export default function HomeComposer({
               </div>
 
               {workspaceRecommendedPrompts.length > 0 && (
-                    <div className="mt-8 flex flex-wrap justify-center gap-2 md:mt-[14px]" aria-label="推荐问题">
+                    <div className={cn(
+                      "mt-8 flex flex-wrap justify-center gap-2",
+                      isClarifyState ? "md:mt-[32px]" : "md:mt-[14px]",
+                    )} aria-label="推荐问题">
                   {workspaceRecommendedPrompts.slice(0, 3).map((item) => (
                     <button
                       key={item.id}

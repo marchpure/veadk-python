@@ -110,7 +110,7 @@ def tokens_for(direction: DesignDirection) -> DesignTokens:
         "editorial": ("#17324d", "#b45309", "#0f766e", "#7c3aed"),
         "executive": ("#155eef", "#0f766e", "#b45309", "#6941c6"),
         "analytical": ("#1769e0", "#6855c7", "#16835b", "#c0392b"),
-        "operational": ("#0f766e", "#d97706", "#c2410c", "#1769e0"),
+        "operational": ("#155dfc", "#d97706", "#c2410c", "#0f766e"),
         "compact": ("#344054", "#1769e0", "#7f56d9", "#d97706"),
     }
     colors = {
@@ -132,7 +132,11 @@ def tokens_for(direction: DesignDirection) -> DesignTokens:
             canvas="#f6f4ef", surface="#fffdf8", ink="#20211f", line="#e7e1d7"
         )
     elif direction == "operational":
-        colors.update(canvas="#f2f7f6", surface="#ffffff", selected="#e4f3ef")
+        # SOP execution remains operational in hierarchy and state semantics,
+        # but the canvas is neutral. The product reference uses blue action
+        # affordances on white cards; a tinted full-page canvas obscures the
+        # evidence hierarchy and becomes especially severe on mobile.
+        colors.update(canvas="#f5f7fa", surface="#ffffff", selected="#eaf2ff")
     return DesignTokens(
         direction=direction,
         font_display="ui-serif, Georgia, 'Times New Roman', serif"
