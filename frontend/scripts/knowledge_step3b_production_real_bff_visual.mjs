@@ -25,6 +25,23 @@ const stateNames = [
   "haidilao-sop-draft", "haidilao-sop-input", "haidilao-sop-result",
   "published-sop-monitoring", "optimization-draft",
 ];
+const prototypeStateUrls = [
+  "/?file=welcome",
+  "/?file=welcome&chat=clarify",
+  "/?file=draft_sop_bluetooth&pane=open",
+  "/?file=draft_sop_bluetooth&edit_step=Step_2&pane=open",
+  "/?file=draft_sop_bluetooth&run_state=input&pane=open",
+  "/?file=draft_sop_bluetooth&run_state=result&pane=open",
+  "/?file=draft_sop_bluetooth&run_state=result&pane=open&modal=publish_agent",
+  "/?file=draft_dash_anta&pane=open",
+  "/?file=draft_dash_anta&run_state=result&pane=open",
+  "/?file=draft_dash_anta&run_state=result&pane=open&modal=publish",
+  "/?file=draft_sop_haidilao&pane=open",
+  "/?file=draft_sop_haidilao&run_state=input&pane=open",
+  "/?file=draft_sop_haidilao&run_state=result&pane=open",
+  "/?file=pub_sop_bluetooth",
+  "/?file=draft_sop_bluetooth_opt",
+];
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
@@ -95,8 +112,8 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
   const url = new URL(stateUrl || "/?file=welcome", origin);
   let navigationError = "";
   try {
-    await page.goto(url.toString(), { waitUntil: "networkidle", timeout: 30_000 });
-    await page.waitForTimeout(250);
+    await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 10_000 });
+    await page.waitForTimeout(350);
   } catch (error) {
     navigationError = error instanceof Error ? error.message : String(error);
   }
@@ -139,7 +156,7 @@ async function main() {
         const reference = await visit(
           browser,
           options.prototype,
-          `/?file=welcome`,
+          prototypeStateUrls[index],
           viewport,
           root,
           "prototype-reference",
