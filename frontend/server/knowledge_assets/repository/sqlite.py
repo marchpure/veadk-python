@@ -336,7 +336,12 @@ class SqliteKnowledgeAssetRepository:
                 display_name=version.manifest.metadata.display_name,
                 resource_kind="published_skill",
                 subtype=(
-                    self.skill_view_revision(version.skill_view_ref).intent.template
+                    (
+                        "dashboard"
+                        if self.skill_view_revision(version.skill_view_ref).intent.template
+                        == "chart"
+                        else self.skill_view_revision(version.skill_view_ref).intent.template
+                    )
                     if version.skill_view_ref
                     and self.skill_view_revision(version.skill_view_ref)
                     else "skill"
