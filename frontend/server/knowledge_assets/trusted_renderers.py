@@ -387,15 +387,15 @@ def _dashboard(model: DashboardViewModel, recipe: PresentationRecipe) -> str:
         + f'<section class="kpi-grid" aria-label="Key performance indicators">{kpis}</section>'
         + f'<section class="toolbar"><div class="filters">{filters or '<span class="quiet">No filters applied</span>'}</div>'
         '<div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh.request" data-action="refresh">Refresh view</button>'
-        '<button class="secondary-action" type="button" data-artifact-event="export" data-action="export">Export</button>'
-        '<button class="secondary-action" type="button" data-artifact-event="cite" data-action="cite">Cite</button></div></section>'
+        '<button class="secondary-action" type="button" data-artifact-event="context.reference" data-action="export">Export</button>'
+        '<button class="secondary-action" type="button" data-artifact-event="context.reference" data-action="cite">Cite</button></div></section>'
         + f'<section class="chart-grid">{charts or _empty("No chart series in this revision.")}</section>'
         + '<section class="panel"><div class="section-head"><div><p class="eyebrow">ROW-LEVEL EVIDENCE</p>'
         f'<h2>Details</h2></div><span class="quiet">{len(model.rows)} rows</span></div>'
         f'<div class="table-wrap"><table><thead><tr>{heads}</tr></thead><tbody>{rows or _empty_row(len(model.fields))}</tbody></table></div>'
         f'<div class="drills">{drills}</div></section>'
         + f'<section class="panel insight-panel"><div class="section-head"><div><p class="eyebrow">INTERPRETATION</p><h2>What changed</h2></div>'
-        f'<button class="text-action" type="button" data-artifact-event="cite" data-action="cite">Add evidence</button></div>'
+        f'<button class="text-action" type="button" data-artifact-event="context.reference" data-action="cite">Add evidence</button></div>'
         f'<ul class="insight-list">{"".join(f"<li>{_e(item)}</li>" for item in model.insights) or '<li class="quiet">No typed insight was emitted for this revision.</li>'}</ul>'
         f"{_state_banner(model.status)}</section>"
     )
@@ -438,7 +438,7 @@ def _semantic(model: SemanticViewModel) -> str:
         )
         + '<section class="split-grid semantic-canvas"><div class="panel"><div class="section-head"><div><p class="eyebrow">MODEL CANVAS</p>'
         f'<h2>Entities</h2></div><div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh schema</button>'
-        '<button class="secondary-action" type="button" data-artifact-event="add-context">Add context</button></div></div>'
+        '<button class="secondary-action" type="button" data-artifact-event="context.reference">Add context</button></div></div>'
         f'<div class="entity-grid">{entity_cards}</div></section>'
         + '<section class="panel field-catalog"><div class="section-head"><div><p class="eyebrow">FIELD CATALOG</p><h2>Dimensions & metrics</h2></div>'
         f'<span class="quiet">{len(model.fields)} fields</span></div><div class="table-wrap"><table><thead><tr><th>Field</th><th>Role</th><th>Aggregation</th><th>Unit</th></tr></thead><tbody>{fields or _empty_row(4)}</tbody></table></div></section></div>'
@@ -500,7 +500,7 @@ def _sop(model: SopViewModel) -> str:
         f'<div class="step-content"><div class="step-top"><h3>{_e(step.title)}</h3><span class="state state-{_e(step.status)}">{_status_label(step.status)}</span></div>'
         f'<p>{_e(step.message) or "Step completed with typed evidence."}</p><div class="step-meta"><span>Branch: {_e(step.branch)}</span>'
         f'<span>{len(step.evidence)} evidence items</span><span class="tool-trace">{_e(_join(step.tool_refs) or "No tool reference")}</span></div>'
-        f'<p class="input-summary">{_e(step.input_summary)}</p><ul class="evidence-list compact">{"".join(f"<li><code>{_e(e.locator)}</code> · {_e(e.summary)}</li>" for e in step.evidence) or '<li class="quiet">No evidence recorded.</li>'}</ul><div class="step-actions"><button class="text-action" type="button" data-artifact-event="run-step" data-step-id="{_e(step.step_id)}">Run step</button><button class="text-action" type="button" data-artifact-event="retry-step" data-step-id="{_e(step.step_id)}">Retry</button><button class="text-action" type="button" data-artifact-event="inspect-evidence" data-step-id="{_e(step.step_id)}">Inspect evidence</button></div></div></article>'
+        f'<p class="input-summary">{_e(step.input_summary)}</p><ul class="evidence-list compact">{"".join(f"<li><code>{_e(e.locator)}</code> · {_e(e.summary)}</li>" for e in step.evidence) or '<li class="quiet">No evidence recorded.</li>'}</ul><div class="step-actions"><button class="text-action" type="button" data-artifact-event="selection.change" data-step-id="{_e(step.step_id)}">Run step</button><button class="text-action" type="button" data-artifact-event="refresh.request" data-step-id="{_e(step.step_id)}">Retry</button><button class="text-action" type="button" data-artifact-event="context.reference" data-step-id="{_e(step.step_id)}">Inspect evidence</button></div></div></article>'
         for index, step in enumerate(model.step_results, 1)
     )
     outputs = "".join(
@@ -509,13 +509,13 @@ def _sop(model: SopViewModel) -> str:
     )
     actions = "".join(
         f'<article class="action-card"><div><span class="state state-awaiting_confirmation">Confirmation required</span><h3>{_e(item.title)}</h3>'
-        f'<p>{_e(item.challenge)}</p><code>{_e(item.tool_ref)}</code></div><button class="danger-action" type="button" data-artifact-event="confirm-action" '
+        f'<p>{_e(item.challenge)}</p><code>{_e(item.tool_ref)}</code></div><button class="danger-action" type="button" data-artifact-event="context.reference" '
         f'data-action="{_e(item.proposal_id)}" data-tool-ref="{_e(item.tool_ref)}">Review & confirm</button></article>'
         for item in model.action_proposals
     )
     confirmation_actions = actions or (
         _empty("No action proposal.")
-        + '<button class="text-action" type="button" data-artifact-event="confirm-action" '
+        + '<button class="text-action" type="button" data-artifact-event="context.reference" '
         'data-action="none" disabled>Nothing to confirm</button>'
     )
     return (
@@ -539,7 +539,7 @@ def _knowledge(model: KnowledgeViewModel) -> str:
     citations = "".join(
         f'<article class="citation-card"><div class="citation-number">{index:02d}</div><div><h3>{_e(item.title)}</h3>'
         f'<p class="quiet">{_e(item.source_revision_id)}</p><code>{_e(item.locator)}</code></div>'
-        f'<button class="text-action" type="button" data-artifact-event="open-citation" data-citation-id="{_e(item.citation_id)}">Open source ↗</button></article>'
+        f'<button class="text-action" type="button" data-artifact-event="context.reference" data-citation-id="{_e(item.citation_id)}">Open source ↗</button></article>'
         for index, item in enumerate(model.citations, 1)
     )
     return (
@@ -553,8 +553,8 @@ def _knowledge(model: KnowledgeViewModel) -> str:
         )
         + f'<section class="knowledge-layout"><div class="answer-panel panel"><p class="eyebrow">ANSWER</p><div class="answer">{_e(model.answer)}</div>'
         f'<div class="answer-meta"><span>Access scope: authorized sources only</span><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh retrieval</button></div></div>'
-        + f'<aside class="panel access-boundary"><p class="eyebrow">SOURCE COLLECTION</p><h2>{len(model.citations)} references</h2><div class="citation-tools"><button class="secondary-action" type="button" data-artifact-event="search">Search sources</button></div><div class="citation-list">{citations or _empty("No citation supports this answer.")}</div><div class="access-note"><strong>Access boundary</strong><p>Only authorized pinned revisions are included.</p></div></aside></section>'
-        + '<section class="panel publication"><p class="eyebrow">SKILL STATUS</p><h2>Ready for evaluation</h2><p class="quiet">This view can be evaluated and published without exposing the source document contents.</p><button class="text-action" type="button" data-artifact-event="add-context">Add citation context</button></section>'
+        + f'<aside class="panel access-boundary"><p class="eyebrow">SOURCE COLLECTION</p><h2>{len(model.citations)} references</h2><div class="citation-tools"><button class="secondary-action" type="button" data-artifact-event="selection.change">Search sources</button></div><div class="citation-list">{citations or _empty("No citation supports this answer.")}</div><div class="access-note"><strong>Access boundary</strong><p>Only authorized pinned revisions are included.</p></div></aside></section>'
+        + '<section class="panel publication"><p class="eyebrow">SKILL STATUS</p><h2>Ready for evaluation</h2><p class="quiet">This view can be evaluated and published without exposing the source document contents.</p><button class="text-action" type="button" data-artifact-event="context.reference">Add citation context</button></section>'
     )
 
 
