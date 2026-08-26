@@ -370,16 +370,16 @@ export default function HomeComposer({
         </div>
 
         <div className="flex flex-1 flex-col">
-              <section className="flex min-h-0 flex-1 flex-col items-center justify-center">
-            <div className="w-full max-w-3xl">
+          <section className="flex min-h-0 flex-1 -translate-y-[15px] flex-col items-center justify-center md:-translate-y-[3px]">
+            <div className="w-full max-w-[702px]">
               <div className="mb-6 text-center">
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">今天想解决什么业务问题？</h1>
-                <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
+                <h1 className="mx-auto w-fit max-w-full text-3xl font-bold tracking-tight text-slate-900">今天想解决什么业务问题？</h1>
+                <p className="mx-auto mt-3 max-w-[327px] text-xs leading-5 text-slate-500 md:text-sm md:leading-6">
                   输入问题或拖入上下文，AI 将自动匹配模板生成 Skill
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.10)] focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+              <div className="mt-10 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.10)] focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 md:mt-3">
                 {contextChips.length > 0 && (
                   <div className="flex flex-wrap gap-2 px-4 pt-4">
                     {contextChips.map((chip) => (
@@ -415,7 +415,7 @@ export default function HomeComposer({
                     }}
                     placeholder="描述目标，或输入 @ 搜索并引用真实工作区资源…"
                     rows={2}
-                    className="w-full resize-none border-0 bg-transparent px-4 py-3 text-base leading-6 text-slate-800 outline-none placeholder:text-slate-300 md:py-4 md:leading-7"
+                    className="min-h-[80px] w-full resize-none border-0 bg-transparent px-4 py-4 text-base leading-6 text-slate-800 outline-none placeholder:text-slate-300 md:min-h-[95px] md:py-4 md:leading-7"
                     disabled={status === "submitting"}
                   />
                   {mentionQuery !== "" && (
@@ -442,13 +442,13 @@ export default function HomeComposer({
                   )}
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/70 px-3 py-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-row items-center justify-end gap-0 border-t border-slate-100 bg-slate-50/70 px-3 py-2 md:justify-between md:gap-3 md:py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       disabled
                       title="文件上传需要 source-golden.ingest / domain upload 返回真实 context ref"
-                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-400 disabled:cursor-not-allowed"
+                      className="hidden items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-400 disabled:cursor-not-allowed md:inline-flex"
                     >
                       <UploadIcon className="mr-1.5 h-4 w-4" /> 上传文件
                     </button>
@@ -456,12 +456,12 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => setTemplatePanelOpen((value) => !value)}
                       aria-expanded={templatePanelOpen}
-                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500"
+                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-[18px] text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:py-2"
                     >
                       <TemplateIcon className="mr-1.5 h-4 w-4" /> 模板库
                     </button>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-0 md:gap-3">
                     {status !== "idle" && (
                       <span className="text-xs text-slate-500" aria-live="polite">{statusLabel}</span>
                     )}
@@ -481,7 +481,7 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => void startAuthoring()}
                       disabled={!canSubmit || status === "submitting"}
-                      className="inline-flex items-center rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-[18px] text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:px-5 md:py-2"
                     >
                       {status === "submitting" ? "生成中…" : "生成 Skill"}
                       <ArrowIcon className="ml-1.5 h-4 w-4" />
@@ -491,7 +491,7 @@ export default function HomeComposer({
               </div>
 
               {workspaceRecommendedPrompts.length > 0 && (
-                <div className="mt-4 flex flex-wrap justify-center gap-2" aria-label="推荐问题">
+                <div className="mt-7 flex flex-wrap justify-center gap-2 md:mt-4" aria-label="推荐问题">
                   {workspaceRecommendedPrompts.slice(0, 3).map((item) => (
                     <button
                       key={item.id}

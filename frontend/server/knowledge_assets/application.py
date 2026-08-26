@@ -1123,19 +1123,19 @@ class KnowledgeAssetApplication:
             item
             for item in (
                 {
-                    "id": "weekly-business-review",
-                    "label": "生成一份业务周报",
-                    "prompt": "基于已选择的数据与上下文生成一份业务周报，突出趋势、异常和可执行建议。",
+                    "id": "bluetooth-sop",
+                    "label": "把蓝牙反复断连的排查经验整理成售后可执行的 SOP",
+                    "prompt": "把已选择的蓝牙断连排查经验整理成售后可执行的 SOP，包含输入、步骤、证据和验收结果。",
                 },
                 {
-                    "id": "operations-monitoring",
-                    "label": "监控关键指标变化",
-                    "prompt": "监控关键指标变化，说明异常原因、影响范围和下一步处理建议。",
+                    "id": "regional-anomaly-analysis",
+                    "label": "用团队销售口径和本周门店 Excel 分析区域异常",
+                    "prompt": "结合已选择的团队销售口径和门店数据分析区域异常，说明证据、影响范围和下一步处理建议。",
                 },
                 {
-                    "id": "sop-runbook",
-                    "label": "把流程整理成 SOP",
-                    "prompt": "把已选择的业务流程整理成可执行 SOP，包含输入、步骤、证据和验收结果。",
+                    "id": "store-service-assistant",
+                    "label": "把门店服务规范和历史工单做成一线助手可调用的能力",
+                    "prompt": "把已选择的门店服务规范和历史工单整理成一线助手可调用的能力，包含边界、步骤、证据和验收结果。",
                 },
             )
         ]
