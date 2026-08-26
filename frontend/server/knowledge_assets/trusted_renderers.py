@@ -640,8 +640,8 @@ def _monitoring(model: MonitoringViewModel) -> str:
         f'<div class="observation-list">{observations or _empty("No observations in this revision.")}</div></section>'
         + f'<section class="panel chart-panel trend-panel"><div class="section-head"><div><p class="eyebrow">TREND</p><h2>Recent values</h2></div></div>{_svg_chart(series, "time", "value", "monitoring-trend")}</section></div>'
         + '<aside class="panel"><p class="eyebrow">ALERT CENTER</p><h2>Needs attention</h2>'
-        f'<div class="alert-list">{alerts or _empty("No active alert.")}</div><button class="text-action" type="button" data-artifact-event="acknowledge-alert" data-action="all">Acknowledge visible alerts</button><h3 class="subhead">Failure trace</h3>'
-        f'<ol class="trace-list trace-panel">{"".join(f"<li>{_e(item)}</li>" for item in model.failure_trace) or '<li class="quiet">No failure recorded.</li>'}</ol><button class="text-action" type="button" data-artifact-event="view-trace">View trace</button></aside></section>'
+        f'<div class="alert-list">{alerts or _empty("No active alert.")}</div><button class="text-action" type="button" data-artifact-event="context.reference" data-action="acknowledge-alert">Acknowledge visible alerts</button><h3 class="subhead">Failure trace</h3>'
+        f'<ol class="trace-list trace-panel">{"".join(f"<li>{_e(item)}</li>" for item in model.failure_trace) or '<li class="quiet">No failure recorded.</li>'}</ol><button class="text-action" type="button" data-artifact-event="context.reference" data-action="view-trace">View trace</button></aside></section>'
     )
 
 

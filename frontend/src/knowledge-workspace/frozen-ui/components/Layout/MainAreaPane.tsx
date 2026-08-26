@@ -64,6 +64,11 @@ function activeRevisionMatchesRoute(revision: Record<string, unknown> | null, fi
   if (!revision) return false;
   const urlRevisionId = searchParams.get('view_revision_id') || searchParams.get('revision_id');
   if (urlRevisionId && revision.id === urlRevisionId) return true;
+  // Published resources use an opaque published:// id in the route while
+  // their trusted ViewRevision remains keyed by the server-projected
+  // resource.viewRevisionId.  Keep this binding server-derived; do not infer
+  // a published revision from display names or URL business labels.
+  if (resource?.viewRevisionId && resource.viewRevisionId === revision.id) return true;
   const intent = revision.intent && typeof revision.intent === 'object'
     ? revision.intent as Record<string, unknown>
     : {};
