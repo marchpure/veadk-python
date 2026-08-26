@@ -281,7 +281,7 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-slate-50/50 p-4 pb-20 md:p-8">
-      <div className="mx-auto flex w-full max-w-7xl flex-1 min-w-0 flex-col">
+      <div className="mx-auto flex w-full max-w-7xl min-h-0 min-w-0 flex-1 flex-col">
         <ArtifactHeader
           title={isPublished ? publishedTitle : title}
           typeLabel={isPublished ? publishedTypeLabel : typeLabel}
@@ -315,7 +315,7 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
           </div>
         )}
 
-        <section className="mt-4 min-h-[620px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="mt-4 h-0 min-h-[620px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {canRenderHtml ? (
             <TrustedHtmlArtifactRenderer revision={revision as any} onEvent={handleEvent} />
           ) : (
