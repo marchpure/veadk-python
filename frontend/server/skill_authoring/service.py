@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Sequence
 from uuid import uuid4
 
 from .models import (
     AddCitationIntentPatch,
+    AgentTurnAccepted,
+    AgentTurnRequest,
+    AgentExecutionEvidence,
+    AgentRuntimeEvent,
     AuthoringErrorCode,
     AuthoringEvent,
     AuthoringOperation,
@@ -18,18 +20,31 @@ from .models import (
     ContextEnvelope,
     DraftManifest,
     DraftRevision,
+    GraphOntologyKindSpec,
+    KnowledgeKindSpec,
     PatchImpact,
     PatchProposal,
-    QueryPlan,
     ResolvedContext,
     Scope,
+    SemanticKindSpec,
     SetDescriptionPatch,
     SetPermissionScopePatch,
     SetQueryPlanPatch,
     SetRefreshPolicyPatch,
     SetSemanticMappingPatch,
+    SetSemanticMetricPatch,
+    SetSemanticDimensionPatch,
+    SetSemanticRelationshipPatch,
     SetThresholdPolicyPatch,
     SetTitlePatch,
+    SetDashboardKpiPatch,
+    SetDashboardChartPatch,
+    SetDashboardFilterPatch,
+    SetSopStepPatch,
+    SetSopConditionPatch,
+    SetSopToolRefPatch,
+    SetGraphEntityPatch,
+    SetGraphRelationPatch,
     SkillAuthoringError,
     SkillKind,
     TypedPatch,
@@ -67,6 +82,118 @@ class SkillAuthoringService:
         self.model_gateway = model_gateway
         self.worker3 = worker3
         self._locks: dict[str, asyncio.Lock] = {}
+        self._active_tasks: dict[str, asyncio.Task[object]] = {}
+        self._generation_guard = asyncio.Lock()
+        self._active_generations: dict[str, str] = {}
+
+    @property
+    def active_operation_ids(self) -> tuple[str, ...]:
+        return tuple(self._active_tasks)
+
+    @staticmethod
+    def _generation_key(envelope: ContextEnvelope) -> str:
+        """Return the durable conversation lane used for concurrency control."""
+
+        return (
+            f"{envelope.workspace_id}\0{envelope.caller_id}\0"
+            f"{envelope.conversation_id or 'default'}"
+        )
+
+    async def _claim_generation(
+        self,
+        envelope: ContextEnvelope,
+        operation: AuthoringOperation,
+        *,
+        idempotency_key: str | None,
+    ) -> tuple[AuthoringOperation, bool]:
+        """Atomically claim one conversation lane and optional idempotency key."""
+
+        generation_key = self._generation_key(envelope)
+        async with self._generation_guard:
+            operation_id, claimed, reason = await self.repository.claim_generation(
+                generation_key,
+                operation,
+                idempotency_key=idempotency_key,
+            )
+            if not claimed:
+                existing = await self.repository.get_operation(operation_id)
+                if existing is None:
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.NOT_FOUND,
+                        "durable generation operation is unavailable",
+                    )
+                if (
+                    existing.caller_id != envelope.caller_id
+                    or existing.workspace_id != envelope.workspace_id
+                    or existing.conversation_id != envelope.conversation_id
+                ):
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.PERMISSION_DENIED,
+                        "generation lane belongs to another caller",
+                    )
+                if reason == "active":
+                    raise SkillAuthoringError(
+                        AuthoringErrorCode.VALIDATION_FAILED,
+                        "当前对话已有回答正在生成，请先停止后再发送。",
+                        operation_id=operation_id,
+                    )
+                return existing, False
+            operation = operation.model_copy(update={"operation_id": operation_id})
+            self._active_generations[generation_key] = operation.operation_id
+            return operation, True
+
+    async def _release_generation(self, operation: AuthoringOperation) -> None:
+        for candidate, operation_id in tuple(self._active_generations.items()):
+            if operation_id == operation.operation_id:
+                self._active_generations.pop(candidate, None)
+        await self.repository.release_generation(operation.operation_id)
+
+    def _schedule_release(self, operation: AuthoringOperation) -> None:
+        asyncio.create_task(self._release_generation(operation))
+
+    def _on_generation_done(
+        self, completed: asyncio.Task[object], operation: AuthoringOperation
+    ) -> None:
+        """Finalize a detached turn without leaving an unhandled operation."""
+
+        self._active_tasks.pop(operation.operation_id, None)
+        asyncio.create_task(self._finalize_generation_task(completed, operation))
+
+    async def _finalize_generation_task(
+        self, completed: asyncio.Task[object], operation: AuthoringOperation
+    ) -> None:
+        try:
+            if completed.cancelled():
+                return
+            error = completed.exception()
+            if error is not None:
+                current = await self.repository.get_operation(operation.operation_id)
+                if current is not None and current.status not in {
+                    AuthoringStatus.SUCCEEDED,
+                    AuthoringStatus.FAILED,
+                    AuthoringStatus.CANCELLED,
+                    AuthoringStatus.AWAITING_INPUT,
+                    AuthoringStatus.CREDENTIAL_BLOCKED,
+                }:
+                    await self._finish_answer_failure(
+                        current,
+                        SkillAuthoringError(
+                            AuthoringErrorCode.MODEL_UNAVAILABLE,
+                            "Agent execution failed unexpectedly; you can retry this operation.",
+                            operation_id=current.operation_id,
+                        ),
+                    )
+        finally:
+            await self._release_generation(operation)
+
+    def _execution_evidence(self, request_id: str) -> AgentExecutionEvidence | None:
+        lookup = getattr(self.model_gateway, "execution_evidence_for", None)
+        if callable(lookup):
+            evidence = lookup(request_id)
+            if isinstance(evidence, AgentExecutionEvidence):
+                return evidence
+        evidence = getattr(self.model_gateway, "execution_evidence", None)
+        return evidence if isinstance(evidence, AgentExecutionEvidence) else None
 
     async def create_draft(
         self,
@@ -75,26 +202,36 @@ class SkillAuthoringService:
         requested_kind: SkillKind | None = None,
         scope: Scope = Scope.PERSONAL,
         display_name: str | None = None,
+        _operation: AuthoringOperation | None = None,
+        _context: ResolvedContext | None = None,
+        _auto_execute: bool = False,
     ) -> AuthoringReadModel:
-        operation = AuthoringOperation(
+        operation = _operation or AuthoringOperation(
             operation_id=f"op_{uuid4().hex}",
             operation_type="create_draft",
             status=AuthoringStatus.QUEUED,
             caller_id=envelope.caller_id,
             workspace_id=envelope.workspace_id,
+            conversation_id=envelope.conversation_id,
             trace_id=f"trace_{uuid4().hex}",
         )
+        if _operation is not None:
+            operation = operation.model_copy(
+                update={"operation_type": "create_draft", "updated_at": utc_now()}
+            )
         await self.repository.save_operation(operation)
-        await self.repository.save_create_request(
-            operation.operation_id,
-            CreateDraftRequest(
-                envelope=envelope,
-                requested_kind=requested_kind,
-                scope=scope,
-                display_name=display_name,
-            ),
-        )
-        await self._event(operation, "operation_created", {})
+        if _operation is None:
+            await self.repository.save_authoring_request(
+                operation.operation_id,
+                CreateDraftRequest(
+                    envelope=envelope,
+                    requested_kind=requested_kind,
+                    scope=scope,
+                    display_name=display_name,
+                ),
+            )
+        if _operation is None:
+            await self._event(operation, "operation_created", {})
         try:
             operation = operation.model_copy(
                 update={
@@ -104,15 +241,17 @@ class SkillAuthoringService:
                 }
             )
             await self.repository.save_operation(operation)
-            context = await self.resolver.resolve(envelope, envelope.resource_refs)
-            await self._event(
-                operation,
-                "context_resolved",
-                {
-                    "context_digest": context.context_digest,
-                    "resource_count": str(len(context.resources)),
-                },
-            )
+            context = _context
+            if context is None:
+                context = await self.resolver.resolve(envelope, envelope.resource_refs)
+                await self._event(
+                    operation,
+                    "context_resolved",
+                    {
+                        "context_digest": context.context_digest,
+                        "resource_count": str(len(context.resources)),
+                    },
+                )
             operation = operation.model_copy(
                 update={
                     "stage": "context_resolved",
@@ -126,10 +265,23 @@ class SkillAuthoringService:
                     AuthoringErrorCode.AMBIGUOUS,
                     "choose at least one resource before creating a skill",
                 )
+
+            async def persist_runtime_event(event: AgentRuntimeEvent) -> None:
+                await self._event(
+                    operation,
+                    event.type,
+                    dict(event.payload),
+                    summary=event.public_summary,
+                    session_id=event.session_id,
+                    trace_id=event.trace_id,
+                )
+
             try:
                 plan = await asyncio.wait_for(
                     self.model_gateway.propose_plan(
-                        context, requested_kind=requested_kind
+                        context,
+                        requested_kind=requested_kind,
+                        event_sink=persist_runtime_event,
                     ),
                     timeout=envelope.budget.timeout_ms / 1000,
                 )
@@ -139,9 +291,7 @@ class SkillAuthoringService:
                     "model gateway timed out",
                     operation_id=operation.operation_id,
                 ) from error
-            execution_evidence = getattr(
-                self.model_gateway, "execution_evidence", None
-            )
+            execution_evidence = self._execution_evidence(envelope.request_id)
             if execution_evidence is not None:
                 operation = operation.model_copy(
                     update={
@@ -169,7 +319,27 @@ class SkillAuthoringService:
             await self._event(
                 operation,
                 "plan_proposed",
-                {"plan_id": plan.plan_id, "plan_digest": plan.plan_digest},
+                {
+                    "plan_id": plan.plan_id,
+                    "plan_digest": plan.plan_digest,
+                    "steps": [
+                        {
+                            "id": "resolve_context",
+                            "label": "解析上下文",
+                            "status": "completed",
+                        },
+                        {
+                            "id": "build_plan",
+                            "label": "生成 Skill 方案",
+                            "status": "completed",
+                        },
+                        {
+                            "id": "save_revision",
+                            "label": "保存 Skill 修订",
+                            "status": "running",
+                        },
+                    ],
+                },
             )
             if plan.clarification_questions:
                 operation = operation.model_copy(
@@ -184,7 +354,17 @@ class SkillAuthoringService:
                 await self._event(
                     operation,
                     "clarification_required",
-                    {"question_count": str(len(plan.clarification_questions))},
+                    {
+                        "question_count": str(len(plan.clarification_questions)),
+                        "clarification_questions": list(plan.clarification_questions),
+                    },
+                )
+                await self._event(
+                    operation,
+                    "operation.completed",
+                    {"status": operation.status.value},
+                    summary="Waiting for clarification",
+                    terminal=True,
                 )
                 return AuthoringReadModel(
                     operation=operation,
@@ -215,14 +395,41 @@ class SkillAuthoringService:
             await self.repository.save_operation(operation)
             await self._event(
                 operation,
-                "draft_created",
-                {"draft_id": draft.draft_id, "revision": str(draft.revision)},
+                "plan.step.completed",
+                {"step_id": "save_revision"},
+                summary="Skill revision saved",
+            )
+            inline_execution = _auto_execute and getattr(
+                self.worker3, "supports_inline_execution", False
+            )
+            if not inline_execution:
+                await self._event(
+                    operation,
+                    "draft_created",
+                    {"draft_id": draft.draft_id, "revision": str(draft.revision)},
+                )
+            if inline_execution:
+                return await self.request_execution(
+                    draft.draft_id,
+                    caller_id=envelope.caller_id,
+                    revision=draft.revision,
+                    _operation=operation,
+                )
+            await self._event(
+                operation,
+                "operation.completed",
+                {
+                    "status": operation.status.value,
+                    "draft_id": draft.draft_id,
+                    "revision": draft.revision,
+                },
+                summary="Skill draft ready",
+                terminal=True,
             )
             return await self.read_operation(operation.operation_id)
+
         except SkillAuthoringError as error:
-            execution_evidence = getattr(
-                self.model_gateway, "execution_evidence", None
-            )
+            execution_evidence = self._execution_evidence(envelope.request_id)
             status = (
                 AuthoringStatus.CREDENTIAL_BLOCKED
                 if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
@@ -242,7 +449,9 @@ class SkillAuthoringService:
                         if error.code == AuthoringErrorCode.AMBIGUOUS
                         else "failed"
                     ),
-                    "progress": 60 if error.code == AuthoringErrorCode.AMBIGUOUS else 100,
+                    "progress": 60
+                    if error.code == AuthoringErrorCode.AMBIGUOUS
+                    else 100,
                     "updated_at": utc_now(),
                     "agent_execution": execution_evidence,
                     "trace_id": (
@@ -253,18 +462,581 @@ class SkillAuthoringService:
                     ),
                 }
             )
+            if error.code == AuthoringErrorCode.AMBIGUOUS:
+                questions = (
+                    "请先选择一个已授权的数据资源（固定 revision），再创建 Skill。",
+                )
+                operation = operation.model_copy(
+                    update={"clarification_questions": questions}
+                )
             await self.repository.save_operation(operation)
-            event_type = (
-                "credential_blocked"
-                if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
-                else "operation_failed"
+            if error.code == AuthoringErrorCode.AMBIGUOUS:
+                await self._event(
+                    operation,
+                    "answer.final",
+                    {
+                        "status": "awaiting_input",
+                        "clarification_questions": list(questions),
+                    },
+                    summary="Clarification required",
+                )
+                await self._event(
+                    operation,
+                    "operation.completed",
+                    {
+                        "status": operation.status.value,
+                        "clarification_questions": list(questions),
+                    },
+                    summary="Waiting for clarification",
+                    terminal=True,
+                )
+            else:
+                event_type = (
+                    "credential_blocked"
+                    if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
+                    else "operation_failed"
+                )
+                await self._event(
+                    operation,
+                    event_type,
+                    {"code": error.code.value, "message": error.message[:240]},
+                    terminal=True,
+                )
+            return await self.read_operation(operation.operation_id)
+
+    async def start_turn(
+        self,
+        envelope: ContextEnvelope,
+        *,
+        requested_kind: SkillKind | None = None,
+        scope: Scope = Scope.PERSONAL,
+        display_name: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> AgentTurnAccepted:
+        """Start one routed Agent turn and return before model execution finishes."""
+
+        operation = AuthoringOperation(
+            operation_id=f"op_{uuid4().hex}",
+            operation_type="answer",
+            status=AuthoringStatus.QUEUED,
+            caller_id=envelope.caller_id,
+            workspace_id=envelope.workspace_id,
+            conversation_id=envelope.conversation_id,
+            trace_id=f"trace_{uuid4().hex}",
+        )
+        operation, claimed = await self._claim_generation(
+            envelope,
+            operation,
+            idempotency_key=idempotency_key,
+        )
+        if not claimed:
+            return AgentTurnAccepted(
+                operation_id=operation.operation_id,
+                action="routing",
+                status=operation.status,
+            )
+        turn_request = AgentTurnRequest(
+            envelope=envelope,
+            requested_kind=requested_kind,
+            scope=scope,
+            display_name=display_name,
+        )
+        await self.repository.save_authoring_request(
+            operation.operation_id, turn_request
+        )
+        await self._event(
+            operation,
+            "message.accepted",
+            {"request_id": envelope.request_id},
+            summary="Message accepted",
+        )
+        task = asyncio.create_task(
+            self._run_turn(
+                operation,
+                envelope,
+                requested_kind=requested_kind,
+                scope=scope,
+                display_name=display_name,
+            )
+        )
+        self._active_tasks[operation.operation_id] = task
+        task.add_done_callback(
+            lambda completed: self._on_generation_done(completed, operation)
+        )
+        return AgentTurnAccepted(
+            operation_id=operation.operation_id,
+            action="routing",
+            status=operation.status,
+        )
+
+    async def _run_turn(
+        self,
+        operation: AuthoringOperation,
+        envelope: ContextEnvelope,
+        *,
+        requested_kind: SkillKind | None,
+        scope: Scope,
+        display_name: str | None,
+    ) -> AuthoringReadModel:
+        try:
+            operation = operation.model_copy(
+                update={
+                    "status": AuthoringStatus.PLANNING,
+                    "stage": "planning",
+                    "progress": 10,
+                    "updated_at": utc_now(),
+                }
+            )
+            await self.repository.save_operation(operation)
+            await self._event(
+                operation,
+                "context.resolving",
+                {"resource_count": len(envelope.resource_refs)},
+                summary="Resolving authorized context",
+            )
+            context = await self.resolver.resolve(envelope, envelope.resource_refs)
+            operation = operation.model_copy(
+                update={
+                    "context_digest": context.context_digest,
+                    "stage": "context_resolved",
+                    "progress": 20,
+                    "updated_at": utc_now(),
+                }
+            )
+            await self.repository.save_operation(operation)
+            await self._event(
+                operation,
+                "context.resolved",
+                {
+                    "context_digest": context.context_digest,
+                    "resource_count": len(context.resources),
+                },
+                summary=f"Resolved {len(context.resources)} authorized context items",
             )
             await self._event(
                 operation,
-                event_type,
-                {"code": error.code.value, "message": error.message[:240]},
+                "agent.started",
+                {"role": "router"},
+                summary="Routing request",
+            )
+            intent = await asyncio.wait_for(
+                self.model_gateway.route(context),
+                timeout=envelope.budget.timeout_ms / 1000,
+            )
+            # Routing is a real VEADK Agent/Runner invocation too. Persist its
+            # bounded evidence before branching into answer/create/patch/
+            # execute so every routed turn exposes the same durable execution
+            # identity and keeps one operation/trace across the whole journey.
+            execution_evidence = self._execution_evidence(envelope.request_id)
+            if execution_evidence is not None:
+                operation = operation.model_copy(
+                    update={
+                        "agent_execution": execution_evidence,
+                        "trace_id": (
+                            execution_evidence.trace_id
+                            if execution_evidence.trace_id != "unavailable"
+                            else operation.trace_id
+                        ),
+                        "updated_at": utc_now(),
+                    }
+                )
+                await self.repository.save_operation(operation)
+                await self._event(
+                    operation,
+                    "agent_execution",
+                    {
+                        "session_id": execution_evidence.session_id,
+                        "trace_id": execution_evidence.trace_id,
+                        "status": execution_evidence.status,
+                        "event_count": str(len(execution_evidence.events)),
+                        "tool_call_count": str(len(execution_evidence.tool_calls)),
+                    },
+                    summary="Agent routing completed",
+                    session_id=execution_evidence.session_id,
+                    trace_id=execution_evidence.trace_id,
+                )
+        except asyncio.CancelledError:
+            stored = await self.repository.get_operation(operation.operation_id)
+            if stored is not None and stored.status == AuthoringStatus.CANCELLED:
+                return await self.read_operation(operation.operation_id)
+            raise
+        except asyncio.TimeoutError:
+            return await self._finish_answer_failure(
+                operation,
+                SkillAuthoringError(
+                    AuthoringErrorCode.MODEL_TIMEOUT, "VEADK Runner timed out"
+                ),
+            )
+        except SkillAuthoringError as error:
+            return await self._finish_answer_failure(operation, error)
+
+        if intent.action == "patch":
+            if not envelope.current_skill_id:
+                return await self._finish_answer_failure(
+                    operation,
+                    SkillAuthoringError(
+                        AuthoringErrorCode.INVALID_CONTEXT,
+                        "请先选择一个可编辑的 Skill 草稿。",
+                    ),
+                )
+            draft = await self.repository.get_draft(envelope.current_skill_id)
+            if draft is None:
+                return await self._finish_answer_failure(
+                    operation,
+                    SkillAuthoringError(
+                        AuthoringErrorCode.NOT_FOUND,
+                        "当前 Skill 草稿不存在或已不可用。",
+                    ),
+                )
+            try:
+                proposal = await self.propose_patch(
+                    draft.draft_id,
+                    base_revision=int(intent.base_revision or draft.revision),
+                    patch=intent.patch,  # validated by AgentIntent
+                    proposed_by=envelope.caller_id,
+                    _operation=operation,
+                )
+                read = await self.accept_patch(
+                    proposal,
+                    caller_id=envelope.caller_id,
+                    operation_id=operation.operation_id,
+                )
+                # A data/semantic/SOP/graph patch must produce a new
+                # ViewRevision in the same durable operation.  Presentation
+                # only patches intentionally stop after the draft revision.
+                if proposal.impact.requires_rerun:
+                    return await self.request_execution(
+                        proposal.draft_id,
+                        caller_id=envelope.caller_id,
+                        revision=proposal.new_revision,
+                        _operation=read.operation,
+                    )
+                return read
+            except SkillAuthoringError as error:
+                return await self._finish_answer_failure(operation, error)
+        if intent.action == "execute":
+            if not envelope.current_skill_id:
+                return await self._finish_answer_failure(
+                    operation,
+                    SkillAuthoringError(
+                        AuthoringErrorCode.INVALID_CONTEXT,
+                        "请先选择一个可执行的 Skill 草稿。",
+                    ),
+                )
+            draft = await self.repository.get_draft(envelope.current_skill_id)
+            if draft is None:
+                return await self._finish_answer_failure(
+                    operation,
+                    SkillAuthoringError(
+                        AuthoringErrorCode.NOT_FOUND,
+                        "当前 Skill 草稿不存在或已不可用。",
+                    ),
+                )
+            try:
+                # Keep routing, authorization, fixed-lineage resolution, and
+                # Worker 3 execution on the same durable operation. The
+                # execution service re-resolves the draft lineage under the
+                # authenticated caller before handing it to Worker 3.
+                return await self.request_execution(
+                    draft.draft_id,
+                    caller_id=envelope.caller_id,
+                    revision=draft.revision,
+                    _operation=operation,
+                )
+            except SkillAuthoringError as error:
+                return await self._finish_answer_failure(operation, error)
+        if intent.action == "awaiting_input":
+            operation = operation.model_copy(
+                update={
+                    "status": AuthoringStatus.AWAITING_INPUT,
+                    "clarification_questions": intent.clarification_questions,
+                    "stage": "clarification",
+                    "progress": 100,
+                    "updated_at": utc_now(),
+                }
+            )
+            await self.repository.save_operation(operation)
+            await self._event(
+                operation,
+                "answer.final",
+                {
+                    "status": "awaiting_input",
+                    "clarification_questions": list(intent.clarification_questions),
+                },
+                summary="Clarification required",
+                terminal=False,
+            )
+            await self._event(
+                operation,
+                "operation.completed",
+                {"status": operation.status.value},
+                summary="Waiting for clarification",
+                terminal=True,
             )
             return await self.read_operation(operation.operation_id)
+
+        if intent.action == "create_skill":
+            return await self.create_draft(
+                envelope,
+                # An explicit kind supplied by the caller is part of the
+                # authenticated command context. The router may classify the
+                # action, but it must not silently change the requested
+                # renderer/contract kind.
+                requested_kind=requested_kind or intent.requested_kind,
+                scope=scope,
+                display_name=display_name,
+                _operation=operation,
+                _context=context,
+                _auto_execute=True,
+            )
+        return await self.answer(
+            envelope,
+            _operation=operation,
+            _context=context,
+        )
+
+    async def answer(
+        self,
+        envelope: ContextEnvelope,
+        *,
+        _operation: AuthoringOperation | None = None,
+        _context: ResolvedContext | None = None,
+    ) -> AuthoringReadModel:
+        """Persist an ordinary Agent answer as a resumable public timeline."""
+
+        operation = _operation
+        owns_task_registration = operation is None
+        if operation is None:
+            operation = AuthoringOperation(
+                operation_id=f"op_{uuid4().hex}",
+                operation_type="answer",
+                status=AuthoringStatus.QUEUED,
+                caller_id=envelope.caller_id,
+                workspace_id=envelope.workspace_id,
+                conversation_id=envelope.conversation_id,
+                trace_id=f"trace_{uuid4().hex}",
+            )
+            await self.repository.save_operation(operation)
+            await self._event(
+                operation,
+                "message.accepted",
+                {"request_id": envelope.request_id},
+                summary="Message accepted",
+            )
+        assert operation is not None
+        active_operation = operation
+        current_task = asyncio.current_task()
+        if owns_task_registration and current_task is not None:
+            self._active_tasks[active_operation.operation_id] = current_task
+        emitted_answer_delta = False
+
+        async def persist_runtime_event(event: AgentRuntimeEvent) -> None:
+            nonlocal emitted_answer_delta
+            if event.type == "answer.delta":
+                emitted_answer_delta = True
+            await self._event(
+                active_operation,
+                event.type,
+                dict(event.payload),
+                summary=event.public_summary,
+                session_id=event.session_id,
+                trace_id=event.trace_id,
+            )
+
+        try:
+            operation = operation.model_copy(
+                update={
+                    "status": AuthoringStatus.PLANNING,
+                    "stage": "planning",
+                    "progress": 10,
+                }
+            )
+            await self.repository.save_operation(operation)
+            context = _context
+            if context is None:
+                await self._event(
+                    operation,
+                    "context.resolving",
+                    {"resource_count": len(envelope.resource_refs)},
+                    summary="Resolving authorized context",
+                )
+                context = await self.resolver.resolve(envelope, envelope.resource_refs)
+                operation = operation.model_copy(
+                    update={
+                        "context_digest": context.context_digest,
+                        "stage": "context_resolved",
+                        "progress": 30,
+                    }
+                )
+                await self.repository.save_operation(operation)
+                await self._event(
+                    operation,
+                    "context.resolved",
+                    {
+                        "context_digest": context.context_digest,
+                        "resource_count": len(context.resources),
+                    },
+                    summary=(
+                        f"Resolved {len(context.resources)} authorized context items"
+                    ),
+                )
+            await self._event(
+                operation,
+                "agent.started",
+                {"role": "answer"},
+                summary="Answering request",
+            )
+            answer = await asyncio.wait_for(
+                self.model_gateway.answer(
+                    context,
+                    event_sink=persist_runtime_event,
+                ),
+                timeout=envelope.budget.timeout_ms / 1000,
+            )
+            execution = self._execution_evidence(envelope.request_id)
+            if execution is not None:
+                operation = operation.model_copy(
+                    update={
+                        "agent_execution": execution,
+                        "trace_id": (
+                            execution.trace_id
+                            if execution.trace_id != "unavailable"
+                            else operation.trace_id
+                        ),
+                    }
+                )
+                await self.repository.save_operation(operation)
+            if answer.status == "succeeded":
+                if not emitted_answer_delta:
+                    await self._event(
+                        operation,
+                        "answer.delta",
+                        {"text": answer.text or ""},
+                        summary="Answer received",
+                    )
+                terminal_payload: dict[str, object] = {
+                    "status": answer.status,
+                    "text": answer.text or "",
+                    "citations": [
+                        item.model_dump(mode="json") for item in answer.citations
+                    ],
+                }
+                status = AuthoringStatus.SUCCEEDED
+            else:
+                terminal_payload = {
+                    "status": answer.status,
+                    "clarification_questions": list(answer.clarification_questions),
+                }
+                status = AuthoringStatus.AWAITING_INPUT
+            operation = operation.model_copy(
+                update={
+                    "status": status,
+                    "stage": (
+                        "clarification"
+                        if status == AuthoringStatus.AWAITING_INPUT
+                        else "draft_ready"
+                    ),
+                    "progress": 100,
+                    "clarification_questions": answer.clarification_questions,
+                    "updated_at": utc_now(),
+                }
+            )
+            await self.repository.save_operation(operation)
+            await self._event(
+                operation,
+                "answer.final",
+                terminal_payload,
+                summary=(
+                    "Clarification required"
+                    if status == AuthoringStatus.AWAITING_INPUT
+                    else "Answer ready"
+                ),
+                terminal=False,
+            )
+            await self._event(
+                operation,
+                "operation.completed",
+                {"status": status.value},
+                summary=(
+                    "Waiting for clarification"
+                    if status == AuthoringStatus.AWAITING_INPUT
+                    else "Answer completed"
+                ),
+                terminal=True,
+            )
+            return AuthoringReadModel(
+                operation=operation,
+                answer=answer,
+                events=await self.repository.list_events(operation.operation_id),
+            )
+        except asyncio.TimeoutError:
+            failure = SkillAuthoringError(
+                AuthoringErrorCode.MODEL_TIMEOUT, "VEADK Runner timed out"
+            )
+            return await self._finish_answer_failure(operation, failure)
+        except asyncio.CancelledError:
+            stored = await self.repository.get_operation(operation.operation_id)
+            if stored is not None and stored.status == AuthoringStatus.CANCELLED:
+                return await self.read_operation(operation.operation_id)
+            raise
+        except SkillAuthoringError as error:
+            return await self._finish_answer_failure(operation, error)
+        finally:
+            if (
+                owns_task_registration
+                and self._active_tasks.get(operation.operation_id) is current_task
+            ):
+                self._active_tasks.pop(operation.operation_id, None)
+
+    async def _finish_answer_failure(
+        self,
+        operation: AuthoringOperation,
+        error: SkillAuthoringError,
+    ) -> AuthoringReadModel:
+        request = await self.repository.get_authoring_request(operation.operation_id)
+        request_id = (
+            request.envelope.request_id
+            if isinstance(request, (AgentTurnRequest, CreateDraftRequest))
+            else ""
+        )
+        execution = self._execution_evidence(request_id)
+        status = (
+            AuthoringStatus.CREDENTIAL_BLOCKED
+            if error.code == AuthoringErrorCode.CREDENTIAL_BLOCKED
+            else AuthoringStatus.FAILED
+        )
+        failed = operation.model_copy(
+            update={
+                "status": status,
+                "stage": (
+                    "credential_blocked"
+                    if status == AuthoringStatus.CREDENTIAL_BLOCKED
+                    else "failed"
+                ),
+                "progress": 100,
+                "error_code": error.code,
+                "error_message": error.message,
+                "agent_execution": execution,
+                "trace_id": (
+                    execution.trace_id
+                    if execution is not None and execution.trace_id != "unavailable"
+                    else operation.trace_id
+                ),
+                "updated_at": utc_now(),
+            }
+        )
+        await self.repository.save_operation(failed)
+        await self._event(
+            failed,
+            "operation.failed",
+            {"code": error.code.value, "message": error.message[:240]},
+            summary=error.message[:500],
+            terminal=True,
+        )
+        return AuthoringReadModel(
+            operation=failed,
+            events=await self.repository.list_events(failed.operation_id),
+        )
 
     async def propose_patch(
         self,
@@ -273,6 +1045,7 @@ class SkillAuthoringService:
         base_revision: int,
         patch: TypedPatch,
         proposed_by: str,
+        _operation: AuthoringOperation | None = None,
     ) -> PatchProposal:
         draft = await self.repository.get_draft(draft_id, base_revision)
         if draft is None:
@@ -306,11 +1079,18 @@ class SkillAuthoringService:
                 "permission patch cannot exceed server-authorized capabilities",
             )
         impact = self._impact(patch)
-        operation = await self._new_operation(
+        preview = self._apply_patch(draft, patch)
+        before = self._patch_snapshot(draft, patch)
+        after = self._patch_snapshot(preview, patch)
+        operation = _operation or await self._new_operation(
             operation_type="propose_patch",
             caller_id=proposed_by,
             draft_id=draft_id,
         )
+        if _operation is not None:
+            operation = operation.model_copy(
+                update={"draft_id": draft_id, "updated_at": utc_now()}
+            )
         proposal = PatchProposal(
             operation_id=operation.operation_id,
             draft_id=draft_id,
@@ -318,6 +1098,11 @@ class SkillAuthoringService:
             patch=patch,
             impact=impact,
             proposed_by=proposed_by,
+            before=before,
+            after=after,
+            base_digest=draft.digest,
+            new_digest=preview.digest,
+            new_revision=preview.revision,
         )
         operation = operation.model_copy(
             update={
@@ -325,6 +1110,7 @@ class SkillAuthoringService:
                 "patch_id": proposal.patch_id,
                 "stage": "patch_ready",
                 "progress": 100,
+                "current_revision": base_revision,
             }
         )
         await self.repository.save_patch(proposal)
@@ -336,7 +1122,20 @@ class SkillAuthoringService:
                 "patch_id": proposal.patch_id,
                 "base_revision": str(base_revision),
                 "requires_rerun": str(impact.requires_rerun).lower(),
+                "before": before,
+                "after": after,
+                "base_digest": draft.digest,
+                "new_digest": preview.digest,
+                "new_revision": preview.revision,
+                "steps": [
+                    {
+                        "id": "patch_proposal",
+                        "label": impact.summary,
+                        "status": "completed",
+                    }
+                ],
             },
+            summary=impact.summary,
         )
         return proposal
 
@@ -347,12 +1146,18 @@ class SkillAuthoringService:
         caller_id: str,
         operation_id: str | None = None,
     ) -> AuthoringReadModel:
-        operation = await self._new_operation(
-            operation_type="accept_patch",
-            caller_id=caller_id,
-            draft_id=proposal.draft_id,
-            operation_id=operation_id,
+        operation = (
+            await self.repository.get_operation(operation_id)
+            if operation_id
+            else None
         )
+        if operation is None:
+            operation = await self._new_operation(
+                operation_type="accept_patch",
+                caller_id=caller_id,
+                draft_id=proposal.draft_id,
+                operation_id=operation_id,
+            )
         lock = self._locks.setdefault(proposal.draft_id, asyncio.Lock())
         async with lock:
             current = await self.repository.get_draft(proposal.draft_id)
@@ -360,7 +1165,10 @@ class SkillAuthoringService:
                 raise SkillAuthoringError(
                     AuthoringErrorCode.NOT_FOUND, "draft was not found"
                 )
-            if current.owner_id != caller_id and current.promotion_state != "team_read_only":
+            if (
+                current.owner_id != caller_id
+                and current.promotion_state != "team_read_only"
+            ):
                 raise SkillAuthoringError(
                     AuthoringErrorCode.PERMISSION_DENIED,
                     "caller does not own this personal draft",
@@ -403,14 +1211,41 @@ class SkillAuthoringService:
                 }
             )
             await self.repository.save_operation(operation)
+            # For routed turns, the proposal already lives in this operation.
+            # Emit the acceptance transition once; the following explicit
+            # artifact event is the only revision card payload.
             await self._event(
                 operation,
                 "patch_accepted",
                 {
+                    "step_id": "patch_proposal",
                     "draft_id": next_draft.draft_id,
                     "revision": str(next_draft.revision),
                     "requires_rerun": str(proposal.impact.requires_rerun).lower(),
+                    "before": dict(proposal.before),
+                    "after": dict(proposal.after),
+                    "base_revision": proposal.base_revision,
+                    "new_revision": next_draft.revision,
+                    "base_digest": proposal.base_digest or current.digest,
+                    "new_digest": next_draft.digest,
                 },
+                summary="Patch accepted",
+            )
+            await self._event(
+                operation,
+                "artifact.revision.created",
+                {
+                    "artifact_id": next_draft.draft_id,
+                    "draft_id": next_draft.draft_id,
+                    "revision": next_draft.revision,
+                    "base_revision": proposal.base_revision,
+                    "new_revision": next_draft.revision,
+                    "base_digest": proposal.base_digest or current.digest,
+                    "new_digest": next_draft.digest,
+                    "view_revision_id": proposal.view_revision_id,
+                    "label": f"{next_draft.manifest.name} revision {next_draft.revision}",
+                },
+                summary="Skill revision created",
             )
             await self._save_patch_status(proposal, "accepted")
             return await self.read_operation(operation.operation_id)
@@ -438,19 +1273,19 @@ class SkillAuthoringService:
         )
         await self._save_patch_status(proposal, "rejected")
         operation = operation.model_copy(
-            update={"status": AuthoringStatus.SUCCEEDED, "stage": "patch_ready", "progress": 100}
+            update={
+                "status": AuthoringStatus.SUCCEEDED,
+                "stage": "patch_ready",
+                "progress": 100,
+            }
         )
         await self.repository.save_operation(operation)
         return await self.read_operation(operation.operation_id)
 
-    async def _save_patch_status(
-        self, proposal: PatchProposal, status: str
-    ) -> None:
+    async def _save_patch_status(self, proposal: PatchProposal, status: str) -> None:
         await self.repository.save_patch(proposal.model_copy(update={"status": status}))
 
-    async def repair_comment(
-        self, request: CommentRepairRequest
-    ) -> PatchProposal:
+    async def repair_comment(self, request: CommentRepairRequest) -> PatchProposal:
         proposal = await self.propose_patch(
             request.draft_id,
             base_revision=request.base_revision,
@@ -472,10 +1307,7 @@ class SkillAuthoringService:
                 "batch comment repair must target one draft",
             )
         proposals = tuple(
-            [
-                await self.repair_comment(item)
-                for item in request.requests
-            ]
+            [await self.repair_comment(item) for item in request.requests]
         )
         operation = await self._new_operation(
             operation_type="comment_repair_batch",
@@ -545,12 +1377,20 @@ class SkillAuthoringService:
         await self._event(
             operation,
             "undo_applied",
-            {"target_revision": str(target_revision), "revision": str(restored.revision)},
+            {
+                "target_revision": str(target_revision),
+                "revision": str(restored.revision),
+            },
         )
         return await self.read_operation(operation.operation_id)
 
     async def request_execution(
-        self, draft_id: str, *, caller_id: str, revision: int | None = None
+        self,
+        draft_id: str,
+        *,
+        caller_id: str,
+        revision: int | None = None,
+        _operation: AuthoringOperation | None = None,
     ) -> AuthoringReadModel:
         draft = await self.repository.get_draft(draft_id, revision)
         if draft is None:
@@ -572,11 +1412,20 @@ class SkillAuthoringService:
             ),
             draft.lineage,
         )
-        operation = await self._new_operation(
+        operation = _operation or await self._new_operation(
             operation_type="execute_draft",
             caller_id=caller_id,
             draft_id=draft_id,
         )
+        if _operation is not None:
+            operation = operation.model_copy(
+                update={
+                    "operation_type": "execute_draft",
+                    "draft_id": draft_id,
+                    "current_revision": draft.revision,
+                    "updated_at": utc_now(),
+                }
+            )
         request = Worker3ExecutionRequest(
             operation_id=operation.operation_id,
             draft_id=draft.draft_id,
@@ -619,8 +1468,16 @@ class SkillAuthoringService:
                     else "execution_queued"
                 ),
                 "progress": 100 if accepted_state == "accepted" else 85,
-                "artifact_result": getattr(accepted, "artifact_result", None),
-                "execution_result": getattr(accepted, "execution_result", None),
+                # Worker 3 owns the full result objects.  AuthoringOperation
+                # is also exposed by the BFF read model, so persist only
+                # bounded public summaries here; the event feed must never
+                # become a raw artifact/result transport.
+                "artifact_result": self._public_result_summary(
+                    getattr(accepted, "artifact_result", None)
+                ),
+                "execution_result": self._public_result_summary(
+                    getattr(accepted, "execution_result", None)
+                ),
                 "error_code": (
                     AuthoringErrorCode.EXECUTION_BLOCKED
                     if accepted_state in {"credential_blocked", "failed"}
@@ -634,6 +1491,35 @@ class SkillAuthoringService:
                 ),
             }
         )
+        accepted_view_revision = getattr(accepted, "view_revision", None)
+        accepted_view_revision_id = getattr(accepted, "view_revision_id", None)
+        if accepted_view_revision_id or accepted_view_revision:
+            public_view_revision = self._public_view_revision_summary(
+                accepted_view_revision,
+                view_revision_id=accepted_view_revision_id,
+            )
+            await self._event(
+                operation,
+                "artifact.revision.created",
+                {
+                    "artifact_id": (
+                        f"{draft.draft_id}:view:{accepted_view_revision_id}"
+                        if accepted_view_revision_id
+                        else draft.draft_id
+                    ),
+                    "draft_id": draft.draft_id,
+                    "revision": draft.revision,
+                    "view_revision_id": accepted_view_revision_id,
+                    "view_revision_summary": public_view_revision,
+                    "label": f"{draft.manifest.name} ViewRevision",
+                },
+                summary="ViewRevision created",
+            )
+        await self._emit_execution_answer(
+            operation,
+            draft=draft,
+            view_revision_id=accepted_view_revision_id,
+        )
         await self.repository.save_operation(operation)
         await self._event(
             operation,
@@ -645,9 +1531,85 @@ class SkillAuthoringService:
                 "reason": str(accepted_reason or ""),
             },
         )
+        if accepted_state == "accepted":
+            await self._event(
+                operation,
+                "operation.completed",
+                {
+                    "status": operation.status.value,
+                    "draft_id": draft_id,
+                    "revision": draft.revision,
+                    "view_revision_id": accepted_view_revision_id,
+                },
+                summary="Execution and ViewRevision completed",
+                terminal=True,
+            )
         return await self.read_operation(operation.operation_id)
 
-    async def submit_team_review(self, request: TeamReviewRequest) -> AuthoringReadModel:
+    async def _emit_execution_answer(
+        self,
+        operation: AuthoringOperation,
+        *,
+        draft: DraftRevision,
+        view_revision_id: str | None,
+    ) -> None:
+        """Publish a safe, readable completion summary for authoring actions.
+
+        Creation and execution turns return typed plans/artifacts rather than a
+        free-form model answer.  The summary is derived only from the
+        already-authorized draft, fixed lineage, and bounded Worker 3 result;
+        it never copies model reasoning or raw tool output into the timeline.
+        """
+
+        revision = draft.revision
+        source_summary = (
+            f"{len(draft.lineage)} 个固定 revision 授权资源"
+            if draft.lineage
+            else "已授权上下文"
+        )
+        view_summary = (
+            f"已生成 ViewRevision {view_revision_id}。"
+            if view_revision_id
+            else "ViewRevision 将由执行器继续提供。"
+        )
+        evidence = operation.agent_execution
+        session_id = evidence.session_id if evidence is not None else None
+        trace_id = (
+            evidence.trace_id
+            if evidence is not None and evidence.trace_id != "unavailable"
+            else operation.trace_id
+        )
+        text = (
+            f"已完成 Skill revision {revision}，来源摘要：{source_summary}。"
+            f"{view_summary} sessionId: {session_id or 'unavailable'}；"
+            f"traceId: {trace_id}。"
+        )
+        midpoint = max(1, len(text) // 2)
+        for chunk in (text[:midpoint], text[midpoint:]):
+            await self._event(
+                operation,
+                "answer.delta",
+                {"text": chunk},
+                summary="执行结果已更新",
+                session_id=session_id,
+                trace_id=trace_id,
+            )
+        await self._event(
+            operation,
+            "answer.final",
+            {
+                "status": "succeeded",
+                "text": text,
+                "citations": [],
+            },
+            summary="执行结果已准备",
+            session_id=session_id,
+            trace_id=trace_id,
+        )
+
+    async def submit_team_review(
+        self, request: TeamReviewRequest
+    ) -> AuthoringReadModel:
         draft = await self.repository.get_draft(request.draft_id, request.base_revision)
         if draft is None:
             raise SkillAuthoringError(AuthoringErrorCode.NOT_FOUND, "draft not found")
@@ -784,15 +1746,16 @@ class SkillAuthoringService:
         )
         return await self.read_operation(operation.operation_id)
 
-    async def cancel(
-        self, operation_id: str, *, caller_id: str
-    ) -> AuthoringReadModel:
+    async def cancel(self, operation_id: str, *, caller_id: str) -> AuthoringReadModel:
         operation = await self.repository.get_operation(operation_id)
         if operation is None:
-            raise SkillAuthoringError(AuthoringErrorCode.NOT_FOUND, "operation not found")
+            raise SkillAuthoringError(
+                AuthoringErrorCode.NOT_FOUND, "operation not found"
+            )
         if operation.caller_id != caller_id:
             raise SkillAuthoringError(
-                AuthoringErrorCode.PERMISSION_DENIED, "caller cannot cancel this operation"
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "caller cannot cancel this operation",
             )
         if operation.status in {
             AuthoringStatus.SUCCEEDED,
@@ -810,23 +1773,51 @@ class SkillAuthoringService:
                 "updated_at": utc_now(),
             }
         )
+        active = self._active_tasks.get(operation_id)
+        if active is not None and not active.done():
+            active.cancel()
         await self.repository.save_operation(cancelled)
         await self._event(
             cancelled,
-            "operation_cancelled",
+            "operation.cancelled",
             {"reason": "caller_requested"},
+            summary="Operation cancelled by caller",
+            terminal=True,
         )
+        # Cancellation is not complete merely because the task was marked
+        # cancelled: VEADK closes its Runner in the gateway's finally block.
+        # Wait for that cleanup before returning, so a subsequent retry cannot
+        # overlap the previous Runner's tool/model work.
+        cleanup_done = active is None or active.done()
+        if active is not None and active is not asyncio.current_task():
+            try:
+                await asyncio.wait_for(asyncio.shield(active), timeout=5.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                # The durable cancellation event above remains authoritative
+                # if an upstream model refuses cancellation promptly.
+                pass
+            cleanup_done = active.done()
+        if cleanup_done:
+            await self._release_generation(operation)
         return await self.read_operation(operation_id)
 
-    async def retry(
-        self, operation_id: str, *, caller_id: str
-    ) -> AuthoringReadModel:
+    async def retry(self, operation_id: str, *, caller_id: str) -> AuthoringReadModel:
         operation = await self.repository.get_operation(operation_id)
         if operation is None:
-            raise SkillAuthoringError(AuthoringErrorCode.NOT_FOUND, "operation not found")
+            raise SkillAuthoringError(
+                AuthoringErrorCode.NOT_FOUND, "operation not found"
+            )
         if operation.caller_id != caller_id:
             raise SkillAuthoringError(
-                AuthoringErrorCode.PERMISSION_DENIED, "caller cannot retry this operation"
+                AuthoringErrorCode.PERMISSION_DENIED,
+                "caller cannot retry this operation",
+            )
+        active = self._active_tasks.get(operation_id)
+        if active is not None and not active.done():
+            raise SkillAuthoringError(
+                AuthoringErrorCode.VALIDATION_FAILED,
+                "上一轮仍在停止，请稍后再重试。",
+                operation_id=operation_id,
             )
         if operation.status not in {
             AuthoringStatus.FAILED,
@@ -837,10 +1828,55 @@ class SkillAuthoringService:
                 AuthoringErrorCode.VALIDATION_FAILED,
                 "only failed, blocked, or cancelled operations can be retried",
             )
+        request = await self.repository.get_authoring_request(operation_id)
+        if isinstance(request, AgentTurnRequest):
+            replacement = AuthoringOperation(
+                operation_id=f"op_{uuid4().hex}",
+                operation_type="answer",
+                status=AuthoringStatus.QUEUED,
+                caller_id=operation.caller_id,
+                workspace_id=operation.workspace_id,
+                conversation_id=request.envelope.conversation_id,
+                trace_id=f"trace_{uuid4().hex}",
+                retry_of_operation_id=operation_id,
+            )
+            replacement, claimed = await self._claim_generation(
+                request.envelope,
+                replacement,
+                idempotency_key=None,
+            )
+            if not claimed:
+                return await self.read_operation(replacement.operation_id)
+            await self.repository.save_authoring_request(
+                replacement.operation_id, request
+            )
+            await self._event(
+                replacement,
+                "message.accepted",
+                {
+                    "request_id": request.envelope.request_id,
+                    "retry_of_operation_id": operation_id,
+                },
+                summary="Retry accepted",
+            )
+            task = asyncio.create_task(
+                self._run_turn(
+                    replacement,
+                    request.envelope,
+                    requested_kind=request.requested_kind,
+                    scope=request.scope,
+                    display_name=request.display_name,
+                )
+            )
+            self._active_tasks[replacement.operation_id] = task
+            task.add_done_callback(
+                lambda completed: self._on_generation_done(completed, replacement)
+            )
+            return await self.read_operation(replacement.operation_id)
         if operation.operation_type != "create_draft":
             raise SkillAuthoringError(
                 AuthoringErrorCode.VALIDATION_FAILED,
-                "only draft creation retries are supported",
+                "the durable authoring request is not retryable",
             )
         draft = (
             await self.repository.get_draft(operation.draft_id)
@@ -852,7 +1888,6 @@ class SkillAuthoringService:
                 AuthoringErrorCode.VALIDATION_FAILED,
                 "a draft already exists; use a typed patch or execution retry",
             )
-        request = await self.repository.get_create_request(operation_id)
         if request is None:
             raise SkillAuthoringError(
                 AuthoringErrorCode.NOT_FOUND,
@@ -883,7 +1918,9 @@ class SkillAuthoringService:
             request.team_draft_id, request.team_revision
         )
         if source is None:
-            raise SkillAuthoringError(AuthoringErrorCode.NOT_FOUND, "team draft not found")
+            raise SkillAuthoringError(
+                AuthoringErrorCode.NOT_FOUND, "team draft not found"
+            )
         if source.scope != Scope.TEAM or source.promotion_state != "team_read_only":
             raise SkillAuthoringError(
                 AuthoringErrorCode.VALIDATION_FAILED,
@@ -951,12 +1988,11 @@ class SkillAuthoringService:
     async def read_operation(self, operation_id: str) -> AuthoringReadModel:
         operation = await self.repository.get_operation(operation_id)
         if operation is None:
-            raise SkillAuthoringError(AuthoringErrorCode.NOT_FOUND, "operation not found")
-        draft = (
-            await self.repository.get_draft(operation.draft_id)
-            if getattr(operation, "draft_id", None)
-            else None
-        )
+            raise SkillAuthoringError(
+                AuthoringErrorCode.NOT_FOUND, "operation not found"
+            )
+        draft_id = operation.draft_id
+        draft = await self.repository.get_draft(draft_id) if draft_id else None
         return AuthoringReadModel(
             operation=operation,
             draft=draft,
@@ -989,9 +2025,7 @@ class SkillAuthoringService:
             (item.ref.scope, item.ref.kind, item.ref.object_id, item.ref.revision)
             for item in context.resources
         }
-        dependencies = tuple(
-            dict.fromkeys(plan.dependencies)
-        )
+        dependencies = tuple(dict.fromkeys(plan.dependencies))
         plan_data_refs = tuple(dict.fromkeys(plan.data_refs or dependencies))
         plan_lineage = tuple(dict.fromkeys(plan.lineage or plan_data_refs))
         if any(
@@ -1064,6 +2098,101 @@ class SkillAuthoringService:
         )
         return canonical
 
+    @staticmethod
+    def _public_view_revision_summary(
+        value: object,
+        *,
+        view_revision_id: str | None,
+    ) -> dict[str, object]:
+        """Expose only bounded ViewRevision metadata in the public timeline.
+
+        Worker 3 owns the full typed view and artifact references.  The event
+        feed only needs enough information for the UI to confirm that a
+        revision was created; raw view models, result rows, local paths, and
+        renderer payloads must not become durable public event data.
+        """
+
+        if not isinstance(value, dict):
+            return {
+                "view_revision_id": view_revision_id,
+                "available": bool(view_revision_id),
+            }
+        intent = value.get("intent")
+        manifest = value.get("manifest")
+        view_model = value.get("viewModel") or value.get("view_model")
+        summary: dict[str, object] = {
+            "view_revision_id": view_revision_id
+            or value.get("id"),
+            "revision": value.get("revision"),
+            "skill_revision_id": value.get("skillRevisionId")
+            or value.get("skill_revision_id"),
+        }
+        if isinstance(intent, dict):
+            template = intent.get("template")
+            purpose = intent.get("purpose")
+            if isinstance(template, str):
+                summary["template"] = template[:80]
+            if isinstance(purpose, str):
+                summary["purpose"] = purpose[:240]
+        if isinstance(manifest, dict):
+            renderer = manifest.get("rendererRef") or manifest.get("renderer_ref")
+            if isinstance(renderer, str):
+                summary["renderer_ref"] = renderer[:160]
+        if isinstance(view_model, dict):
+            template = view_model.get("template")
+            title = view_model.get("title")
+            if isinstance(template, str):
+                summary["view_model_template"] = template[:80]
+            if isinstance(title, str):
+                summary["view_model_title"] = title[:240]
+        return {
+            key: item
+            for key, item in summary.items()
+            if item is not None
+        }
+
+    @staticmethod
+    def _public_result_summary(value: object) -> dict[str, object] | None:
+        """Keep operation read models useful without exposing raw Worker data."""
+
+        if not isinstance(value, dict):
+            return None
+        allowed = {
+            "id",
+            "artifactId",
+            "artifact_id",
+            "operationId",
+            "operation_id",
+            "status",
+            "state",
+            "kind",
+            "handler",
+            "message",
+            "traceId",
+            "trace_id",
+            "skillId",
+            "skill_id",
+            "skillRevision",
+            "skill_revision",
+            "revisionId",
+            "revision_id",
+            "viewRevisionId",
+            "view_revision_id",
+            "template",
+            "mediaType",
+            "media_type",
+            "bytes",
+            "sha256",
+        }
+        result: dict[str, object] = {}
+        for key in allowed:
+            item = value.get(key)
+            if item is None:
+                continue
+            if isinstance(item, (str, int, float, bool)):
+                result[key] = str(item)[:500] if isinstance(item, str) else item
+        return result or {"available": True}
+
     async def _new_operation(
         self,
         *,
@@ -1073,11 +2202,7 @@ class SkillAuthoringService:
         operation_id: str | None = None,
         workspace_id: str | None = None,
     ) -> AuthoringOperation:
-        draft = (
-            await self.repository.get_draft(draft_id)
-            if draft_id
-            else None
-        )
+        draft = await self.repository.get_draft(draft_id) if draft_id else None
         operation = AuthoringOperation(
             operation_id=operation_id or f"op_{uuid4().hex}",
             operation_type=operation_type,  # type: ignore[arg-type]
@@ -1092,15 +2217,44 @@ class SkillAuthoringService:
         return operation
 
     async def _event(
-        self, operation: AuthoringOperation, event_type: str, data: dict[str, str]
+        self,
+        operation: AuthoringOperation,
+        event_type: str,
+        data: dict[str, object],
+        *,
+        summary: str = "",
+        terminal: bool | None = None,
+        session_id: str | None = None,
+        trace_id: str | None = None,
     ) -> None:
         existing = await self.repository.list_events(operation.operation_id)
+        execution = operation.agent_execution
         await self.repository.save_event(
             AuthoringEvent(
                 operation_id=operation.operation_id,
                 event_type=event_type,  # type: ignore[arg-type]
                 sequence=len(existing) + 1,
                 data=data,
+                payload=data,
+                session_id=(
+                    session_id
+                    if session_id is not None
+                    else execution.session_id
+                    if execution is not None
+                    else None
+                ),
+                trace_id=trace_id or operation.trace_id,
+                public_summary=summary,
+                terminal=(
+                    terminal
+                    if terminal is not None
+                    else event_type
+                    in {
+                        "operation.completed",
+                        "operation.failed",
+                        "operation.cancelled",
+                    }
+                ),
             )
         )
 
@@ -1155,9 +2309,62 @@ class SkillAuthoringService:
         if isinstance(patch, (SetTitlePatch, SetDescriptionPatch)):
             return PatchImpact(
                 summary="更新 Skill 草稿展示文本",
-                affected_paths=("manifest.name" if isinstance(patch, SetTitlePatch) else "manifest.description",),
+                affected_paths=(
+                    "manifest.name"
+                    if isinstance(patch, SetTitlePatch)
+                    else "manifest.description",
+                ),
                 requires_rerun=False,
                 reason="presentation_only",
+            )
+        if isinstance(patch, SetDashboardKpiPatch):
+            return PatchImpact(
+                summary="更新 Dashboard KPI，需要重新生成 ViewRevision",
+                affected_paths=("dashboard_config.kpis",),
+                requires_rerun=True,
+                reason="metric_changed",
+            )
+        if isinstance(patch, SetDashboardChartPatch):
+            return PatchImpact(
+                summary="更新 Dashboard 图表，需要重新生成 ViewRevision",
+                affected_paths=("dashboard_config.chart",),
+                requires_rerun=True,
+                reason="presentation_only",
+            )
+        if isinstance(patch, SetDashboardFilterPatch):
+            return PatchImpact(
+                summary="更新 Dashboard 筛选条件，需要重新查询",
+                affected_paths=("dashboard_config.filters",),
+                requires_rerun=True,
+                reason="query_changed",
+            )
+        if isinstance(patch, (SetSopStepPatch, SetSopConditionPatch, SetSopToolRefPatch)):
+            path = (
+                "sop_steps"
+                if isinstance(patch, SetSopStepPatch)
+                else "sop_steps.condition"
+                if isinstance(patch, SetSopConditionPatch)
+                else "sop_steps.tool_ref"
+            )
+            return PatchImpact(
+                summary="更新 SOP 步骤，需要重新执行",
+                affected_paths=(path,),
+                requires_rerun=True,
+                reason="query_changed",
+            )
+        if isinstance(patch, (SetSemanticMetricPatch, SetSemanticDimensionPatch, SetSemanticRelationshipPatch)):
+            return PatchImpact(
+                summary="更新 Semantic 定义，需要重新编译",
+                affected_paths=("kind_spec",),
+                requires_rerun=True,
+                reason="mapping_changed",
+            )
+        if isinstance(patch, (SetGraphEntityPatch, SetGraphRelationPatch)):
+            return PatchImpact(
+                summary="更新图谱映射，需要重新编译",
+                affected_paths=("graph_config",),
+                requires_rerun=True,
+                reason="mapping_changed",
             )
         if isinstance(patch, SetQueryPlanPatch):
             return PatchImpact(
@@ -1174,7 +2381,10 @@ class SkillAuthoringService:
                 reason="freshness_changed",
             )
         if isinstance(patch, SetPermissionScopePatch):
-            if any(permission not in {"read", "profile", "query"} for permission in patch.permissions):
+            if any(
+                permission not in {"read", "profile", "query"}
+                for permission in patch.permissions
+            ):
                 raise SkillAuthoringError(
                     AuthoringErrorCode.VALIDATION_FAILED,
                     "permission patch contains an unsupported capability",
@@ -1212,11 +2422,149 @@ class SkillAuthoringService:
         )
 
     @staticmethod
+    def _patch_snapshot(draft: DraftRevision, patch: TypedPatch) -> dict[str, object]:
+        """Return a small, public before/after view; never expose whole drafts."""
+        if isinstance(patch, SetDashboardKpiPatch):
+            return {"kpis": draft.dashboard_config.get("kpis", [])}
+        if isinstance(patch, (SetDashboardChartPatch, SetDashboardFilterPatch)):
+            return {"chart": draft.dashboard_config.get("chart", {}),
+                    "filters": draft.dashboard_config.get("filters", {})}
+        if isinstance(patch, (SetSopStepPatch, SetSopConditionPatch, SetSopToolRefPatch)):
+            return {"steps": list(draft.sop_steps)}
+        if isinstance(patch, (SetGraphEntityPatch, SetGraphRelationPatch)):
+            return {"graph": dict(draft.graph_config)}
+        if isinstance(patch, (SetSemanticMetricPatch, SetSemanticDimensionPatch, SetSemanticRelationshipPatch)):
+            return {"semantic": draft.plan.kind_spec.model_dump(mode="json")}
+        return {
+            "manifest": {
+                "name": draft.manifest.name,
+                "description": draft.manifest.description,
+            },
+            "digest": draft.digest,
+        }
+
+    @staticmethod
     def _apply_patch(draft: DraftRevision, patch: TypedPatch) -> DraftRevision:
         manifest = draft.manifest
         kind_spec = manifest.kind_spec
+        plan = draft.plan
+        dashboard_config = dict(draft.dashboard_config)
+        sop_steps = [dict(item) for item in draft.sop_steps]
+        graph_config = dict(draft.graph_config)
         if isinstance(patch, SetTitlePatch):
             manifest = manifest.model_copy(update={"name": patch.title})
+        elif isinstance(patch, SetDashboardKpiPatch):
+            kpis = [dict(item) for item in dashboard_config.get("kpis", []) if isinstance(item, dict)]
+            next_kpi = {
+                "key": patch.key,
+                "label": patch.label or patch.key,
+                "value": patch.value,
+                "unit": patch.unit,
+            }
+            dashboard_config["kpis"] = [
+                next_kpi if item.get("key") == patch.key else item for item in kpis
+            ]
+            if not any(item.get("key") == patch.key for item in kpis):
+                dashboard_config["kpis"].append(next_kpi)
+        elif isinstance(patch, SetDashboardChartPatch):
+            dashboard_config["chart"] = {
+                "x_field": patch.x_field,
+                "y_field": patch.y_field,
+                "chart_type": patch.chart_type,
+            }
+        elif isinstance(patch, SetDashboardFilterPatch):
+            filters = dict(dashboard_config.get("filters", {}))
+            filters[patch.field] = patch.value
+            dashboard_config["filters"] = filters
+        elif isinstance(patch, SetSopStepPatch):
+            next_step = {
+                "step_id": patch.step_id,
+                "label": patch.label,
+                "condition": patch.condition,
+                "tool_ref": patch.tool_ref,
+            }
+            sop_steps = [
+                next_step if item.get("step_id") == patch.step_id else item
+                for item in sop_steps
+            ]
+            if not any(item.get("step_id") == patch.step_id for item in draft.sop_steps):
+                sop_steps.append(next_step)
+        elif isinstance(patch, SetSopConditionPatch):
+            found = False
+            for item in sop_steps:
+                if item.get("step_id") == patch.step_id:
+                    item["condition"] = patch.condition
+                    found = True
+            if not found:
+                sop_steps.append({"step_id": patch.step_id, "condition": patch.condition})
+        elif isinstance(patch, SetSopToolRefPatch):
+            found = False
+            for item in sop_steps:
+                if item.get("step_id") == patch.step_id:
+                    item["tool_ref"] = patch.tool_ref
+                    found = True
+            if not found:
+                sop_steps.append({"step_id": patch.step_id, "tool_ref": patch.tool_ref})
+        elif isinstance(patch, SetGraphEntityPatch):
+            entities = dict(graph_config.get("entities", {}))
+            entities[patch.entity_type] = patch.label
+            graph_config["entities"] = entities
+        elif isinstance(patch, SetGraphRelationPatch):
+            relations = [
+                item for item in graph_config.get("relations", [])
+                if isinstance(item, dict)
+                and not (
+                    item.get("source_type") == patch.source_type
+                    and item.get("target_type") == patch.target_type
+                )
+            ]
+            relations.append({
+                "relation": patch.relation,
+                "source_type": patch.source_type,
+                "target_type": patch.target_type,
+            })
+            graph_config["relations"] = relations
+        elif isinstance(patch, SetSemanticMetricPatch):
+            if draft.manifest.kind != SkillKind.SEMANTIC or not isinstance(
+                kind_spec, SemanticKindSpec
+            ):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "semantic metric patches apply only to semantic skills",
+                )
+            kind_spec = kind_spec.model_copy(
+                update={"measures": (*kind_spec.measures, patch.metric)}
+            )
+            plan = draft.plan.model_copy(update={"kind_spec": kind_spec})
+        elif isinstance(patch, SetSemanticDimensionPatch):
+            if draft.manifest.kind != SkillKind.SEMANTIC or not isinstance(
+                kind_spec, SemanticKindSpec
+            ):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "semantic dimension patches apply only to semantic skills",
+                )
+            kind_spec = kind_spec.model_copy(
+                update={"dimensions": (*kind_spec.dimensions, patch.dimension)}
+            )
+            plan = draft.plan.model_copy(update={"kind_spec": kind_spec})
+        elif isinstance(patch, SetSemanticRelationshipPatch):
+            if draft.manifest.kind != SkillKind.SEMANTIC or not isinstance(
+                kind_spec, SemanticKindSpec
+            ):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "semantic relationship patches apply only to semantic skills",
+                )
+            kind_spec = kind_spec.model_copy(
+                update={
+                    "relationships": (
+                        *kind_spec.relationships,
+                        f"{patch.source_entity}->{patch.relationship}->{patch.target_entity}",
+                    )
+                }
+            )
+            plan = draft.plan.model_copy(update={"kind_spec": kind_spec})
         elif isinstance(patch, SetDescriptionPatch):
             manifest = manifest.model_copy(update={"description": patch.description})
         elif isinstance(patch, SetPermissionScopePatch):
@@ -1261,6 +2609,11 @@ class SkillAuthoringService:
                     AuthoringErrorCode.VALIDATION_FAILED,
                     "citation patches apply only to knowledge skills",
                 )
+            if not isinstance(kind_spec, KnowledgeKindSpec):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "knowledge draft has an invalid kind spec",
+                )
             kind_spec = kind_spec.model_copy(
                 update={"citation_intent": (*kind_spec.citation_intent, patch.intent)}
             )
@@ -1270,6 +2623,11 @@ class SkillAuthoringService:
                 raise SkillAuthoringError(
                     AuthoringErrorCode.VALIDATION_FAILED,
                     "mapping patches apply only to graph ontology skills",
+                )
+            if not isinstance(kind_spec, GraphOntologyKindSpec):
+                raise SkillAuthoringError(
+                    AuthoringErrorCode.VALIDATION_FAILED,
+                    "graph ontology draft has an invalid kind spec",
                 )
             kind_spec = kind_spec.model_copy(
                 update={
@@ -1285,8 +2643,7 @@ class SkillAuthoringService:
                 AuthoringErrorCode.VALIDATION_FAILED,
                 "unsupported patch",
             )
-        if "plan" not in locals():
-            plan = draft.plan.model_copy(update={"kind_spec": kind_spec})
+        plan = plan.model_copy(update={"kind_spec": kind_spec})
         revision = draft.revision + 1
         return draft.model_copy(
             update={
@@ -1294,6 +2651,9 @@ class SkillAuthoringService:
                 "parent_revision": draft.revision,
                 "manifest": manifest.model_copy(update={"kind_spec": kind_spec}),
                 "plan": plan,
+                "dashboard_config": dashboard_config,
+                "sop_steps": tuple(sop_steps),
+                "graph_config": graph_config,
                 "updated_at": utc_now(),
                 "digest": digest(
                     {

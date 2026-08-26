@@ -5,6 +5,14 @@ server that `veadk frontend` launches — no separate backend.
 
 ## Features
 
+- **Knowledge Workspace Agent Runtime** exposes a standalone, resumable
+  conversation component over the durable authoring SSE API, including
+  incremental Markdown answers, event-driven activity, typed tool cards,
+  collapsed plans, artifact revisions, true Runner cancellation, retry, and
+  cursor-based refresh recovery. The independent development page is
+  `/agent-runtime-harness.html`; see
+  [`STEP3B_W2_AGENT_RUNTIME_HANDOFF.md`](../docs/knowledge-assets/implementation/STEP3B_W2_AGENT_RUNTIME_HANDOFF.md)
+  for the MAIN/W4 integration contract.
 - **Streaming chat** over the ADK `/run_sse` event stream. While an Agent is
   generating, the composer exposes a stop control that cancels only the active
   response, preserves content already received, and immediately enables the

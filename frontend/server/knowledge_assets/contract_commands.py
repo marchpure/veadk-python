@@ -235,6 +235,7 @@ class InvocationStartPayload(ContractModel):
 
 class SkillAuthoringStartPayload(ContractModel):
     prompt: str = Field(min_length=1, max_length=8_000)
+    conversation_id: str | None = Field(default=None, max_length=160)
     resource_refs: list[AuthoringResourceRef] = Field(
         default_factory=list, max_length=32
     )
