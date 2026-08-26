@@ -146,6 +146,10 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
       return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
     }
 
+    if (resource?.resourceKind === 'published_skill') {
+      return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+
     if (resource?.resourceKind === 'source' || resource?.resourceKind === 'connection') {
       return <ConnectionDetailView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
