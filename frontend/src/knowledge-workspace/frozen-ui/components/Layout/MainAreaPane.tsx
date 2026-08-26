@@ -125,6 +125,15 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
         ? activeSkillViewRevision as Record<string, unknown>
         : null);
 
+    // A published resource owns the monitoring journey even though its
+    // bootstrap projection also carries the immutable HTML ViewRevision.
+    // Keep the published monitoring surface ahead of the generic HTML route;
+    // otherwise the opaque published:// URL is rendered as the personal
+    // draft artifact and loses publication/Invocation/monitoring semantics.
+    if (resource?.resourceKind === 'published_skill') {
+      return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
+    }
+
     const generatedViewModel =
       activeRevisionMatchesRoute(activeRevision, fileId, searchParams, resource) &&
       activeRevision?.viewModel &&
@@ -166,10 +175,6 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
 
     if (resource?.resourceKind === 'skill_draft') {
       return <JourneyDetailView fileId={fileId} errorState={errorState} telemetryEnabled={telemetryEnabled} searchParams={searchParams} setSearchParams={setSearchParams} />;
-    }
-
-    if (resource?.resourceKind === 'published_skill') {
-      return <SkillMonitoringView fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />;
     }
 
     if (resource?.resourceKind === 'source' || resource?.resourceKind === 'connection') {
