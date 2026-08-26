@@ -268,6 +268,13 @@ export default function HomeComposer({
     }
   };
 
+  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    setError(`已选择 ${file.name}；请通过服务端导入入口完成真实数据接入。`);
+  };
+
   const startAuthoring = async () => {
     if (!canSubmit) {
       setError("请输入真实需求，或先引用工作区资源。");
@@ -358,7 +365,7 @@ export default function HomeComposer({
       onDragOver={(event) => event.preventDefault()}
       onDrop={handleDrop}
     >
-      <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-5 py-6 md:px-8 md:py-10">
+      <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-6 md:px-8 md:py-10">
         <div className="hidden items-center justify-center gap-3 pb-7 text-sm font-semibold text-slate-700 md:flex">
           {["选择数据与上下文", "选择模板", "生成 Skill", "调试并发布"].map((label, index) => (
             <div key={label} className="flex items-center gap-3">
@@ -370,8 +377,8 @@ export default function HomeComposer({
         </div>
 
         <div className="flex flex-1 flex-col">
-          <section className="flex min-h-0 flex-1 -translate-y-[15px] flex-col items-center justify-center md:-translate-y-[3px]">
-            <div className="w-full max-w-[702px]">
+          <section className="flex min-h-0 flex-1 -translate-y-[5px] flex-col items-center justify-center md:translate-y-[3px]">
+            <div className="w-full max-w-[704px]">
               <div className="mb-6 text-center">
                 <h1 className="mx-auto w-fit max-w-full text-3xl font-bold tracking-tight text-slate-900">今天想解决什么业务问题？</h1>
                 <p className="mx-auto mt-3 max-w-[327px] text-xs leading-5 text-slate-500 md:text-sm md:leading-6">
@@ -379,7 +386,7 @@ export default function HomeComposer({
                 </p>
               </div>
 
-              <div className="mt-10 rounded-2xl border border-slate-200 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.10)] focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 md:mt-3">
+              <div className="mt-10 w-full rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50 transition-all focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 md:mt-[36px]">
                 {contextChips.length > 0 && (
                   <div className="flex flex-wrap gap-2 px-4 pt-4">
                     {contextChips.map((chip) => (
@@ -442,26 +449,30 @@ export default function HomeComposer({
                   )}
                 </div>
 
-                <div className="flex flex-row items-center justify-end gap-0 border-t border-slate-100 bg-slate-50/70 px-3 py-2 md:justify-between md:gap-3 md:py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled
-                      title="文件上传需要 source-golden.ingest / domain upload 返回真实 context ref"
-                      className="hidden items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-400 disabled:cursor-not-allowed md:inline-flex"
+                    <div className="flex flex-row flex-nowrap items-center justify-center gap-2 border-t border-slate-100 bg-slate-50/70 px-3 py-2 md:justify-between md:gap-3 md:py-3">
+                      <div className="contents md:flex md:flex-wrap md:items-center md:gap-2">
+                    <label
+                      title="通过服务端导入真实数据文件"
+                      className="inline-flex h-[58px] cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500 md:h-auto md:py-2"
                     >
                       <UploadIcon className="mr-1.5 h-4 w-4" /> 上传文件
-                    </button>
+                      <input
+                        type="file"
+                        className="sr-only"
+                        accept=".csv,.md,.txt,.xlsx"
+                        onChange={handleFileSelect}
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() => setTemplatePanelOpen((value) => !value)}
                       aria-expanded={templatePanelOpen}
-                      className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-5 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:py-2"
+                      className="inline-flex h-[58px] items-center rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:h-auto md:py-2"
                     >
                       <TemplateIcon className="mr-1.5 h-4 w-4" /> 模板库
                     </button>
                   </div>
-                  <div className="flex items-center gap-0 md:gap-3">
+                      <div className="contents md:flex md:items-center md:gap-3">
                     {status !== "idle" && (
                       <span className="text-xs text-slate-500" aria-live="polite">{statusLabel}</span>
                     )}
@@ -481,7 +492,7 @@ export default function HomeComposer({
                       type="button"
                       onClick={() => void startAuthoring()}
                       disabled={!canSubmit || status === "submitting"}
-                        className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-5 text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:px-5 md:py-2"
+                        className="inline-flex h-[56px] items-center rounded-lg bg-blue-600 px-5 py-0 text-sm font-bold text-white shadow-sm outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 md:h-auto md:py-2"
                     >
                       {status === "submitting" ? "生成中…" : "生成 Skill"}
                       <ArrowIcon className="ml-1.5 h-4 w-4" />
@@ -491,7 +502,7 @@ export default function HomeComposer({
               </div>
 
               {workspaceRecommendedPrompts.length > 0 && (
-                <div className="mt-7 flex flex-wrap justify-center gap-2 md:mt-4" aria-label="推荐问题">
+                    <div className="mt-8 flex flex-wrap justify-center gap-2 md:mt-[14px]" aria-label="推荐问题">
                   {workspaceRecommendedPrompts.slice(0, 3).map((item) => (
                     <button
                       key={item.id}
@@ -500,7 +511,7 @@ export default function HomeComposer({
                         setRequest(item.prompt);
                         inputRef.current?.focus();
                       }}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm outline-none hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:ring-2 focus:ring-blue-500"
+                      className="max-w-full truncate rounded-full border border-slate-200 bg-slate-50/80 px-4 py-2 text-xs font-medium text-slate-500 shadow-sm outline-none hover:border-blue-300 hover:bg-slate-100 hover:text-slate-700 focus:ring-2 focus:ring-blue-500"
                     >
                       {item.label}
                     </button>

@@ -607,8 +607,10 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     </div>
   ) : null;
 
-  // Home Chat mode (when fileId === 'welcome' && !chatState)
-  if (isHomeChat && chatState !== 'planning' && chatState !== 'generating') {
+  // The empty welcome page owns the central composer. Once a real chat state
+  // exists, keep the assistant in its side-pane conversation layout so the
+  // clarification journey has the same information hierarchy as production.
+  if (isHomeChat && !chatState) {
     return (
       <div className="flex flex-col h-full min-h-0 w-full bg-white relative animate-in fade-in duration-500 justify-center overflow-hidden">
         {showSelector && (
@@ -753,7 +755,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   // RightPane side-chat mode
   return (
     <div className="h-full min-h-0 flex flex-col overflow-hidden bg-slate-50 relative">
-      {!isHomeChat && (
+      {(!isHomeChat || chatState) && (
         <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shadow-sm z-10">
           <div className="flex items-center space-x-2 min-w-0">
              <span className="font-semibold text-slate-800 text-[13px] shrink-0">分析助手</span>

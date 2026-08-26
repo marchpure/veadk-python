@@ -89,9 +89,14 @@ function readPng(path) {
     const prior = y === 0 ? null : decoded.subarray((y - 1) * stride, y * stride);
     for (let x = 0; x < stride; x += 1) {
       const left = x >= bytesPerPixel ? out[x - bytesPerPixel] : 0;
-      const up = prior ? prior[Math.floor(x / bytesPerPixel) * 4 + (x % bytesPerPixel)] : 0;
+      const up = prior
+        ? prior[Math.floor(x / bytesPerPixel) * bytesPerPixel + (x % bytesPerPixel)]
+        : 0;
       const upperLeft = prior && x >= bytesPerPixel
-        ? prior[Math.floor((x - bytesPerPixel) / bytesPerPixel) * 4 + ((x - bytesPerPixel) % bytesPerPixel)]
+        ? prior[
+          Math.floor((x - bytesPerPixel) / bytesPerPixel) * bytesPerPixel +
+          ((x - bytesPerPixel) % bytesPerPixel)
+        ]
         : 0;
       const value = row[x];
       if (filter === 0) out[x] = value;
