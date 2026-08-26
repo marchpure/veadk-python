@@ -102,8 +102,16 @@ export function createKnowledgeAssetClient(
     return body;
   };
   return {
-    bootstrap: async (signal) =>
-      assertGeneratedBootstrap(await request("/bootstrap", {}, signal)),
+    bootstrap: async (signal) => {
+      const workspace =
+        typeof globalThis.location !== "undefined"
+          ? new URLSearchParams(globalThis.location.search).get("workspace")
+          : null;
+      const path = workspace
+        ? `/bootstrap?workspace=${encodeURIComponent(workspace)}`
+        : "/bootstrap";
+      return assertGeneratedBootstrap(await request(path, {}, signal));
+    },
     command: (command, context) =>
       request(
         "/commands",
