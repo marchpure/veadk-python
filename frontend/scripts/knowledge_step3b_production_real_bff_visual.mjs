@@ -124,13 +124,19 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
     bodyText: document.body.innerText.slice(0, 5000),
   })).catch(() => ({ scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" }));
   const screenshot = join(output, `${label}.png`);
-  await page.screenshot({ path: screenshot, fullPage: false });
-  await page.close();
+  let screenshotError = "";
+  try {
+    await page.screenshot({ path: screenshot, fullPage: false });
+  } catch (error) {
+    screenshotError = error instanceof Error ? error.message : String(error);
+  }
+  await page.close().catch(() => undefined);
   return {
     url: url.toString(),
     screenshot,
     sha256: sha256(readFileSync(screenshot)),
     navigationError,
+    screenshotError,
     consoleErrors,
     pageErrors,
     failedRequests,
@@ -152,15 +158,45 @@ async function main() {
       for (const viewport of VIEWPORTS) {
         const root = join(options.output, viewport.name, stateNames[index]);
         mkdirSync(root, { recursive: true });
-        const actual = await visit(browser, options.integration, urls[index], viewport, root, "actual");
-        const reference = await visit(
-          browser,
-          options.prototype,
-          prototypeStateUrls[index],
-          viewport,
-          root,
-          "prototype-reference",
-        );
+        let actual;
+        let reference;
+        try {
+          actual = await visit(browser, options.integration, urls[index], viewport, root, "actual");
+        } catch (error) {
+          actual = {
+            url: urls[index],
+            screenshot: "",
+            sha256: "",
+            navigationError: error instanceof Error ? error.message : String(error),
+            screenshotError: "",
+            consoleErrors: [],
+            pageErrors: [],
+            failedRequests: [],
+            dom: { scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" },
+          };
+        }
+        try {
+          reference = await visit(
+            browser,
+            options.prototype,
+            prototypeStateUrls[index],
+            viewport,
+            root,
+            "prototype-reference",
+          );
+        } catch (error) {
+          reference = {
+            url: prototypeStateUrls[index],
+            screenshot: "",
+            sha256: "",
+            navigationError: error instanceof Error ? error.message : String(error),
+            screenshotError: "",
+            consoleErrors: [],
+            pageErrors: [],
+            failedRequests: [],
+            dom: { scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" },
+          };
+        }
         const ratio = actual.dom.scrollWidth > actual.dom.innerWidth ? 1 : 0;
         entries.push({
           state: stateNames[index],
@@ -188,6 +224,7 @@ async function main() {
     if (!entry.checks.dynamicUrl) out.push(`${entry.state}: no dynamic resource URL`);
     if (!entry.checks.horizontalOverflow) out.push(`${entry.state}/${entry.viewport}: horizontal overflow`);
     if (entry.actual.navigationError) out.push(`${entry.state}/${entry.viewport}: ${entry.actual.navigationError}`);
+    if (entry.actual.screenshotError) out.push(`${entry.state}/${entry.viewport}: ${entry.actual.screenshotError}`);
     if (entry.actual.consoleErrors.length) out.push(`${entry.state}/${entry.viewport}: console errors`);
     if (entry.actual.pageErrors.length) out.push(`${entry.state}/${entry.viewport}: page errors`);
     if (entry.actual.failedRequests.length) out.push(`${entry.state}/${entry.viewport}: failed business/static requests`);
