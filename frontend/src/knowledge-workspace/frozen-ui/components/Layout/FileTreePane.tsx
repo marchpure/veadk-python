@@ -140,10 +140,15 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     });
   };
   collectNestedIds(mappedConnections);
+  // A Golden asset is the durable projection of its source connection. Keep
+  // the workspace tree dense by showing the connection once and only expose
+  // standalone dataset resources that are not already nested under it.
   datasetsChildren = [
     ...mappedConnections,
     ...personalSources.filter((item) => !nestedConnectionIds.has(String(item.id))),
-  ];
+  ].filter((item, index, items) =>
+    items.findIndex((candidate) => String(candidate.id) === String(item.id)) === index,
+  );
 
   const isDraftSkill = (item: any) =>
     item.type === 'skill' || item.resourceKind === 'skill_draft' || item.lifecycle === 'draft';

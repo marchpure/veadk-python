@@ -378,8 +378,22 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
     )
     context = AccessContext(workspace_id=workspace, principal_id=workspace, role="editor")
     golden_ids: list[str] = []
+    golden_names = [
+        "全球金融实时行情 API",
+        "PostgreSQL_ERP",
+        "库存明细.csv",
+        "销售话术知识库",
+        "销售业务知识图谱",
+    ]
+    source_names = [
+        "全球金融实时行情 API.csv",
+        "PostgreSQL_ERP.csv",
+        "库存明细.csv",
+        "销售话术知识库.csv",
+        "销售业务知识图谱.csv",
+    ]
     for index in range(5):
-        filename = f"acceptance-{index}.csv"
+        filename = source_names[index]
         (runtime_source_root / "sources" / filename).parent.mkdir(
             parents=True, exist_ok=True
         )
@@ -389,7 +403,7 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
         created = source.create_connection(
             context,
             connector_key="csv",
-            display_name=f"真实数据与知识 {index + 1}",
+            display_name=golden_names[index],
             scope="personal",
             configuration={"sourceRef": filename},
             secret_ref=None,
@@ -414,13 +428,26 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
         )
     templates = ["sop", "dashboard", "semantic", "sop", "monitoring", "knowledge", "graph_ontology"]
     drafts: list[SkillDraft] = []
+    draft_names = [
+        "金融行情监控 Skill",
+        "蓝牙断连排查 SOP",
+        "区域异常经营分析",
+        "门店卫生巡检与处置 SOP",
+        "华东销售经营看板",
+        "金融行情监控看板",
+        "全球招聘供需看板",
+        "渠道转化趋势",
+        "销售主题模型",
+        "销售话术知识库",
+        "华东销售看板",
+    ]
     for index in range(11):
         draft_id = f"acceptance-draft-{index + 1}"
         template = templates[index % len(templates)]
         kind = "analysis" if template == "dashboard" else template
         draft = repository.create_skill_draft(
             workspace_id=workspace,
-            name=f"{template.title()} 验收能力 {index + 1}",
+            name=draft_names[index],
             description="来自真实 BFF acceptance seed 的持久化草稿。",
             source_refs=[golden_ids[index % len(golden_ids)]],
             request_id=f"acceptance-draft-request-{index}",
