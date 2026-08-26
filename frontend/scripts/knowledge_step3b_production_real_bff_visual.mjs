@@ -184,11 +184,15 @@ function selectedValues(value, allowed, flag) {
 function dynamicStateUrls(bootstrap) {
   const drafts = bootstrap.resources.filter((item) => item.resourceKind === "skill_draft");
   const published = bootstrap.resources.find((item) => item.resourceKind === "published_skill");
-  const find = (renderer, offset = 0) =>
-    drafts.filter((item) => item.subtype === renderer)[offset] ?? drafts[offset];
-  const sop = find("sop");
-  const dashboard = find("dashboard");
-  const optimization = drafts[drafts.length - 1];
+  // The seed's acceptance labels are server-projected display metadata. The
+  // URL is still built only from the returned opaque resource id; production
+  // routing never branches on these labels.
+  const findDisplayName = (name) =>
+    drafts.find((item) => item.displayName === name);
+  const sop = findDisplayName("蓝牙断连排查 SOP");
+  const dashboard = findDisplayName("安踏经营 Dashboard");
+  const haidilaoSop = findDisplayName("海底捞卫生巡检 SOP");
+  const optimization = findDisplayName("渠道转化趋势");
   const url = (resource, extra = "") =>
     resource
       ? `/?studio=knowledge&workspace=${encodeURIComponent(bootstrap.access.spaceId)}&file=${encodeURIComponent(resource.id)}${extra}`
@@ -204,9 +208,9 @@ function dynamicStateUrls(bootstrap) {
     url(dashboard, "&pane=open"),
     url(dashboard, "&run_state=result&pane=open"),
     url(dashboard, "&run_state=result&pane=open&modal=publish"),
-    url(drafts.filter((item) => item.subtype === "sop")[1] ?? sop, "&pane=open"),
-    url(drafts.filter((item) => item.subtype === "sop")[1] ?? sop, "&run_state=input&pane=open"),
-    url(drafts.filter((item) => item.subtype === "sop")[1] ?? sop, "&run_state=result&pane=open"),
+    url(haidilaoSop, "&pane=open"),
+    url(haidilaoSop, "&run_state=input&pane=open"),
+    url(haidilaoSop, "&run_state=result&pane=open"),
     url(published, ""),
     url(optimization, ""),
   ];
@@ -272,7 +276,12 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
   const url = new URL(stateUrl || "/?file=welcome", origin);
   let navigationError = "";
   try {
-    await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 10_000 });
+    // The prototype is a remote static app.  Its first document can exceed
+    // ten seconds under normal CDN/TLS variance; allow the real navigation to
+    // settle without treating a slow document as a missing reference.  A
+    // missing screenshot, request error, or unusable DOM remains a gate
+    // failure below.
+    await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
     if (origin.includes("127.0.0.1") || origin.includes("localhost")) {
       await page
         .waitForResponse(
@@ -286,6 +295,16 @@ async function visit(browser, origin, stateUrl, viewport, output, label, options
       // server-projected revision and let the immutable artifact finish its
       // integrity-checked fetch before capturing or closing the page.
       await page.waitForTimeout(1200);
+      await page
+        .waitForFunction(() => {
+          const host = document.querySelector(".trusted-artifact-host");
+          if (!host) return true;
+          const shell = host.closest("[aria-busy]");
+          if (shell?.getAttribute("aria-busy") === "false") return true;
+          return Boolean(host.shadowRoot?.textContent?.trim());
+        }, { timeout: 8_000 })
+        .catch(() => undefined);
+      await page.waitForTimeout(250);
     } else {
       await page.waitForTimeout(800);
     }

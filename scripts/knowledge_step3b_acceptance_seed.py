@@ -42,6 +42,8 @@ from frontend.server.knowledge_assets.contract_views import (
     DashboardChart,
     DashboardKpi,
     DashboardViewModel,
+    ViewCell,
+    ViewField,
     GraphEdge,
     GraphNode,
     GraphOntologyViewModel,
@@ -56,6 +58,7 @@ from frontend.server.knowledge_assets.contract_views import (
     SkillViewManifest,
     SkillViewRevision,
     SopStepResult,
+    SopStepEvidence,
     SopViewModel,
     EvaluationCaseResult,
     EvaluationRun,
@@ -205,25 +208,48 @@ def view_for(
     )
     data = ref(f"local://acceptance/{golden_id}", kind="table")
     if template == "dashboard":
+        if "安踏" in draft.name:
+            kpis = [
+                DashboardKpi(key="sales", label="总销售额", value="¥ 12,450,000", unit="", trend="up"),
+                DashboardKpi(key="profit", label="总利润", value="¥ 3,210,000", unit="", trend="up"),
+                DashboardKpi(key="orders", label="订单数量", value="45,678", unit="", trend="down"),
+                DashboardKpi(key="aov", label="客单价", value="¥ 272", unit="", trend="up"),
+            ]
+            points = [
+                ("周一", 8200.0), ("周二", 9100.0), ("周三", 8700.0),
+                ("周四", 10100.0), ("周五", 11200.0), ("周六", 12400.0),
+                ("周日", 11800.0),
+            ]
+            fields = [
+                ViewField(name="week", label="周次", data_type="string"),
+                ViewField(name="sales", label="销售额", data_type="number"),
+                ViewField(name="profit", label="利润", data_type="number"),
+            ]
+            rows = [
+                [ViewCell(field="week", value=label), ViewCell(field="sales", value=value), ViewCell(field="profit", value=round(value * .258, 2))]
+                for label, value in points
+            ]
+        else:
+            kpis = [
+                DashboardKpi(key="value", label="业务值", value=128 + index, trend="up")
+            ]
+            points = [("一", 80.0), ("二", 128.0)]
+            fields = []
+            rows = []
         model = DashboardViewModel(
             title=draft.name,
-            kpis=[
-                DashboardKpi(
-                    key="value",
-                    label="业务值",
-                    value=128 + index,
-                    trend="up",
-                )
-            ],
+            fields=fields,
+            kpis=kpis,
             charts=[
                 DashboardChart(
                     chart_id=f"chart-{index}",
-                    title="业务趋势",
+                    title="按周销售与利润趋势" if "安踏" in draft.name else "业务趋势",
                     x_field="label",
                     y_field="value",
-                    series=[{"name": "value", "points": [("一", 80.0), ("二", 128.0)]}],
+                    series=[{"name": "销售额" if "安踏" in draft.name else "value", "points": points}],
                 )
             ],
+            rows=rows,
             data_ref=data,
         )
         purpose = "overview"
@@ -249,19 +275,51 @@ def view_for(
         )
         purpose = "schema"
     elif template == "sop":
+        if "蓝牙" in draft.name:
+            trigger = "当用户或 Agent 反馈车机蓝牙无法连接、频繁断开，且对应车型为 LS6/LS7 时"
+            step_data = [
+                ("读取车机软件与固件版本", "成功", "GET /vehicle/info (Params: vin)", "软件版本 OS-2.1.0，蓝牙固件 V1.2.4。"),
+                ("检查蓝牙信号稳定性", "异常命中", "signal-strength API", "近 2 小时内探测到 5 次信号突降至 -92dBm，判定为硬件衰减异常。"),
+                ("匹配历史相似工单与手册", "检索成功", "Vector Search / DB Query", "命中 12 条相同批次工单，建议更换蓝牙天线模块。"),
+            ]
+            recommendation = "综合判定该车辆蓝牙断连原因为天线硬件衰减，非软件缺陷。建议引导用户前往服务中心并升级 L2 技术支持。"
+        elif "海底捞" in draft.name:
+            trigger = "当门店反馈卫生隐患或例行检查时"
+            step_data = [
+                ("匹配最新门店卫生规范", "成功", "RAG / 门店卫生标准规范_V2.pdf", "匹配到《后厨卫生要求》第 4 章：地面不得有积水与油污。"),
+                ("识别当前卫生巡检异常", "异常命中", "photo inspection", "洗碗区有明显积水，判定为违规。"),
+                ("结合历史处置经验生成整改建议", "检索成功", "DB Query: 历史巡检不合格记录", "类似案例多因下水道阻塞，建议增加清理排查环节。"),
+            ]
+            recommendation = "综合判定该门店当前巡检结果为不合格（存在积水隐患），建议立即清理并在 1 小时内复检。"
+        else:
+            trigger = "业务请求进入"
+            step_data = [
+                ("读取业务上下文", "成功", "workspace context", "读取已授权的工作区数据。"),
+                ("输出处理建议", "成功", "skill runtime", "输出可追溯的处理建议。"),
+            ]
+            recommendation = "根据真实上下文给出处理建议。"
         model = SopViewModel(
             title=draft.name,
-            trigger="蓝牙设备业务请求",
+            trigger=trigger,
             scope="验收工作区",
             step_results=[
                 SopStepResult(
-                    step_id="step_1", title="读取业务上下文", status="succeeded"
-                ),
-                SopStepResult(
-                    step_id="step_2", title="输出处理建议", status="succeeded"
-                ),
+                    step_id=f"step_{step_index + 1}",
+                    title=title,
+                    status="succeeded",
+                    message=message,
+                    tool_refs=[tool],
+                    evidence=[
+                        SopStepEvidence(
+                            kind="tool_result",
+                            locator=f"local://acceptance/{golden_id}/{step_index + 1}",
+                            summary=detail,
+                        )
+                    ],
+                )
+                for step_index, (title, message, tool, detail) in enumerate(step_data)
             ],
-            recommendation="根据真实上下文给出处理建议。",
+            recommendation=recommendation,
             outputs={"sourceRevision": golden_id},
         )
         purpose = "explore"
@@ -426,13 +484,29 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
                 fromlist=["_canonical_golden"],
             )._canonical_golden(record)
         )
-    templates = ["sop", "dashboard", "semantic", "sop", "monitoring", "knowledge", "graph_ontology"]
+    # Keep the acceptance journeys backed by the same durable objects that
+    # the visual matrix names.  The browser still receives only the generated
+    # resource ids; these labels are seed metadata used to select those
+    # resources from bootstrap, never URL identifiers or UI business truth.
+    templates = [
+        "sop",             # bluetooth-sop-*
+        "dashboard",       # anta-dashboard-*
+        "semantic",
+        "sop",             # haidilao-sop-*
+        "monitoring",
+        "knowledge",
+        "graph_ontology",
+        "sop",             # optimization-draft
+        "dashboard",
+        "semantic",
+        "sop",
+    ]
     drafts: list[SkillDraft] = []
     draft_names = [
-        "金融行情监控 Skill",
         "蓝牙断连排查 SOP",
+        "安踏经营 Dashboard",
         "区域异常经营分析",
-        "门店卫生巡检与处置 SOP",
+        "海底捞卫生巡检 SOP",
         "华东销售经营看板",
         "金融行情监控看板",
         "全球招聘供需看板",

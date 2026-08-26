@@ -96,7 +96,12 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     if (fileId === 'team_empty') return <EmptyState type="empty_dir" />;
     if (errorState === 'no_permission' || fileId === 'dataset_no_permission') return <EmptyState type="no_permission" />;
     const resource = resourceStore.getState().find((r:any) => r.id === fileId || r.resourceId === fileId);
-    const resourceRevision = resource?.skillViewRevision;
+    const resourceRevision =
+      resource?.skillViewRevision &&
+      typeof resource.skillViewRevision === 'object' &&
+      !Array.isArray(resource.skillViewRevision)
+        ? resource.skillViewRevision as Record<string, unknown>
+        : null;
     if (resourceRevision && typeof resourceRevision === 'object') {
       setActiveSkillViewRevision(resourceRevision as Record<string, unknown>);
     } else if (fileId === 'welcome') {
@@ -104,10 +109,16 @@ export default function MainAreaPane({ fileId, errorState, searchParams, setSear
     }
     const subtype = normalizedSubtype(resource);
     const isTeamResource = resource?.space === 'team' || resource?.readonly === true;
-    const activeRevision =
-      activeSkillViewRevision && typeof activeSkillViewRevision === 'object'
+    // Use the revision projected on the selected resource for this render.
+    // Reading the module-level compatibility cache before setting it caused
+    // the first render of every dynamic Skill route to fall back to the
+    // JourneyDetail shell, even though bootstrap had returned a trusted HTML
+    // ViewRevision. The cache remains updated for the renderer and refresh
+    // recovery, but routing must be based on the current resource.
+    const activeRevision = resourceRevision ??
+      (activeSkillViewRevision && typeof activeSkillViewRevision === 'object'
         ? activeSkillViewRevision as Record<string, unknown>
-        : null;
+        : null);
 
     const generatedViewModel =
       activeRevisionMatchesRoute(activeRevision, fileId, searchParams, resource) &&

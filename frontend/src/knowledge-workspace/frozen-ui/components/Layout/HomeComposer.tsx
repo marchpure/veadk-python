@@ -377,7 +377,7 @@ export default function HomeComposer({
         </div>
 
         <div className="flex flex-1 flex-col">
-          <section className="flex min-h-0 flex-1 -translate-y-[4px] flex-col items-center justify-center md:translate-y-[3px]">
+          <section className="flex min-h-0 flex-1 -translate-y-[4px] flex-col items-center justify-center md:translate-y-[1px]">
             <div className="w-full max-w-[704px]">
               <div className="mb-6 text-center">
                 <h1 className="mx-auto w-fit max-w-full text-left text-3xl font-bold tracking-tight text-slate-900">今天想解决什么业务问题？</h1>
