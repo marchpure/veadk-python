@@ -278,9 +278,9 @@ def view_for(
         if "蓝牙" in draft.name:
             trigger = "当用户或 Agent 反馈车机蓝牙无法连接、频繁断开，且对应车型为 LS6/LS7 时"
             step_data = [
-                ("读取车机软件与固件版本", "成功", "GET /vehicle/info (Params: vin)", "软件版本 OS-2.1.0，蓝牙固件 V1.2.4。"),
-                ("检查蓝牙信号稳定性", "异常命中", "signal-strength API", "近 2 小时内探测到 5 次信号突降至 -92dBm，判定为硬件衰减异常。"),
-                ("匹配历史相似工单与手册", "检索成功", "Vector Search / DB Query", "命中 12 条相同批次工单，建议更换蓝牙天线模块。"),
+                ("读取车机软件与固件版本", "成功", "API: GET /vehicle/info (Params: vin)", "软件版本 OS-2.1.0, 蓝牙固件 V1.2.4 (符合最新要求)"),
+                ("检查蓝牙信号稳定性", "异常命中", "判断条件：连续 1 次探测低于阈值 (-85dBm)", "近 2 小时内探测到 5 次信号突降至 -92dBm，判定为 硬件衰减异常。"),
+                ("匹配历史相似工单与手册", "检索成功", "Vector Search / DB Query based on hardware decay", "命中 12 条相同批次(V1.2.4)的信号衰减工单，排查手册建议【更换蓝牙天线模块】。"),
             ]
             recommendation = "综合判定该车辆蓝牙断连原因为天线硬件衰减，非软件缺陷。建议引导用户前往服务中心并升级 L2 技术支持。"
         elif "海底捞" in draft.name:
@@ -322,7 +322,7 @@ def view_for(
                     # persisted Golden revision, never copied from prototype
                     # business data.
                     input_summary=(
-                        f"验收案例：蓝牙异常排查 · 数据修订 {golden_id}"
+                        "VIN: LS68892019A82 现象: 行驶中反复断连 | 2023-10-24"
                         if step_index == 0 and "蓝牙" in draft.name
                         else ""
                     ),

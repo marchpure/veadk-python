@@ -94,6 +94,23 @@ function templateLabel(revision: RecordValue | null, fallback = 'Skill'): string
   return labels[template] ?? `${template} Skill`;
 }
 
+function contextTagsFromRevision(revision: RecordValue | null): Array<{ name: string; desc: string }> {
+  const viewModel = isRecord(revision?.viewModel) ? revision.viewModel : {};
+  const steps = Array.isArray(viewModel.stepResults) ? viewModel.stepResults : [];
+  const toolRefs = steps.flatMap((step) => {
+    if (!isRecord(step) || !Array.isArray(step.toolRefs)) return [];
+    return step.toolRefs.filter((item): item is string => typeof item === 'string' && item.trim());
+  });
+  const uniqueTools = [...new Set(toolRefs)];
+  const dataRefs = Array.isArray(revision?.dataRevisionRefs)
+    ? revision.dataRevisionRefs.filter((item): item is string => typeof item === 'string' && item.trim())
+    : [];
+  return [...uniqueTools, ...dataRefs].slice(0, 4).map((value) => ({
+    name: value,
+    desc: '服务端已授权上下文',
+  }));
+}
+
 function addArtifactContext(event: TrustedArtifactEvent, name: string) {
   window.dispatchEvent(new CustomEvent('add_context_item', {
     detail: {
@@ -154,6 +171,7 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
   const skillId = useMemo(() => skillIdFromRevision(revision, fileId), [revision, fileId]);
   const title = useMemo(() => titleFromRevision(revision, fileId), [revision, fileId]);
   const typeLabel = useMemo(() => templateLabel(revision), [revision]);
+  const contextTags = useMemo(() => contextTagsFromRevision(revision), [revision]);
   const canRenderHtml = hasTrustedHtmlRevision(revision);
   const revisionId = stringValue(revision?.id);
 
@@ -236,6 +254,8 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
           version={revisionId ? `ViewRevision ${revisionId}` : '等待 ViewRevision'}
           searchParams={searchParams}
           setSearchParams={setSearchParams}
+          productMode
+          contextTags={contextTags}
         />
 
         {(pending || message || error) && (

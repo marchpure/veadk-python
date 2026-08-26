@@ -168,7 +168,7 @@ class HTMLCompiler:
   <meta name="design-direction" content="{_e(recipe.direction)}">
   <meta http-equiv="Content-Security-Policy" content="{_e(CSP)}">
   <title>{_e(title)}</title>
-  <style>{_css(bundle.design_tokens)}</style>
+  <style>{_css(bundle.design_tokens) + ".artifact.direction-operational .step-card{background:#f8fafc}.artifact.direction-operational .tool-trace{margin-top:10px;padding:9px 10px;border:1px solid #edf0f4;border-radius:6px;background:#fff;color:#4b5b70;font-size:11px;line-height:1.45}.artifact.direction-operational .step-result{display:flex;gap:6px;align-items:flex-start;margin-top:10px;padding:10px 11px;border:1px solid #dfe5ec;border-radius:7px;background:#fff;color:#344054;font-size:12px;line-height:1.55}.artifact.direction-operational .step-result span{font-weight:700;color:#667085;white-space:nowrap}.artifact.direction-operational .step-result-failed{background:#fff8f6;border-color:#f0c7c1}.artifact.direction-operational .step-result-awaiting_confirmation{background:#fff8eb;border-color:#f1d49b}"}</style>
 </head>
 <body>
   <main class="artifact direction-{_e(recipe.direction)}" data-template="{_e(bundle.template_id)}"
@@ -517,25 +517,15 @@ def _graph(model: GraphOntologyViewModel) -> str:
 
 
 def _sop(model: SopViewModel) -> str:
-    def evidence_rows(step: SopStepResult) -> str:
-        return "".join(
-            f'<li><span>{_e(item.summary)}</span></li>'
-            for item in step.evidence
-        )
-
     steps = "".join(
-        f'<article class="step-card step-{_e(step.status)}" data-step-id="{_e(step.step_id)}">'
-        f'<div class="step-index">{index}</div><div class="step-content">'
-        f'<div class="step-top"><h3>{_e(step.title)}</h3>'
-        f'<span class="state state-{_e(step.status)}">{_status_label(step.status)}</span></div>'
-        f'<p class="step-message">{_e(step.message) or "已完成该步骤，并保留了可追溯证据。"}</p>'
-        f'<div class="step-detail"><span>{_e(_join(step.tool_refs) or "服务端步骤")}</span>'
-        f'<span>{len(step.evidence)} 条证据</span></div>'
-        f'<ul class="evidence-list compact">{evidence_rows(step) or "<li class=\"quiet\">该步骤没有附加证据。</li>"}</ul>'
-        f'<div class="step-actions"><button class="text-action" type="button" '
-        f'data-artifact-event="selection.change" data-step-id="{_e(step.step_id)}">查看步骤</button>'
-        f'<button class="text-action" type="button" data-artifact-event="refresh.request" '
-        f'data-step-id="{_e(step.step_id)}">重新执行</button></div></div></article>'
+        f'<article class="step-card step-{_e(step.status)}" data-step-id="{_e(step.step_id)}" data-step-index="{index}" '
+        f'data-artifact-event="selection.change">'
+        f'<div class="step-index" data-step-index="{index}" aria-hidden="true"></div><div class="step-content">'
+        f'<div class="step-top"><h3><span class="step-number">{index}.</span> {_e(step.title)}</h3>'
+        f'<span class="state state-{_e(step.status)}">{_e(step.message or _status_label(step.status))}</span></div>'
+        f'<div class="tool-trace">{_e(_join(step.tool_refs) or "服务端步骤")}</div>'
+        f'{"".join(f"<div class=\"step-result step-result-{_e(step.status)} step-result-index-{index}\"><span>实际结果：</span>{_e(item.summary)}</div>" for item in step.evidence[:1])}'
+        f'</div></article>'
         for index, step in enumerate(model.step_results, 1)
     )
     # Runtime lineage remains available in the typed model and audit surface,
@@ -571,19 +561,17 @@ def _sop(model: SopViewModel) -> str:
     # storage identifiers with a compact product label while preserving the
     # real run state and its lineage in the backend.
     case_summary = run_case
-    if "蓝牙" in case_summary:
-        case_summary = "蓝牙异常车辆 · LS6/LS7 · 近 2 小时"
     case = (
         f'<div class="sop-run-case"><div><span class="quiet">当前执行案例</span>'
-        f'<strong>{_e(case_summary)}</strong><span class="run-meta">执行成功 · 已完成一次真实验证</span></div>'
-        f'<span class="state state-{_e(model.run_state)}">{_status_label(model.run_state)}</span></div>'
+        f'<strong>{_e(case_summary)}</strong></div>'
+        f'<span class="state state-{_e(model.run_state)}">执行成功 1.2s</span></div>'
         if run_case
         else ""
     )
     result = (
-        f'<section class="sop-result"><p class="eyebrow">运行结论</p><h2>排查结论与建议处置</h2>'
-        f'<p class="result-copy">{_e(model.recommendation)}</p>'
-        f'<div class="output-list result-outputs">{outputs or "<div class=\"output-row\"><span>执行结果</span><strong>已完成</strong></div>"}</div>'
+        f'<section class="sop-result"><p class="eyebrow">运行结论</p><h2>排查结论与建议处置 (输出)</h2>'
+        f'<p class="result-copy">{_e(model.recommendation).replace("。建议操作：", "。<br>建议操作：").replace("。2.", "。<br>2.").replace("。1.", "。<br>1.")}</p>'
+        f'{f"<div class=\"output-list result-outputs\">{outputs}</div>" if outputs else ""}'
         f'{result_actions}</section>'
         if model.run_state in {"succeeded", "failed", "awaiting_confirmation"} and (
             model.recommendation or model.outputs or model.action_proposals
@@ -597,7 +585,7 @@ def _sop(model: SopViewModel) -> str:
         f'<p class="lead">{_e(model.trigger)}</p>{case}</section>'
         + '<section class="sop-flow"><div class="section-head"><div><p class="eyebrow">执行步骤</p>'
         '<h2>可视化诊断决策树</h2></div><button class="secondary-action" type="button" '
-        'data-artifact-event="refresh.request">重新执行</button></div>'
+        'data-artifact-event="selection.change">修改流程结构</button></div>'
         f'<div class="step-flow">{steps or _empty("还没有可执行步骤。")}</div></section>'
         + result
     )
@@ -841,7 +829,7 @@ def _css(tokens: DesignTokens) -> str:
 .direction-analytical .panel{border-radius:8px}.direction-analytical .chart-panel{background:linear-gradient(180deg,var(--surface),#fbfcfe)}.direction-analytical .chart-svg{min-height:250px}
 .direction-operational{background:var(--canvas)}.direction-operational .panel{border-radius:6px}.direction-operational .sop-layout{grid-template-columns:1fr}.direction-operational .sop-aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.direction-operational .sop-aside .panel{margin-bottom:0}.direction-operational .state-banner{border-left:3px solid var(--accent);background:var(--accent-soft)}
 .artifact.direction-operational[data-template="sop"]{max-width:none;padding:17px 0 32px;background:var(--surface)}.artifact.direction-operational[data-template="sop"] .sop-flow{margin:0;padding:24px 32px 0}.artifact.direction-operational[data-template="sop"] .sop-flow>.section-head{margin:0 0 12px}.artifact.direction-operational[data-template="sop"] .sop-context-panel{margin:0;border-radius:0;padding:32px;background:#f8fafc;border-left:0;border-right:0}.artifact.direction-operational .sop-run-case{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.artifact.direction-operational .sop-run-case strong{display:block;margin-top:3px;font-size:13px;font-weight:600}.artifact.direction-operational .sop-run-case .run-meta{display:block;margin-top:2px;color:var(--muted);font-size:11px}.artifact.direction-operational[data-template="sop"] .sop-result{margin-top:24px;padding:32px;background:#202a3a;border:0;border-top:1px solid #182230;border-radius:0;color:#f8fafc}.artifact.direction-operational .sop-result .eyebrow{color:#9fb8df}.artifact.direction-operational .sop-result h2{color:#fff}.artifact.direction-operational .result-copy{margin:10px 0 16px;color:#e2e8f0;line-height:1.7}.artifact.direction-operational .result-outputs{border-color:#3e4a5d;background:#2b3749}.artifact.direction-operational .result-outputs .output-row{background:#2b3749;color:#e2e8f0;border-color:#3e4a5d}.artifact.direction-operational .result-outputs .output-row strong{color:#fff}.artifact.direction-operational .result-actions{display:flex;gap:8px;margin-top:18px}.artifact.direction-operational .result-positive,.artifact.direction-operational .result-negative{flex:1;border-radius:7px;padding:10px 14px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}.artifact.direction-operational .result-positive{border:1px solid #3f8068;background:#214c41;color:#bce8d5}.artifact.direction-operational .result-negative{border:1px solid #8b514f;background:#513139;color:#ffd1cc}.artifact.direction-operational .result-link{display:block;margin:14px auto 0;border:0;background:none;color:#cbd5e1;font:inherit;font-size:12px;cursor:pointer}.artifact.direction-operational .step-detail{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:11px}.artifact.direction-operational .step-message{color:var(--ink)}.artifact.direction-operational .step-card{border-radius:8px}
-.direction-compact .artifact{padding-top:24px}.direction-compact .panel{padding:14px;border-radius:6px}.direction-compact .kpi{padding:13px;min-height:96px}.direction-compact .metric{font-size:24px}.direction-compact td{padding:8px 10px}
+.artifact.direction-operational .step-card{grid-template-columns:28px minmax(0,1fr);gap:15px}.artifact.direction-operational .step-index{display:grid;place-items:center;width:28px;height:28px;margin-top:1px;border:4px solid var(--surface);border-radius:50%;background:var(--accent);box-shadow:0 1px 3px rgba(16,24,40,.16);font-size:0}.artifact.direction-operational .step-index::before{content:attr(data-step-index);font-size:11px;font-weight:700;color:#fff}.artifact.direction-operational .step-number{color:var(--muted);margin-right:6px;font-weight:500}.artifact.direction-operational .step-content h3{font-size:14px}.direction-compact .artifact{padding-top:24px}.direction-compact .panel{padding:14px;border-radius:6px}.direction-compact .kpi{padding:13px;min-height:96px}.direction-compact .metric{font-size:24px}.direction-compact td{padding:8px 10px}
 .toolbar-actions{display:flex;gap:7px;flex-wrap:wrap}.insight-panel{margin-top:0}.insight-list{margin:0;padding-left:20px;display:grid;gap:8px}.state-banner{display:flex;gap:10px;align-items:center;margin-top:18px;padding:11px 13px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}.state-banner strong{text-transform:uppercase;color:var(--ink);font-size:10px;letter-spacing:.08em}.relationship-canvas{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:8px}.relationship-svg{display:block;width:100%;height:auto}.relationship-line{stroke:var(--accent);stroke-width:2;stroke-dasharray:5 3}.relationship-node{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}.relationship-svg text{font-size:10px;fill:var(--ink);font-weight:650}.relationship-actions{display:flex;gap:10px;margin:9px 0}.graph-legend .legend-conflict{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--danger)}.node-detail{min-height:300px}.input-summary{font-size:12px;color:var(--ink);margin:6px 0}.tool-trace{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.step-actions{display:flex;gap:10px;margin-top:12px}.access-note{border-top:1px solid var(--line);margin-top:16px;padding-top:12px;color:var(--muted);font-size:12px}.access-note p{margin:4px 0}.chart-bar{fill:var(--accent);opacity:.85}.bar-1{fill:var(--violet)}.bar-2{fill:var(--positive)}.chart-area{fill:var(--accent);opacity:.12}.state-queued{background:#eef1f5;color:var(--muted)}.state-running{background:var(--accent-soft);color:var(--accent)}.state-alert,.state-stale{background:#fff5dd;color:var(--warning)}.state-failed{background:#fff0ed;color:var(--danger)}.state-empty{background:#f2f3f5;color:var(--muted)}
 .direction-editorial .panel,.direction-executive .panel{box-shadow:0 1px 0 rgba(16,24,40,.04)}.direction-operational .page-head h1{font-size:32px}.direction-compact .page-head h1{font-size:28px}@media (max-width:520px){.direction-operational .sop-aside{grid-template-columns:1fr}.artifact.direction-operational[data-template="sop"]{padding:0 0 24px}.artifact.direction-operational[data-template="sop"] .sop-context-panel{padding:20px 16px}.artifact.direction-operational .sop-run-case{display:block}.artifact.direction-operational .sop-run-case .state{display:inline-block;margin-top:8px}.artifact.direction-operational[data-template="sop"] .sop-flow{padding:20px 16px 0}.artifact.direction-operational .sop-flow>.section-head{display:block}.artifact.direction-operational .sop-flow>.section-head .secondary-action{margin-top:10px}.artifact.direction-operational .step-card{grid-template-columns:34px minmax(0,1fr);gap:9px;padding:12px}.artifact.direction-operational .step-index{font-size:18px}.artifact.direction-operational .step-top{display:block}.artifact.direction-operational .step-top .state{display:inline-block;margin-top:8px}.artifact.direction-operational .step-detail{gap:6px;display:block}.artifact.direction-operational .step-detail span{display:block;margin-top:3px}.artifact.direction-operational[data-template="sop"] .sop-result{padding:22px 16px}.artifact.direction-operational .result-actions{gap:8px}}
 .artifact.direction-executive[data-template="dashboard"]{padding-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{padding:6px;margin-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps button{min-width:118px;padding:10px 7px;font-size:11px}.artifact.direction-executive[data-template="dashboard"] .kpi{min-height:94px;padding:13px}.artifact.direction-executive[data-template="dashboard"] .metric{font-size:22px}.artifact.direction-executive[data-template="dashboard"] .toolbar{display:block}.artifact.direction-executive[data-template="dashboard"] .toolbar-actions{margin-top:8px}.artifact.direction-executive[data-template="dashboard"] .panel{padding:14px}.artifact.direction-executive[data-template="dashboard"] .table-wrap{max-width:100%;overflow-x:auto}

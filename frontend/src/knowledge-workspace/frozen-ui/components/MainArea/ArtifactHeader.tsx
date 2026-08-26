@@ -6,7 +6,8 @@ import { activeSkillViewRevision } from '../../../production/data';
 import { createRequestContext } from '../../../production/ports';
 
 export default function ArtifactHeader({
-  title, typeLabel, isTeam, version, fromTeamVersion, editTarget, onElementClick, setSearchParams, searchParams, showToast
+  title, typeLabel, isTeam, version, fromTeamVersion, editTarget, onElementClick, setSearchParams, searchParams, showToast,
+  productMode = false, contextTags = [],
 }: any) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [busy, setBusy] = useState('');
@@ -79,13 +80,18 @@ export default function ArtifactHeader({
         <div className="flex flex-col min-w-0 pr-4">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold text-slate-900 tracking-tight truncate">{title}</h1>
-            <span className="text-[12px] font-mono text-slate-500 shrink-0 ml-1">{version}</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-400 shrink-0 bg-slate-50 ml-1">{isTeam ? '团队快照' : '个人草稿'}</span>
+            <span className="text-[12px] font-mono text-slate-500 shrink-0 ml-1">{productMode ? 'V1.0 草稿' : version}</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-400 shrink-0 bg-slate-50 ml-1">{isTeam ? '团队快照' : productMode ? '工作草稿' : '个人草稿'}</span>
+            {productMode && contextTags.length > 0 && (
+              <span className="px-2 py-1 rounded border border-slate-200 bg-slate-100 text-[11px] font-medium text-slate-600 shrink-0">
+                使用了 {contextTags.length} 项上下文
+              </span>
+            )}
           </div>
         </div>
         
         <div className="flex items-center gap-2 shrink-0">
-          <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
+          {!productMode && <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
             const item = { 
               id: searchParams.get('file'), 
               name: title, 
@@ -100,11 +106,11 @@ export default function ArtifactHeader({
             window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item } }));
           }}>
             <PlusSquare size={14} className="mr-1.5 text-slate-500"/>加入对话
-          </button>
+          </button>}
           
           {!isTeam ? (
-            <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', 'publish'); setSearchParams(p); }}>
-              发布到团队
+            <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', productMode ? 'publish_agent' : 'publish'); setSearchParams(p); }}>
+              {productMode ? '发布给 Agent' : '发布到团队'}
             </button>
           ) : (
             <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
