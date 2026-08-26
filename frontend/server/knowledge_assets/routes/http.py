@@ -4,22 +4,27 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.types import ExceptionHandler
 
 from ..application import KnowledgeAssetApplication
 from ..contracts import (
     CommandRequest,
-    CommandResponse,
     ErrorEnvelope,
     OperationAuditResponse,
 )
 from ..repository import KnowledgeAssetRepositoryError
 from ..sources_golden import SourcesGoldenError
+from frontend.server.skill_authoring.models import SkillAuthoringError
+from frontend.server.skill_authoring.streaming import (
+    AuthoringEventFeed,
+    parse_last_event_id,
+)
 
 
 def _error(
@@ -73,7 +78,10 @@ def mount_knowledge_asset_routes(
             media_type="application/problem+json",
         )
 
-    app.add_exception_handler(RequestValidationError, validation_error)
+    app.add_exception_handler(
+        RequestValidationError,
+        cast(ExceptionHandler, validation_error),
+    )
 
     @app.get("/api/knowledge-assets/v1/bootstrap")
     async def bootstrap(request: Request) -> Any:
@@ -83,7 +91,7 @@ def mount_knowledge_asset_routes(
         )
 
     @app.post("/api/knowledge-assets/v1/commands")
-    async def command(request: Request, body: CommandRequest) -> CommandResponse:
+    async def command(request: Request, body: CommandRequest) -> Any:
         request_id = request.headers.get("X-Request-ID", "missing-request-id")
         idempotency_key = request.headers.get("Idempotency-Key")
         if not idempotency_key:
@@ -251,13 +259,96 @@ def mount_knowledge_asset_routes(
 
     @app.post("/api/knowledge-assets/v1/streams")
     async def streams(request: Request, body: CommandRequest) -> Response:
-        del body
         request_id = request.headers.get("X-Request-ID", "missing-request-id")
-        return _error(
-            422,
-            "STREAM_COMMAND_REQUIRED",
-            "当前 STEP 1 没有开放流式命令。",
-            request_id,
+        idempotency_key = request.headers.get("Idempotency-Key")
+        if not idempotency_key:
+            return _error(
+                400,
+                "IDEMPOTENCY_KEY_REQUIRED",
+                "缺少幂等键。",
+                request_id,
+            )
+        if body.command != "skill-authoring.start":
+            return _error(
+                422,
+                "STREAM_COMMAND_REQUIRED",
+                "流式入口仅接受 skill-authoring.start。",
+                request_id,
+            )
+        authoring = getattr(application, "_authoring", None)
+        if authoring is None:
+            return _error(
+                503,
+                "AUTHORING_NOT_CONFIGURED",
+                "生产 authoring repository 尚未配置。",
+                request_id,
+                retryable=False,
+            )
+        workspace_id, _role = identity_resolver(request)
+        payload = body.payload.model_dump(mode="python")
+        envelope = application._authoring_envelope(
+            payload,
+            caller_id=workspace_id,
+            workspace_id=workspace_id,
+            request_id=request_id,
+        )
+        from frontend.server.skill_authoring.models import (
+            Scope as AuthoringScope,
+            SkillKind as AuthoringSkillKind,
+        )
+
+        try:
+            kind = payload.get("requested_kind")
+            accepted = await authoring.start_turn(
+                envelope,
+                requested_kind=AuthoringSkillKind(kind) if kind else None,
+                scope=AuthoringScope(str(payload.get("scope", "personal"))),
+                display_name=payload.get("display_name"),
+                idempotency_key=idempotency_key,
+            )
+            operation_id = accepted.operation_id
+        except SkillAuthoringError as error:
+            return _error(
+                403 if error.code.value == "permission_denied" else 422,
+                error.code.value.upper(),
+                error.message,
+                request_id,
+                retryable=False,
+            )
+        try:
+            after = parse_last_event_id(
+                request.headers.get("Last-Event-ID"),
+                operation_id=operation_id,
+            )
+        except ValueError:
+            return _error(400, "LAST_EVENT_ID_INVALID", "事件游标无效。", request_id)
+        feed = AuthoringEventFeed(authoring.repository)
+
+        async def stream_body():
+            async for frame in feed.iter_frames(operation_id, after_sequence=after):
+                if await request.is_disconnected():
+                    break
+                if frame.kind == "heartbeat":
+                    yield b": heartbeat\n\n"
+                    continue
+                event = frame.event
+                if event is None:
+                    continue
+                payload = event.model_dump(mode="json", by_alias=True)
+                yield (
+                    f"id: {operation_id}:{event.sequence}\n"
+                    f"event: {event.type}\n"
+                    f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                ).encode()
+
+        return StreamingResponse(
+            stream_body(),
+            media_type="text/event-stream",
+            headers={
+                "X-Operation-ID": operation_id,
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     @app.get("/api/knowledge-assets/v1/operations/{operation_id}")
@@ -274,15 +365,111 @@ def mount_knowledge_asset_routes(
         value = await application.authoring_operation(operation_id)
         if value is None:
             return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        workspace_id, _role = identity_resolver(request)
+        if value.operation.workspace_id != workspace_id:
+            # Keep durable operation reads aligned with the event feed and
+            # mutation routes: operation IDs are not bearer capabilities.
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        return value.model_dump(mode="json", by_alias=True)
+
+    def authoring_service():
+        # The application composes this domain service; routes intentionally
+        # keep authoring transport concerns out of the shared application API.
+        return getattr(application, "_authoring", None)
+
+    @app.get("/api/knowledge-assets/v1/authoring/operations/{operation_id}/events")
+    async def authoring_operation_events(
+        operation_id: str, request: Request
+    ) -> Response:
+        request_id = request.headers.get("X-Request-ID", "missing-request-id")
+        read = await application.authoring_operation(operation_id)
+        authoring = authoring_service()
+        if read is None or authoring is None:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        workspace_id, _role = identity_resolver(request)
+        if read.operation.workspace_id != workspace_id:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        try:
+            after = parse_last_event_id(
+                request.headers.get("Last-Event-ID"),
+                operation_id=operation_id,
+            )
+        except ValueError:
+            return _error(400, "LAST_EVENT_ID_INVALID", "事件游标无效。", request_id)
+        feed = AuthoringEventFeed(authoring.repository)
+
+        async def body():
+            async for frame in feed.iter_frames(operation_id, after_sequence=after):
+                if await request.is_disconnected():
+                    break
+                if frame.kind == "heartbeat":
+                    yield b": heartbeat\n\n"
+                    continue
+                event = frame.event
+                if event is None:
+                    continue
+                payload = event.model_dump(mode="json", by_alias=True)
+                yield (
+                    f"id: {operation_id}:{event.sequence}\n"
+                    f"event: {event.type}\n"
+                    f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                ).encode()
+
+        return StreamingResponse(
+            body(),
+            media_type="text/event-stream",
+            headers={
+                "X-Operation-ID": operation_id,
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    @app.post("/api/knowledge-assets/v1/authoring/operations/{operation_id}:cancel")
+    async def cancel_authoring(operation_id: str, request: Request) -> Any:
+        request_id = request.headers.get("X-Request-ID", "missing-request-id")
+        workspace_id, _role = identity_resolver(request)
+        authoring = authoring_service()
+        if authoring is None:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        try:
+            value = await authoring.cancel(operation_id, caller_id=workspace_id)
+        except SkillAuthoringError as error:
+            return _error(
+                403 if error.code.value == "permission_denied" else 422,
+                error.code.value.upper(),
+                error.message,
+                request_id,
+            )
+        if value is None:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        return value.model_dump(mode="json", by_alias=True)
+
+    @app.post("/api/knowledge-assets/v1/authoring/operations/{operation_id}:retry")
+    async def retry_authoring(operation_id: str, request: Request) -> Any:
+        request_id = request.headers.get("X-Request-ID", "missing-request-id")
+        workspace_id, _role = identity_resolver(request)
+        authoring = authoring_service()
+        if authoring is None:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
+        try:
+            value = await authoring.retry(operation_id, caller_id=workspace_id)
+        except SkillAuthoringError as error:
+            return _error(
+                403 if error.code.value == "permission_denied" else 422,
+                error.code.value.upper(),
+                error.message,
+                request_id,
+            )
+        if value is None:
+            return _error(404, "OPERATION_NOT_FOUND", "操作不存在。", request_id)
         return value.model_dump(mode="json", by_alias=True)
 
     @app.get(
         "/api/knowledge-assets/v1/operations/{operation_id}/audit",
         response_model=None,
     )
-    async def operation_audit(
-        operation_id: str, request: Request
-    ) -> OperationAuditResponse | JSONResponse:
+    async def operation_audit(operation_id: str, request: Request) -> Any:
         request_id = request.headers.get("X-Request-ID", "missing-request-id")
         value = application.operation(operation_id)
         if value is None:
@@ -293,9 +480,7 @@ def mount_knowledge_asset_routes(
         ).model_dump(mode="json", by_alias=True)
 
     @app.get("/api/knowledge-assets/v1/operations/{operation_id}/events")
-    async def operation_events(
-        operation_id: str, request: Request
-    ) -> StreamingResponse:
+    async def operation_events(operation_id: str, request: Request) -> Response:
         request_id = request.headers.get("X-Request-ID", "missing-request-id")
         value = application.operation(operation_id)
         if value is None:

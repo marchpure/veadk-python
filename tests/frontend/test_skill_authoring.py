@@ -5,10 +5,16 @@ import json
 import sys
 from typing import AsyncGenerator
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from frontend.server.skill_authoring.models import (
+    AgentAnswer,
+    AgentEventEvidence,
+    AgentExecutionEvidence,
+    AgentIntent,
+    AgentRuntimeEvent,
     AuthoringErrorCode,
     BuildPlan,
     AuthoringStatus,
@@ -24,6 +30,11 @@ from frontend.server.skill_authoring.models import (
     SetPermissionScopePatch,
     SetQueryPlanPatch,
     SetTitlePatch,
+    SetSemanticMetricPatch,
+    SetSemanticDimensionPatch,
+    SetSemanticRelationshipPatch,
+    SetDashboardKpiPatch,
+    SetSopStepPatch,
     SkillKind,
     QueryPlan,
     SkillAuthoringError,
@@ -122,6 +133,11 @@ def test_veadk_build_plan_parser_accepts_structured_transport_wrappers() -> None
         "请说明你希望查询或创建的知识内容。",
     )
     assert clarification.dependencies == ()
+
+
+def test_veadk_internal_structured_output_tool_is_not_public_activity() -> None:
+    assert VeADKModelGateway._is_public_tool("infrastructure.metrics") is True
+    assert VeADKModelGateway._is_public_tool("set_model_response") is False
 
 
 @pytest.mark.asyncio
@@ -257,6 +273,17 @@ async def test_real_local_journey_changes_plan_and_draft_digest(setup_authoring)
     assert first.draft.lineage == (ref,)
     assert first.draft.plan.query_plan is not None
     assert first.draft.plan.query_plan.read_only is True
+    plan_event = next(event for event in first.events if event.type == "plan.created")
+    assert plan_event.payload["steps"] == [
+        {"id": "resolve_context", "label": "解析上下文", "status": "completed"},
+        {"id": "build_plan", "label": "生成 Skill 方案", "status": "completed"},
+        {"id": "save_revision", "label": "保存 Skill 修订", "status": "running"},
+    ]
+    assert any(
+        event.type == "plan.step.completed"
+        and event.payload["step_id"] == "save_revision"
+        for event in first.events
+    )
 
 
 @pytest.mark.asyncio
@@ -320,6 +347,8 @@ async def test_credential_blocked_is_typed_and_persisted(setup_authoring):
     assert result.operation.status == AuthoringStatus.CREDENTIAL_BLOCKED
     assert result.operation.error_code == AuthoringErrorCode.CREDENTIAL_BLOCKED
     assert any(event.event_type == "credential_blocked" for event in result.events)
+    assert result.events[-1].type == "operation.failed"
+    assert result.events[-1].terminal is True
 
 
 @pytest.mark.asyncio
@@ -327,7 +356,8 @@ async def test_awaiting_input_and_permission_patch_are_fail_closed(setup_authori
     service, _, ref = setup_authoring
 
     class ClarifyingGateway:
-        async def propose_plan(self, context, *, requested_kind):
+        async def propose_plan(self, context, *, requested_kind, event_sink=None):
+            del event_sink
             plan = await LocalPlanningHarness().propose_plan(
                 context, requested_kind=requested_kind
             )
@@ -342,6 +372,10 @@ async def test_awaiting_input_and_permission_patch_are_fail_closed(setup_authori
     )
     assert awaiting.operation.status == AuthoringStatus.AWAITING_INPUT
     assert awaiting.operation.clarification_questions == ("Which date range?",)
+    assert awaiting.events[-2].type == "answer.final"
+    assert awaiting.events[-2].terminal is False
+    assert awaiting.events[-1].type == "operation.completed"
+    assert awaiting.events[-1].terminal is True
 
     service.model_gateway = LocalPlanningHarness()
     created = await service.create_draft(
@@ -357,6 +391,29 @@ async def test_awaiting_input_and_permission_patch_are_fail_closed(setup_authori
             proposed_by="user_1",
         )
     assert error.value.code == AuthoringErrorCode.PERMISSION_DENIED
+
+
+@pytest.mark.asyncio
+async def test_missing_resource_for_create_is_structured_clarification(setup_authoring):
+    service, _, _ = setup_authoring
+    result = await service.create_draft(
+        ContextEnvelope(
+            caller_id="user_1",
+            workspace_id="workspace_1",
+            prompt="create a dashboard",
+        ),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    assert result.operation.status == AuthoringStatus.AWAITING_INPUT
+    assert result.operation.error_code == AuthoringErrorCode.AMBIGUOUS
+    assert result.operation.clarification_questions
+    assert result.events[-2].type == "answer.final"
+    assert result.events[-2].payload["status"] == "awaiting_input"
+    assert result.events[-2].payload["clarification_questions"]
+    assert result.events[-1].type == "operation.completed"
+    assert result.events[-1].payload["status"] == "awaiting_input"
+    assert result.events[-1].terminal is True
 
 
 @pytest.mark.asyncio
@@ -475,7 +532,8 @@ async def test_model_timeout_is_typed(setup_authoring):
     service, _, ref = setup_authoring
 
     class SlowGateway:
-        async def propose_plan(self, context, *, requested_kind):
+        async def propose_plan(self, context, *, requested_kind, event_sink=None):
+            del event_sink
             await asyncio.sleep(0.05)
             return await LocalPlanningHarness().propose_plan(
                 context, requested_kind=requested_kind
@@ -640,6 +698,13 @@ mcp.run()
     assert any(call.name == "mcp_inspect_schema" for call in evidence.tool_calls)
     assert any(call.status == "succeeded" for call in evidence.tool_calls)
     assert result.operation.trace_id == evidence.trace_id
+    timeline_types = [event.type for event in result.events]
+    tool_started = timeline_types.index("tool.started")
+    tool_completed = timeline_types.index("tool.completed")
+    assert tool_started < tool_completed < timeline_types.index("plan.created")
+    assert result.events[tool_started].payload["tool_name"] == "mcp_inspect_schema"
+    assert result.events[tool_started].payload["tool_category"] == "mcp"
+    assert result.events[tool_completed].payload["duration_ms"] >= 0
     model_input = json.loads(str(captured["model_input"]))
     assert model_input["prompt"] == "Compare maintenance backlog by site over time"
     assert model_input["workspace_id"] == "workspace_1"
@@ -647,6 +712,96 @@ mcp.run()
     assert model_input["fixed_revisions"] == [ref.revision]
     assert model_input["resources"][0]["scope"] == ref.scope.value
     assert model_input["context_binding"]["current_view_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_real_veadk_agent_runner_accepts_typed_plan_without_mcp_call(
+    setup_authoring,
+):
+    """A complete model plan must not be rejected merely because no tool ran."""
+
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    query = {
+        "source_revision": ref.revision,
+        "selected_fields": ["amount", "created_at"],
+        "filters": {},
+        "limit": 50,
+        "read_only": True,
+    }
+    plan = {
+        "plan_id": "plan_direct_typed",
+        "intent": "analysis",
+        "purpose": "Summarize the authorized source.",
+        "nodes": [
+            {"node_id": "resolve_intent", "role": "intent_resolution"},
+            {
+                "node_id": "resolve_context",
+                "role": "context_resolution",
+                "depends_on": ["resolve_intent"],
+            },
+            {
+                "node_id": "prepare_source",
+                "role": "query_plan",
+                "depends_on": ["resolve_context"],
+            },
+            {
+                "node_id": "worker3_execution",
+                "role": "worker3_execution",
+                "depends_on": ["prepare_source"],
+            },
+        ],
+        "inputs": [],
+        "outputs": [{"name": "table", "type": "table"}],
+        "dependencies": [ref.model_dump(mode="json")],
+        "data_refs": [ref.model_dump(mode="json")],
+        "lineage": [ref.model_dump(mode="json")],
+        "metrics": ["amount"],
+        "dimensions": ["created_at"],
+        "layout_intent": "trend",
+        "refresh_policy": {
+            "max_age_seconds": 3600,
+            "require_fixed_revision": True,
+        },
+        "kind_spec": {
+            "kind": "analysis",
+            "query_plan": query,
+            "analysis_shape": "trend",
+            "unit": "value",
+        },
+        "query_plan": query,
+        "plan_digest": "recomputed",
+    }
+
+    class DirectPlanModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del llm_request, stream
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text=json.dumps(plan))],
+                )
+            )
+
+    service.model_gateway = VeADKModelGateway(
+        mcp_tools=McpToolBundle(tools=(lambda: {"unused": True},), schemas={}),
+        model=DirectPlanModel(model="direct-plan-model"),
+        model_api_key="test-key",
+    )
+    result = await service.create_draft(
+        envelope(ref, "Create an analysis Skill from the authorized source."),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    assert result.operation.status == AuthoringStatus.READY_FOR_EXECUTION
+    assert result.draft is not None
+    assert result.draft.plan.intent == SkillKind.ANALYSIS
+    assert result.operation.agent_execution is not None
+    assert result.operation.agent_execution.status == "succeeded"
+    assert result.operation.agent_execution.tool_calls == ()
 
 
 @pytest.mark.asyncio
@@ -713,6 +868,10 @@ async def test_veadk_agent_allows_typed_clarification_without_mcp_call(setup_aut
     )
     assert result.operation.agent_execution is not None
     assert result.operation.agent_execution.tool_calls == ()
+    answer = next(event for event in result.events if event.type == "answer.final")
+    assert answer.payload["clarification_questions"] == [
+        "请说明你希望查询或创建的知识内容。"
+    ]
 
 
 @pytest.mark.asyncio
@@ -843,6 +1002,995 @@ async def test_veadk_typed_answer_uses_real_runner_without_tools_or_artifacts(
     assert gateway.execution_evidence is not None
     assert gateway.execution_evidence.tool_calls == ()
     assert captured["tools"] in (None, [])
+
+
+@pytest.mark.asyncio
+async def test_veadk_answer_streams_typed_text_deltas_in_sse_mode(setup_authoring):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    streamed: list[AgentRuntimeEvent] = []
+    stream_modes: list[bool] = []
+
+    class StreamingAnswerModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del llm_request
+            stream_modes.append(stream)
+            for fragment in (
+                '{"status":"succeeded","text":"Hello',
+                ' world","citations":[],"clarification_questions":[]}',
+            ):
+                yield LlmResponse(
+                    content=types.Content(
+                        role="model",
+                        parts=[types.Part(text=fragment)],
+                    ),
+                    partial=True,
+                )
+
+    gateway = VeADKModelGateway(
+        model=StreamingAnswerModel(model="streaming-answer-model"),
+        model_api_key="test-key",
+    )
+    context = await service.resolver.resolve(envelope(ref, "stream a greeting"), (ref,))
+
+    async def collect(event: AgentRuntimeEvent) -> None:
+        streamed.append(event)
+
+    answer = await gateway.answer(context, event_sink=collect)
+
+    assert stream_modes == [True]
+    assert [event.payload["text"] for event in streamed] == ["Hello", " world"]
+    assert all(event.type == "answer.delta" for event in streamed)
+    assert answer.text == "Hello world"
+
+
+@pytest.mark.asyncio
+async def test_veadk_execution_evidence_is_scoped_to_each_concurrent_request(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    both_started = asyncio.Event()
+    started = 0
+
+    class ConcurrentAnswerModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            nonlocal started
+            del llm_request, stream
+            started += 1
+            if started == 2:
+                both_started.set()
+            await asyncio.wait_for(both_started.wait(), timeout=1)
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps(
+                                {
+                                    "status": "succeeded",
+                                    "text": "并发回答",
+                                    "citations": [],
+                                    "clarification_questions": [],
+                                },
+                                ensure_ascii=False,
+                            )
+                        )
+                    ],
+                )
+            )
+
+    gateway = VeADKModelGateway(
+        model=ConcurrentAnswerModel(model="concurrent-answer-model"),
+        model_api_key="test-key",
+    )
+    first = await service.resolver.resolve(
+        envelope(ref, "first").model_copy(update={"request_id": "req_first"}),
+        (ref,),
+    )
+    second = await service.resolver.resolve(
+        envelope(ref, "second").model_copy(update={"request_id": "req_second"}),
+        (ref,),
+    )
+
+    await asyncio.gather(gateway.answer(first), gateway.answer(second))
+
+    first_evidence = gateway.execution_evidence_for("req_first")
+    second_evidence = gateway.execution_evidence_for("req_second")
+    assert first_evidence is not None
+    assert second_evidence is not None
+    assert first_evidence.session_id == "skill-authoring-answer-req_first"
+    assert second_evidence.session_id == "skill-authoring-answer-req_second"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_service_operations_persist_their_own_runner_evidence(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    both_started = asyncio.Event()
+    started = 0
+
+    class ConcurrentAnswerModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            nonlocal started
+            del llm_request, stream
+            started += 1
+            if started == 2:
+                both_started.set()
+            await asyncio.wait_for(both_started.wait(), timeout=1)
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps(
+                                {
+                                    "status": "succeeded",
+                                    "text": "并发回答",
+                                    "citations": [],
+                                    "clarification_questions": [],
+                                },
+                                ensure_ascii=False,
+                            )
+                        )
+                    ],
+                )
+            )
+
+    service.model_gateway = VeADKModelGateway(
+        model=ConcurrentAnswerModel(model="concurrent-service-answer-model"),
+        model_api_key="test-key",
+    )
+    first_envelope = envelope(ref, "first").model_copy(
+        update={"request_id": "req_service_first"}
+    )
+    second_envelope = envelope(ref, "second").model_copy(
+        update={"request_id": "req_service_second"}
+    )
+
+    first, second = await asyncio.gather(
+        service.answer(first_envelope),
+        service.answer(second_envelope),
+    )
+
+    assert first.operation.agent_execution is not None
+    assert second.operation.agent_execution is not None
+    assert (
+        first.operation.agent_execution.session_id
+        == "skill-authoring-answer-req_service_first"
+    )
+    assert (
+        second.operation.agent_execution.session_id
+        == "skill-authoring-answer-req_service_second"
+    )
+
+
+@pytest.mark.asyncio
+async def test_service_persists_typed_answer_as_replayable_timeline(setup_authoring):
+    service, repository, ref = setup_authoring
+
+    class AnswerGateway:
+        execution_evidence = None
+
+        async def answer(self, context, *, event_sink=None):
+            del event_sink
+            assert context.envelope.prompt == "你好"
+            return AgentAnswer(
+                status="succeeded",
+                text="你好，我可以帮助你。",
+            )
+
+    service.model_gateway = AnswerGateway()
+    result = await service.answer(envelope(ref, "你好"))
+
+    assert result.operation.operation_type == "answer"
+    assert result.operation.status == AuthoringStatus.SUCCEEDED
+    assert result.answer is not None
+    assert result.answer.text == "你好，我可以帮助你。"
+    assert [item.type for item in result.events] == [
+        "message.accepted",
+        "context.resolving",
+        "context.resolved",
+        "agent.started",
+        "answer.delta",
+        "answer.final",
+        "operation.completed",
+    ]
+    assert result.events[-1].terminal is True
+    assert result.events[-2].terminal is False
+    assert result.events[-2].payload["text"] == "你好，我可以帮助你。"
+    replay = await repository.list_events(result.operation.operation_id)
+    assert [item.sequence for item in replay] == [1, 2, 3, 4, 5, 6, 7]
+
+
+@pytest.mark.asyncio
+async def test_start_turn_accepts_before_router_finishes_and_can_be_cancelled(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    routing_started = asyncio.Event()
+    routing_stopped = asyncio.Event()
+
+    class BlockingRouter:
+        execution_evidence = None
+
+        async def route(self, context, *, event_sink=None):
+            del context, event_sink
+            routing_started.set()
+            try:
+                await asyncio.Future()
+            finally:
+                routing_stopped.set()
+
+    service.model_gateway = BlockingRouter()
+    accepted = await asyncio.wait_for(
+        service.start_turn(envelope(ref, "route this request")),
+        timeout=0.05,
+    )
+
+    assert accepted.action == "routing"
+    assert accepted.status == AuthoringStatus.QUEUED
+    await asyncio.wait_for(routing_started.wait(), timeout=0.2)
+    read = await service.read_operation(accepted.operation_id)
+    assert read.events[0].type == "message.accepted"
+
+    cancelled = await service.cancel(accepted.operation_id, caller_id="user_1")
+    assert cancelled.operation.status == AuthoringStatus.CANCELLED
+    await asyncio.wait_for(routing_stopped.wait(), timeout=0.2)
+    assert cancelled.events[-1].type == "operation.cancelled"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_idempotent_turn_starts_one_operation_and_one_runner(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    routing_started = asyncio.Event()
+    routing_stopped = asyncio.Event()
+    route_calls = 0
+
+    class BlockingRouter:
+        execution_evidence = None
+
+        async def route(self, context):
+            nonlocal route_calls
+            del context
+            route_calls += 1
+            routing_started.set()
+            try:
+                await asyncio.Future()
+            finally:
+                routing_stopped.set()
+
+    service.model_gateway = BlockingRouter()
+    turn = envelope(ref, "route this request once")
+
+    first, second = await asyncio.gather(
+        service.start_turn(turn, idempotency_key="same-browser-send"),
+        service.start_turn(turn, idempotency_key="same-browser-send"),
+    )
+
+    assert first.operation_id == second.operation_id
+    await asyncio.wait_for(routing_started.wait(), timeout=0.2)
+    assert route_calls == 1
+    assert service.active_operation_ids == (first.operation_id,)
+
+    await service.cancel(first.operation_id, caller_id="user_1")
+    await asyncio.wait_for(routing_stopped.wait(), timeout=0.2)
+
+
+@pytest.mark.asyncio
+async def test_conversation_allows_only_one_active_generation(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    routing_started = asyncio.Event()
+    routing_stopped = asyncio.Event()
+
+    class BlockingRouter:
+        execution_evidence = None
+
+        async def route(self, context):
+            del context
+            routing_started.set()
+            try:
+                await asyncio.Future()
+            finally:
+                routing_stopped.set()
+
+    service.model_gateway = BlockingRouter()
+    first_turn = envelope(ref, "first", workspace="workspace_1").model_copy(
+        update={"conversation_id": "conversation-1"}
+    )
+    second_turn = envelope(ref, "second", workspace="workspace_1").model_copy(
+        update={"conversation_id": "conversation-1"}
+    )
+    first = await service.start_turn(first_turn, idempotency_key="conversation-send-1")
+    await asyncio.wait_for(routing_started.wait(), timeout=0.2)
+
+    with pytest.raises(SkillAuthoringError, match="已有回答正在生成"):
+        await service.start_turn(second_turn, idempotency_key="conversation-send-2")
+
+    await service.cancel(first.operation_id, caller_id="user_1")
+    await asyncio.wait_for(routing_stopped.wait(), timeout=0.2)
+    replacement = await service.start_turn(
+        second_turn, idempotency_key="conversation-send-2-after-stop"
+    )
+    assert replacement.operation_id != first.operation_id
+    await service.cancel(replacement.operation_id, caller_id="user_1")
+
+
+@pytest.mark.asyncio
+async def test_routed_answer_completes_on_the_accepted_operation(setup_authoring):
+    service, _, ref = setup_authoring
+
+    class RoutedAnswerGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            assert context.envelope.prompt == "hello"
+            return AgentIntent(action="answer")
+
+        async def answer(self, context, *, event_sink=None):
+            del event_sink
+            assert context.envelope.prompt == "hello"
+            return AgentAnswer(status="succeeded", text="Hello!")
+
+    service.model_gateway = RoutedAnswerGateway()
+    accepted = await service.start_turn(envelope(ref, "hello"))
+
+    for _ in range(100):
+        read = await service.read_operation(accepted.operation_id)
+        if read.operation.status == AuthoringStatus.SUCCEEDED:
+            break
+        await asyncio.sleep(0.005)
+
+    assert read.operation.operation_id == accepted.operation_id
+    assert read.operation.status == AuthoringStatus.SUCCEEDED
+    assert [event.type for event in read.events].count("message.accepted") == 1
+    assert [event.type for event in read.events][-3:] == [
+        "answer.delta",
+        "answer.final",
+        "operation.completed",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_routed_create_completes_on_the_accepted_operation(setup_authoring):
+    service, _, ref = setup_authoring
+
+    class RoutedCreateGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            assert context.envelope.prompt == "create a dashboard"
+            return AgentIntent(
+                action="create_skill",
+                requested_kind=SkillKind.ANALYSIS,
+            )
+
+        async def propose_plan(self, context, *, requested_kind, event_sink=None):
+            del event_sink
+            return await LocalPlanningHarness().propose_plan(
+                context,
+                requested_kind=requested_kind,
+            )
+
+    service.model_gateway = RoutedCreateGateway()
+    accepted = await service.start_turn(envelope(ref, "create a dashboard"))
+
+    for _ in range(100):
+        read = await service.read_operation(accepted.operation_id)
+        if read.operation.status == AuthoringStatus.READY_FOR_EXECUTION:
+            break
+        await asyncio.sleep(0.005)
+
+    assert read.operation.operation_id == accepted.operation_id
+    assert read.operation.operation_type == "create_draft"
+    assert read.operation.status == AuthoringStatus.READY_FOR_EXECUTION
+    assert read.draft is not None
+    assert [event.type for event in read.events].count("message.accepted") == 1
+    assert [event.type for event in read.events][-2:] == [
+        "artifact.revision.created",
+        "operation.completed",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_routed_create_preserves_explicit_requested_kind(setup_authoring):
+    service, _, ref = setup_authoring
+
+    class RoutedCreateGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            del context
+            return AgentIntent(
+                action="create_skill",
+                requested_kind=SkillKind.MONITORING,
+            )
+
+        async def propose_plan(self, context, *, requested_kind, event_sink=None):
+            del event_sink
+            assert requested_kind is SkillKind.ANALYSIS
+            return await LocalPlanningHarness().propose_plan(
+                context,
+                requested_kind=requested_kind,
+            )
+
+    service.model_gateway = RoutedCreateGateway()
+    accepted = await service.start_turn(
+        envelope(ref, "create a dashboard"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+
+    for _ in range(100):
+        read = await service.read_operation(accepted.operation_id)
+        if read.operation.status == AuthoringStatus.READY_FOR_EXECUTION:
+            break
+        await asyncio.sleep(0.005)
+
+    assert read.operation.status == AuthoringStatus.READY_FOR_EXECUTION
+    assert read.draft is not None
+    assert read.draft.plan.intent is SkillKind.ANALYSIS
+
+
+@pytest.mark.asyncio
+async def test_routed_create_executes_and_publishes_view_revision_on_one_operation(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+
+    class RoutedCreateGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            return AgentIntent(action="create_skill", requested_kind=SkillKind.ANALYSIS)
+
+        async def propose_plan(self, context, *, requested_kind, event_sink=None):
+            del event_sink
+            return await LocalPlanningHarness().propose_plan(
+                context, requested_kind=requested_kind
+            )
+
+    class InlineWorker3:
+        supports_inline_execution = True
+
+        async def request_execution(self, request):
+            return SimpleNamespace(
+                execution_id=request.operation_id,
+                state="accepted",
+                reason=None,
+                view_revision_id="view_same_operation",
+                view_revision={
+                    "id": "view_same_operation",
+                    "revision": 1,
+                    "resultRef": {
+                        "uri": "postgres://user:secret@example.invalid/db",
+                        "sha256": "not-for-public-event",
+                    },
+                    "viewModel": {
+                        "title": "Bounded title",
+                        "series": [{"points": [[
+                            "sensitive-row",
+                            999,
+                        ]]}],
+                    },
+                    "manifest": {
+                        "rendererRef": "renderer://chart/v1",
+                    },
+                },
+            )
+
+    service.model_gateway = RoutedCreateGateway()
+    service.worker3 = InlineWorker3()
+    accepted = await service.start_turn(envelope(ref, "create a dashboard"))
+
+    for _ in range(100):
+        read = await service.read_operation(accepted.operation_id)
+        if read.operation.status == AuthoringStatus.SUCCEEDED:
+            break
+        await asyncio.sleep(0.005)
+
+    assert read.operation.operation_id == accepted.operation_id
+    assert read.operation.status == AuthoringStatus.SUCCEEDED
+    assert {event.operation_id for event in read.events} == {accepted.operation_id}
+    event_types = [event.type for event in read.events]
+    internal_event_types = [event.event_type for event in read.events]
+    assert "execution_requested" in internal_event_types
+    revision_event = next(
+        event
+        for event in read.events
+        if event.event_type == "artifact.revision.created"
+        and event.payload.get("view_revision_id") == "view_same_operation"
+    )
+    assert revision_event.payload["view_revision_id"] == "view_same_operation"
+    assert revision_event.payload["view_revision_summary"] == {
+        "view_revision_id": "view_same_operation",
+        "revision": 1,
+        "renderer_ref": "renderer://chart/v1",
+        "view_model_title": "Bounded title",
+    }
+    assert "view_revision" not in revision_event.payload
+    assert "secret" not in json.dumps(
+        revision_event.payload, ensure_ascii=False
+    )
+    assert "sensitive-row" not in json.dumps(
+        revision_event.payload, ensure_ascii=False
+    )
+    assert event_types[-1] == "operation.completed"
+    answer_events = [
+        event for event in read.events if event.type in {"answer.delta", "answer.final"}
+    ]
+    assert [event.type for event in answer_events] == [
+        "answer.delta",
+        "answer.delta",
+        "answer.final",
+    ]
+    assert "ViewRevision" in answer_events[-1].payload["text"]
+
+
+@pytest.mark.asyncio
+async def test_routed_execute_runs_bound_draft_on_one_operation(setup_authoring):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[analysis] baseline dashboard"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert created.draft is not None
+
+    class RoutedExecuteGateway:
+        execution_evidence = AgentExecutionEvidence(
+            session_id="skill_authoring_router-req_execute",
+            trace_id="trace_router_execute",
+            status="succeeded",
+            events=(AgentEventEvidence(event_type="RunnerEvent"),),
+        )
+
+        async def route(self, context):
+            assert context.envelope.current_skill_id == created.draft.draft_id
+            return AgentIntent(action="execute")
+
+    class InlineWorker3:
+        async def request_execution(self, request):
+            return SimpleNamespace(
+                execution_id=request.operation_id,
+                state="accepted",
+                reason=None,
+                view_revision_id="view_execute_same_operation",
+                view_revision={
+                    "id": "view_execute_same_operation",
+                    "revision": request.draft_revision,
+                },
+            )
+
+    service.model_gateway = RoutedExecuteGateway()
+    service.worker3 = InlineWorker3()
+    accepted = await service.start_turn(
+        envelope(
+            ref,
+            "run the current Skill",
+        ).model_copy(update={"current_skill_id": created.draft.draft_id})
+    )
+
+    for _ in range(100):
+        read = await service.read_operation(accepted.operation_id)
+        if read.operation.status == AuthoringStatus.SUCCEEDED:
+            break
+        await asyncio.sleep(0.005)
+
+    assert read.operation.operation_id == accepted.operation_id
+    assert read.operation.operation_type == "execute_draft"
+    assert read.operation.current_revision == created.draft.revision
+    assert read.operation.status == AuthoringStatus.SUCCEEDED
+    assert read.operation.agent_execution is not None
+    assert read.operation.agent_execution.session_id == "skill_authoring_router-req_execute"
+    assert read.operation.agent_execution.trace_id == "trace_router_execute"
+    assert read.operation.trace_id == "trace_router_execute"
+    assert {event.operation_id for event in read.events} == {accepted.operation_id}
+    routing_evidence = next(
+        event for event in read.events if event.event_type == "agent_execution"
+    )
+    assert routing_evidence.session_id == "skill_authoring_router-req_execute"
+    assert routing_evidence.trace_id == "trace_router_execute"
+    assert any(
+        event.payload.get("view_revision_id") == "view_execute_same_operation"
+        for event in read.events
+        if event.type == "artifact.revision.created"
+    )
+    assert read.events[-1].type == "operation.completed"
+
+
+@pytest.mark.asyncio
+async def test_routed_typed_patch_proposes_accepts_and_executes_on_one_operation(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[analysis] baseline dashboard"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert created.draft is not None
+
+    class RoutedPatchGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            assert context.envelope.current_skill_id == created.draft.draft_id
+            return AgentIntent(
+                action="patch",
+                base_revision=created.draft.revision,
+                patch=SetDashboardKpiPatch(
+                    key="orders",
+                    label="Orders",
+                    value=42,
+                    unit="count",
+                ),
+            )
+
+    class InlineWorker3:
+        supports_inline_execution = True
+
+        async def request_execution(self, request):
+            return SimpleNamespace(
+                execution_id=request.operation_id,
+                state="accepted",
+                reason=None,
+                view_revision_id="view_patch_same_operation",
+                view_revision={"id": "view_patch_same_operation", "revision": 1},
+            )
+
+    service.model_gateway = RoutedPatchGateway()
+    service.worker3 = InlineWorker3()
+    accepted = await service.start_turn(
+        envelope(
+            ref,
+            "把当前 Dashboard 的 orders KPI 改为 42",
+        ).model_copy(update={"current_skill_id": created.draft.draft_id})
+    )
+
+    for _ in range(100):
+        read = await service.read_operation(accepted.operation_id)
+        if read.operation.status == AuthoringStatus.SUCCEEDED:
+            break
+        await asyncio.sleep(0.005)
+
+    assert read.operation.operation_id == accepted.operation_id
+    assert read.operation.status == AuthoringStatus.SUCCEEDED
+    assert read.draft is not None
+    assert read.draft.revision == 2
+    assert read.latest_patch is not None
+    assert read.latest_patch.patch.patch_type == "set_dashboard_kpi"
+    assert read.latest_patch.before != read.latest_patch.after
+    assert {event.operation_id for event in read.events} == {accepted.operation_id}
+    assert any(
+        event.type == "artifact.revision.created"
+        and event.payload.get("view_revision_id") == "view_patch_same_operation"
+        for event in read.events
+    )
+
+
+@pytest.mark.asyncio
+async def test_failed_routed_turn_retries_from_its_durable_typed_request(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+
+    class FailingAnswerGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            assert context.envelope.prompt == "retry my answer"
+            return AgentIntent(action="answer")
+
+        async def answer(self, context, *, event_sink=None):
+            del context, event_sink
+            raise SkillAuthoringError(
+                AuthoringErrorCode.MODEL_UNAVAILABLE,
+                "temporary model failure",
+            )
+
+    service.model_gateway = FailingAnswerGateway()
+    accepted = await service.start_turn(envelope(ref, "retry my answer"))
+    for _ in range(100):
+        failed = await service.read_operation(accepted.operation_id)
+        if failed.operation.status == AuthoringStatus.FAILED:
+            break
+        await asyncio.sleep(0.005)
+    assert failed.operation.status == AuthoringStatus.FAILED
+
+    class WorkingAnswerGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            assert context.envelope.prompt == "retry my answer"
+            return AgentIntent(action="answer")
+
+        async def answer(self, context, *, event_sink=None):
+            del context, event_sink
+            return AgentAnswer(status="succeeded", text="Recovered answer")
+
+    service.model_gateway = WorkingAnswerGateway()
+    retrying = await service.retry(accepted.operation_id, caller_id="user_1")
+    retry_operation_id = retrying.operation.operation_id
+    for _ in range(100):
+        retried = await service.read_operation(retry_operation_id)
+        if retried.operation.status == AuthoringStatus.SUCCEEDED:
+            break
+        await asyncio.sleep(0.005)
+
+    assert retry_operation_id != accepted.operation_id
+    assert retried.operation.retry_of_operation_id == accepted.operation_id
+    assert retried.events[-2].type == "answer.final"
+    assert retried.events[-2].payload["text"] == "Recovered answer"
+    assert retried.events[-1].type == "operation.completed"
+
+
+@pytest.mark.asyncio
+async def test_unexpected_detached_turn_failure_becomes_retryable_terminal_event(
+    setup_authoring,
+):
+    service, repository, ref = setup_authoring
+
+    class CrashingRouter:
+        execution_evidence = None
+
+        async def route(self, context):
+            del context
+            raise RuntimeError("unexpected gateway failure")
+
+    service.model_gateway = CrashingRouter()
+    accepted = await service.start_turn(envelope(ref, "crash safely"))
+
+    for _ in range(200):
+        operation = await repository.get_operation(accepted.operation_id)
+        if operation is not None and operation.status == AuthoringStatus.FAILED:
+            break
+        await asyncio.sleep(0.005)
+
+    assert operation is not None
+    assert operation.status == AuthoringStatus.FAILED
+    events = await repository.list_events(accepted.operation_id)
+    assert events[-1].type == "operation.failed"
+    assert events[-1].terminal is True
+    assert "retry" in events[-1].payload["message"].lower()
+    assert accepted.operation_id not in service.active_operation_ids
+
+
+@pytest.mark.asyncio
+async def test_answer_delta_is_durable_before_the_agent_finishes(setup_authoring):
+    service, repository, ref = setup_authoring
+    delta_persisted = asyncio.Event()
+    release_answer = asyncio.Event()
+
+    class StreamingAnswerGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            del context
+            return AgentIntent(action="answer")
+
+        async def answer(self, context, *, event_sink=None):
+            del context
+            assert event_sink is not None
+            await event_sink(
+                AgentRuntimeEvent(
+                    type="answer.delta",
+                    public_summary="Answering",
+                    payload={"text": "Hello"},
+                    session_id="session_stream",
+                    trace_id="trace_stream",
+                )
+            )
+            delta_persisted.set()
+            await release_answer.wait()
+            return AgentAnswer(status="succeeded", text="Hello world")
+
+    service.model_gateway = StreamingAnswerGateway()
+    accepted = await service.start_turn(envelope(ref, "stream an answer"))
+    await asyncio.wait_for(delta_persisted.wait(), timeout=0.2)
+
+    during = await repository.list_events(accepted.operation_id)
+    assert during[-1].type == "answer.delta"
+    assert during[-1].payload == {"text": "Hello"}
+    assert during[-1].session_id == "session_stream"
+    assert during[-1].terminal is False
+
+    release_answer.set()
+    for _ in range(100):
+        completed = await service.read_operation(accepted.operation_id)
+        if completed.operation.status == AuthoringStatus.SUCCEEDED:
+            break
+        await asyncio.sleep(0.005)
+    assert completed.events[-2].type == "answer.final"
+    assert completed.events[-2].payload["text"] == "Hello world"
+    assert completed.events[-1].type == "operation.completed"
+
+
+@pytest.mark.asyncio
+async def test_cancel_interrupts_active_gateway_run(setup_authoring):
+    service, _, ref = setup_authoring
+    started = asyncio.Event()
+    stopped = asyncio.Event()
+
+    class BlockingGateway:
+        execution_evidence = None
+
+        async def answer(self, context, *, event_sink=None):
+            del context, event_sink
+            started.set()
+            try:
+                await asyncio.Future()
+            finally:
+                stopped.set()
+
+    service.model_gateway = BlockingGateway()
+    task = asyncio.create_task(service.answer(envelope(ref, "wait for answer")))
+    await asyncio.wait_for(started.wait(), timeout=0.2)
+    operation_id = service.active_operation_ids[0]
+
+    cancelled = await service.cancel(operation_id, caller_id="user_1")
+
+    assert cancelled.operation.status == AuthoringStatus.CANCELLED
+    await asyncio.wait_for(stopped.wait(), timeout=0.2)
+    result = await asyncio.wait_for(task, timeout=0.2)
+    assert result.operation.status == AuthoringStatus.CANCELLED
+    assert result.events[-1].type == "operation.cancelled"
+    assert result.events[-1].terminal is True
+
+
+@pytest.mark.asyncio
+async def test_cancel_reaches_real_veadk_runner_and_closes_it(
+    setup_authoring, monkeypatch
+):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from veadk import Runner
+
+    model_started = asyncio.Event()
+    model_cancelled = asyncio.Event()
+    runner_closed = asyncio.Event()
+    original_close = Runner.close
+
+    async def tracking_close(self):
+        try:
+            await original_close(self)
+        finally:
+            runner_closed.set()
+
+    monkeypatch.setattr(Runner, "close", tracking_close)
+
+    class BlockingAnswerModel(BaseLlm):
+        async def generate_content_async(
+            self, llm_request, stream=False
+        ) -> AsyncGenerator[LlmResponse, None]:
+            del llm_request, stream
+            model_started.set()
+            try:
+                await asyncio.Future()
+            finally:
+                model_cancelled.set()
+            if False:
+                yield LlmResponse()
+
+    service.model_gateway = VeADKModelGateway(
+        model=BlockingAnswerModel(model="blocking-answer-model"),
+        model_api_key="test-key",
+    )
+    task = asyncio.create_task(service.answer(envelope(ref, "keep running")))
+    await asyncio.wait_for(model_started.wait(), timeout=1)
+    operation_id = service.active_operation_ids[0]
+
+    cancelled = await service.cancel(operation_id, caller_id="user_1")
+    result = await asyncio.wait_for(task, timeout=1)
+
+    assert cancelled.operation.status == AuthoringStatus.CANCELLED
+    assert result.operation.status == AuthoringStatus.CANCELLED
+    assert model_cancelled.is_set()
+    assert runner_closed.is_set()
+
+
+@pytest.mark.asyncio
+async def test_veadk_routes_greeting_with_typed_runner_output(setup_authoring):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    class RouterModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del llm_request, stream
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps(
+                                {
+                                    "action": "answer",
+                                    "requested_kind": None,
+                                    "clarification_questions": [],
+                                }
+                            )
+                        )
+                    ],
+                )
+            )
+
+    gateway = VeADKModelGateway(
+        model=RouterModel(model="router-model"),
+        model_api_key="test-key",
+    )
+    context = await service.resolver.resolve(envelope(ref, "你好"), (ref,))
+    intent = await gateway.route(context)
+
+    assert intent == AgentIntent(action="answer")
+    assert gateway.execution_evidence is not None
+    assert gateway.execution_evidence.session_id.startswith("skill_authoring_router-")
+    assert gateway.execution_evidence.trace_id not in {
+        "",
+        "unavailable",
+        "<unknown_trace_id>",
+    }
+
+
+@pytest.mark.asyncio
+async def test_veadk_router_closes_runner_after_success(setup_authoring, monkeypatch):
+    service, _, ref = setup_authoring
+    from google.adk.models.base_llm import BaseLlm
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+    from veadk import Runner
+
+    closed: list[bool] = []
+    original_close = Runner.close
+
+    async def tracking_close(self):
+        closed.append(True)
+        await original_close(self)
+
+    monkeypatch.setattr(Runner, "close", tracking_close)
+
+    class RouterModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            del llm_request, stream
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            text=json.dumps(
+                                {
+                                    "action": "answer",
+                                    "requested_kind": None,
+                                    "clarification_questions": [],
+                                }
+                            )
+                        )
+                    ],
+                )
+            )
+
+    gateway = VeADKModelGateway(
+        model=RouterModel(model="router-close-model"),
+        model_api_key="test-key",
+    )
+    context = await service.resolver.resolve(envelope(ref, "你好"), (ref,))
+
+    assert await gateway.route(context) == AgentIntent(action="answer")
+    assert closed == [True]
 
 
 @pytest.mark.asyncio
@@ -1082,6 +2230,124 @@ async def test_patch_impact_accept_undo_and_refresh_recovery(setup_authoring):
     assert restored.operation.current_revision == 4
     assert restored.draft is not None and restored.draft.undo_of_revision == 1
 
+
+@pytest.mark.asyncio
+async def test_dashboard_kpi_patch_has_typed_diff_and_preserves_old_revision(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[analysis] build dashboard"),
+        requested_kind=SkillKind.ANALYSIS,
+    )
+    assert created.draft is not None
+    proposal = await service.propose_patch(
+        created.draft.draft_id,
+        base_revision=created.draft.revision,
+        patch=SetDashboardKpiPatch(
+            key="revenue",
+            label="Revenue",
+            value=65.1,
+            unit="USD",
+        ),
+        proposed_by="user_1",
+    )
+    assert proposal.impact.reason == "metric_changed"
+    assert proposal.before["kpis"] == []
+    assert proposal.after["kpis"][0]["value"] == 65.1
+    changed = await service.accept_patch(proposal, caller_id="user_1")
+    assert changed.draft is not None
+    assert changed.draft.revision == 2
+    assert changed.draft.dashboard_config["kpis"][0]["key"] == "revenue"
+    old = await service.repository.get_draft(created.draft.draft_id, 1)
+    assert old is not None
+    assert old.revision == 1
+    assert old.dashboard_config == {}
+    assert proposal.base_digest == old.digest
+    assert changed.draft.digest != old.digest
+    assert any(
+        event.type == "artifact.revision.created"
+        and event.payload["new_revision"] == 2
+        for event in changed.events
+    )
+
+
+@pytest.mark.asyncio
+async def test_sop_step_patch_is_typed_and_replayable(setup_authoring):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[knowledge] create an SOP"),
+        requested_kind=SkillKind.KNOWLEDGE,
+    )
+    assert created.draft is not None
+    proposal = await service.propose_patch(
+        created.draft.draft_id,
+        base_revision=1,
+        patch=SetSopStepPatch(
+            step_id="notify",
+            label="Notify owner",
+            condition="severity >= high",
+            tool_ref="mcp://alerts.notify",
+        ),
+        proposed_by="user_1",
+    )
+    changed = await service.accept_patch(proposal, caller_id="user_1")
+    assert changed.draft is not None
+    assert changed.draft.sop_steps == (
+        {
+            "step_id": "notify",
+            "label": "Notify owner",
+            "condition": "severity >= high",
+            "tool_ref": "mcp://alerts.notify",
+        },
+    )
+    replayed = await service.read_operation(changed.operation.operation_id)
+    assert replayed.latest_patch is not None
+    assert replayed.latest_patch.after["steps"][0]["tool_ref"] == "mcp://alerts.notify"
+
+
+@pytest.mark.asyncio
+async def test_semantic_metric_dimension_relationship_patches_are_typed(
+    setup_authoring,
+):
+    service, _, ref = setup_authoring
+    created = await service.create_draft(
+        envelope(ref, "[semantic] define business model"),
+        requested_kind=SkillKind.SEMANTIC,
+    )
+    assert created.draft is not None
+    metric = await service.propose_patch(
+        created.draft.draft_id,
+        base_revision=1,
+        patch=SetSemanticMetricPatch(metric="net_revenue", definition="sum(revenue) - sum(refund)"),
+        proposed_by="user_1",
+    )
+    changed = await service.accept_patch(metric, caller_id="user_1")
+    assert changed.draft is not None
+    assert "net_revenue" in changed.draft.plan.kind_spec.measures
+    dimension = await service.propose_patch(
+        created.draft.draft_id,
+        base_revision=2,
+        patch=SetSemanticDimensionPatch(dimension="region", field="region_name"),
+        proposed_by="user_1",
+    )
+    changed = await service.accept_patch(dimension, caller_id="user_1")
+    assert changed.draft is not None
+    assert "region" in changed.draft.plan.kind_spec.dimensions
+    relationship = await service.propose_patch(
+        created.draft.draft_id,
+        base_revision=3,
+        patch=SetSemanticRelationshipPatch(
+            relationship="belongs_to",
+            source_entity="order",
+            target_entity="customer",
+        ),
+        proposed_by="user_1",
+    )
+    changed = await service.accept_patch(relationship, caller_id="user_1")
+    assert changed.draft is not None
+    assert "order->belongs_to->customer" in changed.draft.plan.kind_spec.relationships
+    assert relationship.before["semantic"]["kind"] == "semantic"
 
 @pytest.mark.asyncio
 async def test_comment_repairs_are_auditable_and_team_review_is_new_revision(

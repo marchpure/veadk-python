@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
+from contextlib import nullcontext
+from threading import Lock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -42,6 +44,11 @@ from frontend.server.knowledge_assets.sources_golden import (
 from frontend.server.knowledge_assets.workers import JobFramework, JobLeaseError
 from frontend.server.knowledge_domains.service import DomainService
 from frontend.server.skill_authoring.models import (
+    AgentAnswer,
+    AgentIntent,
+    AgentRuntimeEvent,
+    AuthoringEvent,
+    AuthoringOperation,
     BuildPlan,
     ContextEnvelope,
     DraftManifest,
@@ -61,6 +68,10 @@ from frontend.server.skill_authoring.ports import (
     LocalPlanningHarness,
     NoopWorker3Executor,
 )
+from frontend.server.knowledge_assets.authoring_repository import (
+    PostgresAuthoringRepository,
+    SqliteAuthoringRepository,
+)
 
 
 def build_client(
@@ -79,6 +90,110 @@ def build_client(
         identity_resolver=lambda request: ("workspace-test", "editor"),
     )
     return TestClient(app)
+
+
+def test_authoring_default_model_budget_allows_real_runner_tool_turn(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.delenv("MODEL_AGENT_TIMEOUT_MS", raising=False)
+    application = KnowledgeAssetApplication(SqliteKnowledgeAssetRepository(":memory:"))
+
+    envelope = application._authoring_envelope(
+        {"prompt": "请创建一个分析 Skill"},
+        caller_id="workspace-test",
+        workspace_id="workspace-test",
+        request_id="req_budget",
+    )
+
+    assert envelope.budget.timeout_ms == 120_000
+
+
+@pytest.mark.asyncio
+async def test_postgres_authoring_event_sequence_is_allocated_under_operation_lock():
+    class Cursor:
+        def __init__(self):
+            self.statements: list[tuple[str, tuple[object, ...]]] = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def execute(self, statement, parameters):
+            self.statements.append((" ".join(statement.split()), parameters))
+
+        def fetchone(self):
+            return {"latest": 4}
+
+    class Connection:
+        def __init__(self):
+            self.cursor_value = Cursor()
+            self.transactions = 0
+
+        def cursor(self):
+            return self.cursor_value
+
+        def transaction(self):
+            self.transactions += 1
+            return nullcontext()
+
+    connection = Connection()
+    repository = PostgresAuthoringRepository(connection, Lock())
+
+    await repository.save_event(
+        AuthoringEvent(
+            operation_id="op_pg",
+            event_type="answer.delta",
+            sequence=1,
+            payload={"text": "hello"},
+        )
+    )
+
+    assert connection.transactions == 1
+    assert "pg_advisory_xact_lock" in connection.cursor_value.statements[0][0]
+    insert = connection.cursor_value.statements[-1]
+    assert insert[1][2] == 5
+    assert json.loads(insert[1][3])["sequence"] == 5
+
+
+@pytest.mark.asyncio
+async def test_sqlite_generation_lease_survives_second_repository_instance(
+    tmp_path: Path,
+):
+    database = tmp_path / "authoring.sqlite3"
+    first_assets = SqliteKnowledgeAssetRepository(database)
+    second_assets = SqliteKnowledgeAssetRepository(database)
+    first = SqliteAuthoringRepository(first_assets._connection, first_assets._lock)
+    second = SqliteAuthoringRepository(second_assets._connection, second_assets._lock)
+    operation = AuthoringOperation(
+        operation_id="op_durable_generation_1",
+        operation_type="answer",
+        status="queued",
+        caller_id="user_1",
+        workspace_id="workspace_1",
+        conversation_id="conversation_1",
+        trace_id="trace_1",
+    )
+    lane = "workspace_1\0user_1\0conversation_1"
+
+    claimed = await first.claim_generation(lane, operation, idempotency_key="send-1")
+    assert claimed == (operation.operation_id, True, "claimed")
+
+    competing = operation.model_copy(update={"operation_id": "op_durable_generation_2"})
+    assert await second.claim_generation(lane, competing, idempotency_key="send-2") == (
+        operation.operation_id,
+        False,
+        "active",
+    )
+
+    await first.save_operation(operation.model_copy(update={"status": "succeeded"}))
+    assert await second.claim_generation(lane, competing, idempotency_key="send-2") == (
+        competing.operation_id,
+        True,
+        "claimed",
+    )
+    await second.release_generation(competing.operation_id)
 
 
 def test_source_golden_commands_run_real_stdio_mcp_chain(tmp_path: Path) -> None:
@@ -930,6 +1045,174 @@ def test_skill_authoring_start_is_typed_and_fail_closed_without_w1() -> None:
     assert read_back.status_code == 200
     assert read_back.json()["operation"]["status"] == "credential_blocked"
     assert read_back.json()["events"][1]["event_type"] == "credential_blocked"
+
+    stream = client.get(
+        (
+            "/api/knowledge-assets/v1/authoring/operations/"
+            f"{first_payload['operationId']}/events"
+        ),
+        headers={
+            "X-Request-ID": "authoring-events-1",
+            "Last-Event-ID": f"{first_payload['operationId']}:1",
+        },
+    )
+    assert stream.status_code == 200
+    assert stream.headers["content-type"].startswith("text/event-stream")
+    assert stream.headers["cache-control"] == "no-cache"
+    assert f"id: {first_payload['operationId']}:2" in stream.text
+    assert "event: operation.failed" in stream.text
+    assert '"event_id":' in stream.text
+    assert '"trace_id":' in stream.text
+    assert '"public_summary":' in stream.text
+
+
+def test_authoring_operation_read_is_scoped_to_authenticated_workspace() -> None:
+    def identity(request):
+        return request.headers.get("X-Test-Workspace", "workspace-a"), "editor"
+
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=application,
+        identity_resolver=identity,
+    )
+    client = TestClient(app)
+    headers = {
+        "X-Test-Workspace": "workspace-a",
+        "X-Request-ID": "authoring-scope-request",
+        "Idempotency-Key": "authoring-scope-idempotency",
+    }
+    response = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "skill-authoring.start",
+            "payload": {"prompt": "你好"},
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    operation_id = response.json()["operationId"]
+
+    same_workspace = client.get(
+        f"/api/knowledge-assets/v1/authoring/operations/{operation_id}",
+        headers={"X-Test-Workspace": "workspace-a"},
+    )
+    assert same_workspace.status_code == 200
+
+    other_workspace = client.get(
+        f"/api/knowledge-assets/v1/authoring/operations/{operation_id}",
+        headers={"X-Test-Workspace": "workspace-b"},
+    )
+    assert other_workspace.status_code == 404
+    assert other_workspace.json()["code"] == "OPERATION_NOT_FOUND"
+
+
+def test_authoring_stream_starts_one_routed_operation_and_replays_idempotently(
+    tmp_path: Path,
+) -> None:
+    class AnswerGateway:
+        execution_evidence = None
+
+        async def route(self, context):
+            assert context.envelope.prompt == "你好"
+            return AgentIntent(action="answer")
+
+        async def answer(self, context, *, event_sink=None):
+            del context
+            if event_sink is not None:
+                await event_sink(
+                    AgentRuntimeEvent(
+                        type="answer.delta",
+                        public_summary="正在回答",
+                        payload={"text": "你好"},
+                        session_id="session-bff-stream",
+                        trace_id="trace-bff-stream",
+                    )
+                )
+            return AgentAnswer(status="succeeded", text="你好，我可以帮你。")
+
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(
+        repository,
+        authoring_resolver=InMemoryResourceResolver(),
+        authoring_model_gateway=AnswerGateway(),
+        authoring_worker3=NoopWorker3Executor(),
+    )
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=application,
+        identity_resolver=lambda _request: ("workspace-test", "editor"),
+    )
+    client = TestClient(app)
+    body = {
+        "command": "skill-authoring.start",
+        "payload": {"prompt": "你好"},
+    }
+    headers = {
+        "X-Request-ID": "stream-start-request",
+        "Idempotency-Key": "stream-start-idempotency",
+        "Accept": "text/event-stream",
+    }
+
+    first = client.post(
+        "/api/knowledge-assets/v1/streams",
+        json=body,
+        headers=headers,
+    )
+
+    assert first.status_code == 200
+    assert first.headers["content-type"].startswith("text/event-stream")
+    operation_id = first.headers["x-operation-id"]
+    assert f"id: {operation_id}:1" in first.text
+    assert "event: answer.delta" in first.text
+    assert "event: operation.completed" in first.text
+
+    replay = client.post(
+        "/api/knowledge-assets/v1/streams",
+        json=body,
+        headers={**headers, "Last-Event-ID": f"{operation_id}:1"},
+    )
+    assert replay.status_code == 200
+    assert replay.headers["x-operation-id"] == operation_id
+    assert f"id: {operation_id}:1" not in replay.text
+    assert "event: operation.completed" in replay.text
+
+
+def test_authoring_stream_accepts_browser_camel_case_resource_references() -> None:
+    client = build_client()
+
+    response = client.post(
+        "/api/knowledge-assets/v1/streams",
+        json={
+            "command": "skill-authoring.start",
+            "payload": {
+                "prompt": "Create an analysis Skill from this fixed revision.",
+                "requestedKind": "analysis",
+                "resourceRefs": [
+                    {
+                        "kind": "golden_asset",
+                        "objectId": "golden-browser-contract",
+                        "revision": "golden-browser-contract-r1",
+                        "scope": "personal",
+                    }
+                ],
+                "fixedRevisions": ["golden-browser-contract-r1"],
+            },
+        },
+        headers={
+            "X-Request-ID": "browser-resource-contract",
+            "Idempotency-Key": "browser-resource-contract",
+            "Accept": "text/event-stream",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.headers["x-operation-id"].startswith("op_")
+    assert "event: operation.failed" in response.text
 
 
 def test_evaluation_quality_commands_use_typed_bff_and_fail_closed_for_candidates() -> (

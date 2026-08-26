@@ -38,6 +38,7 @@ dependencies = [
     "cookiecutter==2.6.0", # For cloud deploy
     "omegaconf==2.3.0", # For agent builder
     "psycopg2-binary>=2.9.10", # For PostgreSQL database (short term memory)
+    "psycopg[binary]>=3.2,<4", # For Studio durable PostgreSQL repositories
     "asyncpg>=0.29.0", # For async PostgreSQL database (short term memory)
     "pymysql==1.1.1", # For MySQL database (short term memory)
     "aiomysql==0.3.2", # For async MySQL database (short term memory)

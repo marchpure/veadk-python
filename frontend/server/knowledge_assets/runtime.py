@@ -152,6 +152,7 @@ class _MainWorker3Executor:
         self._artifact_root = artifact_root
         self._store = ContentAddressedStore(artifact_root.parent / "kind-runtime")
         self._runtime = KindRuntime(self._store)
+        self.supports_inline_execution = True
 
     async def request_execution(self, request: Worker3ExecutionRequest):
         if request.draft_manifest is None or request.build_plan is None:
@@ -289,6 +290,12 @@ class _MainWorker3Executor:
                 execution_id=execution.operation_id,
                 state="accepted" if execution.status == "succeeded" else "queued",
                 reason=execution.message,
+                view_revision_id=view_revision.id if view_revision is not None else None,
+                view_revision=(
+                    view_revision.model_dump(mode="json", by_alias=True)
+                    if view_revision is not None
+                    else None
+                ),
                 artifact_result=(
                     artifact.model_dump(mode="json", by_alias=True)
                     if artifact is not None

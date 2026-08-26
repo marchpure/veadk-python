@@ -9,12 +9,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
 from datetime import datetime, timezone
 from enum import StrEnum
-from typing import Annotated, Literal, Mapping, Union
+from typing import Annotated, Any, Literal, Mapping, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 def utc_now() -> datetime:
@@ -26,6 +35,97 @@ def digest(value: object) -> str:
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:20]
+
+
+_PUBLIC_REDACTED = "[REDACTED]"
+_PUBLIC_TRUNCATED = "…"
+_PUBLIC_SENSITIVE_KEYS = {
+    "accesstoken",
+    "apikey",
+    "authorization",
+    "connection",
+    "connectionstring",
+    "connectionuri",
+    "connectionurl",
+    "cookie",
+    "credential",
+    "credentials",
+    "password",
+    "passwd",
+    "privatekey",
+    "secret",
+    "secretkey",
+    "secretref",
+    "token",
+}
+_PUBLIC_ASSIGNMENT_SECRET = re.compile(
+    r"(?i)\b(api[_-]?key|access[_-]?token|secret[_-]?key|password|passwd|token)"
+    r"\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;&]+)"
+)
+_PUBLIC_BEARER_SECRET = re.compile(
+    r"(?i)\b(authorization\s*:\s*)?(bearer)\s+[A-Za-z0-9._~+/=-]+"
+)
+_PUBLIC_URI_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)([^/@\s]+)@")
+_PUBLIC_PRIVATE_KEY = re.compile(
+    r"-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----",
+    re.DOTALL,
+)
+
+
+def _redact_public_text(value: str, *, limit: int) -> str:
+    redacted = _PUBLIC_PRIVATE_KEY.sub(_PUBLIC_REDACTED, value)
+    redacted = _PUBLIC_BEARER_SECRET.sub(
+        lambda match: (f"{match.group(1) or ''}{match.group(2)} {_PUBLIC_REDACTED}"),
+        redacted,
+    )
+    redacted = _PUBLIC_ASSIGNMENT_SECRET.sub(
+        lambda match: f"{match.group(1)}={_PUBLIC_REDACTED}",
+        redacted,
+    )
+    redacted = _PUBLIC_URI_USERINFO.sub(
+        lambda match: f"{match.group(1)}{_PUBLIC_REDACTED}@",
+        redacted,
+    )
+    if len(redacted) > limit:
+        return redacted[:limit] + _PUBLIC_TRUNCATED
+    return redacted
+
+
+def _sanitize_public_value(
+    value: object,
+    *,
+    key: str | None = None,
+    depth: int = 0,
+) -> object:
+    """Return a JSON-safe, bounded value suitable for durable public replay."""
+
+    normalized_key = re.sub(r"[^a-z0-9]", "", (key or "").casefold())
+    if normalized_key in _PUBLIC_SENSITIVE_KEYS:
+        return _PUBLIC_REDACTED
+    if depth >= 5:
+        return _PUBLIC_TRUNCATED
+    if value is None or isinstance(value, bool | int):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, str):
+        return _redact_public_text(
+            value,
+            limit=8_000 if normalized_key == "text" else 2_000,
+        )
+    if isinstance(value, Mapping):
+        sanitized: dict[str, object] = {}
+        for raw_key, item in list(value.items())[:32]:
+            public_key = str(raw_key)[:160]
+            sanitized[public_key] = _sanitize_public_value(
+                item,
+                key=public_key,
+                depth=depth + 1,
+            )
+        return sanitized
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_public_value(item, depth=depth + 1) for item in value[:32]]
+    return "[UNSUPPORTED]"
 
 
 class AuthoringErrorCode(StrEnum):
@@ -100,7 +200,12 @@ class ResourceRef(BaseModel):
         "data_access_skill",
         "knowledge_asset",
     ]
-    object_id: str = Field(min_length=1, max_length=160)
+    object_id: str = Field(
+        min_length=1,
+        max_length=160,
+        validation_alias=AliasChoices("object_id", "objectId"),
+        serialization_alias="objectId",
+    )
     revision: str = Field(min_length=1, max_length=160)
     scope: Scope
 
@@ -129,6 +234,10 @@ class ContextEnvelope(BaseModel):
     request_id: str = Field(default_factory=lambda: f"req_{uuid4().hex}", min_length=1)
     caller_id: str = Field(min_length=1, max_length=160)
     workspace_id: str = Field(min_length=1, max_length=160)
+    # A conversation-scoped key lets the service enforce one active
+    # generation without serialising unrelated conversations in a workspace.
+    # It is optional for older command clients that do not have conversations.
+    conversation_id: str | None = Field(default=None, max_length=160)
     prompt: str = Field(min_length=1, max_length=8_000)
     resource_refs: tuple[ResourceRef, ...] = Field(default_factory=tuple, max_length=32)
     permissions: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
@@ -440,6 +549,9 @@ class DraftRevision(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     undo_of_revision: int | None = Field(default=None, ge=1)
+    dashboard_config: Mapping[str, Any] = Field(default_factory=dict, max_length=64)
+    sop_steps: tuple[Mapping[str, Any], ...] = Field(default_factory=tuple, max_length=128)
+    graph_config: Mapping[str, Any] = Field(default_factory=dict, max_length=64)
 
 
 class SetTitlePatch(BaseModel):
@@ -500,6 +612,101 @@ class SetSemanticMappingPatch(BaseModel):
     entity: str = Field(min_length=1, max_length=128)
 
 
+class SetSemanticMetricPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_semantic_metric"] = "set_semantic_metric"
+    metric: str = Field(min_length=1, max_length=128)
+    definition: str = Field(min_length=1, max_length=512)
+
+
+class SetSemanticDimensionPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_semantic_dimension"] = "set_semantic_dimension"
+    dimension: str = Field(min_length=1, max_length=128)
+    field: str = Field(min_length=1, max_length=128)
+
+
+class SetSemanticRelationshipPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_semantic_relationship"] = "set_semantic_relationship"
+    relationship: str = Field(min_length=1, max_length=128)
+    source_entity: str = Field(min_length=1, max_length=128)
+    target_entity: str = Field(min_length=1, max_length=128)
+
+
+class SetDashboardKpiPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_dashboard_kpi"] = "set_dashboard_kpi"
+    key: str = Field(min_length=1, max_length=128)
+    label: str | None = Field(default=None, max_length=160)
+    value: float | int | str
+    unit: str = Field(default="", max_length=32)
+
+
+class SetDashboardChartPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_dashboard_chart"] = "set_dashboard_chart"
+    x_field: str = Field(min_length=1, max_length=128)
+    y_field: str = Field(min_length=1, max_length=128)
+    chart_type: Literal["line", "bar", "area", "table"] = "line"
+
+
+class SetDashboardFilterPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_dashboard_filter"] = "set_dashboard_filter"
+    field: str = Field(min_length=1, max_length=128)
+    value: str = Field(max_length=512)
+
+
+class SetSopStepPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_sop_step"] = "set_sop_step"
+    step_id: str = Field(min_length=1, max_length=128)
+    label: str = Field(min_length=1, max_length=240)
+    condition: str | None = Field(default=None, max_length=512)
+    tool_ref: str | None = Field(default=None, max_length=240)
+
+
+class SetSopConditionPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_sop_condition"] = "set_sop_condition"
+    step_id: str = Field(min_length=1, max_length=128)
+    condition: str = Field(min_length=1, max_length=512)
+
+
+class SetSopToolRefPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_sop_tool_ref"] = "set_sop_tool_ref"
+    step_id: str = Field(min_length=1, max_length=128)
+    tool_ref: str = Field(min_length=1, max_length=240)
+
+
+class SetGraphEntityPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_graph_entity"] = "set_graph_entity"
+    entity_type: str = Field(min_length=1, max_length=128)
+    label: str = Field(min_length=1, max_length=240)
+
+
+class SetGraphRelationPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    patch_type: Literal["set_graph_relation"] = "set_graph_relation"
+    relation: str = Field(min_length=1, max_length=128)
+    source_type: str = Field(min_length=1, max_length=128)
+    target_type: str = Field(min_length=1, max_length=128)
+
+
 TypedPatch = Annotated[
     Union[
         SetTitlePatch,
@@ -510,6 +717,17 @@ TypedPatch = Annotated[
         SetPermissionScopePatch,
         AddCitationIntentPatch,
         SetSemanticMappingPatch,
+        SetSemanticMetricPatch,
+        SetSemanticDimensionPatch,
+        SetSemanticRelationshipPatch,
+        SetDashboardKpiPatch,
+        SetDashboardChartPatch,
+        SetDashboardFilterPatch,
+        SetSopStepPatch,
+        SetSopConditionPatch,
+        SetSopToolRefPatch,
+        SetGraphEntityPatch,
+        SetGraphRelationPatch,
     ],
     Field(discriminator="patch_type"),
 ]
@@ -546,6 +764,12 @@ class PatchProposal(BaseModel):
     )
     proposed_by: str
     source_comment_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=32)
+    before: Mapping[str, Any] = Field(default_factory=dict, max_length=32)
+    after: Mapping[str, Any] = Field(default_factory=dict, max_length=32)
+    base_digest: str | None = Field(default=None, max_length=128)
+    new_digest: str | None = Field(default=None, max_length=128)
+    new_revision: int | None = Field(default=None, ge=1)
+    view_revision_id: str | None = Field(default=None, max_length=240)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -579,6 +803,8 @@ class Worker3ExecutionAccepted(BaseModel):
     reason: str | None = None
     artifact_result: dict[str, object] | None = None
     execution_result: dict[str, object] | None = None
+    view_revision_id: str | None = Field(default=None, max_length=240)
+    view_revision: Mapping[str, Any] | None = Field(default=None, max_length=64)
 
 
 class AgentEventEvidence(BaseModel):
@@ -620,6 +846,27 @@ class AgentExecutionEvidence(BaseModel):
     error_message: str | None = Field(default=None, max_length=500)
 
 
+class AgentRuntimeEvent(BaseModel):
+    """One bounded public event emitted while a gateway invocation is running."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal[
+        "answer.delta",
+        "tool.started",
+        "tool.progress",
+        "tool.completed",
+        "tool.failed",
+        "plan.step.started",
+        "plan.step.completed",
+        "plan.step.failed",
+    ]
+    public_summary: str = Field(min_length=1, max_length=500)
+    payload: Mapping[str, Any] = Field(default_factory=dict, max_length=32)
+    session_id: str | None = Field(default=None, max_length=160)
+    trace_id: str | None = Field(default=None, max_length=160)
+
+
 class AgentAnswer(BaseModel):
     """Bounded ordinary-conversation output from the real Agent/Runner."""
 
@@ -644,6 +891,59 @@ class AgentAnswer(BaseModel):
         return self
 
 
+class AgentIntent(BaseModel):
+    """Structured router output produced by a real Agent/Runner invocation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    action: Literal["answer", "create_skill", "patch", "execute", "awaiting_input"]
+    requested_kind: SkillKind | None = None
+    # Patch proposals are model output, but the union below only permits the
+    # bounded mutations understood by the authoring service.  The service
+    # still checks the bound draft revision and caller permissions before any
+    # persistence.
+    patch: TypedPatch | None = None
+    base_revision: int | None = Field(default=None, ge=1)
+    clarification_questions: tuple[str, ...] = Field(
+        default_factory=tuple, max_length=5
+    )
+
+    @model_validator(mode="after")
+    def validate_action_payload(self) -> "AgentIntent":
+        if self.action == "create_skill" and self.requested_kind is None:
+            raise ValueError("create_skill intent requires requested_kind")
+        if self.action == "awaiting_input" and not self.clarification_questions:
+            raise ValueError("awaiting_input intent requires clarification questions")
+        if self.action != "awaiting_input" and self.clarification_questions:
+            raise ValueError("only awaiting_input may include clarification questions")
+        if self.action == "patch" and self.patch is None:
+            raise ValueError("patch intent requires a typed patch")
+        if self.action != "patch" and (self.patch is not None or self.base_revision is not None):
+            raise ValueError("only patch intent may include patch payload")
+        return self
+
+
+class AgentTurnRequest(BaseModel):
+    """One typed message submitted through the streaming authoring boundary."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    envelope: ContextEnvelope
+    requested_kind: SkillKind | None = None
+    scope: Scope = Scope.PERSONAL
+    display_name: str | None = Field(default=None, max_length=160)
+
+
+class AgentTurnAccepted(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: str
+    action: Literal[
+        "routing", "answer", "create_skill", "patch", "execute", "awaiting_input"
+    ]
+    status: AuthoringStatus
+
+
 class AuthoringEvent(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -665,10 +965,136 @@ class AuthoringEvent(BaseModel):
         "operation_retry",
         "operation_cancelled",
         "operation_failed",
+        "message.accepted",
+        "context.resolving",
+        "context.resolved",
+        "agent.started",
+        "answer.delta",
+        "answer.final",
+        "tool.started",
+        "tool.progress",
+        "tool.completed",
+        "tool.failed",
+        "plan.created",
+        "plan.step.started",
+        "plan.step.completed",
+        "plan.step.failed",
+        "artifact.revision.created",
+        "operation.completed",
+        "operation.failed",
+        "operation.cancelled",
     ]
     sequence: int = Field(ge=1)
-    data: Mapping[str, str] = Field(default_factory=dict, max_length=16)
+    # ``data`` is retained for existing command-response readers. New stream
+    # clients consume the same bounded public values through ``payload``.
+    data: Mapping[str, Any] = Field(default_factory=dict, max_length=32)
+    payload: Mapping[str, Any] = Field(default_factory=dict, max_length=32)
+    type: (
+        Literal[
+            "message.accepted",
+            "context.resolving",
+            "context.resolved",
+            "agent.started",
+            "answer.delta",
+            "answer.final",
+            "tool.started",
+            "tool.progress",
+            "tool.completed",
+            "tool.failed",
+            "plan.created",
+            "plan.step.started",
+            "plan.step.completed",
+            "plan.step.failed",
+            "artifact.revision.created",
+            "operation.completed",
+            "operation.failed",
+            "operation.cancelled",
+        ]
+        | None
+    ) = None
+    session_id: str | None = Field(default=None, max_length=160)
+    trace_id: str | None = Field(default=None, max_length=160)
+    public_summary: str = Field(default="", max_length=500)
+    terminal: bool = False
     occurred_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_public_stream_fields(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        event_type = str(normalized.get("event_type") or "")
+        canonical = {
+            "operation_created": "message.accepted",
+            "context_resolved": "context.resolved",
+            "agent_execution": "agent.started",
+            "plan_proposed": "plan.created",
+            "clarification_required": "answer.final",
+            "credential_blocked": "operation.failed",
+            "draft_created": "artifact.revision.created",
+            "patch_proposed": "plan.created",
+            # The explicit artifact event below carries the revision payload.
+            # Keep acceptance as a plan-step transition so the UI cannot
+            # render the same revision twice.
+            "patch_accepted": "plan.step.completed",
+            "patch_rejected": "operation.completed",
+            "undo_applied": "artifact.revision.created",
+            # This legacy internal marker is not itself terminal. The service
+            # emits the canonical operation.completed event after Worker 3
+            # accepts execution.
+            "execution_requested": "plan.step.started",
+            "operation_retry": "message.accepted",
+            "operation_cancelled": "operation.cancelled",
+            "operation_failed": "operation.failed",
+        }.get(event_type, event_type)
+        if not normalized.get("type"):
+            normalized["type"] = canonical
+        if "payload" not in normalized:
+            normalized["payload"] = normalized.get("data") or {}
+        if "data" not in normalized:
+            normalized["data"] = normalized.get("payload") or {}
+        if "terminal" not in normalized:
+            normalized["terminal"] = canonical in {
+                "operation.completed",
+                "operation.failed",
+                "operation.cancelled",
+            }
+        if not normalized.get("public_summary"):
+            normalized["public_summary"] = {
+                "message.accepted": "Request accepted",
+                "context.resolving": "Resolving authorized context",
+                "context.resolved": "Authorized context resolved",
+                "agent.started": "Agent started",
+                "answer.delta": "Answer updated",
+                "answer.final": "Answer ready",
+                "tool.started": "Tool call started",
+                "tool.progress": "Tool call in progress",
+                "tool.completed": "Tool call completed",
+                "tool.failed": "Tool call failed",
+                "plan.created": "Plan created",
+                "plan.step.started": "Plan step started",
+                "plan.step.completed": "Plan step completed",
+                "plan.step.failed": "Plan step failed",
+                "artifact.revision.created": "Artifact revision created",
+                "operation.completed": "Operation completed",
+                "operation.failed": "Operation failed",
+                "operation.cancelled": "Operation cancelled",
+            }.get(canonical, "Agent activity")
+        normalized["public_summary"] = _redact_public_text(
+            str(normalized["public_summary"]),
+            limit=500,
+        )
+        for field in ("data", "payload"):
+            sanitized = _sanitize_public_value(normalized.get(field) or {})
+            normalized[field] = sanitized if isinstance(sanitized, dict) else {}
+        for field in ("session_id", "trace_id"):
+            if normalized.get(field) is not None:
+                normalized[field] = _redact_public_text(
+                    str(normalized[field]),
+                    limit=160,
+                )
+        return normalized
 
 
 class AuthoringOperation(BaseModel):
@@ -676,6 +1102,7 @@ class AuthoringOperation(BaseModel):
 
     operation_id: str
     operation_type: Literal[
+        "answer",
         "create_draft",
         "propose_patch",
         "accept_patch",
@@ -693,6 +1120,7 @@ class AuthoringOperation(BaseModel):
     status: AuthoringStatus
     caller_id: str
     workspace_id: str
+    conversation_id: str | None = Field(default=None, max_length=160)
     draft_id: str | None = None
     current_revision: int | None = None
     error_code: AuthoringErrorCode | None = None
@@ -733,6 +1161,7 @@ class AuthoringReadModel(BaseModel):
     operation: AuthoringOperation
     draft: DraftRevision | None = None
     latest_patch: PatchProposal | None = None
+    answer: AgentAnswer | None = None
     events: tuple[AuthoringEvent, ...] = Field(default_factory=tuple)
 
 

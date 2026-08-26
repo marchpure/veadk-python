@@ -210,5 +210,8 @@ agentkit.yaml
 agentkit*.yaml
 .agentkit/
 
+# Local VeADK durable runtime state and generated evidence artifacts.
+/.veadk/
+
 # PiAgent release archives are downloaded and verified during image builds.
 examples/piagent_with_mcp/vendor/pi-*.tar.gz

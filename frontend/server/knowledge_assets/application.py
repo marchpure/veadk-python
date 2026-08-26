@@ -568,6 +568,11 @@ class KnowledgeAssetApplication:
             request_id=request_id,
             caller_id=caller_id,
             workspace_id=workspace_id,
+            conversation_id=(
+                str(payload["conversation_id"])
+                if payload.get("conversation_id")
+                else None
+            ),
             prompt=str(payload["prompt"]),
             resource_refs=refs,
             permissions=tuple(str(item) for item in payload.get("permissions", [])),
@@ -576,7 +581,7 @@ class KnowledgeAssetApplication:
             ),
             budget=Budget(
                 timeout_ms=min(
-                    max(int(os.getenv("MODEL_AGENT_TIMEOUT_MS", "30000")), 100),
+                    max(int(os.getenv("MODEL_AGENT_TIMEOUT_MS", "120000")), 100),
                     120000,
                 )
             ),
