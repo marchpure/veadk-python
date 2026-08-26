@@ -7,7 +7,7 @@ import { createRequestContext } from '../../../production/ports';
 
 export default function ArtifactHeader({
   title, typeLabel, isTeam, version, fromTeamVersion, editTarget, onElementClick, setSearchParams, searchParams, showToast,
-  productMode = false, contextTags = [],
+  productMode = false, contextTags = [], customActions = [],
 }: any) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [busy, setBusy] = useState('');
@@ -46,6 +46,7 @@ export default function ArtifactHeader({
     ? String(currentResource.id ?? currentResource.resourceId ?? '')
     : '';
   const canRefresh = Boolean(currentSkillId);
+  const hasCustomActions = Array.isArray(customActions) && customActions.length > 0;
 
   const refreshData = async () => {
     setActionError('');
@@ -112,7 +113,27 @@ export default function ArtifactHeader({
             <PlusSquare size={14} className="mr-1.5 text-slate-500"/>加入对话
           </button>}
           
-          {!isTeam ? (
+          {hasCustomActions ? (
+            customActions.map((action: any) => {
+              const ActionIcon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  type="button"
+                  className={cn(
+                    "min-w-0 flex-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center outline-none shadow-sm sm:flex-none",
+                    action.primary
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
+                  )}
+                  onClick={action.onClick}
+                >
+                  {ActionIcon && <ActionIcon size={14} className="mr-1.5" />}
+                  {action.label}
+                </button>
+              );
+            })
+          ) : !isTeam ? (
             <button className="min-w-0 flex-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center justify-center outline-none shadow-sm sm:flex-none" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', productMode && !isDashboardSkill ? 'publish_agent' : 'publish'); setSearchParams(p); }}>
               {productMode && !isDashboardSkill ? '发布给 Agent' : '发布到团队'}
             </button>

@@ -4,6 +4,7 @@ import { activeSkillViewRevision } from '../../../production/data';
 import type { MonitoringViewModel } from '../../../production/generatedContracts';
 import { createRequestContext } from '../../../production/ports';
 import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
+import { resourceStore } from '../../lib/store';
 
 export const MONITORING_VIEW_MODEL_TEMPLATE = 'monitoring';
 
@@ -94,9 +95,21 @@ export default function SkillMonitoringView({ fileId, searchParams, setSearchPar
   const [error, setError] = useState('');
   const viewRevision = getActiveViewRevision();
   const monitoringViewModel = useMemo(() => getMonitoringViewModel(), [fileId, searchParams]);
+  const publishedResource = resourceStore.getState().find((item: any) => item.id === fileId || item.resourceId === fileId) as any;
   const intent = isRecord(viewRevision?.intent) ? viewRevision.intent : {};
   const skillId = stringValue(intent.skillId) ?? fileId;
   const skillRevision = typeof intent.skillRevision === 'number' ? intent.skillRevision : Number(searchParams.get('revision') ?? 1);
+  const publishedName = String(publishedResource?.displayName ?? publishedResource?.name ?? 'Published Skill');
+  const publishedKind = String(
+    publishedResource?.readModel?.publishedVersion?.manifest?.spec?.kind ??
+    publishedResource?.readModel?.publishedVersion?.manifest?.spec?.defaultRenderer ??
+    'sop',
+  );
+  const publishedTypeLabel = publishedKind === 'sop'
+    ? 'Published SOP Skill'
+    : publishedKind === 'dashboard' || publishedKind === 'analysis'
+      ? 'Published Dashboard Skill'
+      : 'Published Skill';
   const values = Array.isArray(monitoringViewModel?.values) ? monitoringViewModel.values : [];
   const metricRefs = Array.isArray(monitoringViewModel?.metricRefs) ? monitoringViewModel.metricRefs : [];
   const alerts = Array.isArray(monitoringViewModel?.alerts) ? monitoringViewModel.alerts : [];
@@ -140,7 +153,7 @@ export default function SkillMonitoringView({ fileId, searchParams, setSearchPar
 
   const customActions = [
     {
-      label: '导出监控证据',
+      label: '导出 Skill 文件',
       primary: false,
       icon: PackageIcon,
       onClick: () => showToast?.('导出需要 artifact.export 返回 StorageRef；当前未写入本地文件。'),
@@ -161,10 +174,10 @@ export default function SkillMonitoringView({ fileId, searchParams, setSearchPar
     <div className="flex h-full min-w-0 flex-col overflow-y-auto p-4 pb-20 md:p-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col">
         <ArtifactHeader
-          title={stringValue(viewRevision?.id) ? `Skill ${skillId}` : 'Published Skill Monitoring'}
-          typeLabel="Published Skill Monitoring"
+          title={publishedName}
+          typeLabel={publishedTypeLabel}
           isTeam
-          version={stringValue(viewRevision?.id) ?? '等待 ViewRevision'}
+          version={`V${String(publishedResource?.version ?? '1.0.0').replace(/^v/i, '').split('.')[0]}.0 发布版`}
           searchParams={searchParams}
           setSearchParams={setSearchParams}
           showToast={showToast}
