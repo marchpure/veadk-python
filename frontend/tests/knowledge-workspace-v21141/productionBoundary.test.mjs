@@ -552,10 +552,9 @@ test("prototype catalog and seed data are stripped from production modules", asy
   assert.doesNotMatch(tree, /dashboard_sales_east|team_dashboard_monthly|semantic_sales/);
   assert.match(tree, /const defaultPersonal(?::\s*any\[\])? = \[\];/);
   assert.match(tree, /const defaultTeam(?::\s*any\[\])? = \[\];/);
-  assert.match(
-    tree,
-    /r\.resourceKind === 'artifact' \? \(r\.space === 'team' \? 'team_artifact' : 'personal_artifact'\) : r\.resourceKind/,
-  );
+  assert.match(tree, /r\.resourceKind === 'skill_draft'/);
+  assert.match(tree, /r\.resourceKind === 'published_skill'/);
+  assert.match(tree, /r\.resourceKind === 'golden_asset'/);
   assert.match(tree, /r\.subtype === 'chart' \? FilePieChart/);
   assert.match(tree, /r\.subtype === 'knowledge_base' \? Library/);
 

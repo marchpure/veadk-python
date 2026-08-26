@@ -26,15 +26,15 @@ test("home is a single central Composer and does not persist demo completion sta
   );
   assert.doesNotMatch(layout, /demo_(published|reused|chat_chips|workspace_empty)/);
   assert.match(read("frozen-ui/components/Layout/HomeComposer.tsx"), /今天想解决什么业务问题/);
-  assert.match(layout, /isHomeChat \? \(paneState !== 'closed'\)/);
+  assert.match(layout, /isHomeChat\s*\?\s*paneState === ['"]open['"]\s*\|\|\s*Boolean\(chatState\)/);
   assert.match(layout, /<RightPane[\s\S]*isHomeChat=\{isHomeChat\}/);
 });
 
 test("personal and team navigation expose exactly the three lifecycle roots", () => {
   for (const source of [tree]) {
     assert.match(source, /数据与知识/);
-    assert.match(source, /Skill 草稿/);
-    assert.match(source, /已发布 Skill/);
+    assert.match(source, /工作草稿/);
+    assert.match(source, /已发布能力/);
     assert.doesNotMatch(source, /分析与看板|语义与 Skill|知识与图谱/);
   }
 });
