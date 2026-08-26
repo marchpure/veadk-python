@@ -1329,6 +1329,196 @@ def test_evaluation_run_without_real_executor_is_explicitly_failed() -> None:
     assert response.json()["result"]["run"]["status"] == "failed"
 
 
+def test_evaluation_run_uses_persisted_revision_and_unlocks_publication() -> None:
+    repository = SqliteKnowledgeAssetRepository(":memory:")
+    application = KnowledgeAssetApplication(repository)
+    app = FastAPI()
+    mount_knowledge_asset_routes(
+        app,
+        application=application,
+        identity_resolver=lambda request: ("workspace-test", "editor"),
+    )
+    client = TestClient(app)
+    created = repository.create_skill_draft(
+        workspace_id="workspace-test",
+        name="Persisted evaluation",
+        description="",
+        source_refs=[],
+        request_id="persisted-draft",
+        idempotency_key="persisted-draft",
+    )[0]
+    manifest = adapt_legacy_manifest(
+        LegacySkillManifestInput(
+            name="Persisted evaluation",
+            version="1.0.0",
+            actions=[{"name": "answer", "description": "answer"}],
+        ),
+        draft_id=created.id,
+        workspace_id=created.workspace_id,
+    )
+    draft = repository.save_manifest(
+        draft_id=created.id,
+        base_revision=created.revision,
+        manifest=manifest,
+        request_id="persisted-manifest",
+        idempotency_key="persisted-manifest",
+    )[0]
+    revision_id = f"{draft.id}:{draft.revision}"
+    view = SkillViewRevision(
+        id="persisted-view",
+        skill_revision_id=revision_id,
+        revision=1,
+        manifest=SkillViewManifest(
+            id="persisted-view-manifest",
+            skill_revision_id=revision_id,
+            renderer_ref="renderer://chart/v1",
+            view_model_schema_ref=SchemaRef(
+                uri="local://schema/view",
+                version="1",
+                sha256="0" * 64,
+            ),
+            allowed_components=["ChartView"],
+        ),
+        intent=ViewIntent(
+            id="persisted-intent",
+            skill_id=draft.id,
+            skill_revision=draft.revision,
+            template="chart",
+            purpose="compare",
+            result_ref="local://result/persisted",
+        ),
+        view_model=ChartViewModel(
+            title="Persisted evaluation",
+            x_field="service",
+            y_field="cpu",
+            series=[ChartSeries(name="cpu", points=[("edge", 0.2)])],
+            data_ref=StorageRef(
+                uri="local://golden/persisted",
+                kind="object",
+                sha256="1" * 64,
+                media_type="application/json",
+                bytes=1,
+            ),
+        ),
+        created_at="2026-08-25T00:00:00Z",
+    )
+    repository.save_skill_view_revision(view)
+    skill_result = SkillResult(
+        id="persisted-result",
+        skill_id=draft.id,
+        skill_revision=draft.revision,
+        kind="analysis",
+        output_schema_ref=SchemaRef(
+            uri="local://schema/output",
+            version="1",
+            sha256="2" * 64,
+        ),
+        result_ref=StorageRef(
+            uri="local://result/persisted",
+            kind="object",
+            sha256="3" * 64,
+            media_type="application/json",
+            bytes=1,
+        ),
+        trace_id="persisted-trace",
+    )
+    repository.save_skill_result(skill_result)
+
+    suite = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation-suite.create",
+            "payload": {
+                "suiteId": "persisted-suite",
+                "skillId": draft.id,
+                "cases": [
+                    {
+                        "id": "persisted-case",
+                        "source": "manual",
+                        "category": "normal",
+                        "input": {"question": "show persisted"},
+                        "expected": {
+                            "skillResultId": skill_result.id,
+                            "viewRevisionId": view.id,
+                        },
+                    }
+                ],
+            },
+        },
+        headers={"X-Request-ID": "persisted-suite", "Idempotency-Key": "persisted-suite"},
+    ).json()
+    run = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "evaluation-run.start",
+            "payload": {
+                "suiteId": "persisted-suite",
+                "suiteVersion": suite["result"]["suite"]["version"],
+                "provenance": {
+                    "suiteId": "persisted-suite",
+                    "suiteVersion": 1,
+                    "environment": "test",
+                    "skillDraftRevision": revision_id,
+                    "executorVersion": "persisted-revision@test",
+                    "rendererVersion": "renderer@test",
+                    "dataAsOf": "2026-08-25T00:00:00Z",
+                },
+            },
+        },
+        headers={"X-Request-ID": "persisted-run", "Idempotency-Key": "persisted-run"},
+    ).json()
+    assert run["accepted"] is True
+    assert run["result"]["run"]["status"] == "succeeded"
+    assert run["result"]["run"]["caseResults"][0]["evidence"] == [
+        f"skill-result://{skill_result.id}",
+        f"skill-view://{view.id}",
+        skill_result.result_ref.uri,
+    ]
+
+    checks = [
+        {
+            "dimension": dimension,
+            "passed": True,
+            "machineReason": f"{dimension.upper()}_OK",
+        }
+        for dimension in (
+            "schema",
+            "data_quality",
+            "freshness",
+            "permission",
+            "security",
+            "visual_interaction",
+            "compatibility",
+            "budget",
+        )
+    ]
+    gate = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "policy-gate.evaluate",
+            "payload": {"runId": run["result"]["run"]["id"], "checks": checks},
+        },
+        headers={"X-Request-ID": "persisted-gate", "Idempotency-Key": "persisted-gate"},
+    ).json()
+    assert gate["accepted"] is True
+    assert gate["result"]["gate"]["decision"] == "publishable"
+
+    published = client.post(
+        "/api/knowledge-assets/v1/commands",
+        json={
+            "command": "publication.publish",
+            "payload": {
+                "draftId": draft.id,
+                "revision": draft.revision,
+                "semver": "1.0.0",
+            },
+        },
+        headers={"X-Request-ID": "persisted-publish", "Idempotency-Key": "persisted-publish"},
+    ).json()
+    assert published["accepted"] is True
+    assert published["result"]["publishedVersion"]["evaluationRunId"] == run["result"]["run"]["id"]
+
+
 def test_operation_events_replay_after_sequence_and_cancel_is_terminal() -> None:
     client = build_client()
     headers = {"X-Request-ID": "request-stream", "Idempotency-Key": "stream-1"}

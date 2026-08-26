@@ -126,6 +126,7 @@ from .evaluation_quality.main_repository import MainEvaluationRepository
 from .evaluation_quality.models import (
     CaseCategory,
     CaseSource,
+    EvaluationActual as QualityEvaluationActual,
 )
 from frontend.server.skill_authoring.models import (
     AuthoringErrorCode,
@@ -462,6 +463,86 @@ class _UnavailableEvaluationGrader:
         )
 
 
+class _PersistedRevisionEvaluator:
+    """Evaluate against the immutable Worker 3 result/view already persisted.
+
+    Worker 4 must not invent a successful answer or read a mutable draft.  The
+    evaluator therefore binds each case to the exact draft revision in the
+    run provenance and exposes the real result and rendered view as the
+    observable evaluation output.
+    """
+
+    def __init__(self, repository: KnowledgeAssetRepository) -> None:
+        self.repository = repository
+
+    def evaluate(self, case, provenance) -> QualityEvaluationActual:
+        try:
+            skill_id, revision_text = provenance.skill_draft_revision.rsplit(":", 1)
+            revision = int(revision_text)
+        except (ValueError, TypeError) as error:
+            raise RuntimeError(
+                "EVALUATION_REVISION_INVALID: skill draft revision must be id:number"
+            ) from error
+        result = self.repository.latest_skill_result(skill_id, revision)
+        view = self.repository.latest_skill_view_revision(
+            provenance.skill_draft_revision
+        )
+        if result is None or view is None:
+            raise RuntimeError(
+                "EVALUATION_EXECUTOR_NOT_CONFIGURED: a persisted SkillResult and "
+                "SkillViewRevision for the evaluated revision are required"
+            )
+        output = {
+            "caseInput": case.input,
+            "skillResultId": result.id,
+            "skillRevision": result.skill_revision,
+            "kind": result.kind,
+            "resultRef": result.result_ref.model_dump(mode="json", by_alias=True),
+            "traceId": result.trace_id,
+            "viewRevisionId": view.id,
+            "template": view.view_model.template,
+            "viewModel": view.view_model.model_dump(mode="json", by_alias=True),
+            "dataRevisionRefs": list(
+                view.data_revision_refs or result.golden_asset_revision_refs
+            ),
+        }
+        return QualityEvaluationActual(
+            output=output,
+            duration_ms=0,
+            trace_ref=f"trace://{result.trace_id}/{case.id}",
+            evidence=(
+                f"skill-result://{result.id}",
+                f"skill-view://{view.id}",
+                result.result_ref.uri,
+            ),
+        )
+
+
+class _PersistedRevisionGrader:
+    """Grade observable expected fields against the persisted runtime output."""
+
+    def grade(self, case, actual) -> tuple[float, dict[str, object]]:
+        def matches(expected: object, received: object) -> bool:
+            if isinstance(expected, dict):
+                return isinstance(received, dict) and all(
+                    key in received and matches(value, received[key])
+                    for key, value in expected.items()
+                )
+            if isinstance(expected, list):
+                return isinstance(received, list) and expected == received
+            return expected == received
+
+        passed = matches(case.expected, actual.output)
+        return (
+            (1.0 if passed else 0.0),
+            {
+                "method": "persisted_revision_observable_subset",
+                "passed": passed,
+                "expectedKeys": sorted(case.expected),
+            },
+        )
+
+
 class KnowledgeAssetApplication:
     def __init__(
         self,
@@ -532,8 +613,8 @@ class KnowledgeAssetApplication:
                     if sqlite_connection is not None
                     else repository_connection
                 ),
-                _UnavailableEvaluationExecutor(),
-                _UnavailableEvaluationGrader(),
+                _PersistedRevisionEvaluator(repository),
+                _PersistedRevisionGrader(),
             )
         self._authoring = None
         if sqlite_connection is not None or isinstance(
@@ -566,6 +647,80 @@ class KnowledgeAssetApplication:
                 authoring_model_gateway or CredentialBlockedGateway(),
                 authoring_worker3 or NoopWorker3Executor(),
             )
+
+    def _sync_quality_run_to_publication_store(self, run) -> EvaluationRun:
+        """Project the W4 run into Main's publication contract.
+
+        The quality service owns its richer aggregate.  Publication is an
+        older Main contract, so keep a deterministic projection at the seam
+        instead of making publication reach into W4's private tables.
+        """
+        digest = hashlib.sha256(run.id.encode()).hexdigest()
+        projected = EvaluationRun(
+            id=run.id,
+            suite_id=run.provenance.suite_id,
+            suite_version=run.provenance.suite_version,
+            skill_revision_id=run.provenance.skill_draft_revision,
+            status=run.status,
+            score=run.score,
+            evidence_ref=StorageRef(
+                uri=f"local://evaluation-quality/{run.id}",
+                kind="object",
+                sha256=digest,
+                media_type="application/json",
+                bytes=0,
+            ),
+            regression_ref=StorageRef(
+                uri=f"local://evaluation-quality-regression/{run.id}",
+                kind="object",
+                sha256=digest,
+                media_type="application/json",
+                bytes=0,
+            ),
+            environment=run.provenance.environment,
+            dependency_revision_refs=list(run.provenance.dependency_revision_refs),
+            data_revision_refs=list(run.provenance.golden_revision_refs),
+            case_results=[
+                EvaluationCaseResult(
+                    case_id=item.case_id,
+                    status=(
+                        "passed"
+                        if item.status == "passed"
+                        else "failed"
+                        if item.status == "failed"
+                        else "skipped"
+                    ),
+                    score=item.score,
+                    evidence_ref=StorageRef(
+                        uri=ref,
+                        kind="object",
+                        sha256=hashlib.sha256(ref.encode()).hexdigest(),
+                        media_type="text/uri-list",
+                        bytes=len(ref),
+                    )
+                    if (ref := (item.evidence[0] if item.evidence else ""))
+                    else None,
+                )
+                for item in run.case_results
+            ],
+            started_at=run.started_at or run.created_at,
+            finished_at=run.finished_at,
+        )
+        self.repository.save_evaluation_run(projected)
+        return projected
+
+    def _sync_quality_gate_to_publication_store(self, gate) -> PolicyGateResult:
+        projected = PolicyGateResult(
+            id=f"gate-{gate.evaluation_run_id}",
+            skill_revision_id=gate.skill_draft_revision,
+            evaluation_run_id=gate.evaluation_run_id,
+            decision=gate.decision,
+            reasons=list(gate.machine_reasons),
+            machine_reasons=list(gate.machine_reasons),
+            checked_at=gate.checked_at,
+        )
+        self.repository.save_policy_gate_result(projected)
+        return projected
 
     def _authoring_envelope(
         self,
@@ -3333,6 +3488,7 @@ class KnowledgeAssetApplication:
                         ),
                     )
                 else:
+                    self._sync_quality_run_to_publication_store(run)
                     result = EvaluationQualityCommandResult(
                         result_type=command,
                         status="succeeded" if run.status == "succeeded" else "failed",
@@ -3399,6 +3555,7 @@ class KnowledgeAssetApplication:
                 gate = self._evaluation_quality.evaluate_run_policy(
                     typed.run_id, typed.checks
                 )
+                self._sync_quality_gate_to_publication_store(gate)
                 result = EvaluationQualityCommandResult(
                     result_type=command, status="succeeded", gate=gate
                 )
