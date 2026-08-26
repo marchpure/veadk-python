@@ -91,13 +91,12 @@ export function TrustedHtmlArtifactRenderer({
       return;
     }
 
-    const controller = new AbortController();
+    let active = true;
     setState('loading');
     setMessage('');
     void fetch(resultRef.uri, {
       credentials: 'same-origin',
       headers: { Accept: 'text/html' },
-      signal: controller.signal,
     })
       .then(async (response) => {
         if (
@@ -129,18 +128,24 @@ export function TrustedHtmlArtifactRenderer({
         for (const child of Array.from(parsed.body.childNodes)) {
           fragment.append(child.cloneNode(true));
         }
+        if (!active) return;
         root.replaceChildren(fragment);
         setState('ready');
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
+        if (!active) return;
         root.replaceChildren();
         setState('error');
         setMessage(error instanceof Error ? error.message : 'HTML revision 加载失败。');
       });
 
     return () => {
-      controller.abort();
+      // Do not abort a same-origin immutable artifact request during React
+      // StrictMode's development remount. Aborting here is reported by the
+      // real browser as a failed business request even though the subsequent
+      // mount completes successfully. The active guard prevents stale data
+      // from committing after a revision switch.
+      active = false;
       root.replaceChildren();
     };
   }, [revisionKey]);
