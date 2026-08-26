@@ -29,6 +29,10 @@ export default function ArtifactHeader({
 
   const isDoc = typeLabel === 'Document';
   const isDash = typeLabel === 'Dashboard';
+  const isDashboardSkill = productMode && (
+    typeLabel === 'Dashboard Skill' ||
+    typeLabel === 'Dashboard'
+  );
   const isKB = typeLabel === 'Knowledge Base';
   const currentResource = resourceStore.getState().find((r:any) => r.id === searchParams.get('file') || r.resourceId === searchParams.get('file'));
   const revisionRecord = activeSkillViewRevision && typeof activeSkillViewRevision === 'object' ? activeSkillViewRevision as Record<string, unknown> : null;
@@ -109,8 +113,8 @@ export default function ArtifactHeader({
           </button>}
           
           {!isTeam ? (
-            <button className="min-w-0 flex-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center justify-center outline-none shadow-sm sm:flex-none" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', productMode ? 'publish_agent' : 'publish'); setSearchParams(p); }}>
-              {productMode ? '发布给 Agent' : '发布到团队'}
+            <button className="min-w-0 flex-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center justify-center outline-none shadow-sm sm:flex-none" onClick={() => { const p = new URLSearchParams(searchParams); p.set('modal', productMode && !isDashboardSkill ? 'publish_agent' : 'publish'); setSearchParams(p); }}>
+              {productMode && !isDashboardSkill ? '发布给 Agent' : '发布到团队'}
             </button>
           ) : (
             <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
