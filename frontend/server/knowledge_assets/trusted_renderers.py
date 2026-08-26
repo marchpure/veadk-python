@@ -349,7 +349,7 @@ def _dashboard(model: DashboardViewModel, recipe: PresentationRecipe) -> str:
         for item in model.kpis
     )
     filters = "".join(
-        f'<button class="filter" type="button" data-artifact-event="filter" '
+        f'<button class="filter" type="button" data-artifact-event="filter.change" '
         f'data-field="{_e(item.field)}" data-value="{_e(_join(item.values))}">'
         f"{_e(item.field)} <span>{_e(item.operator)} {_e(_join(item.values))}</span></button>"
         for item in model.filters
@@ -357,7 +357,7 @@ def _dashboard(model: DashboardViewModel, recipe: PresentationRecipe) -> str:
     charts = "".join(
         f'<section class="panel chart-panel"><div class="section-head">'
         f'<div><p class="eyebrow">VISUAL EVIDENCE · {_e(chart.chart_type)}</p><h2>{_e(chart.title)}</h2></div>'
-        f'<button class="icon-action" type="button" data-artifact-event="drill" '
+        f'<button class="icon-action" type="button" data-artifact-event="drill.request" '
         f'data-field="{_e(chart.x_field)}" aria-label="Drill into {_e(chart.x_field)}">↗</button>'
         f"</div>{_svg_chart(chart.series, chart.x_field, chart.y_field, chart.chart_id, chart.chart_type)}</section>"
         for chart in model.charts
@@ -372,7 +372,7 @@ def _dashboard(model: DashboardViewModel, recipe: PresentationRecipe) -> str:
         for row in model.rows
     )
     drills = "".join(
-        f'<button class="text-action" type="button" data-artifact-event="drill" '
+        f'<button class="text-action" type="button" data-artifact-event="drill.request" '
         f'data-field="{_e(item.source_field)}">{_e(item.source_field)} → '
         f"{_e(_join(item.target_fields))}</button>"
         for item in model.drills
@@ -386,7 +386,7 @@ def _dashboard(model: DashboardViewModel, recipe: PresentationRecipe) -> str:
         )
         + f'<section class="kpi-grid" aria-label="Key performance indicators">{kpis}</section>'
         + f'<section class="toolbar"><div class="filters">{filters or '<span class="quiet">No filters applied</span>'}</div>'
-        '<div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh" data-action="refresh">Refresh view</button>'
+        '<div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh.request" data-action="refresh">Refresh view</button>'
         '<button class="secondary-action" type="button" data-artifact-event="export" data-action="export">Export</button>'
         '<button class="secondary-action" type="button" data-artifact-event="cite" data-action="cite">Cite</button></div></section>'
         + f'<section class="chart-grid">{charts or _empty("No chart series in this revision.")}</section>'
@@ -410,7 +410,7 @@ def _chart_page(model: ChartViewModel) -> str:
 
 def _semantic(model: SemanticViewModel) -> str:
     entity_cards = "".join(
-        f'<article class="entity-card" data-artifact-event="select-entity" data-entity-id="{_e(entity)}"><div class="entity-icon">◈</div><h3>{_e(entity)}</h3>'
+        f'<article class="entity-card" data-artifact-event="selection.change" data-entity-id="{_e(entity)}"><div class="entity-icon">◈</div><h3>{_e(entity)}</h3>'
         f'<span class="quiet">Entity · {len(model.fields)} fields</span></article>'
         for entity in model.entities
     ) or _empty("No entity was discovered in this schema.")
@@ -437,7 +437,7 @@ def _semantic(model: SemanticViewModel) -> str:
             f'<span class="status-dot"></span><span>Schema</span><strong>{_e(model.schema_ref.uri)}</strong>',
         )
         + '<section class="split-grid semantic-canvas"><div class="panel"><div class="section-head"><div><p class="eyebrow">MODEL CANVAS</p>'
-        f'<h2>Entities</h2></div><div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh">Refresh schema</button>'
+        f'<h2>Entities</h2></div><div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh schema</button>'
         '<button class="secondary-action" type="button" data-artifact-event="add-context">Add context</button></div></div>'
         f'<div class="entity-grid">{entity_cards}</div></section>'
         + '<section class="panel field-catalog"><div class="section-head"><div><p class="eyebrow">FIELD CATALOG</p><h2>Dimensions & metrics</h2></div>'
@@ -446,7 +446,7 @@ def _semantic(model: SemanticViewModel) -> str:
         f'<div class="definition-list">{_definition("Metrics", model.metric_refs)}{_definition("Dimensions", model.dimension_refs)}'
         f"{_definition('Lineage', [model.data_ref.uri] if model.data_ref else [])}</div>"
         f'<h3 class="subhead">Relationships</h3><div class="relationship-canvas"><svg class="relationship-svg" viewBox="0 0 520 120" role="img" aria-label="Semantic relationships"><path d="M40 60 H480" class="relationship-line"/><circle cx="70" cy="60" r="25" class="relationship-node"/><circle cx="450" cy="60" r="25" class="relationship-node"/><text x="70" y="64" text-anchor="middle">{_e(_trim(model.entities[0] if model.entities else "Source", 10))}</text><text x="450" y="64" text-anchor="middle">{_e(_trim(model.entities[1] if len(model.entities) > 1 else "Target", 10))}</text></svg></div><div class="relation-list">{relations}</div>'
-        f'<div class="relationship-actions"><button class="text-action" type="button" data-artifact-event="select-relationship">Inspect relationship</button><button class="text-action" type="button" data-artifact-event="filter-relationship">Filter joins</button></div>'
+        f'<div class="relationship-actions"><button class="text-action" type="button" data-artifact-event="selection.change">Inspect relationship</button><button class="text-action" type="button" data-artifact-event="filter.change">Filter joins</button></div>'
         f"{f'<div class="callout warning"><strong>Review required</strong><ul>{errors}</ul></div>' if errors else ''}"
         f'<details class="source-details"><summary>MDL source</summary><code class="code-block">{_e(model.mdl) or "No MDL emitted."}</code></details></aside></section>'
     )
@@ -461,7 +461,7 @@ def _graph(model: GraphOntologyViewModel) -> str:
         if node_count
     )
     nodes = "".join(
-        f'<g class="graph-node" tabindex="0" data-artifact-event="select-node" data-node-id="{_e(node.id)}">'
+        f'<g class="graph-node" tabindex="0" data-artifact-event="selection.change" data-node-id="{_e(node.id)}">'
         f'<circle cx="{_node_x(index, node_count)}" cy="{_node_y(index, node_count)}" r="30"/>'
         f'<text x="{_node_x(index, node_count)}" y="{_node_y(index, node_count) + 4}">{_e(_trim(node.label, 14))}</text></g>'
         for index, node in enumerate(model.nodes)
@@ -484,7 +484,7 @@ def _graph(model: GraphOntologyViewModel) -> str:
         )
         + f'<section class="stat-strip"><div><strong>{len(model.nodes)}</strong><span>entities</span></div><div><strong>{len(model.edges)}</strong><span>relations</span></div><div><strong>{len(model.conflicts)}</strong><span>conflicts</span></div></section>'
         + '<section class="graph-layout"><div class="panel graph-panel"><div class="section-head"><div><p class="eyebrow">RELATION MAP</p><h2>Verified topology</h2></div>'
-        '<div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="filter-relation">Filter relations</button><button class="secondary-action" type="button" data-artifact-event="refresh">Refresh graph</button></div></div>'
+        '<div class="toolbar-actions"><button class="secondary-action" type="button" data-artifact-event="filter.change">Filter relations</button><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh graph</button></div></div>'
         f'<svg class="graph-svg" viewBox="0 0 760 320" role="img" aria-label="Entity relationship graph"><title>Entity relationship graph</title>{edges}{nodes}</svg>'
         f'<div class="legend graph-legend"><span><i class="legend-node"></i>Entity</span><span><i class="legend-edge"></i>Relation</span><span><i class="legend-conflict"></i>Conflict</span></div></div>'
         + '<aside class="panel side-panel node-detail"><p class="eyebrow">SELECTED DETAIL</p><h2>Source trail</h2>'
@@ -526,7 +526,7 @@ def _sop(model: SopViewModel) -> str:
             f'<span class="state state-{_e(model.run_state)} run-state">{_status_label(model.run_state)}</span>',
         )
         + '<section class="sop-layout"><div><div class="section-head"><div><p class="eyebrow">EXECUTION TRACE</p><h2>Procedure</h2></div>'
-        f'<button class="secondary-action" type="button" data-artifact-event="refresh">Re-run with fresh evidence</button></div><div class="step-flow">{steps or _empty("No steps were executed.")}</div></div>'
+        f'<button class="secondary-action" type="button" data-artifact-event="refresh.request">Re-run with fresh evidence</button></div><div class="step-flow">{steps or _empty("No steps were executed.")}</div></div>'
         + '<aside class="sop-aside"><section class="panel"><p class="eyebrow">RECOMMENDATION</p><h2>Next best action</h2><p class="lead">{}</p></section>'.format(
             _e(model.recommendation)
         )
@@ -552,7 +552,7 @@ def _knowledge(model: KnowledgeViewModel) -> str:
             else '<span class="state state-failed">Insufficient evidence</span>',
         )
         + f'<section class="knowledge-layout"><div class="answer-panel panel"><p class="eyebrow">ANSWER</p><div class="answer">{_e(model.answer)}</div>'
-        f'<div class="answer-meta"><span>Access scope: authorized sources only</span><button class="secondary-action" type="button" data-artifact-event="refresh">Refresh retrieval</button></div></div>'
+        f'<div class="answer-meta"><span>Access scope: authorized sources only</span><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh retrieval</button></div></div>'
         + f'<aside class="panel access-boundary"><p class="eyebrow">SOURCE COLLECTION</p><h2>{len(model.citations)} references</h2><div class="citation-tools"><button class="secondary-action" type="button" data-artifact-event="search">Search sources</button></div><div class="citation-list">{citations or _empty("No citation supports this answer.")}</div><div class="access-note"><strong>Access boundary</strong><p>Only authorized pinned revisions are included.</p></div></aside></section>'
         + '<section class="panel publication"><p class="eyebrow">SKILL STATUS</p><h2>Ready for evaluation</h2><p class="quiet">This view can be evaluated and published without exposing the source document contents.</p><button class="text-action" type="button" data-artifact-event="add-context">Add citation context</button></section>'
     )
@@ -579,7 +579,7 @@ def _monitoring(model: MonitoringViewModel) -> str:
             f'<span class="state state-{"failed" if model.status == "failed" else "stale" if model.stale or model.status == "stale" else "succeeded"}">{_e(model.status)}</span>',
         )
         + f'<section class="stat-strip">{_monitor_stat("calls", model.call_volume if model.call_volume is not None else "—")}{_monitor_stat("success", f"{model.success_rate:.0%}" if model.success_rate is not None else "—")}{_monitor_stat("latency", f"{model.latency_ms:g} ms" if model.latency_ms is not None else "—")}</section>'
-        + '<section class="monitor-grid"><div><section class="panel"><div class="section-head"><div><p class="eyebrow">OBSERVATIONS</p><h2>Current signal</h2></div><button class="secondary-action" type="button" data-artifact-event="refresh">Refresh now</button></div>'
+        + '<section class="monitor-grid"><div><section class="panel"><div class="section-head"><div><p class="eyebrow">OBSERVATIONS</p><h2>Current signal</h2></div><button class="secondary-action" type="button" data-artifact-event="refresh.request">Refresh now</button></div>'
         f'<div class="observation-list">{observations or _empty("No observations in this revision.")}</div></section>'
         + f'<section class="panel chart-panel trend-panel"><div class="section-head"><div><p class="eyebrow">TREND</p><h2>Recent values</h2></div></div>{_svg_chart(series, "time", "value", "monitoring-trend")}</section></div>'
         + '<aside class="panel"><p class="eyebrow">ALERT CENTER</p><h2>Needs attention</h2>'

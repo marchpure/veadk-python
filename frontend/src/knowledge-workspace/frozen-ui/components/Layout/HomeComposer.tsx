@@ -373,13 +373,9 @@ export default function HomeComposer({
           <section className="flex min-h-0 flex-col items-center justify-center">
             <div className="w-full max-w-3xl">
               <div className="mb-6 text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                  <AgentIcon className="h-6 w-6" />
-                </div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Knowledge Workspace</p>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">今天想解决什么业务问题？</h1>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500">
-                  上传文件、拖入数据 / 文档 / 连接 / 知识库 / 已有 Skill，或用 @ 搜索真实工作区资源。服务端 Agent 会澄清并生成 Skill。
+                  输入问题或拖入上下文，AI 将自动匹配模板生成 Skill
                 </p>
               </div>
 
@@ -418,8 +414,8 @@ export default function HomeComposer({
                       }
                     }}
                     placeholder="描述目标，或输入 @ 搜索并引用真实工作区资源…"
-                    rows={3}
-                    className="w-full resize-none border-0 bg-transparent px-4 py-4 text-base leading-7 text-slate-800 outline-none placeholder:text-slate-300"
+                    rows={2}
+                    className="w-full resize-none border-0 bg-transparent px-4 py-3 text-base leading-6 text-slate-800 outline-none placeholder:text-slate-300 md:py-4 md:leading-7"
                     disabled={status === "submitting"}
                   />
                   {mentionQuery !== "" && (
