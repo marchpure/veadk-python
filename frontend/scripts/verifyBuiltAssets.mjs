@@ -43,8 +43,14 @@ const files = await filesUnder(webuiRoot);
 const relativeFiles = files.map((file) => path.relative(webuiRoot, file).split(path.sep).join("/"));
 const packagedFiles = new Set(relativeFiles);
 const index = await readFile(path.join(webuiRoot, "index.html"), "utf8");
-assert.match(index, /\/assets\/app\/[^"']+\.js/);
-assert.match(index, /\/assets\/styles\/[^"']+\.css/);
+const appEntry = index.match(/\/(assets\/app\/[^"']+\.js)/)?.[1];
+assert.ok(appEntry, "index.html is missing the application entry");
+const appEntrySource = await readFile(path.join(webuiRoot, appEntry), "utf8");
+assert.ok(
+  /\/assets\/styles\/[^"']+\.css/.test(index) ||
+    /assets\/styles\/[^"']+\.css/.test(appEntrySource),
+  "neither index.html nor its split application entry references packaged CSS",
+);
 assert.ok(relativeFiles.some((file) => file.startsWith("assets/visualizations/mermaid/")));
 assert.ok(relativeFiles.some((file) => file.startsWith("assets/visualizations/echarts/")));
 

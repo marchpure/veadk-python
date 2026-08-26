@@ -115,6 +115,7 @@ export interface StartAuthoringInput {
     | "knowledge"
     | "semantic"
     | "analysis"
+    | "sop"
     | "graph_ontology"
     | "monitoring";
   scope?: "personal" | "team";
@@ -123,6 +124,11 @@ export interface StartAuthoringInput {
   currentViewId?: string;
   currentComponentId?: string;
   commentIds?: string[];
+  templateRef?: {
+    templateId: string;
+    version: string;
+    digest: string;
+  };
 }
 
 export interface StartedAuthoringOperation {

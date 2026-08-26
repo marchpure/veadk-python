@@ -62,9 +62,7 @@ def _ts_type(schema: dict[str, Any]) -> str:
     }.get(schema_type, "unknown")
 
 
-def _render_typescript(
-    schema: dict[str, Any], names: list[str] | None = None
-) -> str:
+def _render_typescript(schema: dict[str, Any], names: list[str] | None = None) -> str:
     lines = [
         "/* Generated from contracts.py; do not edit manually. */",
         "",
@@ -73,10 +71,16 @@ def _render_typescript(
     selected = names or list(definitions)
     for name in selected:
         definition = definitions[name]
-        if "enum" in definition or "oneOf" in definition or "anyOf" in definition:
-            lines.append(f"export type {name} = {_ts_type(definition)};")
+        rendered_type = _ts_type(definition)
+        if (
+            "enum" in definition
+            or "oneOf" in definition
+            or "anyOf" in definition
+            or rendered_type == "unknown"
+        ):
+            lines.append(f"export type {name} = {rendered_type};")
         else:
-            lines.append(f"export interface {name} {_ts_type(definition)}")
+            lines.append(f"export interface {name} {rendered_type}")
         # Keep the generated contract facade reviewable as one module while
         # avoiding artificial blank-line growth as the canonical model grows.
         if name != selected[-1]:
@@ -103,7 +107,8 @@ def _render_part(
     all_names = list(schema.get("$defs", {}))
     rendered = _render_typescript(schema, names)
     referenced = {
-        name for name in all_names
+        name
+        for name in all_names
         if name not in names and re.search(rf"\b{name}\b", rendered)
     }
     imports = []
@@ -113,7 +118,7 @@ def _render_part(
         module_references = sorted(referenced.intersection(chunk))
         if module_references:
             imports.append(
-                f'import type {{ {", ".join(module_references)} }} '
+                f"import type {{ {', '.join(module_references)} }} "
                 f'from "./{other_module_name}";'
             )
     return (
@@ -163,7 +168,9 @@ def export_schemas(output: Path) -> None:
     generated_dir.mkdir(parents=True, exist_ok=True)
     names = list(core_schema.get("$defs", {}))
     chunk_size = max(1, (len(names) + 3) // 4)
-    chunks = [names[index:index + chunk_size] for index in range(0, len(names), chunk_size)]
+    chunks = [
+        names[index : index + chunk_size] for index in range(0, len(names), chunk_size)
+    ]
     module_names = [f"part{index}" for index in range(1, len(chunks) + 1)]
     for module_name, chunk in zip(module_names, chunks, strict=True):
         (generated_dir / f"{module_name}.ts").write_text(
@@ -183,9 +190,7 @@ def export_schemas(output: Path) -> None:
         optional = "" if name in core_schema.get("required", []) else "?"
         bundle_lines.append(f"  {name}{optional}: {_ts_type(value)};")
     bundle_lines.extend(["}", ""])
-    (generated_dir / "bundle.ts").write_text(
-        "\n".join(bundle_lines), encoding="utf-8"
-    )
+    (generated_dir / "bundle.ts").write_text("\n".join(bundle_lines), encoding="utf-8")
     (generated_root / "generatedContracts.ts").write_text(
         "/* Generated from contracts.py; do not edit manually. */\n\n"
         + "\n".join(

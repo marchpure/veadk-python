@@ -754,7 +754,9 @@ test("assistant composer uses real authoring commands and never emits assistant.
   );
   const emitted = transformed?.code ?? readFileSync(filePath, "utf8");
   assert.match(emitted, /skill-authoring\.start/);
-  assert.match(emitted, /skill-authoring\.answer/);
+  assert.match(emitted, /useAgentRuntime/);
+  assert.match(emitted, /agentRuntime\.send/);
+  assert.match(emitted, /agentRuntime\.followOperation/);
   assert.match(emitted, /skill-authoring\.patch/);
   assert.match(emitted, /skill-authoring\.execute/);
   assert.doesNotMatch(emitted, /assistant\.turn/);
@@ -769,7 +771,6 @@ test("assistant composer uses real authoring commands and never emits assistant.
     emitted,
     /if \(activeChip\) \{[\s\S]{0,300}runKnowledgeAnswer\(input\.trim\(\)\)/,
   );
-  assert.match(emitted, /普通问答需要服务端返回 typed answer/);
   assert.match(emitted, /isKnowledgeCreation \? 'knowledge' : 'analysis'/);
   assert.doesNotMatch(
     emitted,
@@ -798,8 +799,10 @@ test("assistant consumes server clarification without fabricating a draft", asyn
   );
   assert.match(source, /result\.status === 'awaiting_input'/);
   assert.match(source, /clarificationQuestions/);
-  assert.match(source, /appendTimelineItem\(\{[\s\S]{0,220}type: 'clarification'/);
-  assert.match(source, /body: clarificationQuestions\.map\(safeText\)\.join/);
+  assert.match(source, /useAgentRuntime/);
+  assert.match(source, /AgentTimeline/);
+  assert.match(source, /agentRuntime\.followOperation/);
+  assert.doesNotMatch(source, /appendTimelineItem|KnowledgeStream/);
   assert.doesNotMatch(source, /setAgentReply\(clarificationQuestions\.join/);
   assert.doesNotMatch(
     source,

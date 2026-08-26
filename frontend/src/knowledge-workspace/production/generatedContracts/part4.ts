@@ -1,8 +1,25 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionViewModel, ConnectorOperation, ContextRevisionRef, DashboardPresentationSpec, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, GraphRelationSpec, KnowledgeViewModel, MonitoringViewModel, PatchOperation, PermissionRef } from "./part2";
-import type { PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, GraphRelationSpec, JsonValue, KnowledgeViewModel, MonitoringViewModel, OwnerRef, PatchOperation } from "./part2";
+import type { PermissionRef, PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
+
+export interface SkillMetadata {
+  id: string;
+  version: string;
+  displayName: string;
+  description?: string;
+  owner: OwnerRef;
+  digest?: string | null;
+}
+
+export interface SkillOperation {
+  name: string;
+  description?: string;
+  inputSchemaRef: SchemaRef;
+  outputSchemaRef: SchemaRef;
+  risk?: "read_only" | "external_write" | "high_risk";
+}
 
 export interface SkillPatch {
   patchId: string;
@@ -38,7 +55,7 @@ export interface SkillSpec {
   templateRef?: TemplateRef | null;
   defaultRenderer?: "dashboard" | "semantic" | "sop" | "knowledge" | "graph_ontology" | "monitoring" | null;
   contextRevisionRefs?: Array<ContextRevisionRef>;
-  kindSpec: DataAccessKindSpec | frontend__server__knowledge_assets__contract_base__SemanticKindSpec | frontend__server__knowledge_assets__contract_base__AnalysisKindSpec | frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec | frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec | frontend__server__knowledge_assets__contract_base__MonitoringKindSpec | SopKindSpec;
+  kindSpec: DataAccessKindSpec | frontend__server__knowledge_assets__contract_base__SemanticKindSpec | frontend__server__knowledge_assets__contract_base__AnalysisKindSpec | frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec | frontend__server__knowledge_assets__contract_base__GraphOntologyKindSpec | frontend__server__knowledge_assets__contract_base__MonitoringKindSpec | frontend__server__knowledge_assets__contract_base__SopKindSpec;
 }
 
 export interface SkillViewManifest {
@@ -77,6 +94,22 @@ export interface SkillViewShareGrant {
   createdAt: string;
 }
 
+export interface SnowflakeConnectorConfig {
+  kind: "snowflake";
+  secretRef: SecretRef;
+  account: string;
+  warehouse: string;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+}
+
 export interface SopActionProposal {
   proposalId: string;
   title: string;
@@ -107,21 +140,37 @@ export interface SopInputField {
   description?: string;
 }
 
-export interface SopKindSpec {
-  kind?: "sop";
-  trigger: string;
-  scope: string;
-  inputFields: Array<SopInputField>;
-  steps: Array<SopStep>;
-  outputs?: Array<SopOutputField>;
-  failureHandling: string;
-  actionProposal: string;
-}
-
 export interface SopOutputField {
   name: string;
   description?: string;
   valueType: "string" | "number" | "boolean" | "object" | "array";
+}
+
+export interface SopPlanInput {
+  name: string;
+  label: string;
+  value_type: "string" | "number" | "boolean" | "enum";
+  required?: boolean;
+  enum_values?: Array<string>;
+  description?: string;
+}
+
+export interface SopPlanOutput {
+  name: string;
+  description?: string;
+  value_type: "string" | "number" | "boolean" | "object" | "array";
+}
+
+export interface SopPlanStep {
+  id: string;
+  title: string;
+  instruction: string;
+  condition?: Record<string, unknown> | null;
+  tool_ref?: Record<string, unknown> | null;
+  evidence_requirements?: Array<Record<string, unknown>>;
+  on_true?: string | null;
+  on_false?: string | null;
+  failure_mode?: "stop" | "continue" | "request_input" | "propose_action";
 }
 
 export interface SopStep {
@@ -270,14 +319,55 @@ export interface SourceRevisionRecord {
   workspaceId: string;
   connectionId: string;
   resourceId: string;
-  sourceType: "markdown" | "csv" | "excel" | "pdf" | "sqlite" | "mcp";
+  sourceType: "markdown" | "text" | "html" | "csv" | "excel" | "json" | "parquet" | "pdf" | "sqlite" | "mcp" | "http" | "database" | "office";
   contentRef: ArtifactRef;
   sourceDigest: string;
   schemaDigest: string;
   sourceLocator: string;
   permissionVersion: number;
+  checkpoint?: Record<string, string>;
   createdAt: string;
   traceId: string;
+}
+
+export interface SqliteConnectorConfig {
+  sourceRef: string;
+  kind: "sqlite";
+  tableAllowlist?: Array<string>;
+  query?: string | null;
+  rowLimit?: number;
+}
+
+export interface SqlserverConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "sqlserver";
+}
+
+export interface StarrocksConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "starrocks";
 }
 
 export interface StorageRef {
@@ -312,6 +402,12 @@ export interface TemplateQualityGate {
 
 export interface TemplateRef {
   templateId: string;
+  version: string;
+  digest: string;
+}
+
+export interface TemplateSelection {
+  template_id: string;
   version: string;
   digest: string;
 }
@@ -362,15 +458,30 @@ export interface ViewIntent {
   resultRef: string;
 }
 
-export interface WebConnectorConfig {
-  kind: "web_api" | "web_url" | "rest_api" | "graphql" | "openapi";
+export interface WebDiscoveryConnectorConfig {
   endpoint: string;
   secretRef?: SecretRef | null;
-  termsRef?: string | null;
-  operationAllowlist?: Array<string>;
-  pageSize?: number;
+  operationAllowlist: Array<string>;
+  maxRows?: number;
+  maxResponseBytes?: number;
   rateLimitPerMinute?: number;
   timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "web_discovery";
+  paginationMode?: "none" | "cursor" | "offset" | "link_header";
+  pageSize?: number;
+  maxPages?: number;
+  termsRef?: string | null;
+}
+
+export interface WebhookConnectorConfig {
+  kind: "webhook";
+  secretRef: SecretRef;
+  listenPath: string;
+  schemaRef: string;
+  maxEventBytes?: number;
+  maxEvents?: number;
+  rateLimitPerMinute?: number;
 }
 
 export interface frontend__server__knowledge_assets__contract_base__AnalysisKindSpec {
@@ -414,6 +525,17 @@ export interface frontend__server__knowledge_assets__contract_base__SemanticKind
   dimensionRefs?: Array<string>;
   relationshipRefs?: Array<string>;
   queryPolicyRef?: PermissionRef | null;
+}
+
+export interface frontend__server__knowledge_assets__contract_base__SopKindSpec {
+  kind?: "sop";
+  trigger: string;
+  scope: string;
+  inputFields: Array<SopInputField>;
+  steps: Array<SopStep>;
+  outputs?: Array<SopOutputField>;
+  failureHandling: string;
+  actionProposal: string;
 }
 
 export interface frontend__server__knowledge_assets__contract_views__EvaluationCase {
@@ -563,4 +685,15 @@ export interface frontend__server__skill_authoring__models__SemanticKindSpec {
   relationships?: Array<string>;
   dimensions?: Array<string>;
   measures?: Array<string>;
+}
+
+export interface frontend__server__skill_authoring__models__SopKindSpec {
+  kind?: "sop";
+  trigger: string;
+  scope: string;
+  input_fields: Array<SopPlanInput>;
+  steps: Array<SopPlanStep>;
+  outputs?: Array<SopPlanOutput>;
+  failure_handling: string;
+  action_proposal: string;
 }

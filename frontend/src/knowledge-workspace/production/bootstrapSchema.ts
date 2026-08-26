@@ -17,6 +17,34 @@ export interface WorkspaceMcpProfile {
   toolAllowlist: string[];
 }
 
+export interface WorkspaceTemplateSpec {
+  templateId: string;
+  version: string;
+  displayName: string;
+  scenario: string;
+  capabilityIntent:
+    | "data_access"
+    | "semantic"
+    | "analysis"
+    | "sop"
+    | "knowledge"
+    | "graph_ontology"
+    | "monitoring";
+  defaultRenderer:
+    | "dashboard"
+    | "semantic"
+    | "sop"
+    | "knowledge"
+    | "graph_ontology"
+    | "monitoring";
+  templateRef: {
+    templateId: string;
+    version: string;
+    digest: string;
+  };
+  [key: string]: unknown;
+}
+
 export interface WorkspaceDatasetField {
   name: string;
   type: string;
@@ -53,6 +81,7 @@ export interface WorkspaceKnowledgeGraphMapping {
 export interface WorkspaceBootstrapData {
   connectorCatalog: WorkspaceConnectorDefinition[];
   mcpProfileCatalog?: WorkspaceMcpProfile[];
+  templateSpecs?: WorkspaceTemplateSpec[];
   datasetFields: WorkspaceDatasetField[];
   dashboard: {
     kpis: WorkspaceKpi[];
@@ -128,6 +157,22 @@ function isDatasetField(value: unknown): value is WorkspaceDatasetField {
     typeof value.name === "string" &&
     typeof value.type === "string" &&
     typeof value.desc === "string"
+  );
+}
+
+function isTemplateSpec(value: unknown): value is WorkspaceTemplateSpec {
+  if (!isRecord(value) || !isRecord(value.templateRef)) return false;
+  return (
+    typeof value.templateId === "string" &&
+    typeof value.version === "string" &&
+    typeof value.displayName === "string" &&
+    typeof value.scenario === "string" &&
+    typeof value.capabilityIntent === "string" &&
+    typeof value.defaultRenderer === "string" &&
+    value.templateRef.templateId === value.templateId &&
+    value.templateRef.version === value.version &&
+    typeof value.templateRef.digest === "string" &&
+    /^[0-9a-f]{64}$/.test(value.templateRef.digest)
   );
 }
 
@@ -248,6 +293,9 @@ export function parseBootstrap(
         Array.isArray(profile.toolAllowlist) &&
         profile.toolAllowlist.every((tool) => typeof tool === "string"),
       ))) ||
+    (workspaceData.templateSpecs !== undefined &&
+      (!Array.isArray(workspaceData.templateSpecs) ||
+        !workspaceData.templateSpecs.every(isTemplateSpec))) ||
     !workspaceData.datasetFields.every(isDatasetField) ||
     !dashboard.kpis.every(isKpi) ||
     !dashboard.trendData.every(isTrendPoint) ||

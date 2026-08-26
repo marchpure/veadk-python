@@ -1,8 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, NotReadyCommandResult, OutputContract, PermissionRef, PlanNode } from "./part2";
-import type { PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
-import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec } from "./part4";
+import type { EvaluationPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, JsonValue, NotReadyCommandResult, OutputContract } from "./part2";
+import type { PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
+import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TemplateSelection, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec, frontend__server__skill_authoring__models__SopKindSpec } from "./part4";
 
 export interface ActionCommand {
   command: "action.update";
@@ -164,18 +164,25 @@ export type AuthoringErrorCode = "invalid_context" | "permission_denied" | "reso
 export interface AuthoringEvent {
   event_id?: string;
   operation_id: string;
-  event_type: "operation_created" | "context_resolved" | "agent_execution" | "plan_proposed" | "clarification_required" | "credential_blocked" | "draft_created" | "patch_proposed" | "patch_accepted" | "patch_rejected" | "undo_applied" | "execution_requested" | "operation_retry" | "operation_cancelled" | "operation_failed";
+  event_type: "operation_created" | "context_resolved" | "agent_execution" | "plan_proposed" | "clarification_required" | "credential_blocked" | "draft_created" | "patch_proposed" | "patch_accepted" | "patch_rejected" | "undo_applied" | "execution_requested" | "operation_retry" | "operation_cancelled" | "operation_failed" | "message.accepted" | "context.resolving" | "context.resolved" | "agent.started" | "answer.delta" | "answer.final" | "tool.started" | "tool.progress" | "tool.completed" | "tool.failed" | "plan.created" | "plan.step.started" | "plan.step.completed" | "plan.step.failed" | "artifact.revision.created" | "operation.completed" | "operation.failed" | "operation.cancelled";
   sequence: number;
-  data?: Record<string, string>;
+  data?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
+  type?: "message.accepted" | "context.resolving" | "context.resolved" | "agent.started" | "answer.delta" | "answer.final" | "tool.started" | "tool.progress" | "tool.completed" | "tool.failed" | "plan.created" | "plan.step.started" | "plan.step.completed" | "plan.step.failed" | "artifact.revision.created" | "operation.completed" | "operation.failed" | "operation.cancelled" | null;
+  session_id?: string | null;
+  trace_id?: string | null;
+  public_summary?: string;
+  terminal?: boolean;
   occurred_at?: string;
 }
 
 export interface AuthoringOperation {
   operation_id: string;
-  operation_type: "create_draft" | "propose_patch" | "accept_patch" | "patch_reject" | "undo" | "comment_repair" | "comment_repair_batch" | "execute_draft" | "retry" | "cancel" | "copy_team_draft" | "submit_team_review" | "update_context";
+  operation_type: "answer" | "create_draft" | "propose_patch" | "accept_patch" | "patch_reject" | "undo" | "comment_repair" | "comment_repair_batch" | "execute_draft" | "retry" | "cancel" | "copy_team_draft" | "submit_team_review" | "update_context";
   status: AuthoringStatus;
   caller_id: string;
   workspace_id: string;
+  conversation_id?: string | null;
   draft_id?: string | null;
   current_revision?: number | null;
   error_code?: AuthoringErrorCode | null;
@@ -197,6 +204,21 @@ export interface AuthoringOperation {
 
 export type AuthoringStatus = "queued" | "planning" | "awaiting_input" | "credential_blocked" | "running" | "ready_for_execution" | "succeeded" | "failed" | "cancelled";
 
+export interface BigqueryConnectorConfig {
+  kind: "bigquery";
+  secretRef: SecretRef;
+  projectId: string;
+  datasetId: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+}
+
 export interface Budget {
   max_steps?: number;
   max_tokens?: number;
@@ -211,7 +233,7 @@ export interface BuildPlan {
   inputs?: Array<InputContract>;
   outputs: Array<OutputContract>;
   dependencies?: Array<ResourceRef>;
-  kind_spec: frontend__server__skill_authoring__models__KnowledgeKindSpec | frontend__server__skill_authoring__models__SemanticKindSpec | frontend__server__skill_authoring__models__AnalysisKindSpec | frontend__server__skill_authoring__models__GraphOntologyKindSpec | frontend__server__skill_authoring__models__MonitoringKindSpec;
+  kind_spec: frontend__server__skill_authoring__models__KnowledgeKindSpec | frontend__server__skill_authoring__models__SemanticKindSpec | frontend__server__skill_authoring__models__AnalysisKindSpec | frontend__server__skill_authoring__models__SopKindSpec | frontend__server__skill_authoring__models__GraphOntologyKindSpec | frontend__server__skill_authoring__models__MonitoringKindSpec;
   query_plan?: QueryPlan | null;
   clarification_questions?: Array<string>;
   data_refs?: Array<ResourceRef>;
@@ -291,6 +313,22 @@ export interface CleaningRecipeRecord {
   createdAt: string;
 }
 
+export interface ClickhouseConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "clickhouse";
+}
+
 export interface CommandResponse {
   accepted: boolean;
   requestId: string;
@@ -325,7 +363,7 @@ export interface ConnectorCommand {
 }
 
 export interface ConnectorOperation {
-  operation: "validate" | "discover" | "revoke" | "delete";
+  operation: "validate" | "authenticate" | "authorize" | "discover" | "introspect" | "sample" | "read" | "ingest" | "profile" | "clean" | "golden" | "refresh" | "checkpoint" | "close" | "revoke" | "delete";
   status: "succeeded" | "config_required" | "credential_blocked" | "unsupported" | "failed";
   traceId: string;
   reason: CapabilityReason;
@@ -354,6 +392,28 @@ export interface CreateSkillDraftPayload {
   name: string;
   description?: string;
   sourceRefs?: Array<string>;
+}
+
+export interface CsvConnectorConfig {
+  sourceRef: string;
+  kind: "csv";
+}
+
+export interface CustomHttpConnectorConfig {
+  endpoint: string;
+  secretRef?: SecretRef | null;
+  operationAllowlist: Array<string>;
+  maxRows?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "custom_http";
+  name: string;
+  method?: "GET" | "HEAD";
+  paginationMode?: "none" | "cursor" | "offset";
+  pageSize?: number;
+  maxPages?: number;
 }
 
 export interface DashboardChart {
@@ -419,16 +479,6 @@ export interface DataAccessKindSpec {
   columnPolicyRef?: PermissionRef | null;
 }
 
-export interface DatabaseConnectorConfig {
-  kind: "oracle" | "postgresql" | "mysql";
-  dsnRef: string;
-  secretRef: SecretRef;
-  schemaAllowlist?: Array<string>;
-  rowLimit?: number;
-  byteLimit?: number;
-  timeoutSeconds?: number;
-}
-
 export interface DiscoveredField {
   name: string;
   dataType: string;
@@ -447,6 +497,28 @@ export interface DiscoveredResource {
   permission?: "read" | "denied";
 }
 
+export interface DocumentConnectorConfig {
+  sourceRef: string;
+  kind: "doc_txt";
+  maxTextChars?: number;
+}
+
+export interface DorisConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "doris";
+}
+
 export interface DraftCommandResult {
   resultType: "skill-draft.create" | "skill-draft.save-manifest";
   error?: ErrorEnvelope | null;
@@ -458,7 +530,7 @@ export interface DraftManifest {
   name: string;
   description: string;
   kind: SkillKind;
-  kind_spec: frontend__server__skill_authoring__models__KnowledgeKindSpec | frontend__server__skill_authoring__models__SemanticKindSpec | frontend__server__skill_authoring__models__AnalysisKindSpec | frontend__server__skill_authoring__models__GraphOntologyKindSpec | frontend__server__skill_authoring__models__MonitoringKindSpec;
+  kind_spec: frontend__server__skill_authoring__models__KnowledgeKindSpec | frontend__server__skill_authoring__models__SemanticKindSpec | frontend__server__skill_authoring__models__AnalysisKindSpec | frontend__server__skill_authoring__models__SopKindSpec | frontend__server__skill_authoring__models__GraphOntologyKindSpec | frontend__server__skill_authoring__models__MonitoringKindSpec;
   inputs: Array<InputContract>;
   outputs: Array<OutputContract>;
   dependencies: Array<ResourceRef>;
@@ -482,9 +554,13 @@ export interface DraftRevision {
   lineage_source_draft_id?: string | null;
   promotion_state?: "personal" | "team_read_only" | "pre_publish_evaluation";
   digest: string;
+  selected_template?: TemplateSelection | null;
   created_at?: string;
   updated_at?: string;
   undo_of_revision?: number | null;
+  dashboard_config?: Record<string, unknown>;
+  sop_steps?: Array<Record<string, unknown>>;
+  graph_config?: Record<string, unknown>;
 }
 
 export interface ErrorEnvelope {
@@ -518,4 +594,41 @@ export interface EvaluationCaseConfirmPayload {
   suiteId: string;
   version: number;
   caseIds: Array<string>;
+}
+
+export interface EvaluationCaseGenerateCandidateCommand {
+  command: "evaluation-case.generate-candidates";
+  payload: EvaluationCaseGenerateCandidatePayload;
+}
+
+export interface EvaluationCaseGenerateCandidatePayload {
+  caseId: string;
+  category: string;
+  input: Record<string, unknown>;
+  expected: Record<string, unknown>;
+  provenanceRef: string;
+}
+
+export interface EvaluationCaseImportCommand {
+  command: "evaluation-case.import";
+  payload: EvaluationCaseImportPayload;
+}
+
+export interface EvaluationCaseImportPayload {
+  content: string;
+  mediaType: "application/json" | "text/csv";
+}
+
+export interface EvaluationCommand {
+  command: "evaluation.run" | "evaluation.apply";
+  payload: EvaluationPayload;
+}
+
+export interface EvaluationFixActionPayload {
+  planId: string;
+}
+
+export interface EvaluationFixApplyCommand {
+  command: "evaluation-fix.apply";
+  payload: EvaluationFixActionPayload;
 }

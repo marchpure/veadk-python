@@ -242,7 +242,14 @@ class SkillAuthoringStartPayload(ContractModel):
     permissions: list[str] = Field(default_factory=list, max_length=64)
     fixed_revisions: list[str] = Field(default_factory=list, max_length=64)
     requested_kind: (
-        Literal["knowledge", "semantic", "analysis", "graph_ontology", "monitoring"]
+        Literal[
+            "knowledge",
+            "semantic",
+            "analysis",
+            "sop",
+            "graph_ontology",
+            "monitoring",
+        ]
         | None
     ) = None
     scope: Literal["personal", "team"] = "personal"
@@ -251,6 +258,7 @@ class SkillAuthoringStartPayload(ContractModel):
     current_view_id: str | None = Field(default=None, max_length=160)
     current_component_id: str | None = Field(default=None, max_length=160)
     comment_ids: list[str] = Field(default_factory=list, max_length=64)
+    template_ref: TemplateRef | None = None
 
 
 class SkillAuthoringAnswerPayload(ContractModel):

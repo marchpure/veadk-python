@@ -1147,9 +1147,7 @@ class SkillAuthoringService:
         operation_id: str | None = None,
     ) -> AuthoringReadModel:
         operation = (
-            await self.repository.get_operation(operation_id)
-            if operation_id
-            else None
+            await self.repository.get_operation(operation_id) if operation_id else None
         )
         if operation is None:
             operation = await self._new_operation(
@@ -1399,7 +1397,7 @@ class SkillAuthoringService:
             raise SkillAuthoringError(
                 AuthoringErrorCode.PERMISSION_DENIED, "caller cannot execute this draft"
             )
-        await self.resolver.resolve(
+        resolved = await self.resolver.resolve(
             ContextEnvelope(
                 caller_id=caller_id,
                 workspace_id=draft.workspace_id,
@@ -1444,6 +1442,8 @@ class SkillAuthoringService:
             draft_manifest=draft.manifest,
             build_plan=draft.plan,
             trace_id=operation.trace_id,
+            selected_template=draft.selected_template,
+            resolved_resources=resolved.resources,
         )
         accepted = await self.worker3.request_execution(request)
         accepted_state = getattr(accepted, "state", None)
@@ -2121,8 +2121,7 @@ class SkillAuthoringService:
         manifest = value.get("manifest")
         view_model = value.get("viewModel") or value.get("view_model")
         summary: dict[str, object] = {
-            "view_revision_id": view_revision_id
-            or value.get("id"),
+            "view_revision_id": view_revision_id or value.get("id"),
             "revision": value.get("revision"),
             "skill_revision_id": value.get("skillRevisionId")
             or value.get("skill_revision_id"),
@@ -2145,11 +2144,7 @@ class SkillAuthoringService:
                 summary["view_model_template"] = template[:80]
             if isinstance(title, str):
                 summary["view_model_title"] = title[:240]
-        return {
-            key: item
-            for key, item in summary.items()
-            if item is not None
-        }
+        return {key: item for key, item in summary.items() if item is not None}
 
     @staticmethod
     def _public_result_summary(value: object) -> dict[str, object] | None:
@@ -2302,6 +2297,7 @@ class SkillAuthoringService:
             lineage=plan.dependencies,
             promotion_state="team_read_only" if scope == Scope.TEAM else "personal",
             digest=draft_digest,
+            selected_template=envelope.selected_template,
         )
 
     @staticmethod
@@ -2338,7 +2334,9 @@ class SkillAuthoringService:
                 requires_rerun=True,
                 reason="query_changed",
             )
-        if isinstance(patch, (SetSopStepPatch, SetSopConditionPatch, SetSopToolRefPatch)):
+        if isinstance(
+            patch, (SetSopStepPatch, SetSopConditionPatch, SetSopToolRefPatch)
+        ):
             path = (
                 "sop_steps"
                 if isinstance(patch, SetSopStepPatch)
@@ -2352,7 +2350,14 @@ class SkillAuthoringService:
                 requires_rerun=True,
                 reason="query_changed",
             )
-        if isinstance(patch, (SetSemanticMetricPatch, SetSemanticDimensionPatch, SetSemanticRelationshipPatch)):
+        if isinstance(
+            patch,
+            (
+                SetSemanticMetricPatch,
+                SetSemanticDimensionPatch,
+                SetSemanticRelationshipPatch,
+            ),
+        ):
             return PatchImpact(
                 summary="更新 Semantic 定义，需要重新编译",
                 affected_paths=("kind_spec",),
@@ -2427,13 +2432,24 @@ class SkillAuthoringService:
         if isinstance(patch, SetDashboardKpiPatch):
             return {"kpis": draft.dashboard_config.get("kpis", [])}
         if isinstance(patch, (SetDashboardChartPatch, SetDashboardFilterPatch)):
-            return {"chart": draft.dashboard_config.get("chart", {}),
-                    "filters": draft.dashboard_config.get("filters", {})}
-        if isinstance(patch, (SetSopStepPatch, SetSopConditionPatch, SetSopToolRefPatch)):
+            return {
+                "chart": draft.dashboard_config.get("chart", {}),
+                "filters": draft.dashboard_config.get("filters", {}),
+            }
+        if isinstance(
+            patch, (SetSopStepPatch, SetSopConditionPatch, SetSopToolRefPatch)
+        ):
             return {"steps": list(draft.sop_steps)}
         if isinstance(patch, (SetGraphEntityPatch, SetGraphRelationPatch)):
             return {"graph": dict(draft.graph_config)}
-        if isinstance(patch, (SetSemanticMetricPatch, SetSemanticDimensionPatch, SetSemanticRelationshipPatch)):
+        if isinstance(
+            patch,
+            (
+                SetSemanticMetricPatch,
+                SetSemanticDimensionPatch,
+                SetSemanticRelationshipPatch,
+            ),
+        ):
             return {"semantic": draft.plan.kind_spec.model_dump(mode="json")}
         return {
             "manifest": {
@@ -2454,7 +2470,11 @@ class SkillAuthoringService:
         if isinstance(patch, SetTitlePatch):
             manifest = manifest.model_copy(update={"name": patch.title})
         elif isinstance(patch, SetDashboardKpiPatch):
-            kpis = [dict(item) for item in dashboard_config.get("kpis", []) if isinstance(item, dict)]
+            kpis = [
+                dict(item)
+                for item in dashboard_config.get("kpis", [])
+                if isinstance(item, dict)
+            ]
             next_kpi = {
                 "key": patch.key,
                 "label": patch.label or patch.key,
@@ -2487,7 +2507,9 @@ class SkillAuthoringService:
                 next_step if item.get("step_id") == patch.step_id else item
                 for item in sop_steps
             ]
-            if not any(item.get("step_id") == patch.step_id for item in draft.sop_steps):
+            if not any(
+                item.get("step_id") == patch.step_id for item in draft.sop_steps
+            ):
                 sop_steps.append(next_step)
         elif isinstance(patch, SetSopConditionPatch):
             found = False
@@ -2496,7 +2518,9 @@ class SkillAuthoringService:
                     item["condition"] = patch.condition
                     found = True
             if not found:
-                sop_steps.append({"step_id": patch.step_id, "condition": patch.condition})
+                sop_steps.append(
+                    {"step_id": patch.step_id, "condition": patch.condition}
+                )
         elif isinstance(patch, SetSopToolRefPatch):
             found = False
             for item in sop_steps:
@@ -2511,18 +2535,21 @@ class SkillAuthoringService:
             graph_config["entities"] = entities
         elif isinstance(patch, SetGraphRelationPatch):
             relations = [
-                item for item in graph_config.get("relations", [])
+                item
+                for item in graph_config.get("relations", [])
                 if isinstance(item, dict)
                 and not (
                     item.get("source_type") == patch.source_type
                     and item.get("target_type") == patch.target_type
                 )
             ]
-            relations.append({
-                "relation": patch.relation,
-                "source_type": patch.source_type,
-                "target_type": patch.target_type,
-            })
+            relations.append(
+                {
+                    "relation": patch.relation,
+                    "source_type": patch.source_type,
+                    "target_type": patch.target_type,
+                }
+            )
             graph_config["relations"] = relations
         elif isinstance(patch, SetSemanticMetricPatch):
             if draft.manifest.kind != SkillKind.SEMANTIC or not isinstance(

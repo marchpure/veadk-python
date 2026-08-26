@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 from pathlib import Path
 
 from pydantic import TypeAdapter
@@ -62,7 +63,8 @@ class SqliteTemplateRegistry:
         self.path = str(path)
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(self.path)
+        self._lock = threading.RLock()
+        self.connection = sqlite3.connect(self.path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute(
             """
@@ -85,60 +87,63 @@ class SqliteTemplateRegistry:
     def put(self, spec: TemplateSpec) -> TemplateRef:
         workspace = "__builtin__" if spec.builtin else str(spec.owner_workspace_id)
         digest = template_digest(spec)
-        existing = self.connection.execute(
-            """
-            SELECT digest FROM template_spec_versions
-            WHERE template_id = ? AND version = ? AND workspace_id = ?
-            """,
-            (spec.template_id, spec.version, workspace),
-        ).fetchone()
-        if existing and existing["digest"] != digest:
-            raise ValueError("TemplateSpec versions are immutable")
-        self.connection.execute(
-            """
-            INSERT OR IGNORE INTO template_spec_versions
-              (template_id, version, workspace_id, digest, spec_json, spec_md)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                spec.template_id,
-                spec.version,
-                workspace,
-                digest,
-                spec.model_dump_json(by_alias=True),
-                render_spec_md(spec),
-            ),
-        )
-        self.connection.commit()
+        with self._lock:
+            existing = self.connection.execute(
+                """
+                SELECT digest FROM template_spec_versions
+                WHERE template_id = ? AND version = ? AND workspace_id = ?
+                """,
+                (spec.template_id, spec.version, workspace),
+            ).fetchone()
+            if existing and existing["digest"] != digest:
+                raise ValueError("TemplateSpec versions are immutable")
+            self.connection.execute(
+                """
+                INSERT OR IGNORE INTO template_spec_versions
+                  (template_id, version, workspace_id, digest, spec_json, spec_md)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    spec.template_id,
+                    spec.version,
+                    workspace,
+                    digest,
+                    spec.model_dump_json(by_alias=True),
+                    render_spec_md(spec),
+                ),
+            )
+            self.connection.commit()
         return template_ref(spec)
 
     def get(
         self, template_id: str, version: str, workspace_id: str
     ) -> TemplateSpec | None:
-        row = self.connection.execute(
-            """
-            SELECT spec_json FROM template_spec_versions
-            WHERE template_id = ? AND version = ?
-              AND workspace_id IN (?, '__builtin__')
-            ORDER BY CASE WHEN workspace_id = ? THEN 0 ELSE 1 END
-            LIMIT 1
-            """,
-            (template_id, version, workspace_id, workspace_id),
-        ).fetchone()
+        with self._lock:
+            row = self.connection.execute(
+                """
+                SELECT spec_json FROM template_spec_versions
+                WHERE template_id = ? AND version = ?
+                  AND workspace_id IN (?, '__builtin__')
+                ORDER BY CASE WHEN workspace_id = ? THEN 0 ELSE 1 END
+                LIMIT 1
+                """,
+                (template_id, version, workspace_id, workspace_id),
+            ).fetchone()
         return TemplateSpec.model_validate_json(row["spec_json"]) if row else None
 
     def list(self, workspace_id: str) -> list[TemplateSpec]:
-        rows = self.connection.execute(
-            """
-            SELECT spec_json FROM template_spec_versions
-            WHERE workspace_id IN (?, '__builtin__')
-            ORDER BY builtin_sort, template_id, version
-            """.replace(
-                "builtin_sort",
-                "CASE WHEN workspace_id = '__builtin__' THEN 0 ELSE 1 END",
-            ),
-            (workspace_id,),
-        ).fetchall()
+        with self._lock:
+            rows = self.connection.execute(
+                """
+                SELECT spec_json FROM template_spec_versions
+                WHERE workspace_id IN (?, '__builtin__')
+                ORDER BY builtin_sort, template_id, version
+                """.replace(
+                    "builtin_sort",
+                    "CASE WHEN workspace_id = '__builtin__' THEN 0 ELSE 1 END",
+                ),
+                (workspace_id,),
+            ).fetchall()
         return [TemplateSpec.model_validate_json(row["spec_json"]) for row in rows]
 
     def copy_builtin(

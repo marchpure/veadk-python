@@ -173,6 +173,7 @@ class SkillKind(StrEnum):
     KNOWLEDGE = "knowledge"
     SEMANTIC = "semantic"
     ANALYSIS = "analysis"
+    SOP = "sop"
     GRAPH_ONTOLOGY = "graph_ontology"
     MONITORING = "monitoring"
 
@@ -208,6 +209,19 @@ class ResourceRef(BaseModel):
     )
     revision: str = Field(min_length=1, max_length=160)
     scope: Scope
+
+
+class TemplateSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    template_id: str = Field(
+        min_length=1,
+        max_length=256,
+        validation_alias=AliasChoices("template_id", "templateId"),
+        serialization_alias="templateId",
+    )
+    version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$", max_length=32)
+    digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 class Budget(BaseModel):
@@ -248,6 +262,7 @@ class ContextEnvelope(BaseModel):
     current_view_id: str | None = Field(default=None, max_length=160)
     current_component_id: str | None = Field(default=None, max_length=160)
     comment_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    selected_template: TemplateSelection | None = None
 
     @field_validator("prompt")
     @classmethod
@@ -277,6 +292,7 @@ class ResolvedResource(BaseModel):
     display_name: str = Field(min_length=1, max_length=240)
     provider_revision: str = Field(min_length=1, max_length=160)
     schema_digest: str = Field(min_length=1, max_length=128)
+    content_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     capabilities: tuple[str, ...] = Field(default_factory=tuple, max_length=32)
     semantic_fields: tuple[str, ...] = Field(default_factory=tuple, max_length=256)
     authorized: bool = True
@@ -321,6 +337,11 @@ class ResolvedContext(BaseModel):
                 "current_component_id": self.envelope.current_component_id,
                 "comment_ids": self.envelope.comment_ids,
             },
+            "selected_template": (
+                self.envelope.selected_template.model_dump(mode="json")
+                if self.envelope.selected_template is not None
+                else None
+            ),
         }
 
 
@@ -426,11 +447,76 @@ class MonitoringKindSpec(BaseModel):
     refresh_seconds: int = Field(default=900, ge=60, le=86_400)
 
 
+class SopPlanInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=128)
+    label: str = Field(min_length=1, max_length=256)
+    value_type: Literal["string", "number", "boolean", "enum"]
+    required: bool = True
+    enum_values: tuple[str, ...] = Field(default_factory=tuple, max_length=100)
+    description: str = Field(default="", max_length=1024)
+
+
+class SopPlanStep(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(min_length=1, max_length=128)
+    title: str = Field(min_length=1, max_length=256)
+    instruction: str = Field(min_length=1, max_length=4096)
+    condition: Mapping[str, Any] | None = None
+    tool_ref: Mapping[str, Any] | None = None
+    evidence_requirements: tuple[Mapping[str, Any], ...] = Field(
+        default_factory=tuple, max_length=32
+    )
+    on_true: str | None = Field(default=None, max_length=128)
+    on_false: str | None = Field(default=None, max_length=128)
+    failure_mode: Literal["stop", "continue", "request_input", "propose_action"] = (
+        "stop"
+    )
+
+
+class SopPlanOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1, max_length=128)
+    description: str = Field(default="", max_length=1024)
+    value_type: Literal["string", "number", "boolean", "object", "array"]
+
+
+class SopKindSpec(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal[SkillKind.SOP] = SkillKind.SOP
+    trigger: str = Field(min_length=1, max_length=1024)
+    scope: str = Field(min_length=1, max_length=1024)
+    input_fields: tuple[SopPlanInput, ...] = Field(min_length=1, max_length=100)
+    steps: tuple[SopPlanStep, ...] = Field(min_length=1, max_length=200)
+    outputs: tuple[SopPlanOutput, ...] = Field(default_factory=tuple, max_length=100)
+    failure_handling: str = Field(min_length=1, max_length=2048)
+    action_proposal: str = Field(min_length=1, max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_step_graph(self) -> "SopKindSpec":
+        step_ids = [step.id for step in self.steps]
+        if len(step_ids) != len(set(step_ids)):
+            raise ValueError("SOP step ids must be unique")
+        known = set(step_ids)
+        if any(
+            target is not None and target not in known
+            for step in self.steps
+            for target in (step.on_true, step.on_false)
+        ):
+            raise ValueError("SOP branch target does not exist")
+        return self
+
+
 KindSpec = Annotated[
     Union[
         KnowledgeKindSpec,
         SemanticKindSpec,
         AnalysisKindSpec,
+        SopKindSpec,
         GraphOntologyKindSpec,
         MonitoringKindSpec,
     ],
@@ -546,11 +632,14 @@ class DraftRevision(BaseModel):
         "personal"
     )
     digest: str
+    selected_template: TemplateSelection | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     undo_of_revision: int | None = Field(default=None, ge=1)
     dashboard_config: Mapping[str, Any] = Field(default_factory=dict, max_length=64)
-    sop_steps: tuple[Mapping[str, Any], ...] = Field(default_factory=tuple, max_length=128)
+    sop_steps: tuple[Mapping[str, Any], ...] = Field(
+        default_factory=tuple, max_length=128
+    )
     graph_config: Mapping[str, Any] = Field(default_factory=dict, max_length=64)
 
 
@@ -793,6 +882,10 @@ class Worker3ExecutionRequest(BaseModel):
     draft_manifest: DraftManifest | None = None
     build_plan: BuildPlan | None = None
     trace_id: str = Field(default="", max_length=160)
+    selected_template: TemplateSelection | None = None
+    resolved_resources: tuple[ResolvedResource, ...] = Field(
+        default_factory=tuple, max_length=32
+    )
 
 
 class Worker3ExecutionAccepted(BaseModel):
@@ -918,7 +1011,9 @@ class AgentIntent(BaseModel):
             raise ValueError("only awaiting_input may include clarification questions")
         if self.action == "patch" and self.patch is None:
             raise ValueError("patch intent requires a typed patch")
-        if self.action != "patch" and (self.patch is not None or self.base_revision is not None):
+        if self.action != "patch" and (
+            self.patch is not None or self.base_revision is not None
+        ):
             raise ValueError("only patch intent may include patch payload")
         return self
 

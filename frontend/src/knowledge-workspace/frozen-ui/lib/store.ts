@@ -12,6 +12,7 @@ export {
   getResourceDescriptor,
   getWorkspaceAdapter,
   resourceStore,
+  templateSpecStore,
   useStore,
 } from '../../production/store';
 

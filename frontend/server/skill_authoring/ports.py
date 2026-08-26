@@ -44,6 +44,7 @@ from .models import (
     GraphOntologyKindSpec,
     KnowledgeKindSpec,
     MonitoringKindSpec,
+    SopKindSpec,
     InputContract,
     OutputContract,
     PatchProposal,
@@ -216,6 +217,11 @@ class InMemoryResourceResolver:
                 "current_view_id": envelope.current_view_id,
                 "current_component_id": envelope.current_component_id,
                 "comment_ids": envelope.comment_ids,
+                "selected_template": (
+                    envelope.selected_template.model_dump(mode="json")
+                    if envelope.selected_template is not None
+                    else None
+                ),
             }
         )
         return ResolvedContext(
@@ -1347,6 +1353,34 @@ class VeADKModelGateway:
             if not isinstance(questions, list) or not questions:
                 raise ValueError("clarification_questions must be a non-empty list")
             clarification_kind = requested_kind or SkillKind.KNOWLEDGE
+            if clarification_kind == SkillKind.SOP:
+                kind_spec: dict[str, object] = {
+                    "kind": "sop",
+                    "trigger": "Awaiting clarified authoring intent",
+                    "scope": "Authorized resources in the Context Envelope",
+                    "input_fields": [
+                        {
+                            "name": "request",
+                            "label": "Request",
+                            "value_type": "string",
+                        }
+                    ],
+                    "steps": [
+                        {
+                            "id": "clarify",
+                            "title": "Clarify request",
+                            "instruction": "Collect the required input before execution.",
+                        }
+                    ],
+                    "failure_handling": "Request input.",
+                    "action_proposal": "No action before clarification.",
+                }
+            else:
+                kind_spec = {
+                    "kind": clarification_kind.value,
+                    "citation_intent": ["source_revision"],
+                    "retrieval_mode": "hybrid",
+                }
             candidate = {
                 "plan_id": f"plan_clarification_{digest(questions)}",
                 "intent": clarification_kind.value,
@@ -1365,11 +1399,7 @@ class VeADKModelGateway:
                     },
                 ],
                 "outputs": [{"name": "answer", "type": "answer"}],
-                "kind_spec": {
-                    "kind": clarification_kind.value,
-                    "citation_intent": ["source_revision"],
-                    "retrieval_mode": "hybrid",
-                },
+                "kind_spec": kind_spec,
                 "clarification_questions": questions,
                 "layout_intent": "document",
                 "plan_digest": digest(
@@ -1504,7 +1534,12 @@ class LocalPlanningHarness:
                 output_names=("authorized_context",),
             ),
         )
-        if kind in {SkillKind.ANALYSIS, SkillKind.KNOWLEDGE, SkillKind.SEMANTIC}:
+        if kind in {
+            SkillKind.ANALYSIS,
+            SkillKind.KNOWLEDGE,
+            SkillKind.SEMANTIC,
+            SkillKind.SOP,
+        }:
             nodes += (
                 PlanNode(
                     node_id="prepare_source",
@@ -1587,6 +1622,48 @@ class LocalPlanningHarness:
             )
             inputs = ()
             outputs = (OutputContract(name="graph", type="graph"),)
+        elif kind == SkillKind.SOP:
+            spec = SopKindSpec(
+                trigger=context.envelope.prompt,
+                scope="Authorized resources in the Context Envelope",
+                input_fields=(
+                    {
+                        "name": "request",
+                        "label": "Request",
+                        "value_type": "string",
+                    },
+                ),
+                steps=(
+                    {
+                        "id": "resolve_evidence",
+                        "title": "Resolve evidence",
+                        "instruction": "Read only the pinned context revisions.",
+                        "evidence_requirements": (
+                            {"kind": "source_citation", "required": True},
+                        ),
+                    },
+                    {
+                        "id": "propose_action",
+                        "title": "Propose action",
+                        "instruction": "Return a reviewable action proposal.",
+                        "evidence_requirements": (
+                            {"kind": "decision", "required": True},
+                        ),
+                        "failure_mode": "propose_action",
+                    },
+                ),
+                outputs=(
+                    {
+                        "name": "result",
+                        "description": "SOP execution result",
+                        "value_type": "object",
+                    },
+                ),
+                failure_handling="Stop and request input when required evidence is missing.",
+                action_proposal="Require confirmation before any external write.",
+            )
+            inputs = (InputContract(name="request", type="string"),)
+            outputs = (OutputContract(name="observation", type="observation"),)
         else:
             spec = MonitoringKindSpec(
                 metric=fields[0],
@@ -1619,6 +1696,8 @@ class LocalPlanningHarness:
                 if kind == SkillKind.ANALYSIS
                 else "graph"
                 if kind == SkillKind.GRAPH_ONTOLOGY
+                else "document"
+                if kind == SkillKind.SOP
                 else "alert"
                 if kind == SkillKind.MONITORING
                 else "document"
@@ -1654,7 +1733,7 @@ class LocalPlanningHarness:
                 return kind
         raise SkillAuthoringError(
             AuthoringErrorCode.AMBIGUOUS,
-            "skill kind is ambiguous; choose one of the five supported kinds",
+            "skill kind is ambiguous; choose one of the six supported kinds",
         )
 
 

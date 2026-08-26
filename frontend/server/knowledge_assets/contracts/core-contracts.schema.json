@@ -881,7 +881,25 @@
             "execution_requested",
             "operation_retry",
             "operation_cancelled",
-            "operation_failed"
+            "operation_failed",
+            "message.accepted",
+            "context.resolving",
+            "context.resolved",
+            "agent.started",
+            "answer.delta",
+            "answer.final",
+            "tool.started",
+            "tool.progress",
+            "tool.completed",
+            "tool.failed",
+            "plan.created",
+            "plan.step.started",
+            "plan.step.completed",
+            "plan.step.failed",
+            "artifact.revision.created",
+            "operation.completed",
+            "operation.failed",
+            "operation.cancelled"
           ],
           "title": "Event Type",
           "type": "string"
@@ -892,12 +910,85 @@
           "type": "integer"
         },
         "data": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "maxProperties": 16,
+          "additionalProperties": true,
+          "maxProperties": 32,
           "title": "Data",
           "type": "object"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "Payload",
+          "type": "object"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "message.accepted",
+                "context.resolving",
+                "context.resolved",
+                "agent.started",
+                "answer.delta",
+                "answer.final",
+                "tool.started",
+                "tool.progress",
+                "tool.completed",
+                "tool.failed",
+                "plan.created",
+                "plan.step.started",
+                "plan.step.completed",
+                "plan.step.failed",
+                "artifact.revision.created",
+                "operation.completed",
+                "operation.failed",
+                "operation.cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "trace_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trace Id"
+        },
+        "public_summary": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Public Summary",
+          "type": "string"
+        },
+        "terminal": {
+          "default": false,
+          "title": "Terminal",
+          "type": "boolean"
         },
         "occurred_at": {
           "format": "date-time",
@@ -922,6 +1013,7 @@
         },
         "operation_type": {
           "enum": [
+            "answer",
             "create_draft",
             "propose_patch",
             "accept_patch",
@@ -949,6 +1041,19 @@
         "workspace_id": {
           "title": "Workspace Id",
           "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversation Id"
         },
         "draft_id": {
           "anyOf": [
@@ -1156,6 +1261,106 @@
       "title": "AuthoringStatus",
       "type": "string"
     },
+    "BigqueryConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "bigquery",
+          "title": "Kind",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "projectId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Projectid",
+          "type": "string"
+        },
+        "datasetId": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Datasetid",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "secretRef",
+        "projectId",
+        "datasetId",
+        "schemaAllowlist",
+        "tableAllowlist"
+      ],
+      "title": "BigqueryConnectorConfig",
+      "type": "object"
+    },
     "Budget": {
       "additionalProperties": false,
       "properties": {
@@ -1241,7 +1446,8 @@
               "graph_ontology": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec",
               "knowledge": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec",
-              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec",
+              "sop": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -1254,6 +1460,9 @@
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec"
@@ -1746,6 +1955,113 @@
       "title": "CleaningRecipeRecord",
       "type": "object"
     },
+    "ClickhouseConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "clickhouse",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "ClickhouseConnectorConfig",
+      "type": "object"
+    },
     "CommandResponse": {
       "additionalProperties": false,
       "properties": {
@@ -2050,7 +2366,19 @@
         "operation": {
           "enum": [
             "validate",
+            "authenticate",
+            "authorize",
             "discover",
+            "introspect",
+            "sample",
+            "read",
+            "ingest",
+            "profile",
+            "clean",
+            "golden",
+            "refresh",
+            "checkpoint",
+            "close",
             "revoke",
             "delete"
           ],
@@ -2216,6 +2544,146 @@
         "name"
       ],
       "title": "CreateSkillDraftPayload",
+      "type": "object"
+    },
+    "CsvConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "csv",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceRef",
+        "kind"
+      ],
+      "title": "CsvConnectorConfig",
+      "type": "object"
+    },
+    "CustomHttpConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "operationAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Operationallowlist",
+          "type": "array"
+        },
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxrows",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "custom_http",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "method": {
+          "default": "GET",
+          "enum": [
+            "GET",
+            "HEAD"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "paginationMode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "cursor",
+            "offset"
+          ],
+          "title": "Paginationmode",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "endpoint",
+        "operationAllowlist",
+        "kind",
+        "name"
+      ],
+      "title": "CustomHttpConnectorConfig",
       "type": "object"
     },
     "DashboardChart": {
@@ -2654,64 +3122,6 @@
       "title": "DataAccessKindSpec",
       "type": "object"
     },
-    "DatabaseConnectorConfig": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": [
-            "oracle",
-            "postgresql",
-            "mysql"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
-        "dsnRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Dsnref",
-          "type": "string"
-        },
-        "secretRef": {
-          "$ref": "#/$defs/SecretRef"
-        },
-        "schemaAllowlist": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "title": "Schemaallowlist",
-          "type": "array"
-        },
-        "rowLimit": {
-          "default": 10000,
-          "maximum": 1000000,
-          "minimum": 1,
-          "title": "Rowlimit",
-          "type": "integer"
-        },
-        "byteLimit": {
-          "default": 52428800,
-          "minimum": 1,
-          "title": "Bytelimit",
-          "type": "integer"
-        },
-        "timeoutSeconds": {
-          "default": 30,
-          "maximum": 900,
-          "minimum": 1,
-          "title": "Timeoutseconds",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "kind",
-        "dsnRef",
-        "secretRef"
-      ],
-      "title": "DatabaseConnectorConfig",
-      "type": "object"
-    },
     "DiscoveredField": {
       "additionalProperties": false,
       "properties": {
@@ -2834,6 +3244,142 @@
       "title": "DiscoveredResource",
       "type": "object"
     },
+    "DocumentConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "doc_txt",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maxTextChars": {
+          "default": 2000000,
+          "maximum": 20000000,
+          "minimum": 1,
+          "title": "Maxtextchars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceRef",
+        "kind"
+      ],
+      "title": "DocumentConnectorConfig",
+      "type": "object"
+    },
+    "DorisConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "doris",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "DorisConnectorConfig",
+      "type": "object"
+    },
     "DraftCommandResult": {
       "additionalProperties": false,
       "properties": {
@@ -2897,7 +3443,8 @@
               "graph_ontology": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec",
               "knowledge": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec",
-              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec",
+              "sop": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -2910,6 +3457,9 @@
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec"
@@ -3063,6 +3613,17 @@
           "title": "Digest",
           "type": "string"
         },
+        "selected_template": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "created_at": {
           "format": "date-time",
           "title": "Created At",
@@ -3085,6 +3646,27 @@
           ],
           "default": null,
           "title": "Undo Of Revision"
+        },
+        "dashboard_config": {
+          "additionalProperties": true,
+          "maxProperties": 64,
+          "title": "Dashboard Config",
+          "type": "object"
+        },
+        "sop_steps": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 128,
+          "title": "Sop Steps",
+          "type": "array"
+        },
+        "graph_config": {
+          "additionalProperties": true,
+          "maxProperties": 64,
+          "title": "Graph Config",
+          "type": "object"
         }
       },
       "required": [
@@ -4239,43 +4821,19 @@
       "title": "Event",
       "type": "object"
     },
-    "FileConnectorConfig": {
+    "ExcelConnectorConfig": {
       "additionalProperties": false,
       "properties": {
-        "kind": {
-          "enum": [
-            "markdown",
-            "csv",
-            "pdf",
-            "office",
-            "excel"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
         "sourceRef": {
           "maxLength": 2048,
           "minLength": 1,
           "title": "Sourceref",
           "type": "string"
         },
-        "maxBytes": {
-          "default": 10485760,
-          "minimum": 1,
-          "title": "Maxbytes",
-          "type": "integer"
-        },
-        "maxFiles": {
-          "default": 10000,
-          "minimum": 1,
-          "title": "Maxfiles",
-          "type": "integer"
-        },
-        "followSymlinks": {
-          "const": false,
-          "default": false,
-          "title": "Followsymlinks",
-          "type": "boolean"
+        "kind": {
+          "const": "excel",
+          "title": "Kind",
+          "type": "string"
         },
         "sheetAllowlist": {
           "items": {
@@ -4287,10 +4845,10 @@
         }
       },
       "required": [
-        "kind",
-        "sourceRef"
+        "sourceRef",
+        "kind"
       ],
-      "title": "FileConnectorConfig",
+      "title": "ExcelConnectorConfig",
       "type": "object"
     },
     "FixPlan": {
@@ -4651,6 +5209,13 @@
           "default": null,
           "title": "Adapterrunid"
         },
+        "checkpoint": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Checkpoint",
+          "type": "object"
+        },
         "lineageDigest": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Lineagedigest",
@@ -4850,6 +5415,198 @@
         "evidenceLocator"
       ],
       "title": "GraphRelationSpec",
+      "type": "object"
+    },
+    "GraphqlConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "operationAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Operationallowlist",
+          "type": "array"
+        },
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxrows",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "graphql",
+          "title": "Kind",
+          "type": "string"
+        },
+        "query": {
+          "maxLength": 100000,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endpoint",
+        "operationAllowlist",
+        "kind",
+        "query"
+      ],
+      "title": "GraphqlConnectorConfig",
+      "type": "object"
+    },
+    "HiveConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "hive",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "HiveConnectorConfig",
       "type": "object"
     },
     "ImportCommand": {
@@ -5320,6 +6077,110 @@
       "title": "JobState",
       "type": "object"
     },
+    "JsonConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "json",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maxDepth": {
+          "default": 32,
+          "maximum": 128,
+          "minimum": 1,
+          "title": "Maxdepth",
+          "type": "integer"
+        },
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxrows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceRef",
+        "kind"
+      ],
+      "title": "JsonConnectorConfig",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "KafkaConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "kafka",
+          "title": "Kind",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "bootstrapServers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Bootstrapservers",
+          "type": "array"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Topics",
+          "type": "array"
+        },
+        "consumerGroup": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Consumergroup",
+          "type": "string"
+        },
+        "maxMessages": {
+          "default": 1000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxmessages",
+          "type": "integer"
+        },
+        "maxMessageBytes": {
+          "default": 1000000,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxmessagebytes",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "secretRef",
+        "bootstrapServers",
+        "topics",
+        "consumerGroup"
+      ],
+      "title": "KafkaConnectorConfig",
+      "type": "object"
+    },
     "KnowledgeCitation": {
       "additionalProperties": false,
       "properties": {
@@ -5392,6 +6253,920 @@
       "title": "KnowledgeViewModel",
       "type": "object"
     },
+    "LarkBaseConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_base",
+          "title": "Kind",
+          "type": "string"
+        },
+        "appRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Appref",
+          "type": "string"
+        },
+        "tableRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Tableref",
+          "type": "string"
+        },
+        "viewRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewref"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "appRef",
+        "tableRef"
+      ],
+      "title": "LarkBaseConnectorConfig",
+      "type": "object"
+    },
+    "LarkChatConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_chat",
+          "title": "Kind",
+          "type": "string"
+        },
+        "chatRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Chatref",
+          "type": "string"
+        },
+        "timeRange": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Timerange",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "chatRef",
+        "timeRange"
+      ],
+      "title": "LarkChatConnectorConfig",
+      "type": "object"
+    },
+    "LarkDocConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_doc",
+          "title": "Kind",
+          "type": "string"
+        },
+        "documentRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Documentref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "documentRef"
+      ],
+      "title": "LarkDocConnectorConfig",
+      "type": "object"
+    },
+    "LarkDriveConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_drive",
+          "title": "Kind",
+          "type": "string"
+        },
+        "folderRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Folderref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "folderRef"
+      ],
+      "title": "LarkDriveConnectorConfig",
+      "type": "object"
+    },
+    "LarkGroupConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_group",
+          "title": "Kind",
+          "type": "string"
+        },
+        "chatRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Chatref",
+          "type": "string"
+        },
+        "timeRange": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Timerange",
+          "type": "string"
+        },
+        "includeAttachments": {
+          "default": false,
+          "title": "Includeattachments",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "chatRef",
+        "timeRange"
+      ],
+      "title": "LarkGroupConnectorConfig",
+      "type": "object"
+    },
+    "LarkMailConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_mail",
+          "title": "Kind",
+          "type": "string"
+        },
+        "folder": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Folder",
+          "type": "string"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "folder"
+      ],
+      "title": "LarkMailConnectorConfig",
+      "type": "object"
+    },
+    "LarkMeetingConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_meeting",
+          "title": "Kind",
+          "type": "string"
+        },
+        "calendarRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Calendarref",
+          "type": "string"
+        },
+        "dateFrom": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Datefrom",
+          "type": "string"
+        },
+        "dateTo": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Dateto",
+          "type": "string"
+        },
+        "attendees": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Attendees",
+          "type": "array"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "calendarRef",
+        "dateFrom",
+        "dateTo"
+      ],
+      "title": "LarkMeetingConnectorConfig",
+      "type": "object"
+    },
+    "LarkMinutesConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_minutes",
+          "title": "Kind",
+          "type": "string"
+        },
+        "minutesRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Minutesref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "minutesRef"
+      ],
+      "title": "LarkMinutesConnectorConfig",
+      "type": "object"
+    },
+    "LarkSheetConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_sheet",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sheetRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sheetref",
+          "type": "string"
+        },
+        "sheetName": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sheetname"
+        },
+        "cellRange": {
+          "default": "A1:Z1000",
+          "maxLength": 128,
+          "minLength": 3,
+          "title": "Cellrange",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "sheetRef"
+      ],
+      "title": "LarkSheetConnectorConfig",
+      "type": "object"
+    },
+    "LarkWikiConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "scopeRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Scoperef",
+          "type": "string"
+        },
+        "apiBaseUrl": {
+          "default": "https://open.feishu.cn/open-apis",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Apibaseurl",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "lark_wiki",
+          "title": "Kind",
+          "type": "string"
+        },
+        "wikiRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Wikiref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "scopeRef",
+        "kind",
+        "wikiRef"
+      ],
+      "title": "LarkWikiConnectorConfig",
+      "type": "object"
+    },
     "LegacySkillManifestInput": {
       "additionalProperties": false,
       "description": "The only accepted compatibility shape for the original M1 UI.",
@@ -5431,6 +7206,28 @@
         "version"
       ],
       "title": "LegacySkillManifestInput",
+      "type": "object"
+    },
+    "LocalFileConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "local_file",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceRef",
+        "kind"
+      ],
+      "title": "LocalFileConnectorConfig",
       "type": "object"
     },
     "ManifestInputSchema": {
@@ -5493,61 +7290,145 @@
       "title": "ManifestProperty",
       "type": "object"
     },
-    "McpConnectorConfig": {
+    "McpCustomConnectorConfig": {
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "const": "mcp",
+          "const": "mcp_custom",
           "title": "Kind",
           "type": "string"
         },
-        "serverUrl": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Serverurl",
+        "transport": {
+          "enum": [
+            "stdio",
+            "streamable_http",
+            "sse"
+          ],
+          "title": "Transport",
           "type": "string"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Args",
+          "type": "array"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Env",
+          "type": "object"
+        },
+        "cwd": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cwd"
+        },
+        "endpoint": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoint"
         },
         "secretRef": {
-          "$ref": "#/$defs/SecretRef"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "oauthScopeRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Oauthscoperef",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Oauthscoperef"
         },
         "toolAllowlist": {
           "items": {
             "type": "string"
           },
-          "maxItems": 100,
+          "maxItems": 1000,
           "minItems": 1,
           "title": "Toolallowlist",
           "type": "array"
         },
-        "outputBytes": {
-          "default": 1000000,
-          "maximum": 10000000,
+        "startupTimeoutSeconds": {
+          "default": 10,
+          "exclusiveMinimum": 0,
+          "maximum": 900,
+          "title": "Startuptimeoutseconds",
+          "type": "number"
+        },
+        "callTimeoutSeconds": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "maximum": 900,
+          "title": "Calltimeoutseconds",
+          "type": "number"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
           "minimum": 1,
-          "title": "Outputbytes",
+          "title": "Maxpages",
           "type": "integer"
         },
-        "timeoutSeconds": {
-          "default": 30,
-          "maximum": 900,
+        "outputBytes": {
+          "default": 1000000,
+          "maximum": 104857600,
           "minimum": 1,
-          "title": "Timeoutseconds",
+          "title": "Outputbytes",
           "type": "integer"
         }
       },
       "required": [
         "kind",
-        "serverUrl",
-        "secretRef",
-        "oauthScopeRef",
+        "transport",
         "toolAllowlist"
       ],
-      "title": "McpConnectorConfig",
+      "title": "McpCustomConnectorConfig",
       "type": "object"
     },
     "MonitoringObservationView": {
@@ -5740,6 +7621,113 @@
       "title": "MonitoringViewModel",
       "type": "object"
     },
+    "MysqlConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "mysql",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "MysqlConnectorConfig",
+      "type": "object"
+    },
     "NotReadyCommandResult": {
       "additionalProperties": false,
       "properties": {
@@ -5762,6 +7750,90 @@
         "command"
       ],
       "title": "NotReadyCommandResult",
+      "type": "object"
+    },
+    "OpenapiSpecConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "openapi_spec",
+          "title": "Kind",
+          "type": "string"
+        },
+        "specRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Specref",
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "operationAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Operationallowlist",
+          "type": "array"
+        },
+        "serverUrl": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Serverurl"
+        },
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxrows",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "specRef",
+        "operationAllowlist"
+      ],
+      "title": "OpenapiSpecConnectorConfig",
       "type": "object"
     },
     "Operation": {
@@ -5938,6 +8010,186 @@
       "title": "Operation",
       "type": "object"
     },
+    "OracleConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "oracle",
+          "title": "Kind",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "serviceName": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Servicename",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "secretRef",
+        "host",
+        "port",
+        "serviceName",
+        "schemaAllowlist",
+        "tableAllowlist"
+      ],
+      "title": "OracleConnectorConfig",
+      "type": "object"
+    },
+    "OssConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "bucket": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Bucket",
+          "type": "string"
+        },
+        "objectPrefix": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Objectprefix",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "maxObjects": {
+          "default": 1000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxobjects",
+          "type": "integer"
+        },
+        "maxObjectBytes": {
+          "default": 10485760,
+          "maximum": 1073741824,
+          "minimum": 1,
+          "title": "Maxobjectbytes",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "oss",
+          "title": "Kind",
+          "type": "string"
+        },
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "bucket",
+        "kind",
+        "endpoint"
+      ],
+      "title": "OssConnectorConfig",
+      "type": "object"
+    },
     "OutputContract": {
       "additionalProperties": false,
       "properties": {
@@ -5993,6 +8245,56 @@
         "principalId"
       ],
       "title": "OwnerRef",
+      "type": "object"
+    },
+    "ParquetConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "parquet",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxrows",
+          "type": "integer"
+        },
+        "maxColumns": {
+          "default": 1000,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Maxcolumns",
+          "type": "integer"
+        },
+        "maxUncompressedBytes": {
+          "default": 104857600,
+          "maximum": 1073741824,
+          "minimum": 1,
+          "title": "Maxuncompressedbytes",
+          "type": "integer"
+        },
+        "maxNestingDepth": {
+          "default": 16,
+          "maximum": 128,
+          "minimum": 1,
+          "title": "Maxnestingdepth",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceRef",
+        "kind"
+      ],
+      "title": "ParquetConnectorConfig",
       "type": "object"
     },
     "PatchImpact": {
@@ -6108,11 +8410,22 @@
           "discriminator": {
             "mapping": {
               "add_citation_intent": "#/$defs/AddCitationIntentPatch",
+              "set_dashboard_chart": "#/$defs/SetDashboardChartPatch",
+              "set_dashboard_filter": "#/$defs/SetDashboardFilterPatch",
+              "set_dashboard_kpi": "#/$defs/SetDashboardKpiPatch",
               "set_description": "#/$defs/SetDescriptionPatch",
+              "set_graph_entity": "#/$defs/SetGraphEntityPatch",
+              "set_graph_relation": "#/$defs/SetGraphRelationPatch",
               "set_permission_scope": "#/$defs/SetPermissionScopePatch",
               "set_query_plan": "#/$defs/SetQueryPlanPatch",
               "set_refresh_policy": "#/$defs/SetRefreshPolicyPatch",
+              "set_semantic_dimension": "#/$defs/SetSemanticDimensionPatch",
               "set_semantic_mapping": "#/$defs/SetSemanticMappingPatch",
+              "set_semantic_metric": "#/$defs/SetSemanticMetricPatch",
+              "set_semantic_relationship": "#/$defs/SetSemanticRelationshipPatch",
+              "set_sop_condition": "#/$defs/SetSopConditionPatch",
+              "set_sop_step": "#/$defs/SetSopStepPatch",
+              "set_sop_tool_ref": "#/$defs/SetSopToolRefPatch",
               "set_threshold_policy": "#/$defs/SetThresholdPolicyPatch",
               "set_title": "#/$defs/SetTitlePatch"
             },
@@ -6142,6 +8455,39 @@
             },
             {
               "$ref": "#/$defs/SetSemanticMappingPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticMetricPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticDimensionPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticRelationshipPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardKpiPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardChartPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardFilterPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopStepPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopConditionPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopToolRefPatch"
+            },
+            {
+              "$ref": "#/$defs/SetGraphEntityPatch"
+            },
+            {
+              "$ref": "#/$defs/SetGraphRelationPatch"
             }
           ],
           "title": "Patch"
@@ -6172,6 +8518,70 @@
           "maxItems": 32,
           "title": "Source Comment Ids",
           "type": "array"
+        },
+        "before": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "Before",
+          "type": "object"
+        },
+        "after": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "After",
+          "type": "object"
+        },
+        "base_digest": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Digest"
+        },
+        "new_digest": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Digest"
+        },
+        "new_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Revision"
+        },
+        "view_revision_id": {
+          "anyOf": [
+            {
+              "maxLength": 240,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Revision Id"
         },
         "created_at": {
           "format": "date-time",
@@ -6349,6 +8759,113 @@
         "runId"
       ],
       "title": "PolicyGateEvaluatePayload",
+      "type": "object"
+    },
+    "PostgresqlConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "postgresql",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "PostgresqlConnectorConfig",
       "type": "object"
     },
     "ProfileField": {
@@ -6599,50 +9116,6 @@
       "title": "ProfileRunRecord",
       "type": "object"
     },
-    "ProviderDocumentConfig": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": [
-            "lark_doc",
-            "lark_minutes",
-            "lark_group_chat"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
-        "documentRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Documentref",
-          "type": "string"
-        },
-        "secretRef": {
-          "$ref": "#/$defs/SecretRef"
-        },
-        "scopeRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Scoperef",
-          "type": "string"
-        },
-        "pageSize": {
-          "default": 100,
-          "maximum": 1000,
-          "minimum": 1,
-          "title": "Pagesize",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "kind",
-        "documentRef",
-        "secretRef",
-        "scopeRef"
-      ],
-      "title": "ProviderDocumentConfig",
-      "type": "object"
-    },
     "PublicationPublishCommand": {
       "additionalProperties": false,
       "properties": {
@@ -6740,63 +9213,6 @@
         "draftId"
       ],
       "title": "PublicationPublishResult",
-      "type": "object"
-    },
-    "PublishedSkillConnectorConfig": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "published_skill",
-          "title": "Kind",
-          "type": "string"
-        },
-        "skillRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Skillref",
-          "type": "string"
-        },
-        "secretRef": {
-          "$ref": "#/$defs/SecretRef"
-        },
-        "scopeRef": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Scoperef",
-          "type": "string"
-        },
-        "dependencyAllowlist": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 100,
-          "minItems": 1,
-          "title": "Dependencyallowlist",
-          "type": "array"
-        },
-        "outputBytes": {
-          "default": 1000000,
-          "maximum": 10000000,
-          "minimum": 1,
-          "title": "Outputbytes",
-          "type": "integer"
-        },
-        "timeoutSeconds": {
-          "default": 30,
-          "maximum": 900,
-          "minimum": 1,
-          "title": "Timeoutseconds",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "kind",
-        "skillRef",
-        "secretRef",
-        "scopeRef",
-        "dependencyAllowlist"
-      ],
-      "title": "PublishedSkillConnectorConfig",
       "type": "object"
     },
     "PublishedSkillVersion": {
@@ -7272,6 +9688,122 @@
       "title": "ResourceShareResult",
       "type": "object"
     },
+    "RestApiConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "secretRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "operationAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Operationallowlist",
+          "type": "array"
+        },
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxrows",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "rest_api",
+          "title": "Kind",
+          "type": "string"
+        },
+        "paginationMode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "cursor",
+            "offset",
+            "link_header"
+          ],
+          "title": "Paginationmode",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "termsRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Termsref"
+        }
+      },
+      "required": [
+        "endpoint",
+        "operationAllowlist",
+        "kind"
+      ],
+      "title": "RestApiConnectorConfig",
+      "type": "object"
+    },
     "RunProvenance": {
       "additionalProperties": false,
       "properties": {
@@ -7346,6 +9878,85 @@
         "dataAsOf"
       ],
       "title": "RunProvenance",
+      "type": "object"
+    },
+    "S3ConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "bucket": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Bucket",
+          "type": "string"
+        },
+        "objectPrefix": {
+          "default": "",
+          "maxLength": 2048,
+          "title": "Objectprefix",
+          "type": "string"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Region"
+        },
+        "maxObjects": {
+          "default": 1000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxobjects",
+          "type": "integer"
+        },
+        "maxObjectBytes": {
+          "default": 10485760,
+          "maximum": 1073741824,
+          "minimum": 1,
+          "title": "Maxobjectbytes",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "s3",
+          "title": "Kind",
+          "type": "string"
+        },
+        "endpoint": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoint"
+        }
+      },
+      "required": [
+        "secretRef",
+        "bucket",
+        "kind"
+      ],
+      "title": "S3ConnectorConfig",
       "type": "object"
     },
     "SaveManifestCommand": {
@@ -7659,6 +10270,130 @@
       "title": "SemanticViewRelationship",
       "type": "object"
     },
+    "SetDashboardChartPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_dashboard_chart",
+          "default": "set_dashboard_chart",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "x_field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "X Field",
+          "type": "string"
+        },
+        "y_field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Y Field",
+          "type": "string"
+        },
+        "chart_type": {
+          "default": "line",
+          "enum": [
+            "line",
+            "bar",
+            "area",
+            "table"
+          ],
+          "title": "Chart Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x_field",
+        "y_field"
+      ],
+      "title": "SetDashboardChartPatch",
+      "type": "object"
+    },
+    "SetDashboardFilterPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_dashboard_filter",
+          "default": "set_dashboard_filter",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 512,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "value"
+      ],
+      "title": "SetDashboardFilterPatch",
+      "type": "object"
+    },
+    "SetDashboardKpiPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_dashboard_kpi",
+          "default": "set_dashboard_kpi",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "default": "",
+          "maxLength": 32,
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "SetDashboardKpiPatch",
+      "type": "object"
+    },
     "SetDescriptionPatch": {
       "additionalProperties": false,
       "properties": {
@@ -7679,6 +10414,71 @@
         "description"
       ],
       "title": "SetDescriptionPatch",
+      "type": "object"
+    },
+    "SetGraphEntityPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_graph_entity",
+          "default": "set_graph_entity",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "entity_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_type",
+        "label"
+      ],
+      "title": "SetGraphEntityPatch",
+      "type": "object"
+    },
+    "SetGraphRelationPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_graph_relation",
+          "default": "set_graph_relation",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "relation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Relation",
+          "type": "string"
+        },
+        "source_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Source Type",
+          "type": "string"
+        },
+        "target_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relation",
+        "source_type",
+        "target_type"
+      ],
+      "title": "SetGraphRelationPatch",
       "type": "object"
     },
     "SetPermissionScopePatch": {
@@ -7744,6 +10544,35 @@
       "title": "SetRefreshPolicyPatch",
       "type": "object"
     },
+    "SetSemanticDimensionPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_semantic_dimension",
+          "default": "set_semantic_dimension",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Dimension",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "field"
+      ],
+      "title": "SetSemanticDimensionPatch",
+      "type": "object"
+    },
     "SetSemanticMappingPatch": {
       "additionalProperties": false,
       "properties": {
@@ -7771,6 +10600,184 @@
         "entity"
       ],
       "title": "SetSemanticMappingPatch",
+      "type": "object"
+    },
+    "SetSemanticMetricPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_semantic_metric",
+          "default": "set_semantic_metric",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "definition": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Definition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "definition"
+      ],
+      "title": "SetSemanticMetricPatch",
+      "type": "object"
+    },
+    "SetSemanticRelationshipPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_semantic_relationship",
+          "default": "set_semantic_relationship",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "relationship": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Relationship",
+          "type": "string"
+        },
+        "source_entity": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Source Entity",
+          "type": "string"
+        },
+        "target_entity": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Entity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relationship",
+        "source_entity",
+        "target_entity"
+      ],
+      "title": "SetSemanticRelationshipPatch",
+      "type": "object"
+    },
+    "SetSopConditionPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_sop_condition",
+          "default": "set_sop_condition",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "condition": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Condition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "condition"
+      ],
+      "title": "SetSopConditionPatch",
+      "type": "object"
+    },
+    "SetSopStepPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_sop_step",
+          "default": "set_sop_step",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "tool_ref": {
+          "anyOf": [
+            {
+              "maxLength": 240,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Ref"
+        }
+      },
+      "required": [
+        "step_id",
+        "label"
+      ],
+      "title": "SetSopStepPatch",
+      "type": "object"
+    },
+    "SetSopToolRefPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_sop_tool_ref",
+          "default": "set_sop_tool_ref",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "tool_ref": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Tool Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "tool_ref"
+      ],
+      "title": "SetSopToolRefPatch",
       "type": "object"
     },
     "SetThresholdPolicyPatch": {
@@ -8165,11 +11172,22 @@
           "discriminator": {
             "mapping": {
               "add_citation_intent": "#/$defs/AddCitationIntentPatch",
+              "set_dashboard_chart": "#/$defs/SetDashboardChartPatch",
+              "set_dashboard_filter": "#/$defs/SetDashboardFilterPatch",
+              "set_dashboard_kpi": "#/$defs/SetDashboardKpiPatch",
               "set_description": "#/$defs/SetDescriptionPatch",
+              "set_graph_entity": "#/$defs/SetGraphEntityPatch",
+              "set_graph_relation": "#/$defs/SetGraphRelationPatch",
               "set_permission_scope": "#/$defs/SetPermissionScopePatch",
               "set_query_plan": "#/$defs/SetQueryPlanPatch",
               "set_refresh_policy": "#/$defs/SetRefreshPolicyPatch",
+              "set_semantic_dimension": "#/$defs/SetSemanticDimensionPatch",
               "set_semantic_mapping": "#/$defs/SetSemanticMappingPatch",
+              "set_semantic_metric": "#/$defs/SetSemanticMetricPatch",
+              "set_semantic_relationship": "#/$defs/SetSemanticRelationshipPatch",
+              "set_sop_condition": "#/$defs/SetSopConditionPatch",
+              "set_sop_step": "#/$defs/SetSopStepPatch",
+              "set_sop_tool_ref": "#/$defs/SetSopToolRefPatch",
               "set_threshold_policy": "#/$defs/SetThresholdPolicyPatch",
               "set_title": "#/$defs/SetTitlePatch"
             },
@@ -8199,6 +11217,39 @@
             },
             {
               "$ref": "#/$defs/SetSemanticMappingPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticMetricPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticDimensionPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticRelationshipPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardKpiPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardChartPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardFilterPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopStepPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopConditionPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopToolRefPatch"
+            },
+            {
+              "$ref": "#/$defs/SetGraphEntityPatch"
+            },
+            {
+              "$ref": "#/$defs/SetGraphRelationPatch"
             }
           ],
           "title": "Patch"
@@ -8315,6 +11366,19 @@
           "title": "Prompt",
           "type": "string"
         },
+        "conversationId": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversationid"
+        },
         "resourceRefs": {
           "items": {
             "$ref": "#/$defs/ResourceRef"
@@ -8346,6 +11410,7 @@
                 "knowledge",
                 "semantic",
                 "analysis",
+                "sop",
                 "graph_ontology",
                 "monitoring"
               ],
@@ -8426,6 +11491,17 @@
           "maxItems": 64,
           "title": "Commentids",
           "type": "array"
+        },
+        "templateRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -8998,6 +12074,7 @@
         "knowledge",
         "semantic",
         "analysis",
+        "sop",
         "graph_ontology",
         "monitoring"
       ],
@@ -9395,7 +12472,7 @@
               "knowledge": "#/$defs/frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec",
               "semantic": "#/$defs/frontend__server__knowledge_assets__contract_base__SemanticKindSpec",
-              "sop": "#/$defs/SopKindSpec"
+              "sop": "#/$defs/frontend__server__knowledge_assets__contract_base__SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -9419,7 +12496,7 @@
               "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec"
             },
             {
-              "$ref": "#/$defs/SopKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__SopKindSpec"
             }
           ],
           "title": "Kindspec"
@@ -9680,6 +12757,113 @@
       "title": "SkillViewShareGrant",
       "type": "object"
     },
+    "SnowflakeConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "snowflake",
+          "title": "Kind",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Account",
+          "type": "string"
+        },
+        "warehouse": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Warehouse",
+          "type": "string"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "secretRef",
+        "account",
+        "warehouse",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist"
+      ],
+      "title": "SnowflakeConnectorConfig",
+      "type": "object"
+    },
     "SopActionProposal": {
       "additionalProperties": false,
       "properties": {
@@ -9867,77 +13051,6 @@
       "title": "SopInputField",
       "type": "object"
     },
-    "SopKindSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "sop",
-          "default": "sop",
-          "title": "Kind",
-          "type": "string"
-        },
-        "trigger": {
-          "maxLength": 1024,
-          "minLength": 1,
-          "title": "Trigger",
-          "type": "string"
-        },
-        "scope": {
-          "maxLength": 1024,
-          "minLength": 1,
-          "title": "Scope",
-          "type": "string"
-        },
-        "inputFields": {
-          "items": {
-            "$ref": "#/$defs/SopInputField"
-          },
-          "maxItems": 100,
-          "minItems": 1,
-          "title": "Inputfields",
-          "type": "array"
-        },
-        "steps": {
-          "items": {
-            "$ref": "#/$defs/SopStep"
-          },
-          "maxItems": 200,
-          "minItems": 1,
-          "title": "Steps",
-          "type": "array"
-        },
-        "outputs": {
-          "items": {
-            "$ref": "#/$defs/SopOutputField"
-          },
-          "maxItems": 100,
-          "title": "Outputs",
-          "type": "array"
-        },
-        "failureHandling": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Failurehandling",
-          "type": "string"
-        },
-        "actionProposal": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Actionproposal",
-          "type": "string"
-        }
-      },
-      "required": [
-        "trigger",
-        "scope",
-        "inputFields",
-        "steps",
-        "failureHandling",
-        "actionProposal"
-      ],
-      "title": "SopKindSpec",
-      "type": "object"
-    },
     "SopOutputField": {
       "additionalProperties": false,
       "properties": {
@@ -9970,6 +13083,195 @@
         "valueType"
       ],
       "title": "SopOutputField",
+      "type": "object"
+    },
+    "SopPlanInput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "enum_values": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Enum Values",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "value_type"
+      ],
+      "title": "SopPlanInput",
+      "type": "object"
+    },
+    "SopPlanOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value_type"
+      ],
+      "title": "SopPlanOutput",
+      "type": "object"
+    },
+    "SopPlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "instruction": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "tool_ref": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Ref"
+        },
+        "evidence_requirements": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 32,
+          "title": "Evidence Requirements",
+          "type": "array"
+        },
+        "on_true": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On True"
+        },
+        "on_false": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On False"
+        },
+        "failure_mode": {
+          "default": "stop",
+          "enum": [
+            "stop",
+            "continue",
+            "request_input",
+            "propose_action"
+          ],
+          "title": "Failure Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "instruction"
+      ],
+      "title": "SopPlanStep",
       "type": "object"
     },
     "SopStep": {
@@ -10810,11 +14112,18 @@
         "sourceType": {
           "enum": [
             "markdown",
+            "text",
+            "html",
             "csv",
             "excel",
+            "json",
+            "parquet",
             "pdf",
             "sqlite",
-            "mcp"
+            "mcp",
+            "http",
+            "database",
+            "office"
           ],
           "title": "Sourcetype",
           "type": "string"
@@ -10841,6 +14150,13 @@
           "title": "Permissionversion",
           "type": "integer"
         },
+        "checkpoint": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Checkpoint",
+          "type": "object"
+        },
         "createdAt": {
           "title": "Createdat",
           "type": "string"
@@ -10865,6 +14181,270 @@
         "traceId"
       ],
       "title": "SourceRevisionRecord",
+      "type": "object"
+    },
+    "SqliteConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Sourceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "sqlite",
+          "title": "Kind",
+          "type": "string"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceRef",
+        "kind"
+      ],
+      "title": "SqliteConnectorConfig",
+      "type": "object"
+    },
+    "SqlserverConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "sqlserver",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "SqlserverConnectorConfig",
+      "type": "object"
+    },
+    "StarrocksConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "host": {
+          "maxLength": 253,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "database": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Database",
+          "type": "string"
+        },
+        "schemaAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Schemaallowlist",
+          "type": "array"
+        },
+        "tableAllowlist": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "minItems": 1,
+          "title": "Tableallowlist",
+          "type": "array"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "queryParameters": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Queryparameters",
+          "type": "object"
+        },
+        "pageSize": {
+          "default": 1000,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "rowLimit": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Rowlimit",
+          "type": "integer"
+        },
+        "byteLimit": {
+          "default": 52428800,
+          "minimum": 1,
+          "title": "Bytelimit",
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "default": 30,
+          "maximum": 900,
+          "minimum": 1,
+          "title": "Timeoutseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "starrocks",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secretRef",
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "kind"
+      ],
+      "title": "StarrocksConnectorConfig",
       "type": "object"
     },
     "StorageRef": {
@@ -11057,6 +14637,35 @@
         "digest"
       ],
       "title": "TemplateRef",
+      "type": "object"
+    },
+    "TemplateSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "template_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Template Id",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 32,
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template_id",
+        "version",
+        "digest"
+      ],
+      "title": "TemplateSelection",
       "type": "object"
     },
     "TemplateSpec": {
@@ -11378,20 +14987,9 @@
       "title": "ViewIntent",
       "type": "object"
     },
-    "WebConnectorConfig": {
+    "WebDiscoveryConnectorConfig": {
       "additionalProperties": false,
       "properties": {
-        "kind": {
-          "enum": [
-            "web_api",
-            "web_url",
-            "rest_api",
-            "graphql",
-            "openapi"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
         "endpoint": {
           "maxLength": 2048,
           "minLength": 1,
@@ -11409,32 +15007,27 @@
           ],
           "default": null
         },
-        "termsRef": {
-          "anyOf": [
-            {
-              "maxLength": 2048,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Termsref"
-        },
         "operationAllowlist": {
           "items": {
             "type": "string"
           },
-          "maxItems": 100,
+          "maxItems": 1000,
+          "minItems": 1,
           "title": "Operationallowlist",
           "type": "array"
         },
-        "pageSize": {
-          "default": 100,
-          "maximum": 1000,
+        "maxRows": {
+          "default": 10000,
+          "maximum": 1000000,
           "minimum": 1,
-          "title": "Pagesize",
+          "title": "Maxrows",
+          "type": "integer"
+        },
+        "maxResponseBytes": {
+          "default": 5242880,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxresponsebytes",
           "type": "integer"
         },
         "rateLimitPerMinute": {
@@ -11450,13 +15043,118 @@
           "minimum": 1,
           "title": "Timeoutseconds",
           "type": "integer"
+        },
+        "refreshSeconds": {
+          "default": 3600,
+          "maximum": 31536000,
+          "minimum": 1,
+          "title": "Refreshseconds",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "web_discovery",
+          "title": "Kind",
+          "type": "string"
+        },
+        "paginationMode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "cursor",
+            "offset",
+            "link_header"
+          ],
+          "title": "Paginationmode",
+          "type": "string"
+        },
+        "pageSize": {
+          "default": 100,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Pagesize",
+          "type": "integer"
+        },
+        "maxPages": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Maxpages",
+          "type": "integer"
+        },
+        "termsRef": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Termsref"
+        }
+      },
+      "required": [
+        "endpoint",
+        "operationAllowlist",
+        "kind"
+      ],
+      "title": "WebDiscoveryConnectorConfig",
+      "type": "object"
+    },
+    "WebhookConnectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "webhook",
+          "title": "Kind",
+          "type": "string"
+        },
+        "secretRef": {
+          "$ref": "#/$defs/SecretRef"
+        },
+        "listenPath": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Listenpath",
+          "type": "string"
+        },
+        "schemaRef": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Schemaref",
+          "type": "string"
+        },
+        "maxEventBytes": {
+          "default": 1000000,
+          "maximum": 104857600,
+          "minimum": 1,
+          "title": "Maxeventbytes",
+          "type": "integer"
+        },
+        "maxEvents": {
+          "default": 10000,
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Maxevents",
+          "type": "integer"
+        },
+        "rateLimitPerMinute": {
+          "default": 60,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Ratelimitperminute",
+          "type": "integer"
         }
       },
       "required": [
         "kind",
-        "endpoint"
+        "secretRef",
+        "listenPath",
+        "schemaRef"
       ],
-      "title": "WebConnectorConfig",
+      "title": "WebhookConnectorConfig",
       "type": "object"
     },
     "frontend__server__knowledge_assets__contract_base__AnalysisKindSpec": {
@@ -11732,6 +15430,77 @@
         }
       },
       "title": "SemanticKindSpec",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__SopKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sop",
+          "default": "sop",
+          "title": "Kind",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Trigger",
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        },
+        "inputFields": {
+          "items": {
+            "$ref": "#/$defs/SopInputField"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Inputfields",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SopStep"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/SopOutputField"
+          },
+          "maxItems": 100,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "failureHandling": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Failurehandling",
+          "type": "string"
+        },
+        "actionProposal": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Actionproposal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger",
+        "scope",
+        "inputFields",
+        "steps",
+        "failureHandling",
+        "actionProposal"
+      ],
+      "title": "SopKindSpec",
       "type": "object"
     },
     "frontend__server__knowledge_assets__contract_views__EvaluationCase": {
@@ -12649,6 +16418,77 @@
       ],
       "title": "SemanticKindSpec",
       "type": "object"
+    },
+    "frontend__server__skill_authoring__models__SopKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sop",
+          "default": "sop",
+          "title": "Kind",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Trigger",
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        },
+        "input_fields": {
+          "items": {
+            "$ref": "#/$defs/SopPlanInput"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Input Fields",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SopPlanStep"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/SopPlanOutput"
+          },
+          "maxItems": 100,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "failure_handling": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Failure Handling",
+          "type": "string"
+        },
+        "action_proposal": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Action Proposal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger",
+        "scope",
+        "input_fields",
+        "steps",
+        "failure_handling",
+        "action_proposal"
+      ],
+      "title": "SopKindSpec",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -13267,45 +17107,157 @@
         {
           "discriminator": {
             "mapping": {
-              "csv": "#/$defs/FileConnectorConfig",
-              "excel": "#/$defs/FileConnectorConfig",
-              "graphql": "#/$defs/WebConnectorConfig",
-              "lark_doc": "#/$defs/ProviderDocumentConfig",
-              "lark_group_chat": "#/$defs/ProviderDocumentConfig",
-              "lark_minutes": "#/$defs/ProviderDocumentConfig",
-              "markdown": "#/$defs/FileConnectorConfig",
-              "mcp": "#/$defs/McpConnectorConfig",
-              "mysql": "#/$defs/DatabaseConnectorConfig",
-              "office": "#/$defs/FileConnectorConfig",
-              "openapi": "#/$defs/WebConnectorConfig",
-              "oracle": "#/$defs/DatabaseConnectorConfig",
-              "pdf": "#/$defs/FileConnectorConfig",
-              "postgresql": "#/$defs/DatabaseConnectorConfig",
-              "published_skill": "#/$defs/PublishedSkillConnectorConfig",
-              "rest_api": "#/$defs/WebConnectorConfig",
-              "web_api": "#/$defs/WebConnectorConfig",
-              "web_url": "#/$defs/WebConnectorConfig"
+              "bigquery": "#/$defs/BigqueryConnectorConfig",
+              "clickhouse": "#/$defs/ClickhouseConnectorConfig",
+              "csv": "#/$defs/CsvConnectorConfig",
+              "custom_http": "#/$defs/CustomHttpConnectorConfig",
+              "doc_txt": "#/$defs/DocumentConnectorConfig",
+              "doris": "#/$defs/DorisConnectorConfig",
+              "excel": "#/$defs/ExcelConnectorConfig",
+              "graphql": "#/$defs/GraphqlConnectorConfig",
+              "hive": "#/$defs/HiveConnectorConfig",
+              "json": "#/$defs/JsonConnectorConfig",
+              "kafka": "#/$defs/KafkaConnectorConfig",
+              "lark_base": "#/$defs/LarkBaseConnectorConfig",
+              "lark_chat": "#/$defs/LarkChatConnectorConfig",
+              "lark_doc": "#/$defs/LarkDocConnectorConfig",
+              "lark_drive": "#/$defs/LarkDriveConnectorConfig",
+              "lark_group": "#/$defs/LarkGroupConnectorConfig",
+              "lark_mail": "#/$defs/LarkMailConnectorConfig",
+              "lark_meeting": "#/$defs/LarkMeetingConnectorConfig",
+              "lark_minutes": "#/$defs/LarkMinutesConnectorConfig",
+              "lark_sheet": "#/$defs/LarkSheetConnectorConfig",
+              "lark_wiki": "#/$defs/LarkWikiConnectorConfig",
+              "local_file": "#/$defs/LocalFileConnectorConfig",
+              "mcp_custom": "#/$defs/McpCustomConnectorConfig",
+              "mysql": "#/$defs/MysqlConnectorConfig",
+              "openapi_spec": "#/$defs/OpenapiSpecConnectorConfig",
+              "oracle": "#/$defs/OracleConnectorConfig",
+              "oss": "#/$defs/OssConnectorConfig",
+              "parquet": "#/$defs/ParquetConnectorConfig",
+              "postgresql": "#/$defs/PostgresqlConnectorConfig",
+              "rest_api": "#/$defs/RestApiConnectorConfig",
+              "s3": "#/$defs/S3ConnectorConfig",
+              "snowflake": "#/$defs/SnowflakeConnectorConfig",
+              "sqlite": "#/$defs/SqliteConnectorConfig",
+              "sqlserver": "#/$defs/SqlserverConnectorConfig",
+              "starrocks": "#/$defs/StarrocksConnectorConfig",
+              "web_discovery": "#/$defs/WebDiscoveryConnectorConfig",
+              "webhook": "#/$defs/WebhookConnectorConfig"
             },
             "propertyName": "kind"
           },
           "oneOf": [
             {
-              "$ref": "#/$defs/FileConnectorConfig"
+              "$ref": "#/$defs/LarkDocConnectorConfig"
             },
             {
-              "$ref": "#/$defs/ProviderDocumentConfig"
+              "$ref": "#/$defs/LarkWikiConnectorConfig"
             },
             {
-              "$ref": "#/$defs/DatabaseConnectorConfig"
+              "$ref": "#/$defs/LarkDriveConnectorConfig"
             },
             {
-              "$ref": "#/$defs/WebConnectorConfig"
+              "$ref": "#/$defs/LarkMeetingConnectorConfig"
             },
             {
-              "$ref": "#/$defs/McpConnectorConfig"
+              "$ref": "#/$defs/LarkMinutesConnectorConfig"
             },
             {
-              "$ref": "#/$defs/PublishedSkillConnectorConfig"
+              "$ref": "#/$defs/LarkGroupConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/LarkChatConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/LarkSheetConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/LarkBaseConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/LarkMailConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/CsvConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/ExcelConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/JsonConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/ParquetConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/DocumentConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/LocalFileConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/S3ConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/OssConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/PostgresqlConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/MysqlConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/OracleConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/SqlserverConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/SqliteConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/ClickhouseConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/DorisConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/StarrocksConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/SnowflakeConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/BigqueryConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/HiveConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/RestApiConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/GraphqlConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/WebDiscoveryConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/WebhookConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/KafkaConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/McpCustomConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/CustomHttpConnectorConfig"
+            },
+            {
+              "$ref": "#/$defs/OpenapiSpecConnectorConfig"
             }
           ]
         },

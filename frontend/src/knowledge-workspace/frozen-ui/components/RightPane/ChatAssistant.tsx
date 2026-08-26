@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, CheckCircle2, CheckSquare, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, ChevronUp, Search, Upload, Wand2, ArrowRight } from 'lucide-react';
+import { Send, Bot, CheckCircle2, CheckSquare, Loader2, X, Database, FileText, Globe, LayoutDashboard, MessageSquare, ShieldAlert, FileSpreadsheet, Plus, ChevronDown, Search, Upload, Wand2, ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { getFullCatalog, resourceStore, connectionStore, bootstrapWorkspace, getWorkspaceAdapter } from '../../lib/store';
-import { createRequestContext, type KnowledgeStream, type KnowledgeStreamEvent } from '../../../production/ports';
+import { createRequestContext } from '../../../production/ports';
 import { activeSkillViewRevision } from '../../../production/data';
 import { getServerContextRef } from '../../../production/domainClient';
 import type { ResourceRef } from '../../../production/generatedContracts';
+import { AgentTimeline, useAgentRuntime } from '../../../agent-runtime';
 
 const getChipIcon = (type: string) => {
   if (!type) return Database;
@@ -22,133 +23,6 @@ const getChipIcon = (type: string) => {
   return Database;
 };
 
-type TimelineItem = {
-  id: string;
-  type:
-    | 'user'
-    | 'assistant_delta'
-    | 'status'
-    | 'tool_call'
-    | 'context_revision'
-    | 'clarification'
-    | 'warning'
-    | 'error'
-    | 'stop'
-    | 'retry'
-    | 'resume';
-  title: string;
-  body?: string;
-  status?: string;
-  elapsedMs?: number;
-};
-
-const safeText = (value: unknown): string => {
-  if (typeof value !== 'string') return '';
-  return value.slice(0, 600);
-};
-
-const eventPayload = (event: KnowledgeStreamEvent): Record<string, unknown> =>
-  event.payload && typeof event.payload === 'object' ? event.payload : {};
-
-const timelineItemFromEvent = (event: KnowledgeStreamEvent): TimelineItem => {
-  const payload = eventPayload(event);
-  const eventType = String(event.type || payload.event_type || payload.type || '');
-  const id = event.event_id || `${event.stream_id}-${event.sequence}`;
-  if (/assistant[._-]?delta|message[._-]?delta|delta/.test(eventType)) {
-    return {
-      id,
-      type: 'assistant_delta',
-      title: 'assistant Markdown 增量',
-      body: safeText(payload.delta ?? payload.text ?? payload.content),
-      status: String(payload.status ?? 'streaming'),
-    };
-  }
-  if (/tool[._-]?call|tool/.test(eventType)) {
-    return {
-      id,
-      type: 'tool_call',
-      title: `tool-call ${safeText(payload.name ?? payload.toolName ?? payload.tool_name ?? 'unknown')}`,
-      body: safeText(payload.summary ?? payload.message ?? payload.status),
-      status: safeText(payload.status ?? 'running'),
-      elapsedMs: typeof payload.elapsedMs === 'number' ? payload.elapsedMs : typeof payload.elapsed_ms === 'number' ? payload.elapsed_ms : undefined,
-    };
-  }
-  if (/clarification|awaiting_input/.test(eventType)) {
-    const questionValues = payload.questions ?? payload.clarification_questions;
-    const questions = Array.isArray(questionValues)
-      ? questionValues
-      : [];
-    return {
-      id,
-      type: 'clarification',
-      title: 'clarification',
-      body: questions.map(safeText).filter(Boolean).join('\n') || safeText(payload.message),
-      status: 'awaiting_input',
-    };
-  }
-  if (/context|revision|view_revision|draft_created|patch_accepted/.test(eventType)) {
-    return {
-      id,
-      type: 'context_revision',
-      title: 'context / revision',
-      body: safeText(payload.summary ?? payload.revisionId ?? payload.revision_id ?? payload.draftId ?? payload.draft_id),
-      status: safeText(payload.status),
-    };
-  }
-  if (/warning|credential_blocked/.test(eventType)) {
-    return {
-      id,
-      type: 'warning',
-      title: 'warning',
-      body: safeText(payload.message ?? payload.error_message),
-      status: safeText(payload.code ?? payload.error_code),
-    };
-  }
-  if (/error|failed/.test(eventType)) {
-    return {
-      id,
-      type: 'error',
-      title: 'error',
-      body: safeText(payload.message ?? payload.error_message),
-      status: safeText(payload.code ?? payload.error_code),
-    };
-  }
-  if (/cancel|stop/.test(eventType)) {
-    return {
-      id,
-      type: 'stop',
-      title: 'stop',
-      body: safeText(payload.message),
-      status: safeText(payload.status),
-    };
-  }
-  if (/retry/.test(eventType)) {
-    return {
-      id,
-      type: 'retry',
-      title: 'retry',
-      body: safeText(payload.message ?? payload.summary),
-      status: safeText(payload.status),
-    };
-  }
-  if (/resume/.test(eventType)) {
-    return {
-      id,
-      type: 'resume',
-      title: 'resume',
-      body: safeText(payload.message ?? payload.summary),
-      status: safeText(payload.status),
-    };
-  }
-  return {
-    id,
-    type: 'status',
-    title: safeText(eventType || 'status'),
-    body: safeText(payload.summary ?? payload.message ?? payload.stage),
-    status: safeText(payload.status),
-  };
-};
-
 export default function ChatAssistant({ fileId, chatState, searchParams, setSearchParams, chatChips = [], setChatChips, showToast, isHomeChat }: any) {
   const [input, setInput] = useState('');
   const action = searchParams.get('action');
@@ -156,25 +30,22 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
   const submissionRef = useRef(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [, setIsFocused] = useState(false);
 
-  const [contextExpanded, setContextExpanded] = useState(false);
+  const [contextExpanded] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorQuery, setSelectorQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [uploadState, setUploadState] = useState<'idle'|'parsing'|'success'>('idle');
+  const [, setUploadState] = useState<'idle'|'parsing'|'success'>('idle');
   const [authoringDraft, setAuthoringDraft] = useState<any>(null);
   const [agentReply, setAgentReply] = useState('');
   const [agentError, setAgentError] = useState('');
   const [agentBusy, setAgentBusy] = useState(false);
   const [authoringRun, setAuthoringRun] = useState<any>(null);
-  const [timelineItems, setTimelineItems] = useState<TimelineItem[]>([]);
-  const [activeStream, setActiveStream] = useState<KnowledgeStream | null>(null);
-  const [lastTimelineCommand, setLastTimelineCommand] = useState<{
-    prompt: string;
-    requestedKind: 'knowledge' | 'analysis';
-  } | null>(null);
+  const agentRuntime = useAgentRuntime({
+    storageKey: `knowledge-agent-runtime:${fileId || 'welcome'}`,
+  });
   const nearBottomRef = useRef(true);
 
   const [dragStatus, setDragStatus] = useState<string>('idle');
@@ -212,7 +83,6 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     }
   }, [chatChips, setChatChips]);
 
-  const totalTokens = chatChips.reduce((acc: number, c: any) => acc + (c.tokenEstimate || 0.5), 0);
   const currentArtifactChip = chatChips.find((c: any) => c.isResourceLevel) || chatChips.find((c: any) => c.id === fileId || c.resourceId === fileId);
 
   const pinnedResourceRefs = (): ResourceRef[] => {
@@ -358,110 +228,13 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
     const element = scrollRef.current;
     if (!element || !nearBottomRef.current) return;
     element.scrollTop = element.scrollHeight;
-  }, [chatState, input, chatChips, contextExpanded, planExpanded, authoringRun, agentReply, timelineItems]);
+  }, [chatState, input, chatChips, contextExpanded, planExpanded, authoringRun, agentReply, agentRuntime.state.lastEventId]);
 
   const handleTimelineScroll = () => {
     const element = scrollRef.current;
     if (!element) return;
     nearBottomRef.current =
       element.scrollHeight - element.scrollTop - element.clientHeight < 72;
-  };
-
-  const appendTimelineItem = (item: TimelineItem) => {
-    setTimelineItems((previous) => {
-      const next = previous.filter((existing) => existing.id !== item.id);
-      return [...next, item];
-    });
-  };
-
-  const consumeTimelineStream = async (
-    command:
-      | { command: 'skill-authoring.start'; payload: any }
-      | { command: 'skill-authoring.answer'; payload: any }
-      | { command: 'skill-authoring.patch'; payload: any }
-      | { command: 'skill-authoring.execute'; payload: any },
-  ) => {
-    try {
-      const stream = await getWorkspaceAdapter().stream(command, createRequestContext());
-      setActiveStream(stream);
-      for await (const event of stream.events) {
-        appendTimelineItem(timelineItemFromEvent(event));
-        if (event.terminal) setActiveStream(null);
-      }
-    } catch (error) {
-      appendTimelineItem({
-        id: `warning-${Date.now()}`,
-        type: 'warning',
-        title: 'warning',
-        body: error instanceof Error
-          ? `W2 timeline seam 尚未返回可消费流：${error.message}`
-          : 'W2 timeline seam 尚未返回可消费流。',
-        status: 'waiting_for_w2',
-      });
-      setActiveStream(null);
-    }
-  };
-
-  const renderTimelineItem = (item: TimelineItem) => {
-    const tone =
-      item.type === 'user' ? 'bg-slate-100 text-slate-800 ml-auto rounded-tr-sm' :
-      item.type === 'error' ? 'bg-red-50 border-red-200 text-red-800 rounded-tl-sm' :
-      item.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800 rounded-tl-sm' :
-      item.type === 'tool_call' ? 'bg-violet-50 border-violet-200 text-violet-900 rounded-tl-sm' :
-      'bg-white border-slate-200 text-slate-700 rounded-tl-sm';
-    return (
-      <div key={item.id} className={cn("max-w-[92%] rounded-2xl border px-4 py-2.5 text-[13px] leading-relaxed shadow-sm", tone)}>
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <span className="font-semibold">{item.title}</span>
-          {item.status && <span className="shrink-0 rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-mono opacity-80">{item.status}</span>}
-        </div>
-        {item.body && <div className="whitespace-pre-wrap">{item.body}</div>}
-        {item.type === 'tool_call' && (
-          <div className="mt-2 rounded-lg border border-current/10 bg-white/60 px-2 py-1 text-[11px]">
-            tool-call · {item.elapsedMs !== undefined ? `${item.elapsedMs}ms` : '耗时等待服务端返回'}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const stopTimeline = async () => {
-    if (!activeStream) return;
-    await activeStream.cancel();
-    appendTimelineItem({
-      id: `stop-${Date.now()}`,
-      type: 'stop',
-      title: 'stop',
-      body: '已向服务端发送 stream.cancel；不会在前端制造完成态。',
-      status: 'cancel_requested',
-    });
-    setActiveStream(null);
-  };
-
-  const retryTimeline = () => {
-    appendTimelineItem({
-      id: `retry-${Date.now()}`,
-      type: 'retry',
-      title: 'retry',
-      body: '重新提交上一条 typed command。',
-      status: 'pending',
-    });
-    if (lastTimelineCommand) {
-      void runAgent(lastTimelineCommand.prompt, lastTimelineCommand.requestedKind);
-    }
-  };
-
-  const resumeTimeline = () => {
-    appendTimelineItem({
-      id: `resume-${Date.now()}`,
-      type: 'resume',
-      title: 'resume',
-      body: '使用当前 context/revision 继续会话；若 W2 支持 Last-Event-ID，将由 adapter 透传。',
-      status: 'pending',
-    });
-    if (lastTimelineCommand) {
-      void runAgent(lastTimelineCommand.prompt, lastTimelineCommand.requestedKind);
-    }
   };
 
   useEffect(() => {
@@ -492,13 +265,6 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   const runAgent = async (prompt: string, requestedKind: 'knowledge' | 'analysis') => {
     setAgentError('');
     setAgentReply('');
-    setLastTimelineCommand({ prompt, requestedKind });
-    appendTimelineItem({
-      id: `user-${Date.now()}`,
-      type: 'user',
-      title: '用户消息',
-      body: prompt,
-    });
     try {
       const connectionRefs = connectionStore.getState()
         .filter((connection: any) => chatChips.some((chip: any) => chip.id === connection.id))
@@ -540,12 +306,17 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
           commentIds,
         },
       } as const;
-      void consumeTimelineStream(command);
       const response = await getWorkspaceAdapter().command(command, createRequestContext());
       const result: any = response.result ?? {};
       const operation = result.operation ?? {};
+      const operationId = String(
+        response.operationId ?? operation.operation_id ?? operation.operationId ?? '',
+      );
+      if (operationId) {
+        void agentRuntime.followOperation(operationId, prompt);
+      }
       setAuthoringRun({
-        operationId: operation.operation_id,
+        operationId,
         sessionId: operation.agent_execution?.session_id,
         traceId: operation.agent_execution?.trace_id ?? operation.trace_id,
         draftId: result.draft?.draft_id,
@@ -562,35 +333,15 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         result.status === 'awaiting_input' &&
         clarificationQuestions.length > 0
       ) {
-        appendTimelineItem({
-          id: `clarification-${operation.operation_id ?? response.operationId ?? Date.now()}`,
-          type: 'clarification',
-          title: 'clarification',
-          body: clarificationQuestions.map(safeText).join('\n'),
-          status: 'awaiting_input',
-        });
         return null;
       }
       if (!response.accepted || !result.draft) {
         throw new Error(String(result.error?.message ?? 'Agent 未返回有效响应。'));
       }
       setAuthoringDraft(result.draft);
-      appendTimelineItem({
-        id: `context-revision-${operation.operation_id ?? response.operationId ?? Date.now()}`,
-        type: 'context_revision',
-        title: 'context / revision',
-        body: safeText(operation.summary ?? result.draft?.draft_id ?? result.draft?.id),
-        status: String(result.status ?? 'ready_for_execution'),
-      });
       return result.draft;
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : 'Agent 请求失败。');
-      appendTimelineItem({
-        id: `error-${Date.now()}`,
-        type: 'error',
-        title: 'error',
-        body: error instanceof Error ? error.message : 'Agent 请求失败。',
-      });
       return null;
     }
   };
@@ -609,13 +360,18 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         command: 'skill-authoring.execute',
         payload: { draftId: authoringDraft.draft_id, revision: authoringDraft.revision },
       } as const;
-      void consumeTimelineStream(command);
       const response = await getWorkspaceAdapter().command(command, createRequestContext());
       const result: any = response.result ?? {};
       const operation = result.operation ?? {};
+      const operationId = String(
+        response.operationId ?? operation.operation_id ?? operation.operationId ?? '',
+      );
+      if (operationId) {
+        void agentRuntime.followOperation(operationId, input.trim());
+      }
       setAuthoringRun((previous: any) => ({
         ...previous,
-        operationId: operation.operation_id ?? previous?.operationId,
+        operationId: operationId || previous?.operationId,
         traceId: operation.trace_id ?? previous?.traceId,
         draftId: result.draft?.draft_id ?? previous?.draftId,
         draftRevision: result.draft?.revision ?? previous?.draftRevision,
@@ -625,22 +381,9 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         throw new Error(String(result.error?.message ?? 'Runner 未确认执行成功。'));
       }
       await bootstrapWorkspace(undefined, getWorkspaceAdapter());
-      appendTimelineItem({
-        id: `context-revision-${operation.operation_id ?? response.operationId ?? Date.now()}`,
-        type: 'context_revision',
-        title: 'context / revision',
-        body: safeText(operation.summary ?? operation.artifact_result?.revisionId ?? operation.artifact_result?.revision_id),
-        status: String(result.status ?? 'succeeded'),
-      });
       return true;
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : 'Runner 执行失败。');
-      appendTimelineItem({
-        id: `error-${Date.now()}`,
-        type: 'error',
-        title: 'error',
-        body: error instanceof Error ? error.message : 'Runner 执行失败。',
-      });
       return false;
     } finally {
       submissionRef.current = false;
@@ -661,68 +404,27 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       ? viewOwner.slice(0, viewOwner.lastIndexOf(':'))
       : undefined;
     try {
-      appendTimelineItem({
-        id: `user-${Date.now()}`,
-        type: 'user',
-        title: '用户消息',
-        body: prompt,
+      const operationId = await agentRuntime.send(prompt, {
+        resourceRefs: resourceRefs.map((ref) => ({
+          kind: ref.kind,
+          objectId: ref.object_id,
+          revision: ref.revision,
+          scope: ref.scope,
+        })),
+        fixedRevisions: resourceRefs.map((ref) => ref.revision),
+        currentSkillId,
+        currentViewId,
+        currentComponentId: chatChips.find((chip: any) => chip.type === 'element')?.id,
+        commentIds: chatChips
+          .filter((chip: any) => String(chip.type || '').startsWith('comment'))
+          .map((chip: any) => String(chip.id || chip.identity)),
       });
-      const command = {
-        command: 'skill-authoring.answer',
-        payload: {
-          prompt,
-          resourceRefs,
-          fixedRevisions: resourceRefs.map((ref: any) => ref.revision),
-          currentSkillId,
-          currentViewId,
-          currentComponentId: chatChips.find((chip: any) => chip.type === 'element')?.id,
-          commentIds: chatChips
-            .filter((chip: any) => String(chip.type || '').startsWith('comment'))
-            .map((chip: any) => String(chip.id || chip.identity)),
-        },
-      } as const;
-      void consumeTimelineStream(command);
-      const response = await getWorkspaceAdapter().command(command, createRequestContext());
-      const result: any = response.result ?? {};
-      const answer = result.answer ?? {};
-      const execution = result.agentExecution ?? result.agent_execution ?? {};
       setAuthoringRun({
-        sessionId: execution.sessionId ?? execution.session_id,
-        traceId: execution.traceId ?? execution.trace_id,
-      });
-      if (!response.accepted) {
-        throw new Error(String(result.error?.message ?? 'Agent 未返回有效响应。'));
-      }
-      if (result.status === 'awaiting_input') {
-        const questions = answer.clarificationQuestions ?? answer.clarification_questions;
-        appendTimelineItem({
-          id: `clarification-${Date.now()}`,
-          type: 'clarification',
-          title: 'clarification',
-          body: Array.isArray(questions) ? questions.map(safeText).join('\n') : '',
-          status: 'awaiting_input',
-        });
-        return;
-      }
-      if (result.status !== 'succeeded' || typeof answer.text !== 'string') {
-        throw new Error('普通问答需要服务端返回 typed answer；Agent 返回了无效响应。');
-      }
-      appendTimelineItem({
-        id: `assistant-delta-${Date.now()}`,
-        type: 'assistant_delta',
-        title: 'assistant Markdown 增量',
-        body: safeText(answer.text),
-        status: 'succeeded',
+        operationId,
       });
       setAuthoringDraft(null);
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : 'Agent 请求失败。');
-      appendTimelineItem({
-        id: `error-${Date.now()}`,
-        type: 'error',
-        title: 'error',
-        body: error instanceof Error ? error.message : 'Agent 请求失败。',
-      });
     }
   };
 
@@ -747,7 +449,6 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         patch: { patch_type: 'set_title', title: prompt.slice(0, 160) },
       },
     } as const;
-    void consumeTimelineStream(patchCommand);
     const patched = await getWorkspaceAdapter().command(patchCommand, createRequestContext());
     const patchResult: any = patched.result ?? {};
     if (!patched.accepted || !patchResult.draft) {
@@ -762,28 +463,29 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
         revision: patchResult.draft.revision,
       },
     } as const;
-    void consumeTimelineStream(executeCommand);
     const executed = await getWorkspaceAdapter().command(executeCommand, createRequestContext());
     const executeResult: any = executed.result ?? {};
+    const operationId = String(
+      executed.operationId ??
+      executeResult.operation?.operation_id ??
+      executeResult.operation?.operationId ??
+      '',
+    );
+    if (operationId) {
+      void agentRuntime.followOperation(operationId, prompt);
+    }
     if (!executed.accepted || executeResult.status !== 'succeeded') {
       throw new Error(String(executeResult.error?.message ?? '修改后的 revision 执行失败。'));
     }
     await bootstrapWorkspace(undefined, getWorkspaceAdapter());
     setAuthoringRun({
-      operationId: executeResult.operation?.operation_id,
+      operationId,
       traceId: executeResult.operation?.trace_id,
       draftId: executeResult.draft?.draftId ?? executeResult.draft?.draft_id,
       draftRevision: executeResult.draft?.revision,
       plan: executeResult.operation?.plan ?? executeResult.draft?.plan,
     });
     setAgentReply('');
-    appendTimelineItem({
-      id: `context-revision-${executeResult.operation?.operation_id ?? Date.now()}`,
-      type: 'context_revision',
-      title: 'context / revision',
-      body: safeText(executeResult.operation?.summary ?? executeResult.draft?.draft_id ?? executeResult.draft?.draftId),
-      status: String(executeResult.status ?? 'succeeded'),
-    });
   };
 
   const handleSend = async () => {
@@ -879,36 +581,16 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
   };
 
   const visibleItems = getFullCatalog().filter((i:any) => (i.name || i.displayName || '').toLowerCase().includes(selectorQuery.toLowerCase()));
-  const timelineView = timelineItems.length > 0 ? (
-    <div className="flex flex-col gap-3" aria-live="polite">
-      {timelineItems.map(renderTimelineItem)}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => void stopTimeline()}
-          disabled={!activeStream}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          stop
-        </button>
-        <button
-          type="button"
-          onClick={retryTimeline}
-          disabled={!lastTimelineCommand || agentBusy}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          retry
-        </button>
-        <button
-          type="button"
-          onClick={resumeTimeline}
-          disabled={!lastTimelineCommand || agentBusy}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          resume
-        </button>
-      </div>
-    </div>
+  const timelineView = (
+    agentRuntime.state.userPrompt || agentRuntime.state.events.length > 0
+  ) ? (
+    <AgentTimeline
+      state={agentRuntime.state}
+      onStop={() => void agentRuntime.stop()}
+      onRetry={() => void agentRuntime.retry()}
+      onResume={() => void agentRuntime.resume()}
+      className="min-h-[180px]"
+    />
   ) : null;
   const clarifyResumeCard = isHomeChat && chatState === 'clarify' ? (
     <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-left text-sm leading-6 text-blue-900" role="status">

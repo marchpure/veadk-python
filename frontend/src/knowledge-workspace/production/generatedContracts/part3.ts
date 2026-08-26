@@ -1,8 +1,21 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { AddCitationIntentPatch, AgentAnswer, AgentExecutionEvidence, ArtifactRef, AuthoringEvent, AuthoringOperation, ContextRevisionRef, DraftRevision, ErrorEnvelope } from "./part1";
-import type { FreshnessPolicy, GoldenAssetRevision, LegacySkillManifestInput, OwnerRef, PatchProposal } from "./part2";
-import type { SkillResult, SkillSpec, SkillViewRevision, SkillViewShareGrant, StorageRef, TemplateRef, ViewIntent } from "./part4";
+import type { FreshnessPolicy, GoldenAssetRevision, JsonValue, LegacySkillManifestInput, PatchProposal } from "./part2";
+import type { SkillMetadata, SkillOperation, SkillResult, SkillSpec, SkillViewRevision, SkillViewShareGrant, StorageRef, TemplateRef, ViewIntent } from "./part4";
+
+export interface PermissionRef {
+  uri: string;
+  version: string;
+}
+
+export interface PlanNode {
+  node_id: string;
+  role: "intent_resolution" | "context_resolution" | "query_plan" | "retrieval" | "schema_mapping" | "threshold_policy" | "worker3_execution";
+  depends_on?: Array<string>;
+  input_names?: Array<string>;
+  output_names?: Array<string>;
+}
 
 export interface PolicyCheck {
   dimension: "schema" | "data_quality" | "freshness" | "permission" | "security" | "evaluation" | "visual_interaction" | "compatibility" | "budget";
@@ -19,6 +32,22 @@ export interface PolicyGateEvaluateCommand {
 export interface PolicyGateEvaluatePayload {
   runId: string;
   checks?: Array<PolicyCheck>;
+}
+
+export interface PostgresqlConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "postgresql";
 }
 
 export interface ProfileField {
@@ -60,14 +89,6 @@ export interface ProfileRunRecord {
   traceId: string;
 }
 
-export interface ProviderDocumentConfig {
-  kind: "lark_doc" | "lark_minutes" | "lark_group_chat";
-  documentRef: string;
-  secretRef: SecretRef;
-  scopeRef: string;
-  pageSize?: number;
-}
-
 export interface PublicationPublishCommand {
   command: "publication.publish";
   payload: PublicationPublishPayload;
@@ -85,16 +106,6 @@ export interface PublicationPublishResult {
   status?: "not_ready" | "succeeded" | "failed";
   draftId: string;
   publishedVersion?: PublishedSkillVersion | null;
-}
-
-export interface PublishedSkillConnectorConfig {
-  kind: "published_skill";
-  skillRef: string;
-  secretRef: SecretRef;
-  scopeRef: string;
-  dependencyAllowlist: Array<string>;
-  outputBytes?: number;
-  timeoutSeconds?: number;
 }
 
 export interface PublishedSkillVersion {
@@ -175,6 +186,22 @@ export interface ResourceShareResult {
   shareGrant?: SkillViewShareGrant | null;
 }
 
+export interface RestApiConnectorConfig {
+  endpoint: string;
+  secretRef?: SecretRef | null;
+  operationAllowlist: Array<string>;
+  maxRows?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "rest_api";
+  paginationMode?: "none" | "cursor" | "offset" | "link_header";
+  pageSize?: number;
+  maxPages?: number;
+  termsRef?: string | null;
+}
+
 export interface RunProvenance {
   suiteId: string;
   suiteVersion: number;
@@ -185,6 +212,18 @@ export interface RunProvenance {
   executorVersion: string;
   rendererVersion: string;
   dataAsOf: string;
+}
+
+export interface S3ConnectorConfig {
+  secretRef: SecretRef;
+  bucket: string;
+  objectPrefix?: string;
+  region?: string | null;
+  maxObjects?: number;
+  maxObjectBytes?: number;
+  timeoutSeconds?: number;
+  kind: "s3";
+  endpoint?: string | null;
 }
 
 export interface SaveManifestCommand {
@@ -244,9 +283,43 @@ export interface SemanticViewRelationship {
   confidence?: number | null;
 }
 
+export interface SetDashboardChartPatch {
+  patch_type?: "set_dashboard_chart";
+  x_field: string;
+  y_field: string;
+  chart_type?: "line" | "bar" | "area" | "table";
+}
+
+export interface SetDashboardFilterPatch {
+  patch_type?: "set_dashboard_filter";
+  field: string;
+  value: string;
+}
+
+export interface SetDashboardKpiPatch {
+  patch_type?: "set_dashboard_kpi";
+  key: string;
+  label?: string | null;
+  value: number | string;
+  unit?: string;
+}
+
 export interface SetDescriptionPatch {
   patch_type?: "set_description";
   description: string;
+}
+
+export interface SetGraphEntityPatch {
+  patch_type?: "set_graph_entity";
+  entity_type: string;
+  label: string;
+}
+
+export interface SetGraphRelationPatch {
+  patch_type?: "set_graph_relation";
+  relation: string;
+  source_type: string;
+  target_type: string;
 }
 
 export interface SetPermissionScopePatch {
@@ -264,10 +337,49 @@ export interface SetRefreshPolicyPatch {
   freshness: FreshnessPolicy;
 }
 
+export interface SetSemanticDimensionPatch {
+  patch_type?: "set_semantic_dimension";
+  dimension: string;
+  field: string;
+}
+
 export interface SetSemanticMappingPatch {
   patch_type?: "set_semantic_mapping";
   field: string;
   entity: string;
+}
+
+export interface SetSemanticMetricPatch {
+  patch_type?: "set_semantic_metric";
+  metric: string;
+  definition: string;
+}
+
+export interface SetSemanticRelationshipPatch {
+  patch_type?: "set_semantic_relationship";
+  relationship: string;
+  source_entity: string;
+  target_entity: string;
+}
+
+export interface SetSopConditionPatch {
+  patch_type?: "set_sop_condition";
+  step_id: string;
+  condition: string;
+}
+
+export interface SetSopStepPatch {
+  patch_type?: "set_sop_step";
+  step_id: string;
+  label: string;
+  condition?: string | null;
+  tool_ref?: string | null;
+}
+
+export interface SetSopToolRefPatch {
+  patch_type?: "set_sop_tool_ref";
+  step_id: string;
+  tool_ref: string;
 }
 
 export interface SetThresholdPolicyPatch {
@@ -335,7 +447,7 @@ export interface SkillAuthoringPatchCommand {
 export interface SkillAuthoringPatchPayload {
   draftId: string;
   baseRevision: number;
-  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch;
+  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch | SetSemanticMetricPatch | SetSemanticDimensionPatch | SetSemanticRelationshipPatch | SetDashboardKpiPatch | SetDashboardChartPatch | SetDashboardFilterPatch | SetSopStepPatch | SetSopConditionPatch | SetSopToolRefPatch | SetGraphEntityPatch | SetGraphRelationPatch;
 }
 
 export interface SkillAuthoringPatchResult {
@@ -355,16 +467,18 @@ export interface SkillAuthoringStartCommand {
 
 export interface SkillAuthoringStartPayload {
   prompt: string;
+  conversationId?: string | null;
   resourceRefs?: Array<ResourceRef>;
   permissions?: Array<string>;
   fixedRevisions?: Array<string>;
-  requestedKind?: "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring" | null;
+  requestedKind?: "knowledge" | "semantic" | "analysis" | "sop" | "graph_ontology" | "monitoring" | null;
   scope?: "personal" | "team";
   displayName?: string | null;
   currentSkillId?: string | null;
   currentViewId?: string | null;
   currentComponentId?: string | null;
   commentIds?: Array<string>;
+  templateRef?: TemplateRef | null;
 }
 
 export interface SkillAuthoringStartResult {
@@ -457,7 +571,7 @@ export interface SkillDraftRunResult {
   evidenceRef?: StorageRef | null;
 }
 
-export type SkillKind = "knowledge" | "semantic" | "analysis" | "graph_ontology" | "monitoring";
+export type SkillKind = "knowledge" | "semantic" | "analysis" | "sop" | "graph_ontology" | "monitoring";
 
 export interface SkillManifest {
   apiVersion?: "knowledge.veadk.io/v1alpha1";
@@ -469,21 +583,4 @@ export interface SkillManifest {
 export interface SkillManifestAction {
   name: string;
   description?: string;
-}
-
-export interface SkillMetadata {
-  id: string;
-  version: string;
-  displayName: string;
-  description?: string;
-  owner: OwnerRef;
-  digest?: string | null;
-}
-
-export interface SkillOperation {
-  name: string;
-  description?: string;
-  inputSchemaRef: SchemaRef;
-  outputSchemaRef: SchemaRef;
-  risk?: "read_only" | "external_write" | "high_risk";
 }

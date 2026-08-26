@@ -151,6 +151,9 @@ test("home composer restores the v2.15.2 core journey without URL-only handoff",
   assert.match(homeComposer, /command:\s*['"]skill-authoring\.start['"]/);
   assert.match(homeComposer, /resourceRefs/);
   assert.match(homeComposer, /requestedKind/);
+  assert.match(homeComposer, /templateRef:\s*selectedTemplateRef/);
+  assert.match(homeComposer, /templateSpecStore/);
+  assert.doesNotMatch(homeComposer, /id:\s*["']html["']/);
   assert.match(homeComposer, /draft_id|draftId/);
   assert.match(homeComposer, /operation_id|operationId/);
   assert.doesNotMatch(homeComposer, /from ['"]lucide-react['"]/);
@@ -169,6 +172,8 @@ test("skill builder preserves home prompt, context, template, and hides legacy w
   assert.match(skillBuilder, /serverTemplate/);
   assert.match(skillBuilder, /serverContextRefs/);
   assert.match(skillBuilder, /SkillAuthoringStartPayload/);
+  assert.match(skillBuilder, /templateRef:\s*selectedTemplateRef/);
+  assert.match(skillBuilder, /templateSpecStore/);
   assert.match(skillBuilder, /TrustedHtmlArtifactRenderer/);
   assert.match(skillBuilder, /高级详情|审计/);
   assert.match(skillBuilder, /Manifest/);
@@ -183,12 +188,14 @@ test("skill builder preserves home prompt, context, template, and hides legacy w
 test("right assistant consumes the typed streaming/timeline seam instead of one-shot replies", () => {
   assert.match(typedPorts, /command:\s*"skill-authoring\.start"/);
   assert.match(typedPorts, /command:\s*"skill-authoring\.answer"/);
-  assert.match(assistant, /getWorkspaceAdapter\(\)\.stream/);
-  assert.match(assistant, /assistant\.delta|assistant_delta|message\.delta/);
-  assert.match(assistant, /tool-call|tool_call|toolCalls|tool_calls/);
-  assert.match(assistant, /clarification|clarification_required/);
-  assert.match(assistant, /warning|credential_blocked/);
-  assert.match(assistant, /stop|stream\.cancel|resume|retry/);
+  assert.match(assistant, /useAgentRuntime/);
+  assert.match(assistant, /<AgentTimeline/);
+  assert.match(assistant, /agentRuntime\.followOperation/);
+  assert.match(assistant, /agentRuntime\.stop/);
+  assert.match(assistant, /agentRuntime\.retry/);
+  assert.match(assistant, /agentRuntime\.resume/);
+  assert.doesNotMatch(assistant, /getWorkspaceAdapter\(\)\.stream/);
+  assert.doesNotMatch(assistant, /appendTimelineItem|KnowledgeStream/);
   assert.match(assistant, /nearBottomRef|userScrolledAway|scrollTop/);
   assert.doesNotMatch(assistant, /setAgentReply\(result\.draft\.manifest\?\.description \|\| result\.operation\?\.summary \|\| ['"]已收到真实上下文/);
   assert.doesNotMatch(assistant, /setAgentReply\(result\.operation\?\.summary \|\| ['"]Runner 已完成执行/);

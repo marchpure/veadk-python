@@ -418,6 +418,13 @@ def capture_dashboard_screenshot(
                     headless=True,
                     args=["--no-sandbox"],
                 )
+                if browser_version is None:
+                    reported_version = browser.version
+                    browser_version = (
+                        f"Google Chrome {reported_version}"
+                        if reported_version
+                        else None
+                    )
                 try:
                     page = browser.new_page(viewport={"width": width, "height": height})
                     page.goto(server.url, wait_until="networkidle")
@@ -1180,7 +1187,8 @@ def _browser_version(executable_path: str | None) -> str | None:
         return None
     if process.returncode != 0:
         return None
-    return process.stdout.strip() or None
+    output = (process.stdout or process.stderr).strip()
+    return output or None
 
 
 def _visual_baseline_checks(page: object) -> list[str]:

@@ -119,6 +119,8 @@ from .repository import (
     KnowledgeAssetRepository,
 )
 from .sources_golden import AccessContext, SourceGoldenApplication, SourcesGoldenError
+from .skill_builder import TemplateSkillBuilder
+from .template_registry import SqliteTemplateRegistry, template_ref
 from .evaluation_quality import EvaluationQualityService
 from .evaluation_quality.main_repository import MainEvaluationRepository
 from .evaluation_quality.models import (
@@ -200,6 +202,7 @@ class _ImmutableResourceResolver:
                         display_name=binding.display_name,
                         provider_revision=binding.provider_revision,
                         schema_digest=binding.schema_digest,
+                        content_digest=binding.content_digest,
                         capabilities=tuple(binding.capabilities),
                         semantic_fields=tuple(binding.semantic_fields),
                         authorized=binding.authorized,
@@ -354,6 +357,11 @@ class _ImmutableResourceResolver:
                     "current_view_id": envelope.current_view_id,
                     "current_component_id": envelope.current_component_id,
                     "comment_ids": envelope.comment_ids,
+                    "selected_template": (
+                        envelope.selected_template.model_dump(mode="json")
+                        if envelope.selected_template is not None
+                        else None
+                    ),
                 }
             ),
         )
@@ -467,6 +475,7 @@ class KnowledgeAssetApplication:
         domain_resolver: object | None = None,
         artifact_roots: tuple[str | Path, ...] = (),
         public_api_prefix: str = "/api/knowledge-assets/v1",
+        template_registry: SqliteTemplateRegistry | None = None,
     ) -> None:
         self.repository = repository
         self.audit_recorder = audit_recorder or repository
@@ -501,6 +510,12 @@ class KnowledgeAssetApplication:
         self._sources_golden = sources_golden
         self._artifact_roots = tuple(Path(root).resolve() for root in artifact_roots)
         self._public_api_prefix = public_api_prefix.rstrip("/")
+        self._template_registry = template_registry
+        self._template_skill_builder = (
+            TemplateSkillBuilder(template_registry)
+            if template_registry is not None
+            else None
+        )
         self._kind_runtime = KindRuntime(
             ContentAddressedStore(".veadk/knowledge-assets/kind-runtime")
         )
@@ -590,6 +605,7 @@ class KnowledgeAssetApplication:
             current_view_id=payload.get("current_view_id"),
             current_component_id=payload.get("current_component_id"),
             comment_ids=tuple(str(item) for item in payload.get("comment_ids", [])),
+            selected_template=payload.get("template_ref"),
         )
 
     async def answer_skill_authoring(
@@ -945,6 +961,16 @@ class KnowledgeAssetApplication:
             **value.get("workspaceData", {}),
             **projection.get("workspaceData", {}),
         }
+        if self._template_registry is not None:
+            value["workspaceData"]["templateSpecs"] = [
+                {
+                    **spec.model_dump(mode="json", by_alias=True),
+                    "templateRef": template_ref(spec).model_dump(
+                        mode="json", by_alias=True
+                    ),
+                }
+                for spec in self._template_registry.list(workspace_id)
+            ]
         # Keep W1's lifecycle authoritative while exposing its immutable
         # Golden revisions through the shared bootstrap resource read model.
         # The UI needs these server-owned references to pin authoring context;
@@ -993,6 +1019,45 @@ class KnowledgeAssetApplication:
             set(value.get("routes", [])) | set(projection["routes"])
         )
         return type(base).model_validate(value)
+
+    def template_specs(self, workspace_id: str):
+        if self._template_registry is None:
+            return []
+        return self._template_registry.list(workspace_id)
+
+    def template_spec(self, workspace_id: str, template_id: str, version: str):
+        if self._template_registry is None:
+            return None
+        return self._template_registry.get(template_id, version, workspace_id)
+
+    def template_spec_markdown(
+        self, workspace_id: str, template_id: str, version: str
+    ) -> str | None:
+        if self._template_registry is None:
+            return None
+        return self._template_registry.spec_md(template_id, version, workspace_id)
+
+    def copy_template_spec(
+        self,
+        workspace_id: str,
+        template_id: str,
+        version: str,
+        *,
+        new_template_id: str,
+        new_version: str,
+        display_name: str | None,
+    ):
+        if self._template_registry is None:
+            raise ValueError("Template Registry is not configured")
+        ref = self._template_registry.copy_builtin(
+            template_id,
+            version,
+            workspace_id=workspace_id,
+            new_template_id=new_template_id,
+            new_version=new_version,
+            display_name=display_name,
+        )
+        return self._template_registry.get(ref.template_id, ref.version, workspace_id)
 
     def immutable_html_artifact(
         self,

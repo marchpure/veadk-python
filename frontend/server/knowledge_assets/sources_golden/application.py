@@ -59,6 +59,7 @@ from .models import (
     ConnectorOperationName,
     CreateConnectionResult,
     DataOverviewView,
+    DiscoveredResource,
     GoldenAssetDetailView,
     GoldenAssetSummary,
     GoldenContextReference,
@@ -70,6 +71,7 @@ from .models import (
     RefreshResult,
     RefreshRunRecord,
     RemoteMcpConfiguration,
+    SourceRevisionRecord,
     StdioMcpConfiguration,
 )
 from .openapi_adapter import OpenApiAdapter
@@ -1166,6 +1168,26 @@ class SourceGoldenApplication:
             permissions=revision.permissions,
             authorized=True,
         )
+
+    def golden_origin_resource(
+        self, context: AccessContext, revision_id: str
+    ) -> tuple[DiscoveredResource | None, SourceRevisionRecord]:
+        """Resolve the server-owned source resource behind a Golden revision."""
+
+        revision = self.golden_revision(context, revision_id)
+        source = self.source_revision(context, revision.lineage.source_revision_id)
+        connection = self._connection_for_context(
+            context, revision.lineage.connection_id
+        )
+        resource = next(
+            (
+                item
+                for item in connection.discovered_resources
+                if item.id == revision.lineage.resource_id
+            ),
+            None,
+        )
+        return resource, source
 
     def resolve_context_reference(
         self,

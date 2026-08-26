@@ -1,8 +1,13 @@
 import { useMemo, useRef, useState, type ChangeEvent, type DragEvent, type SVGProps } from "react";
 import { createRequestContext } from "../../../production/ports";
 import { getServerContextRef } from "../../../production/domainClient";
-import type { ResourceRef, SkillAuthoringStartPayload } from "../../../production/generatedContracts";
-import { bootstrapWorkspace, getFullCatalog, getWorkspaceAdapter } from "../../lib/store";
+import type { ResourceRef, SkillAuthoringStartPayload, TemplateRef } from "../../../production/generatedContracts";
+import {
+  bootstrapWorkspace,
+  getFullCatalog,
+  getWorkspaceAdapter,
+  templateSpecStore,
+} from "../../lib/store";
 
 type WorkspaceScope = "personal" | "team";
 type RequestedKind = NonNullable<SkillAuthoringStartPayload["requestedKind"]>;
@@ -34,11 +39,10 @@ type ContextChip = {
 const TEMPLATE_CARDS: TemplateCard[] = [
   { id: "dashboard", label: "Dashboard", subtitle: "指标、图表、筛选、钻取", kind: "analysis" },
   { id: "semantic", label: "Semantic", subtitle: "语义模型、指标口径、字段映射", kind: "semantic" },
-  { id: "sop", label: "SOP", subtitle: "流程、试运行、证据引用", kind: "knowledge" },
+  { id: "sop", label: "SOP", subtitle: "流程、试运行、证据引用", kind: "sop" },
   { id: "knowledge", label: "Knowledge", subtitle: "知识库问答与引用证据", kind: "knowledge" },
   { id: "graph_ontology", label: "Graph / Ontology", subtitle: "实体、关系、图谱视图", kind: "graph_ontology" },
   { id: "monitoring", label: "Monitoring", subtitle: "调用、告警、失败优化", kind: "monitoring" },
-  { id: "html", label: "通用 HTML Skill", subtitle: "可信 HTML revision 主视图", kind: "analysis" },
 ];
 
 const DEFAULT_SPEC = `# spec.md 模板
@@ -225,6 +229,14 @@ export default function HomeComposer({
   }, [catalog, mentionQuery]);
 
   const selectedTemplateCard = TEMPLATE_CARDS.find((template) => template.id === selectedTemplate) ?? TEMPLATE_CARDS[0];
+  const selectedTemplateSpec = templateSpecStore.getState().find(
+    (spec) =>
+      spec.templateId === (
+        selectedTemplate === "graph_ontology" ? "graph-ontology" : selectedTemplate
+      ),
+  );
+  const selectedTemplateRef: TemplateRef | undefined =
+    selectedTemplateSpec?.templateRef;
   const canSubmit = Boolean(request.trim() || contextChips.length > 0);
 
   const addChip = (item: Record<string, unknown>) => {
@@ -268,6 +280,10 @@ export default function HomeComposer({
       setError("请输入真实需求，或先引用工作区资源。");
       return;
     }
+    if (!selectedTemplateRef) {
+      setError("服务端尚未返回所选模板的不可变 TemplateRef，请刷新工作区后重试。");
+      return;
+    }
     setStatus("submitting");
     setError("");
     setMessage("等待服务端 Agent 生成 SkillDraft 与 BuildPlan…");
@@ -285,6 +301,7 @@ export default function HomeComposer({
           fixedRevisions: resourceRefs.map((ref) => ref.revision),
           scope,
           displayName: prompt.slice(0, 80),
+          templateRef: selectedTemplateRef,
         },
       }, createRequestContext());
       const result = response.result ?? {};

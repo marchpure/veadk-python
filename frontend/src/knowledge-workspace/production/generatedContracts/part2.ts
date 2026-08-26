@@ -1,45 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { AddCitationIntentPatch, ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope } from "./part1";
-import type { PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SetDescriptionPatch, SetPermissionScopePatch, SetQueryPlanPatch, SetRefreshPolicyPatch, SetSemanticMappingPatch, SetThresholdPolicyPatch, SetTitlePatch, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraftRunResult, SkillManifestAction } from "./part3";
+import type { AddCitationIntentPatch, ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope, EvaluationFixActionPayload } from "./part1";
+import type { PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SetDashboardChartPatch, SetDashboardFilterPatch, SetDashboardKpiPatch, SetDescriptionPatch, SetGraphEntityPatch, SetGraphRelationPatch, SetPermissionScopePatch, SetQueryPlanPatch, SetRefreshPolicyPatch, SetSemanticDimensionPatch, SetSemanticMappingPatch, SetSemanticMetricPatch, SetSemanticRelationshipPatch, SetSopConditionPatch, SetSopStepPatch, SetSopToolRefPatch, SetThresholdPolicyPatch, SetTitlePatch, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraftRunResult, SkillManifestAction } from "./part3";
 import type { SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
-
-export interface EvaluationCaseGenerateCandidateCommand {
-  command: "evaluation-case.generate-candidates";
-  payload: EvaluationCaseGenerateCandidatePayload;
-}
-
-export interface EvaluationCaseGenerateCandidatePayload {
-  caseId: string;
-  category: string;
-  input: Record<string, unknown>;
-  expected: Record<string, unknown>;
-  provenanceRef: string;
-}
-
-export interface EvaluationCaseImportCommand {
-  command: "evaluation-case.import";
-  payload: EvaluationCaseImportPayload;
-}
-
-export interface EvaluationCaseImportPayload {
-  content: string;
-  mediaType: "application/json" | "text/csv";
-}
-
-export interface EvaluationCommand {
-  command: "evaluation.run" | "evaluation.apply";
-  payload: EvaluationPayload;
-}
-
-export interface EvaluationFixActionPayload {
-  planId: string;
-}
-
-export interface EvaluationFixApplyCommand {
-  command: "evaluation-fix.apply";
-  payload: EvaluationFixActionPayload;
-}
 
 export interface EvaluationFixProposeAllCommand {
   command: "evaluation-fix.propose-all-unresolved";
@@ -171,12 +134,9 @@ export interface Event {
   error?: ErrorEnvelope | null;
 }
 
-export interface FileConnectorConfig {
-  kind: "markdown" | "csv" | "pdf" | "office" | "excel";
+export interface ExcelConnectorConfig {
   sourceRef: string;
-  maxBytes?: number;
-  maxFiles?: number;
-  followSymlinks?: false;
+  kind: "excel";
   sheetAllowlist?: Array<string>;
 }
 
@@ -243,6 +203,7 @@ export interface GoldenLineage {
   contentDigest: string;
   correlationId: string;
   adapterRunId?: string | null;
+  checkpoint?: Record<string, string>;
   lineageDigest: string;
   toolArguments?: Record<string, unknown>;
 }
@@ -276,6 +237,35 @@ export interface GraphRelationSpec {
   target: string;
   relation: string;
   evidenceLocator: string;
+}
+
+export interface GraphqlConnectorConfig {
+  endpoint: string;
+  secretRef?: SecretRef | null;
+  operationAllowlist: Array<string>;
+  maxRows?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "graphql";
+  query: string;
+}
+
+export interface HiveConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "hive";
 }
 
 export interface ImportCommand {
@@ -354,6 +344,26 @@ export interface JobState {
   outboxSequence?: number;
 }
 
+export interface JsonConnectorConfig {
+  sourceRef: string;
+  kind: "json";
+  maxDepth?: number;
+  maxRows?: number;
+}
+
+export type JsonValue = unknown;
+
+export interface KafkaConnectorConfig {
+  kind: "kafka";
+  secretRef: SecretRef;
+  bootstrapServers: Array<string>;
+  topics: Array<string>;
+  consumerGroup: string;
+  maxMessages?: number;
+  maxMessageBytes?: number;
+  timeoutSeconds?: number;
+}
+
 export interface KnowledgeCitation {
   citationId: string;
   sourceRevisionId: string;
@@ -369,12 +379,168 @@ export interface KnowledgeViewModel {
   refusal?: boolean;
 }
 
+export interface LarkBaseConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_base";
+  appRef: string;
+  tableRef: string;
+  viewRef?: string | null;
+}
+
+export interface LarkChatConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_chat";
+  chatRef: string;
+  timeRange: string;
+}
+
+export interface LarkDocConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_doc";
+  documentRef: string;
+}
+
+export interface LarkDriveConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_drive";
+  folderRef: string;
+}
+
+export interface LarkGroupConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_group";
+  chatRef: string;
+  timeRange: string;
+  includeAttachments?: boolean;
+}
+
+export interface LarkMailConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_mail";
+  folder: string;
+  query?: string | null;
+}
+
+export interface LarkMeetingConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_meeting";
+  calendarRef: string;
+  dateFrom: string;
+  dateTo: string;
+  attendees?: Array<string>;
+}
+
+export interface LarkMinutesConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_minutes";
+  minutesRef: string;
+}
+
+export interface LarkSheetConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_sheet";
+  sheetRef: string;
+  sheetName?: string | null;
+  cellRange?: string;
+}
+
+export interface LarkWikiConnectorConfig {
+  secretRef: SecretRef;
+  scopeRef: string;
+  apiBaseUrl?: string;
+  pageSize?: number;
+  maxPages?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
+  refreshSeconds?: number;
+  kind: "lark_wiki";
+  wikiRef: string;
+}
+
 export interface LegacySkillManifestInput {
   name: string;
   version: string;
   description?: string;
   actions?: Array<SkillManifestAction>;
   schema?: ManifestInputSchema;
+}
+
+export interface LocalFileConnectorConfig {
+  sourceRef: string;
+  kind: "local_file";
 }
 
 export interface ManifestInputSchema {
@@ -389,14 +555,21 @@ export interface ManifestProperty {
   description?: string;
 }
 
-export interface McpConnectorConfig {
-  kind: "mcp";
-  serverUrl: string;
-  secretRef: SecretRef;
-  oauthScopeRef: string;
+export interface McpCustomConnectorConfig {
+  kind: "mcp_custom";
+  transport: "stdio" | "streamable_http" | "sse";
+  command?: string | null;
+  args?: Array<string>;
+  env?: Record<string, string>;
+  cwd?: string | null;
+  endpoint?: string | null;
+  secretRef?: SecretRef | null;
+  oauthScopeRef?: string | null;
   toolAllowlist: Array<string>;
+  startupTimeoutSeconds?: number;
+  callTimeoutSeconds?: number;
+  maxPages?: number;
   outputBytes?: number;
-  timeoutSeconds?: number;
 }
 
 export interface MonitoringObservationView {
@@ -424,10 +597,38 @@ export interface MonitoringViewModel {
   status?: "healthy" | "stale" | "alert" | "failed" | "empty";
 }
 
+export interface MysqlConnectorConfig {
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  database: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+  kind: "mysql";
+}
+
 export interface NotReadyCommandResult {
   resultType?: "command.not-ready";
   error: ErrorEnvelope;
   command: string;
+}
+
+export interface OpenapiSpecConnectorConfig {
+  kind: "openapi_spec";
+  specRef: string;
+  secretRef?: SecretRef | null;
+  operationAllowlist: Array<string>;
+  serverUrl?: string | null;
+  maxRows?: number;
+  maxResponseBytes?: number;
+  rateLimitPerMinute?: number;
+  timeoutSeconds?: number;
 }
 
 export interface Operation {
@@ -441,6 +642,34 @@ export interface Operation {
   audit?: Array<Audit>;
 }
 
+export interface OracleConnectorConfig {
+  kind: "oracle";
+  secretRef: SecretRef;
+  host: string;
+  port: number;
+  serviceName: string;
+  schemaAllowlist: Array<string>;
+  tableAllowlist: Array<string>;
+  query?: string | null;
+  queryParameters?: Record<string, JsonValue>;
+  pageSize?: number;
+  rowLimit?: number;
+  byteLimit?: number;
+  timeoutSeconds?: number;
+}
+
+export interface OssConnectorConfig {
+  secretRef: SecretRef;
+  bucket: string;
+  objectPrefix?: string;
+  region?: string | null;
+  maxObjects?: number;
+  maxObjectBytes?: number;
+  timeoutSeconds?: number;
+  kind: "oss";
+  endpoint: string;
+}
+
 export interface OutputContract {
   name: string;
   type: "answer" | "table" | "metric" | "chart" | "schema" | "graph" | "observation";
@@ -450,6 +679,15 @@ export interface OutputContract {
 export interface OwnerRef {
   workspaceId: string;
   principalId: string;
+}
+
+export interface ParquetConnectorConfig {
+  sourceRef: string;
+  kind: "parquet";
+  maxRows?: number;
+  maxColumns?: number;
+  maxUncompressedBytes?: number;
+  maxNestingDepth?: number;
 }
 
 export interface PatchImpact {
@@ -471,23 +709,16 @@ export interface PatchProposal {
   operation_id?: string | null;
   draft_id: string;
   base_revision: number;
-  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch;
+  patch: SetTitlePatch | SetDescriptionPatch | SetQueryPlanPatch | SetRefreshPolicyPatch | SetThresholdPolicyPatch | SetPermissionScopePatch | AddCitationIntentPatch | SetSemanticMappingPatch | SetSemanticMetricPatch | SetSemanticDimensionPatch | SetSemanticRelationshipPatch | SetDashboardKpiPatch | SetDashboardChartPatch | SetDashboardFilterPatch | SetSopStepPatch | SetSopConditionPatch | SetSopToolRefPatch | SetGraphEntityPatch | SetGraphRelationPatch;
   impact: PatchImpact;
   status?: "proposed" | "accepted" | "rejected" | "undone" | "conflicted";
   proposed_by: string;
   source_comment_ids?: Array<string>;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  base_digest?: string | null;
+  new_digest?: string | null;
+  new_revision?: number | null;
+  view_revision_id?: string | null;
   created_at?: string;
-}
-
-export interface PermissionRef {
-  uri: string;
-  version: string;
-}
-
-export interface PlanNode {
-  node_id: string;
-  role: "intent_resolution" | "context_resolution" | "query_plan" | "retrieval" | "schema_mapping" | "threshold_policy" | "worker3_execution";
-  depends_on?: Array<string>;
-  input_names?: Array<string>;
-  output_names?: Array<string>;
 }

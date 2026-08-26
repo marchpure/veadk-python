@@ -11,6 +11,7 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.types import ExceptionHandler
+from pydantic import Field
 
 from ..application import KnowledgeAssetApplication
 from ..contracts import (
@@ -20,11 +21,22 @@ from ..contracts import (
 )
 from ..repository import KnowledgeAssetRepositoryError
 from ..sources_golden import SourcesGoldenError
+from ..contract_base import ContractModel
 from frontend.server.skill_authoring.models import SkillAuthoringError
 from frontend.server.skill_authoring.streaming import (
     AuthoringEventFeed,
     parse_last_event_id,
 )
+
+
+class TemplateCopyBody(ContractModel):
+    new_template_id: str = Field(min_length=1, max_length=256)
+    new_version: str = Field(
+        default="1.0.0",
+        pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$",
+        max_length=32,
+    )
+    display_name: str | None = Field(default=None, max_length=128)
 
 
 def _error(
@@ -82,6 +94,90 @@ def mount_knowledge_asset_routes(
         RequestValidationError,
         cast(ExceptionHandler, validation_error),
     )
+
+    @app.get("/api/knowledge-assets/v1/templates")
+    async def template_specs(request: Request) -> Any:
+        workspace_id, _role = identity_resolver(request)
+        return {
+            "templates": [
+                item.model_dump(mode="json", by_alias=True)
+                for item in application.template_specs(workspace_id)
+            ]
+        }
+
+    @app.get("/api/knowledge-assets/v1/templates/{template_id}/versions/{version}")
+    async def template_spec(
+        template_id: str, version: str, request: Request
+    ) -> Response:
+        workspace_id, _role = identity_resolver(request)
+        item = application.template_spec(workspace_id, template_id, version)
+        if item is None:
+            return _error(
+                404,
+                "TEMPLATE_NOT_FOUND",
+                "TemplateSpec does not exist.",
+                request.headers.get("X-Request-ID", "missing-request-id"),
+            )
+        return JSONResponse(item.model_dump(mode="json", by_alias=True))
+
+    @app.get(
+        "/api/knowledge-assets/v1/templates/{template_id}/versions/{version}/spec.md"
+    )
+    async def template_spec_markdown(
+        template_id: str, version: str, request: Request
+    ) -> Response:
+        workspace_id, _role = identity_resolver(request)
+        content = application.template_spec_markdown(workspace_id, template_id, version)
+        if content is None:
+            return _error(
+                404,
+                "TEMPLATE_NOT_FOUND",
+                "TemplateSpec does not exist.",
+                request.headers.get("X-Request-ID", "missing-request-id"),
+            )
+        return Response(content=content, media_type="text/markdown; charset=utf-8")
+
+    @app.post(
+        "/api/knowledge-assets/v1/templates/{template_id}/versions/{version}:copy"
+    )
+    async def copy_template_spec(
+        template_id: str,
+        version: str,
+        request: Request,
+        body: TemplateCopyBody,
+    ) -> Response:
+        workspace_id, role = identity_resolver(request)
+        request_id = request.headers.get("X-Request-ID", "missing-request-id")
+        if role not in {"editor", "admin"}:
+            return _error(
+                403,
+                "PERMISSION_DENIED",
+                "当前身份不能复制 TemplateSpec。",
+                request_id,
+                retryable=False,
+            )
+        try:
+            copied = application.copy_template_spec(
+                workspace_id,
+                template_id,
+                version,
+                new_template_id=body.new_template_id,
+                new_version=body.new_version,
+                display_name=body.display_name,
+            )
+        except ValueError as error:
+            return _error(
+                422,
+                "TEMPLATE_COPY_INVALID",
+                str(error),
+                request_id,
+                retryable=False,
+            )
+        assert copied is not None
+        return JSONResponse(
+            copied.model_dump(mode="json", by_alias=True),
+            status_code=201,
+        )
 
     @app.get("/api/knowledge-assets/v1/bootstrap")
     async def bootstrap(request: Request) -> Any:

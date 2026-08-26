@@ -1,8 +1,8 @@
 import { useId, useMemo, useState, type SVGProps } from 'react';
 import { activeSkillViewRevision } from '../../../production/data';
 import { createRequestContext } from '../../../production/ports';
-import type { ResourceRef, SkillAuthoringStartPayload } from '../../../production/generatedContracts';
-import { bootstrapWorkspace, getWorkspaceAdapter, resourceStore } from '../../../production/store';
+import type { ResourceRef, SkillAuthoringStartPayload, TemplateRef } from '../../../production/generatedContracts';
+import { bootstrapWorkspace, getWorkspaceAdapter, resourceStore, templateSpecStore } from '../../../production/store';
 import { TrustedHtmlArtifactRenderer } from './TrustedHtmlArtifactRenderer';
 
 type RecordValue = Record<string, unknown>;
@@ -11,9 +11,8 @@ type RequestedKind = NonNullable<SkillAuthoringStartPayload['requestedKind']>;
 const TEMPLATE_TO_KIND: Record<string, RequestedKind> = {
   dashboard: 'analysis',
   chart: 'analysis',
-  html: 'analysis',
   semantic: 'semantic',
-  sop: 'knowledge',
+  sop: 'sop',
   knowledge: 'knowledge',
   graph_ontology: 'graph_ontology',
   monitoring: 'monitoring',
@@ -228,6 +227,13 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
       ? 'personal'
       : getServerWorkspaceScope(serverDraftResource, authoringSession) ?? 'personal';
   const requestedKind = TEMPLATE_TO_KIND[urlTemplate] ?? 'analysis';
+  const selectedTemplateSpec = templateSpecStore.getState().find(
+    (spec) => spec.templateId === (
+      urlTemplate === 'graph_ontology' ? 'graph-ontology' : urlTemplate
+    ),
+  );
+  const selectedTemplateRef: TemplateRef | undefined =
+    selectedTemplateSpec?.templateRef;
   const initialOperationId = searchParams.get('operation_id') ?? '';
 
   const [prompt, setPrompt] = useState(urlPrompt);
@@ -284,6 +290,10 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
       setError('请输入真实需求；也可以从首页带入 request、template、context refs 和 workspace scope。');
       return;
     }
+    if (!selectedTemplateRef) {
+      setError('服务端尚未返回所选模板的不可变 TemplateRef，请刷新工作区后重试。');
+      return;
+    }
     setBusy(true);
     setError('');
     setStatus('drafting');
@@ -297,6 +307,7 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
           requestedKind,
           scope: workspaceScope,
           displayName: prompt.trim().slice(0, 80),
+          templateRef: selectedTemplateRef,
         },
       }, createRequestContext());
       const result = isRecord(response.result) ? response.result : {};

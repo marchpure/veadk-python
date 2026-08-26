@@ -293,6 +293,31 @@ export class AgentRuntimeController {
     return true;
   }
 
+  async followOperation(
+    operationId: string,
+    userPrompt = this.state.userPrompt,
+  ): Promise<void> {
+    if (!operationId) return;
+    this.abortStream();
+    this.generationActive = true;
+    this.replaceState({
+      ...createTimelineState(operationId),
+      userPrompt,
+      status: "connecting",
+    });
+    this.persistSnapshot();
+    const controller = new AbortController();
+    this.streamAbort = controller;
+    this.streamTask = this.consumeWithReconnect(
+      this.clients.follow(operationId, {
+        baseUrl: this.baseUrl,
+        signal: controller.signal,
+        requestId: this.requestIdFactory(),
+      }),
+      controller,
+    );
+  }
+
   async stop(): Promise<void> {
     const operationId = this.state.operationId;
     if (!this.generationActive || !operationId || operationId === "pending") {

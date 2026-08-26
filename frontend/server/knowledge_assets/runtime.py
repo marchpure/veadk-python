@@ -15,7 +15,14 @@ from .application import KnowledgeAssetApplication
 from .postgres_repository import PostgresKnowledgeAssetRepository
 from .repository import SqliteKnowledgeAssetRepository
 from .routes import mount_knowledge_asset_routes
-from .sources_golden import SourceGoldenApplication
+from .sources_golden import (
+    AccessContext,
+    SourceGoldenApplication,
+    create_webhook_ingress,
+    mount_source_golden_routes,
+)
+from .template_registry import SqliteTemplateRegistry
+from .skill_builder import TemplateSkillBuilder
 from frontend.server.knowledge_domains import mount_domain_routes
 from frontend.server.knowledge_domains.service import DomainService
 from .contract_data import SkillDraftRevision
@@ -37,6 +44,7 @@ from .contracts import (
     SkillSpec,
     GraphOntologyKindSpec,
     MonitoringKindSpec,
+    SopKindSpec,
     StorageRef,
     now_iso,
 )
@@ -146,12 +154,14 @@ class _MainWorker3Executor:
         repository,
         source_golden: SourceGoldenApplication,
         artifact_root: Path,
+        template_registry: SqliteTemplateRegistry,
     ) -> None:
         self._repository = repository
         self._source_golden = source_golden
         self._artifact_root = artifact_root
         self._store = ContentAddressedStore(artifact_root.parent / "kind-runtime")
         self._runtime = KindRuntime(self._store)
+        self._template_builder = TemplateSkillBuilder(template_registry)
         self.supports_inline_execution = True
 
     async def request_execution(self, request: Worker3ExecutionRequest):
@@ -181,6 +191,74 @@ class _MainWorker3Executor:
                 for record in golden_records
             }
             manifest = _canonical_manifest(request)
+            if request.selected_template is not None:
+                from .contract_base import ContextRevisionRef, TemplateRef
+
+                resolved_by_ref = {
+                    (
+                        item.ref.kind,
+                        item.ref.object_id,
+                        item.ref.revision,
+                        item.ref.scope,
+                    ): item
+                    for item in request.resolved_resources
+                }
+                context_refs = []
+                for item in request.lineage:
+                    if item.kind not in {
+                        "golden_asset",
+                        "document",
+                        "knowledge",
+                        "semantic",
+                        "skill",
+                    }:
+                        continue
+                    resolved = resolved_by_ref.get(
+                        (item.kind, item.object_id, item.revision, item.scope)
+                    )
+                    if resolved is None:
+                        raise ValueError(
+                            "Selected template context lacks authorized resolved "
+                            f"metadata for {item.object_id}@{item.revision}"
+                        )
+                    context_refs.append(
+                        ContextRevisionRef(
+                            kind=(
+                                "golden_asset"
+                                if item.kind == "golden_asset"
+                                else "document"
+                                if item.kind in {"document", "knowledge"}
+                                else "semantic_skill"
+                                if item.kind == "semantic"
+                                else "published_skill"
+                            ),
+                            resource_id=item.object_id,
+                            revision_id=item.revision,
+                            digest=resolved.content_digest or resolved.schema_digest,
+                        )
+                    )
+                for record in golden_records:
+                    origin, source = self._source_golden.golden_origin_resource(
+                        context, record.id
+                    )
+                    if origin is not None and origin.resource_type == "tool":
+                        context_refs.append(
+                            ContextRevisionRef(
+                                kind="tool",
+                                resource_id=origin.id,
+                                revision_id=source.id,
+                                digest=source.source_digest,
+                            )
+                        )
+                manifest = self._template_builder.build(
+                    workspace_id=request.workspace_id,
+                    manifest=manifest,
+                    selected_template=TemplateRef.model_validate(
+                        request.selected_template.model_dump()
+                    ),
+                    context_revision_refs=context_refs,
+                    created_at=now_iso(),
+                ).manifest
             self._repository.sync_authoring_draft(
                 draft=SkillDraft(
                     id=request.draft_id,
@@ -290,7 +368,9 @@ class _MainWorker3Executor:
                 execution_id=execution.operation_id,
                 state="accepted" if execution.status == "succeeded" else "queued",
                 reason=execution.message,
-                view_revision_id=view_revision.id if view_revision is not None else None,
+                view_revision_id=view_revision.id
+                if view_revision is not None
+                else None,
                 view_revision=(
                     view_revision.model_dump(mode="json", by_alias=True)
                     if view_revision is not None
@@ -394,7 +474,7 @@ def _canonical_golden(record) -> GoldenAssetRevision:
     )
     return GoldenAssetRevision(
         id=record.id,
-        asset_kind="dataset",
+        asset_kind=record.asset_kind,
         revision=record.revision,
         schema_ref=SchemaRef(
             uri=f"schema://golden/{record.id}",
@@ -457,6 +537,8 @@ def _canonical_manifest(request: Worker3ExecutionRequest) -> SkillManifest:
             entity_schema_ref=schema,
             relationship_schema_ref=schema,
         )
+    elif kind == "sop":
+        spec = SopKindSpec.model_validate(plan.kind_spec.model_dump(mode="python"))
     else:
         spec = MonitoringKindSpec(
             metric_refs=list(plan.metrics) or ["value"],
@@ -506,6 +588,7 @@ def create_app(
     repository_path: str | Path = ".veadk/knowledge-assets.sqlite3",
     identity_resolver: Callable[[Request], tuple[str, str]] | None = None,
     mcp_profiles: dict[str, dict[str, object]] | None = None,
+    secret_resolver: Callable[[str], str | None] | None = None,
 ) -> FastAPI:
     """Compose the browser BFF with durable local metadata persistence.
 
@@ -552,7 +635,9 @@ def create_app(
         artifact_root=runtime_root / "artifacts",
         source_root=runtime_root / "sources",
         mcp_profiles=mcp_profiles,
+        secret_resolver=secret_resolver,
     )
+    template_registry = SqliteTemplateRegistry(runtime_root / "templates.sqlite3")
     domain_service = DomainService(runtime_root / "knowledge-domains.sqlite3")
     authoring_gateway = VeADKModelGateway(
         mcp_tools=_MainMcpToolProvider(sources_golden),
@@ -570,15 +655,42 @@ def create_app(
             repository=repository,
             source_golden=sources_golden,
             artifact_root=runtime_root / "dashboard-workspaces",
+            template_registry=template_registry,
         ),
         artifact_roots=(
             runtime_root / "kind-runtime",
             runtime_root / "dashboard-workspaces",
             Path(".veadk/knowledge-assets/bundles"),
         ),
+        template_registry=template_registry,
     )
     mount_knowledge_asset_routes(
         app, application=application, identity_resolver=identity_resolver
+    )
+
+    def source_identity(request: Request) -> AccessContext:
+        workspace_id, role = identity_resolver(request)
+        return AccessContext(
+            workspace_id=workspace_id,
+            principal_id=workspace_id,
+            role=role if role in {"viewer", "editor", "admin"} else "viewer",
+        )
+
+    mount_source_golden_routes(
+        app,
+        application=sources_golden,
+        identity_resolver=source_identity,
+    )
+    app.mount(
+        "/api/source-golden/v1/webhooks",
+        create_webhook_ingress(
+            sources_golden,
+            context_resolver=lambda workspace_id, _connection_id: AccessContext(
+                workspace_id=workspace_id,
+                principal_id="webhook-ingress",
+                role="editor",
+            ),
+        ),
     )
     mount_domain_routes(
         app,

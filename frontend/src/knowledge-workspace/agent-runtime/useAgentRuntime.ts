@@ -78,6 +78,11 @@ export function useAgentRuntime(options: UseAgentRuntimeOptions = {}) {
     stop: useCallback(() => controller.stop(), [controller]),
     retry: useCallback(() => controller.retry(), [controller]),
     resume: useCallback(() => controller.resume(), [controller]),
+    followOperation: useCallback(
+      (operationId: string, userPrompt?: string) =>
+        controller.followOperation(operationId, userPrompt),
+      [controller],
+    ),
     controller,
   };
 }

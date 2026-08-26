@@ -578,7 +578,25 @@
             "execution_requested",
             "operation_retry",
             "operation_cancelled",
-            "operation_failed"
+            "operation_failed",
+            "message.accepted",
+            "context.resolving",
+            "context.resolved",
+            "agent.started",
+            "answer.delta",
+            "answer.final",
+            "tool.started",
+            "tool.progress",
+            "tool.completed",
+            "tool.failed",
+            "plan.created",
+            "plan.step.started",
+            "plan.step.completed",
+            "plan.step.failed",
+            "artifact.revision.created",
+            "operation.completed",
+            "operation.failed",
+            "operation.cancelled"
           ],
           "title": "Event Type",
           "type": "string"
@@ -589,12 +607,85 @@
           "type": "integer"
         },
         "data": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "maxProperties": 16,
+          "additionalProperties": true,
+          "maxProperties": 32,
           "title": "Data",
           "type": "object"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "Payload",
+          "type": "object"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "message.accepted",
+                "context.resolving",
+                "context.resolved",
+                "agent.started",
+                "answer.delta",
+                "answer.final",
+                "tool.started",
+                "tool.progress",
+                "tool.completed",
+                "tool.failed",
+                "plan.created",
+                "plan.step.started",
+                "plan.step.completed",
+                "plan.step.failed",
+                "artifact.revision.created",
+                "operation.completed",
+                "operation.failed",
+                "operation.cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "trace_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trace Id"
+        },
+        "public_summary": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Public Summary",
+          "type": "string"
+        },
+        "terminal": {
+          "default": false,
+          "title": "Terminal",
+          "type": "boolean"
         },
         "occurred_at": {
           "format": "date-time",
@@ -619,6 +710,7 @@
         },
         "operation_type": {
           "enum": [
+            "answer",
             "create_draft",
             "propose_patch",
             "accept_patch",
@@ -646,6 +738,19 @@
         "workspace_id": {
           "title": "Workspace Id",
           "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversation Id"
         },
         "draft_id": {
           "anyOf": [
@@ -938,7 +1043,8 @@
               "graph_ontology": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec",
               "knowledge": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec",
-              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec",
+              "sop": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -951,6 +1057,9 @@
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec"
@@ -1526,7 +1635,19 @@
         "operation": {
           "enum": [
             "validate",
+            "authenticate",
+            "authorize",
             "discover",
+            "introspect",
+            "sample",
+            "read",
+            "ingest",
+            "profile",
+            "clean",
+            "golden",
+            "refresh",
+            "checkpoint",
+            "close",
             "revoke",
             "delete"
           ],
@@ -2243,7 +2364,8 @@
               "graph_ontology": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec",
               "knowledge": "#/$defs/frontend__server__skill_authoring__models__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__skill_authoring__models__MonitoringKindSpec",
-              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec"
+              "semantic": "#/$defs/frontend__server__skill_authoring__models__SemanticKindSpec",
+              "sop": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -2256,6 +2378,9 @@
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__AnalysisKindSpec"
+            },
+            {
+              "$ref": "#/$defs/frontend__server__skill_authoring__models__SopKindSpec"
             },
             {
               "$ref": "#/$defs/frontend__server__skill_authoring__models__GraphOntologyKindSpec"
@@ -2409,6 +2534,17 @@
           "title": "Digest",
           "type": "string"
         },
+        "selected_template": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TemplateSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "created_at": {
           "format": "date-time",
           "title": "Created At",
@@ -2431,6 +2567,27 @@
           ],
           "default": null,
           "title": "Undo Of Revision"
+        },
+        "dashboard_config": {
+          "additionalProperties": true,
+          "maxProperties": 64,
+          "title": "Dashboard Config",
+          "type": "object"
+        },
+        "sop_steps": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 128,
+          "title": "Sop Steps",
+          "type": "array"
+        },
+        "graph_config": {
+          "additionalProperties": true,
+          "maxProperties": 64,
+          "title": "Graph Config",
+          "type": "object"
         }
       },
       "required": [
@@ -3277,6 +3434,13 @@
           ],
           "default": null,
           "title": "Adapterrunid"
+        },
+        "checkpoint": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Checkpoint",
+          "type": "object"
         },
         "lineageDigest": {
           "pattern": "^[0-9a-f]{64}$",
@@ -4140,11 +4304,22 @@
           "discriminator": {
             "mapping": {
               "add_citation_intent": "#/$defs/AddCitationIntentPatch",
+              "set_dashboard_chart": "#/$defs/SetDashboardChartPatch",
+              "set_dashboard_filter": "#/$defs/SetDashboardFilterPatch",
+              "set_dashboard_kpi": "#/$defs/SetDashboardKpiPatch",
               "set_description": "#/$defs/SetDescriptionPatch",
+              "set_graph_entity": "#/$defs/SetGraphEntityPatch",
+              "set_graph_relation": "#/$defs/SetGraphRelationPatch",
               "set_permission_scope": "#/$defs/SetPermissionScopePatch",
               "set_query_plan": "#/$defs/SetQueryPlanPatch",
               "set_refresh_policy": "#/$defs/SetRefreshPolicyPatch",
+              "set_semantic_dimension": "#/$defs/SetSemanticDimensionPatch",
               "set_semantic_mapping": "#/$defs/SetSemanticMappingPatch",
+              "set_semantic_metric": "#/$defs/SetSemanticMetricPatch",
+              "set_semantic_relationship": "#/$defs/SetSemanticRelationshipPatch",
+              "set_sop_condition": "#/$defs/SetSopConditionPatch",
+              "set_sop_step": "#/$defs/SetSopStepPatch",
+              "set_sop_tool_ref": "#/$defs/SetSopToolRefPatch",
               "set_threshold_policy": "#/$defs/SetThresholdPolicyPatch",
               "set_title": "#/$defs/SetTitlePatch"
             },
@@ -4174,6 +4349,39 @@
             },
             {
               "$ref": "#/$defs/SetSemanticMappingPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticMetricPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticDimensionPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSemanticRelationshipPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardKpiPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardChartPatch"
+            },
+            {
+              "$ref": "#/$defs/SetDashboardFilterPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopStepPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopConditionPatch"
+            },
+            {
+              "$ref": "#/$defs/SetSopToolRefPatch"
+            },
+            {
+              "$ref": "#/$defs/SetGraphEntityPatch"
+            },
+            {
+              "$ref": "#/$defs/SetGraphRelationPatch"
             }
           ],
           "title": "Patch"
@@ -4204,6 +4412,70 @@
           "maxItems": 32,
           "title": "Source Comment Ids",
           "type": "array"
+        },
+        "before": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "Before",
+          "type": "object"
+        },
+        "after": {
+          "additionalProperties": true,
+          "maxProperties": 32,
+          "title": "After",
+          "type": "object"
+        },
+        "base_digest": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Digest"
+        },
+        "new_digest": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Digest"
+        },
+        "new_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Revision"
+        },
+        "view_revision_id": {
+          "anyOf": [
+            {
+              "maxLength": 240,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Revision Id"
         },
         "created_at": {
           "format": "date-time",
@@ -5354,6 +5626,130 @@
       "title": "SemanticViewRelationship",
       "type": "object"
     },
+    "SetDashboardChartPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_dashboard_chart",
+          "default": "set_dashboard_chart",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "x_field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "X Field",
+          "type": "string"
+        },
+        "y_field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Y Field",
+          "type": "string"
+        },
+        "chart_type": {
+          "default": "line",
+          "enum": [
+            "line",
+            "bar",
+            "area",
+            "table"
+          ],
+          "title": "Chart Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x_field",
+        "y_field"
+      ],
+      "title": "SetDashboardChartPatch",
+      "type": "object"
+    },
+    "SetDashboardFilterPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_dashboard_filter",
+          "default": "set_dashboard_filter",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Field",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 512,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "value"
+      ],
+      "title": "SetDashboardFilterPatch",
+      "type": "object"
+    },
+    "SetDashboardKpiPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_dashboard_kpi",
+          "default": "set_dashboard_kpi",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "default": "",
+          "maxLength": 32,
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "title": "SetDashboardKpiPatch",
+      "type": "object"
+    },
     "SetDescriptionPatch": {
       "additionalProperties": false,
       "properties": {
@@ -5374,6 +5770,71 @@
         "description"
       ],
       "title": "SetDescriptionPatch",
+      "type": "object"
+    },
+    "SetGraphEntityPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_graph_entity",
+          "default": "set_graph_entity",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "entity_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Entity Type",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_type",
+        "label"
+      ],
+      "title": "SetGraphEntityPatch",
+      "type": "object"
+    },
+    "SetGraphRelationPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_graph_relation",
+          "default": "set_graph_relation",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "relation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Relation",
+          "type": "string"
+        },
+        "source_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Source Type",
+          "type": "string"
+        },
+        "target_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relation",
+        "source_type",
+        "target_type"
+      ],
+      "title": "SetGraphRelationPatch",
       "type": "object"
     },
     "SetPermissionScopePatch": {
@@ -5439,6 +5900,35 @@
       "title": "SetRefreshPolicyPatch",
       "type": "object"
     },
+    "SetSemanticDimensionPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_semantic_dimension",
+          "default": "set_semantic_dimension",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Dimension",
+          "type": "string"
+        },
+        "field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Field",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "field"
+      ],
+      "title": "SetSemanticDimensionPatch",
+      "type": "object"
+    },
     "SetSemanticMappingPatch": {
       "additionalProperties": false,
       "properties": {
@@ -5466,6 +5956,184 @@
         "entity"
       ],
       "title": "SetSemanticMappingPatch",
+      "type": "object"
+    },
+    "SetSemanticMetricPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_semantic_metric",
+          "default": "set_semantic_metric",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "definition": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Definition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "definition"
+      ],
+      "title": "SetSemanticMetricPatch",
+      "type": "object"
+    },
+    "SetSemanticRelationshipPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_semantic_relationship",
+          "default": "set_semantic_relationship",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "relationship": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Relationship",
+          "type": "string"
+        },
+        "source_entity": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Source Entity",
+          "type": "string"
+        },
+        "target_entity": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Entity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relationship",
+        "source_entity",
+        "target_entity"
+      ],
+      "title": "SetSemanticRelationshipPatch",
+      "type": "object"
+    },
+    "SetSopConditionPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_sop_condition",
+          "default": "set_sop_condition",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "condition": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Condition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "condition"
+      ],
+      "title": "SetSopConditionPatch",
+      "type": "object"
+    },
+    "SetSopStepPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_sop_step",
+          "default": "set_sop_step",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "tool_ref": {
+          "anyOf": [
+            {
+              "maxLength": 240,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Ref"
+        }
+      },
+      "required": [
+        "step_id",
+        "label"
+      ],
+      "title": "SetSopStepPatch",
+      "type": "object"
+    },
+    "SetSopToolRefPatch": {
+      "additionalProperties": false,
+      "properties": {
+        "patch_type": {
+          "const": "set_sop_tool_ref",
+          "default": "set_sop_tool_ref",
+          "title": "Patch Type",
+          "type": "string"
+        },
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "tool_ref": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Tool Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "tool_ref"
+      ],
+      "title": "SetSopToolRefPatch",
       "type": "object"
     },
     "SetThresholdPolicyPatch": {
@@ -6090,6 +6758,7 @@
         "knowledge",
         "semantic",
         "analysis",
+        "sop",
         "graph_ontology",
         "monitoring"
       ],
@@ -6465,7 +7134,7 @@
               "knowledge": "#/$defs/frontend__server__knowledge_assets__contract_base__KnowledgeKindSpec",
               "monitoring": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec",
               "semantic": "#/$defs/frontend__server__knowledge_assets__contract_base__SemanticKindSpec",
-              "sop": "#/$defs/SopKindSpec"
+              "sop": "#/$defs/frontend__server__knowledge_assets__contract_base__SopKindSpec"
             },
             "propertyName": "kind"
           },
@@ -6489,7 +7158,7 @@
               "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__MonitoringKindSpec"
             },
             {
-              "$ref": "#/$defs/SopKindSpec"
+              "$ref": "#/$defs/frontend__server__knowledge_assets__contract_base__SopKindSpec"
             }
           ],
           "title": "Kindspec"
@@ -6937,77 +7606,6 @@
       "title": "SopInputField",
       "type": "object"
     },
-    "SopKindSpec": {
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "sop",
-          "default": "sop",
-          "title": "Kind",
-          "type": "string"
-        },
-        "trigger": {
-          "maxLength": 1024,
-          "minLength": 1,
-          "title": "Trigger",
-          "type": "string"
-        },
-        "scope": {
-          "maxLength": 1024,
-          "minLength": 1,
-          "title": "Scope",
-          "type": "string"
-        },
-        "inputFields": {
-          "items": {
-            "$ref": "#/$defs/SopInputField"
-          },
-          "maxItems": 100,
-          "minItems": 1,
-          "title": "Inputfields",
-          "type": "array"
-        },
-        "steps": {
-          "items": {
-            "$ref": "#/$defs/SopStep"
-          },
-          "maxItems": 200,
-          "minItems": 1,
-          "title": "Steps",
-          "type": "array"
-        },
-        "outputs": {
-          "items": {
-            "$ref": "#/$defs/SopOutputField"
-          },
-          "maxItems": 100,
-          "title": "Outputs",
-          "type": "array"
-        },
-        "failureHandling": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Failurehandling",
-          "type": "string"
-        },
-        "actionProposal": {
-          "maxLength": 2048,
-          "minLength": 1,
-          "title": "Actionproposal",
-          "type": "string"
-        }
-      },
-      "required": [
-        "trigger",
-        "scope",
-        "inputFields",
-        "steps",
-        "failureHandling",
-        "actionProposal"
-      ],
-      "title": "SopKindSpec",
-      "type": "object"
-    },
     "SopOutputField": {
       "additionalProperties": false,
       "properties": {
@@ -7040,6 +7638,195 @@
         "valueType"
       ],
       "title": "SopOutputField",
+      "type": "object"
+    },
+    "SopPlanInput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "enum"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "enum_values": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Enum Values",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "value_type"
+      ],
+      "title": "SopPlanInput",
+      "type": "object"
+    },
+    "SopPlanOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 1024,
+          "title": "Description",
+          "type": "string"
+        },
+        "value_type": {
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "object",
+            "array"
+          ],
+          "title": "Value Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value_type"
+      ],
+      "title": "SopPlanOutput",
+      "type": "object"
+    },
+    "SopPlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "instruction": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition"
+        },
+        "tool_ref": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Ref"
+        },
+        "evidence_requirements": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 32,
+          "title": "Evidence Requirements",
+          "type": "array"
+        },
+        "on_true": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On True"
+        },
+        "on_false": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On False"
+        },
+        "failure_mode": {
+          "default": "stop",
+          "enum": [
+            "stop",
+            "continue",
+            "request_input",
+            "propose_action"
+          ],
+          "title": "Failure Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "instruction"
+      ],
+      "title": "SopPlanStep",
       "type": "object"
     },
     "SopStep": {
@@ -7572,11 +8359,18 @@
         "sourceType": {
           "enum": [
             "markdown",
+            "text",
+            "html",
             "csv",
             "excel",
+            "json",
+            "parquet",
             "pdf",
             "sqlite",
-            "mcp"
+            "mcp",
+            "http",
+            "database",
+            "office"
           ],
           "title": "Sourcetype",
           "type": "string"
@@ -7602,6 +8396,13 @@
           "minimum": 1,
           "title": "Permissionversion",
           "type": "integer"
+        },
+        "checkpoint": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Checkpoint",
+          "type": "object"
         },
         "createdAt": {
           "title": "Createdat",
@@ -7712,6 +8513,35 @@
         "digest"
       ],
       "title": "TemplateRef",
+      "type": "object"
+    },
+    "TemplateSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "template_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Template Id",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 32,
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template_id",
+        "version",
+        "digest"
+      ],
+      "title": "TemplateSelection",
       "type": "object"
     },
     "TypedPatch": {
@@ -8138,6 +8968,77 @@
         }
       },
       "title": "SemanticKindSpec",
+      "type": "object"
+    },
+    "frontend__server__knowledge_assets__contract_base__SopKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sop",
+          "default": "sop",
+          "title": "Kind",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Trigger",
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        },
+        "inputFields": {
+          "items": {
+            "$ref": "#/$defs/SopInputField"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Inputfields",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SopStep"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/SopOutputField"
+          },
+          "maxItems": 100,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "failureHandling": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Failurehandling",
+          "type": "string"
+        },
+        "actionProposal": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Actionproposal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger",
+        "scope",
+        "inputFields",
+        "steps",
+        "failureHandling",
+        "actionProposal"
+      ],
+      "title": "SopKindSpec",
       "type": "object"
     },
     "frontend__server__knowledge_assets__contract_views__EvaluationCaseResult": {
@@ -8952,6 +9853,77 @@
         "entities"
       ],
       "title": "SemanticKindSpec",
+      "type": "object"
+    },
+    "frontend__server__skill_authoring__models__SopKindSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sop",
+          "default": "sop",
+          "title": "Kind",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Trigger",
+          "type": "string"
+        },
+        "scope": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        },
+        "input_fields": {
+          "items": {
+            "$ref": "#/$defs/SopPlanInput"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Input Fields",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SopPlanStep"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/SopPlanOutput"
+          },
+          "maxItems": 100,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "failure_handling": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Failure Handling",
+          "type": "string"
+        },
+        "action_proposal": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Action Proposal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trigger",
+        "scope",
+        "input_fields",
+        "steps",
+        "failure_handling",
+        "action_proposal"
+      ],
+      "title": "SopKindSpec",
       "type": "object"
     }
   },
