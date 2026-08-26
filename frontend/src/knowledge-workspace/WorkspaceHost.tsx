@@ -29,13 +29,14 @@ export function KnowledgeWorkspaceHost() {
 
   useEffect(() => {
     const unsubscribe = subscribeWorkspaceError(setError);
-    const controller = new AbortController();
-    void bootstrapWorkspace(controller.signal)
+    void bootstrapWorkspace()
       .then(() => setReady(true))
       .catch(() => setReady(false));
     return () => {
       unsubscribe();
-      controller.abort();
+      // Keep the bootstrap alive across React StrictMode's development-only
+      // mount/cleanup/remount cycle; aborting it produces a false business
+      // request failure in the real-browser gate.
     };
   }, []);
 

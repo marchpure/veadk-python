@@ -129,8 +129,21 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     return acc;
   }, []);
 
-  const personalSources = personalChildren.filter((c:any) => c.type === 'source' || c.type === 'dataset').map((s:any) => ({ ...s, icon: s.type === 'dataset' ? FileSpreadsheet : Database }));
-  datasetsChildren = [...datasetsChildren, ...personalSources];
+  const personalSources = personalChildren
+    .filter((c: any) => c.type === 'source' || c.type === 'dataset')
+    .map((s: any) => ({ ...s, icon: s.type === 'dataset' ? FileSpreadsheet : Database }));
+  const nestedConnectionIds = new Set<string>();
+  const collectNestedIds = (items: any[]) => {
+    items.forEach((item) => {
+      if (item?.id) nestedConnectionIds.add(String(item.id));
+      if (Array.isArray(item?.children)) collectNestedIds(item.children);
+    });
+  };
+  collectNestedIds(mappedConnections);
+  datasetsChildren = [
+    ...mappedConnections,
+    ...personalSources.filter((item) => !nestedConnectionIds.has(String(item.id))),
+  ];
 
   const isDraftSkill = (item: any) =>
     item.type === 'skill' || item.resourceKind === 'skill_draft' || item.lifecycle === 'draft';
@@ -144,7 +157,14 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     type: item.type === 'skill' ? 'skill' : item.type,
     icon: item.icon || (isDraftSkill(item) ? FileText : Library),
   });
-  const personalDataKnowledge = personalChildren.filter((item: any) => !isDraftSkill(item) && !isPublishedSkill(item)).map(toTreeItem);
+  const personalDataKnowledge = personalChildren
+    .filter((item: any) =>
+      !isDraftSkill(item) &&
+      !isPublishedSkill(item) &&
+      item.type !== 'dataset' &&
+      item.resourceKind !== 'golden_asset',
+    )
+    .map(toTreeItem);
   const personalDrafts = personalChildren.filter(isDraftSkill).map(toTreeItem);
   const personalPublished = personalChildren.filter(isPublishedSkill).map(toTreeItem);
   const teamDataKnowledge = teamChildren.filter((item: any) => item.type === 'connection' || item.type === 'schema' || item.type === 'table' || (!isDraftSkill(item) && !isPublishedSkill(item))).map(toTreeItem);

@@ -310,20 +310,31 @@ def view_for(
 
 def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dict[str, object]:
     database.parent.mkdir(parents=True, exist_ok=True)
-    source_root.mkdir(parents=True, exist_ok=True)
+    # `create_app()` derives its Source/Golden runtime from the repository
+    # database parent.  Keep the seed and the BFF on the same durable store;
+    # accepting an arbitrary sibling directory here silently produced a
+    # workspace whose drafts existed but whose Golden assets were invisible to
+    # bootstrap.
+    runtime_source_root = database.parent / "sources-golden"
+    runtime_source_root.mkdir(parents=True, exist_ok=True)
     if not filled:
         return {"workspace": workspace, "resources": 0, "publications": 0}
     repository = SqliteKnowledgeAssetRepository(database)
     source = SourceGoldenApplication(
-        database_path=source_root / "sources-golden.sqlite3",
-        artifact_root=source_root / "artifacts",
-        source_root=source_root,
+        database_path=runtime_source_root / "sources-golden.sqlite3",
+        artifact_root=runtime_source_root / "artifacts",
+        source_root=runtime_source_root / "sources",
     )
     context = AccessContext(workspace_id=workspace, principal_id=workspace, role="editor")
     golden_ids: list[str] = []
     for index in range(5):
         filename = f"acceptance-{index}.csv"
-        (source_root / filename).write_text("label,value\nA,80\nB,128\n", encoding="utf-8")
+        (runtime_source_root / "sources" / filename).parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        (runtime_source_root / "sources" / filename).write_text(
+            "label,value\nA,80\nB,128\n", encoding="utf-8"
+        )
         created = source.create_connection(
             context,
             connector_key="csv",
@@ -390,15 +401,17 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
                 golden_asset_revision_refs=[golden_ids[index % len(golden_ids)]],
                 trace_id=f"trace-{draft.id}",
             )
-            repository.save_skill_result(result)
-            repository.save_skill_view_revision(
-                view_for(
-                    draft=hydrated,
-                    golden_id=golden_ids[index % len(golden_ids)],
-                    template=template,
-                    index=index,
+            if repository.latest_skill_result(draft.id, 1) is None:
+                repository.save_skill_result(result)
+            if repository.latest_skill_view_revision(f"{draft.id}:1") is None:
+                repository.save_skill_view_revision(
+                    view_for(
+                        draft=hydrated,
+                        golden_id=golden_ids[index % len(golden_ids)],
+                        template=template,
+                        index=index,
+                    )
                 )
-            )
     published_draft = drafts[0]
     view = repository.latest_skill_view_revision(f"{published_draft.id}:1")
     evaluation = EvaluationRun(

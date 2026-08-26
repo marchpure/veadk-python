@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { inflateSync } from "node:zlib";
 import playwright from "/Users/bytedance/node_modules/playwright/index.js";
 
 const { chromium } = playwright;
@@ -45,6 +46,102 @@ const prototypeStateUrls = [
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function readPng(path) {
+  const bytes = readFileSync(path);
+  if (bytes.readUInt32BE(0) !== 0x89504e47) throw new Error("not a PNG");
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let colorType = 0;
+  const idat = [];
+  while (offset < bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    const type = bytes.toString("ascii", offset + 4, offset + 8);
+    const payload = bytes.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = payload.readUInt32BE(0);
+      height = payload.readUInt32BE(4);
+      const bitDepth = payload[8];
+      colorType = payload[9];
+      if (bitDepth !== 8 || ![2, 6].includes(colorType)) {
+        throw new Error("visual gate requires 8-bit RGB/RGBA PNG");
+      }
+    } else if (type === "IDAT") {
+      idat.push(payload);
+    } else if (type === "IEND") {
+      break;
+    }
+    offset += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const bytesPerPixel = colorType === 6 ? 4 : 3;
+  const stride = width * bytesPerPixel;
+  const pixels = Buffer.alloc(height * width * 4);
+  let source = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = raw[source++];
+    const row = raw.subarray(source, source + stride);
+    source += stride;
+    const out = Buffer.alloc(stride);
+    const prior = y === 0 ? null : pixels.subarray((y - 1) * width * 4, y * width * 4);
+    for (let x = 0; x < stride; x += 1) {
+      const left = x >= bytesPerPixel ? out[x - bytesPerPixel] : 0;
+      const up = prior ? prior[Math.floor(x / bytesPerPixel) * 4 + (x % bytesPerPixel)] : 0;
+      const upperLeft = prior && x >= bytesPerPixel
+        ? prior[Math.floor((x - bytesPerPixel) / bytesPerPixel) * 4 + ((x - bytesPerPixel) % bytesPerPixel)]
+        : 0;
+      const value = row[x];
+      if (filter === 0) out[x] = value;
+      else if (filter === 1) out[x] = (value + left) & 255;
+      else if (filter === 2) out[x] = (value + up) & 255;
+      else if (filter === 3) out[x] = (value + Math.floor((left + up) / 2)) & 255;
+      else if (filter === 4) {
+        const p = left + up - upperLeft;
+        const pa = Math.abs(p - left);
+        const pb = Math.abs(p - up);
+        const pc = Math.abs(p - upperLeft);
+        const predictor = pa <= pb && pa <= pc ? left : pb <= pc ? up : upperLeft;
+        out[x] = (value + predictor) & 255;
+      } else throw new Error(`unsupported PNG filter ${filter}`);
+    }
+    for (let x = 0; x < width; x += 1) {
+      const sourceOffset = x * bytesPerPixel;
+      const targetOffset = (y * width + x) * 4;
+      pixels[targetOffset] = out[sourceOffset];
+      pixels[targetOffset + 1] = out[sourceOffset + 1];
+      pixels[targetOffset + 2] = out[sourceOffset + 2];
+      pixels[targetOffset + 3] = colorType === 6 ? out[sourceOffset + 3] : 255;
+    }
+  }
+  return { width, height, pixels };
+}
+
+function pixelDiff(actualPath, referencePath) {
+  const actual = readPng(actualPath);
+  const reference = readPng(referencePath);
+  if (actual.width !== reference.width || actual.height !== reference.height) {
+    return { ratio: 1, mean: 1, width: actual.width, height: actual.height };
+  }
+  let changed = 0;
+  let total = 0;
+  for (let index = 0; index < actual.pixels.length; index += 4) {
+    const delta =
+      Math.abs(actual.pixels[index] - reference.pixels[index]) +
+      Math.abs(actual.pixels[index + 1] - reference.pixels[index + 1]) +
+      Math.abs(actual.pixels[index + 2] - reference.pixels[index + 2]) +
+      Math.abs(actual.pixels[index + 3] - reference.pixels[index + 3]);
+    if (delta > 16) changed += 1;
+    total += delta / 1020;
+  }
+  const pixelCount = actual.width * actual.height;
+  return {
+    ratio: changed / pixelCount,
+    mean: total / pixelCount,
+    width: actual.width,
+    height: actual.height,
+  };
 }
 
 function args(argv) {
@@ -113,7 +210,18 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
   let navigationError = "";
   try {
     await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 10_000 });
-    await page.waitForTimeout(350);
+    if (origin.includes("127.0.0.1") || origin.includes("localhost")) {
+      await page
+        .waitForResponse(
+          (response) =>
+            response.url().includes("/api/knowledge-assets/v1/bootstrap") &&
+            response.ok(),
+          { timeout: 8_000 },
+        )
+        .catch(() => undefined);
+    } else {
+      await page.waitForTimeout(800);
+    }
   } catch (error) {
     navigationError = error instanceof Error ? error.message : String(error);
   }
@@ -131,10 +239,17 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
     screenshotError = error instanceof Error ? error.message : String(error);
   }
   await page.close().catch(() => undefined);
+  let screenshotSha = "";
+  try {
+    screenshotSha = sha256(readFileSync(screenshot));
+  } catch {
+    // Keep the failed capture visible in the report instead of throwing from
+    // the evidence collector itself.
+  }
   return {
     url: url.toString(),
     screenshot,
-    sha256: sha256(readFileSync(screenshot)),
+    sha256: screenshotSha,
     navigationError,
     screenshotError,
     consoleErrors,
@@ -151,10 +266,13 @@ async function main() {
   if (!response.ok) throw new Error(`integration bootstrap failed: ${response.status}`);
   const bootstrap = await response.json();
   const urls = dynamicStateUrls(bootstrap);
-  const browser = await chromium.launch({ headless: true });
   const entries = [];
-  try {
-    for (let index = 0; index < stateNames.length; index += 1) {
+  for (let index = 0; index < stateNames.length; index += 1) {
+    // The prototype is a remote static app. Reusing one Chromium process for
+    // all 45 captures eventually exhausts its renderer; isolate each state so
+    // a remote failure cannot invalidate already collected real captures.
+    const browser = await chromium.launch({ headless: true });
+    try {
       for (const viewport of VIEWPORTS) {
         const root = join(options.output, viewport.name, stateNames[index]);
         mkdirSync(root, { recursive: true });
@@ -198,13 +316,23 @@ async function main() {
           };
         }
         const ratio = actual.dom.scrollWidth > actual.dom.innerWidth ? 1 : 0;
+        let diff = { ratio: 1, mean: 1, width: 0, height: 0 };
+        if (actual.screenshot && reference.screenshot && !actual.screenshotError && !reference.screenshotError) {
+          try {
+            diff = pixelDiff(actual.screenshot, reference.screenshot);
+          } catch {
+            diff = { ratio: 1, mean: 1, width: 0, height: 0 };
+          }
+        }
         entries.push({
           state: stateNames[index],
           viewport: viewport.name,
           stateUrl: urls[index],
           actual,
           reference,
-          pixelDiffRatio: null,
+          pixelDiffRatio: diff.ratio,
+          pixelMeanDiff: diff.mean,
+          screenshotSize: { width: diff.width, height: diff.height },
           checks: {
             dynamicUrl: Boolean(urls[index]),
             horizontalOverflow: ratio === 0,
@@ -215,9 +343,9 @@ async function main() {
           },
         });
       }
+    } finally {
+      await browser.close().catch(() => undefined);
     }
-  } finally {
-    await browser.close();
   }
   const failures = entries.flatMap((entry) => {
     const out = [];
@@ -228,6 +356,11 @@ async function main() {
     if (entry.actual.consoleErrors.length) out.push(`${entry.state}/${entry.viewport}: console errors`);
     if (entry.actual.pageErrors.length) out.push(`${entry.state}/${entry.viewport}: page errors`);
     if (entry.actual.failedRequests.length) out.push(`${entry.state}/${entry.viewport}: failed business/static requests`);
+    if (entry.reference.navigationError) out.push(`${entry.state}/${entry.viewport}: prototype reference navigation failed`);
+    if (entry.reference.screenshotError || !entry.reference.sha256) out.push(`${entry.state}/${entry.viewport}: prototype reference screenshot missing`);
+    const threshold = entry.viewport === "mobile-390" ? 0.08 : 0.05;
+    if (entry.pixelDiffRatio > 0.10) out.push(`${entry.state}/${entry.viewport}: pixel diff exceeds 10%`);
+    if (entry.pixelDiffRatio > threshold) out.push(`${entry.state}/${entry.viewport}: pixel diff exceeds viewport threshold`);
     return out;
   });
   const report = {
