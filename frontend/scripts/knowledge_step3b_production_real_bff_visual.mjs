@@ -221,6 +221,10 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
           { timeout: 8_000 },
         )
         .catch(() => undefined);
+      // Bootstrap is only the first real request.  Let React commit the
+      // server-projected revision and let the immutable artifact finish its
+      // integrity-checked fetch before capturing or closing the page.
+      await page.waitForTimeout(1200);
     } else {
       await page.waitForTimeout(800);
     }

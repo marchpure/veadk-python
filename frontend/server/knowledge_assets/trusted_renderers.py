@@ -99,12 +99,12 @@ def bundle_for(
     }
     template_id = aliases.get(template, template)
     capabilities = {
-        "dashboard": ("filter", "drill", "refresh"),
-        "semantic": ("select-entity", "filter-relationship", "refresh"),
-        "sop": ("run-step", "confirm-action", "refresh"),
-        "knowledge": ("search", "open-citation", "refresh"),
-        "graph-ontology": ("select-node", "filter-relation", "refresh"),
-        "monitoring": ("view-alert", "acknowledge-alert", "refresh"),
+        "dashboard": ("filter.change", "drill.request", "refresh.request"),
+        "semantic": ("selection.change", "filter.change", "refresh.request"),
+        "sop": ("selection.change", "context.reference", "refresh.request"),
+        "knowledge": ("selection.change", "context.reference", "refresh.request"),
+        "graph-ontology": ("selection.change", "filter.change", "refresh.request"),
+        "monitoring": ("selection.change", "context.reference", "refresh.request"),
     }
     if template_id not in capabilities:
         raise ValueError(f"no trusted TemplateBundle for template: {template}")
