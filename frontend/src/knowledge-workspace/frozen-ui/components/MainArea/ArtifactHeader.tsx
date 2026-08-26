@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, MoreHorizontal, FileText, CheckCircle2, MessageSquare, PlusSquare, Share, Download, BadgeCheck, FilePlus2, ToyBrick, Filter, Info, Share2, RefreshCw, MousePointer2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { resourceStore } from '../../lib/store';
+import { bootstrapWorkspace, getWorkspaceAdapter, resourceStore } from '../../lib/store';
+import { activeSkillViewRevision } from '../../../production/data';
+import { createRequestContext } from '../../../production/ports';
 
 export default function ArtifactHeader({
   title, typeLabel, isTeam, version, fromTeamVersion, editTarget, onElementClick, setSearchParams, searchParams, showToast
 }: any) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [busy, setBusy] = useState('');
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMoreOpen(false); };
@@ -25,6 +29,40 @@ export default function ArtifactHeader({
   const isDoc = typeLabel === 'Document';
   const isDash = typeLabel === 'Dashboard';
   const isKB = typeLabel === 'Knowledge Base';
+  const currentResource = resourceStore.getState().find((r:any) => r.id === searchParams.get('file') || r.resourceId === searchParams.get('file'));
+  const revisionRecord = activeSkillViewRevision && typeof activeSkillViewRevision === 'object' ? activeSkillViewRevision as Record<string, unknown> : null;
+  const intent = revisionRecord?.intent && typeof revisionRecord.intent === 'object' ? revisionRecord.intent as Record<string, unknown> : {};
+  const skillRevisionId = String(revisionRecord?.skillRevisionId ?? revisionRecord?.skill_revision_id ?? '');
+  const currentSkillId = typeof intent.skillId === 'string' && intent.skillId
+    ? intent.skillId
+    : skillRevisionId.includes(':')
+    ? skillRevisionId.slice(0, skillRevisionId.lastIndexOf(':'))
+    : currentResource?.resourceKind === 'skill'
+    ? String(currentResource.id ?? currentResource.resourceId ?? '')
+    : '';
+  const canRefresh = Boolean(currentSkillId);
+
+  const refreshData = async () => {
+    setActionError('');
+    if (!canRefresh) {
+      setActionError('刷新需要 SkillViewRevision.intent.skillId 或服务端 skill resource；当前尚未集成。');
+      return;
+    }
+    setBusy('refresh.run');
+    try {
+      const response = await getWorkspaceAdapter().command({
+        command: 'refresh.run',
+        payload: { skillId: currentSkillId, trigger: 'manual' },
+      }, createRequestContext());
+      if (!response.accepted) throw new Error('服务端未接受 refresh.run。');
+      await bootstrapWorkspace(undefined, getWorkspaceAdapter());
+      showToast?.(`refresh.run accepted: ${response.operationId ?? response.requestId}`);
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'refresh.run 失败。');
+    } finally {
+      setBusy('');
+    }
+  };
 
   return (
     <div className="flex flex-col mb-4 w-full select-none">
@@ -48,7 +86,6 @@ export default function ArtifactHeader({
         
         <div className="flex items-center gap-2 shrink-0">
           <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center outline-none shadow-sm" onClick={() => {
-            const currentResource = resourceStore.getState().find((r:any) => r.id === searchParams.get('file') || r.resourceId === searchParams.get('file'));
             const item = { 
               id: searchParams.get('file'), 
               name: title, 
@@ -88,7 +125,7 @@ export default function ArtifactHeader({
                     <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); if (p.get('select_mode') === 'true') p.delete('select_mode'); else p.set('select_mode', 'true'); setSearchParams(p); }}>
                       <MousePointer2 size={14} className="mr-2 text-slate-400" /> 选择元素
                     </button>
-                    <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); showToast?.('刷新中...'); }}>
+                    <button disabled={!canRefresh || busy === 'refresh.run'} title={canRefresh ? '请求服务端 refresh.run' : '缺少服务端 skillId，无法刷新'} className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-white" onClick={() => { setMoreOpen(false); void refreshData(); }}>
                       <RefreshCw size={14} className="mr-2 text-slate-400" /> 刷新数据
                     </button>
                     <div className="h-px bg-slate-100 my-1"></div>
@@ -98,7 +135,7 @@ export default function ArtifactHeader({
                   <Info size={14} className="mr-2 text-slate-400" /> 版本历史
                 </button>
                 {!isDoc && (
-                  <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); p.set('eval_target', searchParams.get('file') || 'dashboard_sales_east'); setSearchParams(p); }}>
+                <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); p.set('eval_target', searchParams.get('file') || 'current_resource'); setSearchParams(p); }}>
                     <BadgeCheck size={14} className="mr-2 text-slate-400" /> 评测中心
                   </button>
                 )}
@@ -108,7 +145,7 @@ export default function ArtifactHeader({
                 <button className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center outline-none" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'share'); setSearchParams(p); }}>
                   <Share size={14} className="mr-2 text-slate-400" /> 分享
                 </button>
-                {(isDash || isKB || searchParams.get('file') === 'kb_sales') && (
+                {(isDash || isKB) && (
                   <>
                     <div className="h-px bg-slate-100 my-1"></div>
                     <button className="w-full text-left px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 flex items-center outline-none font-medium" onClick={() => { setMoreOpen(false); const p = new URLSearchParams(searchParams); p.set('modal', 'publish_agent'); setSearchParams(p); }}>
@@ -121,6 +158,11 @@ export default function ArtifactHeader({
           </div>
         </div>
       </div>
+      {actionError && (
+        <div role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {actionError}
+        </div>
+      )}
     </div>
   );
 }

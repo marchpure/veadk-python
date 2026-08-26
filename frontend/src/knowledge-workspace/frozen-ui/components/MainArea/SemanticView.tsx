@@ -4,13 +4,13 @@ import ArtifactHeader from "./ArtifactHeader";
 import { DomainRequestError, getSemanticModel, getSemanticSourceRevisions, saveSemanticRevision, validateSemanticModel } from "../../../production/domainClient";
 import { cn } from "../../lib/utils";
 
-const EMPTY_MDL = `model Sales {
+const EMPTY_MDL = `model SkillSemanticModel {
   primary_key id
-  dimension region : string
-  measure revenue : number
+  dimension label : string
+  measure value : number
 }`;
 
-export default function SemanticView({ fileId = "semantic_sales", isTeam = false, searchParams, setSearchParams, showToast }: any) {
+export default function SemanticView({ fileId = "semantic", isTeam = false, searchParams, setSearchParams, showToast }: any) {
   const [activeTab, setActiveTab] = useState(searchParams.get("semantic_tab") || "mdl");
   const [mdl, setMdl] = useState("");
   const [revision, setRevision] = useState(0);
@@ -31,9 +31,17 @@ export default function SemanticView({ fileId = "semantic_sales", isTeam = false
       setValidation(result.revision ? result.schema : null);
       setGoldenSchema(result.goldenSchema || null);
       setGoldenAssetRevision(result.goldenAssetRevision || null);
+      const goldenRevision = result.goldenAssetRevision &&
+        typeof result.goldenAssetRevision === "object" &&
+        !Array.isArray(result.goldenAssetRevision)
+        ? result.goldenAssetRevision as Record<string, unknown>
+        : null;
+      const sourceRevisionRefs = Array.isArray(goldenRevision?.sourceRevisionRefs)
+        ? goldenRevision.sourceRevisionRefs
+        : [];
       setSourceRevisionId(String(
         result.sourceRevisionId ||
-        result.goldenAssetRevision?.sourceRevisionRefs?.[0] ||
+        sourceRevisionRefs[0] ||
         searchParams.get("source_revision_id") ||
         "",
       ));
@@ -87,9 +95,17 @@ export default function SemanticView({ fileId = "semantic_sales", isTeam = false
       setValidation(result.validation);
       setGoldenSchema(result.goldenSchema || null);
       setGoldenAssetRevision(result.goldenAssetRevision || null);
+      const goldenRevision = result.goldenAssetRevision &&
+        typeof result.goldenAssetRevision === "object" &&
+        !Array.isArray(result.goldenAssetRevision)
+        ? result.goldenAssetRevision as Record<string, unknown>
+        : null;
+      const sourceRevisionRefs = Array.isArray(goldenRevision?.sourceRevisionRefs)
+        ? goldenRevision.sourceRevisionRefs
+        : [];
       setSourceRevisionId(String(
         result.sourceRevisionId ||
-        result.goldenAssetRevision?.sourceRevisionRefs?.[0] ||
+        sourceRevisionRefs[0] ||
         sourceRevisionId ||
         "",
       ));
@@ -112,7 +128,7 @@ export default function SemanticView({ fileId = "semantic_sales", isTeam = false
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col h-full min-w-0">
-      <ArtifactHeader title={searchParams.get("custom_name") || "销售主题模型"} typeLabel="Semantic Model"
+      <ArtifactHeader title={searchParams.get("custom_name") || "Semantic Skill Model"} typeLabel="Semantic Model"
         isTeam={isTeam} version={`V${revision}`} searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />
       <div className="flex space-x-6 border-b border-slate-200 mt-2 mb-4 shrink-0">
         {tabs.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)}

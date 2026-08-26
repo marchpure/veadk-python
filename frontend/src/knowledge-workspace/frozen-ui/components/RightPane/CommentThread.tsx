@@ -106,7 +106,8 @@ export default function CommentThread({ fileId, commentTarget, searchParams, set
       setError("失败项重试需要服务端返回的 FixPlan/rerun 记录。");
       return;
     }
-    await command("comment-fix-retry", "evaluation-run.retry", { runId: String(fixPlan.rerunId ?? planId) });
+    const rerunId = fixPlan && typeof fixPlan.rerunId === "string" ? fixPlan.rerunId : planId;
+    await command("comment-fix-retry", "evaluation-run.retry", { runId: rerunId });
   };
 
   const undoFix = async () => {

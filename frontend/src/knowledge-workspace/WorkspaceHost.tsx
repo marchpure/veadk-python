@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import FrozenWorkspaceApp from "./frozen-ui/App";
-import { SkillViewShell } from "./SkillViewShell";
 import {
   bootstrapWorkspace,
   getWorkspaceError,
@@ -8,8 +7,25 @@ import {
 } from "./production/store";
 import "./WorkspaceHost.css";
 
+function normalizeLegacySkillDeepLink(): void {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("view") !== "skill") return;
+  const skillId = url.searchParams.get("skillId");
+  const revision = url.searchParams.get("revision");
+  url.searchParams.delete("view");
+  url.searchParams.delete("skillId");
+  if (skillId) {
+    url.searchParams.set("file", skillId);
+    url.searchParams.set("draft_id", skillId);
+  }
+  if (revision) url.searchParams.set("revision", revision);
+  window.history.replaceState({}, "", url);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 export function KnowledgeWorkspaceHost() {
-  const [error, setError] = useState(() => getWorkspaceError()); const [ready, setReady] = useState(false);
+  const [error, setError] = useState(() => getWorkspaceError());
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeWorkspaceError(setError);
@@ -23,17 +39,14 @@ export function KnowledgeWorkspaceHost() {
     };
   }, []);
 
+  useEffect(() => {
+    if (ready && !error) normalizeLegacySkillDeepLink();
+  }, [ready, error]);
+
   return (
     <div className="knowledge-workspace-host">
       {ready && !error ? (
-        new URLSearchParams(window.location.search).get("view") === "skill"
-          ? (
-            <SkillViewShell
-              draftId={new URLSearchParams(window.location.search).get("skillId") ?? undefined}
-              revision={Number(new URLSearchParams(window.location.search).get("revision") ?? "1")}
-            />
-          )
-          : <FrozenWorkspaceApp />
+        <FrozenWorkspaceApp />
       ) : (
         <div className="knowledge-workspace-error" role="alert">
           <strong>{error ? "知识工作区暂不可用" : "正在连接知识工作区"}</strong>

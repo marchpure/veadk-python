@@ -11,8 +11,8 @@ import {
 
 export default function AddKnowledgeBaseView({ searchParams, setSearchParams, showToast }: any) {
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('销售制度知识库');
-  const [desc, setDesc] = useState('聚合各渠道的销售制度与流程规范');
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
   
   const [sources, setSources] = useState<any[]>([]);
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string>("");
@@ -52,7 +52,7 @@ export default function AddKnowledgeBaseView({ searchParams, setSearchParams, sh
         chunks: Number(created.index?.chunkCount ?? 0), size: `${(file.size / 1024).toFixed(1)} KB`, time: '刚刚',
       }]);
       setUploadState('idle');
-      showToast?.(`已成功解析并添加 ${file.name}`);
+      showToast?.(`服务端已接收并索引 ${file.name}`);
     } catch (error) {
       setUploadState('idle');
       showToast?.(error instanceof DomainRequestError ? error.message : "文件上传失败");
@@ -84,7 +84,8 @@ export default function AddKnowledgeBaseView({ searchParams, setSearchParams, sh
     setFeishuState('syncing');
     try {
       const result = await syncFeishu(await ensureKnowledgeBase(), { url: feishuUrl, includeChildren: true });
-      if (result.status === "credential_blocked") {
+      const resultStatus = String((result as Record<string, unknown>).status ?? "");
+      if (resultStatus === "credential_blocked") {
         setFeishuState("blocked");
         showToast?.("飞书连接需要服务端凭证");
         return;
@@ -92,15 +93,17 @@ export default function AddKnowledgeBaseView({ searchParams, setSearchParams, sh
       if (!result.document || !result.sourceRevision || !result.index) {
         throw new Error("服务端未返回可入库的飞书文档。");
       }
+      const document = result.document;
+      const index = result.index;
       setSources((previous) => [...previous, {
-        id: String(result.document?.id ?? feishuUrl), type: 'feishu',
-        name: String(result.document.title ?? feishuUrl),
-        status: String(result.index?.status ?? "ready"),
-        chunks: Number(result.index.chunkCount ?? 0), url: feishuUrl, size: '在线文档', time: '刚刚',
+        id: String(document.id ?? feishuUrl), type: 'feishu',
+        name: String(document.title ?? feishuUrl),
+        status: String(index.status ?? "ready"),
+        chunks: Number(index.chunkCount ?? 0), url: feishuUrl, size: '在线文档', time: '刚刚',
       }]);
       setFeishuState('idle');
       setFeishuUrl('');
-      showToast?.('飞书文档同步成功');
+      showToast?.('服务端已接收飞书文档同步请求。');
     } catch (error) {
       setFeishuState('error');
       showToast?.(error instanceof Error ? error.message : "飞书同步失败");
@@ -149,11 +152,11 @@ export default function AddKnowledgeBaseView({ searchParams, setSearchParams, sh
               <div className="space-y-6 animate-in slide-in-from-right-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-800 mb-2">知识库名称</label>
-                  <input type="text" value={name} onChange={e=>setName(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm" />
+                  <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="输入知识库名称" className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-800 mb-2">描述说明</label>
-                  <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3} className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm resize-none"></textarea>
+                  <textarea value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="描述该知识库的目标、来源和使用边界" className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm resize-none"></textarea>
                 </div>
                 <div className="flex justify-end pt-4">
                   <button onClick={() => setStep(2)} disabled={!name} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50">下一步</button>
@@ -244,7 +247,7 @@ export default function AddKnowledgeBaseView({ searchParams, setSearchParams, sh
                               <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                               <span>分片: {s.chunks}</span>
                               <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                              <span className="text-green-600 flex items-center"><CheckCircle2 size={10} className="mr-0.5"/> 索引成功</span>
+                              <span className="text-slate-600 flex items-center"><CheckCircle2 size={10} className="mr-0.5"/> {s.status}</span>
                             </div>
                           </div>
                         </div>

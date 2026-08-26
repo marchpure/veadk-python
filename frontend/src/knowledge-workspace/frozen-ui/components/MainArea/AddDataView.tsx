@@ -102,7 +102,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
           const result = created.result?.connection;
           const connectionId = result && typeof result === 'object' &&
             typeof (result as Record<string, unknown>).id === 'string'
-            ? (result as Record<string, unknown>).id
+            ? String((result as Record<string, unknown>).id)
             : '';
           if (!created.accepted || !connectionId) {
             throw new Error('MCP connection was not accepted by the server.');
@@ -112,7 +112,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
               command: 'source-golden.ingest',
               payload: {
                 connectionId,
-                recipeOperations: ['trim'],
+                recipeOperations: ['trim' as const],
                 toolArguments: {},
               },
             },
@@ -305,16 +305,8 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
             </div>
 
             {jobState === 'done' && (
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-2">
-                <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-800">发现的数据内容预览 (首层)</span>
-                  <span className="text-[10px] text-blue-600 bg-white px-2 py-0.5 rounded border border-blue-200">仅展示前 3 项</span>
-                </div>
-                <div className="p-4 space-y-3 bg-white">
-                   <div className="flex items-center text-sm"><Database size={14} className="text-slate-400 mr-2"/> <span className="font-medium text-slate-700">Schema / 目录结构发现成功</span></div>
-                   <div className="flex items-center text-sm"><Database size={14} className="text-slate-400 mr-2"/> <span className="font-medium text-slate-700">解析了 12 个有效数据表/文档</span></div>
-                   <div className="flex items-center text-sm"><Database size={14} className="text-slate-400 mr-2"/> <span className="font-medium text-slate-700">数据类型探断完成，均支持自动同步</span></div>
-                </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm" role="status">
+                服务端已接受 Source/Golden 操作。发现内容、schema、profile 和可同步资源会在 bootstrap 刷新后从真实 ViewModel 展示。
               </div>
             )}
           </div>

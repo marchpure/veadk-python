@@ -1,4 +1,4 @@
-export type DragStatus = 'idle' | 'drag-start' | 'dragging' | 'valid-over' | 'invalid-over' | 'drop-pending' | 'success' | 'cancelled' | 'error';
+export type DragStatus = 'idle' | 'drag-start' | 'dragging' | 'valid-over' | 'invalid-over' | 'drop-pending' | 'cancelled' | 'error';
 
 export interface DragItem {
   type: 'dataset' | 'personal_artifact' | 'team_artifact' | 'datalink' | 'element' | 'element_group' | 'folder' | 'root';

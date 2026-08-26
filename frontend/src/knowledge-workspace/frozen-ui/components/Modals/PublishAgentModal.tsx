@@ -16,9 +16,13 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
   const artifactType = descriptor?.artifactType as string;
 
   const publications = agentPublicationStore.getState();
-  const existing = publications.find((a:any) => a.skillId === identity || a.resourceId === identity);
+  const existing = publications.find((item: unknown) => {
+    const record = asRecord(item);
+    return record.skillId === identity || record.resourceId === identity;
+  });
+  const existingRecord = asRecord(existing);
 
-  const [visibility, setVisibility] = useState(existing?.visibility || 'team');
+  const [visibility, setVisibility] = useState(String(existingRecord.visibility ?? 'team'));
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -27,20 +31,18 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
   }, [onClose]);
 
   const [error, setError] = useState('');
-  const handleConfirm = () => {
-    if (!descriptor) return;
-    if (descriptor.resourceKind !== 'skill_draft') {
-      setError('只有服务端 SkillDraft 可进入真实 publication.publish。');
-      return;
-    }
-    setError('共享契约缺少 PublicationPublishPayload.visibility，publication.publish 当前 fail closed；需要 MAIN 合同持久化 visibility 后才允许发布。');
-  };
+  const cannotPublishReason = !descriptor
+    ? '缺少服务端资源描述，无法发布到 Agent。'
+    : descriptor.resourceKind !== 'skill_draft'
+    ? '只有服务端 SkillDraft 可进入真实 publication.publish。'
+    : '共享契约缺少 PublicationPublishPayload.visibility，publication.publish 当前 fail closed；需要 MAIN 合同持久化 visibility 后才允许发布。';
 
   const handleCancelPublish = () => {
     if (!descriptor) return;
     setError('取消发布必须由服务端撤销命令确认；当前未执行本地删除。');
   };
-  const published = asRecord(existing);
+  const published = existingRecord;
+  const hasExistingPublication = Boolean(existing);
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={(e) => { if(e.target===e.currentTarget) onClose(); }}>
@@ -69,7 +71,7 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
               </div>
             </div>
           </div>
-          {existing && (
+          {hasExistingPublication && (
             <dl className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
               <div><dt className="font-bold text-slate-500">真实版本</dt><dd className="text-slate-800">{String(published.version ?? published.semver ?? '—')}</dd></div>
               <div><dt className="font-bold text-slate-500">质量分</dt><dd className="text-slate-800">{String(published.qualityScore ?? '需服务端返回')}</dd></div>
@@ -78,18 +80,26 @@ export default function PublishAgentModal({ onClose, fileId }: any) {
               <div className="col-span-2"><dt className="font-bold text-slate-500">I/O Schema / 依赖 / 权限 / 兼容目标</dt><dd className="break-all text-slate-800">{JSON.stringify({ inputSchema: published.inputSchema, outputSchema: published.outputSchema, dependencies: published.dependencies, permissions: published.permissions, compatibilityTargets: published.compatibilityTargets })}</dd></div>
             </dl>
           )}
+          <div id="publish-agent-gate" role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {cannotPublishReason}
+          </div>
           {error && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
         </div>
 
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end items-center gap-3">
-          {existing && (
+          {hasExistingPublication && (
             <button onClick={handleCancelPublish} className="text-sm text-red-600 font-bold hover:bg-red-50 px-4 py-2 rounded-lg transition-colors outline-none mr-auto">取消发布</button>
           )}
-          {!existing && (
+          {!hasExistingPublication && (
             <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
           )}
-          <button onClick={handleConfirm} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
-            {existing ? '更新范围' : '确认发布'}
+          <button
+            disabled
+            aria-describedby="publish-agent-gate"
+            title={cannotPublishReason}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {hasExistingPublication ? '更新范围' : '确认发布'}
           </button>
         </div>
       </div>

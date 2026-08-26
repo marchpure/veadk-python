@@ -4,7 +4,7 @@ import ArtifactHeader from "./ArtifactHeader";
 import { DomainRequestError, getGraphProjection, getGraphQueryResult, mutateGraph, queryGraph } from "../../../production/domainClient";
 import { cn } from "../../lib/utils";
 
-export default function KnowledgeGraphView({ isTeam = false, searchParams, setSearchParams, showToast, fileId = "kg_sales" }: any) {
+export default function KnowledgeGraphView({ isTeam = false, searchParams, setSearchParams, showToast, fileId = "knowledge_graph" }: any) {
   const [activeTab, setActiveTab] = useState(searchParams.get("kg_tab") || "graph");
   const [projection, setProjection] = useState<any>({ entities: [], relationships: [], constraints: [], lineage: [], revision: 0 });
   const [selectedEntity, setSelectedEntity] = useState("");
@@ -112,7 +112,7 @@ export default function KnowledgeGraphView({ isTeam = false, searchParams, setSe
   const tabs = [{ id: "ontology", label: "本体", icon: Library }, { id: "graph", label: "图谱", icon: Network }, { id: "query", label: "路径/邻居查询", icon: Search }];
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col h-full min-w-0">
-      <ArtifactHeader title="销售业务知识图谱" typeLabel="Knowledge Graph" isTeam={isTeam} version={`V${projection.revision || 0}`}
+      <ArtifactHeader title={String(projection.title || projection.name || "Knowledge Graph Skill")} typeLabel="Knowledge Graph" isTeam={isTeam} version={`V${projection.revision || 0}`}
         searchParams={searchParams} setSearchParams={setSearchParams} showToast={showToast} />
       <div className="flex items-center justify-between border-b border-slate-200 mt-2 mb-4">
         <div className="flex gap-6">{tabs.map((tab) => <button key={tab.id} onClick={() => { setActiveTab(tab.id); const next = new URLSearchParams(searchParams); next.set("kg_tab", tab.id); setSearchParams(next); }}

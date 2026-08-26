@@ -13,8 +13,8 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
     });
   }, [fileId]);
 
-  const name = resource?.name || searchParams.get('custom_name') || '销售制度知识库';
-  const version = resource?.version || 'V1.0';
+  const name = resource?.name || searchParams.get('custom_name') || 'Knowledge Base Skill';
+  const version = resource?.version || (resource ? 'V1.0' : '等待 revision');
   const sources = resource?.sources || [];
   
   const [activeTab, setActiveTab] = useState('sources');
@@ -22,10 +22,10 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
   const [qaState, setQaState] = useState<'idle'|'thinking'|'done'>('idle');
   
   const [publishState, setPublishState] = useState<'idle'|'publishing'|'done'>('idle');
-  const [agentBound, setAgentBound] = useState(false);
-
   const [answer, setAnswer] = useState<any>(null);
   const [error, setError] = useState('');
+  const agentBinding = resource?.agentBinding || resource?.agent_binding;
+  const toolId = resource?.configRef?.toolId || resource?.toolId || agentBinding?.toolId;
   useEffect(() => {
     const queryResultId = searchParams.get('query_result_id');
     if (!queryResultId) return;
@@ -122,7 +122,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                         {s.name}
                       </td>
                       <td className="px-6 py-4 text-slate-500">{s.type === 'feishu' ? '飞书文档' : (s.mediaType || '本地文件')}</td>
-                      <td className="px-6 py-4"><span className="bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded text-xs font-bold flex items-center w-fit"><CheckCircle2 size={12} className="mr-1"/>成功</span></td>
+                      <td className="px-6 py-4"><span className="bg-slate-50 text-slate-700 border border-slate-200 px-2 py-1 rounded text-xs font-bold flex items-center w-fit"><CheckCircle2 size={12} className="mr-1"/>{s.status || '服务端已接收'}</span></td>
                       <td className="px-6 py-4 font-mono text-slate-600">{s.index?.chunkCount ?? s.chunks ?? 0}</td>
                       <td className="px-6 py-4 text-slate-500">{s.createdAt || s.time || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 flex items-center"><ShieldCheck size={14} className="mr-1 text-slate-400"/> 继承</td>
@@ -200,7 +200,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                   <div className="text-left bg-slate-50 border border-slate-200 rounded-xl p-6 space-y-5 mb-8">
                     <div>
                       <label className="block text-sm font-bold text-slate-800 mb-1.5">Tool ID (调用名称)</label>
-                      <input type="text" defaultValue={`knowledge_tool_${resource?.id?.substring(0,6) || 'generic'}`} className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-mono outline-none focus:border-blue-500 shadow-sm" />
+                      <input type="text" value={toolId || ''} readOnly placeholder="等待服务端返回 Tool ID" className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-mono outline-none focus:border-blue-500 shadow-sm" />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-800 mb-1.5">更新策略</label>
@@ -218,7 +218,7 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                     </div>
                   </div>
 
-                  <button onClick={performKnowledgeBasePublication} disabled={publishState !== 'idle'} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center outline-none focus:ring-2 focus:ring-blue-500">
+                  <button onClick={performKnowledgeBasePublication} disabled={publishState !== 'idle' || !resource?.id} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-colors inline-flex items-center outline-none focus:ring-2 focus:ring-blue-500">
                     {publishState === 'publishing' ? <><Loader2 size={18} className="animate-spin mr-2"/> 发布中...</> : '确认发布'}
                   </button>
                 </div>
@@ -227,10 +227,10 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
                   <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
                     <div className="flex justify-between items-start mb-6">
                       <div>
-                        <h3 className="text-lg font-bold text-slate-900 flex items-center mb-2"><CheckCircle2 size={20} className="text-green-500 mr-2"/> 已发布版本 (V1.0)</h3>
+                        <h3 className="text-lg font-bold text-slate-900 flex items-center mb-2"><CheckCircle2 size={20} className="text-green-500 mr-2"/> 已发布版本 ({version})</h3>
                         <p className="text-sm text-slate-500">此资产可被团队内有权限的 Agent 绑定调用。</p>
                       </div>
-                      <span className="bg-slate-100 text-slate-600 font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">Tool ID: {resource?.configRef?.toolId || `knowledge_tool_${resource?.id?.substring(0, 6)}`}</span>
+                      <span className="bg-slate-100 text-slate-600 font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">Tool ID: {toolId || '等待服务端返回'}</span>
                     </div>
 
                     <div className="bg-slate-900 rounded-xl p-5 font-mono text-xs text-green-400 overflow-x-auto shadow-inner mb-6">
@@ -243,16 +243,16 @@ export default function KnowledgeBaseView({ fileId, isTeam, searchParams, setSea
 
                     <div className="border-t border-slate-100 pt-6">
                       <h4 className="font-bold text-slate-800 mb-4 text-sm">绑定状态</h4>
-                      {agentBound ? (
+                      {agentBinding ? (
                         <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex justify-between items-center">
                           <div className="flex items-center text-sm font-bold text-green-800">
-                            <ToyBrick size={18} className="mr-2 text-green-600"/> 已向销售分析 Agent 暴露
+                            <ToyBrick size={18} className="mr-2 text-green-600"/> 已向服务端 Agent 暴露
                           </div>
-                          <button onClick={() => { setAgentBound(false); showToast?.('已撤销授权'); }} className="text-xs font-bold text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm outline-none transition-colors">撤销授权</button>
+                          <button disabled className="text-xs font-bold text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm outline-none">撤销需服务端命令</button>
                         </div>
                       ) : (
-                        <button onClick={() => { setAgentBound(true); showToast?.('授权成功！已绑定至 销售分析 Agent'); }} className="w-full bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 px-4 py-3 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center justify-center outline-none focus:ring-2 focus:ring-blue-500">
-                          <Plus size={18} className="mr-2"/> 添加到 Agent
+                        <button disabled className="w-full bg-white border border-slate-200 text-slate-400 px-4 py-3 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center justify-center outline-none">
+                          <Plus size={18} className="mr-2"/> 等待服务端 Agent 绑定命令
                         </button>
                       )}
                     </div>

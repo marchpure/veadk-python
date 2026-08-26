@@ -1,62 +1,239 @@
-# STEP 3 Worker 4 Handoff
+# STEP3B W4 v2.15.2 UI Handoff
 
-Status: `READY_FOR_INTEGRATION`
+Status: `STEP3B_W4_CORRECTIVE_READY_FOR_INTEGRATION`
 
 ## Baseline
 
-- Coordination checkpoint: `31a26a6f`
-- Branch: `feat/knowledge-step3-worker4-evaluation-quality`
-- Contract digest:
-  `108d962c73517f45367e924bd330882564a984aee57700bf95ee92e1c3431c12`
-- UI delta digest:
-  `dd1b90bb917052929a13852558025956263c3b104e47a73b44dba0ece93e4d30`
-- Prototype SHA-256:
-  `ce6e086b806072c363f23ed68c9e067b30b280738af0284eeb60ca36c22e5571`
+- Session: `01a038c9-c29d-7e73-93dc-9bb67813ded0`
+- Branch: `feat/knowledge-step3b-v2152-workspace`
+- Start HEAD: `6905f074e31a77686e69a0594b35f5ad22ce2ff1`
+- Corrective base HEAD: `8106292d55c44d2a330967a646b2069b692041e2`
+- Prototype export SHA-256: `0a672e34dd8f5cf416a73334b519679ee756f2c50ea8710166dae4b6b6c41b15`
+- Prototype unpacked at: `/tmp/knowledge-v2152-rerun3.enFUPp`
+
+## Corrective closure
+
+The previous W4 browser report at `visual-evidence-final2-20260826010602` is not used as final evidence. It had top-level `status: pass` while internal `failedRequests` were non-empty.
+
+Root cause:
+
+- failed request events were captured but `net::ERR_ABORTED` for `/api/knowledge-assets/v1/bootstrap` was broadly filtered;
+- screenshot capture and Agent-pane width navigation reused the same page, aborting in-flight bootstrap/trusted-artifact requests from the previous navigation;
+- the final failure list was computed after that broad filter, so the report could be self-contradictory.
+
+Corrective changes:
+
+- critical `/api/knowledge-assets/v1/**` request failures always fail the report, including `ERR_ABORTED`;
+- static resource failures, unclassified `requestfailed`, response errors, console errors, page errors, and prompt-handoff gate errors fail the report;
+- only explicitly documented non-business dev-server auxiliary navigation aborts can be ignored, with URL, method, resource type, action, and reason recorded;
+- W4 actual evidence now uses a temporary production build and static server, not Vite dev HMR, so dev-only StrictMode/HMR aborts do not pollute network evidence;
+- screenshot capture and Agent-pane width checks use isolated pages and wait for required bootstrap/artifact responses before capture or navigation.
 
 ## Delivered
 
-- Strict Evaluation/Policy application port and read models.
-- Immutable versioned suites with manual, historical conversation/run,
-  CSV/JSON import, and explicitly confirmed Agent candidate paths.
-- All ten required case categories.
-- Durable runs with complete provenance, per-case evidence, trace and diff,
-  cancellation, retry, and restart resume.
-- Single and all-unresolved typed fix planning, conflict gate, new draft
-  revision, affected-only rerun, and undo.
-- Nine-dimension automatic Policy Gate with persisted machine reasons.
-- Idempotent run start, cancellation-wins semantics, unique policy dimensions,
-  and complete issue-to-affected fix scope.
-- Provider/consumer contract tests and exact 43/23 route audit tests.
-- Contract and UI integration proposals for Main.
+- Restored the v2.15.2 Workspace home journey without production mock state:
+  - business-problem composer;
+  - upload and drag/drop entries;
+  - bootstrap/read-model powered `@` resource search;
+  - context chips with source and revision;
+  - template library for Dashboard, Semantic, SOP, Knowledge, Graph/Ontology, Monitoring, and generic HTML Skill;
+  - custom `spec.md` preview/reuse/save gates;
+  - Agent recommendation, clarification, retry, cancel, waiting, failure, and completion UI states.
+- Reworked Skill Builder from the six-step legacy wizard into the intended Skill authoring journey:
+  - business materials and template selection;
+  - typed Agent authoring command;
+  - clarification and execution status;
+  - trusted HTML Skill main view;
+  - advanced/audit drawer for Manifest, BuildPlan, trace, draft, and revision details.
+- Fixed Home → Builder input loss:
+  - prompt, context refs, selected template, workspace scope, operation id, and draft id are passed through the route;
+  - Builder can also restore from server bootstrap authoring-session fields;
+  - no localStorage is used for production business state.
+- Added a unified trusted HTML Skill revision view for generated Skill visual forms:
+  - Dashboard;
+  - Semantic;
+  - SOP;
+  - Knowledge;
+  - Graph/Ontology;
+  - Monitoring;
+  - generic HTML Skill.
+- Reworked the right Agent panel to consume the W2 typed stream/timeline seam:
+  - assistant Markdown delta;
+  - tool-call cards;
+  - context/revision messages;
+  - clarification;
+  - warning/error;
+  - stop/retry/resume;
+  - refresh/interruption recovery display;
+  - non-forcing auto-scroll when the user scrolls away.
+- Connected visible operations to typed command/read-model seams or disabled/gated them with explicit reasons:
+  - `skill-authoring.start`
+  - `skill-authoring.answer`
+  - `skill-authoring.patch`
+  - `skill-authoring.execute`
+  - `refresh.run`
+  - `artifact.export`
+  - `evaluation.run`
+  - `publication.publish`
+  - `invocation.start`
+- Fixed right-pane deep-link behavior so explicit `pane=closed` is preserved and the main area resizes correctly when the Agent pane opens.
+
+## Removed fake data and fake-success paths
+
+- Removed production hardcoded SOP facts/results:
+  - Bluetooth diagnostic/manual/SOP facts;
+  - Haidilao inspection SOP facts;
+  - LS model, OS/firmware, dBm, historical ticket, fixed diagnosis, and fixed remediation values.
+- Removed production hardcoded Monitoring facts/results:
+  - fixed invocation count;
+  - fixed success rate;
+  - fixed latency;
+  - fixed trace/call/alarm records;
+  - fixed Skill names.
+- Removed production demo-success paths:
+  - sample data added state;
+  - mock dataset upload success;
+  - route-driven publication success;
+  - localStorage demo business state;
+  - request-complete-to-success-page jumps;
+  - timer-simulated Agent thinking/tool/progress/success.
+- Preserved deterministic fixtures only under test/evidence code.
+
+## Browser evidence
+
+- Evidence root: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631`
+- Report SHA-256: `cd095d7fa8c5998df81bba1cc34e7ad7f6dad82d05e46fa28d6c269285aea96f`
+- Status: `pass`
+- Validation scope: `w4-ui-typed-seam`
+- Production pass: `false`; W1/W2/W3/MAIN vertical integration remains pending.
+- Screenshots:
+  - `45` W4 actual screenshots;
+  - `45` prototype reference screenshots;
+  - `45` overlay/diff screenshots.
+- Viewports:
+  - `desktop-1920` (`1920×1080`)
+  - `studio-1440` (`1440×900`)
+  - `mobile-390` (`390×844`)
+- Checks:
+  - console error: pass;
+  - failed request: pass;
+  - horizontal overflow: pass;
+  - keyboard navigation: pass;
+  - modal/drawer obstruction: pass;
+  - Agent pane collapsed/open width: pass;
+  - Home → Builder prompt/context/template/workspace handoff: pass.
+- Network gate:
+  - failed requests: `0`
+  - ignored requests: `0`
+  - response errors: `0`
+  - console errors: `0`
+  - page errors: `0`
+  - unhandled failed requests: `0`
+- Reference source: `captures.json` TOS PNG fallback because the online prototype URL returned 404 during capture.
+
+## 15-state acceptance
+
+All states from `tests/fixtures/knowledge_step3b_w4_v2152/captures.json` were captured in all three viewports:
+
+1. `home`
+2. `agent-clarify`
+3. `bluetooth-sop-draft`
+4. `edit-sop-step`
+5. `bluetooth-sop-input`
+6. `bluetooth-sop-result`
+7. `publish-to-agent`
+8. `anta-dashboard-draft`
+9. `anta-dashboard-result`
+10. `publish-team`
+11. `haidilao-sop-draft`
+12. `haidilao-sop-input`
+13. `haidilao-sop-result`
+14. `published-sop-monitoring`
+15. `optimization-draft`
+
+The names above are fixture/evidence identifiers. Production code does not infer business content from route ids, skill ids, template names, or keywords.
 
 ## Verification
 
-- Focused Worker 4: `20 passed`.
-- Worker 4 plus existing STEP 3 backend regression: `41 passed`.
-- Python compile: passed.
-- `git diff --check`: passed.
-- `uv run ruff`: blocked by the Main-created checkpoint tag not parsing as a
-  setuptools-scm version; no source workaround was made.
+- Focused Node gate:
+  - `node --test frontend/tests/knowledgeWorkspaceV2152Shell.test.mjs frontend/tests/knowledgeShellState.test.mjs frontend/tests/knowledgeWorkspaceV21141Contracts.test.mjs frontend/tests/knowledge-workspace-v21141/contracts.test.mjs frontend/tests/knowledge-workspace-v21141/trustedHtmlArtifactRenderer.test.mjs frontend/tests/knowledge-workspace-v21141/productionBoundary.test.mjs`
+  - Result: `129 passed`.
+- Evidence gate regression:
+  - `node --test frontend/tests/knowledgeWorkspaceV2152EvidenceGate.test.mjs`
+  - Result: `5 passed`.
+- Frontend full test:
+  - `cd frontend && npm test`
+  - Result: `878 passed`.
+- TypeScript:
+  - `cd frontend && npx tsc --noEmit --noUnusedLocals false --noUnusedParameters false --pretty false`
+  - Result: passed.
+- Production build:
+  - `cd frontend && npm run build`
+  - Result: passed.
+  - Remaining warnings are existing Vite dynamic-import/chunk-size warnings; the W4-added Tailwind selector syntax warning was removed.
+- Python knowledge-assets tests:
+  - `pytest -q tests/frontend/knowledge_workspace_v21141 tests/frontend/test_knowledge_asset_bff.py tests/frontend/test_knowledge_web_import.py tests/frontend/test_knowledge_uploads.py`
+  - Result: `290 passed, 13 skipped`.
+- Static scans:
+  - production fixed business facts and fake success paths: no matches;
+  - broad business-fact scan: no matches;
+  - localStorage/timer scan reviewed; remaining hits are UI mechanics or HTTP timeout/retry, not fake streaming or fake success.
 
-## Independent Findings
+## MAIN typed seams required
 
-- Existing `_run_evaluation` is synthetic and incomplete; see contract
-  proposal.
-- Production adapter is BFF-only and contains no localStorage/sessionStorage,
-  iframe, hardcoded publication success, or direct provider URL.
-- Production data adapter still exports mock-named aliases; Main corrective.
-- Current capability classifications cover exactly 43 states and preserve all
-  23 old routes.
-- Main integration browser/visual evidence is not yet available. All 43 and 23
-  browser verification rows are `BLOCKED`, not PASS.
-- Credentialed Lark/Oracle/Web API/Workday MCP paths remain externally blocked.
-- STEP 4 publish/calling routes are classified `STEP4_DEFERRED`.
+- Bootstrap/read model should return typed workspace catalog resources:
+  - resource id;
+  - resource kind/subtype;
+  - scope;
+  - revision;
+  - display name;
+  - server context ref.
+- Authoring session bootstrap should return:
+  - prompt;
+  - selected template/requested kind;
+  - context refs;
+  - `draftId`;
+  - `operationId`;
+  - latest immutable `SkillViewRevision`.
+- Command results should consistently return accepted state, operation id, draft id/revision id where applicable, and terminal error details.
+- Read-model refresh after command completion should return the new immutable `SkillViewRevision` or a clear gated/error state.
 
-## Main Integration
+## W2 dependency proposal
 
-1. Integrate public DTOs, commands, migration, shared repository, and BFF
-   composition from `STEP3_W4_CONTRACT_PROPOSAL.md`.
-2. Bind the existing high-fidelity UI per `STEP3_W4_UI_PROPOSAL.md`.
-3. Run the required single-URL browser gate and provide the URL to Worker 4.
-4. Worker 4 then performs read-only final verification and updates status with
-   the integration commit.
+W2 should supply the authoritative authoring/runtime stream for:
+
+- assistant delta;
+- tool call;
+- plan summary;
+- context/revision;
+- clarification;
+- warning/error;
+- stop/retry/resume;
+- durable operation recovery after refresh.
+
+W4 consumes these as typed events and does not display chain-of-thought, system prompts, credentials, or raw sensitive tool output.
+
+## W3 dependency proposal
+
+W3 should integrate the canonical template/runtime contracts for:
+
+- trusted HTML renderer registration;
+- `SkillViewRevision` artifact metadata and digest;
+- `DashboardViewModel`;
+- `SemanticViewModel`;
+- `SopViewModel`;
+- `GraphViewModel`;
+- `MonitoringViewModel`;
+- template/kind mapping for Dashboard, Semantic, SOP, Knowledge, Graph/Ontology, Monitoring, and generic HTML Skill.
+
+W4 did not copy W3 compiler/runtime implementation and did not cherry-pick W3 commits.
+
+## Evidence files
+
+- `tests/fixtures/knowledge_step3b_w4_v2152/evidence.md`
+- `tests/fixtures/knowledge_step3b_w4_v2152/browser-evidence-index.json`
+- Runtime artifacts: `/Users/bytedance/.codex/runtime/knowledge-step3b-w4-v2152/visual-evidence-corrective-final-20260826072631`
+
+## Integration note
+
+This is W4 UI readiness only. It does not claim `STEP3B_COMPLETE`; final completion remains with Integration MAIN after W1/W2/W3/W4 are merged and vertically verified.

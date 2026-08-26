@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { Database, Plus, AlertCircle } from 'lucide-react';
+import { FileText, Plus, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export default function WorkspaceEmptyView({ searchParams, setSearchParams }: any) {
   const [chatInput, setChatInput] = useState('');
   const [showGuide, setShowGuide] = useState(false);
 
-  const handleUseSample = () => {
+  const handleOpenTemplates = () => {
     const p = new URLSearchParams(searchParams);
-    p.set('sample_data_added', 'true');
-    p.set('file', 'dataset_mock_upload'); 
-    localStorage.setItem('demo_sample_added', 'true');
+    p.set('file', 'skill_builder');
+    p.set('source', 'template_library');
     setSearchParams(p);
   };
 
@@ -24,10 +23,8 @@ export default function WorkspaceEmptyView({ searchParams, setSearchParams }: an
   const handleChat = () => {
     if (!chatInput.trim()) return;
     setShowGuide(true);
-    setTimeout(() => {
-      const el = document.getElementById('a11y-live-region');
-      if (el) el.textContent = "需要先选择数据，请打开连接器或使用示例数据。";
-    }, 100);
+    const el = document.getElementById('a11y-live-region');
+    if (el) el.textContent = "需要先连接数据、上传知识或选择模板。";
   };
 
   return (
@@ -65,10 +62,10 @@ export default function WorkspaceEmptyView({ searchParams, setSearchParams }: an
             <Plus size={16} /> <span>连接数据</span>
           </button>
           <button 
-            onClick={handleUseSample}
+            onClick={handleOpenTemplates}
             className="flex items-center justify-center space-x-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
           >
-            <Database size={16} className="text-slate-400" /> <span>使用示例数据 (演示数据)</span>
+            <FileText size={16} className="text-slate-400" /> <span>选择模板 / spec.md</span>
           </button>
         </div>
 
@@ -78,7 +75,7 @@ export default function WorkspaceEmptyView({ searchParams, setSearchParams }: an
             <div className="flex items-center p-1.5">
               <input 
                 type="text"
-                placeholder="直接提问，例如：分析近三个月的销售额..."
+                placeholder="描述要构建的 Skill，例如：根据已选资源生成周报..."
                 value={chatInput}
                 onChange={e => { setChatInput(e.target.value); setShowGuide(false); }}
                 onKeyDown={e => { if (e.key === 'Enter') handleChat(); }}
@@ -99,7 +96,7 @@ export default function WorkspaceEmptyView({ searchParams, setSearchParams }: an
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleAddData} className="px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-md text-xs font-medium hover:bg-amber-100 transition-colors outline-none focus:ring-2 focus:ring-amber-500 whitespace-nowrap">打开连接器</button>
-                  <button onClick={handleUseSample} className="px-3 py-1.5 bg-amber-600 text-white rounded-md text-xs font-medium hover:bg-amber-700 transition-colors outline-none focus:ring-2 focus:ring-amber-500 whitespace-nowrap">使用示例数据</button>
+                  <button onClick={handleOpenTemplates} className="px-3 py-1.5 bg-amber-600 text-white rounded-md text-xs font-medium hover:bg-amber-700 transition-colors outline-none focus:ring-2 focus:ring-amber-500 whitespace-nowrap">选择模板</button>
                 </div>
               </div>
             )}

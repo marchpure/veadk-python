@@ -109,24 +109,19 @@ test("adapter changes preserve all 47 frozen provenance rows", () => {
   assert.ok(changes.changes.length >= 3);
 });
 
-test("production route availability accepts only Capability Matrix deep links", () => {
+test("production route availability accepts only server-declared features and server resources", () => {
   const source = readFileSync(join(productionRoot, "store.ts"), "utf8");
-  assert.match(source, /const CAPABILITY_MATRIX_ROUTE_IDS = new Set\(\[/);
-  for (const routeId of [
-    "journey_knowledge",
-    "journey_oracle_excel",
-    "res_dash_finance",
-    "kg_sales",
-    "semantic_sales",
-    "kb_sales",
-  ]) {
-    assert.match(source, new RegExp(`"${routeId}"`));
-  }
+  assert.doesNotMatch(source, /CAPABILITY_MATRIX_ROUTE_IDS/);
   assert.match(
     source,
-    /CAPABILITY_MATRIX_ROUTE_IDS\.has\(fileId\)/,
+    /workspaceRoutes\.has\(fileId\) &&/,
   );
-  assert.doesNotMatch(source, /CAPABILITY_MATRIX_ROUTE_IDS\.add\(fileId\)/);
+  assert.match(source, /fileId\.startsWith\("journey_"\)/);
+  assert.match(source, /resourceStore\s*\.getState\(\)\s*\.some/);
+  assert.doesNotMatch(
+    source,
+    /journey_oracle_excel|journey_financial_monitor|journey_workday_mcp|res_dash_finance|res_dash_east|res_dash_recruitment|kg_sales|semantic_sales|kb_sales|res_sample_postgres/,
+  );
 });
 
 test("production Dashboard renders the exact trusted HTML ViewRevision", () => {
@@ -555,8 +550,8 @@ test("prototype catalog and seed data are stripped from production modules", asy
     join(frozenRoot, "components/Layout/FileTreePane.tsx"),
   );
   assert.doesNotMatch(tree, /dashboard_sales_east|team_dashboard_monthly|semantic_sales/);
-  assert.match(tree, /const defaultPersonal = \[\];/);
-  assert.match(tree, /const defaultTeam = \[\];/);
+  assert.match(tree, /const defaultPersonal(?::\s*any\[\])? = \[\];/);
+  assert.match(tree, /const defaultTeam(?::\s*any\[\])? = \[\];/);
   assert.match(
     tree,
     /r\.resourceKind === 'artifact' \? \(r\.space === 'team' \? 'team_artifact' : 'personal_artifact'\) : r\.resourceKind/,
@@ -597,7 +592,8 @@ test("prototype catalog and seed data are stripped from production modules", asy
   const store = readFileSync(join(productionRoot, "store.ts"), "utf8");
   assert.match(store, /SERVER_FEATURE_ROUTES/);
   assert.match(store, /resourceStore\s*\.getState\(\)\s*\.some/);
-  assert.match(store, /SERVER_FEATURE_ROUTES\.has\(fileId\) && workspaceRoutes\.has\(fileId\)/);
+  assert.match(store, /workspaceRoutes\.has\(fileId\) &&/);
+  assert.doesNotMatch(store, /CAPABILITY_MATRIX_ROUTE_IDS/);
 });
 
 test("production transforms are idempotent for route fallback and runtime import", async () => {
@@ -612,8 +608,8 @@ test("production transforms are idempotent for route fallback and runtime import
     stripPrototypeProductionDefaults(treeSource, treeFilePath),
     treeFilePath,
   );
-  assert.match(treeStrippedTwice, /const defaultPersonal = \[\];/);
-  assert.match(treeStrippedTwice, /const defaultTeam = \[\];/);
+  assert.match(treeStrippedTwice, /const defaultPersonal(?::\s*any\[\])? = \[\];/);
+  assert.match(treeStrippedTwice, /const defaultTeam(?::\s*any\[\])? = \[\];/);
   assert.match(treeStrippedTwice, /const treeData = \[/);
 
   const filePath = join(frozenRoot, "components/Layout/MainAreaPane.tsx");
@@ -622,12 +618,12 @@ test("production transforms are idempotent for route fallback and runtime import
   const strippedOnce = stripPrototypeProductionDefaults(source, filePath);
   const strippedTwice = stripPrototypeProductionDefaults(strippedOnce, filePath);
   assert.equal(
-    strippedTwice.match(/const ProductionRouteUnavailable/g)?.length ?? 0,
+    strippedTwice.match(/function ProductionRouteUnavailable/g)?.length ?? 0,
     1,
   );
   assert.equal(
     strippedTwice.match(
-      /isWorkspaceRouteAvailable as isProductionRouteAvailable/g,
+      /isWorkspaceRouteAvailable/g,
     )?.length ?? 0,
     1,
   );
@@ -658,27 +654,21 @@ test("production transforms are idempotent for route fallback and runtime import
   );
 });
 
-test("neutralized success handlers still dispatch a typed production command", async () => {
-  const { transformFrozenProductionMutations } = await import(
-    "./productionTransform.mjs"
+test("publish flow dispatches the typed publication command without local success", () => {
+  const layout = readFileSync(
+    join(frozenRoot, "components/Layout/WorkspaceLayout.tsx"),
+    "utf8",
   );
-  const filePath = join(
-    frozenRoot,
-    "components/Layout/WorkspaceLayout.tsx",
+  const modal = readFileSync(
+    join(frozenRoot, "components/Modals/PublishModal.tsx"),
+    "utf8",
   );
-  const transformed = transformFrozenProductionMutations(
-    readFileSync(filePath, "utf8"),
-    filePath,
-    frozenRoot,
-    productionRoot,
-  );
-  assert.ok(transformed);
-  const publishHandler = transformed.code.match(
-    /modal === 'publish'[\s\S]{0,240}/,
-  )?.[0];
-  assert.match(publishHandler ?? "", /__runProductionMutation/);
-  assert.match(publishHandler ?? "", /resource\.publish/);
-  assert.doesNotMatch(publishHandler ?? "", /已成功发布/);
+  assert.match(layout, /modal === 'publish' && <PublishModal/);
+  assert.match(modal, /command: 'publication\.publish'/);
+  assert.match(modal, /getWorkspaceAdapter/);
+  assert.match(modal, /bootstrapWorkspace/);
+  assert.match(modal, /disabled=\{!canPublish \|\| busy\}/);
+  assert.doesNotMatch(layout + modal, /已成功发布|resource\.publish|__runProductionMutation/);
 });
 
 test("real knowledge-base create CTA dispatches the authenticated domain BFF", async () => {
@@ -723,7 +713,7 @@ test("local source preparation remains local until the create CTA", async () => 
   assert.equal(transformed, null);
 });
 
-test("real Skill Builder publish CTA dispatches manifest persistence", async () => {
+test("real Skill Builder uses service-side authoring and keeps Manifest audit-only", async () => {
   const { transformFrozenProductionMutations } = await import(
     "./productionTransform.mjs"
   );
@@ -738,8 +728,13 @@ test("real Skill Builder publish CTA dispatches manifest persistence", async () 
     productionRoot,
   );
   assert.ok(transformed);
-  assert.match(transformed.code, /"command":"skill-draft\.save-manifest"/);
-  assert.match(transformed.code, /handlePublish/);
+  assert.match(transformed.code, /skill-authoring\.start/);
+  assert.match(transformed.code, /skill-authoring\.execute/);
+  assert.match(transformed.code, /TrustedHtmlArtifactRenderer/);
+  assert.match(transformed.code, /高级详情|审计/);
+  assert.doesNotMatch(transformed.code, /"command":"skill-draft\.save-manifest"/);
+  assert.doesNotMatch(transformed.code, /handlePublish/);
+  assert.doesNotMatch(transformed.code, /编辑 Manifest/);
   assert.doesNotMatch(transformed.code, /resourceStore\.setState\s*\(/);
 });
 
@@ -803,7 +798,9 @@ test("assistant consumes server clarification without fabricating a draft", asyn
   );
   assert.match(source, /result\.status === 'awaiting_input'/);
   assert.match(source, /clarificationQuestions/);
-  assert.match(source, /setAgentReply\(clarificationQuestions\.join/);
+  assert.match(source, /appendTimelineItem\(\{[\s\S]{0,220}type: 'clarification'/);
+  assert.match(source, /body: clarificationQuestions\.map\(safeText\)\.join/);
+  assert.doesNotMatch(source, /setAgentReply\(clarificationQuestions\.join/);
   assert.doesNotMatch(
     source,
     /awaiting_input[\s\S]{0,500}setPlanDetails/,

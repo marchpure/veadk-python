@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronRight, ChevronDown, Folder, FilePieChart, Database, FileText, LayoutDashboard, Users, FileSpreadsheet, X, MoreHorizontal, AlertTriangle, Send, Link, Globe, Plus, Library, RefreshCcw } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FilePieChart, Database, FileText, LayoutDashboard, Users, FileSpreadsheet, X, MoreHorizontal, AlertTriangle, Send, Link, Globe, Plus, Library } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { connectionStore, useStore, resourceStore } from '../../lib/store';
@@ -15,7 +15,7 @@ function UserIcon() {
   );
 }
 
-export default function FileTreePane({ fileId, searchParams, setSearchParams, onClose, onResetDemo, isMobile, publishedItems, reusedItems, onPublish, onReuse, onAddChip, showToast, isWorkspaceEmpty, isSampleAdded, addedSources = [] }: any) {
+export default function FileTreePane({ fileId, searchParams, setSearchParams, onClose, isMobile, publishedItems, reusedItems, onPublish, onReuse, onAddChip, showToast, isWorkspaceEmpty, addedSources = [] }: any) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     'personal': true, 'team': true, 'p_data_knowledge': true, 't_data_knowledge': true, 'conn_mysql': true, 'schema_public': true
   });
@@ -27,7 +27,10 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
   const [dragTarget, setDragTarget] = useState<string | null>(null);
 
   useEffect(() => {
-    return dragStore.subscribe(() => { setDragTarget(dragStore.getState().targetId); });
+    const unsubscribe = dragStore.subscribe(() => { setDragTarget(dragStore.getState().targetId); });
+    return () => {
+      unsubscribe();
+    };
   }, []);
   
   useEffect(() => {
@@ -35,19 +38,6 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     document.addEventListener('click', handleDocClick);
     return () => document.removeEventListener('click', handleDocClick);
   }, []);
-
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  const newlyPublishedId = searchParams.get('new_publish');
-
-  useEffect(() => {
-    if (newlyPublishedId) {
-      setExpandedFolders(prev => ({ ...prev, 'team': true, 't_published_skills': true }));
-      setHighlightId(newlyPublishedId);
-      setTimeout(() => { const el = document.querySelector(`[data-tree-id="${newlyPublishedId}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
-      const timer = setTimeout(() => { setHighlightId(null); const p = new URLSearchParams(window.location.search); p.delete('new_publish'); setSearchParams(p); }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [newlyPublishedId, setSearchParams]);
 
   const storeConnections = useStore(connectionStore);
 
@@ -67,13 +57,12 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
 
   let datasetsChildren = mappedConnections;
   if (isWorkspaceEmpty) {
-    if (isSampleAdded) datasetsChildren = [{ id: 'conn_local', name: 'Local_Files', type: 'connection', icon: FileSpreadsheet, children: [{ id: 'dataset_mock_upload', name: 'Q3 销售数据.csv', type: 'table', hasPermission: true, icon: FileSpreadsheet }] }];
-    else datasetsChildren = [];
+    datasetsChildren = [];
   }
 
   const allResources = useStore(resourceStore);
-  const defaultPersonal = [];
-  const defaultTeam = [];
+  const defaultPersonal: any[] = [];
+  const defaultTeam: any[] = [];
   
   const newPersonalArtifacts = allResources
     .filter((r:any) => r.space === 'personal' && r.subtype !== 'template')
@@ -192,12 +181,16 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     const state = dragStore.getState();
     if (state.status === 'valid-over' && state.item && state.targetId === folderId) {
       if (allowedType === 'personal_artifact') { dragStore.setState({ status: 'drop-pending' }); setPendingPublish({ item: state.item, target: folderId, name: folderName }); }
-      else if (allowedType === 'team_artifact') { dragStore.setState({ status: 'success', targetId: null }); onReuse(state.item, folderId); }
+      else if (allowedType === 'team_artifact') { dragStore.setState({ status: 'idle', targetId: null, item: null, message: '' }); onReuse(state.item, folderId); }
     } else dragStore.setState({ status: 'cancelled', targetId: null });
   };
 
   const performPublish = () => {
-    if (pendingPublish) { onPublish(pendingPublish.item, pendingPublish.target); setPendingPublish(null); dragStore.setState({ status: 'success', targetId: null }); }
+    if (pendingPublish) {
+      onPublish(pendingPublish.item, pendingPublish.target);
+      setPendingPublish(null);
+      dragStore.setState({ status: 'idle', targetId: null, item: null, message: '' });
+    }
   };
 
   const renderTree = (nodes: any[], depth = 0) => {
@@ -231,7 +224,6 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
               onDrop={hasChildren && node.allowDrop ? (e) => handleDropFolder(e, node.id, node.allowDrop, node.name) : undefined}
               className={cn(
                 "w-full text-left flex items-center py-1 px-2 cursor-pointer text-[13px] rounded-md mx-2 transition-all group outline-none focus-visible:ring-2 focus-visible:ring-blue-400 relative",
-                highlightId === node.id ? "bg-green-50 text-green-700 ring-1 ring-green-200" :
                 isSelected ? "bg-blue-50/40 text-blue-700 font-medium" : "text-slate-600 hover:bg-slate-50",
                 isRoot ? "font-bold text-slate-800 mt-2 mb-0.5 text-xs tracking-wide" : "",
                 isDropTarget && dragStore.getState().status === 'valid-over' && "ring-2 ring-blue-500 bg-blue-50",
@@ -281,7 +273,6 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
               <span className="truncate flex-1">{node.name}</span>
               
               {node.draft && <span className="text-[10px] px-1 bg-white text-slate-400 rounded border border-slate-200 ml-2 shrink-0 hidden md:block">草稿</span>}
-              {highlightId === node.id && <span className="text-[10px] px-1 bg-green-50 text-green-600 rounded border border-green-200 ml-2 shrink-0 animate-pulse">新发布</span>}
               {node.version && <span className="text-[10px] px-1 bg-white text-slate-400 rounded border border-slate-200 ml-2 shrink-0 hidden md:block">{node.version}</span>}
               {node.type === 'field' && <span className="text-[10px] text-slate-400 ml-2">字段</span>}
 
@@ -351,7 +342,7 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
                 if (e.key === 'Escape') { e.stopPropagation(); setMenuOpenId(null); }
               }}>
                 <button role="menuitem" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); onAddChip(node); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 outline-none flex items-center">加入对话上下文</button>
-                {node.type === 'personal_artifact' && <button role="menuitem" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); setPendingPublish({ item: node, target: 't_sales', name: '销售分析目录' }); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 outline-none flex items-center">发布到团队快照</button>}
+                {node.type === 'personal_artifact' && <button role="menuitem" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); setPendingPublish({ item: node, target: 'team_default', name: '团队默认空间' }); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 outline-none flex items-center">发布到团队快照</button>}
                 {node.type === 'team_artifact' && <button role="menuitem" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); onReuse(node, 'p_analysis'); }} className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 outline-none flex items-center">复用为个人草稿</button>}
                 {(node.type === 'personal_artifact' || node.type === 'team_artifact') && (node.artifactType === 'dashboard' || node.artifactType === 'chart' || node.artifactType === 'semantic') && (
                   <button role="menuitem" onClick={(e) => { 
@@ -394,8 +385,6 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
             <MoreHorizontal size={15} /><span>更多</span>
           </summary>
           <div className="absolute bottom-full left-2 z-50 mb-1 w-44 rounded-lg border border-slate-200 bg-white py-1.5 shadow-lg">
-            <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100" onClick={() => onResetDemo?.('empty')}><RefreshCcw size={13} />切换为空工作区</button>
-            <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100" onClick={() => onResetDemo?.('full')}><RefreshCcw size={13} />恢复工作区</button>
             <button className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100" onClick={() => { const p = new URLSearchParams(searchParams); p.set('file', 'evaluation_detail'); setSearchParams(p); }}>验收与评测</button>
           </div>
         </details>

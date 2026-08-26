@@ -1,260 +1,488 @@
-import React, { useState } from 'react';
-import { ArrowLeft, CheckCircle2, ChevronRight, Play, Save, Send, Database, Globe, Server, BookOpen, Search, CheckSquare, FileJson, Link as LinkIcon } from 'lucide-react';
-import { connectionStore, resourceStore } from '../../lib/store';
-import { cn } from '../../lib/utils';
+import { useId, useMemo, useState, type SVGProps } from 'react';
+import { activeSkillViewRevision } from '../../../production/data';
 import { createRequestContext } from '../../../production/ports';
-import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
+import type { ResourceRef, SkillAuthoringStartPayload } from '../../../production/generatedContracts';
+import { bootstrapWorkspace, getWorkspaceAdapter, resourceStore } from '../../../production/store';
+import { TrustedHtmlArtifactRenderer } from './TrustedHtmlArtifactRenderer';
 
-export default function SkillBuilderView({ searchParams, setSearchParams, showToast }: any) {
-  const rawAdapter = searchParams.get('adapter') || 'web_api';
-  const adapter = rawAdapter === 'web_discovery' ? 'web_api' : rawAdapter;
-  const connections = connectionStore.getState();
-  const [selectedConnection, setSelectedConnection] = useState('');
-  const [step, setStep] = useState(1);
-  const steps = ['选择输入', '发现/解析', '编辑 Manifest', '测试', '保存版本', '发布'];
-  
-  const [candidateEndpoints, setCandidateEndpoints] = useState<Array<{id: string; path: string; method: string; selected: boolean}>>([]);
+type RecordValue = Record<string, unknown>;
+type RequestedKind = NonNullable<SkillAuthoringStartPayload['requestedKind']>;
 
-  const [mdlCode, setMdlCode] = useState('model DynamicTable {\n  primary_key id\n  dimension category : string\n}');
-  const [manifest, setManifest] = useState('{\n  "name": "New Skill",\n  "version": "1.0.0"\n}');
-  const [prompt, setPrompt] = useState('');
-  const [draft, setDraft] = useState<any>(null);
-  const [operation, setOperation] = useState<any>(null);
-  const [artifact, setArtifact] = useState<any>(null);
+const TEMPLATE_TO_KIND: Record<string, RequestedKind> = {
+  dashboard: 'analysis',
+  chart: 'analysis',
+  html: 'analysis',
+  semantic: 'semantic',
+  sop: 'knowledge',
+  knowledge: 'knowledge',
+  graph_ontology: 'graph_ontology',
+  monitoring: 'monitoring',
+};
+
+function isRecord(value: unknown): value is RecordValue {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function IconBase({ children, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      {children}
+    </svg>
+  );
+}
+
+function BackIcon(props: SVGProps<SVGSVGElement>) {
+  return <IconBase {...props}><path d="M15 6 9 12l6 6" /></IconBase>;
+}
+
+function SparkIcon(props: SVGProps<SVGSVGElement>) {
+  return <IconBase {...props}><path d="m12 3 1.4 4.4L18 9l-4.6 1.6L12 15l-1.4-4.4L6 9l4.6-1.6L12 3Z" /><path d="m5 15 .8 2.2L8 18l-2.2.8L5 21l-.8-2.2L2 18l2.2-.8L5 15Z" /></IconBase>;
+}
+
+function PlayIcon(props: SVGProps<SVGSVGElement>) {
+  return <IconBase {...props}><path d="M8 5.8v12.4L18 12 8 5.8Z" /></IconBase>;
+}
+
+function AuditIcon(props: SVGProps<SVGSVGElement>) {
+  return <IconBase {...props}><path d="M7 4h10" /><path d="M6 8h12" /><path d="M8 12h8" /><path d="M9 16h6" /><rect x="4" y="3" width="16" height="18" rx="2.5" /></IconBase>;
+}
+
+function AlertIcon(props: SVGProps<SVGSVGElement>) {
+  return <IconBase {...props}><path d="M12 4 3.5 19h17L12 4Z" /><path d="M12 9v4" /><path d="M12 16h.01" /></IconBase>;
+}
+
+function parseContextRefs(raw: string | null): ResourceRef[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const parts = item.split(':');
+      const scope = parts.pop();
+      const revision = parts.pop();
+      const objectId = parts.pop();
+      const kind = parts.join(':');
+      if (
+        kind &&
+        objectId &&
+        revision &&
+        (scope === 'personal' || scope === 'team')
+      ) {
+        return {
+          kind: kind as ResourceRef['kind'],
+          object_id: objectId,
+          revision,
+          scope,
+        };
+      }
+      return null;
+    })
+    .filter((item): item is ResourceRef => Boolean(item));
+}
+
+function normalizeResourceRef(value: unknown): ResourceRef | null {
+  if (!isRecord(value)) return null;
+  const kind = stringValue(value.kind);
+  const objectId = stringValue(value.object_id) ?? stringValue(value.objectId);
+  const revision = stringValue(value.revision);
+  const scope = value.scope;
+  if (
+    kind &&
+    objectId &&
+    revision &&
+    (scope === 'personal' || scope === 'team')
+  ) {
+    return {
+      kind: kind as ResourceRef['kind'],
+      object_id: objectId,
+      revision,
+      scope,
+    };
+  }
+  return null;
+}
+
+function findServerDraftResource(draftId: string, fileId: string): RecordValue | null {
+  const candidates = new Set([draftId, fileId].filter(Boolean));
+  return resourceStore.getState().find((resource: RecordValue) => {
+    const values = [
+      resource.id,
+      resource.resourceId,
+      resource.draftId,
+      resource.draft_id,
+      resource.skillId,
+      resource.skill_id,
+    ];
+    return values.some((value) => typeof value === 'string' && candidates.has(value));
+  }) ?? null;
+}
+
+function getAuthoringSession(resource: RecordValue | null): RecordValue | null {
+  const authoringSession = resource?.authoringSession ?? resource?.authoring_session;
+  return isRecord(authoringSession) ? authoringSession : null;
+}
+
+function getServerPrompt(resource: RecordValue | null, session: RecordValue | null): string {
+  return (
+    stringValue(session?.prompt) ??
+    stringValue(session?.request) ??
+    stringValue(resource?.prompt) ??
+    stringValue(resource?.request) ??
+    stringValue(resource?.description) ??
+    ''
+  );
+}
+
+function getServerTemplate(resource: RecordValue | null, session: RecordValue | null): string {
+  return (
+    stringValue(session?.template) ??
+    stringValue(session?.requestedTemplate) ??
+    stringValue(session?.requested_template) ??
+    stringValue(resource?.template) ??
+    stringValue(resource?.subtype) ??
+    'dashboard'
+  );
+}
+
+function getServerContextRefs(resource: RecordValue | null, session: RecordValue | null): ResourceRef[] {
+  const values = [
+    session?.resourceRefs,
+    session?.resource_refs,
+    session?.contextRefs,
+    session?.context_refs,
+    resource?.resourceRefs,
+    resource?.resource_refs,
+    resource?.contextRefs,
+    resource?.context_refs,
+  ].find(Array.isArray);
+  return Array.isArray(values)
+    ? values.map(normalizeResourceRef).filter((item): item is ResourceRef => Boolean(item))
+    : [];
+}
+
+function getServerWorkspaceScope(resource: RecordValue | null, session: RecordValue | null): 'personal' | 'team' | undefined {
+  const scope = session?.scope ?? session?.workspaceScope ?? session?.workspace_scope ?? resource?.space ?? resource?.scope;
+  return scope === 'team' ? 'team' : scope === 'personal' ? 'personal' : undefined;
+}
+
+function getDraftId(draft: unknown): string {
+  return isRecord(draft) ? String(draft.draft_id ?? draft.id ?? '') : '';
+}
+
+function getDraftRevision(draft: unknown): number | undefined {
+  if (!isRecord(draft)) return undefined;
+  return numberValue(draft.revision);
+}
+
+function auditPayload(draft: unknown, operation: unknown, revision: unknown) {
+  return {
+    SkillDraft: draft ?? { status: 'waiting_for_server_draft' },
+    BuildPlan: isRecord(operation) ? operation.plan ?? { status: 'waiting_for_server_build_plan' } : { status: 'waiting_for_server_build_plan' },
+    operation: operation ?? null,
+    ViewRevision: revision ?? null,
+  };
+}
+
+function GatedHtmlState({ template, prompt }: { template: string; prompt: string }) {
+  return (
+    <section className="flex min-h-[520px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
+        <AlertIcon className="h-6 w-6" />
+      </div>
+      <h2 className="mt-5 text-xl font-semibold text-slate-900">等待服务端返回 HTML ViewRevision</h2>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+        当前模板为 {template || '未选择'}。Runner 完成前，中间区域不会用固定成功结果填充；Dashboard、Semantic、SOP、Knowledge、Graph、Monitoring 都会作为 Skill 的可信 HTML revision 呈现。
+      </p>
+      <p className="mt-4 max-w-xl rounded-xl bg-slate-50 px-4 py-3 text-left text-xs leading-5 text-slate-500">
+        当前需求：{prompt || '等待首页或服务端 draft/session 恢复'}
+      </p>
+    </section>
+  );
+}
+
+export default function SkillBuilderView({ searchParams, setSearchParams }: any) {
+  const promptInputId = useId();
+  const initialDraftId = searchParams.get('draft_id') ?? '';
+  const fileId = searchParams.get('file') ?? 'skill_builder';
+  const serverDraftResource = findServerDraftResource(initialDraftId, fileId);
+  const authoringSession = getAuthoringSession(serverDraftResource);
+  const serverPrompt = getServerPrompt(serverDraftResource, authoringSession);
+  const serverTemplate = getServerTemplate(serverDraftResource, authoringSession);
+  const serverContextRefs = getServerContextRefs(serverDraftResource, authoringSession);
+  const urlPrompt = searchParams.get('request') ?? serverPrompt;
+  const urlTemplate = searchParams.get('template') ?? searchParams.get('adapter') ?? serverTemplate;
+  const urlContextRefs = searchParams.get('context_refs');
+  const workspaceScope =
+    searchParams.get('workspace_scope') === 'team'
+      ? 'team'
+      : searchParams.get('workspace_scope') === 'personal'
+      ? 'personal'
+      : getServerWorkspaceScope(serverDraftResource, authoringSession) ?? 'personal';
+  const requestedKind = TEMPLATE_TO_KIND[urlTemplate] ?? 'analysis';
+  const initialOperationId = searchParams.get('operation_id') ?? '';
+
+  const [prompt, setPrompt] = useState(urlPrompt);
+  const [draft, setDraft] = useState<RecordValue | null>(
+    initialDraftId ? { draft_id: initialDraftId } : null,
+  );
+  const [operation, setOperation] = useState<RecordValue | null>(
+    initialOperationId ? { operation_id: initialOperationId } : null,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [status, setStatus] = useState<'drafting' | 'awaiting_input' | 'ready_for_execution' | 'executing' | 'revision_ready' | 'error'>(
+    initialDraftId ? 'ready_for_execution' : 'drafting',
+  );
 
-  const runAuthoring = async () => {
+  const resourceRefs = useMemo(() => {
+    const parsed = parseContextRefs(urlContextRefs);
+    return parsed.length > 0 ? parsed : serverContextRefs;
+  }, [serverContextRefs, urlContextRefs]);
+  const viewRevision = isRecord(activeSkillViewRevision) ? activeSkillViewRevision : null;
+  const activeDraftId = getDraftId(draft);
+  const activeRevision = getDraftRevision(draft);
+
+  const handleClose = () => {
+    const params = new URLSearchParams(searchParams);
+    params.set('file', 'welcome');
+    params.delete('adapter');
+    setSearchParams(params);
+  };
+
+  const updateUrlFromResult = (result: RecordValue, responseOperationId?: string) => {
+    const nextDraft = isRecord(result.draft) ? result.draft : null;
+    const nextOperation = isRecord(result.operation) ? result.operation : null;
+    const nextDraftId = getDraftId(nextDraft);
+    const nextOperationId = stringValue(responseOperationId) ??
+      stringValue(nextOperation?.operation_id) ??
+      stringValue(nextOperation?.operationId);
+    const params = new URLSearchParams(searchParams);
+    params.set('file', 'skill_builder');
+    params.set('request', prompt);
+    params.set('template', urlTemplate);
+    params.set('workspace_scope', workspaceScope);
+    if (urlContextRefs) params.set('context_refs', urlContextRefs);
+    if (nextDraftId) params.set('draft_id', nextDraftId);
+    if (nextOperationId) params.set('operation_id', nextOperationId);
+    setSearchParams(params);
+    if (nextDraft) setDraft(nextDraft);
+    if (nextOperation) setOperation(nextOperation);
+  };
+
+  const generateDraft = async () => {
     if (!prompt.trim()) {
-      setError('请输入真实需求，服务端 Agent 将基于当前 Source/Golden 上下文生成草稿。');
-      return false;
+      setError('请输入真实需求；也可以从首页带入 request、template、context refs 和 workspace scope。');
+      return;
     }
     setBusy(true);
     setError('');
+    setStatus('drafting');
     try {
       const response = await getWorkspaceAdapter().command({
         command: 'skill-authoring.start',
         payload: {
           prompt: prompt.trim(),
-          resourceRefs: resourceStore.getState()
-            .filter((resource: any) =>
-              typeof (resource.goldenRevisionId ?? resource.golden_revision_id) === 'string' &&
-              typeof (resource.assetId ?? resource.asset_id) === 'string')
-            .map((resource: any) => ({
-              kind: 'golden_asset',
-              object_id: String(resource.assetId ?? resource.asset_id),
-              revision: String(resource.goldenRevisionId ?? resource.golden_revision_id),
-              scope: resource.space === 'team' ? 'team' : 'personal',
-            })),
-          scope: 'personal',
-          requestedKind: adapter === 'semantic'
-            ? 'semantic'
-            : adapter === 'mcp_custom' || adapter === 'web_api'
-            ? 'analysis'
-            : 'knowledge',
+          resourceRefs,
+          fixedRevisions: resourceRefs.map((ref) => ref.revision),
+          requestedKind,
+          scope: workspaceScope,
           displayName: prompt.trim().slice(0, 80),
         },
       }, createRequestContext());
-      const result = response.result ?? {};
-      if (!response.accepted || !result.draft) throw new Error(String(result.error?.message ?? 'Agent 未返回 SkillDraft。'));
-      setDraft(result.draft);
-      setOperation(result.operation ?? null);
-      setManifest(JSON.stringify(result.draft.manifest ?? {}, null, 2));
-      return true;
+      const result = isRecord(response.result) ? response.result : {};
+      if (!response.accepted) {
+        throw new Error(String((isRecord(result.error) ? result.error.message : undefined) ?? '服务端未接受 SkillDraft 生成请求。'));
+      }
+      updateUrlFromResult(result, response.operationId);
+      setStatus(result.status === 'awaiting_input' ? 'awaiting_input' : 'ready_for_execution');
+      await bootstrapWorkspace(undefined, getWorkspaceAdapter()).catch(() => undefined);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Agent authoring 失败。');
-      return false;
+      setStatus('error');
+      setError(cause instanceof Error ? cause.message : 'SkillDraft 生成失败。');
     } finally {
       setBusy(false);
     }
   };
 
-  const executeAuthoring = async () => {
-    if (!draft?.draft_id) {
+  const executeDraft = async () => {
+    if (!activeDraftId) {
       setError('缺少服务端 SkillDraft，不能执行。');
-      return false;
+      return;
     }
     setBusy(true);
     setError('');
+    setStatus('executing');
     try {
       const response = await getWorkspaceAdapter().command({
         command: 'skill-authoring.execute',
-        payload: { draftId: draft.draft_id, revision: draft.revision },
+        payload: { draftId: activeDraftId, revision: activeRevision ?? null },
       }, createRequestContext());
-      const result = response.result ?? {};
-      if (!response.accepted || (result.status && !['succeeded', 'ready_for_execution'].includes(String(result.status)))) {
-        throw new Error(String(result.error?.message ?? 'Runner 未确认执行成功。'));
+      const result = isRecord(response.result) ? response.result : {};
+      if (!response.accepted || ['failed', 'cancelled', 'credential_blocked'].includes(String(result.status))) {
+        throw new Error(String((isRecord(result.error) ? result.error.message : undefined) ?? 'Runner 未确认执行完成。'));
       }
-      setOperation(result.operation ?? operation);
-      setDraft(result.draft ?? draft);
-      setArtifact(result.operation?.artifactResult ?? result.operation?.artifact_result ?? null);
+      updateUrlFromResult(result, response.operationId);
       await bootstrapWorkspace(undefined, getWorkspaceAdapter());
-      return true;
+      setStatus('revision_ready');
     } catch (cause) {
+      setStatus('error');
       setError(cause instanceof Error ? cause.message : 'Runner execution 失败。');
-      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const handleNext = async () => {
-    if (step === 1 && !(await runAuthoring())) return;
-    if (step === 4 && !(await executeAuthoring())) return;
-    setStep(s => Math.min(6, s + 1));
-  };
-  const handlePrev = () => setStep(s => Math.max(1, s - 1));
-  const handleClose = () => {
-    const p = new URLSearchParams(searchParams);
-    p.set('file', 'welcome');
-    p.delete('adapter');
-    setSearchParams(p);
-  };
-
-  const handlePublish = async (space: 'personal' | 'team') => {
-    if (!draft?.draft_id) { setError('缺少服务端 SkillDraft，不能发布。'); return; }
-    setBusy(true); setError('');
-    try {
-      const response = await getWorkspaceAdapter().command({
-        command: 'publication.publish',
-        payload: { draftId: draft.draft_id, revision: draft.revision, semver: '0.1.0' },
-      }, createRequestContext());
-      const result = response.result ?? {};
-      if (!response.accepted || result.status !== 'succeeded') throw new Error(String(result.error?.message ?? '评测门禁未通过，Skill 未发布。'));
-      showToast?.(`Skill 已由服务端发布至 ${space === 'team' ? '团队' : '个人'}空间。`);
-    const p = new URLSearchParams(searchParams);
-    p.set('file', draft.draft_id);
-    p.delete('adapter');
-    setSearchParams(p);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '发布失败。');
-    } finally { setBusy(false); }
-  };
-
-  const renderStepContent = () => {
-    switch (step) {
-      case 1:
-        return (
-          <div className="space-y-6 animate-in slide-in-from-right-4">
-            <h3 className="font-bold text-slate-800 text-lg">描述真实需求 (Adapter: {adapter})</h3>
-            <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="例如：基于当前 MCP CPU 数据生成利用率趋势 Dashboard，并解释变化原因。" className="w-full min-h-28 px-4 py-3 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500" />
-            <div className="bg-slate-50 border border-slate-200 p-5 rounded-xl">
-              {adapter === 'web_api' && <input type="text" defaultValue={rawAdapter === 'web_discovery' ? 'https://example.com/api' : ''} placeholder="输入网页/API 文档 URL..." className="w-full px-4 py-3 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500" />}
-              {adapter === 'semantic' && (
-                <select value={selectedConnection} onChange={e=>setSelectedConnection(e.target.value)} className="w-full px-4 py-3 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500">
-                  <option value="">选择已有数据库连接...</option>
-                  {connections.map((c:any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              )}
-              {adapter === 'mcp_custom' && <input type="text" placeholder="配置 MCP Endpoint..." className="w-full px-4 py-3 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500" />}
-              {adapter === 'knowledge_tool' && <select className="w-full px-4 py-3 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500"><option>选择知识库来源...</option><option>本地上传或飞书</option></select>}
-            </div>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="space-y-6 animate-in slide-in-from-right-4 h-full flex flex-col">
-            <h3 className="font-bold text-slate-800 text-lg">发现与解析任务完成</h3>
-            {adapter === 'web_api' && (
-              <div className="flex-1 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <table className="w-full text-sm text-left whitespace-nowrap bg-white">
-                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <tr><th className="px-4 py-3 w-12 text-center">勾选</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Path</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {candidateEndpoints.map(e => (
-                      <tr key={e.id} className="hover:bg-blue-50 cursor-pointer" onClick={() => setCandidateEndpoints(prev => prev.map(p => p.id === e.id ? {...p, selected: !p.selected} : p))}>
-                        <td className="px-4 py-3 text-center"><input type="checkbox" checked={e.selected} readOnly className="rounded text-blue-600"/></td>
-                        <td className="px-4 py-3 font-mono font-bold text-blue-700">{e.method}</td>
-                        <td className="px-4 py-3 font-mono text-slate-700">{e.path}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {adapter === 'semantic' && (
-               <div className="flex-1 bg-[#0d1117] p-4 rounded-xl text-slate-300 font-mono text-sm whitespace-pre-wrap"><textarea value={mdlCode} onChange={e=>setMdlCode(e.target.value)} className="w-full h-full bg-transparent outline-none resize-none custom-scrollbar" /></div>
-            )}
-            {(adapter === 'mcp_custom' || adapter === 'knowledge_tool') && (
-               <div className="flex-1 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-500">{draft ? `Agent 已返回 ${draft.plan?.nodes?.length ?? 0} 个计划节点与真实上下文。` : '等待 Agent 基于服务端上下文返回候选。'}</div>
-            )}
-          </div>
-        );
-      case 3:
-        return (
-          <div className="space-y-6 animate-in slide-in-from-right-4 h-full flex flex-col">
-            <h3 className="font-bold text-slate-800 text-lg">统一编辑 Manifest</h3>
-            <div className="flex-1 bg-[#0d1117] p-4 rounded-xl text-green-400 font-mono text-sm"><textarea value={manifest} onChange={e=>setManifest(e.target.value)} className="w-full h-full bg-transparent outline-none resize-none custom-scrollbar" /></div>
-          </div>
-        );
-      case 4:
-        return (
-          <div className="space-y-6 animate-in slide-in-from-right-4 h-full flex flex-col items-center justify-center">
-            <Play size={48} className="text-blue-500 mb-4" />
-            <h3 className="font-bold text-slate-800 text-lg mb-2">测试控制台就绪</h3>
-            <button onClick={() => void executeAuthoring()} disabled={busy} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm outline-none hover:bg-blue-700 disabled:opacity-50">{busy ? '执行中…' : '由 Runner 执行真实产物'}</button>
-          </div>
-        );
-      case 5:
-        return (
-          <div className="space-y-6 animate-in slide-in-from-right-4 h-full flex flex-col items-center justify-center">
-            <Save size={48} className="text-green-500 mb-4" />
-            <h3 className="font-bold text-slate-800 text-lg mb-2">保存通用 Skill 版本</h3>
-            <p className="text-slate-500 text-sm">服务端 Draft revision：{draft?.revision ?? '—'}；trace：{operation?.trace_id ?? '—'}</p>
-            {artifact && (
-              <p className="mt-3 max-w-xl break-all rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
-                Dashboard artifact revision：{artifact.revisionId ?? artifact.revision_id ?? '—'}
-                {' · '}HTML digest：{artifact.htmlDigest ?? artifact.html_digest ?? '—'}
-              </p>
-            )}
-          </div>
-        );
-      case 6:
-        return (
-          <div className="space-y-6 animate-in slide-in-from-right-4 h-full flex flex-col items-center justify-center">
-            <Globe size={48} className="text-purple-500 mb-4" />
-            <h3 className="font-bold text-slate-800 text-lg mb-4">发布目标</h3>
-            <div className="flex space-x-4">
-              <button onClick={() => void handlePublish('personal')} disabled={busy} className="px-6 py-3 border border-blue-200 bg-blue-50 text-blue-700 rounded-xl font-bold shadow-sm hover:bg-blue-100 outline-none disabled:opacity-50">保存为个人草稿</button>
-              <button onClick={() => void handlePublish('team')} disabled={busy} className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-sm hover:bg-blue-700 outline-none disabled:opacity-50">评测通过后发布到团队</button>
-            </div>
-          </div>
-        );
-      default: return null;
-    }
+  const openRightAgent = () => {
+    const params = new URLSearchParams(searchParams);
+    params.set('pane', 'open');
+    setSearchParams(params);
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative animate-in fade-in duration-300 z-50">
-      <div className="h-16 px-6 border-b border-slate-200 flex items-center bg-white shrink-0 shadow-sm">
-        <button onClick={handleClose} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 mr-4 outline-none"><ArrowLeft size={18} /></button>
-        <h2 className="font-bold text-slate-800 text-lg tracking-tight">通用 Skill Builder <span className="ml-2 text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">{adapter}</span></h2>
-      </div>
-      
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-w-0">
-        <div className="w-full md:w-[240px] bg-white border-r border-slate-200 p-6 shrink-0 flex flex-row md:flex-col gap-4 overflow-x-auto custom-scrollbar shadow-sm z-10">
-          {steps.map((s, i) => (
-            <div key={s} className={cn("flex items-center text-sm font-bold", step === i + 1 ? "text-blue-600" : step > i + 1 ? "text-green-500" : "text-slate-400")}>
-              <div className={cn("w-6 h-6 rounded-full flex items-center justify-center mr-3 shrink-0", step === i + 1 ? "bg-blue-100" : step > i + 1 ? "bg-green-100" : "bg-slate-100")}>{step > i + 1 ? <CheckCircle2 size={12}/> : i + 1}</div>
-              <span className="whitespace-nowrap">{s}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex-1 bg-white p-8 overflow-y-auto flex flex-col h-full custom-scrollbar">
-          <div className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl p-8 shadow-inner overflow-hidden">
-            {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-            {renderStepContent()}
+    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            aria-label="返回工作区首页"
+            onClick={handleClose}
+            className="rounded-lg p-2 text-slate-500 outline-none hover:bg-slate-100 focus:ring-2 focus:ring-blue-500"
+          >
+            <BackIcon className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold text-slate-900">Skill Builder</h1>
+            <p className="truncate text-xs text-slate-500">业务材料 → 模板匹配 → Agent 澄清 → Skill HTML revision → 评测与发布</p>
           </div>
-          <div className="flex justify-between mt-6 pt-4 shrink-0">
-            <button onClick={handlePrev} disabled={step === 1} className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 outline-none">上一步</button>
-            {step < 6 ? (
-              <button onClick={() => void handleNext()} disabled={busy} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 flex items-center outline-none disabled:opacity-50">{busy ? '服务端处理中…' : '下一步'} <ChevronRight size={16} className="ml-1"/></button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAuditOpen((value) => !value)}
+          aria-expanded={auditOpen}
+          className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500"
+        >
+          <AuditIcon className="mr-1.5 h-4 w-4" /> 高级详情 / 审计
+        </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <aside className="w-full shrink-0 border-b border-slate-200 bg-white p-4 lg:w-[300px] lg:border-b-0 lg:border-r">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">当前主路径</div>
+            <ol className="mt-3 space-y-3 text-sm text-slate-700">
+              {['放入业务材料', '选择模板或由 Agent 自动匹配', 'Agent 澄清并生成 Skill', 'HTML Skill 主视图', '试运行与评测', '发布到个人、团队或 Agent'].map((item, index) => (
+                <li key={item} className="flex gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">{index + 1}</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+            <label className="block text-xs font-bold text-slate-700" htmlFor={promptInputId}>真实需求</label>
+            <textarea
+              id={promptInputId}
+              data-testid="skill-builder-prompt"
+              value={prompt}
+              onChange={(event) => setPrompt(event.currentTarget.value)}
+              rows={5}
+              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-blue-500"
+              placeholder="请输入真实需求"
+            />
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+              <dt className="text-slate-400">template</dt>
+              <dd className="truncate font-mono text-slate-700">{urlTemplate}</dd>
+              <dt className="text-slate-400">workspace</dt>
+              <dd className="truncate font-mono text-slate-700">{workspaceScope}</dd>
+              <dt className="text-slate-400">context refs</dt>
+              <dd className="truncate font-mono text-slate-700">{resourceRefs.length || '等待服务端/首页传入'}</dd>
+            </dl>
+            {status === 'awaiting_input' && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                Agent 需要澄清。请在右侧 Agent 面板继续回答；W4 不会在前端伪造澄清结果。
+              </div>
+            )}
+            {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void generateDraft()}
+                disabled={busy || !prompt.trim()}
+                className="inline-flex flex-1 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                <SparkIcon className="mr-1.5 h-4 w-4" /> {busy && status === 'drafting' ? '生成中…' : '生成 SkillDraft'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void executeDraft()}
+                disabled={busy || !activeDraftId}
+                className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <PlayIcon className="mr-1.5 h-4 w-4" /> {busy && status === 'executing' ? '执行中…' : '确认执行'}
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Skill HTML 主视图</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Dashboard、Semantic、SOP、Knowledge、Graph、Monitoring 均通过 typed ViewModel / trusted HTML revision 渲染。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openRightAgent}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500"
+                >
+                  通过右侧 Agent 修改
+                </button>
+              </div>
+            </section>
+
+            {viewRevision ? (
+              <TrustedHtmlArtifactRenderer revision={viewRevision as any} />
             ) : (
-              <button disabled className="px-6 py-2.5 bg-green-600 text-white rounded-xl text-sm font-bold shadow-sm opacity-50 flex items-center outline-none"><CheckCircle2 size={16} className="mr-1"/> 待发布</button>
+              <GatedHtmlState template={urlTemplate} prompt={prompt} />
             )}
           </div>
-        </div>
+        </main>
+
+        {auditOpen && (
+          <aside className="w-full shrink-0 overflow-y-auto border-t border-slate-200 bg-slate-950 p-4 text-slate-100 lg:w-[360px] lg:border-l lg:border-t-0">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Manifest / BuildPlan / trace / revision 审计</h2>
+              <button
+                type="button"
+                onClick={() => setAuditOpen(false)}
+                className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 outline-none hover:bg-slate-900 focus:ring-2 focus:ring-blue-400"
+              >
+                收起
+              </button>
+            </div>
+            <p className="mb-3 text-xs leading-5 text-slate-400">
+              BuildPlan 由真实 Agent 在服务端生成；这里仅用于审计、排错和查看进度，不允许用户手工编辑伪 Pipeline 或 JSON Manifest。
+            </p>
+            <pre className="max-h-[calc(100vh-190px)] overflow-auto rounded-xl border border-slate-800 bg-black/40 p-3 text-[11px] leading-5 text-slate-100">
+              {JSON.stringify(auditPayload(draft, operation, viewRevision), null, 2)}
+            </pre>
+          </aside>
+        )}
       </div>
     </div>
   );

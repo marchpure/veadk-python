@@ -1,170 +1,175 @@
-import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Wand2, ArrowRight, MessageSquare } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { useEffect, type SVGProps } from 'react';
 
-export default function PropertyEditor({ editTarget, searchParams, setSearchParams, showToast }: any) {
-  const chartTitle = searchParams.get('chartTitle') || '按周销售与利润趋势';
-  const chartType = searchParams.get('chartType') || 'line';
+function IconBase({ children, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {children}
+    </svg>
+  );
+}
+
+function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </IconBase>
+  );
+}
+
+function GateIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 3 5 6v5c0 4.3 2.8 7.7 7 10 4.2-2.3 7-5.7 7-10V6l-7-3Z" />
+      <path d="M9 12h6" />
+    </IconBase>
+  );
+}
+
+function AgentEditIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 19 19 5" />
+      <path d="m14 5 5 5" />
+      <path d="M7 7h.01" />
+      <path d="M4 12h.01" />
+      <path d="M12 20h.01" />
+    </IconBase>
+  );
+}
+
+function CommentIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5a3.5 3.5 0 0 1-3.5 3.5H11l-4.5 4v-4A3.5 3.5 0 0 1 3 11.5v-5Z" />
+    </IconBase>
+  );
+}
+
+export default function PropertyEditor({ editTarget, searchParams, setSearchParams }: any) {
+  const closeEditor = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('edit');
+    setSearchParams(params);
+  };
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        const p = new URLSearchParams(searchParams);
-        p.delete('edit');
-        setSearchParams(p);
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeEditor();
       }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [searchParams, setSearchParams]);
+  });
 
-  const closeEditor = () => {
-    const p = new URLSearchParams(searchParams);
-    p.delete('edit');
-    setSearchParams(p);
-  };
+  const openAgentEdit = () => {
+    const fileId = searchParams.get('file') ?? '';
+    const item = {
+      id: editTarget,
+      name: `元素 ${editTarget}`,
+      type: 'element',
+      artifactId: fileId,
+      selectionIdentity: editTarget,
+    };
+    window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item } }));
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const p = new URLSearchParams(searchParams);
-    p.set('chartTitle', e.target.value);
-    setSearchParams(p);
-  };
-
-  const handleTypeChange = (type: string) => {
-    const p = new URLSearchParams(searchParams);
-    p.set('chartType', type);
-    setSearchParams(p);
-  };
-
-  const applyChanges = () => {
-    showToast('修改已成功应用');
-    closeEditor();
-  };
-
-  const cancelChanges = () => {
-    const p = new URLSearchParams(searchParams);
-    p.delete('chartTitle');
-    p.delete('chartType');
-    p.delete('edit');
-    setSearchParams(p);
-  };
-
-  const renderContent = () => {
-    if (editTarget === 'chart_trend') {
-      return (
-        <div className="flex flex-col h-full">
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-sm font-medium text-slate-800 mb-2">图表标题</h4>
-              <input type="text" value={chartTitle} onChange={handleTitleChange} className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-slate-800 mb-2">图表类型</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <button 
-                  className={cn("border py-2 rounded-lg text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-blue-300", chartType === 'line' ? "border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-500" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}
-                  onClick={() => handleTypeChange('line')}
-                >
-                  折线图
-                </button>
-                <button 
-                  className={cn("border py-2 rounded-lg text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-blue-300", chartType === 'bar' ? "border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-500" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}
-                  onClick={() => handleTypeChange('bar')}
-                >
-                  柱状图
-                </button>
-              </div>
-            </div>
-            <div className="pt-6 border-t border-slate-200 mt-6">
-            <div className="flex space-x-2 mb-4">
-              <button className="flex-1 py-1.5 bg-purple-50 text-purple-700 rounded text-xs font-medium hover:bg-purple-100 transition-colors outline-none focus:ring-2 focus:ring-purple-300" onClick={() => {
-                const item = { id: editTarget, name: editTarget, type: 'element', artifactId: searchParams.get('file') };
-                window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item } }));
-                const p = new URLSearchParams(searchParams);
-                p.delete('edit');
-                p.set('action', 'ai_edit_element');
-                p.set('target_elements', editTarget);
-                setSearchParams(p);
-              }}><Wand2 size={14} className="inline mr-1 -mt-0.5"/>用 AI 修改</button>
-              <button className="flex-1 py-1.5 bg-blue-50 text-blue-700 rounded text-xs font-medium hover:bg-blue-100 transition-colors outline-none focus:ring-2 focus:ring-blue-300" onClick={() => {
-                const p = new URLSearchParams(searchParams);
-                p.delete('edit');
-                p.set('comment_target', editTarget);
-                setSearchParams(p);
-              }}><MessageSquare size={14} className="inline mr-1 -mt-0.5"/>评论</button>
-            </div>
-            
-            <h4 className="text-sm font-medium text-slate-800 mb-3 flex items-center">
-              <Sparkles size={14} className="text-purple-600 mr-1.5" />
-              AI 辅助修改
-            </h4>
-            <textarea 
-              className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 resize-none h-24 mb-3 transition-shadow"
-              placeholder="例如：将销售额和利润分开两个Y轴显示..."
-            ></textarea>
-              <button className="w-full bg-purple-600 text-white hover:bg-purple-700 py-2 rounded-lg text-sm font-medium transition-colors flex justify-center items-center shadow-sm outline-none focus:ring-2 focus:ring-purple-300">
-                <Wand2 size={14} className="mr-1.5" /> 预览修改
-              </button>
-            </div>
-          </div>
-          
-          <div className="mt-auto pt-6 flex space-x-3 pb-2">
-            <button className="flex-1 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors outline-none focus:ring-2 focus:ring-slate-200" onClick={cancelChanges}>取消</button>
-            <button className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm outline-none focus:ring-2 focus:ring-blue-300" onClick={applyChanges}>应用修改</button>
-          </div>
-        </div>
-      );
-    }
-    
-    // Generic fallback for other elements
-    return (
-      <div className="flex flex-col items-center justify-center text-center text-slate-500 py-12 px-4">
-        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-          <Sparkles size={20} className="text-slate-400" />
-        </div>
-        <h4 className="text-sm font-medium text-slate-700 mb-2">已选中元素 ({editTarget})</h4>
-        <p className="text-xs leading-relaxed mb-6">您可以在此快速编辑该元素的属性，或使用 AI 助手进行智能调整。</p>
-        
-        <div className="flex space-x-2 w-full mb-6">
-          <button className="flex-1 py-2 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-100 transition-colors outline-none focus:ring-2 focus:ring-purple-300" onClick={() => {
-            const item = { id: editTarget, name: editTarget, type: 'element', artifactId: searchParams.get('file') };
-            window.dispatchEvent(new CustomEvent('add_context_item', { detail: { item } }));
-            const p = new URLSearchParams(searchParams);
-            p.delete('edit');
-            p.set('action', 'ai_edit_element');
-            p.set('target_elements', editTarget);
-            setSearchParams(p);
-          }}><Wand2 size={14} className="inline mr-1 -mt-0.5"/>用 AI 修改</button>
-          <button className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors outline-none focus:ring-2 focus:ring-blue-300" onClick={() => {
-            const p = new URLSearchParams(searchParams);
-            p.delete('edit');
-            p.set('comment_target', editTarget);
-            setSearchParams(p);
-          }}><MessageSquare size={14} className="inline mr-1 -mt-0.5"/>评论</button>
-        </div>
-
-        <button className="text-sm text-blue-600 font-medium hover:text-blue-700 flex items-center outline-none focus:ring-2 focus:ring-blue-300 rounded px-2 py-1" onClick={closeEditor}>
-          完成编辑 <ArrowRight size={14} className="ml-1" />
-        </button>
-      </div>
-    );
+    const params = new URLSearchParams(searchParams);
+    params.delete('edit');
+    params.set('pane', 'open');
+    params.set('action', 'ai_edit_element');
+    params.set('target_elements', editTarget);
+    setSearchParams(params);
   };
 
   return (
-    <div 
-      className="h-full min-h-0 flex flex-col overflow-hidden bg-white relative"
+    <div
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-white"
       role="dialog"
       aria-modal="true"
       aria-labelledby="property-editor-title"
     >
-      <div className="shrink-0 flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50/50">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50/50 p-4">
         <h3 id="property-editor-title" className="font-medium text-slate-800">属性编辑</h3>
-        <button onClick={closeEditor} aria-label="关闭" title="关闭" className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors outline-none">
-          <X size={18} />
+        <button
+          type="button"
+          onClick={closeEditor}
+          aria-label="关闭属性编辑"
+          title="关闭"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          <CloseIcon className="h-4.5 w-4.5" />
         </button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto p-5">
-        {renderContent()}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-white/70">
+              <GateIcon className="h-4.5 w-4.5" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm font-semibold">等待服务端属性面板</h4>
+              <p className="mt-1 text-xs leading-5">
+                当前元素已可作为 Agent 上下文使用，但服务端尚未返回可编辑的 typed 属性模型。页面不会通过 URL 参数、本地字段或固定数组应用修改。
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <dl className="grid gap-3 text-xs">
+            <div>
+              <dt className="font-semibold text-slate-500">选中元素</dt>
+              <dd className="mt-1 break-all text-slate-800">{editTarget || '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-500">所属资源</dt>
+              <dd className="mt-1 break-all text-slate-800">{searchParams.get('file') || '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-500">需要的 seam</dt>
+              <dd className="mt-1 text-slate-700">ViewRevision component selection + typed editable props + skill-authoring.patch</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div className="mt-auto grid gap-3">
+          <button
+            type="button"
+            onClick={openAgentEdit}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            <AgentEditIcon className="mr-2 h-4 w-4" />
+            用 Agent 生成修改草稿
+          </button>
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="等待服务端评论接口"
+            className="inline-flex min-h-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-400"
+          >
+            <CommentIcon className="mr-2 h-4 w-4" />
+            评论等待服务端接入
+          </button>
+          <button
+            type="button"
+            onClick={closeEditor}
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+          >
+            关闭
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -25,7 +25,9 @@ test("home is a single central Composer and does not persist demo completion sta
     "desktop and mobile home must share the same central Composer",
   );
   assert.doesNotMatch(layout, /demo_(published|reused|chat_chips|workspace_empty)/);
-  assert.match(read("frozen-ui/components/Layout/HomeComposer.tsx"), /你想把哪些数据或知识加工成什么能力/);
+  assert.match(read("frozen-ui/components/Layout/HomeComposer.tsx"), /今天想解决什么业务问题/);
+  assert.match(layout, /isHomeChat \? \(paneState !== 'closed'\)/);
+  assert.match(layout, /<RightPane[\s\S]*isHomeChat=\{isHomeChat\}/);
 });
 
 test("personal and team navigation expose exactly the three lifecycle roots", () => {
@@ -53,9 +55,11 @@ test("the review acceptance drawer is reachable as the v212 entry route", () => 
   assert.match(entryDrawer, /进入企业知识旅程/);
 });
 
-test("Capability Matrix east dashboard routes do not fall back to home", () => {
-  assert.match(mainArea, /fileId === 'res_dash_east'/);
-  assert.match(mainArea, /const isDash = .*res_dash_east/);
+test("unknown Capability Matrix artifact routes keep a gated deep link instead of falling back to home", () => {
+  assert.match(mainArea, /ProductionRouteUnavailable/);
+  assert.match(mainArea, /isProductionRouteAvailable\(fileId\)/);
+  assert.doesNotMatch(mainArea, /res_dash_east/);
+  assert.doesNotMatch(mainArea, /set\('file', 'welcome'\)/);
 });
 
 test("journey stages are server-derived and expose one primary CTA", () => {

@@ -341,7 +341,7 @@ export function SkillViewShell({
           payload: {
             draftId,
             baseRevision: currentRevision,
-            patch: { patchType: "set_title", title },
+            patch: { patch_type: "set_title", title },
           },
         },
         createRequestContext(),
@@ -380,7 +380,7 @@ export function SkillViewShell({
           payload: {
             draftId,
             baseRevision: currentRevision,
-            patch: { patchType: "set_title", title: pendingDiff.before },
+            patch: { patch_type: "set_title", title: pendingDiff.before },
           },
         },
         createRequestContext(),

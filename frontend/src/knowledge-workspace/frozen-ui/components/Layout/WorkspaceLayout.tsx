@@ -16,7 +16,6 @@ import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { resourceStore, useStore, getResourceDescriptor } from '../../lib/store';
 import { getServerContextRef } from '../../../production/domainClient';
-import { actionLoopStore, defaultActionLoopState } from '../../lib/actionLoopStore';
 import HomeComposer from './HomeComposer';
 import V212EntryDrawer from './V212EntryDrawer';
 import { trackShellEventOnce } from './shellTelemetry';
@@ -41,19 +40,6 @@ export default function WorkspaceLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileAssistantOpen, setMobileAssistantOpen] = useState(false);
 
-  const handleResetDemo = (mode: string) => {
-    if (mode === 'empty') {
-      const p = new URLSearchParams(searchParams);
-      p.set('file', 'workspace_empty');
-      setSearchParams(p);
-    } else {
-      actionLoopStore.setState(() => defaultActionLoopState);
-      const p = new URLSearchParams();
-      p.set('file', 'welcome');
-      setSearchParams(p);
-    }
-    showToast('演示环境已重置');
-  };
   const [chatChips, setChatChips] = useState<any[]>(() => {
     return [];
   });
@@ -70,7 +56,7 @@ export default function WorkspaceLayout() {
     };
     const handleDragEnd = (e: DragEvent) => {
       const state = dragStore.getState();
-      if (state.status !== 'drop-pending' && state.status !== 'success' && state.status !== 'idle') {
+      if (state.status !== 'drop-pending' && state.status !== 'idle') {
          dragStore.setState({ status: 'cancelled' });
          setTimeout(() => dragStore.setState({ status: 'idle', item: null }), 200);
       }
@@ -149,11 +135,7 @@ export default function WorkspaceLayout() {
         : item;
       const identity = getChipIdentity(nextItem);
       const exists = prev.find(p => getChipIdentity(p) === identity);
-      if (exists) {
-        setTimeout(() => showToast(`该上下文已加入`), 100);
-        return prev;
-      }
-      setTimeout(() => showToast(`已加入对话上下文`), 100);
+      if (exists) return prev;
       return [...prev, { ...nextItem, identity, manual: true }];
     });
     
@@ -190,14 +172,9 @@ export default function WorkspaceLayout() {
 
   useEffect(() => {
     if (descriptor) {
-      if (previousResourceIdentityRef.current !== descriptor.identity) {
-        previousResourceIdentityRef.current = descriptor.identity;
-        
-        const p = new URLSearchParams(searchParams);
-        if (p.get('pane') === 'closed') {
-          p.delete('pane');
-          setSearchParams(p, { replace: true });
-        }
+      const descriptorIdentity = String(descriptor.identity);
+      if (previousResourceIdentityRef.current !== descriptorIdentity) {
+        previousResourceIdentityRef.current = descriptorIdentity;
         
         setChatChips(prev => {
           if (prev.some(c => c.identity === descriptor.identity)) return prev;
@@ -218,7 +195,7 @@ export default function WorkspaceLayout() {
   const isTaskSplit = !!chatState;
   
   // Determine if right pane should be open
-  const isRightPaneOpen = !isHomeChat && (isTaskSplit || paneState === 'open' || searchParams.has('comment_target') || searchParams.has('edit') || (descriptor && paneState !== 'closed'));
+  const isRightPaneOpen = isHomeChat ? (paneState !== 'closed') : (isTaskSplit || paneState === 'open' || searchParams.has('comment_target') || searchParams.has('edit') || (descriptor && paneState !== 'closed'));
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f8fafc] text-slate-900 font-sans overflow-hidden select-none">
@@ -229,21 +206,21 @@ export default function WorkspaceLayout() {
         Layout: [248px Left] [1fr Center] [380px Right (if open) or 0px]
       */}
       <div 
+        data-kw-shell="desktop"
         className={cn(
           "flex-1 min-h-0 h-auto max-w-[1440px] mx-auto w-full bg-white border-x border-slate-200 shadow-sm overflow-hidden",
           "hidden md:grid"
         )}
         style={{
-          gridTemplateColumns: `248px minmax(0, 1fr) ${isHomeChat ? '0px' : (isRightPaneOpen ? '380px' : '0px')}`,
+          gridTemplateColumns: `248px minmax(0, 1fr) ${isRightPaneOpen ? '380px' : '0px'}`,
           transition: 'grid-template-columns 300ms ease-in-out'
         }}
       >
-        <div className="min-h-0 h-full overflow-hidden border-r border-slate-200">
+        <div data-kw-region="left-nav" className="min-h-0 h-full overflow-hidden border-r border-slate-200">
           <FileTreePane 
             fileId={fileId} 
             searchParams={searchParams} 
             setSearchParams={setSearchParams} 
-            onResetDemo={handleResetDemo}
             isMobile={false}
             publishedItems={[]}
             reusedItems={[]}
@@ -256,7 +233,7 @@ export default function WorkspaceLayout() {
           />
         </div>
         
-        <div className="min-h-0 h-full overflow-hidden min-w-0 w-full relative flex flex-col bg-slate-50/50">
+        <div data-kw-region="main" className="min-h-0 h-full overflow-hidden min-w-0 w-full relative flex flex-col bg-slate-50/50">
           {!isMobile && isHomeChat ? (
             <HomeComposer searchParams={searchParams} setSearchParams={setSearchParams} />
           ) : (
@@ -264,8 +241,8 @@ export default function WorkspaceLayout() {
           )}
         </div>
 
-        <div className="min-h-0 h-full overflow-hidden min-w-0 w-full relative">
-          {!isMobile && !isHomeChat && (
+        <div data-kw-region="agent" className="min-h-0 h-full overflow-hidden min-w-0 w-full relative">
+          {!isMobile && (
             <RightPane 
               fileId={fileId} 
               searchParams={searchParams} 
@@ -274,7 +251,7 @@ export default function WorkspaceLayout() {
               isMobile={false} 
               chatChips={chatChips}
               setChatChips={setChatChips}
-              isHomeChat={false}
+              isHomeChat={isHomeChat}
               isRightPaneOpen={isRightPaneOpen}
             />
           )}
@@ -282,7 +259,7 @@ export default function WorkspaceLayout() {
       </div>
 
       {/* Mobile Layout Fallback */}
-      <div className="flex-1 w-full h-full relative overflow-hidden md:hidden flex flex-col">
+      <div data-kw-shell="mobile" className="flex-1 w-full h-full relative overflow-hidden md:hidden flex flex-col">
          {/* Mobile Menu Drawer */}
          <div className={cn(
             "fixed inset-y-0 left-0 z-[60] bg-white transition-transform duration-300 shadow-2xl w-[280px]",
@@ -292,7 +269,7 @@ export default function WorkspaceLayout() {
           aria-modal={mobileMenuOpen ? "true" : undefined}
           aria-label={mobileMenuOpen ? "目录" : undefined}
           >
-            <FileTreePane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} isMobile={true} onClose={closeMenu} onResetDemo={handleResetDemo} publishedItems={[]} reusedItems={[]} onPublish={handlePublish} onReuse={handleReuseRequest} onAddChip={addContextItem} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
+            <FileTreePane fileId={fileId} searchParams={searchParams} setSearchParams={setSearchParams} isMobile={true} onClose={closeMenu} publishedItems={[]} reusedItems={[]} onPublish={handlePublish} onReuse={handleReuseRequest} onAddChip={addContextItem} showToast={showToast} isWorkspaceEmpty={isWorkspaceEmpty} />
           </div>
           {mobileMenuOpen && <div className="fixed inset-0 bg-slate-900/40 z-[50] backdrop-blur-sm" onClick={closeMenu} />}
           
@@ -319,9 +296,9 @@ export default function WorkspaceLayout() {
 
       {/* Modals Layer */}
       {modal === 'share' && <ShareModal onClose={closeModal} searchParams={searchParams} showToast={showToast} />}
-      {modal === 'export' && <ExportModal onClose={closeModal} showToast={showToast} />}
+      {modal === 'export' && <ExportModal onClose={closeModal} showToast={showToast} searchParams={searchParams} />}
       {modal === 'versions' && <VersionHistoryModal onClose={closeModal} searchParams={searchParams} />}
-      {modal === 'publish' && <PublishModal onClose={closeModal} onConfirm={() => { closeModal(); showToast('已成功发布到团队工作区'); }} isTeam={fileId.includes('team')} />}
+      {modal === 'publish' && <PublishModal onClose={closeModal} showToast={showToast} isTeam={fileId.includes('team')} />}
       {modal === 'create_resource' && <CreateResourceModal onClose={closeModal} searchParams={searchParams} setSearchParams={setSearchParams} />}
       {modal === 'agent_selector' && <AgentResourceSelectorModal onClose={closeModal} />}
       {modal === 'publish_agent' && <PublishAgentModal onClose={closeModal} showToast={showToast} fileId={fileId} />}
