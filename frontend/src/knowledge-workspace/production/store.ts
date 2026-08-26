@@ -67,7 +67,8 @@ export interface ConnectionViewModel {
 const PUBLIC_CONNECTION_KEYS = new Set([
   "id", "workspaceId", "connectorKey", "displayName", "scope", "ownerId",
   "status", "syncMode", "createdAt", "updatedAt", "lastSuccessAt",
-  "lastError", "discoveredResources", "discoveredTools", "isTeam", "lineage",
+  "lastError", "discoveredResources", "discoveredTools", "goldenRevisionIds",
+  "isTeam", "lineage",
 ]);
 
 export function normalizeConnection(value: unknown): ConnectionViewModel {

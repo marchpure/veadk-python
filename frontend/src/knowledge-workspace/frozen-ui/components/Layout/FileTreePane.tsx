@@ -133,6 +133,7 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     .filter((c: any) => c.type === 'source' || c.type === 'dataset')
     .map((s: any) => ({ ...s, icon: s.type === 'dataset' ? FileSpreadsheet : Database }));
   const nestedConnectionIds = new Set<string>();
+  const nestedGoldenRevisionIds = new Set<string>();
   const collectNestedIds = (items: any[]) => {
     items.forEach((item) => {
       if (item?.id) nestedConnectionIds.add(String(item.id));
@@ -140,12 +141,20 @@ export default function FileTreePane({ fileId, searchParams, setSearchParams, on
     });
   };
   collectNestedIds(mappedConnections);
+  storeConnections.forEach((connection: any) => {
+    (connection.goldenRevisionIds ?? []).forEach((revisionId: string) => {
+      nestedGoldenRevisionIds.add(String(revisionId));
+    });
+  });
   // A Golden asset is the durable projection of its source connection. Keep
   // the workspace tree dense by showing the connection once and only expose
   // standalone dataset resources that are not already nested under it.
   datasetsChildren = [
     ...mappedConnections,
-    ...personalSources.filter((item) => !nestedConnectionIds.has(String(item.id))),
+    ...personalSources.filter((item) =>
+      !nestedConnectionIds.has(String(item.id)) &&
+      !nestedGoldenRevisionIds.has(String(item.id)),
+    ),
   ].filter((item, index, items) =>
     items.findIndex((candidate) => String(candidate.id) === String(item.id)) === index,
   );
