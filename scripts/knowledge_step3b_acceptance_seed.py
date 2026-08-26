@@ -209,7 +209,7 @@ def view_for(
     )
     data = ref(f"local://acceptance/{golden_id}", kind="table")
     if template == "dashboard":
-        if "安踏" in draft.name:
+        if "安踏" in draft.name or "区域异常" in draft.name:
             kpis = [
                 DashboardKpi(key="sales", label="总销售额", value="¥ 12,450,000", unit="", trend="up"),
                 DashboardKpi(key="profit", label="总利润", value="¥ 3,210,000", unit="", trend="up"),
@@ -244,10 +244,10 @@ def view_for(
             charts=[
                 DashboardChart(
                     chart_id=f"chart-{index}",
-                    title="按周销售与利润趋势" if "安踏" in draft.name else "业务趋势",
+                    title="按周销售与利润趋势" if ("安踏" in draft.name or "区域异常" in draft.name) else "业务趋势",
                     x_field="label",
                     y_field="value",
-                    series=[{"name": "销售额" if "安踏" in draft.name else "value", "points": points}],
+                    series=[{"name": "销售额" if ("安踏" in draft.name or "区域异常" in draft.name) else "value", "points": points}],
                 )
             ],
             rows=rows,
@@ -515,13 +515,13 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
     drafts: list[SkillDraft] = []
     draft_names = [
         "蓝牙断连排查 SOP",
-        "安踏经营 Dashboard",
         "区域异常经营分析",
-        "海底捞卫生巡检 SOP",
+        "区域经营语义模型",
+        "门店卫生巡检与处置 SOP",
         "华东销售经营看板",
         "金融行情监控看板",
         "全球招聘供需看板",
-        "渠道转化趋势",
+        "蓝牙断连排查 SOP (优化草稿)",
         "销售主题模型",
         "销售话术知识库",
         "华东销售看板",
@@ -583,7 +583,7 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
     # persisted Haidilao SOP draft for the already-published monitoring
     # journey; this keeps the workspace at exactly eleven drafts and one
     # published version without making the browser infer state from labels.
-    published_draft = drafts[3]
+    published_draft = drafts[0]
     view = repository.skill_view_revision_for_template(
         f"{published_draft.id}:1", "sop"
     )

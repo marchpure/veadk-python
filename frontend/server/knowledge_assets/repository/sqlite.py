@@ -349,7 +349,11 @@ class SqliteKnowledgeAssetRepository:
                     and self.skill_view_revision(version.skill_view_ref)
                     else "skill"
                 ),
-                space="team" if role == "admin" else "personal",
+                # Publication visibility is the durable source of truth for
+                # the workspace tree. A team-visible version must remain in
+                # the team projection even when the bootstrap caller is an
+                # editor rather than the admin principal.
+                space="team" if version.visibility == "team" else "personal",
                 lifecycle="ready",
                 version=version.semver,
                 revision=int(version.skill_revision_id.rsplit(":", 1)[-1]),

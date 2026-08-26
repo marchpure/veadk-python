@@ -190,9 +190,9 @@ function dynamicStateUrls(bootstrap) {
   const findDisplayName = (name) =>
     drafts.find((item) => item.displayName === name);
   const sop = findDisplayName("蓝牙断连排查 SOP");
-  const dashboard = findDisplayName("安踏经营 Dashboard");
-  const haidilaoSop = findDisplayName("海底捞卫生巡检 SOP");
-  const optimization = findDisplayName("渠道转化趋势");
+  const dashboard = findDisplayName("区域异常经营分析");
+  const haidilaoSop = findDisplayName("门店卫生巡检与处置 SOP");
+  const optimization = findDisplayName("蓝牙断连排查 SOP (优化草稿)");
   const url = (resource, extra = "") =>
     resource
       ? `/?studio=knowledge&workspace=${encodeURIComponent(bootstrap.access.spaceId)}&file=${encodeURIComponent(resource.id)}${extra}`
