@@ -519,7 +519,7 @@ def _graph(model: GraphOntologyViewModel) -> str:
 def _sop(model: SopViewModel) -> str:
     def evidence_rows(step: SopStepResult) -> str:
         return "".join(
-            f'<li><code>{_e(item.locator)}</code><span>{_e(item.summary)}</span></li>'
+            f'<li><span>{_e(item.summary)}</span></li>'
             for item in step.evidence
         )
 
@@ -530,8 +530,7 @@ def _sop(model: SopViewModel) -> str:
         f'<span class="state state-{_e(step.status)}">{_status_label(step.status)}</span></div>'
         f'<p class="step-message">{_e(step.message) or "已完成该步骤，并保留了可追溯证据。"}</p>'
         f'<div class="step-detail"><span>{_e(_join(step.tool_refs) or "服务端步骤")}</span>'
-        f'<span>{len(step.evidence)} 条证据</span><span>{_e(_status_label(step.branch))}</span></div>'
-        f'{f"<p class=\"input-summary\">{_e(step.input_summary)}</p>" if step.input_summary else ""}'
+        f'<span>{len(step.evidence)} 条证据</span></div>'
         f'<ul class="evidence-list compact">{evidence_rows(step) or "<li class=\"quiet\">该步骤没有附加证据。</li>"}</ul>'
         f'<div class="step-actions"><button class="text-action" type="button" '
         f'data-artifact-event="selection.change" data-step-id="{_e(step.step_id)}">查看步骤</button>'

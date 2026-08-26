@@ -316,6 +316,16 @@ def view_for(
                             summary=detail,
                         )
                     ],
+                    # The result state is a real acceptance run, so keep its
+                    # input visible in the same server-projected context card
+                    # as the product journey.  The value is derived from the
+                    # persisted Golden revision, never copied from prototype
+                    # business data.
+                    input_summary=(
+                        f"验收案例：蓝牙异常排查 · 数据修订 {golden_id}"
+                        if step_index == 0 and "蓝牙" in draft.name
+                        else ""
+                    ),
                 )
                 for step_index, (title, message, tool, detail) in enumerate(step_data)
             ],
