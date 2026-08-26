@@ -436,6 +436,7 @@ class SqliteKnowledgeAssetRepository:
                     "revision": version.skill_revision_id.rsplit(":", 1)[-1],
                     "version": version.semver,
                     "status": version.status,
+                    "visibility": version.visibility,
                 }
                 for row in published_rows
                 for version in [

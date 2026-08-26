@@ -95,7 +95,7 @@ def test_worker_d_evaluation_preserves_confirmed_cases_and_persisted_suite_versi
     assert "suiteVersion: persistedVersion" in evaluation_center
 
 
-def test_worker_d_fail_closes_missing_main_contracts_instead_of_faking_persistence() -> None:
+def test_worker_d_publish_ui_uses_main_contract_and_fails_closed_on_server_response() -> None:
     publish_modal = (
         ROOT
         / "frontend/src/knowledge-workspace/frozen-ui/components/Modals/PublishAgentModal.tsx"
@@ -109,10 +109,9 @@ def test_worker_d_fail_closes_missing_main_contracts_instead_of_faking_persisten
         / "frontend/src/knowledge-workspace/frozen-ui/components/RightPane/CommentThread.tsx"
     ).read_text(encoding="utf-8")
 
-    assert "PublicationPublishPayload.visibility" in publish_modal
-    assert "publication.publish 当前 fail closed" in publish_modal
-    assert "command: 'publication.publish'" not in publish_modal
-    assert 'command: "publication.publish"' not in publish_modal
+    assert "visibility" in publish_modal
+    assert "command: 'publication.publish'" in publish_modal
+    assert "getWorkspaceAdapter().command" in publish_modal
     assert "visibilityAcknowledged" not in publish_modal
 
     assert "action.update 只记录审计意图" in action_policy_modal

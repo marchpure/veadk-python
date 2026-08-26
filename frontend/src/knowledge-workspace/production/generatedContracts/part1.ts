@@ -1,7 +1,7 @@
 /* Generated from contracts.py; do not edit manually. */
 
-import type { EvaluationPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, JsonValue, NotReadyCommandResult, OutputContract } from "./part2";
-import type { PermissionRef, PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
+import type { EvaluationFixProposeAllPayload, EvaluationPayload, EvaluationQualityCommandResult, EvaluationRunResult, FreshnessPolicy, InputContract, InvocationStartResult, JsonValue, NotReadyCommandResult, OutputContract, PermissionRef } from "./part2";
+import type { PlanNode, PublicationPublishResult, QueryPlan, RefreshRunResult, ResourceRef, ResourceShareResult, Scope, SecretRef, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraft, SkillDraftRunResult, SkillKind } from "./part3";
 import type { SkillPatch, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TemplateSelection, ViewCell, ViewField, frontend__server__skill_authoring__models__AnalysisKindSpec, frontend__server__skill_authoring__models__GraphOntologyKindSpec, frontend__server__skill_authoring__models__KnowledgeKindSpec, frontend__server__skill_authoring__models__MonitoringKindSpec, frontend__server__skill_authoring__models__SemanticKindSpec, frontend__server__skill_authoring__models__SopKindSpec } from "./part4";
 
 export interface ActionCommand {
@@ -631,4 +631,9 @@ export interface EvaluationFixActionPayload {
 export interface EvaluationFixApplyCommand {
   command: "evaluation-fix.apply";
   payload: EvaluationFixActionPayload;
+}
+
+export interface EvaluationFixProposeAllCommand {
+  command: "evaluation-fix.propose-all-unresolved";
+  payload: EvaluationFixProposeAllPayload;
 }

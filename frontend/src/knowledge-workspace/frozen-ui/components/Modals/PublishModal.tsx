@@ -57,7 +57,6 @@ export default function PublishModal({
   const revision = Number(currentResource?.revision ?? searchParams.get('revision') ?? 0);
   const resourceName = String((descriptor?.name ?? currentResource?.displayName ?? currentResource?.name ?? currentId) || '当前 Skill');
   const canPublish = Boolean(
-    !isTeam &&
     (currentResource?.resourceKind === 'skill_draft' || currentResource?.lifecycle === 'draft') &&
     draftId &&
     Number.isFinite(revision) &&
@@ -79,6 +78,7 @@ export default function PublishModal({
           draftId,
           revision,
           semver: semver.trim(),
+          visibility: selectedDir === 'personal' ? 'personal' : 'team',
         },
       }, createRequestContext());
       if (!response.accepted) throw new Error('服务端未接受发布请求。');
@@ -137,7 +137,7 @@ export default function PublishModal({
               <GateIcon className="mr-2 h-4 w-4 text-slate-500" /> 发布门禁
             </div>
             <p className="text-xs leading-5 text-slate-600">
-              当前页面未收到 PolicyGateResult。请先运行服务端评测或由 MAIN 接入门禁结果后再发布。
+              发布门禁、版本和团队快照只能由服务端返回；若当前 revision 尚未通过评测，服务端会拒绝发布。
             </p>
           </div>
 

@@ -1,13 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { AddCitationIntentPatch, AgentAnswer, AgentExecutionEvidence, ArtifactRef, AuthoringEvent, AuthoringOperation, ContextRevisionRef, DraftRevision, ErrorEnvelope } from "./part1";
-import type { FreshnessPolicy, GoldenAssetRevision, JsonValue, LegacySkillManifestInput, PatchProposal } from "./part2";
-import type { SkillMetadata, SkillOperation, SkillResult, SkillSpec, SkillViewRevision, SkillViewShareGrant, StorageRef, TemplateRef, ViewIntent } from "./part4";
-
-export interface PermissionRef {
-  uri: string;
-  version: string;
-}
+import type { FreshnessPolicy, GoldenAssetRevision, JsonValue, LegacySkillManifestInput, OwnerRef, PatchProposal } from "./part2";
+import type { SkillResult, SkillSpec, SkillViewRevision, SkillViewShareGrant, StorageRef, TemplateRef, ViewIntent } from "./part4";
 
 export interface PlanNode {
   node_id: string;
@@ -98,6 +93,7 @@ export interface PublicationPublishPayload {
   draftId: string;
   revision: number;
   semver: string;
+  visibility?: "personal" | "team";
 }
 
 export interface PublicationPublishResult {
@@ -119,6 +115,7 @@ export interface PublishedSkillVersion {
   evaluationRunId: string;
   policyGateResultId: string;
   skillViewRef?: string | null;
+  visibility?: "personal" | "team";
   publishedAt: string;
 }
 
@@ -583,4 +580,21 @@ export interface SkillManifest {
 export interface SkillManifestAction {
   name: string;
   description?: string;
+}
+
+export interface SkillMetadata {
+  id: string;
+  version: string;
+  displayName: string;
+  description?: string;
+  owner: OwnerRef;
+  digest?: string | null;
+}
+
+export interface SkillOperation {
+  name: string;
+  description?: string;
+  inputSchemaRef: SchemaRef;
+  outputSchemaRef: SchemaRef;
+  risk?: "read_only" | "external_write" | "high_risk";
 }

@@ -231,6 +231,7 @@ class PublicationPublishPayload(ContractModel):
     draft_id: str = Field(min_length=1, max_length=256)
     revision: int = Field(ge=1)
     semver: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
+    visibility: Literal["personal", "team"] = "team"
 
 
 class RefreshRunPayload(ContractModel):

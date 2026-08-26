@@ -275,7 +275,8 @@
           "default": "skill_draft",
           "enum": [
             "skill_draft",
-            "golden_asset"
+            "golden_asset",
+            "published_skill"
           ],
           "title": "Resourcekind",
           "type": "string"
@@ -285,7 +286,12 @@
           "enum": [
             "skill",
             "dataset",
-            "knowledge"
+            "knowledge",
+            "dashboard",
+            "semantic",
+            "sop",
+            "graph_ontology",
+            "monitoring"
           ],
           "title": "Subtype",
           "type": "string"
@@ -358,6 +364,44 @@
           ],
           "default": null,
           "title": "Traceid"
+        },
+        "viewRevisionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewrevisionid"
+        },
+        "readModel": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Readmodel"
+        },
+        "skillViewRevision": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skillviewrevision"
         }
       },
       "required": [

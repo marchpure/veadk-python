@@ -537,7 +537,7 @@ function legacyCommand(
     case "publication.publish":
       return {
         command,
-        payload: { draftId: "legacy", revision: 1, semver: "1.0.0" },
+        payload: { draftId: "legacy", revision: 1, semver: "1.0.0", visibility: "team" },
       };
     case "refresh.run":
       return {

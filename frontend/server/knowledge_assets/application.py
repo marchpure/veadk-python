@@ -3982,6 +3982,7 @@ class KnowledgeAssetApplication:
                         evaluation_run_id=run.id,
                         policy_gate_result_id=gate.id,
                         skill_view_ref=view.id,
+                        visibility=typed.visibility,
                         published_at=now_iso(),
                     )
                     self.repository.save_published_skill_version(version)

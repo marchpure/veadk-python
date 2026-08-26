@@ -122,6 +122,7 @@ export interface PublicationPublishPayload {
   draftId: string;
   revision: number;
   semver: string;
+  visibility: "personal" | "team";
 }
 export interface RefreshRunPayload {
   skillId: string;

@@ -227,7 +227,7 @@ export type GeneratedCommand =
   }
   | {
     command: "publication.publish";
-    payload: { draftId: string; revision: number; semver: string };
+    payload: { draftId: string; revision: number; semver: string; visibility: "personal" | "team" };
   }
   | {
     command: "refresh.run";

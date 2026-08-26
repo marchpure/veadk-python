@@ -1,25 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { ArtifactRef, CaseCategory, CaseSource, ChartViewModel, CleanRun, CleanRunRecord, CleaningRecipeRecord, CompatibilityTargets, ConnectionViewModel, ConnectorOperation, ContextRevisionRef, DashboardPresentationSpec, DashboardViewModel, DataAccessKindSpec, ErrorEnvelope } from "./part1";
-import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, GraphRelationSpec, JsonValue, KnowledgeViewModel, MonitoringViewModel, OwnerRef, PatchOperation } from "./part2";
-import type { PermissionRef, PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
-
-export interface SkillMetadata {
-  id: string;
-  version: string;
-  displayName: string;
-  description?: string;
-  owner: OwnerRef;
-  digest?: string | null;
-}
-
-export interface SkillOperation {
-  name: string;
-  description?: string;
-  inputSchemaRef: SchemaRef;
-  outputSchemaRef: SchemaRef;
-  risk?: "read_only" | "external_write" | "high_risk";
-}
+import type { GoldenAssetRevision, GoldenAssetRevisionRecord, GraphOntologyViewModel, GraphRelationSpec, JsonValue, KnowledgeViewModel, MonitoringViewModel, PatchOperation, PermissionRef } from "./part2";
+import type { PolicyCheck, ProfileRun, ProfileRunRecord, QueryPlan, RunProvenance, SchemaRef, SecretRef, SemanticViewModel, SkillContract, SkillDependencies } from "./part3";
 
 export interface SkillPatch {
   patchId: string;

@@ -7431,6 +7431,60 @@
       "title": "McpCustomConnectorConfig",
       "type": "object"
     },
+    "MonitoringInvocationView": {
+      "additionalProperties": false,
+      "description": "Product-facing projection of a persisted Invocation for monitoring.",
+      "properties": {
+        "startedAt": {
+          "title": "Startedat",
+          "type": "string"
+        },
+        "traceId": {
+          "title": "Traceid",
+          "type": "string"
+        },
+        "durationMs": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Durationms"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "operationId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operationid"
+        }
+      },
+      "required": [
+        "startedAt",
+        "traceId",
+        "status"
+      ],
+      "title": "MonitoringInvocationView",
+      "type": "object"
+    },
     "MonitoringObservationView": {
       "additionalProperties": false,
       "properties": {
@@ -7560,6 +7614,13 @@
             "type": "string"
           },
           "title": "Failuretrace",
+          "type": "array"
+        },
+        "invocationRows": {
+          "items": {
+            "$ref": "#/$defs/MonitoringInvocationView"
+          },
+          "title": "Invocationrows",
           "type": "array"
         },
         "callVolume": {
@@ -9153,6 +9214,15 @@
           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
           "title": "Semver",
           "type": "string"
+        },
+        "visibility": {
+          "default": "team",
+          "enum": [
+            "personal",
+            "team"
+          ],
+          "title": "Visibility",
+          "type": "string"
         }
       },
       "required": [
@@ -9272,6 +9342,15 @@
           ],
           "default": null,
           "title": "Skillviewref"
+        },
+        "visibility": {
+          "default": "team",
+          "enum": [
+            "personal",
+            "team"
+          ],
+          "title": "Visibility",
+          "type": "string"
         },
         "publishedAt": {
           "title": "Publishedat",

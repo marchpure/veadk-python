@@ -651,6 +651,35 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
         checked_at="2026-08-26T00:00:02Z",
     )
     repository.save_policy_gate_result(gate)
+    dashboard_draft = drafts[1]
+    dashboard_evaluation = EvaluationRun(
+        id=f"evaluation-{dashboard_draft.id}",
+        suite_id=f"suite-{dashboard_draft.id}",
+        suite_version=1,
+        skill_revision_id=f"{dashboard_draft.id}:1",
+        status="succeeded",
+        score=1.0,
+        case_results=[
+            EvaluationCaseResult(
+                case_id="case-dashboard-1",
+                status="passed",
+                score=1.0,
+            )
+        ],
+        started_at="2026-08-26T00:00:00Z",
+        finished_at="2026-08-26T00:00:01Z",
+    )
+    repository.save_evaluation_run(dashboard_evaluation)
+    repository.save_policy_gate_result(
+        PolicyGateResult(
+            id=f"gate-{dashboard_evaluation.id}",
+            skill_revision_id=dashboard_evaluation.skill_revision_id,
+            evaluation_run_id=dashboard_evaluation.id,
+            decision="publishable",
+            machine_reasons=["ACCEPTANCE_SEED_REAL_OBJECTS"],
+            checked_at="2026-08-26T00:00:02Z",
+        )
+    )
     if view is not None:
         published = PublishedSkillVersion(
             id=f"published://{published_draft.id}:1.0.0",
@@ -662,6 +691,7 @@ def seed(database: Path, source_root: Path, workspace: str, filled: bool) -> dic
             evaluation_run_id=evaluation.id,
             policy_gate_result_id=gate.id,
             skill_view_ref=monitoring_view.id,
+            visibility="team",
             published_at="2026-08-26T00:00:03Z",
         )
         repository.save_published_skill_version(published)

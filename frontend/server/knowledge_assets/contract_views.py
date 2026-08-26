@@ -363,6 +363,7 @@ class PublishedSkillVersion(ContractModel):
     evaluation_run_id: str
     policy_gate_result_id: str
     skill_view_ref: str | None = None
+    visibility: Literal["personal", "team"] = "team"
     published_at: str
 
 

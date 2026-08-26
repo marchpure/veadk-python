@@ -462,7 +462,7 @@ export default function JourneyDetailView({
               : await getWorkspaceAdapter().command(
               {
                 command: "publication.publish",
-                payload: { draftId: currentDraftId, revision, semver: "0.1.0" },
+                payload: { draftId: currentDraftId, revision, semver: "0.1.0", visibility: "team" },
               },
               requestContext,
             );

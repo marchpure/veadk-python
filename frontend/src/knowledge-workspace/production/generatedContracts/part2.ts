@@ -1,13 +1,8 @@
 /* Generated from contracts.py; do not edit manually. */
 
 import type { AddCitationIntentPatch, ArtifactExportResult, ArtifactRef, AssetOwner, AssetPermission, AssistantTurnResult, Audit, DraftCommandResult, ErrorEnvelope, EvaluationFixActionPayload } from "./part1";
-import type { PermissionRef, PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SetDashboardChartPatch, SetDashboardFilterPatch, SetDashboardKpiPatch, SetDescriptionPatch, SetGraphEntityPatch, SetGraphRelationPatch, SetPermissionScopePatch, SetQueryPlanPatch, SetRefreshPolicyPatch, SetSemanticDimensionPatch, SetSemanticMappingPatch, SetSemanticMetricPatch, SetSemanticRelationshipPatch, SetSopConditionPatch, SetSopStepPatch, SetSopToolRefPatch, SetThresholdPolicyPatch, SetTitlePatch, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraftRunResult, SkillManifestAction } from "./part3";
+import type { PublicationPublishResult, RefreshRunResult, ResourceShareResult, RunProvenance, SchemaRef, SecretRef, SetDashboardChartPatch, SetDashboardFilterPatch, SetDashboardKpiPatch, SetDescriptionPatch, SetGraphEntityPatch, SetGraphRelationPatch, SetPermissionScopePatch, SetQueryPlanPatch, SetRefreshPolicyPatch, SetSemanticDimensionPatch, SetSemanticMappingPatch, SetSemanticMetricPatch, SetSemanticRelationshipPatch, SetSopConditionPatch, SetSopStepPatch, SetSopToolRefPatch, SetThresholdPolicyPatch, SetTitlePatch, SkillAuthoringAnswerResult, SkillAuthoringExecuteResult, SkillAuthoringPatchResult, SkillAuthoringStartResult, SkillDraftRunResult, SkillManifestAction } from "./part3";
 import type { SkillResult, SourceCleanResult, SourceGoldenConnectionResult, SourceGoldenIngestResult, SourceProfileResult, StorageRef, TypedPatch, frontend__server__knowledge_assets__contract_views__EvaluationCase, frontend__server__knowledge_assets__contract_views__EvaluationRun, frontend__server__knowledge_assets__contract_views__EvaluationSuite, frontend__server__knowledge_assets__contract_views__PolicyGateResult, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationCase, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationRun, frontend__server__knowledge_assets__evaluation_quality__models__EvaluationSuite, frontend__server__knowledge_assets__evaluation_quality__models__PolicyGateResult } from "./part4";
-
-export interface EvaluationFixProposeAllCommand {
-  command: "evaluation-fix.propose-all-unresolved";
-  payload: EvaluationFixProposeAllPayload;
-}
 
 export interface EvaluationFixProposeAllPayload {
   runId: string;
@@ -572,6 +567,15 @@ export interface McpCustomConnectorConfig {
   outputBytes?: number;
 }
 
+export interface MonitoringInvocationView {
+  startedAt: string;
+  traceId: string;
+  durationMs?: number | null;
+  status: string;
+  summary?: string;
+  operationId?: string | null;
+}
+
 export interface MonitoringObservationView {
   metric: string;
   latest: number;
@@ -590,6 +594,7 @@ export interface MonitoringViewModel {
   dataRef?: StorageRef | null;
   observations?: Array<MonitoringObservationView>;
   failureTrace?: Array<string>;
+  invocationRows?: Array<MonitoringInvocationView>;
   callVolume?: number | null;
   successRate?: number | null;
   latencyMs?: number | null;
@@ -721,4 +726,9 @@ export interface PatchProposal {
   new_revision?: number | null;
   view_revision_id?: string | null;
   created_at?: string;
+}
+
+export interface PermissionRef {
+  uri: string;
+  version: string;
 }
