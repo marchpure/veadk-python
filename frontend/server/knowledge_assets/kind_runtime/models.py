@@ -7,7 +7,7 @@ shared routes, generated contracts, or repository internals.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -82,6 +82,15 @@ class ExecutionEvidence(ContractModel):
     evidence_ref: StorageRef | None = None
 
 
+class SemanticDependencySnapshot(ContractModel):
+    skill_revision_id: str = Field(min_length=1, max_length=256)
+    schema_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    current_schema_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    metric_refs: list[str] = Field(default_factory=list, max_length=100)
+    dimension_refs: list[str] = Field(default_factory=list, max_length=100)
+    relationship_refs: list[str] = Field(default_factory=list, max_length=100)
+
+
 class KindExecutionRequest(ContractModel):
     draft_revision: SkillDraftRevision
     caller_id: str = Field(min_length=1, max_length=256)
@@ -91,7 +100,14 @@ class KindExecutionRequest(ContractModel):
     )
     golden_asset_contents: dict[str, str] = Field(default_factory=dict)
     data_access_revision_refs: list[str] = Field(default_factory=list, max_length=100)
-    downstream_skill_revision_refs: list[str] = Field(default_factory=list, max_length=100)
+    downstream_skill_revision_refs: list[str] = Field(
+        default_factory=list, max_length=100
+    )
+    inputs: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    tool_results: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    semantic_dependencies: list["SemanticDependencySnapshot"] = Field(
+        default_factory=list, max_length=100
+    )
     budget: ExecutionBudget = Field(default_factory=ExecutionBudget)
     freshness_at: str | None = None
     idempotency_key: str = Field(min_length=1, max_length=256)
@@ -132,7 +148,9 @@ class SemanticRelationship(ContractModel):
     source: str
     target: str
     relation: str
-    join_type: Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"] = "many_to_one"
+    join_type: Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"] = (
+        "many_to_one"
+    )
     evidence_locator: str
 
 
@@ -193,7 +211,13 @@ class MonitoringLifecycle(ContractModel):
 class KindHandlerOutput(ContractModel):
     state: KindExecutionState
     template: Literal[
-        "dashboard", "chart", "semantic", "knowledge", "graph_ontology", "monitoring"
+        "dashboard",
+        "chart",
+        "semantic",
+        "sop",
+        "knowledge",
+        "graph_ontology",
+        "monitoring",
     ]
     purpose: Literal["overview", "compare", "schema", "answer", "explore", "monitor"]
     view_model: ViewModel | None = None

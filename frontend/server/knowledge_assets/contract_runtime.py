@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-from .contract_base import *
-from .contract_data import *
-from .contract_views import *
-from .contract_commands import *
+from datetime import datetime, timezone
+
+# Contract modules intentionally re-export one canonical schema namespace.
+# ruff: noqa: F405
+from .contract_base import *  # noqa: F403
+from .contract_data import *  # noqa: F403
+from .contract_views import *  # noqa: F403
+from .contract_commands import *  # noqa: F403
 from .connector_contracts import ConnectorKindConfig
+
 
 def validate_state_transition(
     current: str, target: str, *, cancelled: bool = False
@@ -15,7 +20,12 @@ def validate_state_transition(
         "draft": {"planning", "running", "failed"},
         "planning": {"awaiting_input", "running", "failed", "cancelled"},
         "awaiting_input": {"running", "cancelled"},
-        "running": {"partially_succeeded", "failed", "ready_for_evaluation", "cancelled"},
+        "running": {
+            "partially_succeeded",
+            "failed",
+            "ready_for_evaluation",
+            "cancelled",
+        },
         "partially_succeeded": {"running", "failed", "ready_for_evaluation"},
         "ready_for_evaluation": {"evaluating", "failed"},
         "evaluating": {"publishable", "failed"},
@@ -63,6 +73,7 @@ class CoreContractBundle(ContractModel):
     job_state: JobState | None = None
     job_event: JobEvent | None = None
     connector_config: ConnectorKindConfig | None = None
+    template_spec: TemplateSpec | None = None
 
 
 class JobState(ContractModel):

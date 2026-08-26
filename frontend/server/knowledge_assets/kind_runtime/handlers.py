@@ -6,6 +6,11 @@ import re
 from datetime import datetime, timezone
 
 from frontend.server.knowledge_assets.contracts import (
+    DashboardChart,
+    DashboardDrill,
+    DashboardFilter,
+    DashboardKpi,
+    DashboardViewModel,
     ChartSeries,
     ChartViewModel,
     GraphEdge,
@@ -14,7 +19,17 @@ from frontend.server.knowledge_assets.contracts import (
     KnowledgeCitation,
     KnowledgeViewModel,
     MonitoringViewModel,
+    MonitoringObservationView,
     SemanticViewModel,
+    SemanticViewField,
+    SemanticViewRelationship,
+    SopActionProposal,
+    SopKindSpec,
+    SopStepEvidence,
+    SopStepResult,
+    SopViewModel,
+    ViewCell,
+    ViewField,
 )
 
 from .models import ExecutionEvidence, KindExecutionRequest, KindHandlerOutput
@@ -25,8 +40,10 @@ from .providers import (
     LocalSemanticProvider,
     GraphMappingProvider,
     QueryExecutor,
+    RequestBoundSopToolExecutor,
     RetrievalProvider,
     SemanticProvider,
+    SopToolExecutor,
     monitoring_plan_from_request,
     query_plan_from_request,
 )
@@ -109,7 +126,9 @@ class KnowledgeHandler(KindHandler):
                 "answer": answer_text,
                 "state": state,
                 "answerReason": reason,
-                "citations": [item.model_dump(mode="json", by_alias=True) for item in evidence],
+                "citations": [
+                    item.model_dump(mode="json", by_alias=True) for item in evidence
+                ],
             },
             evidence=evidence,
         )
@@ -193,9 +212,33 @@ class SemanticHandler(KindHandler):
                 dimension_refs=dimension_refs,
                 relationship_refs=relationship_refs,
                 data_ref=golden.storage_ref,
+                entities=semantic.entities,
+                fields=[
+                    SemanticViewField(
+                        name=field.name,
+                        role=field.role,
+                        aggregation=field.aggregation,
+                        unit=field.unit,
+                        source_field=field.source_field,
+                    )
+                    for field in semantic.fields
+                ],
+                relationships=[
+                    SemanticViewRelationship(
+                        source=item.source,
+                        target=item.target,
+                        relation=item.relation,
+                        join_type=item.join_type,
+                        evidence_locator=item.evidence_locator,
+                    )
+                    for item in semantic.relationships
+                ],
+                mdl=semantic.mdl,
             ),
             payload={
-                "entities": [{"name": name, "source": golden.id} for name in semantic.entities],
+                "entities": [
+                    {"name": name, "source": golden.id} for name in semantic.entities
+                ],
                 "metrics": [
                     field.model_dump(mode="json", by_alias=True)
                     for field in semantic.fields
@@ -215,10 +258,21 @@ class SemanticHandler(KindHandler):
                     relationship.model_dump(mode="json", by_alias=True)
                     for relationship in semantic.relationships
                 ],
-                "permissions": {"policyRef": request.draft_revision.manifest.spec.policy_ref.uri},
+                "permissions": {
+                    "policyRef": request.draft_revision.manifest.spec.policy_ref.uri
+                },
                 "editableMdl": semantic.mdl,
             },
-            evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, "schema:0")],
+            evidence=[
+                _evidence(
+                    request,
+                    golden.source_revision_refs[0]
+                    if golden.source_revision_refs
+                    else golden.id,
+                    golden.id,
+                    "schema:0",
+                )
+            ],
         )
 
 
@@ -237,6 +291,15 @@ class AnalysisHandler(KindHandler):
                 template="chart",
                 purpose="compare",
                 message="Analysis execution requires structured rows.",
+            )
+        dependency_error = _validate_semantic_dependencies(request)
+        if dependency_error is not None:
+            return KindHandlerOutput(
+                state="schema_drift",
+                template="dashboard",
+                purpose="overview",
+                message=dependency_error,
+                payload={"semanticDependencyError": dependency_error},
             )
         denied_fields = sensitive_fields(rows)
         if denied_fields:
@@ -294,17 +357,101 @@ class AnalysisHandler(KindHandler):
                 message="Query plan returned no data.",
             )
         values = [value for _, value in points]
-        return KindHandlerOutput(
-            state="ok",
-            template="chart",
-            purpose="compare",
-            view_model=ChartViewModel(
+        chart = ChartSeries(name=executed["metric"], points=points)
+        dashboard = request.draft_revision.manifest.spec.default_renderer == "dashboard"
+        presentation = getattr(
+            request.draft_revision.manifest.spec.kind_spec, "dashboard", None
+        )
+        dashboard_title = (
+            presentation.title
+            if presentation is not None and presentation.title
+            else request.draft_revision.manifest.metadata.display_name
+        )
+        kpi_labels = presentation.kpi_labels if presentation is not None else {}
+        filter_fields = (
+            presentation.filter_fields
+            if presentation is not None and presentation.filter_fields
+            else ([executed["dimension"]] if executed["dimension"] else [])
+        )
+        drill_fields = (
+            presentation.drill_fields
+            if presentation is not None and presentation.drill_fields
+            else [executed["metric"]]
+        )
+        view_model = (
+            DashboardViewModel(
+                title=dashboard_title,
+                fields=[
+                    ViewField(
+                        name=key,
+                        label=key.replace("_", " ").title(),
+                        data_type=_view_type(value),
+                    )
+                    for key, value in rows[0].items()
+                ],
+                kpis=[
+                    DashboardKpi(
+                        key=f"sum_{executed['metric']}",
+                        label=kpi_labels.get(
+                            f"sum_{executed['metric']}", f"Total {executed['metric']}"
+                        ),
+                        value=sum(values),
+                        unit=_unit_for(executed["metric"]),
+                    ),
+                    DashboardKpi(
+                        key="row_count",
+                        label=kpi_labels.get("row_count", "Rows"),
+                        value=len(rows),
+                        unit="rows",
+                    ),
+                ],
+                charts=[
+                    DashboardChart(
+                        chart_id=f"{executed['metric']}-by-{executed['dimension'] or 'result'}",
+                        title=(
+                            presentation.chart_title
+                            if presentation is not None and presentation.chart_title
+                            else f"{executed['metric']} by {executed['dimension'] or 'result'}"
+                        ),
+                        x_field=executed["dimension"] or "result",
+                        y_field=executed["metric"],
+                        series=[chart],
+                    )
+                ],
+                rows=[
+                    [ViewCell(field=key, value=value) for key, value in row.items()]
+                    for row in rows[: request.budget.max_rows]
+                ],
+                filters=[
+                    DashboardFilter(field=field, operator="in")
+                    for field in filter_fields
+                ],
+                drills=(
+                    [
+                        DashboardDrill(
+                            source_field=executed["dimension"],
+                            target_fields=drill_fields,
+                        )
+                    ]
+                    if executed["dimension"]
+                    else []
+                ),
+                data_ref=golden.storage_ref,
+            )
+            if dashboard
+            else ChartViewModel(
                 title=request.draft_revision.manifest.metadata.display_name,
                 x_field=executed["dimension"] or "result",
                 y_field=executed["metric"],
-                series=[ChartSeries(name=executed["metric"], points=points)],
+                series=[chart],
                 data_ref=golden.storage_ref,
-            ),
+            )
+        )
+        return KindHandlerOutput(
+            state="ok",
+            template="dashboard" if dashboard else "chart",
+            purpose="overview" if dashboard else "compare",
+            view_model=view_model,
             payload={
                 "query": {
                     "planId": plan.plan_id,
@@ -315,7 +462,11 @@ class AnalysisHandler(KindHandler):
                     "timeoutMs": plan.timeout_ms or request.budget.timeout_ms,
                 },
                 "kpis": [
-                    {"key": f"sum_{executed['metric']}", "value": sum(values), "unit": _unit_for(executed["metric"])},
+                    {
+                        "key": f"sum_{executed['metric']}",
+                        "value": sum(values),
+                        "unit": _unit_for(executed["metric"]),
+                    },
                     {"key": "row_count", "value": len(rows), "unit": "rows"},
                 ],
                 "trends": [{"label": label, "value": value} for label, value in points],
@@ -323,7 +474,190 @@ class AnalysisHandler(KindHandler):
                 "dataAsOf": executed["dataAsOf"],
                 "source": executed["source"],
             },
-            evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, f"query:{plan.plan_id}")],
+            evidence=[
+                _evidence(
+                    request,
+                    golden.source_revision_refs[0]
+                    if golden.source_revision_refs
+                    else golden.id,
+                    golden.id,
+                    f"query:{plan.plan_id}",
+                )
+            ],
+        )
+
+
+class SopHandler(KindHandler):
+    kind = "sop"
+
+    def __init__(self, tool_executor: SopToolExecutor | None = None) -> None:
+        self.tool_executor = tool_executor or RequestBoundSopToolExecutor()
+
+    def execute(self, request: KindExecutionRequest) -> KindHandlerOutput:
+        spec = request.draft_revision.manifest.spec.kind_spec
+        if not isinstance(spec, SopKindSpec):
+            return KindHandlerOutput(
+                state="validation_failed",
+                template="sop",
+                purpose="overview",
+                message="SOP execution requires a typed SopKindSpec.",
+            )
+        errors = _validate_sop_inputs(spec, request.inputs)
+        if errors:
+            return KindHandlerOutput(
+                state="awaiting_input",
+                template="sop",
+                purpose="overview",
+                payload={"validationErrors": errors},
+                message="; ".join(errors),
+            )
+        golden, content = _first_golden(request)
+        if golden is None or not content.strip():
+            return KindHandlerOutput(
+                state="no_data",
+                template="sop",
+                purpose="overview",
+                message="SOP execution requires immutable context evidence.",
+            )
+        step_results: list[SopStepResult] = []
+        evidence: list[ExecutionEvidence] = []
+        proposals: list[SopActionProposal] = []
+        steps_by_id = {step.id: step for step in spec.steps}
+        ordered_ids = [step.id for step in spec.steps]
+        cursor = ordered_ids[0]
+        visited: set[str] = set()
+        while cursor:
+            if cursor in visited:
+                return KindHandlerOutput(
+                    state="validation_failed",
+                    template="sop",
+                    purpose="overview",
+                    message=f"SOP branch cycle detected at {cursor}.",
+                )
+            visited.add(cursor)
+            step = steps_by_id[cursor]
+            branch = _evaluate_condition(step.condition, request.inputs)
+            if branch is False:
+                step_results.append(
+                    SopStepResult(
+                        step_id=step.id,
+                        title=step.title,
+                        status="skipped",
+                        branch="false",
+                        message="Condition was false.",
+                    )
+                )
+                cursor = step.on_false or _next_step(ordered_ids, cursor)
+                continue
+            step_evidence: list[SopStepEvidence] = []
+            if step.tool_ref is not None:
+                tool_key = f"{step.tool_ref.tool_id}:{step.tool_ref.operation}"
+                if step.tool_ref.risk != "read_only":
+                    proposals.append(
+                        SopActionProposal(
+                            proposal_id=f"proposal-{step.id}",
+                            title=step.title,
+                            risk=step.tool_ref.risk,
+                            challenge=f"Confirm {step.tool_ref.operation} using evidence from {step.id}.",
+                            tool_ref=tool_key,
+                        )
+                    )
+                    step_results.append(
+                        SopStepResult(
+                            step_id=step.id,
+                            title=step.title,
+                            status="awaiting_confirmation",
+                            branch="true" if step.condition else "unconditional",
+                            message="External action was not executed during trial run.",
+                        )
+                    )
+                    cursor = (
+                        step.on_true if branch is not False else step.on_false
+                    ) or _next_step(ordered_ids, cursor)
+                    continue
+                try:
+                    tool_result = self.tool_executor.execute(
+                        request,
+                        tool_id=step.tool_ref.tool_id,
+                        revision=step.tool_ref.revision,
+                        operation=step.tool_ref.operation,
+                    )
+                except LookupError:
+                    return KindHandlerOutput(
+                        state="awaiting_input",
+                        template="sop",
+                        purpose="overview",
+                        payload={"missingToolResult": tool_key},
+                        message=f"Missing real tool result: {tool_key}",
+                    )
+                step_evidence.append(
+                    SopStepEvidence(
+                        kind="tool_result",
+                        locator=f"tool-result://{tool_key}",
+                        summary=json_safe_summary(tool_result),
+                    )
+                )
+            locator = f"local://golden/{golden.storage_ref.sha256}#sop={step.id}"
+            step_evidence.append(
+                SopStepEvidence(
+                    kind="source_citation",
+                    locator=locator,
+                    summary=step.instruction,
+                )
+            )
+            evidence.append(
+                _evidence(
+                    request,
+                    golden.source_revision_refs[0]
+                    if golden.source_revision_refs
+                    else golden.id,
+                    golden.id,
+                    locator,
+                )
+            )
+            step_results.append(
+                SopStepResult(
+                    step_id=step.id,
+                    title=step.title,
+                    status="succeeded",
+                    branch="true" if step.condition else "unconditional",
+                    evidence=step_evidence,
+                    message=step.instruction,
+                )
+            )
+            cursor = (
+                step.on_true if branch is not False else step.on_false
+            ) or _next_step(ordered_ids, cursor)
+        recommendation = (
+            spec.action_proposal
+            if not proposals
+            else "Review the generated action proposal and confirm outside the trial run."
+        )
+        view_model = SopViewModel(
+            title=request.draft_revision.manifest.metadata.display_name,
+            trigger=spec.trigger,
+            scope=spec.scope,
+            step_results=step_results,
+            recommendation=recommendation,
+            outputs={item.name: recommendation for item in spec.outputs},
+            action_proposals=proposals,
+        )
+        return KindHandlerOutput(
+            state="ok",
+            template="sop",
+            purpose="overview",
+            view_model=view_model,
+            payload={
+                "steps": [
+                    item.model_dump(mode="json", by_alias=True) for item in step_results
+                ],
+                "recommendation": recommendation,
+                "actionProposals": [
+                    item.model_dump(mode="json", by_alias=True) for item in proposals
+                ],
+                "externalActionsExecuted": False,
+            },
+            evidence=evidence,
         )
 
 
@@ -345,13 +679,17 @@ class GraphOntologyHandler(KindHandler):
                 message="Graph ontology execution requires schema rows or document chunks.",
             )
         mapping = self.mapping_provider.build_graph(request)
-        node_names = mapping.entities if mapping.entities else [chunk[:48] for chunk in chunks]
+        node_names = (
+            mapping.entities if mapping.entities else [chunk[:48] for chunk in chunks]
+        )
         page_size = min(request.budget.max_rows, 500)
         nodes = [
             GraphNode(
                 id=f"node-{index}",
                 label=name,
-                entity_type="metric" if any(name == rel.target for rel in mapping.relationships) else "entity",
+                entity_type="metric"
+                if any(name == rel.target for rel in mapping.relationships)
+                else "entity",
             )
             for index, name in enumerate(node_names[:page_size])
         ]
@@ -363,30 +701,53 @@ class GraphOntologyHandler(KindHandler):
                 relation=relationship.relation,
             )
             for relationship in mapping.relationships
-            if relationship.source in node_by_label and relationship.target in node_by_label
+            if relationship.source in node_by_label
+            and relationship.target in node_by_label
         ]
         conflicts = duplicate_semantic_names(rows)
         return KindHandlerOutput(
-            state="schema_drift" if conflicts else "ok",
+            state="ok",
             template="graph_ontology",
             purpose="explore",
             view_model=GraphOntologyViewModel(
                 nodes=nodes,
                 edges=edges,
                 evidence_ref=golden.storage_ref,
+                evidence_locators=mapping.evidence_locators,
+                conflicts=conflicts,
             ),
             payload={
-                "ontology": {"entities": [node.model_dump(mode="json", by_alias=True) for node in nodes]},
-                "relations": [edge.model_dump(mode="json", by_alias=True) for edge in edges],
+                "ontology": {
+                    "entities": [
+                        node.model_dump(mode="json", by_alias=True) for node in nodes
+                    ]
+                },
+                "relations": [
+                    edge.model_dump(mode="json", by_alias=True) for edge in edges
+                ],
                 "mappingEvidence": mapping.evidence_locators,
-                "pagination": {"offset": 0, "limit": page_size, "total": len(node_names)},
+                "pagination": {
+                    "offset": 0,
+                    "limit": page_size,
+                    "total": len(node_names),
+                },
                 "conflicts": conflicts,
                 "versionCompare": {
                     "base": request.draft_revision.golden_asset_revision_refs,
                     "current": [golden.id],
                 },
             },
-            evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, "ontology:0")],
+            evidence=[
+                _evidence(
+                    request,
+                    golden.source_revision_refs[0]
+                    if golden.source_revision_refs
+                    else golden.id,
+                    golden.id,
+                    "ontology:0",
+                )
+            ],
+            warnings=[f"ontology conflict: {item}" for item in conflicts],
         )
 
 
@@ -446,29 +807,35 @@ class MonitoringHandler(KindHandler):
             if isinstance(row.get("value"), (int, float))
         ]
         threshold = _threshold(
-            getattr(request.draft_revision.manifest.spec.kind_spec, "alert_policy_ref", "")
+            getattr(
+                request.draft_revision.manifest.spec.kind_spec, "alert_policy_ref", ""
+            )
         )
         latest = values[-1][1] if values else 0.0
         previous = values[-2][1] if len(values) > 1 else latest
         change_rate = 0.0 if previous == 0 else (latest - previous) / abs(previous)
-        stale = _stale(golden.freshness_at, request.now, request.budget.freshness_seconds)
+        stale = _stale(
+            golden.freshness_at, request.now, request.budget.freshness_seconds
+        )
         alerts = []
         observations = []
         if threshold is not None and latest >= threshold:
             alerts.append(f"{plan.metric} reached {latest:g}, threshold {threshold:g}")
         if abs(change_rate) >= 0.2 and len(values) > 1:
-            alerts.append(f"{plan.metric} changed {change_rate:.0%} since previous point")
+            alerts.append(
+                f"{plan.metric} changed {change_rate:.0%} since previous point"
+            )
         if stale:
             alerts.append("source freshness is stale")
         observation = {
-                "metric": plan.metric,
-                "latest": latest,
-                "previous": previous,
-                "changeRate": change_rate,
-                "durationSeconds": _duration_seconds(values),
-                "freshness": golden.freshness_at,
-                "lastGoodRevisionId": golden.id if golden.last_good else None,
-            }
+            "metric": plan.metric,
+            "latest": latest,
+            "previous": previous,
+            "changeRate": change_rate,
+            "durationSeconds": _duration_seconds(values),
+            "freshness": golden.freshness_at,
+            "lastGoodRevisionId": golden.id if golden.last_good else None,
+        }
         observations.append(observation)
         action_candidates = [
             {
@@ -484,19 +851,53 @@ class MonitoringHandler(KindHandler):
             template="monitoring",
             purpose="monitor",
             view_model=MonitoringViewModel(
-                metric_refs=list(getattr(request.draft_revision.manifest.spec.kind_spec, "metric_refs", []) or [plan.metric]),
+                metric_refs=list(
+                    getattr(
+                        request.draft_revision.manifest.spec.kind_spec,
+                        "metric_refs",
+                        [],
+                    )
+                    or [plan.metric]
+                ),
                 values=values,
                 alerts=alerts,
                 data_ref=golden.storage_ref,
+                observations=[
+                    MonitoringObservationView(
+                        metric=plan.metric,
+                        latest=latest,
+                        previous=previous,
+                        change_rate=change_rate,
+                        duration_seconds=observation["durationSeconds"],
+                        freshness_at=golden.freshness_at,
+                        last_good_revision_id=observation["lastGoodRevisionId"],
+                    )
+                ],
+                failure_trace=alerts,
             ),
             payload={
                 "observations": observations,
                 "alerts": alerts,
                 "actionCandidates": action_candidates,
-                "reviewLoop": ["data", "action_candidate", "retrospective", "decision", "evidence"],
+                "reviewLoop": [
+                    "data",
+                    "action_candidate",
+                    "retrospective",
+                    "decision",
+                    "evidence",
+                ],
                 "externalActionsExecuted": False,
             },
-            evidence=[_evidence(request, golden.source_revision_refs[0] if golden.source_revision_refs else golden.id, golden.id, "monitoring:latest")],
+            evidence=[
+                _evidence(
+                    request,
+                    golden.source_revision_refs[0]
+                    if golden.source_revision_refs
+                    else golden.id,
+                    golden.id,
+                    "monitoring:latest",
+                )
+            ],
         )
 
 
@@ -506,6 +907,7 @@ HANDLERS: dict[str, KindHandler] = {
         KnowledgeHandler(),
         SemanticHandler(),
         AnalysisHandler(),
+        SopHandler(),
         GraphOntologyHandler(),
         MonitoringHandler(),
     )
@@ -515,7 +917,11 @@ HANDLERS: dict[str, KindHandler] = {
 def _first_golden(request: KindExecutionRequest):
     asset_id, content = first_content(request.golden_asset_contents)
     golden = next(
-        (revision for revision in request.golden_asset_revisions if revision.id == asset_id),
+        (
+            revision
+            for revision in request.golden_asset_revisions
+            if revision.id == asset_id
+        ),
         request.golden_asset_revisions[0] if request.golden_asset_revisions else None,
     )
     return golden, content
@@ -528,11 +934,17 @@ def _evidence(
     locator: str,
 ) -> ExecutionEvidence:
     golden = next(
-        item for item in request.golden_asset_revisions if item.id == golden_asset_revision_id
+        item
+        for item in request.golden_asset_revisions
+        if item.id == golden_asset_revision_id
     )
-    digest = __import__("hashlib").sha256(
-        f"{request.trace_id}:{source_revision_id}:{golden_asset_revision_id}:{locator}".encode()
-    ).hexdigest()[:24]
+    digest = (
+        __import__("hashlib")
+        .sha256(
+            f"{request.trace_id}:{source_revision_id}:{golden_asset_revision_id}:{locator}".encode()
+        )
+        .hexdigest()[:24]
+    )
     return ExecutionEvidence(
         evidence_id=f"evidence-{digest}",
         source_revision_id=source_revision_id,
@@ -611,3 +1023,81 @@ def _stale(freshness_at: str, now: str, max_age_seconds: int | None) -> bool:
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
     return (current - fresh).total_seconds() > max_age_seconds
+
+
+def _view_type(value: object) -> str:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    return "string"
+
+
+def _validate_semantic_dependencies(request: KindExecutionRequest) -> str | None:
+    for dependency in request.semantic_dependencies:
+        if dependency.schema_digest != dependency.current_schema_digest:
+            return f"Semantic schema drift: {dependency.skill_revision_id}"
+        if dependency.skill_revision_id not in request.downstream_skill_revision_refs:
+            return f"Semantic dependency is not pinned: {dependency.skill_revision_id}"
+    return None
+
+
+def _validate_sop_inputs(spec: SopKindSpec, values: dict[str, object]) -> list[str]:
+    errors: list[str] = []
+    for field in spec.input_fields:
+        value = values.get(field.name)
+        if field.required and value is None:
+            errors.append(f"Missing required input: {field.name}")
+            continue
+        if value is None:
+            continue
+        valid = (
+            (field.value_type in {"string", "enum"} and isinstance(value, str))
+            or (
+                field.value_type == "number"
+                and isinstance(value, (int, float))
+                and not isinstance(value, bool)
+            )
+            or (field.value_type == "boolean" and isinstance(value, bool))
+        )
+        if not valid:
+            errors.append(f"Invalid input type: {field.name}")
+        if field.value_type == "enum" and value not in field.enum_values:
+            errors.append(f"Invalid enum value: {field.name}")
+    return errors
+
+
+def _evaluate_condition(condition: object, values: dict[str, object]) -> bool | None:
+    if condition is None:
+        return None
+    actual = values.get(condition.field)
+    expected = condition.value
+    operations = {
+        "eq": lambda: actual == expected,
+        "ne": lambda: actual != expected,
+        "gt": lambda: actual is not None and expected is not None and actual > expected,
+        "gte": lambda: actual is not None
+        and expected is not None
+        and actual >= expected,
+        "lt": lambda: actual is not None and expected is not None and actual < expected,
+        "lte": lambda: actual is not None
+        and expected is not None
+        and actual <= expected,
+        "contains": lambda: str(expected) in str(actual),
+        "exists": lambda: actual is not None,
+    }
+    try:
+        return bool(operations[condition.operator]())
+    except TypeError:
+        return False
+
+
+def json_safe_summary(value: object) -> str:
+    import json
+
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)[:1024]
+
+
+def _next_step(ordered_ids: list[str], current: str) -> str | None:
+    index = ordered_ids.index(current) + 1
+    return ordered_ids[index] if index < len(ordered_ids) else None

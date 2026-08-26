@@ -25,7 +25,9 @@ from .tabular import (
 
 
 class RetrievalProvider(Protocol):
-    def retrieve(self, request: KindExecutionRequest, question: str) -> list[RetrievalHit]: ...
+    def retrieve(
+        self, request: KindExecutionRequest, question: str
+    ) -> list[RetrievalHit]: ...
 
     def answer(
         self, request: KindExecutionRequest, question: str, hits: list[RetrievalHit]
@@ -37,17 +39,50 @@ class SemanticProvider(Protocol):
 
 
 class QueryExecutor(Protocol):
-    def execute(self, request: KindExecutionRequest, plan: QueryPlan) -> dict[str, Any]: ...
+    def execute(
+        self, request: KindExecutionRequest, plan: QueryPlan
+    ) -> dict[str, Any]: ...
 
 
 class GraphMappingProvider(Protocol):
     def build_graph(self, request: KindExecutionRequest) -> GraphMapping: ...
 
 
+class SopToolExecutor(Protocol):
+    def execute(
+        self,
+        request: KindExecutionRequest,
+        *,
+        tool_id: str,
+        revision: str,
+        operation: str,
+    ) -> dict[str, Any]: ...
+
+
+class RequestBoundSopToolExecutor:
+    """Integration seam for authenticated tool calls resolved by the BFF."""
+
+    def execute(
+        self,
+        request: KindExecutionRequest,
+        *,
+        tool_id: str,
+        revision: str,
+        operation: str,
+    ) -> dict[str, Any]:
+        key = f"{tool_id}:{operation}"
+        result = request.tool_results.get(key)
+        if result is None:
+            raise LookupError(key)
+        return result
+
+
 class LocalRetrievalProvider:
     """Simple replaceable retrieval/answer adapter for local replay."""
 
-    def retrieve(self, request: KindExecutionRequest, question: str) -> list[RetrievalHit]:
+    def retrieve(
+        self, request: KindExecutionRequest, question: str
+    ) -> list[RetrievalHit]:
         hits: list[RetrievalHit] = []
         words = {
             word.lower()
@@ -222,7 +257,9 @@ class LocalQueryExecutor:
         filtered = [
             row
             for row in rows
-            if all(str(row.get(key)) == str(value) for key, value in plan.filters.items())
+            if all(
+                str(row.get(key)) == str(value) for key, value in plan.filters.items()
+            )
         ]
         if rows and plan.metric not in rows[0]:
             raise ValueError(f"query plan metric is not present: {plan.metric}")
@@ -256,7 +293,16 @@ class LocalQueryExecutor:
             )
         else:
             values = [row.get(plan.metric) for row in filtered]
-            points = [("total", sum(float(value) for value in values if isinstance(value, (int, float))))]
+            points = [
+                (
+                    "total",
+                    sum(
+                        float(value)
+                        for value in values
+                        if isinstance(value, (int, float))
+                    ),
+                )
+            ]
         return {
             "rows": [{"label": label, "value": value} for label, value in points],
             "metric": plan.metric,
@@ -280,10 +326,21 @@ class LocalGraphMappingProvider:
             request.draft_revision.manifest.spec.kind_spec, "relationship_refs", []
         )
         relationships = [
-            _relationship(ref)
-            for ref in relationship_refs
-            if "." in ref or "->" in ref
+            _relationship(ref) for ref in relationship_refs if "." in ref or "->" in ref
         ]
+        declared_relationships = getattr(
+            request.draft_revision.manifest.spec.kind_spec, "relationships", []
+        )
+        if declared_relationships:
+            relationships = [
+                SemanticRelationship(
+                    source=item.source,
+                    target=item.target,
+                    relation=item.relation,
+                    evidence_locator=item.evidence_locator,
+                )
+                for item in declared_relationships
+            ]
         if not relationships and dimensions and numeric:
             relationships = [
                 SemanticRelationship(
@@ -294,8 +351,11 @@ class LocalGraphMappingProvider:
                 )
                 for metric in numeric
             ]
+        declared_entities = getattr(
+            request.draft_revision.manifest.spec.kind_spec, "entities", []
+        )
         return GraphMapping(
-            entities=dimensions + numeric,
+            entities=declared_entities or dimensions + numeric,
             relationships=relationships,
             evidence_locators=[
                 relationship.evidence_locator for relationship in relationships
@@ -309,14 +369,18 @@ def query_plan_from_request(request: KindExecutionRequest) -> QueryPlan:
     parsed = _parse_plan_ref(plan_ref)
     if parsed is not None:
         return parsed
-    raise ValueError("analysis requires a fixed queryPlanRef with metric and optional dimension")
+    raise ValueError(
+        "analysis requires a fixed queryPlanRef with metric and optional dimension"
+    )
 
 
 def monitoring_plan_from_request(request: KindExecutionRequest) -> QueryPlan:
     golden = request.golden_asset_revisions[0]
     rows = parse_rows(request.golden_asset_contents.get(golden.id, ""))
     numeric, dimensions, time_fields = infer_fields(rows)
-    metric_refs = getattr(request.draft_revision.manifest.spec.kind_spec, "metric_refs", [])
+    metric_refs = getattr(
+        request.draft_revision.manifest.spec.kind_spec, "metric_refs", []
+    )
     metric = metric_refs[0] if metric_refs else numeric[0] if numeric else ""
     dimension = time_fields[0] if time_fields else dimensions[0] if dimensions else None
     if not metric:
@@ -448,7 +512,12 @@ def _compiled_query(plan: QueryPlan) -> str:
     where = " and ".join(f"{key} = :{key}" for key in sorted(plan.filters))
     group = f" group by {plan.dimension}" if plan.dimension else ""
     limit = f" limit {plan.limit}"
-    return f"select {select} from golden_asset" + (f" where {where}" if where else "") + group + limit
+    return (
+        f"select {select} from golden_asset"
+        + (f" where {where}" if where else "")
+        + group
+        + limit
+    )
 
 
 def _aggregate_sum_preserving_input_order(

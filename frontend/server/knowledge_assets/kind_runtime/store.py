@@ -18,15 +18,25 @@ class ContentAddressedStore:
     production storage.
     """
 
-    def __init__(self, root: str | Path = ".veadk/knowledge-assets/kind-runtime") -> None:
+    def __init__(
+        self, root: str | Path = ".veadk/knowledge-assets/kind-runtime"
+    ) -> None:
         self.root = Path(root)
 
     def write_json(self, category: str, payload: Any) -> StorageRef:
-        content = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
-        return self.write_bytes(category, content, media_type="application/json", suffix=".json")
+        content = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode(
+            "utf-8"
+        )
+        return self.write_bytes(
+            category, content, media_type="application/json", suffix=".json"
+        )
 
-    def write_text(self, category: str, text: str, *, media_type: str = "text/plain") -> StorageRef:
-        return self.write_bytes(category, text.encode("utf-8"), media_type=media_type, suffix=".txt")
+    def write_text(
+        self, category: str, text: str, *, media_type: str = "text/plain"
+    ) -> StorageRef:
+        return self.write_bytes(
+            category, text.encode("utf-8"), media_type=media_type, suffix=".txt"
+        )
 
     def write_bytes(
         self,
@@ -49,3 +59,20 @@ class ContentAddressedStore:
             media_type=media_type,
             bytes=len(content),
         )
+
+    def read_bytes(self, ref: StorageRef) -> bytes:
+        """Read and integrity-check an immutable local artifact."""
+
+        prefix = "local://kind-runtime/"
+        if not ref.uri.startswith(prefix):
+            raise ValueError("unsupported artifact URI")
+        category, digest = ref.uri.removeprefix(prefix).split("/", 1)
+        suffix = (
+            ".html"
+            if ref.media_type == "text/html"
+            else (".json" if ref.media_type == "application/json" else ".txt")
+        )
+        content = (self.root / category / f"{digest}{suffix}").read_bytes()
+        if hashlib.sha256(content).hexdigest() != ref.sha256:
+            raise ValueError("artifact digest mismatch")
+        return content

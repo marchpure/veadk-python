@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from .contract_base import *
+from typing import Literal
+
+from pydantic import Field
+
+# Contract modules intentionally re-export one canonical schema namespace.
+# ruff: noqa: F405
+from .contract_base import *  # noqa: F403
+
 
 class SkillDraft(ContractModel):
     id: str
@@ -18,9 +25,24 @@ class SkillDraft(ContractModel):
 class SourceRevision(ContractModel):
     id: str
     source_type: Literal[
-        "local_file", "markdown", "csv", "pdf", "document", "database", "excel",
-        "office", "lark_doc", "lark_minutes", "lark_group_chat", "web_api",
-        "web_url", "rest_api", "graphql", "openapi", "mcp", "published_skill"
+        "local_file",
+        "markdown",
+        "csv",
+        "pdf",
+        "document",
+        "database",
+        "excel",
+        "office",
+        "lark_doc",
+        "lark_minutes",
+        "lark_group_chat",
+        "web_api",
+        "web_url",
+        "rest_api",
+        "graphql",
+        "openapi",
+        "mcp",
+        "published_skill",
     ]
     content_ref: StorageRef
     schema_ref: SchemaRef | None = None
@@ -90,6 +112,10 @@ class SkillDraftRevision(ContractModel):
     manifest: SkillManifest
     source_revision_refs: list[str] = Field(default_factory=list, max_length=100)
     golden_asset_revision_refs: list[str] = Field(default_factory=list, max_length=100)
+    template_ref: TemplateRef | None = None
+    context_revision_refs: list[ContextRevisionRef] = Field(
+        default_factory=list, max_length=100
+    )
     status: Literal[
         "draft",
         "planning",

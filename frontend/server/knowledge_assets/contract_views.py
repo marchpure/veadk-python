@@ -1,18 +1,29 @@
 from __future__ import annotations
 
-from .contract_base import *
-from .contract_data import *
+from typing import Annotated, Literal
+
+from pydantic import Field
+
+# Contract modules intentionally re-export one canonical schema namespace.
+# ruff: noqa: F405
+from .contract_base import *  # noqa: F403
+from .contract_data import *  # noqa: F403
+
 
 class ViewIntent(ContractModel):
     id: str
     skill_id: str
     skill_revision: int = Field(ge=1)
     template: Literal[
-        "dashboard", "chart", "semantic", "knowledge", "graph_ontology", "monitoring"
+        "dashboard",
+        "chart",
+        "semantic",
+        "sop",
+        "knowledge",
+        "graph_ontology",
+        "monitoring",
     ]
-    purpose: Literal[
-        "overview", "compare", "schema", "answer", "explore", "monitor"
-    ]
+    purpose: Literal["overview", "compare", "schema", "answer", "explore", "monitor"]
     result_ref: str
 
 
@@ -40,11 +51,40 @@ class ChartSeries(ContractModel):
     points: list[tuple[str, float]] = Field(default_factory=list, max_length=10000)
 
 
+class DashboardChart(ContractModel):
+    chart_id: str
+    title: str
+    x_field: str
+    y_field: str
+    chart_type: Literal[
+        "line", "bar", "stacked_bar", "area", "donut", "scatter", "table"
+    ] = "line"
+    series: list[ChartSeries] = Field(default_factory=list)
+
+
+class DashboardFilter(ContractModel):
+    field: str
+    operator: Literal["eq", "in", "gte", "lte", "between"]
+    values: list[str | int | float | bool] = Field(default_factory=list)
+
+
+class DashboardDrill(ContractModel):
+    source_field: str
+    target_fields: list[str] = Field(default_factory=list)
+
+
 class DashboardViewModel(ContractModel):
     template: Literal["dashboard"] = "dashboard"
+    title: str = ""
     fields: list[ViewField] = Field(default_factory=list)
     kpis: list[DashboardKpi] = Field(default_factory=list)
+    charts: list[DashboardChart] = Field(default_factory=list)
     rows: list[list[ViewCell]] = Field(default_factory=list)
+    filters: list[DashboardFilter] = Field(default_factory=list)
+    drills: list[DashboardDrill] = Field(default_factory=list)
+    insights: list[str] = Field(default_factory=list, max_length=100)
+    freshness_at: str | None = None
+    status: Literal["populated", "partial", "stale", "empty", "error"] = "populated"
     data_ref: StorageRef
 
 
@@ -53,6 +93,9 @@ class ChartViewModel(ContractModel):
     title: str
     x_field: str
     y_field: str
+    chart_type: Literal[
+        "line", "bar", "stacked_bar", "area", "donut", "scatter", "table"
+    ] = "line"
     series: list[ChartSeries] = Field(default_factory=list)
     data_ref: StorageRef
 
@@ -64,6 +107,30 @@ class SemanticViewModel(ContractModel):
     dimension_refs: list[str] = Field(default_factory=list)
     relationship_refs: list[str] = Field(default_factory=list)
     data_ref: StorageRef | None = None
+    entities: list[str] = Field(default_factory=list)
+    fields: list["SemanticViewField"] = Field(default_factory=list)
+    relationships: list["SemanticViewRelationship"] = Field(default_factory=list)
+    mdl: str = ""
+    ambiguities: list[str] = Field(default_factory=list)
+    dependency_errors: list[str] = Field(default_factory=list)
+
+
+class SemanticViewField(ContractModel):
+    name: str
+    role: Literal["entity", "dimension", "measure", "time"]
+    aggregation: Literal["sum", "count", "avg", "min", "max", "none"] = "none"
+    unit: str = ""
+    source_field: str
+    primary_key: bool = False
+
+
+class SemanticViewRelationship(ContractModel):
+    source: str
+    target: str
+    relation: str
+    join_type: Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"]
+    evidence_locator: str
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class KnowledgeCitation(ContractModel):
@@ -91,6 +158,8 @@ class GraphEdge(ContractModel):
     source: str
     target: str
     relation: str
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    evidence_locator: str | None = None
 
 
 class GraphOntologyViewModel(ContractModel):
@@ -98,6 +167,19 @@ class GraphOntologyViewModel(ContractModel):
     nodes: list[GraphNode] = Field(default_factory=list)
     edges: list[GraphEdge] = Field(default_factory=list)
     evidence_ref: StorageRef | None = None
+    evidence_locators: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
+    selected_node_id: str | None = None
+
+
+class MonitoringObservationView(ContractModel):
+    metric: str
+    latest: float
+    previous: float | None = None
+    change_rate: float | None = None
+    duration_seconds: int = Field(ge=0)
+    freshness_at: str
+    last_good_revision_id: str | None = None
 
 
 class MonitoringViewModel(ContractModel):
@@ -106,6 +188,53 @@ class MonitoringViewModel(ContractModel):
     values: list[tuple[str, float]] = Field(default_factory=list)
     alerts: list[str] = Field(default_factory=list)
     data_ref: StorageRef | None = None
+    observations: list[MonitoringObservationView] = Field(default_factory=list)
+    failure_trace: list[str] = Field(default_factory=list)
+    call_volume: float | None = None
+    success_rate: float | None = Field(default=None, ge=0, le=1)
+    latency_ms: float | None = None
+    stale: bool = False
+    status: Literal["healthy", "stale", "alert", "failed", "empty"] = "healthy"
+
+
+class SopStepEvidence(ContractModel):
+    kind: Literal["tool_result", "source_citation", "input", "decision"]
+    locator: str
+    summary: str
+
+
+class SopStepResult(ContractModel):
+    step_id: str
+    title: str
+    status: Literal["succeeded", "skipped", "failed", "awaiting_confirmation"]
+    branch: Literal["true", "false", "unconditional"] = "unconditional"
+    evidence: list[SopStepEvidence] = Field(default_factory=list)
+    message: str = ""
+    tool_refs: list[str] = Field(default_factory=list, max_length=20)
+    input_summary: str = ""
+
+
+class SopActionProposal(ContractModel):
+    proposal_id: str
+    title: str
+    risk: Literal["external_write", "high_risk"]
+    confirmation_required: Literal[True] = True
+    challenge: str
+    tool_ref: str
+
+
+class SopViewModel(ContractModel):
+    template: Literal["sop"] = "sop"
+    title: str
+    trigger: str
+    scope: str
+    step_results: list[SopStepResult] = Field(default_factory=list)
+    recommendation: str
+    outputs: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    action_proposals: list[SopActionProposal] = Field(default_factory=list)
+    run_state: Literal[
+        "queued", "running", "succeeded", "failed", "awaiting_confirmation"
+    ] = "succeeded"
 
 
 ViewModel = Annotated[
@@ -114,7 +243,8 @@ ViewModel = Annotated[
     | SemanticViewModel
     | KnowledgeViewModel
     | GraphOntologyViewModel
-    | MonitoringViewModel,
+    | MonitoringViewModel
+    | SopViewModel,
     Field(discriminator="template"),
 ]
 
@@ -137,6 +267,11 @@ class SkillViewRevision(ContractModel):
     view_model: ViewModel
     invocation_id: str | None = None
     result_ref: StorageRef | None = None
+    html_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    etag: str | None = Field(default=None, max_length=80)
+    csp: str = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+    data_revision_refs: list[str] = Field(default_factory=list, max_length=100)
+    trace_id: str | None = None
     created_at: str
 
 
@@ -188,7 +323,9 @@ class EvaluationRun(ContractModel):
     environment: RuntimeProfile = "test"
     dependency_revision_refs: list[str] = Field(default_factory=list, max_length=100)
     data_revision_refs: list[str] = Field(default_factory=list, max_length=100)
-    case_results: list[EvaluationCaseResult] = Field(default_factory=list, max_length=1000)
+    case_results: list[EvaluationCaseResult] = Field(
+        default_factory=list, max_length=1000
+    )
     started_at: str
     finished_at: str | None = None
 
