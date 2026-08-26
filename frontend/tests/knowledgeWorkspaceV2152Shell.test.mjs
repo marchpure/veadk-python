@@ -152,6 +152,9 @@ test("home composer restores the v2.15.2 core journey without URL-only handoff",
   assert.match(homeComposer, /selectedTemplateRef/);
   assert.match(homeComposer, /模板库/);
   assert.doesNotMatch(homeComposer, /Template Registry|typed seam|production adapter|spec\.md/);
+  assert.match(homeComposer, /templateSpecStore/);
+  assert.doesNotMatch(emptyView, /spec\.md/);
+  assert.match(emptyView, /选择模板/);
   assert.doesNotMatch(homeComposer, /id:\s*["']html["']/);
   assert.match(homeComposer, /draft_id|draftId/);
   assert.match(homeComposer, /operation_id|operationId/);

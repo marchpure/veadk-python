@@ -65,7 +65,7 @@ export default function WorkspaceEmptyView({ searchParams, setSearchParams }: an
             onClick={handleOpenTemplates}
             className="flex items-center justify-center space-x-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-2"
           >
-            <FileText size={16} className="text-slate-400" /> <span>选择模板 / spec.md</span>
+            <FileText size={16} className="text-slate-400" /> <span>选择模板</span>
           </button>
         </div>
 
