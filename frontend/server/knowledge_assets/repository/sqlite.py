@@ -238,7 +238,8 @@ class SqliteKnowledgeAssetRepository:
         with self._lock:
             rows = self._connection.execute(
                 """
-                SELECT id, workspace_id, name, revision, created_at, updated_at
+                SELECT id, workspace_id, name, revision, created_at, updated_at,
+                       manifest_json
                 FROM skill_drafts WHERE workspace_id = ? ORDER BY created_at
                 """,
                 (workspace_id,),
@@ -253,15 +254,30 @@ class SqliteKnowledgeAssetRepository:
                 """,
                 (workspace_id,),
             ).fetchall()
-        resources = [
-            ResourceSummary(
-                id=row["id"],
-                display_name=row["name"],
-                space="team" if role == "admin" else "personal",
-                revision=row["revision"],
+        resources = []
+        for row in rows:
+            manifest = {}
+            try:
+                manifest = json.loads(row["manifest_json"] or "{}")
+            except (TypeError, ValueError):
+                pass
+            spec = manifest.get("spec") if isinstance(manifest, dict) else {}
+            renderer = spec.get("defaultRenderer") if isinstance(spec, dict) else None
+            subtype = renderer if renderer in {
+                "dashboard", "semantic", "sop", "knowledge",
+                "graph_ontology", "monitoring",
+            } else "skill"
+            resources.append(
+                ResourceSummary(
+                    id=row["id"],
+                    display_name=row["name"],
+                    resource_kind="skill_draft",
+                    subtype=subtype,
+                    space="team" if role == "admin" else "personal",
+                    lifecycle="draft",
+                    revision=row["revision"],
+                )
             )
-            for row in rows
-        ]
         resources.extend(
             ResourceSummary(
                 id=version.id,

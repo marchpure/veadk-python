@@ -18,8 +18,7 @@ type TemplateId =
   | "sop"
   | "knowledge"
   | "graph_ontology"
-  | "monitoring"
-  | "html";
+  | "monitoring";
 
 type TemplateCard = {
   id: TemplateId;
@@ -36,27 +35,6 @@ type ContextChip = {
   source?: string;
   contextRef?: ResourceRef;
 };
-
-const TEMPLATE_CARDS: TemplateCard[] = [
-  { id: "dashboard", label: "Dashboard", subtitle: "指标、图表、筛选、钻取", kind: "analysis" },
-  { id: "semantic", label: "Semantic", subtitle: "语义模型、指标口径、字段映射", kind: "semantic" },
-  { id: "sop", label: "SOP", subtitle: "流程、试运行、证据引用", kind: "sop" },
-  { id: "knowledge", label: "Knowledge", subtitle: "知识库问答与引用证据", kind: "knowledge" },
-  { id: "graph_ontology", label: "Graph / Ontology", subtitle: "实体、关系、图谱视图", kind: "graph_ontology" },
-  { id: "monitoring", label: "Monitoring", subtitle: "调用、告警、失败优化", kind: "monitoring" },
-];
-
-const DEFAULT_SPEC = `# spec.md 模板
-## 目标
-描述要交付给 Agent 的业务能力。
-## 真实材料
-- 数据连接 / MCP / 文件 / 知识库 / 已有 Skill
-## 输出形态
-Dashboard / Semantic / SOP / Knowledge / Graph / Monitoring / HTML Skill
-## 验收
-- 需要真实 ViewRevision
-- 需要评测和发布门禁
-`;
 
 function ProductIcon({ children, ...props }: SVGProps<SVGSVGElement>) {
   return (
@@ -97,10 +75,6 @@ function AgentIcon(props: SVGProps<SVGSVGElement>) {
 
 function CloseIcon(props: SVGProps<SVGSVGElement>) {
   return <ProductIcon {...props}><path d="M6 6 18 18" /><path d="m18 6-12 12" /></ProductIcon>;
-}
-
-function EyeIcon(props: SVGProps<SVGSVGElement>) {
-  return <ProductIcon {...props}><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" /><circle cx="12" cy="12" r="2.5" /></ProductIcon>;
 }
 
 function ArrowIcon(props: SVGProps<SVGSVGElement>) {
@@ -211,8 +185,6 @@ export default function HomeComposer({
   );
   const [mentionQuery, setMentionQuery] = useState("");
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
-  const [specEditorOpen, setSpecEditorOpen] = useState(false);
-  const [specMarkdown, setSpecMarkdown] = useState(DEFAULT_SPEC);
   const [status, setStatus] = useState<"idle" | "submitting" | "awaiting_input" | "failed" | "completed" | "cancelled">("idle");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -229,7 +201,27 @@ export default function HomeComposer({
       .slice(0, 8);
   }, [catalog, mentionQuery]);
 
-  const selectedTemplateCard = TEMPLATE_CARDS.find((template) => template.id === selectedTemplate) ?? TEMPLATE_CARDS[0];
+  const templateCards = useMemo<TemplateCard[]>(() => {
+    const labels: Record<string, string> = {
+      dashboard: "Dashboard",
+      semantic: "Semantic",
+      sop: "SOP",
+      knowledge: "Knowledge",
+      "graph-ontology": "Graph / Ontology",
+      monitoring: "Monitoring",
+    };
+    return templateSpecStore.getState()
+      .filter((spec) => spec.defaultRenderer in labels)
+      .map((spec) => ({
+        id: (spec.defaultRenderer === "graph_ontology"
+          ? "graph_ontology"
+          : spec.defaultRenderer) as TemplateId,
+        label: labels[spec.templateId] ?? spec.displayName,
+        subtitle: spec.scenario,
+        kind: spec.capabilityIntent as RequestedKind,
+      }));
+  }, []);
+  const selectedTemplateCard = templateCards.find((template) => template.id === selectedTemplate) ?? templateCards[0];
   const selectedTemplateSpec = templateSpecStore.getState().find(
     (spec) =>
       spec.templateId === (
@@ -238,7 +230,7 @@ export default function HomeComposer({
   );
   const selectedTemplateRef: TemplateRef | undefined =
     selectedTemplateSpec?.templateRef;
-  const canSubmit = Boolean(request.trim() || contextChips.length > 0);
+  const canSubmit = Boolean(templateCards.length > 0 && (request.trim() || contextChips.length > 0));
 
   const addChip = (item: Record<string, unknown>) => {
     const chip = toContextChip(item);
@@ -288,6 +280,10 @@ export default function HomeComposer({
     setStatus("submitting");
     setError("");
     setMessage("等待服务端 Agent 生成 SkillDraft 与 BuildPlan…");
+    if (!selectedTemplateCard) {
+      setError("当前工作区尚未提供可用模板。");
+      return;
+    }
     const prompt = request.trim() || `基于已选上下文生成 ${selectedTemplateCard.label} Skill`;
     const resourceRefs = contextChips
       .map(chipToResourceRef)
@@ -345,10 +341,6 @@ export default function HomeComposer({
       setStatus("failed");
       setError(cause instanceof Error ? cause.message : "Skill authoring 启动失败。");
     }
-  };
-
-  const saveSpecTemplate = () => {
-    setError("自定义 spec.md 模板需要 Template Registry 持久化契约；当前 W4 只提供预览，不写入本地假模板。");
   };
 
   const statusLabel = {
@@ -561,7 +553,7 @@ export default function HomeComposer({
                 </button>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                {TEMPLATE_CARDS.map((template) => (
+                {templateCards.map((template) => (
                   <button
                     key={template.id}
                     type="button"
@@ -578,36 +570,6 @@ export default function HomeComposer({
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900">自定义 spec.md 模板</h3>
-                <button
-                  type="button"
-                  onClick={() => setSpecEditorOpen((value) => !value)}
-                  className="inline-flex items-center rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500"
-                >
-                  <EyeIcon className="mr-1 h-3.5 w-3.5" /> {specEditorOpen ? "收起" : "预览"}
-                </button>
-              </div>
-              {specEditorOpen ? (
-                <div className="space-y-2">
-                  <textarea
-                    aria-label="编辑 spec.md 模板"
-                    value={specMarkdown}
-                    onChange={(event) => setSpecMarkdown(event.currentTarget.value)}
-                    rows={8}
-                    className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-[11px] leading-5 text-slate-700 outline-none focus:border-blue-500"
-                  />
-                  <div className="flex gap-2">
-                    <button type="button" onClick={saveSpecTemplate} className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">保存</button>
-                    <button type="button" onClick={() => setSelectedTemplate("html")} className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">复用</button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs leading-5 text-slate-500">可以创建、预览和复用工作区模板。</p>
-              )}
             </div>
 
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">

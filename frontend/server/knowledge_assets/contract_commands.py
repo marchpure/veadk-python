@@ -48,7 +48,16 @@ class ResourceSummary(ContractModel):
     id: str
     display_name: str
     resource_kind: Literal["skill_draft", "golden_asset", "published_skill"] = "skill_draft"
-    subtype: Literal["skill", "dataset", "knowledge"] = "skill"
+    subtype: Literal[
+        "skill",
+        "dataset",
+        "knowledge",
+        "dashboard",
+        "semantic",
+        "sop",
+        "graph_ontology",
+        "monitoring",
+    ] = "skill"
     space: Literal["personal", "team"]
     lifecycle: Literal["draft", "ready"] = "draft"
     version: str = "DRAFT"

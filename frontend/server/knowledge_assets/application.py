@@ -1120,21 +1120,24 @@ class KnowledgeAssetApplication:
         # configuration. They are intentionally small and stable, while the
         # referenced resources and revisions remain entirely bootstrap-derived.
         value["workspaceData"]["recommendedPrompts"] = [
-            {
-                "id": "weekly-business-review",
-                "label": "生成一份业务周报",
-                "prompt": "基于已选择的数据与上下文生成一份业务周报，突出趋势、异常和可执行建议。",
-            },
-            {
-                "id": "operations-monitoring",
-                "label": "监控关键指标变化",
-                "prompt": "监控关键指标变化，说明异常原因、影响范围和下一步处理建议。",
-            },
-            {
-                "id": "sop-runbook",
-                "label": "把流程整理成 SOP",
-                "prompt": "把已选择的业务流程整理成可执行 SOP，包含输入、步骤、证据和验收结果。",
-            },
+            item
+            for item in (
+                {
+                    "id": "weekly-business-review",
+                    "label": "生成一份业务周报",
+                    "prompt": "基于已选择的数据与上下文生成一份业务周报，突出趋势、异常和可执行建议。",
+                },
+                {
+                    "id": "operations-monitoring",
+                    "label": "监控关键指标变化",
+                    "prompt": "监控关键指标变化，说明异常原因、影响范围和下一步处理建议。",
+                },
+                {
+                    "id": "sop-runbook",
+                    "label": "把流程整理成 SOP",
+                    "prompt": "把已选择的业务流程整理成可执行 SOP，包含输入、步骤、证据和验收结果。",
+                },
+            )
         ]
         # Keep the welcome suggestions scoped to the workspace bootstrap
         # contract.  The labels are configuration, while all referenced
