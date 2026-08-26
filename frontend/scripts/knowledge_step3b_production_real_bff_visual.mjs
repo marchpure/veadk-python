@@ -8,7 +8,7 @@
  * come from their servers. A missing dynamic state is a gate failure.
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { inflateSync } from "node:zlib";
 import playwright from "/Users/bytedance/node_modules/playwright/index.js";
@@ -156,7 +156,24 @@ function args(argv) {
     prototype: get("--prototype-origin", "https://6a8d6b680c998402432b2a6f-prototype.inspire.bytedance.net"),
     workspace: get("--workspace", "acceptance-workspace"),
     output: resolve(get("--output", ".veadk/knowledge-assets/production-real-bff")),
+    states: get("--states", ""),
+    viewports: get("--viewports", ""),
+    referenceDir: resolve(get("--reference-dir", ".veadk/knowledge-assets/prototype-reference-cache")),
+    reuseReference: argv.includes("--reuse-reference"),
+    actualOnly: argv.includes("--actual-only"),
   };
+}
+
+function selectedValues(value, allowed, flag) {
+  if (!value) return allowed;
+  const aliases = { welcome: "home" };
+  const requested = value
+    .split(",")
+    .map((item) => aliases[item.trim()] ?? item.trim())
+    .filter(Boolean);
+  const invalid = requested.filter((item) => !allowed.includes(item));
+  if (invalid.length) throw new Error(`${flag} contains unsupported values: ${invalid.join(",")}`);
+  return requested;
 }
 
 function dynamicStateUrls(bootstrap) {
@@ -190,7 +207,46 @@ function dynamicStateUrls(bootstrap) {
   ];
 }
 
-async function visit(browser, origin, stateUrl, viewport, output, label) {
+function atomicJson(path, value) {
+  const temporary = `${path}.tmp-${process.pid}`;
+  writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`);
+  renameSync(temporary, path);
+}
+
+function cachePaths(referenceDir, state, viewportName) {
+  const root = join(referenceDir, viewportName, state);
+  return {
+    root,
+    screenshot: join(root, "prototype-reference.png"),
+    metadata: join(root, "metadata.json"),
+  };
+}
+
+function readReferenceCache(referenceDir, state, viewportName) {
+  const paths = cachePaths(referenceDir, state, viewportName);
+  if (!existsSync(paths.screenshot) || !existsSync(paths.metadata)) return null;
+  try {
+    const metadata = JSON.parse(readFileSync(paths.metadata, "utf8"));
+    const screenshotSha = sha256(readFileSync(paths.screenshot));
+    if (metadata.sha256 !== screenshotSha) return null;
+    return {
+      url: metadata.url,
+      screenshot: paths.screenshot,
+      sha256: screenshotSha,
+      navigationError: "",
+      screenshotError: "",
+      consoleErrors: [],
+      pageErrors: [],
+      failedRequests: [],
+      dom: metadata.dom ?? { scrollWidth: 0, innerWidth: 0, agentWidth: 0, bodyText: "" },
+      cache: { reused: true, downloadedAt: metadata.downloadedAt, viewport: metadata.viewport },
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function visit(browser, origin, stateUrl, viewport, output, label, options = {}) {
   const page = await browser.newPage({
     viewport: { width: viewport.width, height: viewport.height },
     isMobile: viewport.isMobile,
@@ -252,6 +308,17 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
     // Keep the failed capture visible in the report instead of throwing from
     // the evidence collector itself.
   }
+  if (options.referenceCache && screenshotSha && !navigationError && !screenshotError) {
+    mkdirSync(options.referenceCache.root, { recursive: true });
+    writeFileSync(options.referenceCache.screenshot, readFileSync(screenshot));
+    atomicJson(options.referenceCache.metadata, {
+      url: url.toString(),
+      viewport: viewport.name,
+      downloadedAt: new Date().toISOString(),
+      sha256: screenshotSha,
+      dom,
+    });
+  }
   return {
     url: url.toString(),
     screenshot,
@@ -268,19 +335,69 @@ async function visit(browser, origin, stateUrl, viewport, output, label) {
 async function main() {
   const options = args(process.argv.slice(2));
   mkdirSync(options.output, { recursive: true });
+  const selectedStateNames = selectedValues(options.states, stateNames, "--states");
+  const selectedViewports = selectedValues(
+    options.viewports,
+    VIEWPORTS.map((viewport) => viewport.name),
+    "--viewports",
+  ).map((name) => VIEWPORTS.find((viewport) => viewport.name === name));
   const response = await fetch(`${options.integration}/api/knowledge-assets/v1/bootstrap?workspace=${encodeURIComponent(options.workspace)}`);
   if (!response.ok) throw new Error(`integration bootstrap failed: ${response.status}`);
   const bootstrap = await response.json();
-  const urls = dynamicStateUrls(bootstrap);
+  const allUrls = dynamicStateUrls(bootstrap);
+  const urls = selectedStateNames.map((state) => allUrls[stateNames.indexOf(state)]);
   const entries = [];
-  for (let index = 0; index < stateNames.length; index += 1) {
+  const writeReport = () => {
+    const failures = entries.flatMap((entry) => {
+      const out = [];
+      if (!entry.checks.dynamicUrl) out.push(`${entry.state}: no dynamic resource URL`);
+      if (!entry.checks.horizontalOverflow) out.push(`${entry.state}/${entry.viewport}: horizontal overflow`);
+      if (entry.actual.navigationError) out.push(`${entry.state}/${entry.viewport}: ${entry.actual.navigationError}`);
+      if (entry.actual.screenshotError) out.push(`${entry.state}/${entry.viewport}: ${entry.actual.screenshotError}`);
+      if (entry.actual.consoleErrors.length) out.push(`${entry.state}/${entry.viewport}: console errors`);
+      if (entry.actual.pageErrors.length) out.push(`${entry.state}/${entry.viewport}: page errors`);
+      if (entry.actual.failedRequests.length) out.push(`${entry.state}/${entry.viewport}: failed business/static requests`);
+      if (entry.reference.navigationError) out.push(`${entry.state}/${entry.viewport}: prototype reference navigation failed`);
+      if (entry.reference.screenshotError || !entry.reference.sha256) out.push(`${entry.state}/${entry.viewport}: prototype reference screenshot missing`);
+      const threshold = entry.viewport === "mobile-390" ? 0.08 : 0.05;
+      if (entry.pixelDiffRatio > 0.10) out.push(`${entry.state}/${entry.viewport}: pixel diff exceeds 10%`);
+      if (entry.pixelDiffRatio > threshold) out.push(`${entry.state}/${entry.viewport}: pixel diff exceeds viewport threshold`);
+      return out;
+    });
+    const expectedScreenshots = selectedStateNames.length * selectedViewports.length;
+    const report = {
+      generatedAt: new Date().toISOString(),
+      validationScope: "production-real-bff",
+      productionPass: failures.length === 0 && entries.length === expectedScreenshots,
+      stateCount: selectedStateNames.length,
+      viewportCount: selectedViewports.length,
+      screenshots: entries.length,
+      expectedScreenshots,
+      states: selectedStateNames,
+      viewports: selectedViewports.map((viewport) => viewport.name),
+      workspace: bootstrap.access.spaceId,
+      resourceIds: bootstrap.resources.map((item) => item.id),
+      entries,
+      failures,
+      options: {
+        reuseReference: options.reuseReference,
+        actualOnly: options.actualOnly,
+        referenceDir: options.referenceDir,
+      },
+      note: "Prototype reference is visited over HTTP or loaded from an explicit screenshot cache; this runner contains no page.route or route.fulfill.",
+    };
+    atomicJson(join(options.output, "report.json"), report);
+    return report;
+  };
+  for (let index = 0; index < selectedStateNames.length; index += 1) {
     // The prototype is a remote static app. Reusing one Chromium process for
     // all 45 captures eventually exhausts its renderer; isolate each state so
     // a remote failure cannot invalidate already collected real captures.
     const browser = await chromium.launch({ headless: true });
     try {
-      for (const viewport of VIEWPORTS) {
-        const root = join(options.output, viewport.name, stateNames[index]);
+      for (const viewport of selectedViewports) {
+        const state = selectedStateNames[index];
+        const root = join(options.output, viewport.name, state);
         mkdirSync(root, { recursive: true });
         let actual;
         let reference;
@@ -300,17 +417,37 @@ async function main() {
           };
         }
         try {
-          reference = await visit(
-            browser,
-            options.prototype,
-            prototypeStateUrls[index],
-            viewport,
-            root,
-            "prototype-reference",
-          );
+          const cached = options.reuseReference
+            ? readReferenceCache(options.referenceDir, state, viewport.name)
+            : null;
+          if (cached) {
+            reference = cached;
+          } else if (options.actualOnly) {
+            reference = {
+              url: new URL(prototypeStateUrls[stateNames.indexOf(state)], options.prototype).toString(),
+              screenshot: "",
+              sha256: "",
+              navigationError: "",
+              screenshotError: "reference cache missing in --actual-only mode",
+              consoleErrors: [],
+              pageErrors: [],
+              failedRequests: [],
+              dom: { scrollWidth: 0, innerWidth: viewport.width, agentWidth: 0, bodyText: "" },
+            };
+          } else {
+            reference = await visit(
+              browser,
+              options.prototype,
+              prototypeStateUrls[stateNames.indexOf(state)],
+              viewport,
+              root,
+              "prototype-reference",
+              { referenceCache: cachePaths(options.referenceDir, state, viewport.name) },
+            );
+          }
         } catch (error) {
           reference = {
-            url: prototypeStateUrls[index],
+            url: prototypeStateUrls[stateNames.indexOf(state)],
             screenshot: "",
             sha256: "",
             navigationError: error instanceof Error ? error.message : String(error),
@@ -331,7 +468,7 @@ async function main() {
           }
         }
         entries.push({
-          state: stateNames[index],
+          state,
           viewport: viewport.name,
           stateUrl: urls[index],
           actual,
@@ -348,41 +485,13 @@ async function main() {
             navigationError: actual.navigationError,
           },
         });
+        writeReport();
       }
     } finally {
       await browser.close().catch(() => undefined);
     }
   }
-  const failures = entries.flatMap((entry) => {
-    const out = [];
-    if (!entry.checks.dynamicUrl) out.push(`${entry.state}: no dynamic resource URL`);
-    if (!entry.checks.horizontalOverflow) out.push(`${entry.state}/${entry.viewport}: horizontal overflow`);
-    if (entry.actual.navigationError) out.push(`${entry.state}/${entry.viewport}: ${entry.actual.navigationError}`);
-    if (entry.actual.screenshotError) out.push(`${entry.state}/${entry.viewport}: ${entry.actual.screenshotError}`);
-    if (entry.actual.consoleErrors.length) out.push(`${entry.state}/${entry.viewport}: console errors`);
-    if (entry.actual.pageErrors.length) out.push(`${entry.state}/${entry.viewport}: page errors`);
-    if (entry.actual.failedRequests.length) out.push(`${entry.state}/${entry.viewport}: failed business/static requests`);
-    if (entry.reference.navigationError) out.push(`${entry.state}/${entry.viewport}: prototype reference navigation failed`);
-    if (entry.reference.screenshotError || !entry.reference.sha256) out.push(`${entry.state}/${entry.viewport}: prototype reference screenshot missing`);
-    const threshold = entry.viewport === "mobile-390" ? 0.08 : 0.05;
-    if (entry.pixelDiffRatio > 0.10) out.push(`${entry.state}/${entry.viewport}: pixel diff exceeds 10%`);
-    if (entry.pixelDiffRatio > threshold) out.push(`${entry.state}/${entry.viewport}: pixel diff exceeds viewport threshold`);
-    return out;
-  });
-  const report = {
-    generatedAt: new Date().toISOString(),
-    validationScope: "production-real-bff",
-    productionPass: failures.length === 0 && entries.length === 45,
-    stateCount: stateNames.length,
-    viewportCount: VIEWPORTS.length,
-    screenshots: entries.length,
-    workspace: bootstrap.access.spaceId,
-    resourceIds: bootstrap.resources.map((item) => item.id),
-    entries,
-    failures,
-    note: "Prototype reference is visited over HTTP; this runner contains no page.route or route.fulfill.",
-  };
-  writeFileSync(join(options.output, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  const report = writeReport();
   process.stdout.write(`${JSON.stringify({
     validationScope: report.validationScope,
     productionPass: report.productionPass,
