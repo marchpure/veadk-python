@@ -15,8 +15,6 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
   const resourceName = descriptor?.name as string;
   const version = String(descriptor?.version || resource?.version || '1.0.0');
   const identity = descriptor?.identity as string;
-  const artifactType = descriptor?.artifactType as string;
-
   const publications = agentPublicationStore.getState();
   const existing = publications.find((item: unknown) => {
     const record = asRecord(item);
@@ -71,58 +69,90 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in" onClick={(e) => { if(e.target===e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 border border-slate-200">
-        <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50 shrink-0">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center"><ToyBrick size={20} className="mr-2 text-blue-600"/> 发布到 Agent</h2>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 transition-colors outline-none"><X size={20}/></button>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="publish-agent-title"
+    >
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3">
+          <h2 id="publish-agent-title" className="flex items-center text-lg font-bold text-slate-900">
+            <ToyBrick size={19} className="mr-2 text-blue-600" /> 发布到 Agent
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="rounded-lg p-1 text-slate-400 outline-none transition-colors hover:bg-slate-200"
+          >
+            <X size={20} />
+          </button>
         </div>
-        
-        <div className="p-6">
-          <div className="text-sm text-slate-700 mb-5 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <span className="font-bold text-slate-900 block mb-1">“{resourceName}” ({version})</span>
-            发布后，其他平台的 Agent 可搜索并选择此资源。
+
+        <div className="space-y-3 px-5 py-3 sm:px-6">
+          <div className="text-sm leading-5 text-slate-700">
+            <span className="block font-bold text-slate-900">“{resourceName}” ({version})</span>
+            <span className="text-xs text-slate-500">发布后，其他平台的 Agent 可搜索并选择此资源。</span>
           </div>
 
-          <div className="space-y-4 mb-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1.5">可见范围</label>
-              <select value={visibility} onChange={e=>setVisibility(e.target.value)} className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-blue-500 shadow-sm bg-white font-medium">
-                <option value="personal">仅个人可用</option>
-                <option value="team">团队公开可用</option>
-              </select>
-              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                <span>发布范围和质量门禁由服务端校验并持久化。</span>
-              </div>
+          <fieldset>
+            <legend className="mb-1.5 text-xs font-bold text-slate-800">可见范围</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['personal', '仅个人可用'],
+                ['team', '团队公开可用'],
+              ].map(([value, label]) => (
+                <label
+                  key={value}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    visibility === value
+                      ? 'border-blue-300 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="publish-agent-visibility"
+                    value={value}
+                    checked={visibility === value}
+                    onChange={(e) => setVisibility(e.target.value)}
+                    className="h-3.5 w-3.5 accent-blue-600"
+                  />
+                  {label}
+                </label>
+              ))}
             </div>
-          </div>
-          {hasExistingPublication && (
-            <dl className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-              <div><dt className="font-bold text-slate-500">真实版本</dt><dd className="text-slate-800">{String(published.version ?? published.semver ?? '—')}</dd></div>
-              <div><dt className="font-bold text-slate-500">质量分</dt><dd className="text-slate-800">{String(published.qualityScore ?? '需服务端返回')}</dd></div>
-              <div><dt className="font-bold text-slate-500">调用量</dt><dd className="text-slate-800">{String(published.invocationCount ?? '需服务端返回')}</dd></div>
-              <div><dt className="font-bold text-slate-500">新鲜度</dt><dd className="text-slate-800">{String(published.freshness ?? '需服务端返回')}</dd></div>
-              <div className="col-span-2"><dt className="font-bold text-slate-500">I/O Schema / 依赖 / 权限 / 兼容目标</dt><dd className="break-all text-slate-800">{JSON.stringify({ inputSchema: published.inputSchema, outputSchema: published.outputSchema, dependencies: published.dependencies, permissions: published.permissions, compatibilityTargets: published.compatibilityTargets })}</dd></div>
-            </dl>
+          </fieldset>
+
+          {cannotPublishReason && (
+            <div id="publish-agent-gate" role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <AlertTriangle size={13} className="mr-1 inline-block align-[-2px]" />
+              {cannotPublishReason}
+            </div>
           )}
-          {cannotPublishReason && <div id="publish-agent-gate" role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{cannotPublishReason}</div>}
-          {error && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+          {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
         </div>
 
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end items-center gap-3">
+        <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-4 py-2.5">
           {hasExistingPublication && (
-            <button onClick={handleCancelPublish} className="text-sm text-red-600 font-bold hover:bg-red-50 px-4 py-2 rounded-lg transition-colors outline-none mr-auto">取消发布</button>
+            <button type="button" onClick={handleCancelPublish} className="mr-auto rounded-lg px-2 py-2 text-xs font-bold text-red-600 outline-none transition-colors hover:bg-red-50">
+              取消发布
+            </button>
           )}
           {!hasExistingPublication && (
-            <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 outline-none shadow-sm transition-colors">取消</button>
+            <button type="button" onClick={onClose} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 outline-none shadow-sm transition-colors hover:bg-slate-50">
+              取消
+            </button>
           )}
           <button
+            type="button"
             disabled={!canPublish}
             onClick={() => void publish()}
             aria-describedby="publish-agent-gate"
             title={cannotPublishReason}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm flex items-center outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm outline-none transition-colors hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {hasExistingPublication ? '更新范围' : '确认发布'}
           </button>

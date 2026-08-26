@@ -100,19 +100,19 @@ export default function PublishModal({
       aria-modal="true"
       aria-labelledby="publish-modal-title"
     >
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="w-full max-w-md max-h-[calc(100dvh-32px)] overflow-y-auto rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-100 p-5">
           <h2 id="publish-modal-title" className="text-lg font-semibold text-slate-900">发布到团队工作区</h2>
           <button type="button" onClick={onClose} aria-label="关闭" title="关闭" className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6">
-          <p className="mb-5 text-sm leading-6 text-slate-700">
+        <div className="p-6 max-[520px]:p-5">
+          <p className="mb-4 text-sm leading-6 text-slate-700 max-[520px]:mb-3 max-[520px]:leading-5">
             将 <span className="font-semibold text-slate-900">“{resourceName}”</span> 提交给服务端 publication.publish。发布门禁、版本和团队快照只能由服务端返回。
           </p>
 
-          <div className="mb-6 space-y-4">
+          <div className="mb-5 space-y-3 max-[520px]:mb-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-target-dir">目标团队目录</label>
               <select id="publish-target-dir" value={selectedDir} onChange={(event) => setSelectedDir(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
@@ -132,7 +132,7 @@ export default function PublishModal({
             </div>
           </div>
 
-          <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 max-[520px]:mb-3 max-[520px]:p-3">
             <div className="mb-2 flex items-center text-sm font-semibold text-slate-800">
               <GateIcon className="mr-2 h-4 w-4 text-slate-500" /> 发布门禁
             </div>
@@ -141,7 +141,7 @@ export default function PublishModal({
             </p>
           </div>
 
-          <div className="mb-6 flex items-start rounded-xl border border-amber-200/60 bg-amber-50 p-4">
+          <div className="mb-5 flex items-start rounded-xl border border-amber-200/60 bg-amber-50 p-4 max-[520px]:mb-4 max-[520px]:p-3">
             <AlertIcon className="mr-3 mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-600" />
             <div className="text-xs leading-relaxed text-amber-800">
               该操作不会创建浏览器本地团队版本。若缺少 SkillDraft、revision 或 semver，确认按钮会保持禁用。
