@@ -3,6 +3,7 @@ import { Send, Bot, CheckCircle2, CheckSquare, Loader2, X, Database, FileText, G
 import { cn } from '../../lib/utils';
 import { dragStore } from '../../lib/dragStore';
 import { getFullCatalog, resourceStore, connectionStore, bootstrapWorkspace, getWorkspaceAdapter } from '../../lib/store';
+import { workspaceAgentSuggestions } from '../../../production/data';
 import { createRequestContext } from '../../../production/ports';
 import { activeSkillViewRevision } from '../../../production/data';
 import { getServerContextRef } from '../../../production/domainClient';
@@ -186,7 +187,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
       if (type === 'semantic' || type === 'semantic_model') return ['生成 Dashboard Skill', '检查计算字段依赖', '修改指标口径'];
       return ['总结当前资源', '生成相关报告', '导出快照'];
     }
-    return ['添加真实数据连接', '选择 Skill 模板', '描述要生成的 Skill'];
+    return workspaceAgentSuggestions;
   };
 
   const handleSuggestionClick = (s: string) => {
@@ -840,7 +841,7 @@ export default function ChatAssistant({ fileId, chatState, searchParams, setSear
              <div className="w-6 h-6 mt-1 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0"><Bot size={12}/></div>
              <div className="flex-1 min-w-0">
                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-2.5 text-[13px] text-slate-700 leading-relaxed mb-3 max-w-[90%] shadow-sm">
-                 {isHomeChat ? '你好！请添加数据或产物作为上下文，我将为您进行深度分析。' : `你好！正在为您提供关于 ${currentArtifactChip?.name || '当前资源'} 的协助。`}
+                 {isHomeChat && !chatState ? '你好！请添加数据或产物作为上下文，我将为您进行深度分析。' : `你好！正在为您提供关于 ${currentArtifactChip?.name || '当前资源'} 的协助。`}
                </div>
                <div className="flex flex-col gap-2 max-w-[90%]">
                  {getSuggestions().map(s => (

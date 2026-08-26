@@ -1139,6 +1139,12 @@ class KnowledgeAssetApplication:
                 },
             )
         ]
+        value["workspaceData"]["agentSuggestions"] = [
+            "结合 Oracle 语义与 Excel 目标生成经营 Dashboard",
+            "创建一份新的数据大盘",
+            "生成销售数据周报",
+            "导入本地 Excel 数据",
+        ]
         # Keep the welcome suggestions scoped to the workspace bootstrap
         # contract.  The labels are configuration, while all referenced
         # context and resulting objects remain workspace-owned records.

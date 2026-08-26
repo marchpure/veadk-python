@@ -18,6 +18,7 @@ export const knowledgeGraphEntities: WorkspaceKnowledgeGraphEntity[] = [];
 export const knowledgeGraphMappings: WorkspaceKnowledgeGraphMapping[] = [];
 export let activeSkillViewRevision: Record<string, unknown> | null = null;
 export let workspaceRecommendedPrompts: Array<{ id: string; label: string; prompt: string }> = [];
+export let workspaceAgentSuggestions: string[] = [];
 export let workspaceChartConfig: {
   title: string;
   xField: string;
@@ -44,6 +45,9 @@ export function hydrateWorkspaceData(data: WorkspaceBootstrapData): void {
       typeof item.label === "string" &&
       typeof item.prompt === "string",
     )
+    : [];
+  workspaceAgentSuggestions = Array.isArray(data.agentSuggestions)
+    ? data.agentSuggestions.filter((item): item is string => typeof item === "string" && item.length > 0)
     : [];
   workspaceChartConfig = null;
   const viewModel =
