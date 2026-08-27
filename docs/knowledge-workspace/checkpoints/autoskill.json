@@ -5,6 +5,7 @@
   "created_at": "2026-08-27T17:00:00+08:00",
   "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "parent_bootstrap_commit": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
+  "implementation_commit": "150c24745efd68ed804f0d9292bf3a15abb164a7",
   "branch": "feat/knowledge-v1-autoskill",
   "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-autoskill",
   "autoskill": {
