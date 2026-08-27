@@ -145,7 +145,7 @@ export default function PublishModal({
             确定要将 <span className="font-semibold text-slate-900">“{resourceName}”</span> 发布到团队工作区吗？
           </p>
 
-          <div className="mb-4 space-y-3 max-[520px]:mb-3 max-[520px]:space-y-2.5">
+          <div className="mb-5 space-y-4 max-[520px]:mb-4 max-[520px]:space-y-3">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-name">发布名称</label>
               <input id="publish-name" value={resourceName} readOnly className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700" />
@@ -185,16 +185,10 @@ export default function PublishModal({
             </div>
           </div>
 
-          <div className="mb-4 flex items-center rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-inner max-[520px]:mb-3">
+          <div className="mb-6 flex items-center rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-inner max-[520px]:mb-5">
             <GateIcon className="mr-2 h-4.5 w-4.5 shrink-0 text-blue-600" />
             <div className="text-xs font-medium leading-relaxed text-blue-800">
               {evaluationLabel} · {gateLabel}。安全与合规扫描将在发布过程中由服务端执行，确保不泄露敏感数据。
-            </div>
-          </div>
-          <div className="mb-3 flex items-start rounded-xl border border-amber-200/60 bg-amber-50 p-3 max-[520px]:mb-2">
-            <AlertIcon className="mr-3 mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-600" />
-            <div className="text-xs leading-relaxed text-amber-800">
-              缺少 SkillDraft、revision 或版本说明时，确认按钮会保持禁用。
             </div>
           </div>
 
