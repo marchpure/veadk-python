@@ -2,10 +2,10 @@
   "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/autoskill-checkpoint.schema.json",
   "checkpoint": "STEP2C_FROZEN",
   "step": "knowledge-asset-workspace-v1-step-2c",
-  "created_at": "2026-08-27T17:00:00+08:00",
+  "created_at": "2026-08-28T00:00:00+08:00",
   "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "parent_bootstrap_commit": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
-  "implementation_commit": "150c24745efd68ed804f0d9292bf3a15abb164a7",
+  "implementation_commit": "e8fc308cb8f1492f27ac6da6e857131874ab0585",
   "branch": "feat/knowledge-v1-autoskill",
   "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-autoskill",
   "autoskill": {
@@ -41,6 +41,7 @@
       "restart recovery resumes by reconnecting the existing request",
       "immutable Skill ZIP validation and content-addressed storage",
       "real HTML artifact validation with CSP/sandbox metadata",
+      "tenant/workspace-scoped upload ingestion with idempotent forwarding",
       "draft/session/invocation/revision/artifact/publication models",
       "tenant/workspace-qualified SQLite persistence",
       "invocation-bound least-privilege lease issue/revoke lifecycle",
@@ -52,6 +53,7 @@
       "raw SSE secret redaction and payload bounds",
       "tenant/workspace qualification on resource reads",
       "no browser-facing AutoSkill URL, provider IDs, request IDs, or token",
+      "trusted Studio principal actor mapping in production composition",
       "server-side connection context is required for connection-backed invocation"
     ],
     "immutability_evidence": [
@@ -63,8 +65,8 @@
     ]
   },
   "tests": {
-    "command": "pytest -q tests/knowledge_workspace",
-    "result": "23 passed",
+    "command": "pytest -q tests/knowledge_workspace tests/frontend/server/test_intelligent_development_routes.py",
+    "result": "81 passed",
     "compileall": "PASS",
     "contract_validator": "PASS",
     "git_diff_check": "PASS",
