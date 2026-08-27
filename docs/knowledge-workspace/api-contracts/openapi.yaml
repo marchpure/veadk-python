@@ -1,0 +1,1029 @@
+openapi: 3.1.0
+info:
+  title: Knowledge Workspace BFF API
+  version: 1.0.0-step1
+  description: |
+    Browser-only, same-origin contract for Knowledge Asset Workspace V1.
+    This is the Studio/BFF boundary. Connection Service and AutoSkill URLs,
+    credentials, upstream IDs, and provider-native events never appear here.
+servers:
+  - url: /api/knowledge/v1
+    description: Same-origin AgentKit Studio BFF
+tags:
+  - name: connectors
+  - name: connections
+  - name: uploads
+  - name: drafts
+  - name: invocations
+  - name: revisions
+  - name: artifacts
+  - name: publications
+paths:
+  /connector-definitions:
+    get:
+      tags: [connectors]
+      operationId: listConnectorDefinitions
+      summary: List enabled connector definitions
+      description: Returns only catalog, beta, or verified definitions enabled for this workspace.
+      parameters:
+        - $ref: '#/components/parameters/PageCursor'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: Connector definitions
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorDefinitionList'
+        '304':
+          description: Not modified
+        default:
+          $ref: '#/components/responses/Error'
+
+  /connections:
+    get:
+      tags: [connections]
+      operationId: listConnections
+      summary: List connections visible to the current principal
+      parameters:
+        - $ref: '#/components/parameters/PageCursor'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: Connection profiles without secrets
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionList'
+        '304':
+          description: Not modified
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [connections]
+      operationId: createConnection
+      summary: Create a connection draft
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConnectionRequest'
+      responses:
+        '201':
+          description: Connection draft created
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /connections/{connection_id}:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    get:
+      tags: [connections]
+      operationId: getConnection
+      summary: Get a connection profile
+      parameters:
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: Connection profile without secrets
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '304':
+          description: Not modified
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [connections]
+      operationId: updateConnection
+      summary: Rename or change connection visibility
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConnectionRequest'
+      responses:
+        '200':
+          description: Updated connection
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [connections]
+      operationId: revokeConnection
+      summary: Revoke a connection
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '204':
+          description: Revoked (repeated calls are idempotent)
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /connections/{connection_id}/validate:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    post:
+      tags: [connections]
+      operationId: validateConnection
+      summary: Start real connection validation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidationRequest'
+      responses:
+        '202':
+          description: Validation job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /connections/{connection_id}/discover:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    post:
+      tags: [connections]
+      operationId: discoverConnection
+      summary: Start real action/schema discovery
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoveryRequest'
+      responses:
+        '202':
+          description: Discovery job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /uploads:
+    post:
+      tags: [uploads]
+      operationId: createUpload
+      summary: Upload an isolated input file
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                purpose:
+                  type: string
+                  enum: [context, skill_input]
+      responses:
+        '201':
+          description: Upload stored in isolated object storage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts:
+    get:
+      tags: [drafts]
+      operationId: listDrafts
+      summary: List drafts in the current workspace
+      parameters:
+        - $ref: '#/components/parameters/PageCursor'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Drafts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftList'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [drafts]
+      operationId: createDraft
+      summary: Create a Skill draft
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDraftRequest'
+      responses:
+        '201':
+          description: Draft created
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+    get:
+      tags: [drafts]
+      operationId: getDraft
+      summary: Get a draft authoring workspace
+      parameters:
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: Draft
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResponse'
+        '304':
+          description: Not modified
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [drafts]
+      operationId: updateDraft
+      summary: Update goal, trial task, or connection bindings
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDraftRequest'
+      responses:
+        '200':
+          description: Updated draft
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/generate:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+    post:
+      tags: [drafts, invocations]
+      operationId: generateDraft
+      summary: Start real AutoSkill create_skill generation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '202':
+          description: Invocation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/messages:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+    post:
+      tags: [drafts, invocations]
+      operationId: sendDraftMessage
+      summary: Update or run a draft through AutoSkill
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftMessageRequest'
+      responses:
+        '202':
+          description: Invocation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /invocations/{invocation_id}/events:
+    parameters:
+      - $ref: '#/components/parameters/InvocationId'
+    get:
+      tags: [invocations]
+      operationId: streamInvocationEvents
+      summary: Stream normalized invocation events
+      description: |
+        SSE stream. Clients send Last-Event-ID after disconnect. A disconnect
+        never changes invocation state and does not re-invoke AutoSkill.
+      parameters:
+        - $ref: '#/components/parameters/LastEventId'
+      responses:
+        '200':
+          description: text/event-stream with events matching events.schema.json
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-cache }
+            Connection:
+              schema: { type: string, const: keep-alive }
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 'SSE frames: id, event, and data JSON envelope.'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /invocations/{invocation_id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/InvocationId'
+    post:
+      tags: [invocations]
+      operationId: cancelInvocation
+      summary: Idempotently cancel an invocation
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Cancellation requested or already terminal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/revisions:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+    get:
+      tags: [revisions]
+      operationId: listDraftRevisions
+      summary: List immutable revisions for a draft
+      responses:
+        '200':
+          description: Revisions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionList'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [revisions]
+      operationId: freezeRevision
+      summary: Freeze a validated AutoSkill Skill ZIP as an immutable revision
+      description: This does not publish. It requires successful generation and ZIP validation.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreezeRevisionRequest'
+      responses:
+        '201':
+          description: Immutable revision created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skill-revisions/{revision_id}/run:
+    parameters:
+      - $ref: '#/components/parameters/RevisionId'
+    post:
+      tags: [revisions, invocations]
+      operationId: runRevision
+      summary: Run one fixed revision with authorized connections
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunRevisionRequest'
+      responses:
+        '202':
+          description: Run accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /artifacts/{artifact_id}:
+    parameters:
+      - $ref: '#/components/parameters/ArtifactId'
+    get:
+      tags: [artifacts]
+      operationId: getArtifact
+      summary: Get immutable artifact metadata
+      parameters:
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: Artifact metadata; content is served only by the controlled artifact URL.
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactResponse'
+        '304':
+          description: Not modified
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skill-revisions/{revision_id}/publish:
+    parameters:
+      - $ref: '#/components/parameters/RevisionId'
+    post:
+      tags: [publications]
+      operationId: publishRevision
+      summary: Publish an immutable revision to personal or team space
+      description: Re-runs publication gates; it never mutates the revision.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRequest'
+      responses:
+        '201':
+          description: Publication created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /publications/{publication_id}/invoke:
+    parameters:
+      - $ref: '#/components/parameters/PublicationId'
+    post:
+      tags: [publications, invocations]
+      operationId: invokePublication
+      summary: Invoke a published revision for an authorized consumer
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationInvokeRequest'
+      responses:
+        '202':
+          description: Invocation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+components:
+  parameters:
+    ConnectionId:
+      name: connection_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    DraftId:
+      name: draft_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    InvocationId:
+      name: invocation_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    RevisionId:
+      name: revision_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    ArtifactId:
+      name: artifact_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    PublicationId:
+      name: publication_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Stable key for retrying one side-effecting operation for at least 24 hours.
+      schema: { type: string, minLength: 16, maxLength: 256 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: ETag of the resource version the client read.
+      schema: { type: string, minLength: 1 }
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      schema: { type: string }
+    LastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      description: Resume cursor. The server replays events after this ID.
+      schema: { type: string }
+    PageCursor:
+      name: cursor
+      in: query
+      required: false
+      schema: { type: string }
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+  headers:
+    ETag:
+      description: Opaque strong validator for this resource representation.
+      schema: { type: string, minLength: 1 }
+  responses:
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    IdempotencyConflict:
+      description: Same idempotency key was reused with a different request fingerprint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    PreconditionFailed:
+      description: ETag no longer matches.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    Meta:
+      type: object
+      required: [request_id]
+      properties:
+        request_id: { type: string }
+        next_cursor: { type: string }
+        has_more: { type: boolean }
+      additionalProperties: false
+    Error:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTH_REQUIRED
+            - FORBIDDEN
+            - WORKSPACE_NOT_FOUND
+            - CONNECTION_NOT_READY
+            - CONNECTION_VALIDATION_FAILED
+            - LEASE_EXPIRED
+            - AUTOSKILL_UNAVAILABLE
+            - AUTOSKILL_PROTOCOL_ERROR
+            - SKILL_ZIP_INVALID
+            - ARTIFACT_UNSAFE
+            - REVISION_CONFLICT
+            - PUBLISH_GATE_FAILED
+            - IDEMPOTENCY_CONFLICT
+            - PRECONDITION_FAILED
+            - NOT_FOUND
+            - INVALID_ARGUMENT
+        message: { type: string }
+        retryable: { type: boolean }
+        details: { type: object, additionalProperties: true }
+      additionalProperties: false
+    ErrorEnvelope:
+      type: object
+      required: [error, meta]
+      properties:
+        error: { $ref: '#/components/schemas/Error' }
+        meta: { $ref: '#/components/schemas/Meta' }
+      additionalProperties: false
+    ConnectorDefinition:
+      type: object
+      required: [connector_key, version, display_name, status, capabilities, config_schema, auth_schema]
+      properties:
+        connector_key: { type: string }
+        version: { type: string }
+        display_name: { type: string }
+        category: { type: string }
+        status: { type: string, enum: [catalog, beta, verified] }
+        capabilities:
+          type: array
+          items: { type: string, enum: [validate, discover, action, oauth, api_key, custom_credential, mcp, http, openapi, file] }
+        config_schema: { type: object, additionalProperties: true }
+        auth_schema: { type: object, additionalProperties: true }
+      additionalProperties: false
+    ConnectorDefinitionList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ConnectorDefinition' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ConnectionProfile:
+      type: object
+      required: [connection_id, connector_key, display_name, scope, status, definition_version, created_at, updated_at]
+      properties:
+        connection_id: { type: string }
+        connector_key: { type: string }
+        display_name: { type: string }
+        scope: { type: string, enum: [personal, team] }
+        status: { type: string, enum: [draft, validating, ready, degraded, error, revoked] }
+        definition_version: { type: string }
+        profile:
+          type: object
+          description: Safe account profile only; no credentials or tokens.
+          additionalProperties: true
+        last_validated_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      additionalProperties: false
+    ConnectionList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ConnectionProfile' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ConnectionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/ConnectionProfile' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    CreateConnectionRequest:
+      type: object
+      required: [connector_key, display_name, scope, config, credential]
+      properties:
+        connector_key: { type: string }
+        display_name: { type: string, minLength: 1, maxLength: 120 }
+        scope: { type: string, enum: [personal, team] }
+        config: { type: object, additionalProperties: true }
+        credential:
+          type: object
+          description: Accepted only by BFF over TLS; never echoed or persisted in browser state.
+          additionalProperties: true
+      additionalProperties: false
+    UpdateConnectionRequest:
+      type: object
+      minProperties: 1
+      properties:
+        display_name: { type: string, minLength: 1, maxLength: 120 }
+        scope: { type: string, enum: [personal, team] }
+        config: { type: object, additionalProperties: true }
+        credential:
+          type: object
+          description: Replacement credential; never echoed.
+          additionalProperties: true
+      additionalProperties: false
+    ValidationRequest:
+      type: object
+      properties: { force: { type: boolean, default: false } }
+      additionalProperties: false
+    DiscoveryRequest:
+      type: object
+      properties:
+        cursor: { type: string }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+      additionalProperties: false
+    JobResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [job_id, status]
+          properties:
+            job_id: { type: string }
+            status: { type: string, enum: [queued, running] }
+            event_url: { type: string }
+          additionalProperties: false
+        meta: { $ref: '#/components/schemas/Meta' }
+    UploadResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [upload_id, filename, sha256, size_bytes]
+          properties:
+            upload_id: { type: string }
+            filename: { type: string }
+            sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+            size_bytes: { type: integer, minimum: 0 }
+            media_type: { type: string }
+          additionalProperties: false
+        meta: { $ref: '#/components/schemas/Meta' }
+    Draft:
+      type: object
+      required: [draft_id, goal, connection_ids, lifecycle, created_at, updated_at]
+      properties:
+        draft_id: { type: string }
+        goal: { type: string }
+        trial_task: { type: string }
+        connection_ids:
+          type: array
+          minItems: 1
+          items: { type: string }
+        lifecycle:
+          type: string
+          enum: [editing, generating, generated, validating, ready_to_publish, published, failed, cancelled]
+        current_revision_id: { type: string }
+        active_invocation_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      additionalProperties: false
+    DraftList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Draft' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    DraftResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Draft' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    CreateDraftRequest:
+      type: object
+      required: [goal, connection_ids]
+      properties:
+        goal: { type: string, minLength: 1, maxLength: 20000 }
+        connection_ids: { type: array, minItems: 1, items: { type: string } }
+        trial_task: { type: string, maxLength: 20000 }
+        upload_ids: { type: array, items: { type: string } }
+      additionalProperties: false
+    UpdateDraftRequest:
+      type: object
+      minProperties: 1
+      properties:
+        goal: { type: string, minLength: 1, maxLength: 20000 }
+        connection_ids: { type: array, minItems: 1, items: { type: string } }
+        trial_task: { type: string, maxLength: 20000 }
+        upload_ids: { type: array, items: { type: string } }
+      additionalProperties: false
+    GenerateRequest:
+      type: object
+      properties:
+        model: { type: string }
+        message: { type: string }
+      additionalProperties: false
+    DraftMessageRequest:
+      type: object
+      required: [message, intent]
+      properties:
+        message: { type: string, minLength: 1, maxLength: 20000 }
+        intent: { type: string, enum: [update, run] }
+        upload_ids: { type: array, items: { type: string } }
+      additionalProperties: false
+    Invocation:
+      type: object
+      required: [invocation_id, kind, status, event_url, created_at]
+      properties:
+        invocation_id: { type: string }
+        kind: { type: string, enum: [generate, update, run, validate, discover] }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        event_url: { type: string }
+        created_at: { type: string, format: date-time }
+      additionalProperties: false
+    InvocationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Invocation' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    Revision:
+      type: object
+      required: [revision_id, draft_id, number, skill_name, sha256, created_at]
+      properties:
+        revision_id: { type: string }
+        draft_id: { type: string }
+        number: { type: integer, minimum: 1 }
+        skill_name: { type: string }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        manifest: { type: object, additionalProperties: true }
+        created_from_invocation: { type: string }
+        created_at: { type: string, format: date-time }
+      additionalProperties: false
+    RevisionList:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Revision' } }
+        meta: { $ref: '#/components/schemas/Meta' }
+    RevisionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Revision' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    FreezeRevisionRequest:
+      type: object
+      required: [invocation_id]
+      properties:
+        invocation_id: { type: string }
+      additionalProperties: false
+    RunRevisionRequest:
+      type: object
+      required: [connection_ids, message]
+      properties:
+        connection_ids: { type: array, minItems: 1, items: { type: string } }
+        message: { type: string, minLength: 1, maxLength: 20000 }
+        upload_ids: { type: array, items: { type: string } }
+      additionalProperties: false
+    Artifact:
+      type: object
+      required: [artifact_id, revision_id, invocation_id, media_type, sha256, created_at]
+      properties:
+        artifact_id: { type: string }
+        revision_id: { type: string }
+        invocation_id: { type: string }
+        media_type: { type: string }
+        uri: { type: string }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+        title: { type: string }
+        lineage: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+      additionalProperties: false
+    ArtifactResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Artifact' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    PublishRequest:
+      type: object
+      required: [target_space]
+      properties:
+        target_space: { type: string, enum: [personal, team] }
+        display_name: { type: string, maxLength: 120 }
+        agent_grants: { type: array, items: { type: string } }
+        release_notes: { type: string, maxLength: 20000 }
+      additionalProperties: false
+    Publication:
+      type: object
+      required: [publication_id, revision_id, target_space, status, created_at]
+      properties:
+        publication_id: { type: string }
+        revision_id: { type: string }
+        target_space: { type: string, enum: [personal, team] }
+        status: { type: string, enum: [published, revoked] }
+        agent_grants: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+      additionalProperties: false
+    PublicationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/Publication' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    PublicationInvokeRequest:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1, maxLength: 20000 }
+        connection_ids: { type: array, items: { type: string } }
+        upload_ids: { type: array, items: { type: string } }
+      additionalProperties: false

@@ -1,0 +1,218 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/bootstrap-checkpoint.schema.json",
+  "checkpoint": "STEP1_READY",
+  "step": "knowledge-asset-workspace-v1-step-1",
+  "created_at": "2026-08-27T14:44:09Z",
+  "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
+  "prototype_sha256": "dc8c74c1dff979c0da6e9b61fd0b85e66bf4134725581b8f945c76505d146f1d",
+  "autoskill_ref": "8dc9f14c1a0b0169ef865f3d87d4a6ea3e623533",
+  "openconnector_ref": "0fa2c728dfbf957735da2843ec2b8a4f3425b105",
+  "contract_files_summary": "docs/knowledge-workspace/architecture.md, api-contracts/openapi.yaml, events.schema.json, migration-ledger.md, acceptance-matrix.md, checkpoints/bootstrap.json",
+  "forbidden_paths": [
+    "/Users/bytedance/.codex/worktrees/knowledge-autoskill-mvp",
+    "/Users/bytedance/veadk-python-research",
+    "prototype/codebase/src/data/mockData.ts",
+    "prototype/codebase/src/lib/store.ts",
+    "prototype/codebase/src/lib/actionLoopStore.ts"
+  ],
+  "base": {
+    "repository": "veadk-python",
+    "remote_url": "https://github.com/volcengine/veadk-python.git",
+    "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
+    "base_ref": "origin/main",
+    "fetched_at": "2026-08-27T14:39:23Z",
+    "source_checkout": "/Users/bytedance/veadk-python-research",
+    "source_checkout_status": "dirty; not used as worktree source; 82 paths changed/untracked",
+    "legacy_main_sha_before_fetch": "f47b56db5e67a7abc1b45f3e1eab56988bfecea9",
+    "initial_worktree_status": "clean"
+  },
+  "branch": "feat/knowledge-connection-autoskill-v1",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1",
+  "prototype": {
+    "archive_url": "https://cdn-tos-cn.bytedance.net/obj/tiktok-web-ai-cn/dc8c74c1dff979c0da6e9b61fd0b85e66bf4134725581b8f945c76505d146f1d.tar.gz",
+    "temporary_extraction": "/tmp/knowledge-v1-prototype.1D2aLC/extracted/prototype",
+    "prototype_sha256": "dc8c74c1dff979c0da6e9b61fd0b85e66bf4134725581b8f945c76505d146f1d",
+    "dependencies": {
+      "react": "18.2.0",
+      "react-dom": "18.2.0",
+      "react-router-dom": "6.23.0",
+      "lucide-react": "0.563.0",
+      "recharts": "2.12.7",
+      "framer-motion": "11.1.7",
+      "clsx": "2.1.1",
+      "tailwind-merge": "2.3.0"
+    },
+    "capture_count": 22,
+    "capture_state_urls": [
+      "/?file=welcome",
+      "/?file=draft_dash_anta",
+      "/?file=draft_dash_anta&run_state=success",
+      "/?file=draft_dash_anta&run_state=success&modal=publish",
+      "/?file=draft_dash_anta&run_state=failed",
+      "/?file=draft_dash_anta&state=permission",
+      "/?file=draft_dash_anta&state=connection_error",
+      "/?file=draft_dash_anta&state=upgrade",
+      "/?file=draft_dash_anta&modal=advanced",
+      "/?file=draft_dash_anta&modal=test_records",
+      "/?file=draft_dash_anta&modal=tools",
+      "/?file=pub_dash_anta",
+      "/?file=pub_dash_anta&modal=agent",
+      "/?file=pub_dash_anta&modal=share_run",
+      "/?file=pub_dash_anta&modal=instructions",
+      "/?file=pub_dash_anta&modal=versions",
+      "/?file=draft_sop_bluetooth",
+      "/?file=draft_sop_haidilao",
+      "/?file=skill_new",
+      "/?file=skill_new&scenario=anta",
+      "/?file=skill_new&scenario=zhiji",
+      "/?file=skill_new&scenario=haidilao"
+    ],
+    "read_files": [
+      "prototype/readme.md",
+      "prototype/captures.json",
+      "prototype/codebase/dependencies.json",
+      "prototype/codebase/prototype-route.json",
+      "prototype/codebase/src/prototype-route.json",
+      "prototype/codebase/src/App.tsx",
+      "prototype/codebase/src/components/Layout/WorkspaceLayout.tsx",
+      "prototype/codebase/src/components/Layout/FileTreePane.tsx",
+      "prototype/codebase/src/components/Layout/MainAreaPane.tsx",
+      "prototype/codebase/src/components/Layout/RightPane.tsx",
+      "prototype/codebase/src/components/MainArea/SkillNewView.tsx",
+      "prototype/codebase/src/components/MainArea/ConnectionDetailView.tsx",
+      "prototype/codebase/src/components/MainArea/SkillDraftWorkspace.tsx",
+      "prototype/codebase/src/components/RightPane/ChatAssistant.tsx",
+      "prototype/codebase/src/components/Modals/PublishModal.tsx"
+    ],
+    "migration_whitelist": [
+      "layout geometry and responsive shell",
+      "empty/error/loading state presentation",
+      "right-pane conversation interaction shape",
+      "connection multi-select presentation",
+      "Skill draft/version/publish visual grouping",
+      "accessible modal and keyboard/focus shape",
+      "color, spacing, type, icon tokens",
+      "22 capture route/state visual regression cases"
+    ],
+    "mock_prohibitions": [
+      "prototype/codebase/src/data/mockData.ts",
+      "Prototype localStorage business state",
+      "setTimeout fake jobs or pseudo-success",
+      "hardcoded Anta, Zhiji, or Haidilao outcomes",
+      "browser-side scenario inference",
+      "legacy BuildPlan",
+      "legacy ArtifactSpec",
+      "Golden Data orchestration",
+      "template patches",
+      "six parallel renderer/runtime implementations",
+      "fake connector registry",
+      "AutoSkill fallback",
+      "HTTP 200/final_answer/timer treated as domain success"
+    ]
+  },
+  "autoskill": {
+    "repository_url": "https://code.byted.org/hydra-agent/autoskill",
+    "source_sha": "8dc9f14c1a0b0169ef865f3d87d4a6ea3e623533",
+    "api_base": "/openapi/autoskill/v1",
+    "deployment_mode": "stateful HTTP/SSE",
+    "confirmed_surfaces": [
+      "POST /invoke",
+      "GET /stream",
+      "POST /stop",
+      "POST /create_skill",
+      "POST /update_skill",
+      "GET/POST Skill query and management endpoints",
+      "POST /upload",
+      "GET /download",
+      "GET /list_sessions",
+      "stateless state endpoints documented but not the V1 default"
+    ],
+    "confirmed_native_events": [
+      "planning",
+      "action",
+      "observation",
+      "final_answer",
+      "request_summary",
+      "state_update",
+      "error",
+      "done"
+    ],
+    "license_note": "Read-only API/source reference only; no AutoSkill source copied into veadk-python."
+  },
+  "openconnector": {
+    "repository_url": "https://github.com/oomol-lab/open-connector.git",
+    "remote": "origin",
+    "fetched_at": "2026-08-27T14:39:23Z",
+    "source_sha": "0fa2c728dfbf957735da2843ec2b8a4f3425b105",
+    "previous_local_sha": "5960f2ac0fe3e07a61c1c466e98157ad7e80b373",
+    "license_file": "LICENSE.txt",
+    "notice_file": "NOTICE.md",
+    "license": "Apache-2.0",
+    "confirmed_capabilities": [
+      "Provider and Action schemas",
+      "API key, OAuth2, custom credential, and no-auth providers",
+      "credential encryption and OAuth refresh",
+      "runtime tokens and action policies",
+      "allowedConnections on stored runtime tokens",
+      "HTTP runtime and generated OpenAPI",
+      "MCP discovery/execution surface",
+      "SSRF guard",
+      "Action idempotency and run logs"
+    ],
+    "product_gaps": [
+      "Oracle Database adapter",
+      "generic REST/OpenAPI import workflow",
+      "Web/API Discovery worker",
+      "arbitrary self-built MCP onboarding and controlled stdio/HTTP runner"
+    ],
+    "not_a_verification_claim": "Provider directory count is not V1 readiness; only real adapter fixtures may promote a connector to verified."
+  },
+  "contract_files": {
+    "architecture": {
+      "path": "docs/knowledge-workspace/architecture.md",
+      "summary": "Target topology, ownership, immutable revision/artifact model, lifecycle, AutoSkill normalization, Connection boundary, and non-goals."
+    },
+    "openapi": {
+      "path": "docs/knowledge-workspace/api-contracts/openapi.yaml",
+      "summary": "Browser-only /api/knowledge/v1 REST/SSE contract for connector definitions, connections, validation/discovery, uploads, drafts, generation/messages, invocation events/cancel, revisions/run, artifacts, publication, and publication invoke; includes error envelope, Idempotency-Key, ETag, If-Match, and Last-Event-ID."
+    },
+    "events": {
+      "path": "docs/knowledge-workspace/events.schema.json",
+      "summary": "Normalized SSE event schema covering run.started, assistant.delta, plan.updated, tool.started/completed, artifact.created, revision.created, and run.completed/failed/cancelled."
+    },
+    "migration_ledger": {
+      "path": "docs/knowledge-workspace/migration-ledger.md",
+      "summary": "Read evidence, prototype whitelist, forbidden migration list, OpenConnector capability/gap ledger, and AutoSkill mapping."
+    },
+    "acceptance_matrix": {
+      "path": "docs/knowledge-workspace/acceptance-matrix.md",
+      "summary": "Baseline/contract pass gates and deferred real-service acceptance evidence for STEP 2A/2B/2C."
+    },
+    "validator": {
+      "path": "tools/validate_knowledge_workspace.py",
+      "summary": "Dependency-free syntax and required-surface validator for the STEP 1 checkpoint."
+    }
+  },
+  "worker_worktrees": {
+    "STEP_2A_studio_bff": {
+      "branch": "feat/knowledge-connection-autoskill-v1-step2a-studio-bff",
+      "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2a-studio-bff",
+      "base": "bootstrap commit of this worktree",
+      "scope": "Studio feature, BFF DTO/state, immutable revision/artifact/publication persistence, browser API binding"
+    },
+    "STEP_2B_connection_service": {
+      "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
+      "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
+      "base": "bootstrap commit of this worktree",
+      "scope": "Independent Connection Service control plane, OpenConnector integration, leases, adapters, validation/discovery, audit"
+    },
+    "STEP_2C_autoskill_adapter": {
+      "branch": "feat/knowledge-connection-autoskill-v1-step2c-autoskill-adapter",
+      "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2c-autoskill-adapter",
+      "base": "bootstrap commit of this worktree",
+      "scope": "AutoSkill HTTP/SSE adapter, reconnect/cancel, event normalization, ZIP and HTML artifact validation"
+    }
+  },
+  "legacy_path_policy": "The listed legacy worktree and dirty research checkout are read-only references. Do not modify, delete, reset, clean, or use either as the implementation baseline.",
+  "step1_scope": "Contracts, architecture, migration/acceptance records, checkpoint, and thin validation only. No backend/UI feature implementation and no mock API."
+}

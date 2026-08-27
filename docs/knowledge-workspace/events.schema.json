@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentkit.bytedance.net/schemas/knowledge-workspace/events.schema.json",
+  "title": "Knowledge Workspace normalized invocation events",
+  "description": "BFF-to-browser SSE event envelope. Event data is intentionally normalized away from AutoSkill's native event names.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/runStarted" },
+    { "$ref": "#/$defs/assistantDelta" },
+    { "$ref": "#/$defs/planUpdated" },
+    { "$ref": "#/$defs/toolStarted" },
+    { "$ref": "#/$defs/toolCompleted" },
+    { "$ref": "#/$defs/artifactCreated" },
+    { "$ref": "#/$defs/revisionCreated" },
+    { "$ref": "#/$defs/runCompleted" },
+    { "$ref": "#/$defs/runFailed" },
+    { "$ref": "#/$defs/runCancelled" }
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["id", "type", "invocation_id", "occurred_at", "data"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": [
+            "run.started",
+            "assistant.delta",
+            "plan.updated",
+            "tool.started",
+            "tool.completed",
+            "artifact.created",
+            "revision.created",
+            "run.completed",
+            "run.failed",
+            "run.cancelled"
+          ]
+        },
+        "invocation_id": { "type": "string", "minLength": 1 },
+        "occurred_at": { "type": "string", "format": "date-time" },
+        "data": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "runStarted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "run.started" },
+            "data": {
+              "type": "object",
+              "required": ["kind", "status"],
+              "properties": {
+                "kind": { "enum": ["generate", "update", "run", "validate", "discover"] },
+                "status": { "const": "running" },
+                "draft_id": { "type": "string" },
+                "revision_id": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "assistantDelta": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "assistant.delta" },
+            "data": {
+              "type": "object",
+              "required": ["text", "sequence"],
+              "properties": {
+                "text": { "type": "string" },
+                "sequence": { "type": "integer", "minimum": 0 },
+                "final": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "planUpdated": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "plan.updated" },
+            "data": {
+              "type": "object",
+              "required": ["steps"],
+              "properties": {
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "label", "status"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "label": { "type": "string" },
+                      "status": { "enum": ["pending", "running", "completed", "failed", "cancelled"] }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "summary": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "toolStarted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "tool.started" },
+            "data": {
+              "type": "object",
+              "required": ["tool_call_id", "tool_name"],
+              "properties": {
+                "tool_call_id": { "type": "string" },
+                "tool_name": { "type": "string" },
+                "connection_id": { "type": "string" },
+                "connection_alias": { "type": "string" },
+                "input_summary": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "toolCompleted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "tool.completed" },
+            "data": {
+              "type": "object",
+              "required": ["tool_call_id", "tool_name", "status", "duration_ms"],
+              "properties": {
+                "tool_call_id": { "type": "string" },
+                "tool_name": { "type": "string" },
+                "status": { "enum": ["succeeded", "failed", "cancelled"] },
+                "duration_ms": { "type": "integer", "minimum": 0 },
+                "output_summary": { "type": "string" },
+                "error_code": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "artifactCreated": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "artifact.created" },
+            "data": {
+              "type": "object",
+              "required": ["artifact_id", "revision_id", "media_type", "sha256"],
+              "properties": {
+                "artifact_id": { "type": "string" },
+                "revision_id": { "type": "string" },
+                "media_type": { "type": "string" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "title": { "type": "string" },
+                "lineage": { "type": "object", "additionalProperties": true }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "revisionCreated": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "revision.created" },
+            "data": {
+              "type": "object",
+              "required": ["revision_id", "draft_id", "number", "sha256"],
+              "properties": {
+                "revision_id": { "type": "string" },
+                "draft_id": { "type": "string" },
+                "number": { "type": "integer", "minimum": 1 },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "skill_name": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "runCompleted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "run.completed" },
+            "data": {
+              "type": "object",
+              "required": ["status", "finished_at"],
+              "properties": {
+                "status": { "const": "succeeded" },
+                "finished_at": { "type": "string", "format": "date-time" },
+                "request_summary": { "type": "object", "additionalProperties": true },
+                "artifact_ids": { "type": "array", "items": { "type": "string" } },
+                "revision_id": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "runFailed": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "run.failed" },
+            "data": {
+              "type": "object",
+              "required": ["status", "error"],
+              "properties": {
+                "status": { "const": "failed" },
+                "error": { "$ref": "#/$defs/error" },
+                "finished_at": { "type": "string", "format": "date-time" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "runCancelled": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "run.cancelled" },
+            "data": {
+              "type": "object",
+              "required": ["status"],
+              "properties": {
+                "status": { "const": "cancelled" },
+                "finished_at": { "type": "string", "format": "date-time" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "details": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+
