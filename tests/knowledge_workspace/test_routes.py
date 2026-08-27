@@ -143,3 +143,88 @@ async def test_browser_invocation_response_does_not_expose_upstream_ids() -> Non
         assert "autoskill_agent_id" not in payload
         assert "autoskill_session_id" not in payload
         assert "autoskill_request_id" not in payload
+
+
+@pytest.mark.asyncio
+async def test_upload_is_idempotent_and_workspace_scoped() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service)
+    transport = httpx.ASGITransport(app=app)
+    owner = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+        "idempotency-key": "upload-key",
+    }
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        first = await client.post(
+            "/api/knowledge/v1/uploads",
+            headers=owner,
+            files={"file": ("context.txt", b"context", "text/plain")},
+        )
+        replay = await client.post(
+            "/api/knowledge/v1/uploads",
+            headers=owner,
+            files={"file": ("context.txt", b"context", "text/plain")},
+        )
+        assert first.status_code == replay.status_code == 201
+        assert first.json()["data"]["upload_id"] == replay.json()["data"]["upload_id"]
+        upload_id = first.json()["data"]["upload_id"]
+
+        conflict = await client.post(
+            "/api/knowledge/v1/uploads",
+            headers=owner,
+            files={"file": ("other.txt", b"other", "text/plain")},
+        )
+        assert conflict.status_code == 409
+
+        hidden = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers={**owner, "x-tenant-id": "tenant-b", "idempotency-key": "draft-key"},
+            json={"goal": "goal", "connection_ids": ["connection"], "upload_ids": [upload_id]},
+        )
+        assert hidden.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_invocation_response_has_same_origin_event_url_and_etag_guard() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service)
+    transport = httpx.ASGITransport(app=app)
+    headers = {"x-tenant-id": "tenant", "x-workspace-id": "workspace", "x-principal-id": "principal"}
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        draft = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers=headers,
+            json={"goal": "goal", "connection_ids": ["connection"]},
+        )
+        draft_id = draft.json()["data"]["draft_id"]
+        etag = (await client.get(f"/api/knowledge/v1/skills/drafts/{draft_id}", headers=headers)).headers["etag"]
+        updated = await client.patch(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}",
+            headers={**headers, "if-match": etag},
+            json={"goal": "new goal"},
+        )
+        assert updated.status_code == 200
+        current_etag = updated.headers["etag"]
+        invocation = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/generate",
+            headers={**headers, "if-match": current_etag},
+        )
+        assert invocation.status_code == 202
+        payload = invocation.json()["data"]
+        assert payload["event_url"] == f"/api/knowledge/v1/invocations/{payload['invocation_id']}/events"
+        stale = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/messages",
+            headers={**headers, "if-match": etag},
+            json={"message": "stale", "intent": "update"},
+        )
+        assert stale.status_code == 412

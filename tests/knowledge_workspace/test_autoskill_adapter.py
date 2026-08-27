@@ -133,6 +133,39 @@ async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() ->
 
 
 @pytest.mark.asyncio
+async def test_query_skill_command_accepts_documented_json_envelope() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            json={
+                "code": 200,
+                "data": {
+                    "command": "list-skill",
+                    "ok": True,
+                    "data": {"skills": [{"name": "demo"}]},
+                    "error": None,
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="http://localhost", token="test-token"),
+            client=http,
+        )
+        items = [
+            item async for item in client.list_skill(
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+            )
+        ]
+    assert [item.event_type for item in items] == ["final_answer", "done"]
+    assert '"demo"' in str(items[0].payload)
+
+
+@pytest.mark.asyncio
 async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout() -> None:
     requests: list[httpx.Request] = []
 
@@ -198,6 +231,29 @@ async def test_stream_first_event_timeout_fails_closed() -> None:
                 session_id="session",
                 request_id="request",
                 message="slow",
+            )]
+
+
+@pytest.mark.asyncio
+async def test_stream_disconnect_before_done_fails_closed() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=b'data: {"type":"final_answer","data":{"answer":"partial"}}\n\n',
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="http://localhost", token="test-token"),
+            client=http,
+        )
+        with pytest.raises(AutoSkillProtocolError, match="disconnected"):
+            _ = [item async for item in client.invoke(
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                message="partial",
             )]
 
 

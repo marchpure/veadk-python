@@ -8,7 +8,15 @@ import threading
 from pathlib import Path
 from typing import Any, Iterable
 
-from .models import Artifact, AuthoringSession, Invocation, Publication, SkillDraft, SkillRevision
+from .models import (
+    Artifact,
+    AuthoringSession,
+    Invocation,
+    Publication,
+    SkillDraft,
+    SkillRevision,
+    WorkspaceUpload,
+)
 
 
 class KnowledgeWorkspaceRepository:
@@ -33,6 +41,7 @@ class KnowledgeWorkspaceRepository:
             CREATE TABLE IF NOT EXISTS kw_revisions (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, draft_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_artifacts (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_publications (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision_id TEXT NOT NULL, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS kw_uploads (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_idempotency (scope TEXT NOT NULL, key TEXT NOT NULL, request_digest TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(scope, key));
             """
         )
@@ -61,6 +70,28 @@ class KnowledgeWorkspaceRepository:
         with self._lock:
             rows = self._db.execute("SELECT payload FROM kw_drafts WHERE tenant_id=? AND workspace_id=? ORDER BY id", (tenant_id, workspace_id)).fetchall()
         return tuple(SkillDraft.model_validate(json.loads(row["payload"])) for row in rows)
+
+    def save_upload(self, upload: WorkspaceUpload) -> WorkspaceUpload:
+        with self._lock:
+            payload = self._json(upload)
+            row = self._db.execute("SELECT payload FROM kw_uploads WHERE id=?", (upload.upload_id,)).fetchone()
+            if row:
+                if row["payload"] != payload:
+                    raise ValueError("immutable upload mutation")
+                return upload
+            self._db.execute(
+                "INSERT INTO kw_uploads(id,tenant_id,workspace_id,payload) VALUES(?,?,?,?)",
+                (upload.upload_id, upload.tenant_id, upload.workspace_id, payload),
+            )
+        return upload
+
+    def get_upload(self, upload_id: str, *, tenant_id: str, workspace_id: str) -> WorkspaceUpload | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT payload FROM kw_uploads WHERE id=? AND tenant_id=? AND workspace_id=?",
+                (upload_id, tenant_id, workspace_id),
+            ).fetchone()
+        return self._model(row, WorkspaceUpload)
 
     def save_session(self, session: AuthoringSession) -> None:
         with self._lock:
@@ -225,6 +256,8 @@ class KnowledgeWorkspaceRepository:
     def put_object(self, digest: str, content: bytes, *, suffix: str = ".bin") -> str:
         # The digest is the complete object key.  A caller cannot create two
         # mutable aliases for the same content by changing a filename suffix.
+        if digest != __import__("hashlib").sha256(content).hexdigest():
+            raise ValueError("object digest does not match content")
         target = self._objects / digest
         try:
             with target.open("xb") as stream:
@@ -235,7 +268,11 @@ class KnowledgeWorkspaceRepository:
         return str(target)
 
     def read_object(self, uri: str) -> bytes:
-        return Path(uri).read_bytes()
+        target = Path(uri).resolve()
+        root = self._objects.resolve()
+        if target.parent != root:
+            raise ValueError("object URI is outside immutable object storage")
+        return target.read_bytes()
 
     def idempotent(self, scope: str, key: str, request_digest: str, value: str) -> str:
         with self._lock:

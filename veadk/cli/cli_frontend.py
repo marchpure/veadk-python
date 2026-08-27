@@ -2358,6 +2358,7 @@ def _run_frontend_server(
     from frontend.server.knowledge_workspace import (
         AutoSkillClient,
         AutoSkillConfig,
+        Actor,
         KnowledgeWorkspaceRepository,
         KnowledgeWorkspaceService,
         UnavailableAutoSkillClient,
@@ -2383,9 +2384,22 @@ def _run_frontend_server(
         ),
         autoskill_client,
     )
+
+    def _knowledge_workspace_actor(request: Request, resolver: Any) -> Actor:
+        principal = resolver(request)
+        owner_id = str(getattr(principal, "owner_id", "") or "local")
+        return Actor(
+            tenant_id=owner_id,
+            workspace_id="studio",
+            principal_id=owner_id,
+        )
+
     mount_knowledge_workspace_routes(
         app,
         knowledge_service,
+        actor_resolver=lambda request: _knowledge_workspace_actor(
+            request, _knowledge_identity
+        ),
     )
 
     from frontend.server.video.routes import (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from .sse import ParsedUpstreamEvent, SseParser, parse_upstream_frame
+from .sse import ParsedUpstreamEvent, SseParser, parse_upstream_frame, sanitize_event_payload
 
 
 class AutoSkillProtocolError(RuntimeError):
@@ -193,8 +194,35 @@ class AutoSkillClient:
             response = await stream_context.__aenter__()
             if response.status_code >= 400:
                 raise AutoSkillProtocolError(f"AutoSkill {path} returned HTTP {response.status_code}")
+            content_type = response.headers.get("content-type", "").casefold()
+            if "application/json" in content_type:
+                raw_body = await response.aread()
+                try:
+                    payload = response.json()
+                except (ValueError, json.JSONDecodeError) as exc:
+                    raise AutoSkillProtocolError(f"AutoSkill {path} returned invalid JSON") from exc
+                safe_payload = sanitize_event_payload(payload)
+                yield ParsedUpstreamEvent(
+                    None,
+                    "final_answer",
+                    {
+                        "type": "final_answer",
+                        "data": {
+                            "answer": json.dumps(safe_payload, ensure_ascii=False),
+                        },
+                    },
+                    raw_body.decode("utf-8", errors="replace"),
+                )
+                yield ParsedUpstreamEvent(
+                    None,
+                    "done",
+                    {"type": "done", "data": {}},
+                    "",
+                )
+                return
             iterator = response.aiter_bytes().__aiter__()
             first_event_seen = False
+            terminal_seen = False
             async with asyncio.timeout(self.config.timeout_seconds):
                 while True:
                     timeout = (
@@ -218,11 +246,21 @@ class AutoSkillClient:
                         parsed = parse_upstream_frame(frame)
                         if parsed:
                             first_event_seen = True
+                            terminal_seen = parsed.event_type.casefold().replace("-", "_") == "done"
                             yield parsed
+                            if terminal_seen:
+                                break
+                    if terminal_seen:
+                        break
                 for frame in parser.finish():
                     parsed = parse_upstream_frame(frame)
                     if parsed:
+                        terminal_seen = parsed.event_type.casefold().replace("-", "_") == "done"
                         yield parsed
+                        if terminal_seen:
+                            break
+            if not terminal_seen:
+                raise AutoSkillProtocolError("AutoSkill SSE disconnected before done")
         except TimeoutError as exc:
             raise AutoSkillProtocolError("AutoSkill SSE total timeout") from exc
         except (httpx.TimeoutException, httpx.TransportError) as exc:

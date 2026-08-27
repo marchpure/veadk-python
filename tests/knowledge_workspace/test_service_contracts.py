@@ -14,6 +14,7 @@ from frontend.server.knowledge_workspace.models import (
     Invocation,
     InvocationKind,
     InvocationStatus,
+    WorkspaceUpload,
     new_id,
 )
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
@@ -34,8 +35,13 @@ class FakeAutoSkill:
     def __init__(self, events: Sequence[ParsedUpstreamEvent]) -> None:
         self.events = tuple(events)
         self.stops: list[str] = []
+        self.uploads: list[dict[str, object]] = []
         self.output = b"<!doctype html><html><body>real output</body></html>"
         self.skill_zip = make_skill_zip("demo", "# Demo\n")
+
+    async def upload(self, **kwargs: object) -> dict[str, str]:
+        self.uploads.append(kwargs)
+        return {"status": "ok"}
 
     async def download(self, **kwargs: object) -> bytes:
         return self.output if kwargs["file_type"] == "output" else self.skill_zip
@@ -96,7 +102,7 @@ def make_service(events: Sequence[ParsedUpstreamEvent]) -> tuple[KnowledgeWorksp
 class FreezeAutoSkill(FakeAutoSkill):
     async def command(self, command: str, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
         if command == "list_skill":
-            answer = json.dumps({"data": {"skills": [{"name": "demo"}]}})
+            answer = json.dumps({"data": {"command": "list-skill", "data": {"skills": [{"name": "demo"}]}}})
             for item in (event("final_answer", {"answer": answer}), event("done")):
                 yield item
             return
@@ -154,6 +160,28 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
 
 
 @pytest.mark.asyncio
+async def test_publication_consumer_gets_fresh_autoskill_identity() -> None:
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+    run = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    publication = service.publish(actor, revision.revision_id, "personal")
+    consumer = await service.invoke_publication(actor, publication.publication_id, "use it", ("connection-a",))
+    assert consumer.autoskill_agent_id != generation.autoskill_agent_id
+    assert consumer.autoskill_session_id != generation.autoskill_session_id
+    assert consumer.connection_ids == ("connection-a",)
+
+
+@pytest.mark.asyncio
 async def test_invocation_issues_invocation_bound_lease_and_revokes_it() -> None:
     service, actor, lease = make_service(
         [
@@ -175,6 +203,40 @@ async def test_invocation_issues_invocation_bound_lease_and_revokes_it() -> None
     assert lease.issued[0]["invocation_id"] == invocation.invocation_id
     assert lease.issued[0]["connection_ids"] == ("connection-a",)
     assert lease.revoked == [f"lease-{invocation.invocation_id}"]
+
+
+@pytest.mark.asyncio
+async def test_invocation_forwards_workspace_uploads_to_autoskill() -> None:
+    service, actor, _ = make_service(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", {"status": "success"}),
+            event("done"),
+        ]
+    )
+    content = b"source context"
+    digest = __import__("hashlib").sha256(content).hexdigest()
+    upload = service.repository.save_upload(
+        WorkspaceUpload(
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            upload_id="upload-context",
+            filename="context.txt",
+            sha256=digest,
+            size_bytes=len(content),
+            media_type="text/plain",
+            purpose="context",
+            uri=service.repository.put_object(digest, content),
+        )
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"], upload_ids=[upload.upload_id])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    assert invocation.upload_ids == (upload.upload_id,)
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    assert fake.uploads[0]["file_name"] == "context.txt"
+    assert fake.uploads[0]["content"] == content
 
 
 @pytest.mark.asyncio

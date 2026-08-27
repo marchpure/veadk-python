@@ -22,6 +22,7 @@ from .models import (
     Publication,
     SkillDraft,
     SkillRevision,
+    WorkspaceUpload,
     new_id,
     utc_now,
 )
@@ -146,6 +147,8 @@ class KnowledgeWorkspaceService:
         goal: str,
         connection_ids: Sequence[str],
         *,
+        trial_task: str | None = None,
+        upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> SkillDraft:
@@ -154,6 +157,14 @@ class KnowledgeWorkspaceService:
         unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
         if not unique:
             raise KnowledgeWorkspaceError("CONNECTION_NOT_READY", "at least one connection is required", 409)
+        uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
+        for upload_id in uploads:
+            if self.repository.get_upload(
+                upload_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            ) is None:
+                raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
         draft_id = new_id("draft")
         if idempotency_key:
             try:
@@ -180,7 +191,9 @@ class KnowledgeWorkspaceService:
             draft_id=draft_id,
             created_by=actor.principal_id,
             goal=goal.strip(),
+            trial_task=trial_task.strip() if trial_task and trial_task.strip() else None,
             connection_ids=unique,
+            upload_ids=uploads,
             etag=new_id("etag"),
         )
         session = AuthoringSession(
@@ -203,6 +216,8 @@ class KnowledgeWorkspaceService:
         goal: str | None,
         connection_ids: Sequence[str] | None,
         if_match: str | None,
+        trial_task: str | None = None,
+        upload_ids: Sequence[str] | None = None,
     ) -> SkillDraft:
         draft = self.get_draft(actor, draft_id)
         if if_match and if_match.strip('"') != draft.etag:
@@ -223,6 +238,18 @@ class KnowledgeWorkspaceService:
             if not unique:
                 raise KnowledgeWorkspaceError("CONNECTION_NOT_READY", "at least one connection is required", 409)
             updates["connection_ids"] = unique
+        if trial_task is not None:
+            updates["trial_task"] = trial_task.strip() or None
+        if upload_ids is not None:
+            uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
+            for upload_id in uploads:
+                if self.repository.get_upload(
+                    upload_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                ) is None:
+                    raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
+            updates["upload_ids"] = uploads
         updated = draft.model_copy(update=updates)
         self.repository.save_draft(updated)
         return updated
@@ -255,13 +282,27 @@ class KnowledgeWorkspaceService:
         model: str | None = None,
         revision_id: str | None = None,
         connection_ids: Sequence[str] = (),
+        upload_ids: Sequence[str] = (),
         lease_id: str | None = None,
+        if_match: str | None = None,
         idempotency_key: str | None = None,
         request_digest: str = "",
+        autoskill_agent_id: str | None = None,
+        autoskill_session_id: str | None = None,
     ) -> Invocation:
         draft = self.get_draft(actor, draft_id)
         session = self._session(actor, draft_id)
+        if if_match and if_match.strip('"') != draft.etag:
+            raise KnowledgeWorkspaceError("ETAG_MISMATCH", "draft was modified by another request", 412)
         effective_connection_ids = tuple(connection_ids) or draft.connection_ids
+        effective_upload_ids = tuple(upload_ids) or draft.upload_ids
+        for upload_id in effective_upload_ids:
+            if self.repository.get_upload(
+                upload_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            ) is None:
+                raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
         invocation_id = new_id("inv")
         if idempotency_key:
             try:
@@ -291,14 +332,15 @@ class KnowledgeWorkspaceService:
             draft_id=draft_id,
             revision_id=revision_id,
             connection_ids=effective_connection_ids,
+            upload_ids=effective_upload_ids,
             lease_id=lease_id,
             authoring_session_id=session.authoring_session_id,
             principal_id=actor.principal_id,
             kind=kind,
             message=message,
             model=model,
-            autoskill_agent_id=session.autoskill_agent_id,
-            autoskill_session_id=session.autoskill_session_id,
+            autoskill_agent_id=autoskill_agent_id or session.autoskill_agent_id,
+            autoskill_session_id=autoskill_session_id or session.autoskill_session_id,
             autoskill_request_id=new_id("request"),
         )
         self.repository.save_invocation(invocation)
@@ -406,22 +448,59 @@ class KnowledgeWorkspaceService:
                 )
                 self.repository.save_invocation(cancelled)
                 return
+            if (
+                invocation.kind is InvocationKind.RUN
+                and invocation.revision_id
+                and (
+                    invocation.autoskill_agent_id != session.autoskill_agent_id
+                    or invocation.autoskill_session_id != session.autoskill_session_id
+                )
+            ):
+                revision = self.repository.get_revision(
+                    invocation.revision_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if revision is None:
+                    raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
+                await self.autoskill.upload(
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
+                    file_type="skill",
+                    file_name=revision.skill_name,
+                    content=self.repository.read_object(revision.zip_uri),
+                )
+            for upload_id in invocation.upload_ids:
+                upload = self.repository.get_upload(
+                    upload_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if upload is None:
+                    raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
+                await self.autoskill.upload(
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
+                    file_type="file",
+                    file_name=upload.filename,
+                    content=self.repository.read_object(upload.uri),
+                )
             if resume:
                 last = self.repository.raw_events(invocation.invocation_id)
                 cursor = str(last[-1]["upstream_id"]) if last and last[-1]["upstream_id"] else None
                 stream = self.autoskill.reconnect(
-                    agent_id=session.autoskill_agent_id,
-                    session_id=session.autoskill_session_id,
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
                     request_id=invocation.autoskill_request_id,
                     last_event_id=cursor,
                 )
             elif invocation.kind is InvocationKind.GENERATE:
-                stream = self.autoskill.command("create_skill", agent_id=session.autoskill_agent_id, session_id=session.autoskill_session_id, request_id=invocation.autoskill_request_id, prompt=message, model=model, state=self._session_state(session))
+                stream = self.autoskill.command("create_skill", agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id, prompt=message, model=model, state=self._session_state(session))
             elif invocation.kind is InvocationKind.UPDATE:
-                stream = self.autoskill.command("update_skill", agent_id=session.autoskill_agent_id, session_id=session.autoskill_session_id, request_id=invocation.autoskill_request_id, prompt=message, model=model, state=self._session_state(session))
+                stream = self.autoskill.command("update_skill", agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id, prompt=message, model=model, state=self._session_state(session))
             else:
                 state = self._session_state(session) if getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless" else None
-                stream = self.autoskill.invoke(agent_id=session.autoskill_agent_id, session_id=session.autoskill_session_id, request_id=invocation.autoskill_request_id, message=message, model=model, state=state)
+                stream = self.autoskill.invoke(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id, message=message, model=model, state=state)
             async for event in self._with_reconnect(stream, actor, current, session):
                 last_event_id = event.event_id or last_event_id
                 kind = event.event_type.casefold().replace("-", "_")
@@ -469,8 +548,8 @@ class KnowledgeWorkspaceService:
             if current.state_update_observed and getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless":
                 try:
                     state_zip = await self.autoskill.get_state_zip(
-                        agent_id=session.autoskill_agent_id,
-                        session_id=session.autoskill_session_id,
+                        agent_id=invocation.autoskill_agent_id,
+                        session_id=invocation.autoskill_session_id,
                         request_id=invocation.autoskill_request_id,
                     )
                 except AutoSkillProtocolError as exc:
@@ -540,8 +619,8 @@ class KnowledgeWorkspaceService:
     ) -> None:
         try:
             output = await self.autoskill.download(
-                agent_id=session.autoskill_agent_id,
-                session_id=session.autoskill_session_id,
+                agent_id=invocation.autoskill_agent_id,
+                session_id=invocation.autoskill_session_id,
                 file_type="output",
             )
         except AutoSkillProtocolError as exc:
@@ -554,19 +633,19 @@ class KnowledgeWorkspaceService:
             "media_type": media_type,
             "encoding": encoding,
             "csp": "default-src 'none'",
-            "sandbox": "allow-same-origin",
+            "sandbox": "",
         }
         content = output
         name = "output.bin"
         try:
             if output.lstrip().lower().startswith((b"<html", b"<!doctype html")):
                 name, content, metadata = "output.html", output, validate_html_artifact(output)
-            else:
+            elif output[:2] == b"PK":
                 name, content, metadata = validate_output_archive(output)
         except HtmlArtifactError as exc:
             # A real non-HTML result is still an artifact; only HTML receives
             # the HTML viewer policy. Never synthesize a dashboard fallback.
-            if exc.code not in {"ARTIFACT_HTML_MISSING", "ARTIFACT_HTML_AMBIGUOUS", "ARTIFACT_OUTPUT_INVALID"}:
+            if exc.code not in {"ARTIFACT_HTML_MISSING", "ARTIFACT_HTML_AMBIGUOUS"}:
                 raise
             name = "output.zip" if output[:2] == b"PK" else "output.bin"
             if name == "output.bin":
@@ -582,7 +661,7 @@ class KnowledgeWorkspaceService:
                             "media_type": "text/plain",
                             "encoding": "utf-8",
                             "csp": "default-src 'none'",
-                            "sandbox": "allow-same-origin",
+                            "sandbox": "",
                         }
         digest = str(metadata["sha256"])
         uri = self.repository.put_object(digest, content, suffix=".html" if metadata["media_type"] == "text/html" else ".bin")
@@ -645,8 +724,8 @@ class KnowledgeWorkspaceService:
                 last = self.repository.raw_events(invocation.invocation_id)
                 cursor = str(last[-1]["upstream_id"]) if last and last[-1]["upstream_id"] else None
                 current = self.autoskill.reconnect(
-                    agent_id=session.autoskill_agent_id,
-                    session_id=session.autoskill_session_id,
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
                     request_id=invocation.autoskill_request_id,
                     last_event_id=cursor,
                 )
@@ -719,8 +798,8 @@ class KnowledgeWorkspaceService:
             state = self._session_state(session) if getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless" else None
             names = self.autoskill.command(
                 "list_skill",
-                agent_id=session.autoskill_agent_id,
-                session_id=session.autoskill_session_id,
+            agent_id=invocation.autoskill_agent_id,
+            session_id=invocation.autoskill_session_id,
                 request_id=new_id("request"),
                 state=state,
             )
@@ -732,7 +811,15 @@ class KnowledgeWorkspaceService:
                     answer = data.get("answer") if isinstance(data, Mapping) else ""
                     try:
                         payload = json.loads(answer)
-                        skill_name = payload.get("data", {}).get("skills", [{}])[0].get("name")
+                        payload_data = payload.get("data", {}) if isinstance(payload, Mapping) else {}
+                        if isinstance(payload_data, Mapping):
+                            skill_data = payload_data.get("data", payload_data)
+                            if isinstance(skill_data, Mapping):
+                                skills = skill_data.get("skills", [])
+                                if isinstance(skills, list) and skills:
+                                    first = skills[0]
+                                    if isinstance(first, Mapping):
+                                        skill_name = first.get("name")
                     except (TypeError, ValueError, IndexError, AttributeError):
                         pass
                 if event.event_type == "done":
@@ -743,8 +830,8 @@ class KnowledgeWorkspaceService:
             view_request = new_id("request")
             view_stream = self.autoskill.command(
                 "view_skill",
-                agent_id=session.autoskill_agent_id,
-                session_id=session.autoskill_session_id,
+                agent_id=invocation.autoskill_agent_id,
+                session_id=invocation.autoskill_session_id,
                 request_id=view_request,
                 name=skill_name,
                 state=state,
@@ -758,7 +845,7 @@ class KnowledgeWorkspaceService:
                     break
             if not view_seen or not view_done:
                 raise KnowledgeWorkspaceError("SKILL_ZIP_INVALID", "view_skill did not return readable content", 502)
-            zip_bytes = await self.autoskill.download(agent_id=session.autoskill_agent_id, session_id=session.autoskill_session_id, file_type="skill", name=skill_name)
+            zip_bytes = await self.autoskill.download(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, file_type="skill", name=skill_name)
             manifest = validate_skill_zip(zip_bytes)
             uri = self.repository.put_object(manifest["sha256"], zip_bytes, suffix=".zip")
         except AutoSkillProtocolError as exc:
@@ -823,6 +910,7 @@ class KnowledgeWorkspaceService:
         message: str,
         connection_ids: Sequence[str],
         *,
+        upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> Invocation:
@@ -839,6 +927,7 @@ class KnowledgeWorkspaceService:
             message=message,
             revision_id=revision_id,
             connection_ids=connection_ids,
+            upload_ids=upload_ids,
             idempotency_key=idempotency_key,
             request_digest=request_digest,
         )
@@ -890,6 +979,23 @@ class KnowledgeWorkspaceService:
             workspace_id=actor.workspace_id,
         ):
             raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "a successful real run and artifact are required", 409)
+        try:
+            checked_zip = validate_skill_zip(self.repository.read_object(revision.zip_uri))
+            if checked_zip["sha256"] != revision.sha256:
+                raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "revision ZIP digest changed", 409)
+            artifacts = self.repository.artifacts_for_revision(
+                revision_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+            for artifact in artifacts:
+                content = self.repository.read_object(artifact.uri)
+                if hashlib.sha256(content).hexdigest() != artifact.sha256:
+                    raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "artifact digest changed", 409)
+                if artifact.media_type == "text/html":
+                    validate_html_artifact(content)
+        except (SkillZipError, HtmlArtifactError, ValueError) as exc:
+            raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "immutable asset validation failed", 409) from exc
         publication_id = new_id("pub")
         if idempotency_key:
             try:
@@ -943,6 +1049,7 @@ class KnowledgeWorkspaceService:
         message: str,
         connection_ids: Sequence[str],
         *,
+        upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> Invocation:
@@ -962,6 +1069,8 @@ class KnowledgeWorkspaceService:
         )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "published revision not found", 404)
+        consumer_agent_id = new_id("consumer-agent")
+        consumer_session_id = new_id("consumer-session")
         # A consumer invocation gets a fresh request and must be authorized
         # independently; the creator's lease/session is never reused.
         return self.start(
@@ -971,6 +1080,9 @@ class KnowledgeWorkspaceService:
             message=message,
             revision_id=revision.revision_id,
             connection_ids=connection_ids,
+            upload_ids=upload_ids,
             idempotency_key=idempotency_key,
             request_digest=request_digest,
+            autoskill_agent_id=consumer_agent_id,
+            autoskill_session_id=consumer_session_id,
         )

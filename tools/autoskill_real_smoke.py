@@ -31,11 +31,31 @@ from frontend.server.knowledge_workspace.autoskill import (
     AutoSkillProtocolError,
 )
 from frontend.server.knowledge_workspace.sse import ParsedUpstreamEvent
+from frontend.server.knowledge_workspace.html_artifact import (
+    HtmlArtifactError,
+    validate_html_artifact,
+    validate_output_archive,
+)
 from frontend.server.knowledge_workspace.zip_validator import validate_skill_zip
 
 
 def redacted(value: str) -> str:
     return f"{value[:4]}…{value[-4:]}" if len(value) > 10 else "[REDACTED]"
+
+
+def command_data(answer: object) -> dict:
+    if not isinstance(answer, str):
+        return {}
+    try:
+        payload = json.loads(answer)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    value = payload.get("data", payload)
+    if isinstance(value, dict) and isinstance(value.get("data"), dict):
+        value = value["data"]
+    return value if isinstance(value, dict) else {}
 
 
 async def collect(stream, *, require_summary: bool = True) -> tuple[list[ParsedUpstreamEvent], dict]:
@@ -104,8 +124,7 @@ async def main() -> int:
                 require_summary=False,
             )
             answer = next((event.payload.get("data", {}).get("answer", "") for event in list_events if event.event_type == "final_answer"), "")
-            parsed = json.loads(answer) if isinstance(answer, str) else {}
-            skills = parsed.get("data", {}).get("skills", [])
+            skills = command_data(answer).get("skills", [])
             if not skills:
                 raise RuntimeError("list_skill returned no Skill")
             name = str(skills[0]["name"])
@@ -120,10 +139,66 @@ async def main() -> int:
             checked_one = validate_skill_zip(zip_one)
             invoke_request_id = str(uuid.uuid4())
             invoke_events, invoke_summary = await collect(client.invoke(agent_id=agent_id, session_id=session_id, request_id=invoke_request_id, message=f"Use the {name} Skill to validate {{'name': 'sample'}} and report the result."))
+            output = await client.download(
+                agent_id=agent_id,
+                session_id=session_id,
+                file_type="output",
+            )
+            output_evidence: dict[str, object] = {
+                "sha256": hashlib.sha256(output).hexdigest(),
+                "size_bytes": len(output),
+                "media_type": "application/octet-stream",
+            }
+            try:
+                if output.lstrip().lower().startswith((b"<html", b"<!doctype html")):
+                    output_evidence.update(validate_html_artifact(output))
+                else:
+                    output_name, output_content, output_metadata = validate_output_archive(output)
+                    output_evidence.update(output_metadata)
+                    output_evidence["output_name"] = output_name
+                    output_evidence["content_sha256"] = hashlib.sha256(output_content).hexdigest()
+            except HtmlArtifactError as error:
+                # A real non-HTML output is valid evidence; unsafe/oversized
+                # HTML is a hard failure and must never be rendered.
+                if error.code not in {
+                    "ARTIFACT_HTML_MISSING",
+                    "ARTIFACT_HTML_AMBIGUOUS",
+                    "ARTIFACT_OUTPUT_INVALID",
+                }:
+                    raise
+                output_evidence["non_html_output"] = True
             update_request_id = str(uuid.uuid4())
             update_events, update_summary = await collect(client.command("update_skill", agent_id=agent_id, session_id=session_id, request_id=update_request_id, prompt=f"Update Skill `{name}` to also report unexpected fields."))
             zip_two = await client.download(agent_id=agent_id, session_id=session_id, file_type="skill", name=name)
             checked_two = validate_skill_zip(zip_two)
+            # A newly constructed client proves the persisted state is
+            # discoverable after a client refresh; the BFF restart contract is
+            # covered by its durable-repository test.
+            async with httpx.AsyncClient() as refreshed_transport:
+                refreshed_client = AutoSkillClient(
+                    AutoSkillConfig(base_url=base, token=token),
+                    client=refreshed_transport,
+                )
+                refreshed_request_id = str(uuid.uuid4())
+                refreshed_events, _ = await collect(
+                    refreshed_client.command(
+                        "list_skill",
+                        agent_id=agent_id,
+                        session_id=session_id,
+                        request_id=refreshed_request_id,
+                    ),
+                    require_summary=False,
+                )
+            refreshed_answer = next(
+                (
+                    event.payload.get("data", {}).get("answer", "")
+                    for event in refreshed_events
+                    if event.event_type == "final_answer"
+                ),
+                "",
+            )
+            if not command_data(refreshed_answer).get("skills"):
+                raise RuntimeError("refreshed client could not read persisted Skill state")
             result.update({
                 "status": "PASS",
                 "skill_name": name,
@@ -132,10 +207,13 @@ async def main() -> int:
                     {"kind": "view", "request_id": redacted(view_request_id)},
                     {"kind": "invoke", "request_id": redacted(invoke_request_id), "summary_status": invoke_summary.get("status"), "event_count": len(invoke_events)},
                     {"kind": "update", "request_id": redacted(update_request_id), "summary_status": update_summary.get("status"), "event_count": len(update_events)},
+                    {"kind": "refresh_list", "request_id": redacted(refreshed_request_id), "event_count": len(refreshed_events)},
                 ],
                 "zip_one_sha256": checked_one["sha256"],
                 "zip_two_sha256": checked_two["sha256"],
                 "zip_digests_differ": checked_one["sha256"] != checked_two["sha256"],
+                "output": output_evidence,
+                "old_zip_digest_preserved": checked_one["sha256"] != checked_two["sha256"],
             })
             if checked_one["sha256"] == checked_two["sha256"]:
                 raise RuntimeError("update did not produce a distinct Skill ZIP digest")

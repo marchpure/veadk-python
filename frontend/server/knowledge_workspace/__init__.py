@@ -17,15 +17,17 @@ from .models import (
     Publication,
     SkillDraft,
     SkillRevision,
+    WorkspaceUpload,
 )
 from .repository import KnowledgeWorkspaceRepository
 from .routes import mount_knowledge_workspace_routes
-from .service import KnowledgeWorkspaceService
+from .service import Actor, KnowledgeWorkspaceService
 from .sse import SseParser, normalize_upstream_event
 from .zip_validator import SkillZipError, validate_skill_zip
 
 __all__ = [
     "Artifact",
+    "Actor",
     "AuthoringSession",
     "AutoSkillClient",
     "AutoSkillConfig",
@@ -43,6 +45,7 @@ __all__ = [
     "Publication",
     "SkillDraft",
     "SkillRevision",
+    "WorkspaceUpload",
     "SkillZipError",
     "SseParser",
     "normalize_upstream_event",

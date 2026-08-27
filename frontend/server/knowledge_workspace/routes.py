@@ -7,11 +7,11 @@ import hashlib
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi import File, FastAPI, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.responses import Response as FastAPIResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import Artifact, Invocation, InvocationKind, Publication, SkillRevision
+from .models import Artifact, Invocation, InvocationKind, Publication, SkillRevision, WorkspaceUpload, new_id
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
 
 
@@ -20,12 +20,15 @@ class CreateDraftBody(BaseModel):
     goal: str = Field(min_length=1, max_length=8_000)
     connection_ids: list[str] = Field(min_length=1, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
+    upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
 class UpdateDraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str | None = Field(default=None, min_length=1, max_length=8_000)
     connection_ids: list[str] | None = Field(default=None, min_length=1, max_length=64)
+    trial_task: str | None = Field(default=None, max_length=20_000)
+    upload_ids: list[str] | None = Field(default=None, max_length=64)
 
 
 class GenerateBody(BaseModel):
@@ -38,6 +41,7 @@ class DraftMessageBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=20_000)
     intent: str = Field(pattern=r"^(update|run)$")
+    upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
 class FreezeBody(BaseModel):
@@ -49,6 +53,7 @@ class RunBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     connection_ids: list[str] = Field(min_length=1, max_length=64)
     message: str = Field(min_length=1, max_length=20_000)
+    upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
 class PublishBody(BaseModel):
@@ -60,6 +65,7 @@ class PublicationInvokeBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=20_000)
     connection_ids: list[str] = Field(min_length=1, max_length=64)
+    upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
 def mount_knowledge_workspace_routes(
@@ -91,6 +97,7 @@ def mount_knowledge_workspace_routes(
     def envelope(data: Any, request: Request) -> dict[str, Any]:
         if isinstance(data, Invocation):
             data = service.public_invocation(data)
+            data["event_url"] = f"{prefix}/invocations/{data['invocation_id']}/events"
         elif isinstance(data, SkillRevision):
             data = service.public_revision(data)
         elif isinstance(data, Artifact):
@@ -103,6 +110,66 @@ def mount_knowledge_workspace_routes(
     def request_digest(value: Any) -> str:
         encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
+
+    @app.post(f"{prefix}/uploads", status_code=201)
+    async def upload(
+        request: Request,
+        file: UploadFile = File(...),
+        purpose: str = Form("context"),
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    ) -> dict[str, Any]:
+        if purpose not in {"context", "skill_input"}:
+            raise HTTPException(status_code=422, detail={"code": "INVALID_REQUEST", "message": "invalid upload purpose", "retryable": False})
+        filename = (file.filename or "").strip()
+        if (
+            not filename
+            or len(filename) > 255
+            or "/" in filename
+            or "\\" in filename
+            or "\x00" in filename
+            or any(ord(char) < 32 for char in filename)
+        ):
+            raise HTTPException(status_code=400, detail={"code": "INVALID_REQUEST", "message": "invalid upload filename", "retryable": False})
+        content = await file.read(20 * 1024 * 1024 + 1)
+        if len(content) > 20 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail={"code": "UPLOAD_TOO_LARGE", "message": "upload exceeds 20 MiB", "retryable": False})
+        if not content:
+            raise HTTPException(status_code=400, detail={"code": "INVALID_REQUEST", "message": "upload is empty", "retryable": False})
+        actor_value = actor(request)
+        digest = hashlib.sha256(content).hexdigest()
+        upload_id = new_id("upload")
+        if idempotency_key:
+            try:
+                upload_id = service.repository.idempotent(
+                    f"{actor_value.tenant_id}:{actor_value.workspace_id}:{actor_value.principal_id}:upload",
+                    idempotency_key,
+                    request_digest({"filename": filename, "purpose": purpose, "sha256": digest}),
+                    upload_id,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise HTTPException(status_code=409, detail={"code": "IDEMPOTENCY_CONFLICT", "message": "idempotency key conflict", "retryable": False}) from exc
+                raise
+            existing = service.repository.get_upload(
+                upload_id,
+                tenant_id=actor_value.tenant_id,
+                workspace_id=actor_value.workspace_id,
+            )
+            if existing is not None:
+                return envelope(existing, request)
+        uri = service.repository.put_object(digest, content, suffix=".upload")
+        value = WorkspaceUpload(
+            tenant_id=actor_value.tenant_id,
+            workspace_id=actor_value.workspace_id,
+            upload_id=upload_id,
+            filename=filename,
+            sha256=digest,
+            size_bytes=len(content),
+            media_type=file.content_type or "application/octet-stream",
+            purpose=purpose,
+            uri=uri,
+        )
+        return envelope(service.repository.save_upload(value), request)
 
     @app.get(f"{prefix}/skills/drafts")
     async def list_drafts(request: Request) -> dict[str, Any]:
@@ -120,6 +187,8 @@ def mount_knowledge_workspace_routes(
                 actor(request),
                 body.goal,
                 body.connection_ids,
+                trial_task=body.trial_task,
+                upload_ids=body.upload_ids,
                 idempotency_key=idempotency_key,
                 request_digest=request_digest(body.model_dump(mode="json")),
             )
@@ -151,6 +220,8 @@ def mount_knowledge_workspace_routes(
                 goal=body.goal,
                 connection_ids=body.connection_ids,
                 if_match=if_match,
+                trial_task=body.trial_task,
+                upload_ids=body.upload_ids,
             )
         )
         response.headers["ETag"] = result.etag
@@ -174,6 +245,7 @@ def mount_knowledge_workspace_routes(
                     InvocationKind.GENERATE,
                     message=body.message or "",
                     model=body.model,
+                    if_match=request.headers.get("if-match"),
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
                 )
@@ -196,6 +268,11 @@ def mount_knowledge_workspace_routes(
                     draft_id,
                     kind,
                     message=body.message,
+                    connection_ids=(),
+                    upload_ids=body.upload_ids,
+                    if_match=request.headers.get("if-match"),
+                    # Draft-attached uploads are used by default; explicit
+                    # IDs are validated by the service before execution.
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
                 )
@@ -255,6 +332,7 @@ def mount_knowledge_workspace_routes(
                     revision_id,
                     body.message,
                     body.connection_ids,
+                    upload_ids=body.upload_ids,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
                 )
@@ -323,6 +401,7 @@ def mount_knowledge_workspace_routes(
                     publication_id,
                     body.message,
                     body.connection_ids,
+                    upload_ids=body.upload_ids,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
                 )

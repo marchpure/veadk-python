@@ -52,7 +52,9 @@ class SkillDraft(ImmutableModel):
     draft_id: str = Field(min_length=1, max_length=160)
     created_by: str = Field(min_length=1, max_length=160)
     goal: str = Field(min_length=1, max_length=8_000)
+    trial_task: str | None = Field(default=None, max_length=20_000)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     status: DraftStatus = DraftStatus.EDITING
     current_revision_id: str | None = None
     etag: str = Field(min_length=1, max_length=128)
@@ -78,6 +80,7 @@ class Invocation(ImmutableModel):
     draft_id: str = Field(min_length=1, max_length=160)
     revision_id: str | None = Field(default=None, max_length=160)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     lease_id: str | None = Field(default=None, max_length=256)
     authoring_session_id: str = Field(min_length=1, max_length=160)
     kind: InvocationKind
@@ -128,7 +131,7 @@ class Artifact(ImmutableModel):
     size_bytes: int = Field(ge=1)
     lineage: Mapping[str, Any]
     csp: str = Field(min_length=1, max_length=2_048)
-    sandbox: str = Field(min_length=1, max_length=256)
+    sandbox: str = Field(max_length=256)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -141,4 +144,17 @@ class Publication(ImmutableModel):
     published_by: str = Field(min_length=1, max_length=160)
     policy_snapshot: Mapping[str, Any] = Field(default_factory=dict)
     status: str = Field(default="published", min_length=1, max_length=32)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class WorkspaceUpload(ImmutableModel):
+    tenant_id: str = Field(min_length=1, max_length=160)
+    workspace_id: str = Field(min_length=1, max_length=160)
+    upload_id: str = Field(min_length=1, max_length=160)
+    filename: str = Field(min_length=1, max_length=255)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=1)
+    media_type: str = Field(min_length=1, max_length=256)
+    purpose: str = Field(pattern=r"^(context|skill_input)$")
+    uri: str = Field(min_length=1, max_length=2_048)
     created_at: datetime = Field(default_factory=utc_now)
