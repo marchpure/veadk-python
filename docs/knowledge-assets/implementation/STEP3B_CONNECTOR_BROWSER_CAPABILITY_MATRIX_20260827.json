@@ -7427,9 +7427,123 @@
       "bigquery",
       "lark"
     ],
-    "credentialBlockedRecovery": "secretRef + provider/sandbox + required scopes"
+    "credentialBlockedRecovery": "secretRef + provider/sandbox + required scopes",
+    "credentialBlockedDetails": {
+      "lark_doc": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "document read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize the tenant scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_wiki": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "Wiki space/node read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize Wiki scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_drive": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "Drive file read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize Drive scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_meeting": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "calendar/meeting read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize meeting scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_minutes": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "meeting-minutes read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize minutes scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_group": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "group read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize group scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_chat": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "chat history read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize chat scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_sheet": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "spreadsheet read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize spreadsheet scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_base": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "Base/app/table read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize Base scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "lark_mail": {
+        "required": [
+          "server-side secretRef for a Feishu tenant/app credential",
+          "mail read permission and tenant authorization"
+        ],
+        "unlock": "Configure the secretRef in the server secret store, authorize mail scopes, then rerun authenticate → discover → read → ingest in the browser."
+      },
+      "oss": {
+        "required": [
+          "server-side secretRef for an Alibaba Cloud OSS credential",
+          "OSS endpoint, bucket, region, ListObjects and GetObject permission"
+        ],
+        "unlock": "Configure the secretRef in the server secret store and a real OSS/Sandbox bucket, then rerun authenticate → discover → read → ingest → checkpoint in the browser."
+      },
+      "doris": {
+        "required": [
+          "server-side secretRef for a real Apache Doris endpoint",
+          "Doris FE MySQL endpoint, database, read-only user and network access"
+        ],
+        "unlock": "Provide a real Doris FE/Sandbox and the PyMySQL-compatible read-only secretRef; do not substitute MySQL, then rerun the full browser protocol flow."
+      },
+      "starrocks": {
+        "required": [
+          "server-side secretRef for a real StarRocks endpoint",
+          "StarRocks FE MySQL endpoint, database, read-only user and network access"
+        ],
+        "unlock": "Provide a real StarRocks cluster/Sandbox and the PyMySQL-compatible read-only secretRef; do not substitute MySQL, then rerun the full browser protocol flow."
+      },
+      "snowflake": {
+        "required": [
+          "server-side secretRef for a Snowflake account credential",
+          "account, warehouse, database/schema and read-only role with network policy access"
+        ],
+        "unlock": "Configure the server secretRef and an official Snowflake account/Sandbox, then rerun authenticate → discover → read → ingest → checkpoint in the browser."
+      },
+      "bigquery": {
+        "required": [
+          "server-side secretRef for a Google service account or workload identity",
+          "project/location plus BigQuery job, metadata and read-session permissions"
+        ],
+        "unlock": "Configure the server secretRef and an official GCP test project, then rerun authenticate → discover → read → ingest → checkpoint in the browser."
+      },
+      "hive": {
+        "required": [
+          "server-side secretRef for a real HiveServer2 deployment",
+          "HiveServer2 endpoint, authentication mode, database and read-only permission"
+        ],
+        "unlock": "Provide a real HiveServer2/Sandbox and the required PyHive/Thrift driver configuration; do not substitute another SQL engine, then rerun the full browser protocol flow."
+      }
+    }
   },
-  "generatedAt": "2026-08-27T12:00:06+08:00",
+  "generatedAt": "2026-08-27T12:43:00+08:00",
   "connectorGateStatus": "PARTIAL_CREDENTIAL_BLOCKED",
   "allConnectorsUsable": false,
   "verificationCategories": {
