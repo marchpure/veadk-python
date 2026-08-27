@@ -10,7 +10,7 @@
     "remote_url": "git@github.com:marchpure/open-connector.git",
     "branch": "feat/connection-service-v1",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-service-open-connector",
-    "commit": "03b8d20e17f9fbc155a170f31521ec16c5e31c8e",
+    "commit": "948f9971dc5fb5c66dba729373e5435525bef32b",
     "remote_branch": "fork/feat/connection-service-v1 (pushed to marchpure)"
   },
   "veadk_repo": {
@@ -18,7 +18,7 @@
     "remote_url": "https://github.com/volcengine/veadk-python.git",
     "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
-    "commit": "3890f6f0d03e57596074599d4ff476e4c1cf261a",
+    "commit": "08b09133ffc9c44c66f6fff31511ad9481e446ed",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (pushed to marchpure)"
   },
   "deployment": {
