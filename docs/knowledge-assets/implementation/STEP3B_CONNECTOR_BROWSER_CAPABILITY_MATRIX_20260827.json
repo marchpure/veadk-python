@@ -3127,7 +3127,7 @@
       },
       "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-19-postgresql.png",
       "evidence": [
-        "CONNECTOR_BROWSER_EVIDENCE_20260827_R8.json",
+        "CONNECTOR_BROWSER_EVIDENCE_20260827_R8_FULL.json",
         "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json"
       ],
       "verificationCategory": "LIVE_VERIFIED",
@@ -3387,7 +3387,7 @@
       },
       "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-20-mysql.png",
       "evidence": [
-        "CONNECTOR_BROWSER_EVIDENCE_20260827_R8.json",
+        "CONNECTOR_BROWSER_EVIDENCE_20260827_R8_FULL.json",
         "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json"
       ],
       "verificationCategory": "LIVE_VERIFIED",
@@ -7156,7 +7156,7 @@
   "runtimeDirectory": "/tmp/step3b-p0-connector-matrix-20260827-r9d",
   "browserEvidence": {
     "r9": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-    "r8Database": "CONNECTOR_BROWSER_EVIDENCE_20260827_R8.json",
+    "r8Database": "CONNECTOR_BROWSER_EVIDENCE_20260827_R8_FULL.json",
     "r9Status": "PASS",
     "r9ConnectorCount": 37,
     "r9ConsoleErrors": 0,
