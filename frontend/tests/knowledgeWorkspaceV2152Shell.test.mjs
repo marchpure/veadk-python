@@ -200,6 +200,18 @@ test("skill builder preserves home prompt, context, template, and hides legacy w
   assert.doesNotMatch(skillBuilder, /localStorage|setTimeout|setInterval|测试成功|返回 200 OK/);
 });
 
+test("Skill Builder makes multi-source context selection explicit", () => {
+  assert.match(skillBuilder, /接入数据源/);
+  assert.match(skillBuilder, /sourcePickerOpen/);
+  assert.match(skillBuilder, /pendingSourceIds/);
+  assert.match(skillBuilder, /type="checkbox"/);
+  assert.match(skillBuilder, /resourceKind === 'golden_asset'/);
+  assert.match(skillBuilder, /goldenAssetRef/);
+  assert.match(skillBuilder, /serializeContextRefs/);
+  assert.match(skillBuilder, /加入当前 Skill/);
+  assert.match(skillBuilder, /params\.set\('context_refs', serialized\)/);
+});
+
 test("right assistant consumes the typed streaming/timeline seam instead of one-shot replies", () => {
   assert.match(typedPorts, /command:\s*"skill-authoring\.start"/);
   assert.match(typedPorts, /command:\s*"skill-authoring\.answer"/);

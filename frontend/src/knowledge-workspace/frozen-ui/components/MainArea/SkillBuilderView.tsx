@@ -110,6 +110,24 @@ function normalizeResourceRef(value: unknown): ResourceRef | null {
   return null;
 }
 
+function goldenAssetRef(resource: RecordValue): ResourceRef | null {
+  const objectId = stringValue(resource.assetId) ?? stringValue(resource.asset_id);
+  const revision = stringValue(resource.goldenRevisionId) ?? stringValue(resource.golden_revision_id);
+  if (!objectId || !revision) return null;
+  return {
+    kind: 'golden_asset',
+    object_id: objectId,
+    revision,
+    scope: resource.space === 'team' ? 'team' : 'personal',
+  };
+}
+
+function serializeContextRefs(refs: ResourceRef[]): string {
+  return refs
+    .map((ref) => `${ref.kind}:${ref.object_id}:${ref.revision}:${ref.scope}`)
+    .join(',');
+}
+
 function findServerDraftResource(draftId: string, fileId: string): RecordValue | null {
   const candidates = new Set([draftId, fileId].filter(Boolean));
   return resourceStore.getState().find((resource: RecordValue) => {
@@ -246,6 +264,9 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [auditOpen, setAuditOpen] = useState(false);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const [sourceQuery, setSourceQuery] = useState('');
+  const [pendingSourceIds, setPendingSourceIds] = useState<string[]>([]);
   const [status, setStatus] = useState<'drafting' | 'awaiting_input' | 'ready_for_execution' | 'executing' | 'revision_ready' | 'error'>(
     initialDraftId ? 'ready_for_execution' : 'drafting',
   );
@@ -254,6 +275,19 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
     const parsed = parseContextRefs(urlContextRefs);
     return parsed.length > 0 ? parsed : serverContextRefs;
   }, [serverContextRefs, urlContextRefs]);
+  const goldenAssets = useMemo(
+    () => resourceStore.getState().filter((resource: RecordValue) => (
+      resource.resourceKind === 'golden_asset' &&
+      goldenAssetRef(resource) !== null
+    )),
+    [],
+  );
+  const filteredGoldenAssets = useMemo(() => {
+    const query = sourceQuery.trim().toLowerCase();
+    return goldenAssets.filter((resource) => !query || String(
+      resource.displayName ?? resource.name ?? resource.assetId ?? resource.id ?? '',
+    ).toLowerCase().includes(query));
+  }, [goldenAssets, sourceQuery]);
   const viewRevision = isRecord(activeSkillViewRevision) ? activeSkillViewRevision : null;
   const activeDraftId = getDraftId(draft);
   const activeRevision = getDraftRevision(draft);
@@ -359,6 +393,42 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
     setSearchParams(params);
   };
 
+  const openSourcePicker = () => {
+    setPendingSourceIds(resourceRefs
+      .filter((ref) => ref.kind === 'golden_asset')
+      .map((ref) => ref.object_id));
+    setSourceQuery('');
+    setSourcePickerOpen(true);
+  };
+
+  const closeSourcePicker = () => {
+    setSourcePickerOpen(false);
+    setSourceQuery('');
+    setPendingSourceIds([]);
+  };
+
+  const confirmSources = () => {
+    const selectedRefs = goldenAssets
+      .filter((resource) => pendingSourceIds.includes(String(resource.assetId ?? resource.asset_id ?? '')))
+      .map(goldenAssetRef)
+      .filter((ref): ref is ResourceRef => Boolean(ref));
+    const nonGoldenRefs = resourceRefs.filter((ref) => ref.kind !== 'golden_asset');
+    const nextRefs = [...nonGoldenRefs, ...selectedRefs].filter((ref, index, refs) => (
+      refs.findIndex((candidate) =>
+        candidate.kind === ref.kind &&
+        candidate.object_id === ref.object_id &&
+        candidate.revision === ref.revision &&
+        candidate.scope === ref.scope
+      ) === index
+    ));
+    const params = new URLSearchParams(searchParams);
+    const serialized = serializeContextRefs(nextRefs);
+    if (serialized) params.set('context_refs', serialized);
+    else params.delete('context_refs');
+    setSearchParams(params);
+    closeSourcePicker();
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50">
       <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:px-6">
@@ -419,6 +489,17 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
               <dt className="text-slate-400">context refs</dt>
               <dd className="truncate font-mono text-slate-700">{resourceRefs.length || '等待服务端/首页传入'}</dd>
             </dl>
+            <button
+              type="button"
+              onClick={openSourcePicker}
+              aria-haspopup="dialog"
+              aria-expanded={sourcePickerOpen}
+              className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 outline-none hover:bg-blue-100 focus:ring-2 focus:ring-blue-500"
+            >
+              接入数据源{resourceRefs.filter((ref) => ref.kind === 'golden_asset').length > 0
+                ? `（已选 ${resourceRefs.filter((ref) => ref.kind === 'golden_asset').length}）`
+                : ''}
+            </button>
             {status === 'awaiting_input' && (
               <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
                 Agent 需要澄清。请在右侧 Agent 面板继续回答；W4 不会在前端伪造澄清结果。
@@ -445,6 +526,87 @@ export default function SkillBuilderView({ searchParams, setSearchParams }: any)
             </div>
           </div>
         </aside>
+
+        {sourcePickerOpen && (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-[1px]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="接入数据源"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeSourcePicker();
+            }}
+          >
+            <div className="flex max-h-[min(680px,calc(100vh-32px))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+              <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-5 py-4">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">接入数据源</h2>
+                  <p className="mt-1 text-xs text-slate-500">可同时选择多个真实数据源，选择结果会随当前 Skill 一起提交。</p>
+                </div>
+                <button type="button" aria-label="关闭数据源选择" onClick={closeSourcePicker} className="rounded-lg p-1.5 text-slate-400 outline-none hover:bg-slate-200 focus:ring-2 focus:ring-blue-500">
+                  <BackIcon className="h-5 w-5 rotate-90" />
+                </button>
+              </div>
+              <div className="border-b border-slate-100 p-4">
+                <input
+                  value={sourceQuery}
+                  onChange={(event) => setSourceQuery(event.currentTarget.value)}
+                  aria-label="搜索数据源"
+                  placeholder="搜索数据源"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {filteredGoldenAssets.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
+                    暂无可用数据源，请先通过真实连接器完成接入。
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredGoldenAssets.map((resource) => {
+                      const id = String(resource.assetId ?? resource.asset_id);
+                      const ref = goldenAssetRef(resource);
+                      const checked = pendingSourceIds.includes(id);
+                      return (
+                        <label
+                          key={`${id}:${ref?.revision ?? ''}`}
+                          className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition-colors ${
+                            checked
+                              ? 'border-blue-300 bg-blue-50/60'
+                              : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              const isChecked = event.currentTarget.checked;
+                              setPendingSourceIds((previous) => isChecked
+                                ? previous.includes(id) ? previous : [...previous, id]
+                                : previous.filter((value) => value !== id));
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-slate-800">{String(resource.displayName ?? resource.name ?? id)}</span>
+                            <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{ref?.revision}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-3">
+                <span className="text-xs text-slate-500" aria-live="polite">已选择 {pendingSourceIds.length} 个数据源</span>
+                <div className="flex gap-2">
+                  <button type="button" onClick={closeSourcePicker} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">取消</button>
+                  <button type="button" onClick={confirmSources} disabled={pendingSourceIds.length === 0} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300">加入当前 Skill</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
