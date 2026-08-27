@@ -10,7 +10,7 @@
     "remote_url": "git@github.com:marchpure/open-connector.git",
     "branch": "feat/connection-service-v1",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-service-open-connector",
-    "commit": "948f9971dc5fb5c66dba729373e5435525bef32b",
+    "commit": "69ad6f8028eaf3a34b706012c72dc3f099a348e2",
     "remote_branch": "fork/feat/connection-service-v1 (pushed to marchpure)"
   },
   "veadk_repo": {
@@ -21,10 +21,13 @@
     "commit": "08b09133ffc9c44c66f6fff31511ad9481e446ed",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (pushed to marchpure)"
   },
+  "checkpoint_update_parent_commit": "734cf22e5e1978798d1a379910e5280455479541",
   "deployment": {
     "service_command": "CONNECTION_SERVICE_AUTH_SECRET=<secret> CONNECTION_SERVICE_ENCRYPTION_KEY=<secret> npm run start:connection-service",
     "dockerfile": "Dockerfile.connection-service",
     "web_discovery_dockerfile": "Dockerfile.web-discovery-worker",
+    "connection_service_image": "step2b-connection-service:final@sha256:f3720e2f3cf396904657a420cb69b7d725b7a41cf4a16f01fe9f41585c97fe24",
+    "web_discovery_worker_image": "step2b-web-discovery-worker:final@sha256:e879c19a55862f58bdac4258ba56dbcbec18cc21c15697167572c14b0362c555",
     "control_api_base": "/v1",
     "local_health_url": "http://127.0.0.1:<published-port>/health",
     "local_control_api_url": "http://127.0.0.1:<published-port>/v1",
@@ -67,6 +70,10 @@
     "full_upstream_suite": "163 files passed, 1 file skipped; 1467 tests passed, 4 skipped",
     "typecheck": "passed",
     "lint": "passed with deny-warnings",
+    "tested_service_commit": "2af7e87c80588063cbb860f87667683597e66995",
+    "local_e2e_result": "/tmp/step2b-local-e2e-final.json; SHA-256 f93fe5da5e0abf1efad40ef98ece8170765240d415db42caed73ec135b297ec4",
+    "oracle_e2e_result": "/tmp/step2b-oracle-evidence-final.json; SHA-256 dda38adc79ea57ef2bf588e9c92e32aaad06d5b818acd8e93f8c4a9dfaa27eb8",
+    "evidence_manifest": "open-connector/docs/connection-service-evidence.json; final service evidence commit 69ad6f8028eaf3a34b706012c72dc3f099a348e2",
     "real_http_smoke": {
       "health": "passed",
       "enablement_catalog": "passed; only Feishu beta returned",
