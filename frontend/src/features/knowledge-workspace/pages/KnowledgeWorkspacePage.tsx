@@ -761,6 +761,7 @@ export function KnowledgeWorkspacePage() {
             revision={selectedRevision}
             onBack={() => setRoute("welcome")}
             onOpenAgent={() => openRouteModal("agent")}
+            onOpenModal={openRouteModal}
           />
         ) : (
           <DraftWorkspace
@@ -1235,11 +1236,13 @@ function PublishedWorkspace({
   revision,
   onBack,
   onOpenAgent,
+  onOpenModal,
 }: {
   draft: Draft | null;
   revision: Revision | null;
   onBack: () => void;
   onOpenAgent: () => void;
+  onOpenModal: (kind: string) => void;
 }) {
   if (!draft || !revision) return <div className="kw-empty-page">正在从 BFF 恢复已发布版本…</div>;
   return (
@@ -1252,7 +1255,13 @@ function PublishedWorkspace({
         <div className="kw-published-card"><span className="kw-card-label">当前版本</span><strong>v{revision.number}</strong><code>sha256:{revision.sha256.slice(0, 18)}…</code></div>
         <div className="kw-published-card"><span className="kw-card-label">调用范围</span><strong>由 BFF 返回</strong><span>发布状态和可见范围由 BFF 返回。</span></div>
       </div>
-      <div className="kw-published-actions"><button type="button" onClick={onBack}>返回工作台</button><button type="button" className="kw-primary-small" onClick={onOpenAgent}><ToyBrick size={14} /> 在 Agent 中使用</button></div>
+      <div className="kw-published-actions">
+        <button type="button" onClick={onBack}>返回工作台</button>
+        <button type="button" onClick={() => onOpenModal("share_run")}><Share2 size={14} /> 分享本次结果</button>
+        <button type="button" onClick={() => onOpenModal("instructions")}><FileText size={14} /> 调用说明</button>
+        <button type="button" onClick={() => onOpenModal("versions")}><History size={14} /> 版本记录</button>
+        <button type="button" className="kw-primary-small" onClick={onOpenAgent}><ToyBrick size={14} /> 在 Agent 中使用</button>
+      </div>
     </section>
   );
 }
@@ -1279,15 +1288,15 @@ function WorkspaceStateModal({
     : [];
   const toolName = selectedConnections[0]?.display_name || "数据源由 BFF 返回";
   const wrap = (children: React.ReactNode, className = "") => (
-    <div className={`kw-state-modal-overlay${kind === "agent" || kind === "share_run" || kind === "instructions" || kind === "versions" ? " is-published" : ""}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className={`kw-state-modal ${className}`} role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
+    <div className={`kw-state-modal-overlay${kind === "share_run" || kind === "instructions" ? " is-published" : ""}`} data-state-overlay={kind} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className={`kw-state-modal ${className}`} data-state-modal={kind} role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
         {children}
       </section>
     </div>
   );
   if (kind === "agent") return (
-    <div className="kw-state-modal-overlay is-published" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="kw-state-modal kw-agent-modal" role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
+    <div className="kw-state-modal-overlay is-published" data-state-overlay="agent" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="kw-state-modal kw-agent-modal" data-state-modal="agent" role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
         <div className="kw-agent-layout">
           <div className="kw-agent-picker">
             <div className="kw-agent-heading"><h2><GlobeIcon /> 选择绑定目标 Agent</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></div>
@@ -1313,7 +1322,7 @@ function WorkspaceStateModal({
   if (kind === "instructions") return wrap(
     <><header className="kw-state-modal-header"><h2><FileText size={21} /> 调用说明</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-instructions"><InfoField label="业务用途" value={goal} /><InfoField label="自然语言任务" value={draft?.trial_task || "由调用方提交的任务由 BFF 传递。"} /><InfoField label="业务输出" value="输出内容由已发布 Revision 和真实运行结果决定。" /><InfoField label="发布版本" value={revision ? `v${revision.number}` : "未返回"} mono /><InfoField label="权限范围" value="由 BFF 返回的连接与 Agent 授权范围决定。" /><InfoField label="已绑定 Agent" value="由 BFF 返回" /></div></>
   , "is-instructions");
-  if (kind === "versions") return <div className="kw-state-modal-overlay is-published kw-drawer-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="kw-state-modal kw-version-drawer" role="dialog" aria-modal="true" aria-label="版本记录"><header className="kw-state-modal-header"><h2><History size={21} /> 来源与版本历史</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-version-source"><h3><FileText size={15} /> 数据来源</h3><div><strong>{toolName}</strong><span>{selectedConnections[0] ? `更新时间：${formatServerTimestamp(selectedConnections[0].updated_at)}` : "更新时间由 BFF 返回"}</span></div></div><div className="kw-version-content"><h3><History size={15} /> 版本记录</h3>{revisions.length ? revisions.map((item) => <div className="kw-version-timeline-row" key={item.revision_id}><i /><div><div><strong>v{item.number}</strong><span>{formatServerTimestamp(item.created_at)}</span></div><p>{item.skill_name || skillName}</p><small>sha256:{item.sha256.slice(0, 16)}…</small></div></div>) : <div className="kw-inline-empty">暂无 BFF 返回的版本记录。</div>}</div></section></div>;
+  if (kind === "versions") return <div className="kw-state-modal-overlay is-published kw-drawer-overlay" data-state-overlay="versions" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="kw-state-modal kw-version-drawer" data-state-modal="versions" role="dialog" aria-modal="true" aria-label="版本记录"><header className="kw-state-modal-header"><h2><History size={21} /> 来源与版本历史</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-version-source"><h3><FileText size={15} /> 数据来源</h3><div><strong>{toolName}</strong><span>{selectedConnections[0] ? `更新时间：${formatServerTimestamp(selectedConnections[0].updated_at)}` : "更新时间由 BFF 返回"}</span></div></div><div className="kw-version-content"><h3><History size={15} /> 版本记录</h3>{revisions.length ? revisions.map((item) => <div className="kw-version-timeline-row" key={item.revision_id}><i /><div><div><strong>v{item.number}</strong><span>{formatServerTimestamp(item.created_at)}</span></div><p>{item.skill_name || skillName}</p><small>sha256:{item.sha256.slice(0, 16)}…</small></div></div>) : <div className="kw-inline-empty">暂无 BFF 返回的版本记录。</div>}</div></section></div>;
   if (kind === "advanced") return wrap(<><header className="kw-state-modal-header"><h2><Settings2 size={21} /> 高级设置 / 诊断</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-advanced"><h3><ShieldCheck size={16} /> 权限审计日志 (Audit Log)</h3><pre>审计明细由 BFF 返回；当前页面未收到可展示的审计记录。</pre><h3><Activity size={16} /> 连接诊断</h3><div className="kw-diagnostic-ok"><Activity size={18} /> 诊断状态由 Connection Service 返回。</div></div></>, "is-advanced");
   if (kind === "tools") return wrap(<><header className="kw-state-modal-header"><h2><Database size={21} /> 数据与工具</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-tools">{selectedConnections.length ? selectedConnections.map((connection) => <div className="kw-tool-row" key={connection.connection_id}><div><strong>{connection.display_name}</strong><span>{connection.connector_key} · {idempotentLabel(connection.status)}</span></div><span className={`kw-tool-ready is-${connection.status}`}>{idempotentLabel(connection.status)}</span></div>) : <div className="kw-inline-empty">暂无 BFF 返回的数据与工具。</div>}<div className="kw-add-tool"><strong>新增资源</strong><span>资源目录由 BFF 返回。</span><button type="button"><CirclePlus size={15} /> 添加新资源</button></div></div></>, "is-tools");
   if (kind === "test_records") return wrap(<><header className="kw-state-modal-header"><h2><History size={21} /> 测试记录</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-records"><table><thead><tr><th>真实任务</th><th>结果摘要</th><th>结果状态</th><th>验证结论</th><th>版本</th></tr></thead><tbody><tr><td>{draft?.trial_task || goal}</td><td>测试记录由 BFF 返回。</td><td><span className="kw-record-neutral">{draft ? DRAFT_LIFECYCLE_LABELS[draft.lifecycle] : "未返回"}</span></td><td>由 BFF 返回</td><td>{revision ? `v${revision.number}` : "未返回"}</td></tr></tbody></table></div></>, "is-records");
@@ -1351,8 +1360,8 @@ function PublishGateModal({
     ["运行状态由 BFF 校验", true],
   ] as const;
   return (
-    <div className="kw-state-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="kw-state-modal kw-publish-gate" role="dialog" aria-modal="true" aria-label="发布门禁检查" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="kw-state-modal-overlay" data-state-overlay="publish" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="kw-state-modal kw-publish-gate" data-state-modal="publish" role="dialog" aria-modal="true" aria-label="发布门禁检查" onMouseDown={(event) => event.stopPropagation()}>
         <header className="kw-state-modal-header"><h2><ShieldCheck size={22} /> 发布门禁检查</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header>
         <div className="kw-publish-checks">{checks.map(([label, passed]) => <div className={passed ? "is-passed" : "is-blocked"} key={label}>{passed ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}<span>{label}</span><small>{passed ? "已通过" : "待处理"}</small></div>)}</div>
         <footer className="kw-publish-footer"><span>将固定当前不可变 Revision v{revision?.number || "—"}。</span><div><button type="button" onClick={onClose}>取消</button><button type="button" className="kw-primary-small" onClick={() => void onPublish("team")} disabled={busy || !revision}>确认发布</button></div></footer>

@@ -41,6 +41,39 @@ const captureStates = [
   ["/?file=skill_new&scenario=haidilao", "skill_new"],
 ].map(([stateUrl, route]) => ({ stateUrl, route }));
 
+const expectedModalState = {
+  publish: { selector: '[data-state-modal="publish"]', text: "发布门禁检查" },
+  advanced: { selector: '[data-state-modal="advanced"]', text: "高级设置 / 诊断" },
+  test_records: { selector: '[data-state-modal="test_records"]', text: "测试记录" },
+  tools: { selector: '[data-state-modal="tools"]', text: "数据与工具" },
+  agent: { selector: '[data-state-modal="agent"]', text: "选择绑定目标 Agent" },
+  share_run: { selector: '[data-state-modal="share_run"]', text: "分享本次结果" },
+  instructions: { selector: '[data-state-modal="instructions"]', text: "调用说明" },
+  versions: { selector: '[data-state-modal="versions"]', text: "来源与版本历史" },
+};
+
+const expectedStateEvidence = {
+  welcome: [".kw-welcome-dashboard-heading h1"],
+  draft: [".kw-draft-section-heading h2", ".kw-chat-title"],
+  success: [".kw-run-state-card.is-success", ".kw-success-revision"],
+  publish: ['[data-state-modal="publish"]'],
+  failed: [".kw-run-state-card.is-failed", "text=重试本次运行"],
+  permission: [".kw-state-dialog.is-permission", "text=提交申请"],
+  connection_error: [".kw-state-dialog.is-connection_error", "text=测试并重连"],
+  upgrade: [".kw-upgrade-banner", "text=发现基础模型或版本更新"],
+  advanced: ['[data-state-modal="advanced"] .kw-advanced', "text=连接诊断"],
+  test_records: ['[data-state-modal="test_records"] .kw-records table'],
+  tools: ['[data-state-modal="tools"] .kw-tools', "text=数据与工具"],
+  published: [".kw-published-badge", ".kw-published h1"],
+  agent: ['[data-state-modal="agent"] .kw-agent-layout', "text=选择绑定目标 Agent"],
+  share_run: ['[data-state-modal="share_run"] .kw-share-warning', "text=暂无分享链接"],
+  instructions: ['[data-state-modal="instructions"] .kw-instructions', "text=业务用途"],
+  versions: ['[data-state-modal="versions"]', "text=数据来源"],
+  sop_bluetooth: [".kw-draft-section-heading h2", "text=蓝牙"],
+  sop_haidilao: [".kw-draft-section-heading h2", "text=巡检"],
+  skill_new: [".kw-skill-new-heading h1", ".kw-upload-box"],
+};
+
 function requiredDir() {
   assert.ok(prototypeDir, "KW_PROTOTYPE_CAPTURE_DIR must point at downloaded prototype PNGs");
   return path.resolve(prototypeDir);
@@ -346,9 +379,10 @@ async function main() {
     } else if (capture.route === "skill_new") {
       await page.locator(".kw-create-form").waitFor({ state: "visible", timeout: 10_000 });
     } else {
-      await page.locator(".kw-draft-center, .kw-published").first().waitFor({ state: "visible", timeout: 10_000 });
+      await page.locator(capture.route === "published" ? ".kw-published" : ".kw-draft-center")
+        .waitFor({ state: "visible", timeout: 10_000 });
     }
-    const renderCheck = await page.evaluate(({ route, stateUrl }) => {
+    const renderCheck = await page.evaluate(({ route, stateUrl, expectedModalState, expectedStateEvidence }) => {
       const visible = (selector) => {
         const element = document.querySelector(selector);
         if (!element) return false;
@@ -356,9 +390,12 @@ async function main() {
         const rect = element.getBoundingClientRect();
         return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
       };
-      const dialogLabels = [...document.querySelectorAll('[role="dialog"]')]
-        .filter((element) => visible(`[role="dialog"][aria-label="${element.getAttribute("aria-label")}"]`))
-        .map((element) => element.getAttribute("aria-label"));
+      const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter((element) => {
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      });
+      const dialogLabels = dialogs.map((element) => element.getAttribute("aria-label"));
       const center = document.querySelector(".kw-draft-center");
       const overlay = document.querySelector(".kw-state-overlay");
       const centerRect = center?.getBoundingClientRect();
@@ -370,26 +407,92 @@ async function main() {
         && Math.abs(overlayRect.bottom - centerRect.bottom) < 1);
       const chat = document.querySelector(".kw-chat");
       const chatWidth = chat?.getBoundingClientRect().width || 0;
+      const params = new URLSearchParams(stateUrl.split("?")[1] || "");
+      const modal = params.get("modal");
+      const file = params.get("file") || "";
+      const evidenceKey = modal
+        || (file === "welcome" ? "welcome"
+          : file === "skill_new" ? "skill_new"
+            : file === "pub_dash_anta" ? "published"
+              : file === "draft_sop_bluetooth" ? "sop_bluetooth"
+                : file === "draft_sop_haidilao" ? "sop_haidilao"
+                  : params.get("run_state") === "success" ? "success"
+                    : params.get("run_state") === "failed" ? "failed"
+                      : params.get("state") || "draft");
       return {
         shell: visible(".kw-shell"),
         route,
         state_url: stateUrl,
         welcome: route === "welcome"
-          ? visible(".kw-welcome-grid") && document.querySelectorAll(".kw-welcome-card").length > 0
-          : true,
+          ? visible(".kw-welcome-grid")
+            && document.querySelectorAll(".kw-welcome-card").length > 0
+            && !document.querySelector(".kw-draft-center")
+            && !document.querySelector(".kw-create-form")
+          : false,
         draft: route === "draft"
-          ? visible(".kw-draft-center") && visible(".kw-draft-artifact-card") && visible(".kw-chat")
-          : true,
+          ? visible(".kw-draft-center")
+            && visible(".kw-draft-artifact-card")
+            && visible(".kw-chat")
+            && !document.querySelector(".kw-welcome-grid")
+            && !document.querySelector(".kw-create-form")
+          : false,
+        published: route === "published"
+          ? visible(".kw-published")
+            && Boolean(document.querySelector(".kw-published h1"))
+            && !document.querySelector(".kw-draft-center")
+            && !document.querySelector(".kw-create-form")
+          : false,
         skill_new: route === "skill_new"
-          ? visible(".kw-create-form") && visible(".kw-connection-choice") && visible(".kw-upload-box")
-          : true,
+          ? visible(".kw-create-form")
+            && visible(".kw-upload-box")
+            && !document.querySelector(".kw-draft-center")
+            && !document.querySelector(".kw-published")
+          : false,
         dialog_count: dialogLabels.length,
         dialog_labels: dialogLabels,
+        modal: route === "draft" || route === "published"
+          ? new URLSearchParams(stateUrl.split("?")[1] || "").get("modal") || ""
+          : "",
+        modal_selector_visible: (() => {
+          const modal = new URLSearchParams(stateUrl.split("?")[1] || "").get("modal");
+          if (!modal || !expectedModalState[modal]) return true;
+          const element = document.querySelector(expectedModalState[modal].selector);
+          if (!element) return false;
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+        })(),
+        modal_text_present: (() => {
+          const modal = new URLSearchParams(stateUrl.split("?")[1] || "").get("modal");
+          if (!modal || !expectedModalState[modal]) return true;
+          const element = document.querySelector(expectedModalState[modal].selector);
+          return Boolean(element && element.textContent?.includes(expectedModalState[modal].text));
+        })(),
         has_state_overlay: Boolean(overlay),
         overlay_covers_center: overlayCoversCenter,
         chat_width: Math.round(chatWidth),
+        evidence_key: evidenceKey,
+        evidence: (expectedStateEvidence[evidenceKey] || []).map((selector) => {
+          if (selector.startsWith("text=")) {
+            return [...document.querySelectorAll("body *")].some((element) => {
+              const style = window.getComputedStyle(element);
+              const rect = element.getBoundingClientRect();
+              return element.textContent?.includes(selector.slice(5))
+                && style.display !== "none"
+                && style.visibility !== "hidden"
+                && rect.width > 0
+                && rect.height > 0;
+            });
+          }
+          return visible(selector);
+        }),
       };
-    }, { route: capture.route, stateUrl: capture.stateUrl });
+    }, {
+      route: capture.route,
+      stateUrl: capture.stateUrl,
+      expectedModalState,
+      expectedStateEvidence,
+    });
     assert.equal(renderCheck.shell, true, `${capture.stateUrl}: shell did not render`);
     if (capture.route === "welcome") assert.equal(renderCheck.welcome, true, `${capture.stateUrl}: welcome did not render`);
     if (capture.route === "draft") {
@@ -400,10 +503,17 @@ async function main() {
         assert.equal(renderCheck.overlay_covers_center, true, `${capture.stateUrl}: state overlay does not cover draft center`);
       }
     }
+    if (capture.route === "published") assert.equal(renderCheck.published, true, `${capture.stateUrl}: published did not render`);
     if (new URL(capture.stateUrl, "http://capture.local").searchParams.has("modal")) {
       assert.equal(renderCheck.dialog_count, 1, `${capture.stateUrl}: modal did not render`);
+      assert.equal(renderCheck.modal_selector_visible, true, `${capture.stateUrl}: expected modal surface did not render`);
+      assert.equal(renderCheck.modal_text_present, true, `${capture.stateUrl}: expected modal content did not render`);
     }
     if (capture.route === "skill_new") assert.equal(renderCheck.skill_new, true, `${capture.stateUrl}: skill form did not render`);
+    assert.ok(
+      renderCheck.evidence.every(Boolean),
+      `${capture.stateUrl}: state evidence did not render: ${JSON.stringify(renderCheck)}`,
+    );
     const actualPath = path.join(outputDir, `${String(index + 1).padStart(2, "0")}.png`);
     await page.screenshot({ path: actualPath, fullPage: true });
     const actual = decodePng(await readFile(actualPath));

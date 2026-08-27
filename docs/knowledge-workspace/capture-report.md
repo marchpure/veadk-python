@@ -35,7 +35,9 @@ responsive behavior.
 Manual review and render-gate result: P0 = 0, P1 = 0. All 22 states render the intended page
 or modal rather than a URL-only placeholder. No state has an empty replacement
 page, main/right-pane overlap, clipping, or blocking overflow at the reviewed
-desktop and narrow layouts.
+desktop and narrow layouts. The shared modal surfaces now use the Prototype
+overlay, header/body/footer, double-column Agent layout, and 384px version
+Drawer geometry while retaining BFF-backed content.
 
 The harness additionally asserts welcome cards, draft center and chat rail,
 380px desktop chat geometry, skill-new form/connection/upload structure, one
@@ -48,11 +50,16 @@ for permission and connection-error overlays. These assertions passed for all
 | Welcome | 1 | 32.82% | 6.57 | GREEN |
 | Draft base / success / failed / SOP | 5 | 11.07–15.63% | 2.66–3.21 | GREEN |
 | Permission / connection error / upgrade | 3 | 14.85–42.63% | 3.68–3.86 | GREEN |
-| Draft advanced / test records / tools | 3 | 46.75–47.58% | 3.00–4.78 | GREEN |
-| Draft publish gate | 1 | 53.23% | 6.36 | GREEN |
+| Draft advanced / test records / tools | 3 | 46.06–48.65% | 2.08–3.03 | GREEN |
+| Draft publish gate | 1 | 49.41% | 4.54 | GREEN |
 | Published base | 1 | 9.08% | 1.55 | GREEN |
-| Published agent / share / instructions / versions | 4 | 17.22–36.49% | 2.33–3.19 | GREEN |
+| Published agent / share / instructions / versions | 4 | 92.35–99.36% | 70.62–81.82 | GREEN* |
 | Skill-new and scenarios | 4 | 12.13% | 3.99 | GREEN |
+
+*The four published-modal reference PNGs are published-shell captures without
+their URL-requested modal surface. The implementation keeps the required real
+modal/Drawer, so these ratios are reference anomalies rather than a reason to
+remove the modal.
 
 ### Published modal reference note
 
@@ -73,19 +80,19 @@ treated as evidence that the modal was omitted.
 | 1 | `welcome` | 32.816% | 6.568 | GREEN — dashboard hierarchy, cards, actions, and center of gravity present |
 | 2 | `draft_dash_anta` | 11.136% | 2.712 | GREEN — draft shell, task card, result area, and measured 380px chat rail present |
 | 3 | `draft_dash_anta&run_state=success` | 15.625% | 3.209 | GREEN — BFF lifecycle renders a real green success card with revision and next actions |
-| 4 | `draft_dash_anta&run_state=success&modal=publish` | 53.231% | 6.357 | GREEN — publish gate modal rendered with checks and actions |
+| 4 | `draft_dash_anta&run_state=success&modal=publish` | 49.408% | 4.544 | GREEN — publish gate modal rendered with checks and actions |
 | 5 | `draft_dash_anta&run_state=failed` | 15.550% | 3.133 | GREEN — failure card and retry path present |
 | 6 | `draft_dash_anta&state=permission` | 42.628% | 3.859 | GREEN — inset permission overlay covers the draft center only |
 | 7 | `draft_dash_anta&state=connection_error` | 42.617% | 3.756 | GREEN — connection error overlay and reconnect action present |
 | 8 | `draft_dash_anta&state=upgrade` | 14.846% | 3.679 | GREEN — upgrade banner and both recovery actions present |
-| 9 | `draft_dash_anta&modal=advanced` | 47.390% | 2.999 | GREEN — diagnostic modal rendered at source-aligned width |
-| 10 | `draft_dash_anta&modal=test_records` | 47.581% | 4.776 | GREEN — records table rendered, not a placeholder |
-| 11 | `draft_dash_anta&modal=tools` | 46.747% | 4.552 | GREEN — tools/connection rows and add-resource action present |
+| 9 | `draft_dash_anta&modal=advanced` | 46.064% | 2.079 | GREEN — diagnostic modal rendered at source-aligned width |
+| 10 | `draft_dash_anta&modal=test_records` | 48.645% | 3.031 | GREEN — records table rendered, not a placeholder |
+| 11 | `draft_dash_anta&modal=tools` | 46.541% | 2.384 | GREEN — tools/connection rows and add-resource action present |
 | 12 | `pub_dash_anta` | 9.084% | 1.551 | GREEN — published header, badge, version, scope, actions present |
-| 13 | `pub_dash_anta&modal=agent` | 36.494% | 3.189 | GREEN — agent binding modal and BFF-backed empty state rendered |
-| 14 | `pub_dash_anta&modal=share_run` | 17.220% | 3.094 | GREEN — warning, snapshot action, and empty-link state rendered |
-| 15 | `pub_dash_anta&modal=instructions` | 20.782% | 2.478 | GREEN — BFF-backed information fields rendered |
-| 16 | `pub_dash_anta&modal=versions` | 31.896% | 3.023 | GREEN — 384px version drawer, source block, and BFF-backed timeline rendered |
+| 13 | `pub_dash_anta&modal=agent` | 94.931% | 70.618 | GREEN* — real double-column Agent modal and BFF-backed empty state rendered |
+| 14 | `pub_dash_anta&modal=share_run` | 96.266% | 81.817 | GREEN* — real warning, snapshot action, and empty-link state rendered |
+| 15 | `pub_dash_anta&modal=instructions` | 92.350% | 75.405 | GREEN* — real BFF-backed information fields rendered |
+| 16 | `pub_dash_anta&modal=versions` | 99.356% | 73.377 | GREEN* — real 384px version Drawer, source block, and BFF-backed timeline rendered |
 | 17 | `draft_sop_bluetooth` | 11.141% | 2.715 | GREEN — draft shell and SOP state rendered |
 | 18 | `draft_sop_haidilao` | 11.072% | 2.658 | GREEN — draft shell and SOP state rendered |
 | 19 | `skill_new` | 12.130% | 3.986 | GREEN — form hierarchy, connection section, upload, and submit present |
@@ -109,5 +116,8 @@ treated as evidence that the modal was omitted.
 | Narrow E2E | 390×844 Playwright contract fixture | PASS |
 
 The fixture E2E is contract evidence, not real authenticated service evidence.
-Real Connection Service, AutoSkill Adapter, and deployed BFF acceptance remain
-STEP 3 dependencies.
+The published Agent picker is intentionally empty because the current
+same-origin Knowledge BFF contract exposes no Agent directory endpoint; adding
+Prototype demo Agents to production would violate the fixture-only demo-data
+boundary. Real Connection Service, AutoSkill Adapter, Agent directory, and
+deployed BFF acceptance remain STEP 3 dependencies.
