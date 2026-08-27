@@ -10,7 +10,7 @@
     "remote_url": "https://github.com/oomol-lab/open-connector.git",
     "branch": "feat/connection-service-v1",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-service-open-connector",
-    "commit": "pending-local-commit",
+    "commit": "53742d3",
     "remote_branch": "feat/connection-service-v1 (not pushed)"
   },
   "veadk_repo": {
@@ -18,7 +18,7 @@
     "remote_url": "https://github.com/volcengine/veadk-python.git",
     "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
-    "commit": "pending-local-commit",
+    "commit": "ba3fd11c",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (not pushed)"
   },
   "deployment": {
