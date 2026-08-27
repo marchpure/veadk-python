@@ -7,18 +7,18 @@
   "openconnector_parent_sha": "5960f2ac0fe3e07a61c1c466e98157ad7e80b373",
   "service_repo": {
     "repository": "open-connector",
-    "remote_url": "https://github.com/oomol-lab/open-connector.git",
+    "remote_url": "git@github.com:marchpure/open-connector.git",
     "branch": "feat/connection-service-v1",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-service-open-connector",
-    "commit": "53742d34e4a6dc8a177f429c54fd883407c4372c",
-    "remote_branch": "feat/connection-service-v1 (push blocked: origin returned HTTP 403; no writable fork configured)"
+    "commit": "9689f58ac13aa6d9c94cf7d677b369b583a7cd05",
+    "remote_branch": "fork/feat/connection-service-v1 (pushed to marchpure)"
   },
   "veadk_repo": {
     "repository": "veadk-python",
     "remote_url": "https://github.com/volcengine/veadk-python.git",
     "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
-    "commit": "5a709b83cb943ff5336fa169e9b7860c5dabd6f7",
+    "commit": "06dd645560c27a5e3ec3a516a2b07a0bbfe664c7",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (pushed to marchpure)"
   },
   "deployment": {
@@ -52,14 +52,15 @@
     "lease revocation, expiry, IDOR rejection, and action allowlist enforcement",
     "enablement-only catalog with catalog/beta/verified tiers",
     "OpenConnector provider/action schema and guarded runtime integration",
-    "REST/OpenAPI confirmation/auth/idempotency adapter",
-    "MCP Streamable HTTP/SSE and controlled stdio adapter",
-    "CSV/Excel/JSON/Parquet/PDF/MD/TXT file intake and tenant ownership",
-    "Oracle service_name/SID and read-only query limit adapter"
+    "REST/OpenAPI URL/uploaded spec, confirmation, API key/Bearer/OAuth, bounded pagination/rate limit, and durable encrypted idempotency",
+    "MCP Streamable HTTP/SSE and controlled stdio adapter with encrypted definitions, allowlists, schema checks, and timeouts",
+    "CSV/Excel/JSON/Parquet/PDF/MD/TXT file intake, tenant ownership, deduplication, scanning, parsing, preview, and delete",
+    "Oracle service_name/SID, TLS wallet configuration, pooling, AST/driver read-only gates, schema discovery, and query limits",
+    "Web Discovery service-side worker contract with short-lived token, encrypted observations, origin/sensitive-field controls, candidate inference, and explicit confirmation"
   ],
   "evidence": {
-    "focused_unit_contract_security": "15 passed across lease, redaction, tenant API, REST, MCP, file, Oracle, restart, archive, and SSRF tests",
-    "full_upstream_suite": "159 files, 1432 passed, 4 skipped",
+    "focused_unit_contract_security": "41 behavior tests across 10 control-plane test files",
+    "full_upstream_suite": "162 files passed, 1 file skipped; 1457 tests passed, 4 skipped",
     "typecheck": "passed",
     "lint": "passed with deny-warnings",
     "real_http_smoke": {
@@ -74,23 +75,29 @@
       "oracle_container": "passed; step3b-oracle-integration / FREEPDB1 / node-oracledb Thin select dual; write rejected before execution",
       "fixture_rest": "passed in local E2E harness over TCP with explicit private-network opt-in; idempotent write replay passed",
       "local_mcp_process": "passed in local E2E harness using raw JSON-RPC stdio initialize/tools/list/tools/call",
-      "csv_excel_pdf_upload": "passed in local E2E harness with real CSV, Excel, JSON, and PDF bytes",
-      "feishu_resource": "OAuth client config and authorization start passed with minimum requested scopes; authorized resource read and post-revocation access still pending",
-      "negative_matrix": "SSRF, malformed PDF/Parquet/ZIP, archive compression limits, restart persistence, lease revocation, token hash, redaction, IDOR, and duplicate idempotency passed; provider wrong-credential/timeout/disconnect matrix pending"
+      "file_parse_preview": "passed in local E2E harness for CSV, JSON, real XLSX, real 10-page PDF, and real ZSTD Parquet",
+      "web_discovery": "service-side contract tests passed; deployed isolated browser worker E2E pending",
+      "feishu_resource": "OAuth client config and authorization start passed with minimum requested scopes; a separate lark-cli user read the real design document but Connection Service resource read and post-revocation access remain pending",
+      "negative_matrix": "SSRF, Oracle AST writes, malformed PDF/Parquet/ZIP, spreadsheet formula input, archive compression limits, restart persistence, ACL/lease revocation, token hash, redaction, IDOR, and duplicate idempotency passed; full provider wrong-credential/timeout/disconnect/revocation matrix pending",
+      "local_performance": "100 connections: list 1.52 ms, create P95/P99 0.71/0.78 ms; 50 concurrent REST adapter calls: P95/P99 325.05/334.59 ms; 10 MiB upload 30.24 ms with 56,459,264-byte RSS delta. Single-machine baseline only."
     },
     "license_sbom": {
       "apache_license": "LICENSE.txt and NOTICE.md preserved",
-      "dependency_audit": "npm audit reports 3 moderate and 6 high advisories; release gate blocked pending review",
-      "sbom": "/tmp/step2b-npm-sbom.json generated outside repo; release artifact reference pending",
+      "dependency_audit": "npm audit and npm audit --omit=dev both report zero vulnerabilities",
+      "sbom": "CycloneDX 1.5, 590 components, /tmp/step2b-npm-sbom-current.json, SHA-256 57697cbdcfee5b9d48c27a8a7426f1dd5d907280585b90c90ebe361eaaf30a90",
       "evidence_manifest": "docs/connection-service-evidence.json in service worktree"
     }
   },
   "status": "NOT_FROZEN",
   "blockers": [
-    "OpenConnector push is blocked by GitHub permission (HTTP 403) and no writable fork is configured.",
-    "Feishu authorized resource read and revocation-after-access evidence are not recorded.",
-    "npm audit reports 6 high and 3 moderate advisories; SBOM is outside the repository.",
-    "Provider wrong-credential, timeout, and disconnect negative matrix is not complete."
+    "Connection Service-owned Feishu OAuth resource read and revocation-after-access evidence are not recorded.",
+    "The isolated Web Discovery browser worker is not deployed or exercised end to end.",
+    "Oracle VPC/private runner and optional SSH transport are not implemented or evidenced.",
+    "MCP reconnect and network-disconnect behavior are not evidenced with a real process.",
+    "Provider wrong-credential, timeout, disconnect, and revocation negative matrix is not complete.",
+    "Large-file scanning and hashing buffer the full file instead of streaming.",
+    "Full concurrent runtime/AutoSkill invocation and long-conversation production-like stability evidence is pending.",
+    "Real binary E2E fixtures are machine-local and must be provisioned by the release runner."
   ],
-  "freeze_rule": "Do not write STEP2B_FROZEN until service push, real Oracle/REST/MCP/file/Feishu evidence, full negative matrix, and supply-chain review gates are attached."
+  "freeze_rule": "Do not write STEP2B_FROZEN until real Connection Service Feishu read/revocation, deployed Web Discovery worker, private-network runner, MCP reconnect/disconnect, streaming files, and remaining negative/performance gates are evidenced."
 }
