@@ -12,8 +12,8 @@
       "connectorKey": "lark_doc",
       "category": "office",
       "name": "飞书文档",
-      "capabilityState": "available",
-      "browserStatus": "PASS",
+      "capabilityState": "credential_blocked",
+      "browserStatus": "CREDENTIAL_BLOCKED",
       "formEvidence": {
         "inputFields": [
           "apiBaseUrl",
@@ -3087,7 +3087,7 @@
       "connectorKey": "postgresql",
       "category": "db",
       "name": "PostgreSQL",
-      "capabilityState": "credential_blocked",
+      "capabilityState": "available",
       "browserStatus": "PASS",
       "formEvidence": {
         "inputFields": [
@@ -3347,7 +3347,7 @@
       "connectorKey": "mysql",
       "category": "db",
       "name": "MySQL",
-      "capabilityState": "credential_blocked",
+      "capabilityState": "available",
       "browserStatus": "PASS",
       "formEvidence": {
         "inputFields": [

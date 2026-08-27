@@ -85,9 +85,17 @@ unlock steps are recorded in `targetProviderProbes` in the authoritative
 matrix. No unstarted or substitute service is counted as a verification.
 
 Focused provider tests: `.venv/bin/pytest`
-(`test_step3b_provider_adapters.py`) — 51 passed. The current combined
-connector adapter, provider, Lark, HTTP API, and source-golden focused suite
-is 159 passed. The separate BFF/authoring regression remains 107 passed.
+(`test_step3b_provider_adapters.py`) — 63 passed, 12 skipped. The skips are
+environment-gated live-provider cases, not synthetic successes. The current
+combined connector adapter, provider, Lark, HTTP API, and source-golden focused
+suite remains recorded at 159 passed. The separate BFF/authoring regression
+remains 107 passed.
+
+The R9 matrix correction also reconciles the row-level browser projection:
+`lark_doc` is `CREDENTIAL_BLOCKED` like the other Feishu connectors, while the
+authoritative R8 PostgreSQL/MySQL rows are `LIVE_VERIFIED` and retain their
+`R8_FULL` browser evidence. The resulting row counts are 24 available/PASS
+and 13 credential-blocked, matching the top-level matrix counts.
 
 ## R9 follow-up provider availability audit
 
