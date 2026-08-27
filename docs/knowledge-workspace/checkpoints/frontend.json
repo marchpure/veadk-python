@@ -6,7 +6,7 @@
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
-  "implementation_commit": "960e468b",
+  "implementation_commit": "7cfa6340",
   "remote": {
     "name": "marchpure",
     "url": "git@github.com:marchpure/veadk-python.git",
@@ -57,8 +57,8 @@
     "production_build": "frontend/npm run build — Studio and website-integration bundles passed",
     "asset_verifier": "frontend/npm run test:webui-assets — 85 packaged files, 229 internal references verified",
     "diff_check": "git diff --check — PASS for authored changes; generated minified bundle has the repository build's existing trailing whitespace warning",
-    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 3, event_stream_calls 4, published true; current page includes real Draft task-run and published Agent-modal wiring",
-    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 3, event_stream_calls 4, published true; current page includes real Draft task-run and published Agent-modal wiring"
+    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 4, event_stream_calls 5, published true; current page includes real Draft task-run and published Agent-modal wiring",
+    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 4, event_stream_calls 5, published true; current page includes real Draft task-run and published Agent-modal wiring"
   },
   "capture_report": {
     "report": "docs/knowledge-workspace/capture-report.md",
