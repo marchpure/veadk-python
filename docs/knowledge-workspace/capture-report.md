@@ -39,7 +39,7 @@ desktop and narrow layouts.
 | State family | States | Differing-pixel ratio | Mean RGB delta | Manual gate |
 | --- | ---: | ---: | ---: | --- |
 | Welcome | 1 | 32.82% | 6.57 | GREEN |
-| Draft base / success / failed / SOP | 5 | 10.27–14.88% | 2.53–3.04 | GREEN |
+| Draft base / success / failed / SOP | 5 | 10.28–15.03% | 2.53–3.14 | GREEN |
 | Permission / connection error / upgrade | 3 | 14.06–42.46% | 3.15–3.57 | GREEN |
 | Draft advanced / test records / tools | 3 | 46.70–47.49% | 2.95–4.73 | GREEN |
 | Draft publish gate | 1 | 52.07% | 6.05 | GREEN |
@@ -65,7 +65,7 @@ treated as evidence that the modal was omitted.
 | ---: | --- | ---: | ---: | --- |
 | 1 | `welcome` | 32.816% | 6.568 | GREEN — dashboard hierarchy, cards, actions, and center of gravity present |
 | 2 | `draft_dash_anta` | 10.407% | 2.710 | GREEN — draft shell, task card, result area, chat rail present |
-| 3 | `draft_dash_anta&run_state=success` | 10.407% | 2.710 | GREEN — success state and result grouping present |
+| 3 | `draft_dash_anta&run_state=success` | 15.03% | 3.13 | GREEN — BFF lifecycle renders a real green success card with revision and next actions |
 | 4 | `draft_dash_anta&run_state=success&modal=publish` | 52.144% | 6.187 | GREEN — publish gate modal rendered with checks and actions |
 | 5 | `draft_dash_anta&run_state=failed` | 14.966% | 3.145 | GREEN — failure card and retry path present |
 | 6 | `draft_dash_anta&state=permission` | 42.457% | 3.391 | GREEN — inset permission overlay covers the draft center only |
