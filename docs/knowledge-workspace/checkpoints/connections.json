@@ -1,0 +1,89 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/connections-checkpoint.schema.json",
+  "checkpoint": "STEP2B_IN_PROGRESS",
+  "step": "knowledge-asset-workspace-v1-step-2b",
+  "parent_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
+  "bootstrap_commit": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
+  "openconnector_parent_sha": "5960f2ac0fe3e07a61c1c466e98157ad7e80b373",
+  "service_repo": {
+    "repository": "open-connector",
+    "remote_url": "https://github.com/oomol-lab/open-connector.git",
+    "branch": "feat/connection-service-v1",
+    "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-service-open-connector",
+    "commit": "pending-local-commit",
+    "remote_branch": "feat/connection-service-v1 (not pushed)"
+  },
+  "veadk_repo": {
+    "repository": "veadk-python",
+    "remote_url": "https://github.com/volcengine/veadk-python.git",
+    "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
+    "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
+    "commit": "pending-local-commit",
+    "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (not pushed)"
+  },
+  "deployment": {
+    "service_command": "CONNECTION_SERVICE_AUTH_SECRET=<secret> CONNECTION_SERVICE_ENCRYPTION_KEY=<secret> npm run start:connection-service",
+    "dockerfile": "Dockerfile.connection-service",
+    "control_api_base": "/v1",
+    "browser_boundary": "/api/knowledge/v1",
+    "openconnector_management_api_browser_access": false
+  },
+  "verified_types": [],
+  "beta_types": [
+    "feishu",
+    "rest_openapi",
+    "mcp",
+    "files",
+    "oracle_database"
+  ],
+  "catalog": {
+    "provider_directory_count_observed": 1445,
+    "action_count_observed": 15156,
+    "enabled_services": [
+      "feishu"
+    ],
+    "claim": "Directory count is catalog inventory only; it is not provider readiness or verification."
+  },
+  "implemented_contracts": [
+    "tenant/workspace/owner/visibility/revision/credential_ref/status control records",
+    "tenant-scoped encrypted connections, OAuth config/state, lease hashes, execution audit, and file metadata",
+    "redacted safe connection profiles and audit summaries",
+    "explicit non-empty connection lease bound to tenant/workspace/subject/invocation/audience/expiry/jti",
+    "lease revocation, expiry, IDOR rejection, and action allowlist enforcement",
+    "enablement-only catalog with catalog/beta/verified tiers",
+    "OpenConnector provider/action schema and guarded runtime integration",
+    "REST/OpenAPI confirmation/auth/idempotency adapter",
+    "MCP Streamable HTTP/SSE and controlled stdio adapter",
+    "CSV/Excel/JSON/Parquet/PDF/MD/TXT file intake and tenant ownership",
+    "Oracle service_name/SID and read-only query limit adapter"
+  ],
+  "evidence": {
+    "focused_unit_contract_security": "11 passed across lease, redaction, tenant API, REST, MCP, file, and Oracle tests",
+    "typecheck": "passed",
+    "lint": "passed with deny-warnings",
+    "real_http_smoke": {
+      "health": "passed",
+      "enablement_catalog": "passed; only Feishu beta returned",
+      "unauthorized_control_api": "passed; 401",
+      "cross_tenant_connection_list": "passed; empty for other tenant",
+      "encrypted_credential_at_rest": "passed in test; enc:v1 ciphertext",
+      "cross_tenant_lease_idor": "passed in test; 404"
+    },
+    "real_e2e_gates": {
+      "oracle_container": "passed; step3b-oracle-integration / FREEPDB1 / node-oracledb Thin select dual; write rejected before execution",
+      "fixture_rest": "passed in local E2E harness over TCP with explicit private-network opt-in; idempotent write replay passed",
+      "local_mcp_process": "passed in local E2E harness using raw JSON-RPC stdio initialize/tools/list/tools/call",
+      "csv_excel_pdf_upload": "passed in local E2E harness with real CSV, Excel, JSON, and PDF bytes",
+      "feishu_resource": "OAuth client config and authorization start passed with minimum requested scopes; authorized resource read and post-revocation access still pending",
+      "negative_matrix": "SSRF, malformed PDF/Parquet/ZIP, archive compression limits, restart persistence, lease revocation, token hash, redaction, IDOR, and duplicate idempotency passed; provider wrong-credential/timeout/disconnect matrix pending"
+    },
+    "license_sbom": {
+      "apache_license": "LICENSE.txt and NOTICE.md preserved",
+      "dependency_audit": "npm audit reports 3 moderate and 6 high advisories; release gate blocked pending review",
+      "sbom": "/tmp/step2b-npm-sbom.json generated outside repo; release artifact reference pending",
+      "evidence_manifest": "docs/connection-service-evidence.json in service worktree"
+    }
+  },
+  "status": "NOT_FROZEN",
+  "freeze_rule": "Do not write STEP2B_FROZEN until real Oracle, REST, MCP, file, and Feishu evidence plus full negative matrix are attached."
+}
