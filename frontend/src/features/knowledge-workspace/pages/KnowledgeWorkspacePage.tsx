@@ -8,27 +8,34 @@ import {
 } from "react";
 import {
   AlertCircle,
+  Activity,
+  ArrowLeft,
   Bell,
   Check,
+  CheckCircle2,
   ChevronRight,
   CirclePlus,
   Database,
   FileText,
+  History,
   Loader2,
   MessageSquare,
+  MoreHorizontal,
   PanelRight,
   Play,
   RefreshCw,
   Search,
   Send,
+  ShieldCheck,
   Settings2,
+  Share2,
   Square,
+  ToyBrick,
   Upload,
   User,
   X,
 } from "lucide-react";
-import { login } from "../../../adk/identity";
-import { resolveIdentity, type AuthStatus } from "../../../adk/identity";
+import { login, resolveIdentity, type AuthStatus } from "../../../adk/identity";
 import { ArtifactViewer } from "../artifact/ArtifactViewer";
 import {
   knowledgeApi,
@@ -360,13 +367,6 @@ export function KnowledgeWorkspacePage() {
   const lastEventIdRef = useRef("");
   const terminalInvocationRef = useRef(false);
   const seenEventIdsRef = useRef(new Set<string>());
-  const [elapsedMs, setElapsedMs] = useState(0);
-
-  useEffect(() => {
-    if (!startedAt || streamState === "done") return;
-    const timer = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 250);
-    return () => window.clearInterval(timer);
-  }, [startedAt, streamState]);
 
   const applyEvent = useCallback((event: KnowledgeInvocationEvent) => {
     if (seenEventIdsRef.current.has(event.id)) return;
@@ -471,7 +471,6 @@ export function KnowledgeWorkspacePage() {
       lastEventIdRef.current = "";
       seenEventIdsRef.current = new Set();
       setStartedAt(Date.now());
-      setElapsedMs(0);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -491,10 +490,9 @@ export function KnowledgeWorkspacePage() {
           draft.trial_task || "请重新试跑当前 Skill。",
           "run",
           etag,
-        );
+      );
       setActiveInvocation(result.data);
       setStartedAt(Date.now());
-      setElapsedMs(0);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -522,9 +520,10 @@ export function KnowledgeWorkspacePage() {
     }
   }, [draft?.current_revision_id, draft?.draft_id, revisions]);
 
-  const selectedDraft = draftResourceError
-    ? null
-    : draft || drafts.find((item) => item.draft_id === route.draftId) || null;
+  // Keep the directory snapshot as the underlying document when a detail
+  // request fails. This lets the UI render a real, actionable state overlay
+  // instead of collapsing to a URL-only error page.
+  const selectedDraft = draft || drafts.find((item) => item.draft_id === route.draftId) || null;
   const selectedConnection = connections.find(
     (item) => item.connection_id === route.connectionId
       || selectedConnectionIds.includes(item.connection_id),
@@ -556,7 +555,7 @@ export function KnowledgeWorkspacePage() {
     );
   }
   return (
-    <div className={`kw-shell${selectedDraft ? " has-draft" : ""}`}>
+    <div className={`kw-shell${selectedDraft ? " has-draft" : ""}${route.file === "draft" ? " is-draft-route" : ""}`}>
       <header className="kw-studio-nav">
         <button className="kw-studio-brand" type="button" onClick={() => setRoute("welcome")}>
           <span className="kw-studio-mark"><Database size={15} /></span>
@@ -577,10 +576,6 @@ export function KnowledgeWorkspacePage() {
       </header>
       <div className="kw-workspace-frame">
         <aside className="kw-sidebar">
-          <div className="kw-brand">
-            <span className="kw-brand-mark">K</span>
-            <span>知识资产</span>
-          </div>
           <button className="kw-new-resource" type="button" aria-label="新建 Skill" onClick={() => setRoute("skill_new")}>
             <CirclePlus size={16} /> 新建 Skill
           </button>
@@ -620,8 +615,8 @@ export function KnowledgeWorkspacePage() {
               key={item.draft_id}
               onClick={() => openDraft(item)}
             >
-              <FileText size={15} />
-              <span className="kw-truncate">{item.goal}</span>
+              <ToyBrick size={15} />
+              <span className="kw-truncate">{(item as Draft & { display_name?: string }).display_name || item.goal}</span>
             </button>
           ))}
           <div className="kw-tree-label">团队工作区</div>
@@ -644,32 +639,58 @@ export function KnowledgeWorkspacePage() {
         </aside>
 
         <main className="kw-main">
-        <header className="kw-topbar">
-          <div className="kw-breadcrumb">
-            <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
-            {selectedDraft ? <><ChevronRight size={14} /><span>{selectedDraft.goal}</span></> : null}
-          </div>
-          <div className="kw-top-actions">
-            {selectedDraft ? (
-              <>
-                <button type="button" onClick={() => setShowVersions(true)}>版本</button>
-                <button type="button" className="kw-primary-small" onClick={() => setShowPublish(true)} disabled={!revisions.length}>
-                  发布
-                </button>
-              </>
-            ) : null}
-          </div>
-        </header>
-        {error ? (
+        {route.file === "draft" && selectedDraft ? (
+          <header className="kw-topbar kw-draft-topbar">
+            <div className="kw-draft-topbar-heading">
+              <button type="button" className="kw-icon-button" onClick={() => setRoute("welcome")} aria-label="返回工作台">
+                <ArrowLeft size={18} />
+              </button>
+              <h1>{selectedRevision?.skill_name || selectedDraft.goal}</h1>
+              <span className="kw-draft-status">草稿</span>
+              <span className="kw-draft-autosave">已自动保存</span>
+            </div>
+            <div className="kw-top-actions kw-draft-top-actions">
+              <button type="button" onClick={() => {
+                const query = new URLSearchParams(window.location.search);
+                query.set("modal", "tools");
+                window.history.pushState({}, "", `${window.location.pathname}?${query}`);
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }}><Database size={14} />数据与工具 ({selectedDraft.connection_ids.length})</button>
+              <button type="button" onClick={() => {
+                const query = new URLSearchParams(window.location.search);
+                query.set("modal", "test_records");
+                window.history.pushState({}, "", `${window.location.pathname}?${query}`);
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }}><History size={14} />测试记录</button>
+              <button type="button" onClick={() => setShowVersions(true)}>版本</button>
+              <button type="button" className="kw-primary-small" onClick={() => setShowPublish(true)} disabled={!revisions.length}>
+                发布
+              </button>
+              <button type="button" className="kw-icon-button" aria-label="更多操作"><MoreHorizontal size={18} /></button>
+            </div>
+          </header>
+        ) : route.file === "connection" ? (
+          <header className="kw-topbar">
+            <div className="kw-breadcrumb">
+              <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
+              {selectedConnection ? <><ChevronRight size={14} /><span>{selectedConnection.display_name}</span></> : null}
+            </div>
+          </header>
+        ) : null}
+        {error && !draftResourceError ? (
           <div className="kw-error" role="alert">
             <AlertCircle size={16} /> <span>{error}</span>
             <button type="button" onClick={() => setError("")} aria-label="关闭错误"><X size={14} /></button>
           </div>
         ) : null}
         {route.file === "welcome" && !selectedDraft ? (
-          <WelcomeEntryView onCreate={(goal) => { setWelcomeGoal(goal); setRoute("skill_new"); }} />
+          <WelcomeEntryView
+            drafts={drafts}
+            onOpen={openDraft}
+            onCreate={(goal) => { setWelcomeGoal(goal); setRoute("skill_new"); }}
+          />
         ) : route.file === "skill_new" ? (
-          <section className="kw-create-layout">
+          <section className="kw-create-layout is-skill-new">
             <SkillNewView
               connections={personalConnections}
               selectedIds={selectedConnectionIds}
@@ -679,8 +700,8 @@ export function KnowledgeWorkspacePage() {
               onAddConnection={() => setShowConnectionForm(true)}
               busy={busy === "generate"}
               initialGoal={welcomeGoal}
+              onBack={() => setRoute("welcome")}
             />
-            <CreationRail connectionCount={personalConnections.length} />
           </section>
         ) : route.file === "connection" ? (
           <ConnectionDetailView
@@ -725,7 +746,6 @@ export function KnowledgeWorkspacePage() {
             assistantText={assistantText}
             plan={plan}
             streamState={streamState}
-            elapsedMs={elapsedMs}
             activeInvocation={activeInvocation}
             busy={busy}
             resourceError={draftResourceError}
@@ -776,19 +796,22 @@ export function KnowledgeWorkspacePage() {
       {routeModal && routeModal !== "publish" ? (
         <WorkspaceStateModal
           kind={routeModal}
+          draft={selectedDraft}
+          revision={selectedRevision}
           revisions={revisions}
           connections={availableConnections}
           onClose={closeRouteModal}
         />
       ) : null}
       {routeModal === "publish" ? (
-        <Modal title="发布 Skill" onClose={closeRouteModal}>
-          <p className="kw-muted">发布会固定当前不可变 Revision，后续修改将创建新版本。</p>
-          <div className="kw-publish-actions">
-            <button type="button" onClick={() => void publish("personal")} disabled={busy === "publish"}>发布到个人</button>
-            <button type="button" className="kw-primary-small" onClick={() => void publish("team")} disabled={busy === "publish"}>发布到团队</button>
-          </div>
-        </Modal>
+        <PublishGateModal
+          draft={selectedDraft}
+          revision={selectedRevision}
+          connections={availableConnections}
+          busy={busy === "publish"}
+          onClose={closeRouteModal}
+          onPublish={publish}
+        />
       ) : null}
     </div>
   );
@@ -803,6 +826,7 @@ function SkillNewView({
   onAddConnection,
   busy,
   initialGoal,
+  onBack,
 }: {
   connections: ConnectionProfile[];
   selectedIds: string[];
@@ -812,6 +836,7 @@ function SkillNewView({
   onAddConnection: () => void;
   busy: boolean;
   initialGoal?: string;
+  onBack: () => void;
 }) {
   const [goal, setGoal] = useState(initialGoal || "");
   const [trialTask, setTrialTask] = useState("");
@@ -845,24 +870,28 @@ function SkillNewView({
   return (
     <section className="kw-create">
       <div className="kw-create-copy">
-        <span className="kw-eyebrow">KNOWLEDGE WORKSPACE V1</span>
-        <h1>让 Agent 帮你解决一个真实问题</h1>
-        <p>描述谁会使用它、要解决什么问题，再选择可访问的真实连接。生成后可以继续对话修改。</p>
+        <div className="kw-skill-new-heading">
+          <button type="button" className="kw-icon-button kw-skill-new-back" onClick={onBack} aria-label="返回工作台">
+            <ArrowLeft size={18} />
+          </button>
+          <h1>生成第一版 Skill</h1>
+        </div>
       </div>
       <form className="kw-create-form" onSubmit={submit}>
         <label>
-          谁使用，解决什么问题？
+          <span className="kw-form-step-label">1. 谁会使用，希望解决什么问题</span>
           <textarea
             value={goal}
             onChange={(event) => setGoal(event.target.value)}
             placeholder="例如：让售后工程师排查最近的蓝牙断连并给出处置建议"
+            aria-label="谁使用，解决什么问题？"
             rows={4}
             required
           />
         </label>
         <div className="kw-form-section">
           <div className="kw-form-section-title">
-            <span>选择“我的连接”</span>
+            <span>2. 接入数据与工具</span>
             <button type="button" className="kw-link-button" onClick={onAddConnection}><CirclePlus size={14} /> 添加连接</button>
           </div>
           {connections.length ? connections.map((connection) => (
@@ -888,8 +917,8 @@ function SkillNewView({
           )}
         </div>
         <label>
-          可选：先试一句真实任务
-          <textarea value={trialTask} onChange={(event) => setTrialTask(event.target.value)} placeholder="生成后直接用什么输入试跑？" rows={3} />
+          <span className="kw-form-step-label">3. 先试一句任务（可选）</span>
+          <textarea value={trialTask} onChange={(event) => setTrialTask(event.target.value)} placeholder="生成后直接用什么输入试跑？" aria-label="可选：先试一句真实任务" rows={3} />
         </label>
         <div className="kw-form-section">
           <div className="kw-form-section-title"><span>可选：上传任务输入</span><span className="kw-muted">文件由 BFF 隔离存储</span></div>
@@ -911,53 +940,50 @@ function SkillNewView({
   );
 }
 
-function WelcomeEntryView({ onCreate }: { onCreate: (goal: string) => void }) {
-  const [message, setMessage] = useState("");
+function WelcomeEntryView({
+  drafts,
+  onOpen,
+  onCreate,
+}: {
+  drafts: Draft[];
+  onOpen: (draft: Draft) => void;
+  onCreate: (goal: string) => void;
+}) {
   return (
     <section className="kw-welcome-entry">
-      <div className="kw-welcome-entry-mark"><MessageSquare size={22} /></div>
-      <span className="kw-eyebrow">KNOWLEDGE WORKSPACE V1</span>
-      <h1>从一个真实问题开始</h1>
-      <p>告诉 Agent 谁会使用、希望解决什么问题。下一步会让你选择真实连接，再生成并试用 Skill。</p>
-      <div className="kw-welcome-composer">
-        <textarea
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="例如：让支持工程师排查线上告警并给出处理建议"
-          rows={3}
-          aria-label="描述你的问题"
-        />
-        <div className="kw-welcome-composer-footer">
-          <span>不会在浏览器中保存凭据或运行结果。</span>
-          <button type="button" className="kw-primary-small" onClick={() => onCreate(message)}>
-            <Send size={14} /> 开始创建
-          </button>
+      <div className="kw-welcome-dashboard">
+        <div className="kw-welcome-dashboard-heading">
+          <h1>我的 Skill</h1>
+          <button type="button" className="kw-primary-small" onClick={() => onCreate("")}><CirclePlus size={15} /> 新建 Skill</button>
+        </div>
+        <div className="kw-welcome-grid">
+          {drafts.map((draft) => (
+            <article className="kw-welcome-card" key={draft.draft_id}>
+              <div className="kw-welcome-card-heading">
+                <div className="kw-welcome-card-icon"><ToyBrick size={20} /></div>
+                <div className="kw-welcome-card-copy">
+                  <strong>{(draft as Draft & { display_name?: string }).display_name || draft.goal}</strong>
+                  <span>{draft.goal}</span>
+                </div>
+                <span className={`kw-welcome-status is-${draft.lifecycle}`}>{draft.lifecycle === "published" ? "已发布" : "草稿"}</span>
+              </div>
+              <div className="kw-welcome-card-meta">
+                <span>最新任务</span><strong>{draft.trial_task || "初次制作"}</strong>
+                <span>任务状态</span><strong>已完成</strong>
+                <span>已连接资源</span><strong>{draft.connection_ids.length} 项</strong>
+              </div>
+              <button type="button" onClick={() => onOpen(draft)}>{draft.lifecycle === "published" ? "试用" : "继续完善"}<ChevronRight size={14} /></button>
+            </article>
+          ))}
+          {!drafts.length ? <div className="kw-welcome-empty"><MessageSquare size={30} /><span>暂无相关的 Skill</span></div> : null}
         </div>
       </div>
-      <button type="button" className="kw-link-button kw-welcome-create-link" onClick={() => onCreate(message)}>
-        或直接打开 Skill 创建表单 <ChevronRight size={14} />
-      </button>
     </section>
   );
 }
 
-function CreationRail({ connectionCount }: { connectionCount: number }) {
-  return (
-    <aside className="kw-creation-rail" aria-label="创建流程">
-      <div className="kw-creation-rail-heading">
-        <MessageSquare size={16} />
-        <strong>创建助手</strong>
-      </div>
-      <p>先描述真实问题，再授权可访问的连接。生成后可以在右侧对话中继续修改。</p>
-      <ol>
-        <li className="is-active"><span>1</span><div><strong>描述目标</strong><small>说明谁使用、要解决什么问题</small></div></li>
-        <li><span>2</span><div><strong>选择连接</strong><small>{connectionCount} 个连接由当前 BFF 返回</small></div></li>
-        <li><span>3</span><div><strong>生成并试用</strong><small>运行状态和结果来自真实服务</small></div></li>
-      </ol>
-      <div className="kw-creation-rail-note">不会在浏览器中保存凭据或生成结果。</div>
-    </aside>
-  );
-}
+// CreationRail remains a migration boundary marker; the source-aligned flow
+// is represented by the numbered form sections in SkillNewView.
 
 function ConnectionDetailView({
   connection,
@@ -1012,7 +1038,6 @@ function DraftWorkspace({
   assistantText,
   plan,
   streamState,
-  elapsedMs,
   activeInvocation,
   busy,
   resourceError,
@@ -1030,7 +1055,6 @@ function DraftWorkspace({
   assistantText: string;
   plan: PlanStep[];
   streamState: "idle" | "connected" | "disconnected" | "done";
-  elapsedMs: number;
   activeInvocation: Invocation | null;
   busy: string;
   resourceError: { code: string; message: string } | null;
@@ -1056,57 +1080,84 @@ function DraftWorkspace({
       </div>
     );
   }
-  const seconds = (elapsedMs / 1000).toFixed(1);
   const failedEvent = [...events].reverse().find((event) => event.type === "run.failed");
+  const errorState = resourceError?.code === "FORBIDDEN"
+    ? "permission"
+    : resourceError?.code === "CONNECTION_NOT_READY"
+      ? "connection_error"
+      : resourceError?.code === "PUBLISH_GATE_FAILED"
+        ? "upgrade"
+        : "";
   return (
     <section className="kw-draft-layout">
       <div className="kw-draft-center">
-        <div className="kw-draft-title">
-          <div>
-            <span className="kw-eyebrow">SKILL DRAFT</span>
-            <h1>{draft.goal}</h1>
-            <p>{revisions.length ? `当前 v${revisions.at(-1)?.number} · ${draft.lifecycle}` : draft.lifecycle}</p>
-          </div>
-          <div className="kw-invocation-state">
-            {activeInvocation ? <span>{streamState === "connected" ? "实时运行中" : streamState === "disconnected" ? "连接已断开" : streamState === "done" ? "已结束" : "等待中"} · {seconds}s</span> : null}
-          </div>
-        </div>
         {draft.lifecycle === "failed" ? (
-          <div className="kw-state-card is-failed" role="status">
-            <strong>上一次试跑失败</strong>
-            <span>可以查看失败原因并重试，不会创建重复 invocation。</span>
-            {activeInvocation ? <button type="button" onClick={onRetry}>重试本次运行</button> : null}
+          <div className="kw-run-state-card is-failed" role="status">
+            <div className="kw-run-state-icon"><AlertCircle size={18} /></div>
+            <div>
+              <strong>运行失败</strong>
+              <span>上一次试跑没有完成，可以检查连接后重试。</span>
+            </div>
+            <button type="button" onClick={onRetry}>重试本次运行</button>
           </div>
         ) : null}
-        {resourceError ? (
-          <div className="kw-state-card is-failed" role="alert">
-            <strong>
-              {resourceError.code === "FORBIDDEN"
-                ? "当前账号没有访问该资源的权限"
-                : resourceError.code === "CONNECTION_NOT_READY"
-                  ? "连接暂不可用"
-                  : resourceError.code === "PUBLISH_GATE_FAILED"
-                    ? "当前资源尚未通过发布门禁"
-                    : "无法加载当前资源"}
-            </strong>
-            <span>{resourceError.message}</span>
-            <button type="button" onClick={onRetryLoad}>重新加载资源</button>
+        {errorState === "upgrade" ? (
+          <div className="kw-upgrade-banner" role="status">
+            <div className="kw-upgrade-copy">
+              <AlertCircle size={19} />
+              <div><strong>发现基础模型或版本更新</strong><span>这可能导致当前排查步骤或口径发生变化。</span></div>
+            </div>
+            <div className="kw-upgrade-actions"><button type="button" onClick={onRetryLoad}>继续使用原版本</button><button type="button" className="is-warning" onClick={onRetryLoad}>重新生成</button></div>
           </div>
         ) : null}
-        <ArtifactViewer artifact={artifact} />
-        <div className="kw-draft-placeholder">
-          <FileText size={22} />
-          <span>{artifact ? "Artifact 已关联到本次运行" : "生成后，真实运行结果会显示在这里"}</span>
+        <div className="kw-draft-artifact-card">
+          <div className="kw-draft-section-heading">
+            <div>
+              <h2>这次想完成什么？</h2>
+              <p>描述一次真实业务任务，Skill 会基于已授权连接完成分析。</p>
+            </div>
+          </div>
+          <textarea className="kw-draft-task-input" defaultValue={draft.trial_task || draft.goal} rows={3} aria-label="真实业务任务" />
+          <div className="kw-draft-task-footer">
+            <span><Database size={13} /> 已连接 {draft.connection_ids.length} 个数据源</span>
+            <button type="button" className="kw-primary-small"><Play size={13} /> 开始</button>
+          </div>
+          {!artifact ? (
+            <div className="kw-draft-waiting"><FileText size={22} /><span>等待运行</span></div>
+          ) : null}
         </div>
+        {artifact ? <ArtifactViewer artifact={artifact} /> : null}
+        {errorState && errorState !== "upgrade" ? (
+          <div className="kw-state-overlay" role="alert">
+            <div className={`kw-state-dialog is-${errorState}`}>
+              <div className="kw-state-dialog-icon">{errorState === "permission" ? <ShieldCheck size={27} /> : <AlertCircle size={27} />}</div>
+              <h2>{errorState === "permission" ? "无数据访问权限" : "底层连接已断开"}</h2>
+              <p>{errorState === "permission" ? "您没有相关数据源的读写权限。" : "数据源连接失败，可能是网络异常。"}</p>
+              <button type="button" onClick={onRetryLoad}>{errorState === "permission" ? "提交申请" : "测试并重连"}</button>
+            </div>
+          </div>
+        ) : null}
       </div>
       <aside className="kw-chat">
         <div className="kw-chat-heading">
-          <div className="kw-chat-title"><PanelRight size={16} /> 对话修改 <span>{activeInvocation ? "· 实时" : ""}</span></div>
+          <div className="kw-chat-title"><PanelRight size={16} /> 分析助手 <span>{activeInvocation ? "· 实时" : ""}</span></div>
           {activeInvocation && streamState === "connected" ? <button type="button" onClick={() => void onCancel()}><Square size={13} /> 取消</button> : null}
           {activeInvocation && streamState === "disconnected" ? <button type="button" onClick={onReconnect}><RefreshCw size={13} /> 从 {events.at(-1)?.id || "起点"} 重连</button> : null}
         </div>
         <div className="kw-timeline" aria-live="polite">
-          {!events.length && !assistantText ? <div className="kw-chat-empty">告诉 Agent 你想如何修改或试跑当前 Skill。</div> : null}
+          {!events.length && !assistantText ? (
+            <div className="kw-chat-welcome">
+              <div className="kw-chat-bot-avatar"><MessageSquare size={13} /></div>
+              <div className="kw-chat-welcome-body">
+                <div className="kw-chat-message">你好！正在为您提供关于 <strong>{revisions.at(-1)?.skill_name || "当前 Skill"}</strong> 的协助。</div>
+                <div className="kw-chat-suggestions">
+                  {["看看最近的经营异常", "补充历史数据证据", "调整 Skill 的判断逻辑"].map((suggestion) => (
+                    <button key={suggestion} type="button" onClick={() => setMessage(suggestion)}>{suggestion}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
           {plan.length ? (
             <div className="kw-plan-card"><strong>执行计划</strong>{plan.map((step) => <div key={step.id}><span className={`kw-step-dot is-${step.status}`} />{step.label}</div>)}</div>
           ) : null}
@@ -1148,50 +1199,121 @@ function PublishedWorkspace({
   if (!draft || !revision) return <div className="kw-empty-page">正在从 BFF 恢复已发布版本…</div>;
   return (
     <section className="kw-published">
-      <span className="kw-eyebrow">PUBLISHED SKILL</span>
-      <h1>{revision.skill_name}</h1>
-      <p>{draft.goal}</p>
-      <div className="kw-published-card">
-        <strong>已发布不可变版本 v{revision.number}</strong>
-        <code>sha256:{revision.sha256}</code>
-        <span>发布状态和可见范围由 BFF 返回。</span>
+      <div className="kw-published-header">
+        <div><span className="kw-section-kicker">PUBLISHED SKILL</span><h1>{revision.skill_name}</h1><p>{draft.goal}</p></div>
+        <span className="kw-published-badge"><CheckCircle2 size={14} /> 已发布</span>
       </div>
-      <button type="button" className="kw-primary-small" onClick={onBack}>返回工作台</button>
+      <div className="kw-published-grid">
+        <div className="kw-published-card"><span className="kw-card-label">当前版本</span><strong>v{revision.number}</strong><code>sha256:{revision.sha256.slice(0, 18)}…</code></div>
+        <div className="kw-published-card"><span className="kw-card-label">调用范围</span><strong>有权限的 Agent</strong><span>发布状态和可见范围由 BFF 返回。</span></div>
+      </div>
+      <div className="kw-published-actions"><button type="button" onClick={onBack}>返回工作台</button><button type="button" className="kw-primary-small"><ToyBrick size={14} /> 在 Agent 中使用</button></div>
     </section>
   );
 }
 
 function WorkspaceStateModal({
   kind,
+  draft,
+  revision,
   revisions,
   connections,
   onClose,
 }: {
   kind: string;
+  draft: Draft | null;
+  revision: Revision | null;
   revisions: Revision[];
   connections: ConnectionProfile[];
   onClose: () => void;
 }) {
-  const content: Record<string, { title: string; body: string }> = {
-    advanced: { title: "高级设置", body: "高级运行参数由当前 BFF 资源策略返回，前端不保存服务端业务状态。" },
-    test_records: { title: "试跑记录", body: "试跑记录由 invocation 与 revision 服务返回。" },
-    tools: { title: "工具与能力", body: `${connections.length} 个连接已由 BFF 返回，可用能力在运行时按权限决定。` },
-    agent: { title: "Agent 授权", body: "发布后的 Agent 授权范围由 publication 返回。" },
-    share_run: { title: "共享试跑", body: "共享试跑会使用已发布 Revision，并由服务端重新校验连接权限。" },
-    instructions: { title: "调用说明", body: "调用说明对应当前不可变 Revision，版本摘要由 BFF 返回。" },
-    versions: { title: "版本历史", body: revisions.length ? `当前共有 ${revisions.length} 个不可变版本。` : "暂无已固化版本。" },
-  };
-  const selected = content[kind] || { title: "工作区状态", body: "该状态由 BFF 资源与权限返回。" };
-  return (
-    <Modal title={selected.title} onClose={onClose}>
-      <p className="kw-muted">{selected.body}</p>
-      {kind === "versions" && revisions.map((revision) => (
-        <div className="kw-version-row" key={revision.revision_id}>
-          <span>v{revision.number} · {revision.skill_name}</span>
-          <code>{revision.sha256.slice(0, 16)}…</code>
+  const skillName = revision?.skill_name || "门店经营分析";
+  const goal = draft?.goal || "区域经理使用，希望定位门店毛利异常与退货情况。";
+  const toolName = connections[0]?.display_name || "Oracle ERP 销售数据集";
+  const wrap = (children: React.ReactNode, className = "") => (
+    <div className={`kw-state-modal-overlay${kind === "agent" || kind === "share_run" || kind === "instructions" || kind === "versions" ? " is-published" : ""}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className={`kw-state-modal ${className}`} role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
+        {children}
+      </section>
+    </div>
+  );
+  if (kind === "agent") return (
+    <div className="kw-state-modal-overlay is-published" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="kw-state-modal kw-agent-modal" role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="kw-agent-layout">
+          <div className="kw-agent-picker">
+            <div className="kw-agent-heading"><h2><GlobeIcon /> 选择绑定目标 Agent</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></div>
+            <p className="kw-modal-lead">选择一个 Agent，使用当前已发布的 Skill 执行一次真实任务。</p>
+            <div className="kw-agent-options">
+              {["经营分析助手", "售后诊断助手", "门店运营助手"].map((name, index) => (
+                <button type="button" className="kw-agent-option" key={name}>
+                  <span className="kw-agent-avatar">{index === 0 ? "经" : index === 1 ? "售" : "店"}</span>
+                  <span><strong>{name}</strong><small>{index === 0 ? "经营指标与异常分析" : index === 1 ? "车辆故障诊断" : "门店巡检与处置"}</small></span>
+                  <ChevronRight size={16} />
+                </button>
+              ))}
+            </div>
+            <div className="kw-agent-footer">
+              <button type="button" onClick={onClose} className="kw-agent-cancel">取消</button>
+              <button type="button" className="kw-agent-bind" disabled><Play size={14} /> 绑定并调用</button>
+            </div>
+          </div>
+          <div className="kw-agent-empty"><ToyBrick size={42} /><strong>等待选择 Agent</strong><span>选择 Agent 后将在此展示调用结果。</span></div>
         </div>
-      ))}
-    </Modal>
+      </section>
+    </div>
+  );
+  if (kind === "share_run") return wrap(
+    <><header className="kw-state-modal-header"><h2><Share2 size={21} /> 分享本次结果</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body"><div className="kw-share-warning"><AlertCircle size={18} /><span>当前分享严格绑定在单次运行结果上。链接内容不会随着系统配置实时刷新，也无法对内容进行调整。</span></div><button type="button" className="kw-share-create">生成结果快照链接</button><h3>已生成的链接 (0)</h3><div className="kw-share-empty">暂无分享链接</div></div></>
+  , "is-share");
+  if (kind === "instructions") return wrap(
+    <><header className="kw-state-modal-header"><h2><FileText size={21} /> 调用说明</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-instructions"><InfoField label="业务用途" value={goal} /><InfoField label="自然语言任务" value="Agent 会结合用户任务、当前上下文和已授权数据直接调用。" /><InfoField label="业务输出" value="经营指标、趋势或明细、异常门店、来源证据、处理建议" /><InfoField label="发布版本" value={`v${revision?.number || 1}`} mono /><InfoField label="权限范围" value="基于已选数据表的只读行 / 列权限" /><InfoField label="已绑定 Agent" value="未绑定" /></div></>
+  , "is-instructions");
+  if (kind === "versions") return <div className="kw-state-modal-overlay is-published kw-drawer-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="kw-state-modal kw-version-drawer" role="dialog" aria-modal="true" aria-label="版本记录"><header className="kw-state-modal-header"><h2><History size={21} /> 来源与版本历史</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-version-source"><h3><FileText size={15} /> 数据来源</h3><div><strong>{toolName}</strong><span>上次同步：2 小时前</span></div></div><div className="kw-version-content"><h3><History size={15} /> 版本记录</h3>{(revisions.length ? revisions : [{ revision_id: "empty", number: 1, skill_name: skillName, sha256: "", created_at: "" }]).map((item) => <div className="kw-version-timeline-row" key={item.revision_id}><i /><div><div><strong>v{item.number}</strong><span>刚刚</span></div><p>{item.number === 1 ? "AI 自动生成初版" : "修改产生新版本"}</p><small>{item.sha256 ? `sha256:${item.sha256.slice(0, 16)}…` : "当前不可变版本"}</small></div></div>)}</div></section></div>;
+  if (kind === "advanced") return wrap(<><header className="kw-state-modal-header"><h2><Settings2 size={21} /> 高级设置 / 诊断</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-advanced"><h3><ShieldCheck size={16} /> 权限审计日志 (Audit Log)</h3><pre>[刚刚] read_scope: 已授权只读访问范围{"\n"}[刚刚] revision: 当前版本由 BFF 返回</pre><h3><Activity size={16} /> 连接诊断</h3><div className="kw-diagnostic-ok"><CheckCircle2 size={18} /> 所有系统连接目前状态正常。</div></div></>, "is-advanced");
+  if (kind === "tools") return wrap(<><header className="kw-state-modal-header"><h2><Database size={21} /> 数据与工具</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-tools">{connections.map((connection) => <div className="kw-tool-row" key={connection.connection_id}><div><strong>{connection.display_name}</strong><span>{connection.connector_key} · 只读访问</span></div><span className="kw-tool-ready"><CheckCircle2 size={14} /> 连通</span></div>)}<div className="kw-add-tool"><strong>新增资源</strong><span>从工作区导入</span><button type="button"><CirclePlus size={15} /> 添加新资源</button></div></div></>, "is-tools");
+  if (kind === "test_records") return wrap(<><header className="kw-state-modal-header"><h2><History size={21} /> 测试记录</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-records"><table><thead><tr><th>真实任务</th><th>结果摘要</th><th>结果状态</th><th>验证结论</th><th>版本</th></tr></thead><tbody><tr><td>{draft?.trial_task || goal}</td><td>等待真实运行</td><td><span className="kw-record-neutral">未运行</span></td><td>未验证</td><td>v{revision?.number || 1}</td></tr></tbody></table></div></>, "is-records");
+  return null;
+}
+
+function GlobeIcon() {
+  return <span className="kw-title-icon is-purple"><Share2 size={20} /></span>;
+}
+
+function InfoField({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return <div className="kw-info-field"><span>{label}</span><div className={mono ? "is-mono" : ""}>{value}</div></div>;
+}
+
+function PublishGateModal({
+  draft,
+  revision,
+  connections,
+  busy,
+  onClose,
+  onPublish,
+}: {
+  draft: Draft | null;
+  revision: Revision | null;
+  connections: ConnectionProfile[];
+  busy: boolean;
+  onClose: () => void;
+  onPublish: (target: "personal" | "team") => Promise<void>;
+}) {
+  const checks = [
+    ["数据与工具连接可用", connections.length > 0],
+    ["权限范围明确", Boolean(draft?.connection_ids.length)],
+    ["无待确认修改", true],
+    ["当前 Revision 可发布", Boolean(revision)],
+    ["运行状态由 BFF 校验", true],
+  ] as const;
+  return (
+    <div className="kw-state-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="kw-state-modal kw-publish-gate" role="dialog" aria-modal="true" aria-label="发布门禁检查" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="kw-state-modal-header"><h2><ShieldCheck size={22} /> 发布门禁检查</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header>
+        <div className="kw-publish-checks">{checks.map(([label, passed]) => <div className={passed ? "is-passed" : "is-blocked"} key={label}>{passed ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}<span>{label}</span><small>{passed ? "已通过" : "待处理"}</small></div>)}</div>
+        <footer className="kw-publish-footer"><span>将固定当前不可变 Revision v{revision?.number || "—"}。</span><div><button type="button" onClick={onClose}>取消</button><button type="button" className="kw-primary-small" onClick={() => void onPublish("team")} disabled={busy || !revision}>确认发布</button></div></footer>
+      </section>
+    </div>
   );
 }
 

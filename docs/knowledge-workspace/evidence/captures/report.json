@@ -7,198 +7,198 @@
       "state_url": "/?file=welcome",
       "route": "welcome",
       "pixels": 2073600,
-      "differing_pixels": 1007688,
-      "differing_ratio": 0.48596064814814816,
-      "mean_absolute_rgb_delta": 6.605115419238683
+      "differing_pixels": 680755,
+      "differing_ratio": 0.32829619984567904,
+      "mean_absolute_rgb_delta": 6.573471579218107
     },
     {
       "index": 2,
       "state_url": "/?file=draft_dash_anta",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443009,
-      "differing_ratio": 0.6958955439814815,
-      "mean_absolute_rgb_delta": 4.3508678948045265
+      "differing_pixels": 213933,
+      "differing_ratio": 0.10316984953703703,
+      "mean_absolute_rgb_delta": 2.603768325617284
     },
     {
       "index": 3,
       "state_url": "/?file=draft_dash_anta&run_state=success",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443011,
-      "differing_ratio": 0.6958965084876543,
-      "mean_absolute_rgb_delta": 4.360118795010288
+      "differing_pixels": 215798,
+      "differing_ratio": 0.10406925154320988,
+      "mean_absolute_rgb_delta": 2.7097484246399177
     },
     {
       "index": 4,
       "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1506729,
-      "differing_ratio": 0.7266247106481482,
-      "mean_absolute_rgb_delta": 11.334341885288065
+      "differing_pixels": 1081881,
+      "differing_ratio": 0.5217404513888889,
+      "mean_absolute_rgb_delta": 6.14025591563786
     },
     {
       "index": 5,
       "state_url": "/?file=draft_dash_anta&run_state=failed",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443009,
-      "differing_ratio": 0.6958955439814815,
-      "mean_absolute_rgb_delta": 4.500312660751029
+      "differing_pixels": 310325,
+      "differing_ratio": 0.14965518904320987,
+      "mean_absolute_rgb_delta": 3.144581404320988
     },
     {
       "index": 6,
       "state_url": "/?file=draft_dash_anta&state=permission",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1441589,
-      "differing_ratio": 0.6952107445987654,
-      "mean_absolute_rgb_delta": 12.231143100565843
+      "differing_pixels": 880395,
+      "differing_ratio": 0.4245732060185185,
+      "mean_absolute_rgb_delta": 3.390756494341564
     },
     {
       "index": 7,
       "state_url": "/?file=draft_dash_anta&state=connection_error",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1441429,
-      "differing_ratio": 0.6951335841049383,
-      "mean_absolute_rgb_delta": 12.249179205246914
+      "differing_pixels": 880184,
+      "differing_ratio": 0.424471450617284,
+      "mean_absolute_rgb_delta": 3.281731127829218
     },
     {
       "index": 8,
       "state_url": "/?file=draft_dash_anta&state=upgrade",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1441181,
-      "differing_ratio": 0.6950139853395062,
-      "mean_absolute_rgb_delta": 5.170594778806584
+      "differing_pixels": 291598,
+      "differing_ratio": 0.14062403549382715,
+      "mean_absolute_rgb_delta": 3.5694626093107
     },
     {
       "index": 9,
       "state_url": "/?file=draft_dash_anta&modal=advanced",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1503351,
-      "differing_ratio": 0.7249956597222222,
-      "mean_absolute_rgb_delta": 8.32088348765432
+      "differing_pixels": 982204,
+      "differing_ratio": 0.47367091049382715,
+      "mean_absolute_rgb_delta": 2.947151813271605
     },
     {
       "index": 10,
       "state_url": "/?file=draft_dash_anta&modal=test_records",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1524652,
-      "differing_ratio": 0.7352681327160494,
-      "mean_absolute_rgb_delta": 8.494375482253087
+      "differing_pixels": 984729,
+      "differing_ratio": 0.47488859953703705,
+      "mean_absolute_rgb_delta": 4.728160686728395
     },
     {
       "index": 11,
       "state_url": "/?file=draft_dash_anta&modal=tools",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1503474,
-      "differing_ratio": 0.7250549768518518,
-      "mean_absolute_rgb_delta": 10.846743987911523
+      "differing_pixels": 968315,
+      "differing_ratio": 0.4669728973765432,
+      "mean_absolute_rgb_delta": 4.518827481995885
     },
     {
       "index": 12,
       "state_url": "/?file=pub_dash_anta",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 335472,
-      "differing_ratio": 0.1617824074074074,
-      "mean_absolute_rgb_delta": 1.6800921103395061
+      "differing_pixels": 65743,
+      "differing_ratio": 0.03170476466049383,
+      "mean_absolute_rgb_delta": 0.8677729552469136
     },
     {
       "index": 13,
       "state_url": "/?file=pub_dash_anta&modal=agent",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 2073600,
-      "differing_ratio": 1,
-      "mean_absolute_rgb_delta": 87.8441562178498
+      "differing_pixels": 756731,
+      "differing_ratio": 0.36493586033950615,
+      "mean_absolute_rgb_delta": 3.351904738940329
     },
     {
       "index": 14,
       "state_url": "/?file=pub_dash_anta&modal=share_run",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 2073600,
-      "differing_ratio": 1,
-      "mean_absolute_rgb_delta": 87.86164882330247
+      "differing_pixels": 319220,
+      "differing_ratio": 0.15394483024691358,
+      "mean_absolute_rgb_delta": 2.8925270061728394
     },
     {
       "index": 15,
       "state_url": "/?file=pub_dash_anta&modal=instructions",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 2073600,
-      "differing_ratio": 1,
-      "mean_absolute_rgb_delta": 87.85635979295267
+      "differing_pixels": 392392,
+      "differing_ratio": 0.18923225308641975,
+      "mean_absolute_rgb_delta": 2.24730195473251
     },
     {
       "index": 16,
       "state_url": "/?file=pub_dash_anta&modal=versions",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 2073600,
-      "differing_ratio": 1,
-      "mean_absolute_rgb_delta": 86.94340004501029
+      "differing_pixels": 546520,
+      "differing_ratio": 0.2635609567901235,
+      "mean_absolute_rgb_delta": 2.334914641203704
     },
     {
       "index": 17,
       "state_url": "/?file=draft_sop_bluetooth",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1442738,
-      "differing_ratio": 0.6957648533950618,
-      "mean_absolute_rgb_delta": 4.348147344393004
+      "differing_pixels": 216213,
+      "differing_ratio": 0.10426938657407407,
+      "mean_absolute_rgb_delta": 2.7237157600308644
     },
     {
       "index": 18,
       "state_url": "/?file=draft_sop_haidilao",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1442527,
-      "differing_ratio": 0.6956630979938272,
-      "mean_absolute_rgb_delta": 4.323570119598766
+      "differing_pixels": 214980,
+      "differing_ratio": 0.10367476851851852,
+      "mean_absolute_rgb_delta": 2.683031121399177
     },
     {
       "index": 19,
       "state_url": "/?file=skill_new",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 910260,
-      "differing_ratio": 0.43897569444444445,
-      "mean_absolute_rgb_delta": 6.164254758230452
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
     },
     {
       "index": 20,
       "state_url": "/?file=skill_new&scenario=anta",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 910260,
-      "differing_ratio": 0.43897569444444445,
-      "mean_absolute_rgb_delta": 6.164254758230452
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
     },
     {
       "index": 21,
       "state_url": "/?file=skill_new&scenario=zhiji",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 910260,
-      "differing_ratio": 0.43897569444444445,
-      "mean_absolute_rgb_delta": 6.164254758230452
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
     },
     {
       "index": 22,
       "state_url": "/?file=skill_new&scenario=haidilao",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 910260,
-      "differing_ratio": 0.43897569444444445,
-      "mean_absolute_rgb_delta": 6.164254758230452
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
     }
   ]
 }

@@ -158,8 +158,8 @@ async function main() {
   }));
   const connection = {
     connection_id: "conn-contract",
-    connector_key: "contract-http",
-    display_name: "Contract API",
+    connector_key: "oracle",
+    display_name: "Oracle ERP 销售数据集",
     scope: "personal",
     status: "ready",
     definition_version: "1",
@@ -169,8 +169,8 @@ async function main() {
   };
   const draft = {
     draft_id: "draft-contract",
-    goal: "让支持工程师排查线上告警并给出处理建议",
-    trial_task: "查询最近一条告警",
+    goal: "区域经理使用，希望定位门店毛利异常与退货情况。",
+    trial_task: "分析华东区本周退货率最高的 5 家门店，并列出其核心导致毛利下降的产品。",
     connection_ids: [connection.connection_id],
     lifecycle: "generated",
     current_revision_id: "revision-contract",
@@ -181,10 +181,78 @@ async function main() {
     revision_id: "revision-contract",
     draft_id: draft.draft_id,
     number: 1,
-    skill_name: "support-skill",
+    skill_name: "区域异常经营分析",
     sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     created_at: "2026-08-27T00:00:00Z",
   };
+  const welcomeDrafts = [
+    draft,
+    {
+      ...draft,
+      draft_id: "draft-bluetooth",
+      display_name: "蓝牙断连排查",
+      goal: "售后专家诊断蓝牙故障，分析硬件衰减与固件问题。",
+      trial_task: "排查 VIN LS68892019 的蓝牙反复断连问题，对比历史记录判断是否为天线硬件衰减。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-haidilao",
+      display_name: "门店卫生巡检",
+      goal: "门店经理使用，希望查询卫生巡检得分并下发整改通报。",
+      trial_task: "获取 SH-0021 门店今日巡检的扣分明细，并下发整改通知。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-sales",
+      display_name: "销售业务分析",
+      goal: "分析师使用，希望对销售指标进行语义建模。",
+      trial_task: "计算大区级别的销售额与净利润。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-relationship",
+      display_name: "销售关系分析",
+      goal: "风控使用，希望挖掘经销商与客户的深层关系网络。",
+      trial_task: "查询某客户名下的所有关联交易路径。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-graph",
+      display_name: "销售业务知识图谱",
+      goal: "业务专家使用，希望定义销售领域的本体。",
+      trial_task: "添加客户到订单的下单关系。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-recruitment",
+      display_name: "全球招聘供需",
+      goal: "HRBP 使用，希望监控全球各站点的 HC 分布与供需状态。",
+      trial_task: "查询越南区域的销售 HC 缺口，并给出填补建议。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-finance",
+      display_name: "金融行情监控",
+      goal: "交易员使用，希望实时监控全球市场指数波动并触发风险告警。",
+      trial_task: "监控 VIX 指数，若单日涨幅过高则触发警告。",
+      current_revision_id: "revision-contract",
+    },
+    {
+      ...draft,
+      draft_id: "draft-conversion",
+      display_name: "渠道转化趋势",
+      goal: "营销人员使用，希望分析各渠道的转化漏斗。",
+      trial_task: "查询微信与抖音渠道的获客成本与转化率差异。",
+      current_revision_id: "revision-contract",
+    },
+  ];
+  welcomeDrafts[0].display_name = "区域异常经营分析";
   const envelope = (data) => JSON.stringify({ data, meta: { request_id: "capture" } });
   const errorEnvelope = (code, message, retryable = false) => JSON.stringify({
     error: { code, message, retryable },
@@ -196,15 +264,23 @@ async function main() {
     const state = new URL(page.url()).searchParams;
     const runState = state.get("run_state") || "";
     const resourceState = state.get("state") || "";
+    const file = state.get("file") || "";
     const stateDraft = {
       ...draft,
+      ...(file.includes("bluetooth") ? {
+        goal: "售后专家诊断蓝牙故障，分析硬件衰减与固件问题。",
+        trial_task: "排查 VIN LS68892019 的蓝牙反复断连问题，对比历史记录判断是否为天线硬件衰减。",
+      } : file.includes("haidilao") ? {
+        goal: "门店经理使用，希望查询卫生巡检得分并下发整改通报。",
+        trial_task: "获取 SH-0021 门店今日巡检的扣分明细，并下发整改通知。",
+      } : {}),
       lifecycle: runState === "failed" ? "failed" : "generated",
     };
     if (url.pathname === "/api/knowledge/v1/connector-definitions") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([{
-        connector_key: "contract-http",
+        connector_key: "oracle",
         version: "1",
-        display_name: "Contract API",
+        display_name: "Oracle Database",
         status: "verified",
         capabilities: ["validate", "discover", "http"],
         config_schema: { type: "object", properties: {} },
@@ -213,7 +289,7 @@ async function main() {
     } else if (url.pathname === "/api/knowledge/v1/connections") {
       await route.fulfill({ status: request.method() === "POST" ? 201 : 200, headers: { ETag: "capture-v1" }, contentType: "application/json", body: envelope(request.method() === "POST" ? connection : [connection]) });
     } else if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "GET") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: envelope([stateDraft]) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: envelope(welcomeDrafts) });
     } else if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`) {
       if (resourceState === "permission") {
         await route.fulfill({
@@ -243,8 +319,14 @@ async function main() {
     }
   });
 
+  const requestedIndices = process.env.KW_CAPTURE_INDICES
+    ? new Set(process.env.KW_CAPTURE_INDICES.split(",").map((value) => Number(value.trim())).filter(Boolean))
+    : null;
+  const selectedStates = captureStates
+    .map((capture, index) => ({ capture, index }))
+    .filter(({ index }) => !requestedIndices || requestedIndices.has(index + 1));
   const results = [];
-  for (const [index, capture] of captureStates.entries()) {
+  for (const { capture, index } of selectedStates) {
     const query = new URLSearchParams(new URL(capture.stateUrl, "http://capture.local").search);
     query.set("view", "knowledge-workspace");
     if (capture.route === "draft" || capture.route === "published") {

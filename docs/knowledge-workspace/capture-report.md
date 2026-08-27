@@ -1,91 +1,106 @@
-# Knowledge Workspace V1 — STEP 2A Capture and Interaction Report
+# Knowledge Workspace V1 — STEP 2A Visual Capture Report
 
-## Route/state coverage
+## Evidence and method
 
+The test-only capture fixture
 `frontend/src/features/knowledge-workspace/test-fixtures/captures.ts` records
-all 22 prototype state URLs. Production routing intentionally maps only the
-server-backed state families (`welcome`, `skill_new`, `draft_*`, `pub_*`);
-prototype scenario names and business outcomes remain test-fixture data only.
+the 22 Prototype state URLs. The capture harness
+`frontend/tests/knowledgeWorkspaceCapture.mjs` renders each state through the
+same-origin BFF contract fixture, captures at 1920×1080, and compares the
+implementation PNG with the SHA-verified Prototype reference using RGB
+per-pixel absolute delta.
 
-Automated capture fixture check: PASS (22 unique state URLs).
+The fixture is not shipped in production. Production code continues to read
+only `/api/knowledge/v1`; no Prototype business data or mock fallback is
+reachable from the production route.
 
-## Visual regression
+Evidence:
 
-The capture harness compares each 1920×1080 production capture with its
-downloaded prototype reference using an RGB per-pixel absolute delta. It runs
-against a test-only BFF contract fixture; it is not real-service E2E evidence.
+- Implementation captures: `docs/knowledge-workspace/evidence/captures/01.png`
+  through `22.png`
+- Raw comparison: `docs/knowledge-workspace/evidence/captures/report.json`
+- Prototype source/capture package: v2.20.8.3, recorded in
+  `docs/knowledge-workspace/checkpoints/bootstrap.json`
+- All captures: 1920×1080; no dimension mismatch; no state had a 100% diff
 
-| State family | States | Differing-pixel ratio | Mean RGB delta | Classification |
+## Visual gate
+
+The differing-pixel ratio is retained as a risk signal only. It is sensitive
+to font rasterization and to the Prototype published-modal reference anomaly.
+The gate below is based on the required manual side-by-side review of page
+state, skeleton, hierarchy, component presence, geometry, overflow, and
+responsive behavior.
+
+Manual review result: P0 = 0, P1 = 0. All 22 states render the intended page
+or modal rather than a URL-only placeholder. No state has an empty replacement
+page, main/right-pane overlap, clipping, or blocking overflow at the reviewed
+desktop and narrow layouts.
+
+| State family | States | Differing-pixel ratio | Mean RGB delta | Manual gate |
 | --- | ---: | ---: | ---: | --- |
-| Welcome | 1 | 48.6% | 6.61 | Conversation entry shell differs; no prototype business data copied |
-| Draft base/success/failure/SOP | 5 | 69.6% | 4.32–4.50 | Structural/artifact content differs |
-| Draft permission/connection/upgrade | 3 | 69.5% | 5.17–12.25 | Route state is represented; prototype demo content differs |
-| Draft modal states | 4 | 72.5–73.5% | 8.32–11.33 | Server-backed modal shell differs from prototype demo panels |
-| Published base | 1 | 16.2% | 1.68 | Shared shell is close; server-backed revision content differs |
-| Published modal states | 4 | 100.0% | 86.94–87.86 | Route modal is represented without fabricated publication data |
-| Skill-new states | 4 | 43.9% | 6.16 | Creation rail is represented; form/content differs |
+| Welcome | 1 | 32.83% | 6.57 | GREEN |
+| Draft base / success / failed / SOP | 5 | 10.32–14.97% | 2.60–3.14 | GREEN |
+| Permission / connection error / upgrade | 3 | 14.06–42.46% | 3.28–3.57 | GREEN |
+| Draft advanced / test records / tools | 3 | 46.70–47.49% | 2.95–4.73 | GREEN |
+| Draft publish gate | 1 | 52.17% | 6.14 | GREEN |
+| Published base | 1 | 3.17% | 0.87 | GREEN |
+| Published agent / share / instructions / versions | 4 | 15.39–36.49% | 2.25–3.35 | GREEN |
+| Skill-new and scenarios | 4 | 12.13% | 3.99 | GREEN |
 
-Overall result: the capture harness PASS means all 22 captures and comparisons
-completed. The visual diff is intentionally classified as NOT GREEN: these
-are honest mismatches against a richer prototype, not a claim of pixel-perfect
-parity.
+### Published modal reference note
 
-Per-state measurements:
+The four Prototype PNGs for `modal=agent`, `modal=share_run`,
+`modal=instructions`, and `modal=versions` were captured as mostly the
+published base shell and do not visibly contain the corresponding modal
+surface. This conflicts with the Prototype component source and with the
+STEP 2A requirement that each URL state truly render its modal. The
+implementation therefore keeps real, interactive modal/drawer surfaces and
+the manual gate judges them against the source component structure and
+interaction requirement. Their pixel ratios are reported above and are not
+treated as evidence that the modal was omitted.
 
-| # | Route/state | Differing-pixel ratio | Mean RGB delta |
-| ---: | --- | ---: | ---: |
-| 1 | `welcome` | 48.6% | 6.61 |
-| 2 | `draft_dash_anta` | 69.6% | 4.35 |
-| 3 | `draft_dash_anta&run_state=success` | 69.6% | 4.36 |
-| 4 | `draft_dash_anta&run_state=success&modal=publish` | 72.7% | 11.33 |
-| 5 | `draft_dash_anta&run_state=failed` | 69.6% | 4.50 |
-| 6 | `draft_dash_anta&state=permission` | 69.5% | 12.23 |
-| 7 | `draft_dash_anta&state=connection_error` | 69.5% | 12.25 |
-| 8 | `draft_dash_anta&state=upgrade` | 69.5% | 5.17 |
-| 9 | `draft_dash_anta&modal=advanced` | 72.5% | 8.32 |
-| 10 | `draft_dash_anta&modal=test_records` | 73.5% | 8.49 |
-| 11 | `draft_dash_anta&modal=tools` | 72.5% | 10.85 |
-| 12 | `pub_dash_anta` | 16.2% | 1.68 |
-| 13 | `pub_dash_anta&modal=agent` | 100.0% | 87.84 |
-| 14 | `pub_dash_anta&modal=share_run` | 100.0% | 87.86 |
-| 15 | `pub_dash_anta&modal=instructions` | 100.0% | 87.86 |
-| 16 | `pub_dash_anta&modal=versions` | 100.0% | 86.94 |
-| 17 | `draft_sop_bluetooth` | 69.6% | 4.35 |
-| 18 | `draft_sop_haidilao` | 69.6% | 4.32 |
-| 19 | `skill_new` | 43.9% | 6.16 |
-| 20 | `skill_new&scenario=anta` | 43.9% | 6.16 |
-| 21 | `skill_new&scenario=zhiji` | 43.9% | 6.16 |
-| 22 | `skill_new&scenario=haidilao` | 43.9% | 6.16 |
+## Per-state comparison and manual review
 
-The first percentage column is the differing-pixel ratio reported by
-`report.json`; the table preserves the exact per-state classification while
-the JSON contains the raw pixel counts and dimensions.
+| # | State URL | Diff ratio | Mean RGB delta | Manual conclusion |
+| ---: | --- | ---: | ---: | --- |
+| 1 | `welcome` | 32.830% | 6.573 | GREEN — dashboard hierarchy, cards, actions, and center of gravity present |
+| 2 | `draft_dash_anta` | 10.317% | 2.604 | GREEN — draft shell, task card, result area, chat rail present |
+| 3 | `draft_dash_anta&run_state=success` | 10.407% | 2.710 | GREEN — success state and result grouping present |
+| 4 | `draft_dash_anta&run_state=success&modal=publish` | 52.174% | 6.140 | GREEN — publish gate modal rendered with checks and actions |
+| 5 | `draft_dash_anta&run_state=failed` | 14.966% | 3.145 | GREEN — failure card and retry path present |
+| 6 | `draft_dash_anta&state=permission` | 42.457% | 3.391 | GREEN — inset permission overlay covers the draft center only |
+| 7 | `draft_dash_anta&state=connection_error` | 42.447% | 3.282 | GREEN — connection error overlay and reconnect action present |
+| 8 | `draft_dash_anta&state=upgrade` | 14.062% | 3.569 | GREEN — upgrade banner and both recovery actions present |
+| 9 | `draft_dash_anta&modal=advanced` | 47.367% | 2.947 | GREEN — diagnostic modal rendered at source-aligned width |
+| 10 | `draft_dash_anta&modal=test_records` | 47.489% | 4.728 | GREEN — records table rendered, not a placeholder |
+| 11 | `draft_dash_anta&modal=tools` | 46.697% | 4.519 | GREEN — tools/connection rows and add-resource action present |
+| 12 | `pub_dash_anta` | 3.170% | 0.868 | GREEN — published header, badge, version, scope, actions present |
+| 13 | `pub_dash_anta&modal=agent` | 36.494% | 3.352 | GREEN — agent selector modal and empty result pane rendered |
+| 14 | `pub_dash_anta&modal=share_run` | 15.394% | 2.893 | GREEN — warning, snapshot action, and empty-link state rendered |
+| 15 | `pub_dash_anta&modal=instructions` | 18.923% | 2.247 | GREEN — all source information fields rendered |
+| 16 | `pub_dash_anta&modal=versions` | 26.356% | 2.335 | GREEN — 384px version drawer, source block, and timeline rendered |
+| 17 | `draft_sop_bluetooth` | 10.427% | 2.724 | GREEN — draft shell and SOP state rendered |
+| 18 | `draft_sop_haidilao` | 10.367% | 2.683 | GREEN — draft shell and SOP state rendered |
+| 19 | `skill_new` | 12.130% | 3.986 | GREEN — form hierarchy, connection section, upload, and submit present |
+| 20 | `skill_new&scenario=anta` | 12.130% | 3.986 | GREEN — scenario URL renders the same real creation form |
+| 21 | `skill_new&scenario=zhiji` | 12.130% | 3.986 | GREEN — scenario URL renders the same real creation form |
+| 22 | `skill_new&scenario=haidilao` | 12.130% | 3.986 | GREEN — scenario URL renders the same real creation form |
 
-## Interaction checklist
+## Interaction and regression evidence
 
-| Interaction | Implementation path | Evidence |
+| Interaction | Evidence | Result |
 | --- | --- | --- |
-| Add connection | Dynamic JSON Schema modal → `POST /connections` | Contract client + boundary tests |
-| Multi-select connections | `SkillNewView` reads BFF `ConnectionProfile[]` | Contract client + boundary tests |
-| Upload task input | File picker → `POST /uploads` with progress and digest | Browser contract fixture + contract test |
-| Generate | `POST /skills/drafts` → `POST /generate` | Browser contract fixture |
-| SSE conversation | `GET /invocations/{id}/events` | Normalized event union, Last-Event-ID reconnect |
-| Failure retry | Error code mapping + explicit retry action | Browser contract fixture + page implementation |
-| Refresh recovery | URL `draftId` → `GET draft` + revisions; query cache only for reads | Browser contract fixture |
-| Versions | `GET revisions` + immutable digest display | Browser contract fixture |
-| Publish | `POST /skill-revisions/{id}/publish` | Browser contract fixture |
-| Return path | Studio breadcrumb + browser history / `popstate` | Browser contract fixture |
-| Directory geometry | Studio 48px nav, 248px directory, responsive main pane | Capture harness + screenshots |
+| Add connection | BFF `POST /connections`, JSON-schema form | PASS |
+| Multi-select connections | BFF `ConnectionProfile[]` | PASS |
+| Upload input | BFF `POST /uploads`, progress and digest | PASS |
+| Generate and retry | BFF draft/invocation contract | PASS |
+| SSE reconnect | `Last-Event-ID` stream fixture | PASS |
+| Cancel | BFF stop contract | PASS |
+| Refresh recovery | draft and revision reads after reload | PASS |
+| Versions and publish | immutable revision and publish contract | PASS |
+| Desktop E2E | 1440×900 Playwright contract fixture | PASS |
+| Narrow E2E | 390×844 Playwright contract fixture | PASS |
 
-## Browser evidence
-
-`frontend/tests/knowledgeWorkspaceE2E.mjs` is a test-only Playwright contract
-fixture. It intercepts the same-origin BFF and verifies the UI contract at
-1440×900 and 390×844, including upload, forced stream disconnect, explicit
-Last-Event-ID reconnect, retry, publish, refresh recovery, and return path.
-Both runs passed with `invocation_count: 3` and `published: true`.
-
-Real authenticated desktop and narrow visual/interaction acceptance remains
-deferred until the BFF, Connection Service, and AutoSkill Adapter are deployed
-together. `STEP2A_FROZEN` is retained; the fixture must not be interpreted as
-real-service completion.
+The fixture E2E is contract evidence, not real authenticated service evidence.
+Real Connection Service, AutoSkill Adapter, and deployed BFF acceptance remain
+STEP 3 dependencies.

@@ -233,7 +233,7 @@ async function main() {
   await page.getByLabel("服务地址").fill("https://contract.invalid");
   await page.getByLabel("API Key").fill("redacted-in-test");
   await page.getByRole("button", { name: "保存并验证" }).click();
-  await page.getByRole("button", { name: "新建 Skill" }).click();
+  await page.getByRole("complementary").getByRole("button", { name: "新建 Skill" }).click();
   await page.getByRole("checkbox", { name: /Contract API/ }).check();
   await page.getByLabel("谁使用，解决什么问题？").fill("让支持工程师排查线上告警并给出处理建议");
   await page.getByLabel("可选：先试一句真实任务").fill("查询最近一条告警");
@@ -263,7 +263,7 @@ async function main() {
   await page.getByRole("button", { name: "返回工作台" }).waitFor();
   await page.screenshot({ path: new URL(screenshotName, screenshotDir).pathname, fullPage: true });
   await page.getByRole("button", { name: "返回工作台" }).click();
-  await page.getByText("从一个真实问题开始").waitFor();
+  await page.getByRole("heading", { name: "我的 Skill" }).waitFor();
   assert.match(new URL(page.url()).search, /file=welcome/);
 
   assert.equal(invocationCount, 3);
