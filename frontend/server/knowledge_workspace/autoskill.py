@@ -27,6 +27,7 @@ class AutoSkillConfig:
     first_event_timeout_seconds: float = 30.0
     idle_timeout_seconds: float = 60.0
     max_reconnects: int = 2
+    max_event_bytes: int = 2 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "AutoSkillConfig":
@@ -82,7 +83,22 @@ class AutoSkillClient:
         prompt: str | None = None,
         name: str | None = None,
         model: str | None = None,
+        state: bytes | None = None,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
+        if self.config.state_mode.casefold() == "stateless":
+            message = prompt or f"/{command.replace('_', '-')}"
+            if name:
+                message = f"{message} {name}"
+            async for item in self.invoke_stateless(
+                agent_id=agent_id,
+                session_id=session_id,
+                request_id=request_id,
+                message=message,
+                model=model,
+                state=state,
+            ):
+                yield item
+            return
         data = {"agent_id": agent_id, "session_id": session_id, "request_id": request_id}
         if prompt is not None:
             data["prompt"] = prompt
@@ -91,7 +107,7 @@ class AutoSkillClient:
         params = {"agent_id": agent_id, "session_id": session_id, "request_id": request_id}
         if name:
             params["name"] = name
-        method = "GET" if command in {"list_skill", "view_skill", "find_skill"} and prompt is None else "POST"
+        method = "GET" if command in {"list_skill", "view_skill"} and prompt is None else "POST"
         if method == "GET":
             query = dict(params)
             if prompt:
@@ -105,11 +121,52 @@ class AutoSkillClient:
             yield item
 
     async def invoke(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        if self.config.state_mode.casefold() == "stateless":
+            async for item in self.invoke_stateless(**kwargs):
+                yield item
+            return
         async for item in self.stream_request(
             "invoke",
             "POST",
             params={},
-            files={key: (None, str(value)) for key, value in kwargs.items() if value is not None},
+            files={key: (None, str(value)) for key, value in kwargs.items() if value is not None and key != "state"},
+        ):
+            yield item
+
+    async def invoke_stateless(self, *, state: bytes | None = None, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        files: dict[str, tuple[Any, ...]] = {
+            key: (None, str(value)) for key, value in kwargs.items() if value is not None
+        }
+        if state is not None:
+            files["state"] = ("state.zip", state, "application/zip")
+        async for item in self.stream_request("invoke_stateless", "POST", files=files):
+            yield item
+
+    async def create_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for item in self.command("create_skill", **kwargs):
+            yield item
+
+    async def update_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for item in self.command("update_skill", **kwargs):
+            yield item
+
+    async def find_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for item in self.command("find_skill", **kwargs):
+            yield item
+
+    async def list_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for item in self.command("list_skill", **kwargs):
+            yield item
+
+    async def view_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for item in self.command("view_skill", **kwargs):
+            yield item
+
+    async def delete_skill_stream(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for item in self.stream_request(
+            "delete_skill",
+            "DELETE",
+            params={key: str(value) for key, value in kwargs.items() if value is not None},
         ):
             yield item
 
@@ -122,7 +179,7 @@ class AutoSkillClient:
         last_event_id: str | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        parser = SseParser()
+        parser = SseParser(max_buffer_bytes=self.config.max_event_bytes)
         headers = self._headers() | {"Accept": "text/event-stream"}
         if last_event_id:
             headers["Last-Event-ID"] = last_event_id
@@ -137,30 +194,37 @@ class AutoSkillClient:
             if response.status_code >= 400:
                 raise AutoSkillProtocolError(f"AutoSkill {path} returned HTTP {response.status_code}")
             iterator = response.aiter_bytes().__aiter__()
-            first = True
-            while True:
-                timeout = (
-                    self.config.first_event_timeout_seconds
-                    if first
-                    else self.config.idle_timeout_seconds
-                )
-                try:
-                    chunk = await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
-                except StopAsyncIteration:
-                    break
-                except asyncio.TimeoutError as exc:
-                    raise AutoSkillProtocolError(
-                        "AutoSkill SSE first-event/idle timeout"
-                    ) from exc
-                first = False
-                for frame in parser.feed(chunk):
+            first_event_seen = False
+            async with asyncio.timeout(self.config.timeout_seconds):
+                while True:
+                    timeout = (
+                        self.config.first_event_timeout_seconds
+                        if not first_event_seen
+                        else self.config.idle_timeout_seconds
+                    )
+                    try:
+                        chunk = await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
+                    except StopAsyncIteration:
+                        break
+                    except asyncio.TimeoutError as exc:
+                        raise AutoSkillProtocolError(
+                            "AutoSkill SSE first-event/idle timeout"
+                        ) from exc
+                    try:
+                        frames = parser.feed(chunk)
+                    except ValueError as exc:
+                        raise AutoSkillProtocolError(str(exc)) from exc
+                    for frame in frames:
+                        parsed = parse_upstream_frame(frame)
+                        if parsed:
+                            first_event_seen = True
+                            yield parsed
+                for frame in parser.finish():
                     parsed = parse_upstream_frame(frame)
                     if parsed:
                         yield parsed
-            for frame in parser.finish():
-                parsed = parse_upstream_frame(frame)
-                if parsed:
-                    yield parsed
+        except TimeoutError as exc:
+            raise AutoSkillProtocolError("AutoSkill SSE total timeout") from exc
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise AutoSkillProtocolError(f"AutoSkill stream transport failure: {type(exc).__name__}") from exc
         finally:
@@ -233,6 +297,18 @@ class AutoSkillClient:
         )
         return response.json()
 
+    async def get_state_zip(self, *, agent_id: str, session_id: str, request_id: str) -> bytes:
+        value = await self.get_state(agent_id=agent_id, session_id=session_id, request_id=request_id)
+        data = value.get("data", value)
+        encoded = data.get("state_zip_b64") if isinstance(data, Mapping) else None
+        if not isinstance(encoded, str):
+            raise AutoSkillProtocolError("AutoSkill get_state did not return state_zip_b64")
+        import base64
+        try:
+            return base64.b64decode(encoded, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise AutoSkillProtocolError("AutoSkill get_state returned invalid state_zip_b64") from exc
+
 
 class UnavailableAutoSkillClient:
     """Explicit fail-closed client used when server credentials are absent."""
@@ -247,12 +323,21 @@ class UnavailableAutoSkillClient:
         await self._raise()
         return {}
 
+    async def models(self) -> Mapping[str, Any]:
+        await self._raise()
+        return {}
+
     async def command(self, **_: Any) -> AsyncIterator[ParsedUpstreamEvent]:
         await self._raise()
         if False:
             yield ParsedUpstreamEvent(None, "error", {}, "", True)
 
     async def invoke(self, **_: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        await self._raise()
+        if False:
+            yield ParsedUpstreamEvent(None, "error", {}, "", True)
+
+    async def invoke_stateless(self, **_: Any) -> AsyncIterator[ParsedUpstreamEvent]:
         await self._raise()
         if False:
             yield ParsedUpstreamEvent(None, "error", {}, "", True)
@@ -269,3 +354,23 @@ class UnavailableAutoSkillClient:
     async def download(self, **_: Any) -> bytes:
         await self._raise()
         return b""
+
+    async def upload(self, **_: Any) -> Mapping[str, Any]:
+        await self._raise()
+        return {}
+
+    async def get_state(self, **_: Any) -> Mapping[str, Any]:
+        await self._raise()
+        return {}
+
+    async def get_state_zip(self, **_: Any) -> bytes:
+        await self._raise()
+        return b""
+
+    async def list_sessions(self, **_: Any) -> Mapping[str, Any]:
+        await self._raise()
+        return {}
+
+    async def delete_skill(self, **_: Any) -> Mapping[str, Any]:
+        await self._raise()
+        return {}

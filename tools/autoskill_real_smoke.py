@@ -38,7 +38,7 @@ def redacted(value: str) -> str:
     return f"{value[:4]}…{value[-4:]}" if len(value) > 10 else "[REDACTED]"
 
 
-async def collect(stream) -> tuple[list[ParsedUpstreamEvent], dict]:
+async def collect(stream, *, require_summary: bool = True) -> tuple[list[ParsedUpstreamEvent], dict]:
     events: list[ParsedUpstreamEvent] = []
     summary: dict = {}
     async for event in stream:
@@ -53,7 +53,7 @@ async def collect(stream) -> tuple[list[ParsedUpstreamEvent], dict]:
             break
     if not any(event.event_type == "final_answer" for event in events):
         raise RuntimeError("missing final_answer")
-    if not summary:
+    if require_summary and not summary:
         raise RuntimeError("missing request_summary")
     if not any(event.event_type == "done" for event in events):
         raise RuntimeError("missing done")
@@ -99,7 +99,10 @@ async def main() -> int:
             ))
             result["requests"].append({"kind": "create", "request_id": redacted(request_id), "event_count": len(create_events), "summary_status": create_summary.get("status")})
             list_request_id = str(uuid.uuid4())
-            list_events, _ = await collect(client.command("list_skill", agent_id=agent_id, session_id=session_id, request_id=list_request_id))
+            list_events, _ = await collect(
+                client.command("list_skill", agent_id=agent_id, session_id=session_id, request_id=list_request_id),
+                require_summary=False,
+            )
             answer = next((event.payload.get("data", {}).get("answer", "") for event in list_events if event.event_type == "final_answer"), "")
             parsed = json.loads(answer) if isinstance(answer, str) else {}
             skills = parsed.get("data", {}).get("skills", [])
@@ -107,7 +110,10 @@ async def main() -> int:
                 raise RuntimeError("list_skill returned no Skill")
             name = str(skills[0]["name"])
             view_request_id = str(uuid.uuid4())
-            view_events, _ = await collect(client.command("view_skill", agent_id=agent_id, session_id=session_id, request_id=view_request_id, name=name))
+            view_events, _ = await collect(
+                client.command("view_skill", agent_id=agent_id, session_id=session_id, request_id=view_request_id, name=name),
+                require_summary=False,
+            )
             if not any(event.event_type == "final_answer" for event in view_events):
                 raise RuntimeError("view_skill returned no content")
             zip_one = await client.download(agent_id=agent_id, session_id=session_id, file_type="skill", name=name)

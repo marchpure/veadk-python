@@ -2,7 +2,7 @@
   "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/autoskill-checkpoint.schema.json",
   "checkpoint": "STEP2C_FROZEN",
   "step": "knowledge-asset-workspace-v1-step-2c",
-  "created_at": "2026-08-27T16:30:00+08:00",
+  "created_at": "2026-08-27T17:00:00+08:00",
   "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "parent_bootstrap_commit": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "branch": "feat/knowledge-v1-autoskill",
@@ -35,7 +35,9 @@
       "typed server-only AutoSkill HTTP client",
       "multipart form and query parameter protocol mapping",
       "incremental SSE parsing, redaction, bounding, normalization",
-      "Last-Event-ID reconnect, stop, first-event/idle timeouts",
+      "Last-Event-ID reconnect, bounded retry, stop, first-event/idle/total timeouts",
+      "stateful and stateless invocation/state snapshot handling",
+      "restart recovery resumes by reconnecting the existing request",
       "immutable Skill ZIP validation and content-addressed storage",
       "real HTML artifact validation with CSP/sandbox metadata",
       "draft/session/invocation/revision/artifact/publication models",
@@ -48,21 +50,24 @@
       "HTML UTF-8, active-content, external-resource, and size policy",
       "raw SSE secret redaction and payload bounds",
       "tenant/workspace qualification on resource reads",
-      "no browser-facing AutoSkill URL or token"
+      "no browser-facing AutoSkill URL, provider IDs, request IDs, or token",
+      "server-side connection context is required for connection-backed invocation"
     ],
     "immutability_evidence": [
       "SHA-256 content-addressed object keys",
       "exclusive object creation and digest collision check",
       "insert-once revision/artifact/publication metadata",
+      "publication policy snapshot fixes revision/run/artifact evidence",
       "revision freeze downloads and validates the actual Skill ZIP"
     ]
   },
   "tests": {
     "command": "pytest -q tests/knowledge_workspace",
-    "result": "13 passed",
+    "result": "23 passed",
     "compileall": "PASS",
     "contract_validator": "PASS",
-    "git_diff_check": "PASS"
+    "git_diff_check": "PASS",
+    "lifecycle_evidence": "freeze → real run → HTML artifact → publication gate passed with deterministic service contract"
   },
   "limitations": [
     "Authenticated AutoSkill create/list/view/download/invoke/update/second-ZIP evidence remains blocked until a real KNOWLEDGE_AUTOSKILL_TOKEN is supplied.",

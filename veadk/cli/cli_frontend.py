@@ -2370,21 +2370,22 @@ def _run_frontend_server(
         autoskill_client = UnavailableAutoSkillClient(
             f"AutoSkill is not configured: {type(error).__name__}"
         )
+    knowledge_service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(
+            os.getenv(
+                "KNOWLEDGE_WORKSPACE_DATABASE",
+                ".veadk/knowledge-workspace.sqlite3",
+            ),
+            os.getenv(
+                "KNOWLEDGE_WORKSPACE_OBJECT_ROOT",
+                ".veadk/knowledge-workspace-objects",
+            ),
+        ),
+        autoskill_client,
+    )
     mount_knowledge_workspace_routes(
         app,
-        KnowledgeWorkspaceService(
-            KnowledgeWorkspaceRepository(
-                os.getenv(
-                    "KNOWLEDGE_WORKSPACE_DATABASE",
-                    ".veadk/knowledge-workspace.sqlite3",
-                ),
-                os.getenv(
-                    "KNOWLEDGE_WORKSPACE_OBJECT_ROOT",
-                    ".veadk/knowledge-workspace-objects",
-                ),
-            ),
-            autoskill_client,
-        ),
+        knowledge_service,
     )
 
     from frontend.server.video.routes import (

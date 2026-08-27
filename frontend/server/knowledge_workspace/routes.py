@@ -8,10 +8,10 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response as FastAPIResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import InvocationKind
+from .models import Artifact, Invocation, InvocationKind, Publication, SkillRevision
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
 
 
@@ -69,6 +69,8 @@ def mount_knowledge_workspace_routes(
     actor_resolver: Callable[[Request], Actor] | None = None,
     prefix: str = "/api/knowledge/v1",
 ) -> None:
+    app.router.on_startup.append(service.resume_pending)
+
     def actor(request: Request) -> Actor:
         if actor_resolver:
             return actor_resolver(request)
@@ -87,6 +89,14 @@ def mount_knowledge_workspace_routes(
             raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": str(exc), "retryable": False}) from exc
 
     def envelope(data: Any, request: Request) -> dict[str, Any]:
+        if isinstance(data, Invocation):
+            data = service.public_invocation(data)
+        elif isinstance(data, SkillRevision):
+            data = service.public_revision(data)
+        elif isinstance(data, Artifact):
+            data = service.public_artifact(data)
+        elif isinstance(data, tuple) and data and isinstance(data[0], Publication):
+            data = [item.model_dump(mode="json") for item in data]
         value = data.model_dump(mode="json") if hasattr(data, "model_dump") else data
         return {"data": value, "meta": {"request_id": request.headers.get("x-request-id", "server-generated")}}
 
@@ -195,6 +205,13 @@ def mount_knowledge_workspace_routes(
 
     @app.get(f"{prefix}/invocations/{{invocation_id}}/events")
     async def events(request: Request, invocation_id: str, last_event_id: str | None = Header(default=None, alias="Last-Event-ID")) -> StreamingResponse:
+        invocation = service.repository.get_invocation(
+            invocation_id,
+            tenant_id=actor(request).tenant_id,
+            workspace_id=actor(request).workspace_id,
+        )
+        if invocation is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "invocation not found", "retryable": False})
         after = 0
         if last_event_id:
             try:
@@ -217,7 +234,8 @@ def mount_knowledge_workspace_routes(
 
     @app.get(f"{prefix}/skills/drafts/{{draft_id}}/revisions")
     async def revisions(request: Request, draft_id: str) -> dict[str, Any]:
-        return envelope(service.repository.revisions(draft_id, tenant_id=actor(request).tenant_id, workspace_id=actor(request).workspace_id), request)
+        values = service.repository.revisions(draft_id, tenant_id=actor(request).tenant_id, workspace_id=actor(request).workspace_id)
+        return envelope(tuple(service.public_revision(item) for item in values), request)
 
     @app.post(f"{prefix}/skills/drafts/{{draft_id}}/revisions", status_code=201)
     async def freeze(request: Request, draft_id: str, body: FreezeBody) -> dict[str, Any]:
@@ -248,6 +266,29 @@ def mount_knowledge_workspace_routes(
     async def artifact(request: Request, artifact_id: str) -> dict[str, Any]:
         return envelope(service.get_artifact(actor(request), artifact_id), request)
 
+    @app.get(f"{prefix}/artifacts/{{artifact_id}}/content")
+    async def artifact_content(request: Request, artifact_id: str) -> FastAPIResponse:
+        try:
+            content, media_type, csp = service.artifact_content(actor(request), artifact_id)
+        except KnowledgeWorkspaceError as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={"code": exc.code, "message": str(exc), "retryable": False},
+            ) from exc
+        return FastAPIResponse(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Security-Policy": csp,
+                "Content-Disposition": "inline",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
+    @app.get(f"{prefix}/publications")
+    async def publications(request: Request) -> dict[str, Any]:
+        return envelope(service.list_publications(actor(request)), request)
+
     @app.post(f"{prefix}/skill-revisions/{{revision_id}}/publish", status_code=201)
     async def publish(
         request: Request,
@@ -256,12 +297,14 @@ def mount_knowledge_workspace_routes(
         idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     ) -> dict[str, Any]:
         return envelope(
-            service.publish(
-                actor(request),
-                revision_id,
-                body.target_space,
-                idempotency_key=idempotency_key,
-                request_digest=request_digest(body.model_dump(mode="json")),
+            invoke(
+                lambda: service.publish(
+                    actor(request),
+                    revision_id,
+                    body.target_space,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest(body.model_dump(mode="json")),
+                )
             ),
             request,
         )

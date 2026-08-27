@@ -6,6 +6,7 @@ import hashlib
 import io
 import re
 import zipfile
+from pathlib import PurePosixPath
 from typing import Any
 
 
@@ -68,7 +69,30 @@ def validate_output_archive(
     except zipfile.BadZipFile as exc:
         raise HtmlArtifactError("ARTIFACT_OUTPUT_INVALID", "output is not a valid ZIP") from exc
     with archive:
-        candidates = [i for i in archive.infolist() if not i.is_dir() and i.filename.lower().endswith((".html", ".htm"))]
+        infos = archive.infolist()
+        seen: set[str] = set()
+        expanded = 0
+        for info in infos:
+            path = PurePosixPath(info.filename)
+            normalized = path.as_posix()
+            if (
+                not info.filename
+                or path.is_absolute()
+                or "\\" in info.filename
+                or ".." in path.parts
+                or normalized != info.filename
+            ):
+                raise HtmlArtifactError("ARTIFACT_OUTPUT_INVALID", "output ZIP contains an unsafe path")
+            if normalized.casefold() in seen:
+                raise HtmlArtifactError("ARTIFACT_OUTPUT_INVALID", "output ZIP contains duplicate paths")
+            seen.add(normalized.casefold())
+            expanded += info.file_size
+            if expanded > max_file_bytes * 10:
+                raise HtmlArtifactError("ARTIFACT_OUTPUT_TOO_LARGE", "output ZIP expands beyond the size limit")
+        candidates = [
+            i for i in infos
+            if not i.is_dir() and i.filename.lower().endswith((".html", ".htm"))
+        ]
         if not candidates:
             raise HtmlArtifactError("ARTIFACT_HTML_MISSING", "AutoSkill output contains no HTML file")
         if len(candidates) > 1:

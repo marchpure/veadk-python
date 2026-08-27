@@ -116,3 +116,30 @@ async def test_unconfigured_autoskill_fails_closed_on_generate() -> None:
         )
         assert response.status_code == 202
         await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_browser_invocation_response_does_not_expose_upstream_ids() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("credential missing"),
+    )
+    mount_knowledge_workspace_routes(app, service)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = {"x-tenant-id": "t", "x-workspace-id": "w", "x-principal-id": "p"}
+        draft = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers=headers,
+            json={"goal": "goal", "connection_ids": ["c"]},
+        )
+        response = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft.json()['data']['draft_id']}/generate",
+            headers=headers,
+        )
+        payload = response.json()["data"]
+        assert response.status_code == 202
+        assert "autoskill_agent_id" not in payload
+        assert "autoskill_session_id" not in payload
+        assert "autoskill_request_id" not in payload

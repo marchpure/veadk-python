@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+import asyncio
 
 import httpx
 import pytest
@@ -19,7 +20,11 @@ from frontend.server.knowledge_workspace.sse import (
     parse_upstream_frame,
 )
 from frontend.server.knowledge_workspace.zip_validator import SkillZipError, validate_skill_zip
-from frontend.server.knowledge_workspace.autoskill import AutoSkillClient, AutoSkillConfig
+from frontend.server.knowledge_workspace.autoskill import (
+    AutoSkillClient,
+    AutoSkillConfig,
+    AutoSkillProtocolError,
+)
 
 
 def test_sse_parser_handles_split_frames_heartbeat_and_multiline_data() -> None:
@@ -125,3 +130,135 @@ async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() ->
     assert [item.event_type for item in create] == ["done"]
     assert [item.event_type for item in listed] == ["done"]
     assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/stream"):
+            assert request.headers["last-event-id"] == "upstream-7"
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=b"id: upstream-8\ndata: {\"type\":\"done\",\"data\":{}}\n\n",
+            )
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=b"")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(
+                base_url="http://localhost",
+                token="test-token",
+                timeout_seconds=0.1,
+                first_event_timeout_seconds=0.05,
+            ),
+            client=http,
+        )
+        items = [
+            item async for item in client.reconnect(
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                last_event_id="upstream-7",
+            )
+        ]
+    assert [item.event_type for item in items] == ["done"]
+    assert requests[0].headers["last-event-id"] == "upstream-7"
+
+
+@pytest.mark.asyncio
+async def test_stream_first_event_timeout_fails_closed() -> None:
+    class SlowStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            await asyncio.sleep(0.05)
+            yield b"data: {\"type\":\"done\",\"data\":{}}\n\n"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            stream=SlowStream(),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(
+                base_url="http://localhost",
+                token="test-token",
+                first_event_timeout_seconds=0.005,
+            ),
+            client=http,
+        )
+        with pytest.raises(AutoSkillProtocolError, match="first-event"):
+            _ = [item async for item in client.invoke(
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                message="slow",
+            )]
+
+
+def test_normalization_bounds_invalid_duration_and_plan_status() -> None:
+    parsed = parse_sse(
+        [
+            'data: {"type":"planning","data":{"steps":[{"label":"x","status":"future"}]}}\n\n',
+            'data: {"type":"action","data":{"status":"completed","duration_ms":"not-a-number"}}\n\n',
+        ]
+    )
+    plan = normalize_upstream_event(parsed[0], invocation_id="inv", cursor=1)
+    action = normalize_upstream_event(parsed[1], invocation_id="inv", cursor=2)
+    assert plan["data"]["steps"][0]["status"] == "running"
+    assert action["data"]["duration_ms"] == 0
+
+
+@pytest.mark.asyncio
+async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> None:
+    import base64
+
+    state = b"PK\x03\x04state"
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/get_state"):
+            body = json.dumps({"data": {"state_zip_b64": base64.b64encode(state).decode()}})
+            return httpx.Response(200, json=json.loads(body))
+        assert b'name="state"; filename="state.zip"' in request.content
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=b'data: {"type":"done","data":{}}\n\n',
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="http://localhost", token="test-token", state_mode="stateless"),
+            client=http,
+        )
+        items = [
+            item async for item in client.invoke(
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                message="continue",
+                state=state,
+            )
+        ]
+        decoded = await client.get_state_zip(agent_id="agent", session_id="session", request_id="request")
+    assert [item.event_type for item in items] == ["done"]
+    assert decoded == state
+    assert requests[0].url.path.endswith("/invoke_stateless")
+
+
+def test_sse_payload_redacts_inline_bearer_and_secret_assignments() -> None:
+    parsed = parse_sse(
+        [
+            'data: {"type":"observation","data":{"text":"Bearer abc.def token=plain-secret"}}\n\n'
+        ]
+    )[0]
+    assert "[REDACTED]" in parsed.payload["data"]["text"]
+    assert "abc.def" not in json.dumps(parsed.payload)
+    assert "plain-secret" not in json.dumps(parsed.payload)

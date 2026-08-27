@@ -64,7 +64,11 @@ class KnowledgeWorkspaceRepository:
 
     def save_session(self, session: AuthoringSession) -> None:
         with self._lock:
-            self._db.execute("INSERT OR IGNORE INTO kw_sessions(id,draft_id,tenant_id,workspace_id,payload) VALUES(?,?,?,?,?)", (session.authoring_session_id, session.draft_id, session.tenant_id, session.workspace_id, self._json(session)))
+            self._db.execute(
+                "INSERT INTO kw_sessions(id,draft_id,tenant_id,workspace_id,payload) VALUES(?,?,?,?,?) "
+                "ON CONFLICT(id) DO UPDATE SET payload=excluded.payload",
+                (session.authoring_session_id, session.draft_id, session.tenant_id, session.workspace_id, self._json(session)),
+            )
 
     def get_session(self, draft_id: str, *, tenant_id: str, workspace_id: str) -> AuthoringSession | None:
         with self._lock:
@@ -83,8 +87,43 @@ class KnowledgeWorkspaceRepository:
             row = self._db.execute("SELECT payload FROM kw_invocations WHERE id=? AND tenant_id=? AND workspace_id=?", (invocation_id, tenant_id, workspace_id)).fetchone()
         return self._model(row, Invocation)
 
+    def active_invocations(self) -> tuple[Invocation, ...]:
+        with self._lock:
+            rows = self._db.execute("SELECT payload FROM kw_invocations ORDER BY id").fetchall()
+        return tuple(
+            Invocation.model_validate(json.loads(row["payload"]))
+            for row in rows
+            if json.loads(row["payload"]).get("status") in {"queued", "running"}
+        )
+
+    def invocations_for_revision(
+        self,
+        revision_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+    ) -> tuple[Invocation, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_invocations WHERE tenant_id=? AND workspace_id=? ORDER BY id",
+                (tenant_id, workspace_id),
+            ).fetchall()
+        return tuple(
+            invocation
+            for row in rows
+            for invocation in (Invocation.model_validate(json.loads(row["payload"])),)
+            if invocation.revision_id == revision_id
+        )
+
     def append_event(self, invocation_id: str, raw: MappingLike, normalized: MappingLike | None, upstream_id: str | None) -> int:
         with self._lock:
+            if upstream_id is not None:
+                existing = self._db.execute(
+                    "SELECT sequence FROM kw_events WHERE invocation_id=? AND upstream_id=? ORDER BY sequence LIMIT 1",
+                    (invocation_id, upstream_id),
+                ).fetchone()
+                if existing:
+                    return int(existing["sequence"])
             row = self._db.execute("SELECT COALESCE(MAX(sequence),0)+1 AS n FROM kw_events WHERE invocation_id=?", (invocation_id,)).fetchone()
             sequence = int(row["n"])
             self._db.execute(
@@ -131,7 +170,13 @@ class KnowledgeWorkspaceRepository:
 
     def save_artifact(self, artifact: Artifact) -> Artifact:
         with self._lock:
-            self._db.execute("INSERT OR IGNORE INTO kw_artifacts(id,tenant_id,workspace_id,revision_id,payload) VALUES(?,?,?,?,?)", (artifact.artifact_id, artifact.tenant_id, artifact.workspace_id, artifact.revision_id, self._json(artifact)))
+            payload = self._json(artifact)
+            row = self._db.execute("SELECT payload FROM kw_artifacts WHERE id=?", (artifact.artifact_id,)).fetchone()
+            if row:
+                if row["payload"] != payload:
+                    raise ValueError("immutable artifact mutation")
+                return artifact
+            self._db.execute("INSERT INTO kw_artifacts(id,tenant_id,workspace_id,revision_id,payload) VALUES(?,?,?,?,?)", (artifact.artifact_id, artifact.tenant_id, artifact.workspace_id, artifact.revision_id, payload))
         return artifact
 
     def get_artifact(self, artifact_id: str, *, tenant_id: str, workspace_id: str) -> Artifact | None:
@@ -139,9 +184,29 @@ class KnowledgeWorkspaceRepository:
             row = self._db.execute("SELECT payload FROM kw_artifacts WHERE id=? AND tenant_id=? AND workspace_id=?", (artifact_id, tenant_id, workspace_id)).fetchone()
         return self._model(row, Artifact)
 
+    def artifacts_for_revision(
+        self,
+        revision_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+    ) -> tuple[Artifact, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_artifacts WHERE revision_id=? AND tenant_id=? AND workspace_id=? ORDER BY id",
+                (revision_id, tenant_id, workspace_id),
+            ).fetchall()
+        return tuple(Artifact.model_validate(json.loads(row["payload"])) for row in rows)
+
     def save_publication(self, publication: Publication) -> Publication:
         with self._lock:
-            self._db.execute("INSERT OR IGNORE INTO kw_publications(id,tenant_id,workspace_id,revision_id,payload) VALUES(?,?,?,?,?)", (publication.publication_id, publication.tenant_id, publication.workspace_id, publication.revision_id, self._json(publication)))
+            payload = self._json(publication)
+            row = self._db.execute("SELECT payload FROM kw_publications WHERE id=?", (publication.publication_id,)).fetchone()
+            if row:
+                if row["payload"] != payload:
+                    raise ValueError("immutable publication mutation")
+                return publication
+            self._db.execute("INSERT INTO kw_publications(id,tenant_id,workspace_id,revision_id,payload) VALUES(?,?,?,?,?)", (publication.publication_id, publication.tenant_id, publication.workspace_id, publication.revision_id, payload))
         return publication
 
     def get_publication(self, publication_id: str, *, tenant_id: str, workspace_id: str) -> Publication | None:
@@ -149,8 +214,18 @@ class KnowledgeWorkspaceRepository:
             row = self._db.execute("SELECT payload FROM kw_publications WHERE id=? AND tenant_id=? AND workspace_id=?", (publication_id, tenant_id, workspace_id)).fetchone()
         return self._model(row, Publication)
 
+    def list_publications(self, *, tenant_id: str, workspace_id: str) -> tuple[Publication, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_publications WHERE tenant_id=? AND workspace_id=? ORDER BY id",
+                (tenant_id, workspace_id),
+            ).fetchall()
+        return tuple(Publication.model_validate(json.loads(row["payload"])) for row in rows)
+
     def put_object(self, digest: str, content: bytes, *, suffix: str = ".bin") -> str:
-        target = self._objects / f"{digest}{suffix}"
+        # The digest is the complete object key.  A caller cannot create two
+        # mutable aliases for the same content by changing a filename suffix.
+        target = self._objects / digest
         try:
             with target.open("xb") as stream:
                 stream.write(content)

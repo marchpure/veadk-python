@@ -67,6 +67,7 @@ class AuthoringSession(ImmutableModel):
     authoring_session_id: str = Field(min_length=1, max_length=160)
     autoskill_agent_id: str = Field(min_length=1, max_length=160)
     autoskill_session_id: str = Field(min_length=1, max_length=160)
+    state_uri: str | None = Field(default=None, max_length=2_048)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -84,11 +85,15 @@ class Invocation(ImmutableModel):
     autoskill_agent_id: str = Field(min_length=1, max_length=160)
     autoskill_session_id: str = Field(min_length=1, max_length=160)
     autoskill_request_id: str = Field(min_length=1, max_length=160)
+    principal_id: str = Field(default="legacy", min_length=1, max_length=160)
+    message: str = Field(default="", max_length=20_000)
+    model: str | None = Field(default=None, max_length=256)
     request_summary: Mapping[str, Any] | None = None
     final_answer_observed: bool = False
     request_summary_observed: bool = False
     done_observed: bool = False
     error_observed: bool = False
+    state_update_observed: bool = False
     error_code: str | None = None
     error_message: str | None = None
     started_at: datetime | None = None
@@ -134,5 +139,6 @@ class Publication(ImmutableModel):
     revision_id: str = Field(min_length=1, max_length=160)
     target_space: str = Field(min_length=1, max_length=64)
     published_by: str = Field(min_length=1, max_length=160)
+    policy_snapshot: Mapping[str, Any] = Field(default_factory=dict)
     status: str = Field(default="published", min_length=1, max_length=32)
     created_at: datetime = Field(default_factory=utc_now)
