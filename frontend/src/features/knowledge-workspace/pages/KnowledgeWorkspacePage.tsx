@@ -34,6 +34,7 @@ import {
   knowledgeApi,
   KnowledgeApiError,
   type CreateConnectionInput,
+  type JobResult,
   type UploadResult,
 } from "../api/client";
 import { readQuery, writeQuery } from "../application/cache";
@@ -61,9 +62,8 @@ type WorkspaceFile =
 interface WorkspaceRoute {
   file: WorkspaceFile;
   draftId: string;
+  connectionId: string;
   modal: string;
-  runState: string;
-  state: string;
 }
 
 const STATUS_LABELS: Record<ConnectionProfile["status"], string> = {
@@ -101,6 +101,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "操作失败，请重试。";
 }
 
+function invocationErrorMessage(error: { code: string; message: string }): string {
+  return ERROR_LABELS[error.code] || error.message;
+}
+
 function routeFromLocation(): WorkspaceRoute {
   const query = new URLSearchParams(window.location.search);
   const requestedFile = query.get("file") || "welcome";
@@ -123,17 +127,17 @@ function routeFromLocation(): WorkspaceRoute {
   return {
     file,
     draftId: query.get("draftId") || "",
+    connectionId: query.get("connectionId") || "",
     modal: query.get("modal") || "",
-    runState: query.get("run_state") || "",
-    state: query.get("state") || "",
   };
 }
 
-function setRoute(file: WorkspaceFile, draftId = "") {
+function setRoute(file: WorkspaceFile, draftId = "", connectionId = "") {
   const query = new URLSearchParams();
   query.set("view", "knowledge-workspace");
   query.set("file", file);
   if (draftId) query.set("draftId", draftId);
+  if (connectionId) query.set("connectionId", connectionId);
   window.history.pushState({}, "", `${window.location.pathname}?${query}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
@@ -165,6 +169,11 @@ export function KnowledgeWorkspacePage() {
   );
   const [draft, setDraft] = useState<Draft | null>(null);
   const [etag, setEtag] = useState("");
+  const [draftLoadAttempt, setDraftLoadAttempt] = useState(0);
+  const [draftResourceError, setDraftResourceError] = useState<{
+    code: string;
+    message: string;
+  } | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
@@ -175,6 +184,10 @@ export function KnowledgeWorkspacePage() {
   const [showVersions, setShowVersions] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [welcomeGoal, setWelcomeGoal] = useState("");
+  const [connectionJob, setConnectionJob] = useState<{
+    kind: "validate" | "discover";
+    status: JobResult["status"];
+  } | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const popstate = useCallback(() => setRouteState(routeFromLocation()), []);
 
@@ -218,14 +231,39 @@ export function KnowledgeWorkspacePage() {
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
+    if (route.file !== "connection" || !route.connectionId) return;
+    const controller = new AbortController();
+    setBusy("load-connection");
+    void knowledgeApi.getConnection(route.connectionId, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setConnections((current) => [
+          ...current.filter((item) => item.connection_id !== result.value.data.connection_id),
+          result.value.data,
+        ]);
+        setSelectedConnectionIds([result.value.data.connection_id]);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) setError(errorMessage(cause));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setBusy("");
+      });
+    return () => controller.abort();
+  }, [authStatus, route.connectionId, route.file]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
     if (!route.draftId) {
       setDraft(null);
       setRevisions([]);
       setArtifact(null);
+      setDraftResourceError(null);
       return;
     }
     const controller = new AbortController();
     setBusy("load-draft");
+    setDraftResourceError(null);
     void knowledgeApi.getDraft(route.draftId, controller.signal)
       .then(async (result) => {
         if (controller.signal.aborted) return;
@@ -236,13 +274,19 @@ export function KnowledgeWorkspacePage() {
         setRevisions(revisionResult.data);
       })
       .catch((cause) => {
-        if (!controller.signal.aborted) setError(errorMessage(cause));
+        if (!controller.signal.aborted) {
+          setDraftResourceError({
+            code: cause instanceof KnowledgeApiError ? cause.code : "UNKNOWN",
+            message: errorMessage(cause),
+          });
+          setError(errorMessage(cause));
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setBusy("");
       });
     return () => controller.abort();
-  }, [authStatus, route.draftId]);
+  }, [authStatus, draftLoadAttempt, route.draftId]);
 
   const availableConnections = useMemo(
     () => connections.filter((connection) => connection.status !== "revoked"),
@@ -315,6 +359,7 @@ export function KnowledgeWorkspacePage() {
   const streamAbortRef = useRef<AbortController | null>(null);
   const lastEventIdRef = useRef("");
   const terminalInvocationRef = useRef(false);
+  const seenEventIdsRef = useRef(new Set<string>());
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -324,6 +369,8 @@ export function KnowledgeWorkspacePage() {
   }, [startedAt, streamState]);
 
   const applyEvent = useCallback((event: KnowledgeInvocationEvent) => {
+    if (seenEventIdsRef.current.has(event.id)) return;
+    seenEventIdsRef.current.add(event.id);
     setEvents((current) => [...current, event]);
     lastEventIdRef.current = event.id;
     if (event.type === "assistant.delta") {
@@ -383,6 +430,7 @@ export function KnowledgeWorkspacePage() {
       setAssistantText("");
       setPlan([]);
       lastEventIdRef.current = "";
+      seenEventIdsRef.current = new Set();
       void stream();
     }
     return () => streamAbortRef.current?.abort();
@@ -421,7 +469,9 @@ export function KnowledgeWorkspacePage() {
       setEvents([]);
       setUnknownEvents([]);
       lastEventIdRef.current = "";
+      seenEventIdsRef.current = new Set();
       setStartedAt(Date.now());
+      setElapsedMs(0);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -444,6 +494,7 @@ export function KnowledgeWorkspacePage() {
         );
       setActiveInvocation(result.data);
       setStartedAt(Date.now());
+      setElapsedMs(0);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -452,7 +503,12 @@ export function KnowledgeWorkspacePage() {
   }, [activeInvocation, draft, etag]);
 
   const publish = useCallback(async (target: "personal" | "team") => {
-    const revision = revisions.at(-1);
+    const revision = draft?.current_revision_id
+      ? revisions.find((item) => item.revision_id === draft.current_revision_id)
+      : revisions.reduce<Revision | null>(
+        (current, item) => !current || item.number > current.number ? item : current,
+        null,
+      );
     if (!revision) return;
     setBusy("publish");
     try {
@@ -464,9 +520,21 @@ export function KnowledgeWorkspacePage() {
     } finally {
       setBusy("");
     }
-  }, [draft?.draft_id, revisions]);
+  }, [draft?.current_revision_id, draft?.draft_id, revisions]);
 
-  const selectedDraft = draft || drafts.find((item) => item.draft_id === route.draftId) || null;
+  const selectedDraft = draftResourceError
+    ? null
+    : draft || drafts.find((item) => item.draft_id === route.draftId) || null;
+  const selectedConnection = connections.find(
+    (item) => item.connection_id === route.connectionId
+      || selectedConnectionIds.includes(item.connection_id),
+  ) || null;
+  const selectedRevision = selectedDraft?.current_revision_id
+    ? revisions.find((item) => item.revision_id === selectedDraft.current_revision_id) || null
+    : revisions.reduce<Revision | null>(
+      (current, item) => !current || item.number > current.number ? item : current,
+      null,
+    );
   const routeModal = route.modal;
   const closeRouteModal = useCallback(() => {
     const query = new URLSearchParams(window.location.search);
@@ -533,7 +601,7 @@ export function KnowledgeWorkspacePage() {
               key={connection.connection_id}
               onClick={() => {
                 setSelectedConnectionIds([connection.connection_id]);
-                setRoute("connection");
+                setRoute("connection", "", connection.connection_id);
               }}
             >
               <Settings2 size={15} />
@@ -564,7 +632,7 @@ export function KnowledgeWorkspacePage() {
               key={connection.connection_id}
               onClick={() => {
                 setSelectedConnectionIds([connection.connection_id]);
-                setRoute("connection");
+                setRoute("connection", "", connection.connection_id);
               }}
             >
               <Settings2 size={15} />
@@ -616,26 +684,35 @@ export function KnowledgeWorkspacePage() {
           </section>
         ) : route.file === "connection" ? (
           <ConnectionDetailView
-            connection={connections.find((item) => selectedConnectionIds.includes(item.connection_id)) || null}
-            connector={connectors.find((item) => item.connector_key === connections.find((item) => selectedConnectionIds.includes(item.connection_id))?.connector_key)}
+            connection={selectedConnection}
+            connector={connectors.find((item) => item.connector_key === selectedConnection?.connector_key)}
             onValidate={async (id) => {
               setBusy("validate");
-              try { await knowledgeApi.validateConnection(id); await reloadDirectory(); }
+              try {
+                const result = await knowledgeApi.validateConnection(id);
+                setConnectionJob({ kind: "validate", status: result.data.status });
+                await reloadDirectory();
+              }
               catch (cause) { setError(errorMessage(cause)); }
               finally { setBusy(""); }
             }}
             onDiscover={async (id) => {
               setBusy("discover");
-              try { await knowledgeApi.discoverConnection(id); await reloadDirectory(); }
+              try {
+                const result = await knowledgeApi.discoverConnection(id);
+                setConnectionJob({ kind: "discover", status: result.data.status });
+                await reloadDirectory();
+              }
               catch (cause) { setError(errorMessage(cause)); }
               finally { setBusy(""); }
             }}
             busy={busy === "validate" || busy === "discover"}
+            job={connectionJob}
           />
         ) : route.file === "published" ? (
           <PublishedWorkspace
             draft={selectedDraft}
-            revision={revisions.at(-1) || null}
+            revision={selectedRevision}
             onBack={() => setRoute("welcome")}
           />
         ) : (
@@ -651,12 +728,15 @@ export function KnowledgeWorkspacePage() {
             elapsedMs={elapsedMs}
             activeInvocation={activeInvocation}
             busy={busy}
-            runState={route.runState}
-            state={route.state}
+            resourceError={draftResourceError}
             onSend={sendMessage}
             onCancel={cancel}
             onReconnect={() => void stream()}
             onRetry={() => void retryInvocation()}
+            onRetryLoad={() => {
+              setError("");
+              setDraftLoadAttempt((current) => current + 1);
+            }}
           />
         )}
         </main>
@@ -666,9 +746,11 @@ export function KnowledgeWorkspacePage() {
         <ConnectionForm
           connectors={connectors}
           onClose={() => setShowConnectionForm(false)}
-          onCreated={async () => {
+          onCreated={async (created) => {
             setShowConnectionForm(false);
+            setSelectedConnectionIds([created.connection_id]);
             await reloadDirectory();
+            setRoute("connection", "", created.connection_id);
           }}
         />
       ) : null}
@@ -883,12 +965,14 @@ function ConnectionDetailView({
   onValidate,
   onDiscover,
   busy,
+  job,
 }: {
   connection: ConnectionProfile | null;
   connector?: ConnectorDefinition;
   onValidate: (id: string) => Promise<void>;
   onDiscover: (id: string) => Promise<void>;
   busy: boolean;
+  job: { kind: "validate" | "discover"; status: JobResult["status"] } | null;
 }) {
   if (!connection) return <div className="kw-empty-page">请选择一个连接。</div>;
   return (
@@ -904,6 +988,11 @@ function ConnectionDetailView({
       <div className="kw-detail-card">
         <h2>连接状态</h2>
         <p>状态由 Connection Service 返回，前端不会预设“已支持”或“验证成功”。</p>
+        {job ? (
+          <p className="kw-state-card" role="status">
+            {job.kind === "validate" ? "验证任务" : "能力发现任务"}已提交，当前状态：{job.status === "queued" ? "排队中" : "运行中"}。
+          </p>
+        ) : null}
         <div className="kw-detail-actions">
           <button type="button" onClick={() => void onValidate(connection.connection_id)} disabled={busy}><RefreshCw size={15} /> 验证连接</button>
           <button type="button" onClick={() => void onDiscover(connection.connection_id)} disabled={busy}><Settings2 size={15} /> 发现能力</button>
@@ -926,12 +1015,12 @@ function DraftWorkspace({
   elapsedMs,
   activeInvocation,
   busy,
-  runState,
-  state,
+  resourceError,
   onSend,
   onCancel,
   onReconnect,
   onRetry,
+  onRetryLoad,
 }: {
   draft: Draft | null;
   revisions: Revision[];
@@ -944,17 +1033,29 @@ function DraftWorkspace({
   elapsedMs: number;
   activeInvocation: Invocation | null;
   busy: string;
-  runState: string;
-  state: string;
+  resourceError: { code: string; message: string } | null;
   onSend: (message: string, intent: "update" | "run") => Promise<void>;
   onCancel: () => Promise<void>;
   onReconnect: () => void;
   onRetry: () => void;
+  onRetryLoad: () => void;
 }) {
   const [message, setMessage] = useState("");
   const timelineEnd = useRef<HTMLDivElement>(null);
   useEffect(() => timelineEnd.current?.scrollIntoView({ block: "nearest" }), [events, assistantText]);
-  if (!draft) return <div className="kw-empty-page">正在从 BFF 恢复草稿…</div>;
+  if (!draft) {
+    return (
+      <div className="kw-empty-page">
+        {resourceError ? (
+          <div className="kw-state-card is-failed" role="alert">
+            <strong>无法加载当前资源</strong>
+            <span>{resourceError.message}</span>
+            <button type="button" onClick={onRetryLoad}>重新加载资源</button>
+          </div>
+        ) : "正在从 BFF 恢复草稿…"}
+      </div>
+    );
+  }
   const seconds = (elapsedMs / 1000).toFixed(1);
   const failedEvent = [...events].reverse().find((event) => event.type === "run.failed");
   return (
@@ -970,27 +1071,26 @@ function DraftWorkspace({
             {activeInvocation ? <span>{streamState === "connected" ? "实时运行中" : streamState === "disconnected" ? "连接已断开" : streamState === "done" ? "已结束" : "等待中"} · {seconds}s</span> : null}
           </div>
         </div>
-        {runState === "failed" || state === "permission" || state === "connection_error" || state === "upgrade" ? (
-          <div className={`kw-state-card is-${state || runState}`} role="status">
+        {draft.lifecycle === "failed" ? (
+          <div className="kw-state-card is-failed" role="status">
+            <strong>上一次试跑失败</strong>
+            <span>可以查看失败原因并重试，不会创建重复 invocation。</span>
+            {activeInvocation ? <button type="button" onClick={onRetry}>重试本次运行</button> : null}
+          </div>
+        ) : null}
+        {resourceError ? (
+          <div className="kw-state-card is-failed" role="alert">
             <strong>
-              {state === "permission"
+              {resourceError.code === "FORBIDDEN"
                 ? "当前账号没有访问该资源的权限"
-                : state === "connection_error"
+                : resourceError.code === "CONNECTION_NOT_READY"
                   ? "连接暂不可用"
-                  : state === "upgrade"
-                    ? "该能力需要升级当前服务配置"
-                    : "上一次试跑失败"}
+                  : resourceError.code === "PUBLISH_GATE_FAILED"
+                    ? "当前资源尚未通过发布门禁"
+                    : "无法加载当前资源"}
             </strong>
-            <span>
-              {state === "permission"
-                ? "请向工作区管理员申请资源访问权限。"
-                : state === "connection_error"
-                  ? "请检查连接状态后重新验证或稍后重试。"
-                  : state === "upgrade"
-                    ? "可用能力和升级门禁由 BFF 返回。"
-                    : "可以查看失败原因并重试，不会创建重复 invocation。"}
-            </span>
-            {runState === "failed" && activeInvocation ? <button type="button" onClick={onRetry}>重试本次运行</button> : null}
+            <span>{resourceError.message}</span>
+            <button type="button" onClick={onRetryLoad}>重新加载资源</button>
           </div>
         ) : null}
         <ArtifactViewer artifact={artifact} />
@@ -1014,7 +1114,7 @@ function DraftWorkspace({
           {failedEvent ? (
             <div className="kw-run-error" role="alert">
               <strong>本次运行失败</strong>
-              <span>{failedEvent.data.error.message}</span>
+              <span>{invocationErrorMessage(failedEvent.data.error)}</span>
               {failedEvent.data.error.retryable ? <button type="button" onClick={onRetry} disabled={busy === "retry"}>重试本次运行</button> : null}
             </div>
           ) : null}
@@ -1124,7 +1224,7 @@ function ConnectionForm({
 }: {
   connectors: ConnectorDefinition[];
   onClose: () => void;
-  onCreated: () => Promise<void>;
+  onCreated: (connection: ConnectionProfile) => Promise<void>;
 }) {
   const [connectorKey, setConnectorKey] = useState(connectors[0]?.connector_key || "");
   const [displayName, setDisplayName] = useState("");
@@ -1167,8 +1267,9 @@ function ConnectionForm({
       credential,
     };
     try {
-      await knowledgeApi.createConnection(input);
-      await onCreated();
+      const created = await knowledgeApi.createConnection(input);
+      await knowledgeApi.validateConnection(created.data.connection_id);
+      await onCreated(created.data);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {

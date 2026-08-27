@@ -13,13 +13,17 @@ test("client covers the browser-facing REST resource groups", () => {
   for (const route of [
     "/connector-definitions",
     "/connections",
+    "/connections/",
+    "PATCH",
     "/skills/drafts",
     "/generate",
     "/messages",
     "/invocations/",
     "/revisions",
+    "freezeRevision",
     "/artifacts/",
     "/publish",
+    "/publications/",
   ]) {
     assert.match(client, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
@@ -52,4 +56,5 @@ test("normalized event union contains every STEP 1 event type", () => {
   }
   assert.match(client, /onUnknown/);
   assert.match(client, /normalizeEvent/);
+  assert.match(client, /lastEventId/);
 });

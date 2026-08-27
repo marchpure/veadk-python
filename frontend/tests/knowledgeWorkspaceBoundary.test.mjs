@@ -18,6 +18,12 @@ test("production feature is bound to the same-origin knowledge BFF", () => {
   assert.match(client, /Idempotency-Key/);
   assert.match(client, /If-Match/);
   assert.match(client, /Last-Event-ID/);
+  assert.match(client, /withLocalUser\(headers\)/);
+  assert.match(client, /withLocalUser\(\)/);
+  assert.match(client, /getConnection/);
+  assert.match(client, /updateDraft/);
+  assert.match(client, /freezeRevision/);
+  assert.match(client, /invokePublication/);
 });
 
 test("production feature does not carry prototype business state or outcomes", () => {
@@ -61,4 +67,7 @@ test("route states and server errors remain actionable without client outcomes",
   assert.match(page, /terminalInvocationRef/);
   assert.match(page, /CreationRail/);
   assert.match(page, /config_schema\.required/);
+  assert.doesNotMatch(page, /route\.runState|route\.state/);
+  assert.match(page, /knowledgeApi\.validateConnection\(created\.data\.connection_id\)/);
+  assert.match(page, /connectionId/);
 });

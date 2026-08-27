@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { withAuth } from "../../../adk/auth";
 import type { Artifact } from "../domain/types";
 
 interface ArtifactViewerProps {
@@ -12,7 +13,7 @@ function controlledArtifactUrl(uri: string): string | null {
       url.origin !== window.location.origin ||
       !url.pathname.startsWith("/api/knowledge/v1/artifacts/")
     ) return null;
-    return url.toString();
+    return withAuth(url.toString());
   } catch {
     return null;
   }

@@ -50,12 +50,34 @@ export interface CreateDraftInput {
   upload_ids?: string[];
 }
 
+export interface UpdateDraftInput {
+  goal?: string;
+  connection_ids?: string[];
+  trial_task?: string;
+}
+
 export interface UploadResult {
   upload_id: string;
   filename: string;
   sha256: string;
   size_bytes: number;
   media_type?: string;
+}
+
+export interface JobResult {
+  job_id: string;
+  status: "queued" | "running";
+  event_url?: string;
+}
+
+export interface FreezeRevisionInput {
+  invocation_id: string;
+}
+
+export interface PublicationInvokeInput {
+  message: string;
+  connection_ids?: string[];
+  upload_ids?: string[];
 }
 
 type RequestOptions = RequestInit & {
@@ -109,15 +131,16 @@ async function request<T>(
   options: RequestOptions = {},
 ): Promise<{ envelope: ApiEnvelope<T>; response: Response }> {
   const headers = new Headers(options.headers);
+  const identityHeaders = withLocalUser(headers);
   if (options.body && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
+    identityHeaders.set("Content-Type", "application/json");
   }
-  if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey);
-  if (options.etag) headers.set("If-Match", options.etag);
-  if (options.ifNoneMatch) headers.set("If-None-Match", options.ifNoneMatch);
+  if (options.idempotencyKey) identityHeaders.set("Idempotency-Key", options.idempotencyKey);
+  if (options.etag) identityHeaders.set("If-Match", options.etag);
+  if (options.ifNoneMatch) identityHeaders.set("If-None-Match", options.ifNoneMatch);
   const response = await fetch(withAuth(`${API_ROOT}${path}`), {
     ...options,
-    headers,
+    headers: identityHeaders,
   });
   if (!response.ok) throw await readError(response);
   if (response.status === 204) {
@@ -137,20 +160,24 @@ function key(prefix: string): string {
 export interface KnowledgeApi {
   listConnectorDefinitions(signal?: AbortSignal): Promise<ApiEnvelope<ConnectorDefinition[]>>;
   listConnections(signal?: AbortSignal): Promise<ApiEnvelope<ConnectionProfile[]>>;
+  getConnection(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<ConnectionProfile>; etag: string }>;
   createConnection(input: CreateConnectionInput): Promise<ApiEnvelope<ConnectionProfile>>;
   uploadFile(file: File, purpose: "context" | "skill_input", onProgress?: (percent: number) => void): Promise<ApiEnvelope<UploadResult>>;
-  validateConnection(id: string): Promise<ApiEnvelope<{ job_id: string; status: "queued" | "running"; event_url?: string }>>;
-  discoverConnection(id: string): Promise<ApiEnvelope<{ job_id: string; status: "queued" | "running"; event_url?: string }>>;
+  validateConnection(id: string): Promise<ApiEnvelope<JobResult>>;
+  discoverConnection(id: string): Promise<ApiEnvelope<JobResult>>;
   listDrafts(signal?: AbortSignal): Promise<ApiEnvelope<Draft[]>>;
   getDraft(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   createDraft(input: CreateDraftInput): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
+  updateDraft(id: string, input: UpdateDraftInput, etag?: string): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   generateDraft(id: string, etag?: string, message?: string): Promise<ApiEnvelope<Invocation>>;
-  sendDraftMessage(id: string, message: string, intent: "update" | "run", etag?: string): Promise<ApiEnvelope<Invocation>>;
+  sendDraftMessage(id: string, message: string, intent: "update" | "run", etag?: string, uploadIds?: string[]): Promise<ApiEnvelope<Invocation>>;
   cancelInvocation(id: string): Promise<ApiEnvelope<Invocation>>;
   listRevisions(id: string, signal?: AbortSignal): Promise<ApiEnvelope<Revision[]>>;
-  runRevision(id: string, connection_ids: string[], message: string): Promise<ApiEnvelope<Invocation>>;
+  freezeRevision(id: string, input: FreezeRevisionInput, etag?: string): Promise<{ value: ApiEnvelope<Revision>; etag: string }>;
+  runRevision(id: string, connection_ids: string[], message: string, uploadIds?: string[]): Promise<ApiEnvelope<Invocation>>;
   getArtifact(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Artifact>; etag: string }>;
   publishRevision(id: string, target_space: "personal" | "team", display_name?: string): Promise<ApiEnvelope<Publication>>;
+  invokePublication(id: string, input: PublicationInvokeInput): Promise<ApiEnvelope<Invocation>>;
   streamInvocationEvents(
     invocation: Invocation,
     options: { signal?: AbortSignal; lastEventId?: string; onUnknown?: (event: ArchivedInvocationEvent) => void },
@@ -165,6 +192,10 @@ export const knowledgeApi: KnowledgeApi = {
   async listConnections(signal) {
     const result = await request<ConnectionProfile[]>("/connections", { signal });
     return result.envelope;
+  },
+  async getConnection(id, signal) {
+    const result = await request<ConnectionProfile>(`/connections/${encodeURIComponent(id)}`, { signal });
+    return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
   },
   async createConnection(input) {
     const result = await request<ConnectionProfile>("/connections", {
@@ -200,14 +231,14 @@ export const knowledgeApi: KnowledgeApi = {
     return envelope<UploadResult>(await response.json(), "/uploads");
   },
   async validateConnection(id) {
-    const result = await request<{ job_id: string; status: "queued" | "running"; event_url?: string }>(
+    const result = await request<JobResult>(
       `/connections/${encodeURIComponent(id)}/validate`,
       { method: "POST", body: JSON.stringify({}), idempotencyKey: key("validate") },
     );
     return result.envelope;
   },
   async discoverConnection(id) {
-    const result = await request<{ job_id: string; status: "queued" | "running"; event_url?: string }>(
+    const result = await request<JobResult>(
       `/connections/${encodeURIComponent(id)}/discover`,
       { method: "POST", body: JSON.stringify({}), idempotencyKey: key("discover") },
     );
@@ -229,6 +260,15 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
   },
+  async updateDraft(id, input, etag) {
+    const result = await request<Draft>(`/skills/drafts/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+      etag,
+      idempotencyKey: key("draft-update"),
+    });
+    return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
+  },
   async generateDraft(id, etag, message) {
     const result = await request<Invocation>(`/skills/drafts/${encodeURIComponent(id)}/generate`, {
       method: "POST",
@@ -238,10 +278,14 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return result.envelope;
   },
-  async sendDraftMessage(id, message, intent, etag) {
+  async sendDraftMessage(id, message, intent, etag, uploadIds) {
     const result = await request<Invocation>(`/skills/drafts/${encodeURIComponent(id)}/messages`, {
       method: "POST",
-      body: JSON.stringify({ message, intent }),
+      body: JSON.stringify({
+        message,
+        intent,
+        ...(uploadIds?.length ? { upload_ids: uploadIds } : {}),
+      }),
       etag,
       idempotencyKey: key("message"),
     });
@@ -261,10 +305,23 @@ export const knowledgeApi: KnowledgeApi = {
     );
     return result.envelope;
   },
-  async runRevision(id, connection_ids, message) {
+  async freezeRevision(id, input, etag) {
+    const result = await request<Revision>(`/skills/drafts/${encodeURIComponent(id)}/revisions`, {
+      method: "POST",
+      body: JSON.stringify(input),
+      etag,
+      idempotencyKey: key("revision"),
+    });
+    return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
+  },
+  async runRevision(id, connection_ids, message, uploadIds) {
     const result = await request<Invocation>(`/skill-revisions/${encodeURIComponent(id)}/run`, {
       method: "POST",
-      body: JSON.stringify({ connection_ids, message }),
+      body: JSON.stringify({
+        connection_ids,
+        message,
+        ...(uploadIds?.length ? { upload_ids: uploadIds } : {}),
+      }),
       idempotencyKey: key("run"),
     });
     return result.envelope;
@@ -281,10 +338,20 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return result.envelope;
   },
+  async invokePublication(id, input) {
+    const result = await request<Invocation>(`/publications/${encodeURIComponent(id)}/invoke`, {
+      method: "POST",
+      body: JSON.stringify(input),
+      idempotencyKey: key("publication-invoke"),
+    });
+    return result.envelope;
+  },
   async *streamInvocationEvents(invocation, options) {
     const url = withAuth(`${API_ROOT}/invocations/${encodeURIComponent(invocation.invocation_id)}/events`);
+    const headers = withLocalUser();
+    if (options.lastEventId) headers.set("Last-Event-ID", options.lastEventId);
     const response = await fetch(url, {
-      headers: options.lastEventId ? { "Last-Event-ID": options.lastEventId } : undefined,
+      headers,
       signal: options.signal,
     });
     if (!response.ok) throw await readError(response);

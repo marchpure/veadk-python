@@ -186,9 +186,20 @@ async function main() {
     created_at: "2026-08-27T00:00:00Z",
   };
   const envelope = (data) => JSON.stringify({ data, meta: { request_id: "capture" } });
+  const errorEnvelope = (code, message, retryable = false) => JSON.stringify({
+    error: { code, message, retryable },
+    meta: { request_id: "capture" },
+  });
   await page.route("**/api/knowledge/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    const state = new URL(page.url()).searchParams;
+    const runState = state.get("run_state") || "";
+    const resourceState = state.get("state") || "";
+    const stateDraft = {
+      ...draft,
+      lifecycle: runState === "failed" ? "failed" : "generated",
+    };
     if (url.pathname === "/api/knowledge/v1/connector-definitions") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([{
         connector_key: "contract-http",
@@ -202,9 +213,29 @@ async function main() {
     } else if (url.pathname === "/api/knowledge/v1/connections") {
       await route.fulfill({ status: request.method() === "POST" ? 201 : 200, headers: { ETag: "capture-v1" }, contentType: "application/json", body: envelope(request.method() === "POST" ? connection : [connection]) });
     } else if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "GET") {
-      await route.fulfill({ status: 200, contentType: "application/json", body: envelope([draft]) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: envelope([stateDraft]) });
     } else if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`) {
-      await route.fulfill({ status: 200, headers: { ETag: "capture-v1" }, contentType: "application/json", body: envelope(draft) });
+      if (resourceState === "permission") {
+        await route.fulfill({
+          status: 403,
+          contentType: "application/json",
+          body: errorEnvelope("FORBIDDEN", "当前账号没有访问该资源的权限。"),
+        });
+      } else if (resourceState === "connection_error") {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: errorEnvelope("CONNECTION_NOT_READY", "连接尚未可用，请先完成验证。", true),
+        });
+      } else if (resourceState === "upgrade") {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: errorEnvelope("PUBLISH_GATE_FAILED", "当前能力需要升级服务配置。"),
+        });
+      } else {
+        await route.fulfill({ status: 200, headers: { ETag: "capture-v1" }, contentType: "application/json", body: envelope(stateDraft) });
+      }
     } else if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/revisions`) {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([revision]) });
     } else {

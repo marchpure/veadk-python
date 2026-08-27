@@ -70,6 +70,7 @@ async function main() {
   let invocationCount = 0;
   let eventStreamCalls = 0;
   let uploadedIds = [];
+  let validationCalls = 0;
 
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -86,6 +87,23 @@ async function main() {
     }
     if (!url.pathname.startsWith("/api/knowledge/v1")) {
       await route.continue();
+      return;
+    }
+    if (url.pathname.endsWith("/validate") && request.method() === "POST") {
+      validationCalls += 1;
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: envelope({ job_id: "validation-contract", status: "queued" }),
+      });
+      return;
+    }
+    if (url.pathname.endsWith("/discover") && request.method() === "POST") {
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: envelope({ job_id: "discovery-contract", status: "queued" }),
+      });
       return;
     }
     if (url.pathname === "/api/knowledge/v1/connector-definitions") {
@@ -182,7 +200,7 @@ async function main() {
         failedFrames
           ? `id: evt-6\nevent: run.failed\ndata: ${JSON.stringify({ id: "evt-6", type: "run.failed", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { status: "failed", finished_at: "2026-08-27T00:00:01Z", error: { code: "AUTOSKILL_UNAVAILABLE", message: "试跑服务暂不可用。", retryable: true } } })}\n\n`
           : `id: evt-6\nevent: run.completed\ndata: ${JSON.stringify({ id: "evt-6", type: "run.completed", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { status: "succeeded", finished_at: "2026-08-27T00:00:01Z", revision_id: revision.revision_id, artifact_ids: [artifact.artifact_id] } })}\n\n`,
-      ].slice(0, reconnectOnlyFrames ? 3 : undefined).join("");
+      ].slice(0, reconnectOnlyFrames ? 2 : undefined).join("");
       await route.fulfill({ status: 200, headers: { "Content-Type": "text/event-stream" }, body: frames });
       return;
     }
@@ -250,6 +268,7 @@ async function main() {
 
   assert.equal(invocationCount, 3);
   assert.equal(eventStreamCalls, 4);
+  assert.equal(validationCalls, 1);
   assert.equal(published, true);
   assert.ok(calls.some((call) => call.includes("/events")));
   assert.ok(calls.some((call) => call.includes("/publish")));
