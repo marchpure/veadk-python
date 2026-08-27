@@ -8,6 +8,7 @@ import os
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -29,6 +30,7 @@ class AutoSkillConfig:
     idle_timeout_seconds: float = 60.0
     max_reconnects: int = 2
     max_event_bytes: int = 2 * 1024 * 1024
+    max_response_bytes: int = 20 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "AutoSkillConfig":
@@ -41,7 +43,13 @@ class AutoSkillConfig:
 
 class AutoSkillClient:
     def __init__(self, config: AutoSkillConfig, *, client: httpx.AsyncClient | None = None) -> None:
-        if not config.base_url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
+        parsed = urlsplit(config.base_url)
+        hostname = (parsed.hostname or "").casefold()
+        local_hosts = {"localhost", "127.0.0.1", "::1"}
+        if (
+            parsed.scheme != "https"
+            and not (parsed.scheme == "http" and hostname in local_hosts)
+        ) or not hostname or parsed.query or parsed.fragment:
             raise ValueError("AutoSkill base URL must be server-configured HTTPS")
         self.config = config
         self._client = client
@@ -61,6 +69,15 @@ class AutoSkillClient:
             response = await client.request(method, self._url(path), headers=self._headers(), **kwargs)
             if response.status_code >= 400:
                 raise AutoSkillProtocolError(f"AutoSkill {path} returned HTTP {response.status_code}")
+            content_length = response.headers.get("content-length")
+            if content_length:
+                try:
+                    if int(content_length) > self.config.max_response_bytes:
+                        raise AutoSkillProtocolError(f"AutoSkill {path} response exceeds configured size limit")
+                except ValueError as exc:
+                    raise AutoSkillProtocolError(f"AutoSkill {path} returned invalid content length") from exc
+            if len(response.content) > self.config.max_response_bytes:
+                raise AutoSkillProtocolError(f"AutoSkill {path} response exceeds configured size limit")
             return response
         finally:
             if owns:
@@ -197,6 +214,8 @@ class AutoSkillClient:
             content_type = response.headers.get("content-type", "").casefold()
             if "application/json" in content_type:
                 raw_body = await response.aread()
+                if len(raw_body) > self.config.max_response_bytes:
+                    raise AutoSkillProtocolError(f"AutoSkill {path} response exceeds configured size limit")
                 try:
                     payload = response.json()
                 except (ValueError, json.JSONDecodeError) as exc:
@@ -223,6 +242,7 @@ class AutoSkillClient:
             iterator = response.aiter_bytes().__aiter__()
             first_event_seen = False
             terminal_seen = False
+            stream_bytes = 0
             async with asyncio.timeout(self.config.timeout_seconds):
                 while True:
                     timeout = (
@@ -238,6 +258,11 @@ class AutoSkillClient:
                         raise AutoSkillProtocolError(
                             "AutoSkill SSE first-event/idle timeout"
                         ) from exc
+                    stream_bytes += len(chunk)
+                    if stream_bytes > self.config.max_response_bytes:
+                        raise AutoSkillProtocolError(
+                            f"AutoSkill {path} stream exceeds configured size limit"
+                        )
                     try:
                         frames = parser.feed(chunk)
                     except ValueError as exc:

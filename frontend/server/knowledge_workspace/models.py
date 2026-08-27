@@ -88,6 +88,7 @@ class Invocation(ImmutableModel):
     autoskill_agent_id: str = Field(min_length=1, max_length=160)
     autoskill_session_id: str = Field(min_length=1, max_length=160)
     autoskill_request_id: str = Field(min_length=1, max_length=160)
+    autoskill_request_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=32)
     principal_id: str = Field(default="legacy", min_length=1, max_length=160)
     message: str = Field(default="", max_length=20_000)
     model: str | None = Field(default=None, max_length=256)

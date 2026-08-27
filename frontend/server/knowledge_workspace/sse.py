@@ -30,10 +30,10 @@ _SECRET_KEYS = {
     "access_key", "access_key_id", "api_key", "authorization", "cookie",
     "credential", "password", "secret", "secret_key", "session_token", "token",
 }
-_SECRET_TEXT = re.compile(
-    r"(?i)(?:bearer\s+[A-Za-z0-9._~+/=-]+|"
-    r"(?:api[_-]?key|access[_-]?key|secret|password|token)\s*[:=]\s*[^\s,;]+)"
+_SECRET_ASSIGNMENT = re.compile(
+    r"""(?i)["']?(?:api[_-]?key|access[_-]?key|authorization|cookie|credential|password|secret|session[_-]?token|token)["']?\s*[:=]\s*(?:["']?bearer\s+)?["']?[^\s,;}"']+"""
 )
+_SECRET_BEARER = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
 
 
 def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
@@ -47,7 +47,9 @@ def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, str):
-        return _SECRET_TEXT.sub("[REDACTED]", value[:8_000])
+        bounded = value[:8_000]
+        bounded = _SECRET_ASSIGNMENT.sub("[REDACTED]", bounded)
+        return _SECRET_BEARER.sub("[REDACTED]", bounded)
     if isinstance(value, Mapping):
         return {
             str(item_key)[:160]: sanitize_event_payload(item, key=str(item_key), depth=depth + 1)
@@ -81,7 +83,10 @@ class SseParser:
         for line in lines:
             if line == "":
                 if self._data:
-                    frames.append(SseFrame(self._event_id, self._event_name, "\n".join(self._data)))
+                    data = "\n".join(self._data)
+                    if len(data.encode("utf-8")) > self._max_buffer_bytes:
+                        raise ValueError("SSE frame exceeds configured buffer limit")
+                    frames.append(SseFrame(self._event_id, self._event_name, data))
                 elif self._event_id is None and self._event_name is None:
                     frames.append(SseFrame(None, None, "", heartbeat=True))
                 self._event_id = self._event_name = None
@@ -99,6 +104,8 @@ class SseParser:
                 self._event_name = value
             elif field == "data":
                 self._data.append(value)
+                if sum(len(item.encode("utf-8")) for item in self._data) > self._max_buffer_bytes:
+                    raise ValueError("SSE data exceeds configured buffer limit")
         return frames
 
     def finish(self) -> list[SseFrame]:
@@ -108,7 +115,10 @@ class SseParser:
             frames = []
         if not self._data:
             return frames
-        frame = SseFrame(self._event_id, self._event_name, "\n".join(self._data))
+        data = "\n".join(self._data)
+        if len(data.encode("utf-8")) > self._max_buffer_bytes:
+            raise ValueError("SSE frame exceeds configured buffer limit")
+        frame = SseFrame(self._event_id, self._event_name, data)
         self._event_id = self._event_name = None
         self._data = []
         return frames + [frame]
@@ -121,7 +131,11 @@ def parse_upstream_frame(frame: SseFrame) -> ParsedUpstreamEvent | None:
         value = json.loads(frame.data)
     except json.JSONDecodeError:
         return ParsedUpstreamEvent(
-            frame.event_id, frame.event or "unknown", {"raw": frame.data}, frame.data, True
+            frame.event_id,
+            frame.event or "unknown",
+            {"raw": sanitize_event_payload(frame.data)},
+            sanitize_event_payload(frame.data),
+            True,
         )
     if not isinstance(value, Mapping):
         return ParsedUpstreamEvent(

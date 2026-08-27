@@ -73,15 +73,20 @@ def mount_knowledge_workspace_routes(
     service: KnowledgeWorkspaceService,
     *,
     actor_resolver: Callable[[Request], Actor] | None = None,
+    allow_insecure_test_headers: bool = False,
     prefix: str = "/api/knowledge/v1",
 ) -> None:
+    if actor_resolver is None and not allow_insecure_test_headers:
+        raise ValueError(
+            "a trusted server-side actor_resolver is required; "
+            "allow_insecure_test_headers is test-only"
+        )
     app.router.on_startup.append(service.resume_pending)
 
     def actor(request: Request) -> Actor:
         if actor_resolver:
             return actor_resolver(request)
-        # Production composition should replace this with trusted gateway
-        # claims; headers are intentionally only a local/test adapter.
+        # This branch is deliberately opt-in and exists only for local tests.
         return Actor(
             tenant_id=request.headers.get("x-tenant-id", "local-tenant"),
             workspace_id=request.headers.get("x-workspace-id", "local-workspace"),

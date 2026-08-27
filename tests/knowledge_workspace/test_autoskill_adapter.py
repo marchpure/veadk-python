@@ -349,3 +349,16 @@ def test_sse_payload_redacts_inline_bearer_and_secret_assignments() -> None:
     assert "[REDACTED]" in parsed.payload["data"]["text"]
     assert "abc.def" not in json.dumps(parsed.payload)
     assert "plain-secret" not in json.dumps(parsed.payload)
+
+
+def test_malformed_sse_raw_evidence_is_redacted_and_bounded() -> None:
+    parsed = parse_sse(["data: {not-json token=plain-secret}\n\n"])[0]
+    assert parsed.malformed is True
+    assert "plain-secret" not in parsed.raw
+    assert "[REDACTED]" in parsed.raw
+
+
+def test_sse_parser_enforces_complete_frame_size() -> None:
+    parser = SseParser(max_buffer_bytes=8)
+    with pytest.raises(ValueError, match="buffer limit"):
+        parser.feed("data: 123456789\n\n")

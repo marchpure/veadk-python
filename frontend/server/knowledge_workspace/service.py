@@ -27,6 +27,7 @@ from .models import (
     utc_now,
 )
 from .repository import KnowledgeWorkspaceRepository
+from .registry import PublicationRegistryPort
 from .sse import ParsedUpstreamEvent, normalize_upstream_event, sanitize_event_payload
 from .zip_validator import SkillZipError, validate_skill_zip
 
@@ -51,10 +52,12 @@ class KnowledgeWorkspaceService:
         repository: KnowledgeWorkspaceRepository,
         autoskill: AutoSkillClient,
         connection_context: ConnectionInvocationContextPort | None = None,
+        publication_registry: PublicationRegistryPort | None = None,
     ) -> None:
         self.repository = repository
         self.autoskill = autoskill
         self.connection_context = connection_context
+        self.publication_registry = publication_registry
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._cancelled: set[str] = set()
 
@@ -68,11 +71,19 @@ class KnowledgeWorkspaceService:
                 "autoskill_agent_id",
                 "autoskill_session_id",
                 "autoskill_request_id",
+                "tenant_id",
+                "workspace_id",
+                "token",
+                "access_token",
+                "refresh_token",
+                "authorization",
+                "upstream_url",
+                "provider_url",
             }
             return {
                 str(key): KnowledgeWorkspaceService._public_value(item)
                 for key, item in value.items()
-                if str(key) not in hidden
+                if str(key).casefold() not in hidden
             }
         if isinstance(value, (list, tuple)):
             return [KnowledgeWorkspaceService._public_value(item) for item in value]
@@ -111,18 +122,14 @@ class KnowledgeWorkspaceService:
             "number": revision.number,
             "skill_name": revision.skill_name,
             "sha256": revision.sha256,
-            "manifest": revision.manifest,
+            "manifest": KnowledgeWorkspaceService._public_value(revision.manifest),
             "created_from_invocation": revision.created_from_invocation,
             "created_at": revision.created_at,
         }
 
     @staticmethod
     def public_artifact(artifact: Artifact) -> dict[str, object]:
-        lineage = {
-            key: value
-            for key, value in artifact.lineage.items()
-            if key not in {"autoskill_request_id", "autoskill_agent_id", "autoskill_session_id"}
-        }
+        lineage = KnowledgeWorkspaceService._public_value(artifact.lineage)
         return {
             "artifact_id": artifact.artifact_id,
             "revision_id": artifact.revision_id,
@@ -392,6 +399,10 @@ class KnowledgeWorkspaceService:
             autoskill_agent_id=autoskill_agent_id or session.autoskill_agent_id,
             autoskill_session_id=autoskill_session_id or session.autoskill_session_id,
             autoskill_request_id=new_id("request"),
+            autoskill_request_ids=(),
+        )
+        invocation = invocation.model_copy(
+            update={"autoskill_request_ids": (invocation.autoskill_request_id,)}
         )
         self.repository.save_invocation(invocation)
         self.repository.save_draft(draft.model_copy(update={"status": DraftStatus.GENERATING, "updated_at": utc_now()}))
@@ -758,6 +769,124 @@ class KnowledgeWorkspaceService:
             None,
         )
 
+    def _record_request_id(self, invocation: Invocation, request_id: str) -> Invocation:
+        """Persist every provider request used by one invocation."""
+
+        persisted = self.repository.get_invocation(
+            invocation.invocation_id,
+            tenant_id=invocation.tenant_id,
+            workspace_id=invocation.workspace_id,
+        ) or invocation
+        if request_id in persisted.autoskill_request_ids:
+            return persisted
+        updated = persisted.model_copy(
+            update={"autoskill_request_ids": (*persisted.autoskill_request_ids, request_id)}
+        )
+        self.repository.save_invocation(updated)
+        return updated
+
+    async def _skill_command(
+        self,
+        command: str,
+        *,
+        agent_id: str,
+        session_id: str,
+        request_id: str,
+        name: str | None = None,
+        state: bytes | None = None,
+        invocation: Invocation | None = None,
+    ) -> list[ParsedUpstreamEvent]:
+        """Collect one query command and reject protocol errors.
+
+        Skill queries are part of the revision completion gate.  A provider
+        error, malformed event, unknown event, or missing terminal ``done``
+        therefore cannot be treated as an empty/partial query result.
+        """
+
+        allowed = {
+            "planning",
+            "action",
+            "observation",
+            "final_answer",
+            "request_summary",
+            "state_update",
+            "error",
+            "done",
+        }
+        result: list[ParsedUpstreamEvent] = []
+        terminal = False
+        reconnects = 0
+        stream: AsyncIterator[ParsedUpstreamEvent] = self.autoskill.command(
+            command,
+            agent_id=agent_id,
+            session_id=session_id,
+            request_id=request_id,
+            name=name,
+            state=state,
+        )
+        if invocation is not None:
+            self._record_request_id(invocation, request_id)
+        while not terminal:
+            try:
+                async for event in stream:
+                    kind = event.event_type.casefold().replace("-", "_")
+                    result.append(event)
+                    if invocation is not None:
+                        self.repository.append_event(
+                            invocation.invocation_id,
+                            sanitize_event_payload(event.payload),
+                            None,
+                            f"{request_id}:{event.event_id}" if event.event_id else None,
+                        )
+                    if event.malformed or kind not in allowed:
+                        raise KnowledgeWorkspaceError(
+                            "AUTOSKILL_PROTOCOL_ERROR",
+                            f"AutoSkill emitted an invalid {command} event",
+                            502,
+                        )
+                    if kind == "error":
+                        raise KnowledgeWorkspaceError(
+                            "AUTOSKILL_PROTOCOL_ERROR",
+                            f"AutoSkill {command} returned an error",
+                            502,
+                        )
+                    if kind == "done":
+                        terminal = True
+                        break
+                if terminal:
+                    break
+                raise AutoSkillProtocolError(
+                    f"AutoSkill {command} disconnected before done"
+                )
+            except AutoSkillProtocolError:
+                max_reconnects = getattr(
+                    getattr(self.autoskill, "config", None), "max_reconnects", 2
+                )
+                if reconnects >= max_reconnects:
+                    raise
+                reconnects += 1
+                last_event_id = next(
+                    (
+                        item.event_id
+                        for item in reversed(result)
+                        if item.event_id
+                    ),
+                    None,
+                )
+                stream = self.autoskill.reconnect(
+                    agent_id=agent_id,
+                    session_id=session_id,
+                    request_id=request_id,
+                    last_event_id=last_event_id,
+                )
+        if not terminal:
+            raise KnowledgeWorkspaceError(
+                "AUTOSKILL_PROTOCOL_ERROR",
+                f"AutoSkill {command} disconnected before done",
+                502,
+            )
+        return result
+
     async def _with_reconnect(self, stream: AsyncIterator[ParsedUpstreamEvent], actor: Actor, invocation: Invocation, session: AuthoringSession) -> AsyncIterator[ParsedUpstreamEvent]:
         current = stream
         reconnects = 0
@@ -897,16 +1026,16 @@ class KnowledgeWorkspaceService:
         try:
             # Query the actual service for the Skill list/view and download.
             state = self._session_state(session) if getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless" else None
-            names = self.autoskill.command(
+            names = await self._skill_command(
                 "list_skill",
-            agent_id=invocation.autoskill_agent_id,
-            session_id=invocation.autoskill_session_id,
+                agent_id=invocation.autoskill_agent_id,
+                session_id=invocation.autoskill_session_id,
                 request_id=new_id("request"),
                 state=state,
+                invocation=invocation,
             )
             skill_name = None
-            list_done = False
-            async for event in names:
+            for event in names:
                 if event.event_type == "final_answer":
                     data = event.payload.get("data", {})
                     answer = data.get("answer") if isinstance(data, Mapping) else ""
@@ -923,33 +1052,28 @@ class KnowledgeWorkspaceService:
                                         skill_name = first.get("name")
                     except (TypeError, ValueError, IndexError, AttributeError):
                         pass
-                if event.event_type == "done":
-                    list_done = True
-                    break
-            if not skill_name or not list_done:
+            if not skill_name:
                 raise KnowledgeWorkspaceError("SKILL_ZIP_INVALID", "AutoSkill did not return a Skill name", 502)
             view_request = new_id("request")
-            view_stream = self.autoskill.command(
+            invocation = self._record_request_id(invocation, view_request)
+            view_events = await self._skill_command(
                 "view_skill",
                 agent_id=invocation.autoskill_agent_id,
                 session_id=invocation.autoskill_session_id,
                 request_id=view_request,
                 name=skill_name,
                 state=state,
+                invocation=invocation,
             )
             view_seen = False
-            view_done = False
             view_content = ""
-            async for event in view_stream:
+            for event in view_events:
                 if event.event_type == "final_answer":
                     view_seen = True
                     data = event.payload.get("data", {})
                     answer = data.get("answer") if isinstance(data, Mapping) else ""
                     view_content = str(answer or "").strip()
-                if event.event_type == "done":
-                    view_done = True
-                    break
-            if not view_seen or not view_content or not view_done:
+            if not view_seen or not view_content:
                 raise KnowledgeWorkspaceError("SKILL_ZIP_INVALID", "view_skill did not return readable content", 502)
             zip_bytes = await self.autoskill.download(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, file_type="skill", name=skill_name)
             manifest = validate_skill_zip(zip_bytes)
@@ -1097,23 +1221,26 @@ class KnowledgeWorkspaceService:
                 tenant_id=actor.tenant_id,
                 workspace_id=actor.workspace_id,
             )
-            if item.kind is InvocationKind.RUN and item.status is InvocationStatus.SUCCEEDED
+            if (
+                item.kind is InvocationKind.RUN
+                and item.status is InvocationStatus.SUCCEEDED
+                and item.lease_id
+            )
         ]
-        if not successful_runs or not self.repository.artifacts_for_revision(
+        artifacts = self.repository.artifacts_for_revision(
             revision_id,
             tenant_id=actor.tenant_id,
             workspace_id=actor.workspace_id,
+        )
+        successful_run_ids = {item.invocation_id for item in successful_runs}
+        if not successful_runs or not any(
+            artifact.invocation_id in successful_run_ids for artifact in artifacts
         ):
             raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "a successful real run and artifact are required", 409)
         try:
             checked_zip = validate_skill_zip(self.repository.read_object(revision.zip_uri))
             if checked_zip["sha256"] != revision.sha256:
                 raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "revision ZIP digest changed", 409)
-            artifacts = self.repository.artifacts_for_revision(
-                revision_id,
-                tenant_id=actor.tenant_id,
-                workspace_id=actor.workspace_id,
-            )
             for artifact in artifacts:
                 content = self.repository.read_object(artifact.uri)
                 if hashlib.sha256(content).hexdigest() != artifact.sha256:
@@ -1156,6 +1283,26 @@ class KnowledgeWorkspaceService:
             ],
             "consumer_reauthorization_required": True,
         }
+        if self.publication_registry is not None:
+            try:
+                self.publication_registry.register_publication(
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                    publication_id=publication_id,
+                    revision_id=revision_id,
+                    skill_name=revision.skill_name,
+                    revision_sha256=revision.sha256,
+                    artifact_sha256=tuple(item.sha256 for item in artifacts),
+                    target_space=target_space,
+                    published_by=actor.principal_id,
+                    policy_snapshot=policy_snapshot,
+                )
+            except Exception as exc:
+                raise KnowledgeWorkspaceError(
+                    "PUBLISH_GATE_FAILED",
+                    "cross-Agent publication registry rejected the revision",
+                    409,
+                ) from exc
         return self.repository.save_publication(
             Publication(
                 tenant_id=actor.tenant_id,

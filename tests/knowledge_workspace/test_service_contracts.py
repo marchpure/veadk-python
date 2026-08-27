@@ -90,6 +90,14 @@ class FakeLeasePort:
         self.revoked.append(lease_id)
 
 
+class FakePublicationRegistry:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def register_publication(self, **kwargs: object) -> None:
+        self.calls.append(kwargs)
+
+
 def make_service(events: Sequence[ParsedUpstreamEvent]) -> tuple[KnowledgeWorkspaceService, Actor, FakeLeasePort]:
     lease = FakeLeasePort()
     service = KnowledgeWorkspaceService(
@@ -110,6 +118,16 @@ class FreezeAutoSkill(FakeAutoSkill):
         if command == "view_skill":
             for item in (event("final_answer", {"answer": "# Demo"}), event("done")):
                 yield item
+            return
+        async for item in super().command(command, **kwargs):
+            yield item
+
+
+class QueryFailureAutoSkill(FreezeAutoSkill):
+    async def command(self, command: str, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+        if command == "list_skill":
+            yield event("error", {"code": "QUERY_FAILED", "message": "no list"})
+            yield event("done")
             return
         async for item in super().command(command, **kwargs):
             yield item
@@ -161,6 +179,52 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
 
 
 @pytest.mark.asyncio
+async def test_publication_requires_invocation_lease_and_registers_fixed_revision() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    registry = FakePublicationRegistry()
+    lease = FakeLeasePort()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        FreezeAutoSkill(
+            [
+                event("final_answer", {"answer": "created"}),
+                event("request_summary", {"status": "success"}),
+                event("done"),
+            ]
+        ),
+        lease,
+        registry,
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+    run = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    saved = service.repository.get_invocation(
+        run.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None and saved.lease_id
+    service.repository.save_invocation(saved.model_copy(update={"lease_id": None}))
+    with pytest.raises(KnowledgeWorkspaceError, match="successful real run"):
+        service.publish(actor, revision.revision_id, "personal")
+
+    service.repository.save_invocation(saved)
+    publication = service.publish(actor, revision.revision_id, "personal")
+    assert publication.revision_id == revision.revision_id
+    assert registry.calls[0]["revision_id"] == revision.revision_id
+    assert registry.calls[0]["publication_id"] == publication.publication_id
+
+
+@pytest.mark.asyncio
 async def test_publication_consumer_gets_fresh_autoskill_identity() -> None:
     service, actor = make_freeze_service()
     draft = service.create_draft(actor, "goal", ["connection-a"])
@@ -204,6 +268,44 @@ async def test_freeze_idempotency_replays_existing_revision() -> None:
         if_match="stale-etag",
     )
     assert second.revision_id == first.revision_id
+
+
+@pytest.mark.asyncio
+async def test_freeze_fails_closed_when_skill_query_emits_error() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        QueryFailureAutoSkill(
+            [
+                event("final_answer", {"answer": "created"}),
+                event("request_summary", {"status": "success"}),
+                event("done"),
+            ]
+        ),
+        FakeLeasePort(),
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    with pytest.raises(KnowledgeWorkspaceError, match="error"):
+        await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+
+
+@pytest.mark.asyncio
+async def test_freeze_persists_distinct_query_request_ids() -> None:
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+    saved = service.repository.get_invocation(
+        invocation.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None
+    assert len(saved.autoskill_request_ids) >= 3
+    assert len(saved.autoskill_request_ids) == len(set(saved.autoskill_request_ids))
 
 
 @pytest.mark.asyncio

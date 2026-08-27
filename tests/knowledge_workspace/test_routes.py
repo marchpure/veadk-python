@@ -12,6 +12,16 @@ from frontend.server.knowledge_workspace.routes import mount_knowledge_workspace
 from frontend.server.knowledge_workspace.service import KnowledgeWorkspaceService
 
 
+def test_routes_require_trusted_actor_resolver_by_default() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    with pytest.raises(ValueError, match="trusted server-side actor_resolver"):
+        mount_knowledge_workspace_routes(app, service)
+
+
 @pytest.mark.asyncio
 async def test_same_origin_routes_scope_draft_by_server_actor() -> None:
     app = FastAPI()
@@ -19,7 +29,7 @@ async def test_same_origin_routes_scope_draft_by_server_actor() -> None:
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         headers = {
@@ -73,7 +83,7 @@ async def test_create_draft_idempotency_replays_and_conflicts() -> None:
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         headers = {
@@ -102,7 +112,7 @@ async def test_unconfigured_autoskill_fails_closed_on_generate() -> None:
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("credential missing"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         headers = {"x-tenant-id": "t", "x-workspace-id": "w", "x-principal-id": "p"}
@@ -126,7 +136,7 @@ async def test_browser_invocation_response_does_not_expose_upstream_ids() -> Non
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("credential missing"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         headers = {"x-tenant-id": "t", "x-workspace-id": "w", "x-principal-id": "p"}
@@ -153,7 +163,7 @@ async def test_upload_is_idempotent_and_workspace_scoped() -> None:
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     owner = {
         "x-tenant-id": "tenant-a",
@@ -198,7 +208,7 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     headers = {"x-tenant-id": "tenant", "x-workspace-id": "workspace", "x-principal-id": "principal"}
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -239,7 +249,7 @@ async def test_routes_require_concurrency_headers_and_support_not_modified() -> 
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    mount_knowledge_workspace_routes(app, service)
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
     headers = {
         "x-tenant-id": "tenant",

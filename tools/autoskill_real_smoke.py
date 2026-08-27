@@ -158,12 +158,12 @@ async def main() -> int:
                     output_evidence["output_name"] = output_name
                     output_evidence["content_sha256"] = hashlib.sha256(output_content).hexdigest()
             except HtmlArtifactError as error:
-                # A real non-HTML output is valid evidence; unsafe/oversized
-                # HTML is a hard failure and must never be rendered.
+                # A valid output archive without one unambiguous HTML file is
+                # retained as a real file result.  Invalid or unsafe archives
+                # are hard failures and must never be relabeled as text.
                 if error.code not in {
                     "ARTIFACT_HTML_MISSING",
                     "ARTIFACT_HTML_AMBIGUOUS",
-                    "ARTIFACT_OUTPUT_INVALID",
                 }:
                     raise
                 output_evidence["non_html_output"] = True

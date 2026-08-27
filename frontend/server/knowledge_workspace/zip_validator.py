@@ -55,6 +55,7 @@ def validate_skill_zip(
                 normalized += "/"
             if (
                 not raw
+                or "\x00" in raw
                 or path.is_absolute()
                 or "\\" in raw
                 or ".." in path.parts
@@ -77,13 +78,27 @@ def validate_skill_zip(
             expanded += info.file_size
             if expanded > max_expanded_bytes:
                 raise SkillZipError("SKILL_ZIP_EXPANDED_TOO_LARGE", "expanded Skill ZIP is too large")
-            if info.compress_size and info.file_size > info.compress_size * max_compression_ratio:
+            if (
+                (info.compress_size == 0 and info.file_size > 0)
+                or (
+                    info.compress_size
+                    and info.file_size > info.compress_size * max_compression_ratio
+                )
+            ):
                 raise SkillZipError("SKILL_ZIP_COMPRESSION_BOMB", f"suspicious compression ratio: {raw}")
             paths.append(normalized)
 
         if not paths:
             raise SkillZipError("SKILL_ZIP_EMPTY", "Skill ZIP contains no files")
-        roots = {PurePosixPath(path).parts[:2] for path in paths}
+        entries_for_root = [
+            PurePosixPath(path.rstrip("/")).parts
+            for path in (
+                item.filename
+                for item in infos
+                if item.filename and not item.filename.endswith("/")
+            )
+        ]
+        roots = {parts[:2] for parts in entries_for_root}
         if len(roots) != 1:
             raise SkillZipError("SKILL_ZIP_ROOT", "Skill ZIP must have one skillhub/<name>/ root")
         root = next(iter(roots))

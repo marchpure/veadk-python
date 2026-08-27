@@ -20,6 +20,7 @@ from .models import (
     WorkspaceUpload,
 )
 from .repository import KnowledgeWorkspaceRepository
+from .registry import PublicationRegistryPort
 from .routes import mount_knowledge_workspace_routes
 from .service import Actor, KnowledgeWorkspaceService
 from .sse import SseParser, normalize_upstream_event
@@ -40,6 +41,7 @@ __all__ = [
     "InvocationKind",
     "InvocationStatus",
     "KnowledgeWorkspaceRepository",
+    "PublicationRegistryPort",
     "KnowledgeWorkspaceService",
     "mount_knowledge_workspace_routes",
     "Publication",
