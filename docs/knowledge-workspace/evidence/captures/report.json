@@ -16,9 +16,9 @@
       "state_url": "/?file=draft_dash_anta",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443011,
-      "differing_ratio": 0.6958965084876543,
-      "mean_absolute_rgb_delta": 4.360118795010288
+      "differing_pixels": 1443009,
+      "differing_ratio": 0.6958955439814815,
+      "mean_absolute_rgb_delta": 4.3508678948045265
     },
     {
       "index": 3,
@@ -45,34 +45,34 @@
       "pixels": 2073600,
       "differing_pixels": 1443009,
       "differing_ratio": 0.6958955439814815,
-      "mean_absolute_rgb_delta": 4.504628182870371
+      "mean_absolute_rgb_delta": 4.500312660751029
     },
     {
       "index": 6,
       "state_url": "/?file=draft_dash_anta&state=permission",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443076,
-      "differing_ratio": 0.6959278549382716,
-      "mean_absolute_rgb_delta": 12.16883342978395
+      "differing_pixels": 1441589,
+      "differing_ratio": 0.6952107445987654,
+      "mean_absolute_rgb_delta": 12.231143100565843
     },
     {
       "index": 7,
       "state_url": "/?file=draft_dash_anta&state=connection_error",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443076,
-      "differing_ratio": 0.6959278549382716,
-      "mean_absolute_rgb_delta": 12.157059220679013
+      "differing_pixels": 1441429,
+      "differing_ratio": 0.6951335841049383,
+      "mean_absolute_rgb_delta": 12.249179205246914
     },
     {
       "index": 8,
       "state_url": "/?file=draft_dash_anta&state=upgrade",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443010,
-      "differing_ratio": 0.6958960262345679,
-      "mean_absolute_rgb_delta": 5.1041883680555555
+      "differing_pixels": 1441181,
+      "differing_ratio": 0.6950139853395062,
+      "mean_absolute_rgb_delta": 5.170594778806584
     },
     {
       "index": 9,
@@ -106,9 +106,9 @@
       "state_url": "/?file=pub_dash_anta",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 347212,
-      "differing_ratio": 0.1674440586419753,
-      "mean_absolute_rgb_delta": 2.15748247813786
+      "differing_pixels": 335472,
+      "differing_ratio": 0.1617824074074074,
+      "mean_absolute_rgb_delta": 1.6800921103395061
     },
     {
       "index": 13,
@@ -151,18 +151,18 @@
       "state_url": "/?file=draft_sop_bluetooth",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1442736,
-      "differing_ratio": 0.6957638888888888,
-      "mean_absolute_rgb_delta": 4.338896444187243
+      "differing_pixels": 1442738,
+      "differing_ratio": 0.6957648533950618,
+      "mean_absolute_rgb_delta": 4.348147344393004
     },
     {
       "index": 18,
       "state_url": "/?file=draft_sop_haidilao",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1442525,
-      "differing_ratio": 0.6956621334876543,
-      "mean_absolute_rgb_delta": 4.3143192193930044
+      "differing_pixels": 1442527,
+      "differing_ratio": 0.6956630979938272,
+      "mean_absolute_rgb_delta": 4.323570119598766
     },
     {
       "index": 19,
