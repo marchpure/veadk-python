@@ -163,6 +163,19 @@ test("home composer restores the v2.15.2 core journey without URL-only handoff",
   assert.doesNotMatch(homeComposer, /localStorage|setTimeout|setInterval|蓝牙|海底捞|LS6|LS7|经营分析看板/);
 });
 
+test("new Skill data-source picker supports multiple real Golden assets", () => {
+  assert.match(homeComposer, /接入数据源/);
+  assert.match(homeComposer, /sourcePickerOpen/);
+  assert.match(homeComposer, /selectedSourceIds/);
+  assert.match(homeComposer, /type="checkbox"/);
+  assert.match(homeComposer, /resourceKind === ["']golden_asset["']/);
+  assert.match(homeComposer, /goldenRevisionId/);
+  assert.match(homeComposer, /加入上下文/);
+  assert.match(homeComposer, /selected\.forEach\(\(item: any\) => addChip\(item\)\)/);
+  assert.match(homeComposer, /resourceRefs = contextChips/);
+  assert.match(homeComposer, /fixedRevisions: resourceRefs\.map/);
+});
+
 test("skill builder preserves home prompt, context, template, and hides legacy wizard", () => {
   assert.match(skillBuilder, /searchParams\.get\(['"]request['"]\)/);
   assert.match(skillBuilder, /searchParams\.get\(['"]template['"]\)/);

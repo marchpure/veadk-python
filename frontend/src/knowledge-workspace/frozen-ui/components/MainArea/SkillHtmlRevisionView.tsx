@@ -174,6 +174,13 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
   const contextTags = useMemo(() => contextTagsFromRevision(revision), [revision]);
   const canRenderHtml = hasTrustedHtmlRevision(revision);
   const revisionId = stringValue(revision?.id);
+  const revisionTemplate = stringValue(
+    isRecord(revision?.viewModel)
+      ? revision.viewModel.template ?? revision.viewModel.viewTemplate
+      : undefined,
+  );
+  const isDashboardRevision =
+    revisionTemplate === 'dashboard' || revisionTemplate === 'chart';
   const resource = resourceStore.getState().find((item) => item.id === fileId || item.resourceId === fileId) as any;
   const publishedTitle = String(resource?.displayName ?? resource?.name ?? title);
   const publishedKind = String(
@@ -315,7 +322,7 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
           </div>
         )}
 
-        <section className="mt-4 min-h-[620px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className={`${isDashboardRevision ? 'mt-0' : 'mt-4'} min-h-[620px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm`}>
           {canRenderHtml ? (
             <TrustedHtmlArtifactRenderer revision={revision as any} onEvent={handleEvent} />
           ) : (

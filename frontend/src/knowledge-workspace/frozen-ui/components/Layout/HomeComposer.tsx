@@ -82,6 +82,10 @@ function ArrowIcon(props: SVGProps<SVGSVGElement>) {
   return <ProductIcon {...props}><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></ProductIcon>;
 }
 
+function DatabaseIcon(props: SVGProps<SVGSVGElement>) {
+  return <ProductIcon {...props}><ellipse cx="12" cy="5" rx="7" ry="3" /><path d="M5 5v7c0 1.7 3.1 3 7 3s7-1.3 7-3V5" /><path d="M5 12v7c0 1.7 3.1 3 7 3s7-1.3 7-3v-7" /></ProductIcon>;
+}
+
 function normalizeRef(ref: unknown): ResourceRef | undefined {
   const value = ref && typeof ref === "object" ? ref as Record<string, unknown> : null;
   if (!value) return undefined;
@@ -201,6 +205,9 @@ export default function HomeComposer({
   );
   const [mentionQuery, setMentionQuery] = useState("");
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const [sourceQuery, setSourceQuery] = useState("");
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [status, setStatus] = useState<"idle" | "submitting" | "awaiting_input" | "failed" | "completed" | "cancelled">("idle");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -247,6 +254,43 @@ export default function HomeComposer({
   const selectedTemplateRef: TemplateRef | undefined =
     selectedTemplateSpec?.templateRef;
   const canSubmit = Boolean(templateCards.length > 0 && (request.trim() || contextChips.length > 0));
+  const sourceOptions = useMemo(() => {
+    const resources = catalog.filter((item: any) =>
+      item.resourceKind === "golden_asset" &&
+      typeof (item.assetId ?? item.asset_id) === "string" &&
+      typeof (item.goldenRevisionId ?? item.golden_revision_id) === "string",
+    );
+    const query = sourceQuery.trim().toLowerCase();
+    return resources.filter((item: any) => {
+      if (!query) return true;
+      return String(item.displayName ?? item.name ?? "").toLowerCase().includes(query);
+    });
+  }, [catalog, sourceQuery]);
+
+  const openSourcePicker = () => {
+    const alreadyAdded = catalog
+      .filter((item: any) => contextChips.some((chip) =>
+        chip.id === String(item.assetId ?? item.asset_id ?? "") ||
+        chip.id === String(item.goldenRevisionId ?? item.golden_revision_id ?? "") ||
+        chip.id === String(item.id ?? ""),
+      ))
+      .map((item: any) => String(item.id));
+    setSelectedSourceIds(alreadyAdded);
+    setSourceQuery("");
+    setSourcePickerOpen(true);
+  };
+
+  const closeSourcePicker = () => {
+    setSourcePickerOpen(false);
+    setSourceQuery("");
+    setSelectedSourceIds([]);
+  };
+
+  const confirmSources = () => {
+    const selected = catalog.filter((item: any) => selectedSourceIds.includes(String(item.id)));
+    selected.forEach((item: any) => addChip(item));
+    closeSourcePicker();
+  };
 
   const addChip = (item: Record<string, unknown>) => {
     const chip = toContextChip(item);
@@ -468,8 +512,17 @@ export default function HomeComposer({
                   )}
                 </div>
 
-                    <div className="flex flex-row items-center justify-between gap-0 border-t border-slate-100 bg-slate-50/70 px-3 py-3 md:gap-3 md:py-3">
+                <div className="flex flex-row items-center justify-between gap-0 border-t border-slate-100 bg-slate-50/70 px-3 py-3 md:gap-3 md:py-3">
                       <div className="flex flex-nowrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={openSourcePicker}
+                      aria-haspopup="dialog"
+                      aria-expanded={sourcePickerOpen}
+                      className="inline-flex h-[58px] w-[100px] items-center rounded-lg border border-slate-200 bg-white px-2.5 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 md:h-auto md:w-auto md:py-2"
+                    >
+                      <DatabaseIcon className="mr-1.5 h-4 w-4" /> 接入数据源
+                    </button>
                     <label
                       title="通过服务端导入真实数据文件"
                       className="inline-flex h-[58px] w-[100px] cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-2.5 py-0 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-500 md:h-auto md:w-auto md:py-2"
@@ -551,6 +604,85 @@ export default function HomeComposer({
               )}
             </div>
           </section>
+
+          {sourcePickerOpen && (
+            <div
+              className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/30 p-4 backdrop-blur-[1px]"
+              role="dialog"
+              aria-modal="true"
+              aria-label="接入数据源"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) closeSourcePicker();
+              }}
+            >
+              <div className="flex max-h-[min(680px,calc(100vh-32px))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-5 py-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900">接入数据源</h2>
+                    <p className="mt-1 text-xs text-slate-500">可同时选择多个真实工作区数据源，确认后一起用于生成 Skill。</p>
+                  </div>
+                  <button type="button" aria-label="关闭数据源选择" onClick={closeSourcePicker} className="rounded-lg p-1.5 text-slate-400 outline-none hover:bg-slate-200 focus:ring-2 focus:ring-blue-500">
+                    <CloseIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="border-b border-slate-100 p-4">
+                  <input
+                    value={sourceQuery}
+                    onChange={(event) => setSourceQuery(event.currentTarget.value)}
+                    aria-label="搜索数据源"
+                    placeholder="搜索数据源"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                  {sourceOptions.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
+                      暂无可用数据源，请先通过真实连接器完成接入。
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {sourceOptions.map((item: any) => {
+                        const id = String(item.id);
+                        const checked = selectedSourceIds.includes(id);
+                        return (
+                          <label key={id} className={cn(
+                            "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition-colors",
+                            checked ? "border-blue-300 bg-blue-50/60" : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50",
+                          )}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => {
+                                const isChecked = event.currentTarget.checked;
+                                setSelectedSourceIds((previous) =>
+                                  isChecked
+                                    ? previous.includes(id) ? previous : [...previous, id]
+                                    : previous.filter((value) => value !== id),
+                                );
+                              }}
+                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <DatabaseIcon className="h-5 w-5 shrink-0 text-blue-600" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-slate-800">{String(item.displayName ?? item.name ?? id)}</span>
+                              <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{String(item.goldenRevisionId ?? item.golden_revision_id)}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="text-xs text-slate-500" aria-live="polite">已选择 {selectedSourceIds.length} 个数据源</span>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={closeSourcePicker} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 outline-none hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">取消</button>
+                    <button type="button" onClick={confirmSources} disabled={selectedSourceIds.length === 0} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white outline-none hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300">加入上下文</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {templatePanelOpen && (
           <div

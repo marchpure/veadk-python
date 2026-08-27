@@ -1,0 +1,1 @@
+import{a}from"./mermaid.core-Dlu8Ao6w.js";import{E as o}from"../../chunks/studio-entry-CPrDtyve.js";var d=a((t,e)=>{let n;return e==="sandbox"&&(n=o("#i"+t)),(e==="sandbox"?o(n.nodes()[0].contentDocument.body):o("body")).select(`[id="${t}"]`)},"getDiagramElement");export{d as g};

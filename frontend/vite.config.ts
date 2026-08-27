@@ -427,7 +427,8 @@ export function transformFrozenProductionMutations(
     filePath.endsWith("/components/Modals/PublishAgentModal.tsx") ||
     filePath.endsWith("/components/Modals/PublishModal.tsx") ||
     filePath.endsWith("/components/Modals/AgentResourceSelectorModal.tsx") ||
-    filePath.endsWith("/components/RightPane/ChatAssistant.tsx")
+    filePath.endsWith("/components/RightPane/ChatAssistant.tsx") ||
+    filePath.endsWith("/components/Layout/HomeComposer.tsx")
   ) {
     return productionCode === code
       ? null
