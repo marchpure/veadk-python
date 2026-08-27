@@ -4,8 +4,8 @@
   "productionPass": true,
   "total": 37,
   "counts": {
-    "passed": 16,
-    "credentialBlocked": 21
+    "passed": 14,
+    "credentialBlocked": 23
   },
   "connectors": [
     {
@@ -303,8 +303,8 @@
       "connectorKey": "csv",
       "category": "file",
       "name": "CSV",
-      "capabilityState": "available",
-      "browserStatus": "PASS",
+      "capabilityState": "credential_blocked",
+      "browserStatus": "CREDENTIAL_BLOCKED",
       "formEvidence": {
         "inputFields": [
           "sourceRef",
@@ -326,8 +326,8 @@
       "connectorKey": "excel",
       "category": "file",
       "name": "Excel",
-      "capabilityState": "available",
-      "browserStatus": "PASS",
+      "capabilityState": "credential_blocked",
+      "browserStatus": "CREDENTIAL_BLOCKED",
       "formEvidence": {
         "inputFields": [
           "sourceRef",
