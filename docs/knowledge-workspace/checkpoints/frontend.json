@@ -6,7 +6,7 @@
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
-  "implementation_commit": "89e74c642e2e3d5726558395e209443ba5f8d9c0",
+  "implementation_commit": "4977bcb6bef97b1f3519ce05c6e3b02a0a9742bc",
   "remote": {
     "name": "marchpure",
     "url": "git@github.com:marchpure/veadk-python.git",
@@ -17,7 +17,7 @@
     "feature_root": "frontend/src/features/knowledge-workspace",
     "integration": "frontend/src/App.tsx?view=knowledge-workspace",
     "production_boundary": "same-origin /api/knowledge/v1 BFF only; no iframe, second SPA, mock fallback, or business localStorage",
-    "feature_loc_excluding_capture_fixtures": 1612,
+    "feature_loc_excluding_capture_fixtures": 1892,
     "capture_fixture_loc": 29
   },
   "migration_entries": [
@@ -49,13 +49,13 @@
   ],
   "tests": {
     "validator": "python3 tools/validate_knowledge_workspace.py — PASS",
-    "boundary_contract": "node --test frontend/tests/knowledgeWorkspaceBoundary.test.mjs frontend/tests/knowledgeWorkspaceContract.test.mjs — 6 passed, 0 failed",
-    "frontend_suite": "frontend/npm test — 844 passed, 0 failed",
+    "boundary_contract": "node --test frontend/tests/knowledgeWorkspaceBoundary.test.mjs frontend/tests/knowledgeWorkspaceContract.test.mjs — 7 passed, 0 failed",
+    "frontend_suite": "frontend/npm test — 845 passed, 0 failed",
     "production_build": "frontend/npm run build — Studio and website-integration bundles passed",
     "asset_verifier": "frontend/npm run test:webui-assets — 85 packaged files, 229 internal references verified",
     "diff_check": "git diff --check — PASS for authored changes; generated minified bundle contains the repository build's existing trailing whitespace warning",
-    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 1, event_stream_calls 2, published true",
-    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 1, event_stream_calls 2, published true"
+    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 3, event_stream_calls 4, published true",
+    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 3, event_stream_calls 4, published true"
   },
   "capture_report": {
     "report": "docs/knowledge-workspace/capture-report.md",
@@ -64,7 +64,9 @@
       "docs/knowledge-workspace/evidence/knowledge-workspace-desktop.png",
       "docs/knowledge-workspace/evidence/knowledge-workspace-narrow.png"
     ],
-    "visual_regression_note": "Screenshots are contract-fixture browser evidence, not pixel-diffs against the prototype and not real-service E2E evidence."
+    "visual_regression_note": "22-state RGBA/RGB per-pixel comparison completed against downloaded prototype captures under a test-only BFF fixture; harness PASS, visual diff NOT GREEN. Exact per-state metrics are recorded in capture-report.md and report.json.",
+    "capture_harness": "frontend/tests/knowledgeWorkspaceCapture.mjs",
+    "capture_output": "docs/knowledge-workspace/evidence/captures/report.json"
   },
   "build_measurements": {
     "app_js_bytes": 3261550,
