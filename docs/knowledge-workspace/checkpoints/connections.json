@@ -18,7 +18,7 @@
     "remote_url": "https://github.com/volcengine/veadk-python.git",
     "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
-    "commit": "82e75923dbf265fc3c02896351bd4bd6525d3625",
+    "commit": "3890f6f0d03e57596074599d4ff476e4c1cf261a",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (pushed to marchpure)"
   },
   "deployment": {
