@@ -299,6 +299,7 @@ def view_for(
                 ("输出处理建议", "成功", "skill runtime", "输出可追溯的处理建议。"),
             ]
             recommendation = "根据真实上下文给出处理建议。"
+        is_optimization_draft = "优化草稿" in draft.name
         model = SopViewModel(
             title=draft.name,
             trigger=trigger,
@@ -330,8 +331,13 @@ def view_for(
                 )
                 for step_index, (title, message, tool, detail) in enumerate(step_data)
             ],
-            recommendation=recommendation,
+            # The optimization journey is intentionally a real, unexecuted
+            # draft.  Its persisted ViewRevision must project the same
+            # queued/empty-run semantics as the product journey; the browser
+            # must not manufacture a result from the URL state.
+            recommendation="" if is_optimization_draft else recommendation,
             outputs={"sourceRevision": golden_id},
+            run_state="queued" if is_optimization_draft else "succeeded",
         )
         purpose = "explore"
     elif template == "monitoring":

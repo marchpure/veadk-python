@@ -517,14 +517,15 @@ def _graph(model: GraphOntologyViewModel) -> str:
 
 
 def _sop(model: SopViewModel) -> str:
+    queued = model.run_state == "queued"
     steps = "".join(
         f'<article class="step-card step-{_e(step.status)} step-tone-{_sop_tone(step)}" data-step-id="{_e(step.step_id)}" data-step-index="{index}" '
         f'data-artifact-event="selection.change">'
         f'<div class="step-index" data-step-index="{index}" aria-hidden="true"></div><div class="step-content">'
         f'<div class="step-top"><h3><span class="step-number">{index}.</span> {_e(step.title)}</h3>'
-        f'<span class="state state-{_sop_tone(step)}">{_e(step.message or _status_label(step.status))}</span></div>'
-        f'<div class="tool-trace">{_e(_join(step.tool_refs) or "服务端步骤")}</div>'
-        f'{"".join(f"<div class=\"step-result step-result-{_sop_tone(step)} step-result-index-{index}\"><span>实际结果：</span>{_e(item.summary)}</div>" for item in step.evidence[:1])}'
+        f'{f"<span class=\"state state-{_sop_tone(step)}\">{_e(step.message or _status_label(step.status))}</span>" if model.run_state != "queued" else ""}</div>'
+        f'{f"<div class=\"tool-trace\">{_e(_join(step.tool_refs) or "服务端步骤")}</div>" if not queued else ""}'
+        f'{"".join(f"<div class=\"step-result step-result-{_sop_tone(step)} step-result-index-{index}\"><span>实际结果：</span>{_e(item.summary)}</div>" for item in step.evidence[:1]) if model.run_state != "queued" else ""}'
         f'</div></article>'
         for index, step in enumerate(model.step_results, 1)
     )
@@ -582,7 +583,7 @@ def _sop(model: SopViewModel) -> str:
         '<section class="sop-document"><section class="sop-context-panel"><div class="section-head"><div>'
         '<p class="eyebrow">运行范围</p><h2>适用范围与触发条件</h2></div>'
         '<button class="secondary-action" type="button" data-artifact-event="selection.change">修改设定</button></div>'
-        f'<p class="lead">{_e(model.trigger)}</p>{case}</section>'
+        f'<p class="lead">{_e(model.trigger)}</p>{case if not queued else "<div class=\"sop-queued\"><strong>等待执行排查案例</strong><p>输入特定案例参数后，系统将按照定义的诊断树自动读取 API 和数据，并生成排查结论。</p><button class=\"secondary-action\" type=\"button\" data-artifact-event=\"selection.change\">开始一次排查 (试运行)</button></div>"}</section>'
         + '<section class="sop-flow"><div class="section-head"><div><p class="eyebrow">执行步骤</p>'
         '<h2>可视化诊断决策树</h2></div><button class="secondary-action" type="button" '
         'data-artifact-event="selection.change">修改流程结构</button></div>'
@@ -844,6 +845,7 @@ def _css(tokens: DesignTokens) -> str:
 .artifact.direction-executive[data-template="dashboard"]{padding-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{padding:6px;margin-bottom:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps button{min-width:118px;padding:10px 7px;font-size:11px}.artifact.direction-executive[data-template="dashboard"] .kpi{min-height:94px;padding:13px}.artifact.direction-executive[data-template="dashboard"] .metric{font-size:22px}.artifact.direction-executive[data-template="dashboard"] .toolbar{display:block}.artifact.direction-executive[data-template="dashboard"] .toolbar-actions{margin-top:8px}.artifact.direction-executive[data-template="dashboard"] .panel{padding:14px}.artifact.direction-executive[data-template="dashboard"] .table-wrap{max-width:100%;overflow-x:auto}
 @media (max-width:520px){.artifact.direction-executive[data-template="dashboard"] .dashboard-ready{min-height:0;margin-bottom:24px;padding:24px}.artifact.direction-executive[data-template="dashboard"] .dashboard-ready-title{font-size:18px}.artifact.direction-executive[data-template="dashboard"] .dashboard-ready-copy{font-size:14px;line-height:1.5}.artifact.direction-executive[data-template="dashboard"] .dashboard-steps{margin-bottom:16px}.artifact.direction-executive[data-template="dashboard"] .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.artifact.direction-executive[data-template="dashboard"] .kpi{min-height:164px;padding:20px}}
 .artifact.direction-operational[data-template="sop"] .sop-document{margin:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.artifact.direction-operational .sop-queued{margin-top:24px;padding:20px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.artifact.direction-operational .sop-queued strong{display:block;font-size:13px}.artifact.direction-operational .sop-queued p{margin:5px 0 12px;color:var(--muted);font-size:12px;line-height:1.55}.artifact.direction-operational .sop-queued .secondary-action{margin:0}
 .artifact.direction-operational[data-template="monitoring"]{max-width:none;padding:0 0 32px;background:var(--surface)}.artifact.direction-operational[data-template="monitoring"]>h1{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.monitor-published-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:27px 0 32px}.monitor-published-stats>div{height:95px;padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 1px 2px rgba(16,24,40,.04)}.monitor-published-stats span{display:block;color:var(--muted);font-size:11px;line-height:1.2}.monitor-published-stats strong{display:block;margin-top:10px;font-size:25px;line-height:1.1}.monitor-log-panel{border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.04)}.monitor-log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border-bottom:1px solid var(--line);background:#f8fafc}.monitor-log-toolbar h2{margin:0;font-size:17px}.monitor-log-table{overflow:auto;min-height:300px}.monitor-log-table table{min-width:800px}.monitor-log-table td{vertical-align:top}.monitor-log-table td small{margin-top:5px}.monitor-log-table .secondary-action{margin:0}
 @media (max-width:520px){.artifact.direction-operational[data-template="monitoring"]{padding:16px 0 24px}.monitor-published-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:27px 0 32px}.monitor-published-stats>div{height:95px;padding:20px}.monitor-published-stats strong{font-size:25px}.monitor-log-toolbar{align-items:flex-start;padding:16px}.monitor-log-toolbar h2{font-size:15px}.monitor-log-table{min-height:300px}.monitor-log-table table{min-width:760px}}
 /* Shared v2.15.2 artifact alignment keeps real revision content on the

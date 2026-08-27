@@ -315,7 +315,7 @@ export default function SkillHtmlRevisionView({ fileId, searchParams, setSearchP
           </div>
         )}
 
-        <section className="mt-4 h-0 min-h-[620px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="mt-4 min-h-[620px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {canRenderHtml ? (
             <TrustedHtmlArtifactRenderer revision={revision as any} onEvent={handleEvent} />
           ) : (
