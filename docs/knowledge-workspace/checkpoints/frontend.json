@@ -6,7 +6,7 @@
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
-  "implementation_commit": "4977bcb6bef97b1f3519ce05c6e3b02a0a9742bc",
+  "implementation_commit": "94e55a4d76bd1669838fe98b7d0590adf0d8f20b",
   "remote": {
     "name": "marchpure",
     "url": "git@github.com:marchpure/veadk-python.git",
@@ -16,8 +16,8 @@
   "scope": {
     "feature_root": "frontend/src/features/knowledge-workspace",
     "integration": "frontend/src/App.tsx?view=knowledge-workspace",
-    "production_boundary": "same-origin /api/knowledge/v1 BFF only; no iframe, second SPA, mock fallback, or business localStorage",
-    "feature_loc_excluding_capture_fixtures": 1892,
+    "production_boundary": "same-origin /api/knowledge/v1 BFF only; no feature-shell iframe, no second SPA, mock fallback, or business localStorage; isolated HTML artifact viewer uses a controlled sandboxed iframe",
+    "feature_loc_excluding_capture_fixtures": 1979,
     "capture_fixture_loc": 29
   },
   "migration_entries": [
@@ -49,8 +49,8 @@
   ],
   "tests": {
     "validator": "python3 tools/validate_knowledge_workspace.py — PASS",
-    "boundary_contract": "node --test frontend/tests/knowledgeWorkspaceBoundary.test.mjs frontend/tests/knowledgeWorkspaceContract.test.mjs — 7 passed, 0 failed",
-    "frontend_suite": "frontend/npm test — 845 passed, 0 failed",
+      "boundary_contract": "node --test frontend/tests/knowledgeWorkspaceBoundary.test.mjs frontend/tests/knowledgeWorkspaceContract.test.mjs — 8 passed, 0 failed",
+      "frontend_suite": "frontend/npm test — 846 passed, 0 failed",
     "production_build": "frontend/npm run build — Studio and website-integration bundles passed",
     "asset_verifier": "frontend/npm run test:webui-assets — 85 packaged files, 229 internal references verified",
     "diff_check": "git diff --check — PASS for authored changes; generated minified bundle contains the repository build's existing trailing whitespace warning",
@@ -64,7 +64,7 @@
       "docs/knowledge-workspace/evidence/knowledge-workspace-desktop.png",
       "docs/knowledge-workspace/evidence/knowledge-workspace-narrow.png"
     ],
-    "visual_regression_note": "22-state RGBA/RGB per-pixel comparison completed against downloaded prototype captures under a test-only BFF fixture; harness PASS, visual diff NOT GREEN. Exact per-state metrics are recorded in capture-report.md and report.json.",
+    "visual_regression_note": "22-state RGBA/RGB per-pixel comparison completed against downloaded prototype captures under a test-only BFF fixture with route-correct draftId injection; harness PASS, visual diff NOT GREEN. Fresh report: welcome 48.6%, published base 16.7%, skill-new 43.9%; exact per-state metrics are recorded in capture-report.md and report.json.",
     "capture_harness": "frontend/tests/knowledgeWorkspaceCapture.mjs",
     "capture_output": "docs/knowledge-workspace/evidence/captures/report.json"
   },
