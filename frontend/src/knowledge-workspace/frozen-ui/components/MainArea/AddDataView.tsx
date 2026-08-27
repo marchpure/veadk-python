@@ -317,6 +317,29 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     const label = field.title || key;
     const required = Boolean(field.required || sourceObj.inputSchema.required?.includes(key) || sourceObj.credentialSchema.required?.includes(key));
     const options = field.options ?? [];
+    const conditional = field.conditional;
+    if (conditional && typeof conditional === 'object') {
+      const condition = conditional as Record<string, unknown>;
+      const dependsOn = typeof condition.field === 'string'
+        ? condition.field
+        : typeof condition.when === 'string' ? condition.when : null;
+      const expected = condition.equals ?? condition.value;
+      const actual = dependsOn
+        ? (formData[dependsOn] ?? sourceObj.inputSchema.properties[dependsOn]?.default)
+        : undefined;
+      const allowed = Array.isArray(condition.in) ? condition.in : null;
+      if (dependsOn && (allowed
+        ? !allowed.includes(actual)
+        : expected !== undefined && actual !== expected)) {
+        return null;
+      }
+    }
+    const fieldHint = [
+      field.description,
+      field.format ? `格式：${field.format}` : '',
+      field.min !== undefined ? `最小值：${field.min}` : '',
+      field.max !== undefined ? `最大值：${field.max}` : '',
+    ].filter(Boolean).join(' · ');
     if (type === 'file') {
       return (
         <div key={key} className="col-span-2">
@@ -334,7 +357,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
             />
             <FileSpreadsheet size={24} className="text-slate-400 mb-2" />
             <span className="text-sm font-medium text-slate-600">{formData[key] ? String(formData[key]) : `点击或拖拽${label}`}</span>
-            {field.description && <span className="mt-1 text-xs text-slate-400">{field.description}</span>}
+            {fieldHint && <span className="mt-1 text-xs text-slate-400">{fieldHint}</span>}
           </div>
         </div>
       );
@@ -347,7 +370,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
             {!required && <option value="">请选择...</option>}
             {options.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
-          {field.description && <p className="mt-1 text-xs text-slate-500">{field.description}</p>}
+          {fieldHint && <p className="mt-1 text-xs text-slate-500">{fieldHint}</p>}
         </div>
       );
     }
@@ -391,7 +414,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
             onChange={e => setFormData(p => ({ ...p, [key]: e.target.value }))}
             className="min-h-20 w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white"
           />
-          {field.description && <p className="mt-1 text-xs text-slate-500">{field.description}</p>}
+          {fieldHint && <p className="mt-1 text-xs text-slate-500">{fieldHint}</p>}
         </div>
       );
     }
@@ -408,7 +431,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
           onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))}
           className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white"
         />
-        {field.description && <p className="mt-1 text-xs text-slate-500">{field.description}</p>}
+        {fieldHint && <p className="mt-1 text-xs text-slate-500">{fieldHint}</p>}
       </div>
     );
   };
@@ -695,11 +718,40 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
                <h2 className="ml-3 font-bold text-slate-800 text-lg tracking-tight truncate">暂不可配置：{currentSourceObj.name}</h2>
              </div>
              <div className="flex-1 flex items-center justify-center p-6">
-               <div className="max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+               <div className="max-w-3xl w-full rounded-2xl border border-amber-200 bg-amber-50 p-6">
                  <ShieldCheck size={28} className="mx-auto mb-3 text-amber-600" />
-                 <h3 className="text-base font-bold text-amber-900">需要服务端凭据</h3>
-                 <p className="mt-2 text-sm leading-6 text-amber-800">{currentSourceObj.reason?.message || '请先配置 provider 凭据或官方 sandbox。'}</p>
-                 <p className="mt-3 text-xs text-amber-700">状态：CREDENTIAL_BLOCKED。页面不会创建本地成功结果。</p>
+                 <h3 className="text-base font-bold text-center text-amber-900">需要服务端凭据，暂不可执行</h3>
+                 <p className="mt-2 text-sm leading-6 text-center text-amber-800">{currentSourceObj.reason?.message || '请先配置 provider 凭据或官方 sandbox。'}</p>
+                 <p className="mt-3 text-xs text-center text-amber-700">状态：CREDENTIAL_BLOCKED。页面不会创建本地成功结果。</p>
+                 <div className="mt-5 rounded-xl border border-amber-200 bg-white/70 p-4 text-left">
+                   <div className="mb-3 text-xs font-bold uppercase tracking-wide text-amber-900">服务端配置契约</div>
+                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                     {Object.entries(currentSourceObj.inputSchema?.properties ?? {}).map(([key, field]) => (
+                       <div key={key} className="rounded-lg border border-slate-200 bg-white p-3">
+                         <div className="text-sm font-semibold text-slate-800">
+                           {field.title || key}
+                           {(field.required || currentSourceObj.inputSchema.required?.includes(key)) && <span className="ml-1 text-rose-600">*</span>}
+                         </div>
+                         <div className="mt-1 text-xs text-slate-500">{field.description || key}</div>
+                         <div className="mt-2 text-[11px] text-slate-400">
+                           {field.type}
+                           {field.default !== undefined && field.default !== null ? ` · 默认：${String(field.default)}` : ''}
+                           {field.options?.length ? ` · 可选：${field.options.join('、')}` : ''}
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                   {Object.keys(currentSourceObj.credentialSchema?.properties ?? {}).length > 0 && (
+                     <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                       <div className="text-sm font-semibold text-amber-900">授权方式</div>
+                       {Object.entries(currentSourceObj.credentialSchema.properties).map(([key, field]) => (
+                         <div key={key} className="mt-1 text-xs text-amber-800">
+                           {field.title || key}：{field.description || '需由服务端 secret store 提供引用'}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
                </div>
              </div>
            </div>

@@ -212,7 +212,12 @@ class SqlConnectorAdapter(LifecycleConnectorAdapter):
             implementation=f"{type(self).__module__}.{type(self).__name__}",
             driver=driver,
             install_command=f"uv pip install {package}",
-            verification_command=f'python -c "import {driver}; print({driver}.__version__)"',
+            verification_command=(
+                "STEP3B_CONNECTOR_CONFIGURATION_JSON='<json>' "
+                "STEP3B_CONNECTOR_SECRET_JSON='<secret-json>' "
+                "python -m frontend.server.knowledge_assets.sources_golden.provider_verify "
+                f"{self.definition.connector_key}"
+            ),
             missing_condition=(
                 f"A reachable {self.definition.name} endpoint and read-only "
                 "username/password secret are required."

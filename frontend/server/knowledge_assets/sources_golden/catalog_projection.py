@@ -27,8 +27,6 @@ _LOCAL_PROTOCOL_CONNECTORS = frozenset(
         "doc_txt",
         "local_file",
         "sqlite",
-        "postgresql",
-        "mysql",
         "rest_api",
         "graphql",
         "web_discovery",

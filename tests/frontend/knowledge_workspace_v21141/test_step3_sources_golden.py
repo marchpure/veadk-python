@@ -64,7 +64,7 @@ def test_connector_catalog_is_complete_typed_and_truthful(tmp_path: Path) -> Non
     assert by_key["local_file"].capability_state == "available"
     assert by_key["doc_txt"].capability_state == "available"
     assert by_key["oracle"].capability_state == "credential_blocked"
-    assert by_key["postgresql"].capability_state == "available"
+    assert by_key["postgresql"].capability_state == "credential_blocked"
     assert by_key["lark_doc"].capability_state == "credential_blocked"
     assert by_key["web_discovery"].capability_state == "available"
     assert by_key["mcp_custom"].capability_state == "available"
@@ -776,7 +776,7 @@ def test_add_data_and_bootstrap_bind_real_read_models(tmp_path: Path) -> None:
     assert add_data.selected_connector is not None
     assert add_data.selected_connector.connector_key == "postgresql"
     assert add_data.steps == ["configure", "authorize", "discover", "save"]
-    assert add_data.blocked_reason is None
+    assert add_data.blocked_reason is not None
     assert (
         application.add_data(_context(role="viewer"), connector_key="csv").can_create
         is False
@@ -803,8 +803,8 @@ def test_add_data_and_bootstrap_bind_real_read_models(tmp_path: Path) -> None:
     assert item["inputSchema"]["properties"]["host"]["title"] == "Host"
     assert "required" in item["inputSchema"]
     assert item["credentialSchema"]["properties"]["secretRef"]["secretReference"] is True
-    assert item["capabilityState"] == "available"
-    assert item["reason"]["code"] == "AVAILABLE"
+    assert item["capabilityState"] == "credential_blocked"
+    assert item["reason"]["code"] == "CREDENTIAL_REQUIRED"
     mcp_item = next(
         item
         for item in projected_catalog

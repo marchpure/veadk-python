@@ -1049,10 +1049,10 @@ def test_capability_matrix_has_one_complete_truthful_row_per_adapter(
     }
     assert sum(
         row.capability_state == "available" for row in matrix.connectors
-    ) == 16
+    ) == 14
     assert sum(
         row.capability_state == "credential_blocked" for row in matrix.connectors
-    ) == 21
+    ) == 23
     for row in matrix.connectors:
         assert row.capability.catalog == "present"
         assert row.capability.form == "validated"
@@ -1062,6 +1062,10 @@ def test_capability_matrix_has_one_complete_truthful_row_per_adapter(
         assert row.capability.refresh == "implemented"
         assert row.capability.checkpoint
         assert row.capability.typed_error == "implemented"
+        assert row.capability.verification_category in {
+            "LOCAL_PROTOCOL_VERIFIED",
+            "CREDENTIAL_BLOCKED",
+        }
         assert row.permissions.read_scopes
         assert len(row.capability.evidence) >= 4
         assert all(
@@ -1070,12 +1074,14 @@ def test_capability_matrix_has_one_complete_truthful_row_per_adapter(
         )
         if row.capability_state == "credential_blocked":
             assert row.capability.blocker
+            assert row.capability.verification_category == "CREDENTIAL_BLOCKED"
             assert row.capability.live_e2e == "external_blocked"
             assert row.capability.credential_state == "external_blocked"
             assert row.certification.verification_command.endswith(row.connector_key)
             assert "provider_verify" in row.certification.verification_command
         else:
             assert row.capability.blocker is None
+            assert row.capability.verification_category == "LOCAL_PROTOCOL_VERIFIED"
 
 
 def test_legacy_xls_is_not_advertised_without_a_runtime_parser(

@@ -220,6 +220,12 @@ class ConnectorCapabilityEvidence(ContractModel):
     refresh: Literal["implemented"] = "implemented"
     checkpoint: str
     typed_error: Literal["implemented"] = "implemented"
+    verification_category: Literal[
+        "LIVE_VERIFIED",
+        "LOCAL_PROTOCOL_VERIFIED",
+        "CREDENTIAL_BLOCKED",
+        "UNSUPPORTED",
+    ]
     live_e2e: Literal["passed", "external_blocked"]
     credential_state: Literal["not_required", "available", "external_blocked"]
     blocker: str | None = None

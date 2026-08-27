@@ -18,7 +18,7 @@ from .catalog import (
     bootstrap_connector_catalog,
     connector_catalog,
 )
-from .catalog_projection import _LOCAL_PROTOCOL_CONNECTORS
+from .catalog_projection import _LOCAL_PROTOCOL_CONNECTORS, _public_definition
 from .connector_adapter import (
     ConnectorAdapter,
     ConnectorAdapterError,
@@ -341,8 +341,6 @@ class SourceGoldenApplication:
             "doc_txt",
             "local_file",
             "sqlite",
-            "postgresql",
-            "mysql",
             "rest_api",
             "graphql",
             "web_discovery",
@@ -358,6 +356,11 @@ class SourceGoldenApplication:
                 definition.connector_key
             ].certification
             external_blocked = definition.connector_key not in locally_verified
+            verification_category = (
+                "LOCAL_PROTOCOL_VERIFIED"
+                if definition.connector_key in locally_verified
+                else "CREDENTIAL_BLOCKED"
+            )
             rows.append(
                 ConnectorCapabilityRow(
                     connector_key=definition.connector_key,
@@ -383,13 +386,11 @@ class SourceGoldenApplication:
                     capability=ConnectorCapabilityEvidence(
                         adapter=certification.implementation,
                         checkpoint=certification.checkpoint,
+                        verification_category=verification_category,
                         live_e2e=("external_blocked" if external_blocked else "passed"),
                         credential_state=(
                             "external_blocked"
                             if external_blocked
-                            else "available"
-                            if definition.connector_key
-                            in {"postgresql", "mysql", "webhook"}
                             else "not_required"
                         ),
                         blocker=(
@@ -411,7 +412,9 @@ class SourceGoldenApplication:
     ) -> AddDataView:
         catalog = self.connector_catalog(context)
         selected = (
-            self._definition(connector_key) if connector_key is not None else None
+            _public_definition(self._definition(connector_key))
+            if connector_key is not None
+            else None
         )
         return AddDataView(
             catalog=catalog,
