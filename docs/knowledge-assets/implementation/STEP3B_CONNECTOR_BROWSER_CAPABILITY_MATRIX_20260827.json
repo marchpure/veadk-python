@@ -7599,4 +7599,35 @@
     "UNSUPPORTED": 0
   },
   "browserEvidencePath": ".codex/coordination/knowledge-step3b-integration/CONNECTOR_BROWSER_EVIDENCE_20260827_R13_STARROCKS.json"
+  ,
+  "targetProviderProbes": {
+    "generatedAt": "2026-08-27T14:00:00+08:00",
+    "scope": "R9-next-local-provider-probe",
+    "classificationChanged": false,
+    "doris": {
+      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "status": "BLOCKED",
+      "targetSpecificServiceStarted": false,
+      "reasonCode": "NO_RELIABLE_TARGET_PROVIDER",
+      "attemptedTargets": [
+        "apache/doris:latest",
+        "apache/doris:2.1.7",
+        "apache/doris:2.1.6",
+        "apache/doris:2.0.5"
+      ],
+      "observed": "No usable standard Apache Doris image manifest was available in the session registry probe.",
+      "unlock": "Provide a session-owned Apache Doris FE/MySQL service or official Doris Sandbox, then run the full target-specific browser flow with server-side secretRef."
+    },
+    "hive": {
+      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "status": "BLOCKED",
+      "targetSpecificServiceStarted": false,
+      "reasonCode": "TARGET_PROVIDER_AND_DRIVER_UNAVAILABLE",
+      "attemptedTargets": [
+        "apache/hive:3.1.3"
+      ],
+      "observed": "The Hive image manifest is discoverable, but the large image pull was interrupted before a HiveServer2 service could start; the session environment also lacks pyhive, thrift, and thrift_sasl.",
+      "unlock": "Provide a running session-owned HiveServer2 or official Sandbox plus the official PyHive/Thrift driver, server-side secretRef, database, and read-only permissions; then rerun authenticate → discover → read → ingest → checkpoint in the browser."
+    }
+  }
 }

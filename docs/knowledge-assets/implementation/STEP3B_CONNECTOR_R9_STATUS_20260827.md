@@ -59,3 +59,21 @@ Prioritize a real target-specific provider only when it can supply:
 Candidates remain Doris, Hive, OSS, Snowflake, BigQuery, and Feishu,
 in that order only after a real local service or official Sandbox is available.
 Until then they remain `CREDENTIAL_BLOCKED`.
+
+## R9 next-provider probe
+
+The next local-provider probe did not change the matrix classification:
+
+- Doris remains `CREDENTIAL_BLOCKED`: no reliable session-owned Apache Doris
+  FE/MySQL target or official Sandbox was available. MySQL was not used as
+  Doris evidence.
+- Hive remains `CREDENTIAL_BLOCKED`: an `apache/hive:3.1.3` manifest was
+  discoverable, but the image pull was interrupted before HiveServer2 could
+  start, and the session environment does not contain the official
+  `pyhive`/Thrift runtime.
+
+The machine-readable probe details, attempted targets, observed blocker, and
+unlock steps are recorded in `targetProviderProbes` in the authoritative
+matrix. No unstarted or substitute service is counted as a verification.
+
+Focused provider/connector tests: `.venv/bin/pytest` — 109 passed.
