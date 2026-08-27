@@ -340,6 +340,70 @@ async function main() {
     }
     const url = `http://127.0.0.1:5174/?${query}`;
     await page.goto(url);
+    await page.locator(".kw-shell").waitFor({ state: "visible" });
+    if (capture.route === "welcome") {
+      await page.locator(".kw-welcome-grid").waitFor({ state: "visible", timeout: 10_000 });
+    } else if (capture.route === "skill_new") {
+      await page.locator(".kw-create-form").waitFor({ state: "visible", timeout: 10_000 });
+    } else {
+      await page.locator(".kw-draft-center, .kw-published").first().waitFor({ state: "visible", timeout: 10_000 });
+    }
+    const renderCheck = await page.evaluate(({ route, stateUrl }) => {
+      const visible = (selector) => {
+        const element = document.querySelector(selector);
+        if (!element) return false;
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      };
+      const dialogLabels = [...document.querySelectorAll('[role="dialog"]')]
+        .filter((element) => visible(`[role="dialog"][aria-label="${element.getAttribute("aria-label")}"]`))
+        .map((element) => element.getAttribute("aria-label"));
+      const center = document.querySelector(".kw-draft-center");
+      const overlay = document.querySelector(".kw-state-overlay");
+      const centerRect = center?.getBoundingClientRect();
+      const overlayRect = overlay?.getBoundingClientRect();
+      const overlayCoversCenter = Boolean(centerRect && overlayRect
+        && Math.abs(overlayRect.left - centerRect.left) < 1
+        && Math.abs(overlayRect.top - centerRect.top) < 1
+        && Math.abs(overlayRect.right - centerRect.right) < 1
+        && Math.abs(overlayRect.bottom - centerRect.bottom) < 1);
+      const chat = document.querySelector(".kw-chat");
+      const chatWidth = chat?.getBoundingClientRect().width || 0;
+      return {
+        shell: visible(".kw-shell"),
+        route,
+        state_url: stateUrl,
+        welcome: route === "welcome"
+          ? visible(".kw-welcome-grid") && document.querySelectorAll(".kw-welcome-card").length > 0
+          : true,
+        draft: route === "draft"
+          ? visible(".kw-draft-center") && visible(".kw-draft-artifact-card") && visible(".kw-chat")
+          : true,
+        skill_new: route === "skill_new"
+          ? visible(".kw-create-form") && visible(".kw-connection-choice") && visible(".kw-upload-box")
+          : true,
+        dialog_count: dialogLabels.length,
+        dialog_labels: dialogLabels,
+        has_state_overlay: Boolean(overlay),
+        overlay_covers_center: overlayCoversCenter,
+        chat_width: Math.round(chatWidth),
+      };
+    }, { route: capture.route, stateUrl: capture.stateUrl });
+    assert.equal(renderCheck.shell, true, `${capture.stateUrl}: shell did not render`);
+    if (capture.route === "welcome") assert.equal(renderCheck.welcome, true, `${capture.stateUrl}: welcome did not render`);
+    if (capture.route === "draft") {
+      assert.equal(renderCheck.draft, true, `${capture.stateUrl}: draft did not render`);
+      assert.ok(renderCheck.chat_width >= 370, `${capture.stateUrl}: chat rail is not 380px: ${JSON.stringify(renderCheck)}`);
+      if (capture.stateUrl.includes("state=permission") || capture.stateUrl.includes("state=connection_error")) {
+        assert.equal(renderCheck.has_state_overlay, true, `${capture.stateUrl}: state overlay did not render`);
+        assert.equal(renderCheck.overlay_covers_center, true, `${capture.stateUrl}: state overlay does not cover draft center`);
+      }
+    }
+    if (new URL(capture.stateUrl, "http://capture.local").searchParams.has("modal")) {
+      assert.equal(renderCheck.dialog_count, 1, `${capture.stateUrl}: modal did not render`);
+    }
+    if (capture.route === "skill_new") assert.equal(renderCheck.skill_new, true, `${capture.stateUrl}: skill form did not render`);
     const actualPath = path.join(outputDir, `${String(index + 1).padStart(2, "0")}.png`);
     await page.screenshot({ path: actualPath, fullPage: true });
     const actual = decodePng(await readFile(actualPath));
@@ -348,6 +412,7 @@ async function main() {
       index: index + 1,
       state_url: capture.stateUrl,
       route: capture.route,
+      render_check: renderCheck,
       ...digestPixels(actual, reference),
     });
   }

@@ -6,6 +6,19 @@
       "index": 1,
       "state_url": "/?file=welcome",
       "route": "welcome",
+      "render_check": {
+        "shell": true,
+        "route": "welcome",
+        "state_url": "/?file=welcome",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 680473,
       "differing_ratio": 0.32816020447530864,
@@ -15,105 +28,271 @@
       "index": 2,
       "state_url": "/?file=draft_dash_anta",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 213119,
-      "differing_ratio": 0.10277729552469136,
-      "mean_absolute_rgb_delta": 2.5345265882201646
+      "differing_pixels": 230925,
+      "differing_ratio": 0.11136429398148148,
+      "mean_absolute_rgb_delta": 2.7119277263374486
     },
     {
       "index": 3,
       "state_url": "/?file=draft_dash_anta&run_state=success",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&run_state=success",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 311761,
-      "differing_ratio": 0.15034770447530865,
-      "mean_absolute_rgb_delta": 3.2213935506687243
+      "differing_pixels": 324007,
+      "differing_ratio": 0.15625337577160495,
+      "mean_absolute_rgb_delta": 3.2085525977366256
     },
     {
       "index": 4,
       "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "发布门禁检查"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 1102410,
-      "differing_ratio": 0.531640625,
-      "mean_absolute_rgb_delta": 6.3369841499485595
+      "differing_pixels": 1103788,
+      "differing_ratio": 0.5323051697530864,
+      "mean_absolute_rgb_delta": 6.35673080632716
     },
     {
       "index": 5,
       "state_url": "/?file=draft_dash_anta&run_state=failed",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&run_state=failed",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 310325,
-      "differing_ratio": 0.14965518904320987,
-      "mean_absolute_rgb_delta": 3.144581404320988
+      "differing_pixels": 322435,
+      "differing_ratio": 0.1554952739197531,
+      "mean_absolute_rgb_delta": 3.1333756108539093
     },
     {
       "index": 6,
       "state_url": "/?file=draft_dash_anta&state=permission",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&state=permission",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": true,
+        "overlay_covers_center": true,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 880395,
-      "differing_ratio": 0.4245732060185185,
-      "mean_absolute_rgb_delta": 3.390756494341564
+      "differing_pixels": 883936,
+      "differing_ratio": 0.42628086419753086,
+      "mean_absolute_rgb_delta": 3.8585579025205763
     },
     {
       "index": 7,
       "state_url": "/?file=draft_dash_anta&state=connection_error",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&state=connection_error",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": true,
+        "overlay_covers_center": true,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 880184,
-      "differing_ratio": 0.424471450617284,
-      "mean_absolute_rgb_delta": 3.281731127829218
+      "differing_pixels": 883712,
+      "differing_ratio": 0.42617283950617285,
+      "mean_absolute_rgb_delta": 3.755657471707819
     },
     {
       "index": 8,
       "state_url": "/?file=draft_dash_anta&state=upgrade",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&state=upgrade",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 291598,
-      "differing_ratio": 0.14062403549382715,
-      "mean_absolute_rgb_delta": 3.5694626093107
+      "differing_pixels": 307850,
+      "differing_ratio": 0.14846161265432098,
+      "mean_absolute_rgb_delta": 3.6786548353909465
     },
     {
       "index": 9,
       "state_url": "/?file=draft_dash_anta&modal=advanced",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&modal=advanced",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 981517,
-      "differing_ratio": 0.4733396026234568,
-      "mean_absolute_rgb_delta": 2.9503944830246915
+      "differing_pixels": 982671,
+      "differing_ratio": 0.47389612268518516,
+      "mean_absolute_rgb_delta": 2.998568994341564
     },
     {
       "index": 10,
       "state_url": "/?file=draft_dash_anta&modal=test_records",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&modal=test_records",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 983707,
-      "differing_ratio": 0.474395736882716,
-      "mean_absolute_rgb_delta": 4.712233474794239
+      "differing_pixels": 986633,
+      "differing_ratio": 0.4758068094135802,
+      "mean_absolute_rgb_delta": 4.7757984503600825
     },
     {
       "index": 11,
       "state_url": "/?file=draft_dash_anta&modal=tools",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&modal=tools",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 968163,
-      "differing_ratio": 0.4668995949074074,
-      "mean_absolute_rgb_delta": 4.515632394547325
+      "differing_pixels": 969353,
+      "differing_ratio": 0.4674734760802469,
+      "mean_absolute_rgb_delta": 4.552452578446502
     },
     {
       "index": 12,
       "state_url": "/?file=pub_dash_anta",
       "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
-      "differing_pixels": 65743,
-      "differing_ratio": 0.03170476466049383,
-      "mean_absolute_rgb_delta": 0.8677729552469136
+      "differing_pixels": 188361,
+      "differing_ratio": 0.09083767361111111,
+      "mean_absolute_rgb_delta": 1.5514017489711933
     },
     {
       "index": 13,
       "state_url": "/?file=pub_dash_anta&modal=agent",
       "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=agent",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 756731,
       "differing_ratio": 0.36493586033950615,
@@ -123,24 +302,69 @@
       "index": 14,
       "state_url": "/?file=pub_dash_anta&modal=share_run",
       "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=share_run",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
-      "differing_pixels": 319220,
-      "differing_ratio": 0.15394483024691358,
-      "mean_absolute_rgb_delta": 2.8925270061728394
+      "differing_pixels": 357082,
+      "differing_ratio": 0.17220389660493826,
+      "mean_absolute_rgb_delta": 3.0939142875514403
     },
     {
       "index": 15,
       "state_url": "/?file=pub_dash_anta&modal=instructions",
       "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=instructions",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
-      "differing_pixels": 393335,
-      "differing_ratio": 0.18968701774691357,
-      "mean_absolute_rgb_delta": 2.2852051183127573
+      "differing_pixels": 430937,
+      "differing_ratio": 0.20782069830246913,
+      "mean_absolute_rgb_delta": 2.4784431262860083
     },
     {
       "index": 16,
       "state_url": "/?file=pub_dash_anta&modal=versions",
       "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=versions",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "版本记录"
+        ],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 661401,
       "differing_ratio": 0.31896267361111114,
@@ -150,24 +374,63 @@
       "index": 17,
       "state_url": "/?file=draft_sop_bluetooth",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_sop_bluetooth",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 213071,
-      "differing_ratio": 0.1027541473765432,
-      "mean_absolute_rgb_delta": 2.527874710648148
+      "differing_pixels": 231013,
+      "differing_ratio": 0.11140673225308642,
+      "mean_absolute_rgb_delta": 2.715029256687243
     },
     {
       "index": 18,
       "state_url": "/?file=draft_sop_haidilao",
       "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_sop_haidilao",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380
+      },
       "pixels": 2073600,
-      "differing_pixels": 214980,
-      "differing_ratio": 0.10367476851851852,
-      "mean_absolute_rgb_delta": 2.683031121399177
+      "differing_pixels": 229581,
+      "differing_ratio": 0.11071614583333333,
+      "mean_absolute_rgb_delta": 2.6577957818930042
     },
     {
       "index": 19,
       "state_url": "/?file=skill_new",
       "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 251520,
       "differing_ratio": 0.12129629629629629,
@@ -177,6 +440,19 @@
       "index": 20,
       "state_url": "/?file=skill_new&scenario=anta",
       "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new&scenario=anta",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 251520,
       "differing_ratio": 0.12129629629629629,
@@ -186,6 +462,19 @@
       "index": 21,
       "state_url": "/?file=skill_new&scenario=zhiji",
       "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new&scenario=zhiji",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 251520,
       "differing_ratio": 0.12129629629629629,
@@ -195,6 +484,19 @@
       "index": 22,
       "state_url": "/?file=skill_new&scenario=haidilao",
       "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new&scenario=haidilao",
+        "welcome": true,
+        "draft": true,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0
+      },
       "pixels": 2073600,
       "differing_pixels": 251520,
       "differing_ratio": 0.12129629629629629,

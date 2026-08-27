@@ -6,7 +6,8 @@ The test-only capture fixture
 `frontend/src/features/knowledge-workspace/test-fixtures/captures.ts` records
 the 22 Prototype state URLs. The capture harness
 `frontend/tests/knowledgeWorkspaceCapture.mjs` renders each state through the
-same-origin BFF contract fixture, captures at 1920×1080, and compares the
+same-origin BFF contract fixture, waits for route content to settle, asserts
+the required DOM/page/modal geometry, captures at 1920×1080, and compares the
 implementation PNG with the SHA-verified Prototype reference using RGB
 per-pixel absolute delta.
 
@@ -31,19 +32,25 @@ The gate below is based on the required manual side-by-side review of page
 state, skeleton, hierarchy, component presence, geometry, overflow, and
 responsive behavior.
 
-Manual review result: P0 = 0, P1 = 0. All 22 states render the intended page
+Manual review and render-gate result: P0 = 0, P1 = 0. All 22 states render the intended page
 or modal rather than a URL-only placeholder. No state has an empty replacement
 page, main/right-pane overlap, clipping, or blocking overflow at the reviewed
 desktop and narrow layouts.
 
+The harness additionally asserts welcome cards, draft center and chat rail,
+380px desktop chat geometry, skill-new form/connection/upload structure, one
+visible dialog for every modal URL, and draft-center-relative inset coverage
+for permission and connection-error overlays. These assertions passed for all
+22 states.
+
 | State family | States | Differing-pixel ratio | Mean RGB delta | Manual gate |
 | --- | ---: | ---: | ---: | --- |
 | Welcome | 1 | 32.82% | 6.57 | GREEN |
-| Draft base / success / failed / SOP | 5 | 10.28–15.03% | 2.53–3.14 | GREEN |
-| Permission / connection error / upgrade | 3 | 14.06–42.46% | 3.15–3.57 | GREEN |
-| Draft advanced / test records / tools | 3 | 46.70–47.49% | 2.95–4.73 | GREEN |
-| Draft publish gate | 1 | 52.07% | 6.05 | GREEN |
-| Published base | 1 | 3.17% | 0.87 | GREEN |
+| Draft base / success / failed / SOP | 5 | 11.07–15.63% | 2.66–3.21 | GREEN |
+| Permission / connection error / upgrade | 3 | 14.85–42.63% | 3.68–3.86 | GREEN |
+| Draft advanced / test records / tools | 3 | 46.75–47.58% | 3.00–4.78 | GREEN |
+| Draft publish gate | 1 | 53.23% | 6.36 | GREEN |
+| Published base | 1 | 9.08% | 1.55 | GREEN |
 | Published agent / share / instructions / versions | 4 | 17.22–36.49% | 2.33–3.19 | GREEN |
 | Skill-new and scenarios | 4 | 12.13% | 3.99 | GREEN |
 
@@ -64,23 +71,23 @@ treated as evidence that the modal was omitted.
 | # | State URL | Diff ratio | Mean RGB delta | Manual conclusion |
 | ---: | --- | ---: | ---: | --- |
 | 1 | `welcome` | 32.816% | 6.568 | GREEN — dashboard hierarchy, cards, actions, and center of gravity present |
-| 2 | `draft_dash_anta` | 10.407% | 2.710 | GREEN — draft shell, task card, result area, chat rail present |
-| 3 | `draft_dash_anta&run_state=success` | 15.03% | 3.13 | GREEN — BFF lifecycle renders a real green success card with revision and next actions |
-| 4 | `draft_dash_anta&run_state=success&modal=publish` | 52.144% | 6.187 | GREEN — publish gate modal rendered with checks and actions |
-| 5 | `draft_dash_anta&run_state=failed` | 14.966% | 3.145 | GREEN — failure card and retry path present |
-| 6 | `draft_dash_anta&state=permission` | 42.457% | 3.391 | GREEN — inset permission overlay covers the draft center only |
-| 7 | `draft_dash_anta&state=connection_error` | 42.448% | 3.147 | GREEN — connection error overlay and reconnect action present |
-| 8 | `draft_dash_anta&state=upgrade` | 14.062% | 3.569 | GREEN — upgrade banner and both recovery actions present |
-| 9 | `draft_dash_anta&modal=advanced` | 47.334% | 2.950 | GREEN — diagnostic modal rendered at source-aligned width |
-| 10 | `draft_dash_anta&modal=test_records` | 47.505% | 4.740 | GREEN — records table rendered, not a placeholder |
-| 11 | `draft_dash_anta&modal=tools` | 46.690% | 4.516 | GREEN — tools/connection rows and add-resource action present |
-| 12 | `pub_dash_anta` | 3.170% | 0.868 | GREEN — published header, badge, version, scope, actions present |
+| 2 | `draft_dash_anta` | 11.136% | 2.712 | GREEN — draft shell, task card, result area, and measured 380px chat rail present |
+| 3 | `draft_dash_anta&run_state=success` | 15.625% | 3.209 | GREEN — BFF lifecycle renders a real green success card with revision and next actions |
+| 4 | `draft_dash_anta&run_state=success&modal=publish` | 53.231% | 6.357 | GREEN — publish gate modal rendered with checks and actions |
+| 5 | `draft_dash_anta&run_state=failed` | 15.550% | 3.133 | GREEN — failure card and retry path present |
+| 6 | `draft_dash_anta&state=permission` | 42.628% | 3.859 | GREEN — inset permission overlay covers the draft center only |
+| 7 | `draft_dash_anta&state=connection_error` | 42.617% | 3.756 | GREEN — connection error overlay and reconnect action present |
+| 8 | `draft_dash_anta&state=upgrade` | 14.846% | 3.679 | GREEN — upgrade banner and both recovery actions present |
+| 9 | `draft_dash_anta&modal=advanced` | 47.390% | 2.999 | GREEN — diagnostic modal rendered at source-aligned width |
+| 10 | `draft_dash_anta&modal=test_records` | 47.581% | 4.776 | GREEN — records table rendered, not a placeholder |
+| 11 | `draft_dash_anta&modal=tools` | 46.747% | 4.552 | GREEN — tools/connection rows and add-resource action present |
+| 12 | `pub_dash_anta` | 9.084% | 1.551 | GREEN — published header, badge, version, scope, actions present |
 | 13 | `pub_dash_anta&modal=agent` | 36.494% | 3.189 | GREEN — agent binding modal and BFF-backed empty state rendered |
 | 14 | `pub_dash_anta&modal=share_run` | 17.220% | 3.094 | GREEN — warning, snapshot action, and empty-link state rendered |
 | 15 | `pub_dash_anta&modal=instructions` | 20.782% | 2.478 | GREEN — BFF-backed information fields rendered |
-| 16 | `pub_dash_anta&modal=versions` | 26.356% | 2.333 | GREEN — 384px version drawer, source block, and BFF-backed timeline rendered |
-| 17 | `draft_sop_bluetooth` | 10.275% | 2.528 | GREEN — draft shell and SOP state rendered |
-| 18 | `draft_sop_haidilao` | 10.270% | 2.534 | GREEN — draft shell and SOP state rendered |
+| 16 | `pub_dash_anta&modal=versions` | 31.896% | 3.023 | GREEN — 384px version drawer, source block, and BFF-backed timeline rendered |
+| 17 | `draft_sop_bluetooth` | 11.141% | 2.715 | GREEN — draft shell and SOP state rendered |
+| 18 | `draft_sop_haidilao` | 11.072% | 2.658 | GREEN — draft shell and SOP state rendered |
 | 19 | `skill_new` | 12.130% | 3.986 | GREEN — form hierarchy, connection section, upload, and submit present |
 | 20 | `skill_new&scenario=anta` | 12.130% | 3.986 | GREEN — scenario URL renders the same real creation form |
 | 21 | `skill_new&scenario=zhiji` | 12.130% | 3.986 | GREEN — scenario URL renders the same real creation form |
