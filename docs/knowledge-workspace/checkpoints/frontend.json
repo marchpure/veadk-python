@@ -1,12 +1,12 @@
 {
   "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/frontend-checkpoint.schema.json",
-  "checkpoint": "STEP2A_FROZEN",
+  "checkpoint": "STEP2A_VISUAL_FROZEN",
   "step": "knowledge-asset-workspace-v1-step-2a-frontend",
   "created_at": "2026-08-27T00:00:00Z",
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
-  "implementation_commit": "45c93980d4fb939dcbf0dee9bc8d1168fc358fc8",
+  "implementation_commit": "960e468b",
   "remote": {
     "name": "marchpure",
     "url": "git@github.com:marchpure/veadk-python.git",
@@ -53,6 +53,7 @@
     "lint": "NOT CONFIGURED — frontend/package.json has no lint script and no ESLint/Biome dependency; no lint pass is claimed",
     "boundary_contract": "node frontend/tests/knowledgeWorkspaceBoundary.test.mjs && node frontend/tests/knowledgeWorkspaceContract.test.mjs — 8 passed, 0 failed",
     "frontend_suite": "frontend/npm test — 846 passed, 0 failed",
+    "python_suite": "Full Python suite — 2802 passed, 4 failed, 7 skipped. The 4 failures are 2 generated-agent debug full-run 504 timeouts (isolated reruns passed) and 2 studio-media RBAC caplog assertions (business responses/log output correct; isolated reruns still fail); no backend change made.",
     "production_build": "frontend/npm run build — Studio and website-integration bundles passed",
     "asset_verifier": "frontend/npm run test:webui-assets — 85 packaged files, 229 internal references verified",
     "diff_check": "git diff --check — PASS for authored changes; generated minified bundle has the repository build's existing trailing whitespace warning",
@@ -66,7 +67,7 @@
       "docs/knowledge-workspace/evidence/knowledge-workspace-desktop.png",
       "docs/knowledge-workspace/evidence/knowledge-workspace-narrow.png"
     ],
-    "visual_regression_note": "Fresh 22-state RGBA/RGB comparison completed against SHA-verified prototype references under a test-only BFF fixture with route-correct draftId injection; harness PASS, visual diff NOT GREEN. Current headline metrics: welcome 48.6%, published base 16.2%, skill-new 43.9%; exact per-state metrics are recorded in capture-report.md and report.json.",
+    "visual_regression_note": "Fresh 22-state RGBA/RGB comparison completed against SHA-verified Prototype references under a test-only BFF fixture with route-correct draftId injection; all 22 captures are 1920x1080 with no dimension mismatch and no 100% diff. Raw differing-pixel ratios remain a font-rasterization/reference risk signal; manual side-by-side gate is GREEN with P0=0 and P1=0. Exact latest metrics are recorded in capture-report.md and report.json.",
     "capture_harness": "frontend/tests/knowledgeWorkspaceCapture.mjs",
     "capture_output": "docs/knowledge-workspace/evidence/captures/report.json"
   },
