@@ -5,7 +5,7 @@
   "created_at": "2026-08-28T00:00:00+08:00",
   "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "parent_bootstrap_commit": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
-  "implementation_commit": "6a5fd40d0b794ebf3d5143bf1716eaafbe8fe821",
+  "implementation_commit": "1400d9ec62e68ab988cdb3b12c09cb12a4df9c0b",
   "branch": "feat/knowledge-v1-autoskill",
   "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-autoskill",
   "autoskill": {
@@ -46,6 +46,9 @@
       "draft/session/invocation/revision/artifact/publication models",
       "tenant/workspace-qualified SQLite persistence",
       "invocation-bound least-privilege lease issue/revoke lifecycle",
+      "injected cross-Agent PublicationRegistryPort boundary",
+      "trusted actor resolver required by default; insecure header adapter is test-only",
+      "durable per-invocation provider request lineage",
       "same-origin FastAPI routes with draft PATCH/ETag and idempotency"
     ],
     "security_evidence": [
@@ -56,7 +59,9 @@
       "no browser-facing AutoSkill URL, provider IDs, request IDs, or token",
       "trusted Studio principal actor mapping in production composition",
       "symlink-safe object reads and non-empty view_skill completion gate",
-      "server-side connection context is required for connection-backed invocation"
+      "server-side connection context is required for connection-backed invocation",
+      "query-command errors/unknown/malformed events are archived and fail closed",
+      "publication requires an invocation lease and artifact from that authorized run"
     ],
     "immutability_evidence": [
       "SHA-256 content-addressed object keys",
@@ -68,11 +73,11 @@
   },
   "tests": {
     "command": "pytest -q tests/knowledge_workspace tests/frontend/server/test_intelligent_development_routes.py",
-    "result": "86 passed",
+    "result": "92 passed",
     "compileall": "PASS",
     "contract_validator": "PASS",
     "git_diff_check": "PASS",
-    "lifecycle_evidence": "freeze → real run → HTML artifact → publication gate passed with deterministic service contract"
+    "lifecycle_evidence": "freeze → real run → HTML artifact → lease-backed publication gate passed with deterministic service contract; authenticated live lifecycle remains blocked"
   },
   "limitations": [
     "Authenticated AutoSkill create/list/view/download/invoke/update/second-ZIP evidence remains blocked until a real KNOWLEDGE_AUTOSKILL_TOKEN is supplied.",
