@@ -489,14 +489,16 @@ class ExternalDatabaseAdapter(ProviderConnectorAdapter):
             )
         if key == "hive":
             auth = str(credentials.get("auth") or "LDAP")
-            return driver.Connection(
-                host=config["host"],
-                port=config["port"],
-                database=config["database"],
-                username=credentials["username"],
-                password=credentials["password"],
-                auth=auth,
-            )
+            connection_kwargs: dict[str, object] = {
+                "host": config["host"],
+                "port": config["port"],
+                "database": config["database"],
+                "username": credentials["username"],
+                "auth": auth,
+            }
+            if auth in {"LDAP", "CUSTOM"}:
+                connection_kwargs["password"] = credentials["password"]
+            return driver.Connection(**connection_kwargs)
         raise ConnectorAdapterError(
             "DATABASE_DRIVER_UNAVAILABLE",
             f"{self.definition.name} runtime is not configured.",
@@ -529,7 +531,32 @@ class ExternalDatabaseAdapter(ProviderConnectorAdapter):
             schemas, tables = _database_allowlists(request.configuration)
             cursor = connection.cursor()
             try:
-                if key == "oracle":
+                if key == "hive":
+                    metadata: list[tuple[object, ...]] = []
+                    for schema in schemas:
+                        cursor.execute(f"SHOW TABLES IN {_quote(schema, key)}")
+                        discovered_tables = {
+                            str(row[0])
+                            for row in cursor.fetchall()
+                            if row and str(row[0]) in tables
+                        }
+                        for table in discovered_tables:
+                            cursor.execute(
+                                f"DESCRIBE {_quote(schema, key)}.{_quote(table, key)}"
+                            )
+                            for row in cursor.fetchall():
+                                if len(row) < 2 or not row[0] or str(row[0]).startswith("#"):
+                                    continue
+                                metadata.append(
+                                    (
+                                        schema,
+                                        table,
+                                        row[0],
+                                        row[1],
+                                        "YES",
+                                    )
+                                )
+                elif key == "oracle":
                     markers = ",".join(f":{index + 1}" for index in range(len(schemas)))
                     cursor.execute(
                         "SELECT owner, table_name, column_name, data_type, nullable "
@@ -547,7 +574,7 @@ class ExternalDatabaseAdapter(ProviderConnectorAdapter):
                         "ORDER BY table_schema, table_name, ordinal_position",
                         schemas,
                     )
-                metadata = cursor.fetchall()
+                    metadata = cursor.fetchall()
             finally:
                 cursor.close()
         finally:

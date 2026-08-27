@@ -491,7 +491,7 @@ const backendEnvironment = {
   STEP3_MCP_DATA_PATH: mcpData,
   STEP3B_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
   STEP3B_LOCAL_PROVIDER_CONNECTORS:
-    "s3,kafka,clickhouse,oracle,sqlserver,starrocks,doris",
+    "s3,kafka,clickhouse,oracle,sqlserver,starrocks,doris,hive",
   STEP3B_MINIO_ACCESS_KEY: "step3badmin",
   STEP3B_MINIO_SECRET_KEY: "step3bpassword",
   STEP3B_CLICKHOUSE_USER: "step3b",
@@ -508,7 +508,24 @@ const backendEnvironment = {
   STEP3B_DORIS_USER: "step3b",
   STEP3B_DORIS_PASSWORD: "Step3bDorisPassword1!",
   STEP3B_DORIS_PORT: "26359",
+  STEP3B_HIVE_USER: "step3b",
+  STEP3B_HIVE_PASSWORD: "x",
+  STEP3B_HIVE_AUTH: "NONE",
+  STEP3B_HIVE_PORT: "26363",
 };
+const selectedLocalProviders = new Set(
+  (process.env.STEP3B_BROWSER_PROVIDER_CONNECTORS ??
+    "s3,kafka,clickhouse,oracle,sqlserver,starrocks,doris,hive")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean),
+);
+backendEnvironment.STEP3B_LOCAL_PROVIDER_CONNECTORS = [
+  ...selectedLocalProviders,
+].join(",");
+backendEnvironment.STEP3B_BROWSER_PROVIDER_CONNECTORS = [
+  ...selectedLocalProviders,
+].join(",");
 const databaseFixture = resolve(
   repository,
   "tests/fixtures/knowledge_workspace_v21141/prepare_step3b_browser_databases.py",
@@ -686,8 +703,8 @@ try {
     return states;
   }, {});
   assert(
-    capabilityStates.available === 21 &&
-      capabilityStates.credential_blocked === 16,
+    capabilityStates.available === 14 + selectedLocalProviders.size &&
+      capabilityStates.credential_blocked === 23 - selectedLocalProviders.size,
     `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(
@@ -1277,7 +1294,7 @@ try {
   }
 
   const providerResults = [];
-  providerResults.push(
+  if (selectedLocalProviders.has("s3")) providerResults.push(
     await createAndIngest({
       connectorKey: "s3",
       displayName: "Browser MinIO S3",
@@ -1295,7 +1312,7 @@ try {
       secretRef: "secret://workspace-step3/s3",
     }),
   );
-  providerResults.push(
+  if (selectedLocalProviders.has("kafka")) providerResults.push(
     await createAndIngest({
       connectorKey: "kafka",
       displayName: "Browser Redpanda Kafka",
@@ -1312,7 +1329,7 @@ try {
       secretRef: "secret://workspace-step3/kafka",
     }),
   );
-  providerResults.push(
+  if (selectedLocalProviders.has("clickhouse")) providerResults.push(
     await createAndIngest({
       connectorKey: "clickhouse",
       displayName: "Browser ClickHouse",
@@ -1334,7 +1351,7 @@ try {
       secretRef: "secret://workspace-step3/clickhouse",
     }),
   );
-  providerResults.push(
+  if (selectedLocalProviders.has("oracle")) providerResults.push(
     await createAndIngest({
       connectorKey: "oracle",
       displayName: "Browser Oracle Free",
@@ -1356,7 +1373,7 @@ try {
       secretRef: "secret://workspace-step3/oracle",
     }),
   );
-  providerResults.push(
+  if (selectedLocalProviders.has("sqlserver")) providerResults.push(
     await createAndIngest({
       connectorKey: "sqlserver",
       displayName: "Browser Azure SQL Edge",
@@ -1378,7 +1395,7 @@ try {
       secretRef: "secret://workspace-step3/sqlserver",
     }),
   );
-  providerResults.push(
+  if (selectedLocalProviders.has("starrocks")) providerResults.push(
     await createAndIngest({
       connectorKey: "starrocks",
       displayName: "Browser StarRocks",
@@ -1400,7 +1417,7 @@ try {
       secretRef: "secret://workspace-step3/starrocks",
     }),
   );
-  providerResults.push(
+  if (selectedLocalProviders.has("doris")) providerResults.push(
     await createAndIngest({
       connectorKey: "doris",
       displayName: "Browser Doris",
@@ -1420,6 +1437,28 @@ try {
       },
       suffix: "provider-doris",
       secretRef: "secret://workspace-step3/doris",
+    }),
+  );
+  if (selectedLocalProviders.has("hive")) providerResults.push(
+    await createAndIngest({
+      connectorKey: "hive",
+      displayName: "Browser Hive",
+      configuration: {
+        host: "127.0.0.1",
+        port: 26363,
+        database: "knowledge",
+        schemaAllowlist: ["knowledge"],
+        tableAllowlist: ["step3b_hive_orders"],
+        query: "SELECT * FROM knowledge.step3b_hive_orders",
+        queryParameters: {},
+        pageSize: 10,
+        rowLimit: 10,
+        byteLimit: 100000,
+        timeoutSeconds: 10,
+        maxAttempts: 1,
+      },
+      suffix: "provider-hive",
+      secretRef: "secret://workspace-step3/hive",
     }),
   );
 
@@ -1706,6 +1745,7 @@ try {
       sqlserver: "dbo.step3b_orders",
       starrocks: "knowledge.step3b_starrocks_orders",
       doris: "knowledge.step3b_doris_orders",
+      hive: "knowledge.step3b_hive_orders",
     },
     cases: providerResults.map((item) => ({
       connectorKey: item.connectorKey,

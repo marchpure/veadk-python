@@ -98,6 +98,15 @@ def _secret(reference: str) -> str | None:
             },
             sort_keys=True,
         )
+    if reference == "secret://workspace-step3/hive":
+        return json.dumps(
+            {
+                "username": os.environ.get("STEP3B_HIVE_USER", "step3b"),
+                "password": os.environ.get("STEP3B_HIVE_PASSWORD", "x"),
+                "auth": os.environ.get("STEP3B_HIVE_AUTH", "NONE"),
+            },
+            sort_keys=True,
+        )
     if reference == "secret://workspace-step3/sqlserver":
         return json.dumps(
             {

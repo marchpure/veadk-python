@@ -338,6 +338,51 @@ def test_mysql_protocol_warehouses_set_read_only_transaction_without_dialect_err
 
 
 @pytest.mark.parametrize(
+    ("auth", "expected_password"),
+    [("NONE", False), ("LDAP", True), ("CUSTOM", True)],
+)
+def test_hive_connection_passes_password_only_for_password_auth(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    auth: str,
+    expected_password: bool,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class Driver:
+        @staticmethod
+        def Connection(**kwargs: object) -> object:
+            captured.update(kwargs)
+            return object()
+
+    adapter = _application(
+        tmp_path,
+        secret={"username": "reader", "password": "runtime-password", "auth": auth},
+    ).connector_adapters()["hive"]
+    request = ConnectorRequest(
+        connector_key="hive",
+        workspace_id="workspace-step3b",
+        principal_id="user-step3b",
+        configuration={
+            "host": "hive.example",
+            "port": 10000,
+            "database": "knowledge",
+            "schemaAllowlist": ["knowledge"],
+            "tableAllowlist": ["orders"],
+        },
+        secret_ref="secret://workspace-step3b/hive",
+        trace_id=f"trace-hive-auth-{auth.casefold()}",
+    )
+    monkeypatch.setattr(adapter, "_load_driver", lambda: Driver())
+
+    adapter._connect(request)
+
+    assert captured["auth"] == auth
+    assert captured["username"] == "reader"
+    assert ("password" in captured) is expected_password
+
+
+@pytest.mark.parametrize(
     ("connector_key", "expected_placeholder"),
     [("snowflake", "%(minimum)s"), ("hive", "%(minimum)s")],
 )
