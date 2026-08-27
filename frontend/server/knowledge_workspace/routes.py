@@ -11,7 +11,7 @@ from fastapi import File, FastAPI, Form, Header, HTTPException, Request, Respons
 from fastapi.responses import Response as FastAPIResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import Artifact, Invocation, InvocationKind, Publication, SkillRevision, WorkspaceUpload, new_id
+from .models import Artifact, Invocation, InvocationKind, Publication, SkillDraft, SkillRevision, WorkspaceUpload, new_id
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
 
 
@@ -98,12 +98,23 @@ def mount_knowledge_workspace_routes(
         if isinstance(data, Invocation):
             data = service.public_invocation(data)
             data["event_url"] = f"{prefix}/invocations/{data['invocation_id']}/events"
+        elif isinstance(data, WorkspaceUpload):
+            data = service.public_upload(data)
+        elif isinstance(data, SkillDraft):
+            data = service.public_draft(data)
         elif isinstance(data, SkillRevision):
             data = service.public_revision(data)
         elif isinstance(data, Artifact):
             data = service.public_artifact(data)
-        elif isinstance(data, tuple) and data and isinstance(data[0], Publication):
-            data = [item.model_dump(mode="json") for item in data]
+        elif isinstance(data, tuple):
+            if data and isinstance(data[0], Publication):
+                data = [service.public_publication(item) for item in data]
+            elif data and isinstance(data[0], SkillDraft):
+                data = [service.public_draft(item) for item in data]
+            else:
+                data = list(data)
+        elif isinstance(data, Publication):
+            data = service.public_publication(data)
         value = data.model_dump(mode="json") if hasattr(data, "model_dump") else data
         return {"data": value, "meta": {"request_id": request.headers.get("x-request-id", "server-generated")}}
 
@@ -116,7 +127,7 @@ def mount_knowledge_workspace_routes(
         request: Request,
         file: UploadFile = File(...),
         purpose: str = Form("context"),
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
     ) -> dict[str, Any]:
         if purpose not in {"context", "skill_input"}:
             raise HTTPException(status_code=422, detail={"code": "INVALID_REQUEST", "message": "invalid upload purpose", "retryable": False})
@@ -180,7 +191,7 @@ def mount_knowledge_workspace_routes(
         request: Request,
         response: Response,
         body: CreateDraftBody,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
     ) -> dict[str, Any]:
         result = invoke(
             lambda: service.create_draft(
@@ -199,10 +210,17 @@ def mount_knowledge_workspace_routes(
             request,
         )
 
-    @app.get(f"{prefix}/skills/drafts/{{draft_id}}")
-    async def get_draft(request: Request, response: Response, draft_id: str) -> dict[str, Any]:
+    @app.get(f"{prefix}/skills/drafts/{{draft_id}}", response_model=None)
+    async def get_draft(
+        request: Request,
+        response: Response,
+        draft_id: str,
+        if_none_match: str | None = Header(default=None, alias="If-None-Match"),
+    ) -> dict[str, Any] | Response:
         result = invoke(lambda: service.get_draft(actor(request), draft_id))
         response.headers["ETag"] = result.etag
+        if if_none_match and if_none_match.strip('"') == result.etag:
+            return Response(status_code=304, headers={"ETag": result.etag})
         return envelope(result, request)
 
     @app.patch(f"{prefix}/skills/drafts/{{draft_id}}")
@@ -211,7 +229,8 @@ def mount_knowledge_workspace_routes(
         response: Response,
         draft_id: str,
         body: UpdateDraftBody,
-        if_match: str | None = Header(default=None, alias="If-Match"),
+        if_match: str = Header(..., alias="If-Match", min_length=1),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
     ) -> dict[str, Any]:
         result = invoke(
             lambda: service.update_draft(
@@ -222,6 +241,8 @@ def mount_knowledge_workspace_routes(
                 if_match=if_match,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,
+                idempotency_key=idempotency_key,
+                request_digest=request_digest(body.model_dump(mode="json")),
             )
         )
         response.headers["ETag"] = result.etag
@@ -234,7 +255,8 @@ def mount_knowledge_workspace_routes(
         request: Request,
         draft_id: str,
         body: GenerateBody | None = None,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        if_match: str = Header(..., alias="If-Match", min_length=1),
     ) -> dict[str, Any]:
         body = body or GenerateBody()
         return envelope(
@@ -245,7 +267,7 @@ def mount_knowledge_workspace_routes(
                     InvocationKind.GENERATE,
                     message=body.message or "",
                     model=body.model,
-                    if_match=request.headers.get("if-match"),
+                    if_match=if_match,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
                 )
@@ -258,7 +280,8 @@ def mount_knowledge_workspace_routes(
         request: Request,
         draft_id: str,
         body: DraftMessageBody,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        if_match: str = Header(..., alias="If-Match", min_length=1),
     ) -> dict[str, Any]:
         kind = InvocationKind.UPDATE if body.intent == "update" else InvocationKind.RUN
         return envelope(
@@ -270,7 +293,7 @@ def mount_knowledge_workspace_routes(
                     message=body.message,
                     connection_ids=(),
                     upload_ids=body.upload_ids,
-                    if_match=request.headers.get("if-match"),
+                    if_match=if_match,
                     # Draft-attached uploads are used by default; explicit
                     # IDs are validated by the service before execution.
                     idempotency_key=idempotency_key,
@@ -306,8 +329,22 @@ def mount_knowledge_workspace_routes(
         return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "Connection": "keep-alive"})
 
     @app.post(f"{prefix}/invocations/{{invocation_id}}/cancel", status_code=202)
-    async def cancel(request: Request, invocation_id: str) -> dict[str, Any]:
-        return envelope(await invoke_async(lambda: service.cancel(actor(request), invocation_id)), request)
+    async def cancel(
+        request: Request,
+        invocation_id: str,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+    ) -> dict[str, Any]:
+        return envelope(
+            await invoke_async(
+                lambda: service.cancel(
+                    actor(request),
+                    invocation_id,
+                    idempotency_key=idempotency_key,
+                    request_digest=invocation_id,
+                )
+            ),
+            request,
+        )
 
     @app.get(f"{prefix}/skills/drafts/{{draft_id}}/revisions")
     async def revisions(request: Request, draft_id: str) -> dict[str, Any]:
@@ -315,15 +352,33 @@ def mount_knowledge_workspace_routes(
         return envelope(tuple(service.public_revision(item) for item in values), request)
 
     @app.post(f"{prefix}/skills/drafts/{{draft_id}}/revisions", status_code=201)
-    async def freeze(request: Request, draft_id: str, body: FreezeBody) -> dict[str, Any]:
-        return envelope(await invoke_async(lambda: service.freeze(actor(request), draft_id, body.invocation_id)), request)
+    async def freeze(
+        request: Request,
+        draft_id: str,
+        body: FreezeBody,
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
+        if_match: str = Header(..., alias="If-Match"),
+    ) -> dict[str, Any]:
+        return envelope(
+            await invoke_async(
+                lambda: service.freeze(
+                    actor(request),
+                    draft_id,
+                    body.invocation_id,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest(body.model_dump(mode="json")),
+                    if_match=if_match,
+                )
+            ),
+            request,
+        )
 
     @app.post(f"{prefix}/skill-revisions/{{revision_id}}/run", status_code=202)
     async def run(
         request: Request,
         revision_id: str,
         body: RunBody,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
     ) -> dict[str, Any]:
         return envelope(
             await invoke_async(
@@ -340,9 +395,18 @@ def mount_knowledge_workspace_routes(
             request,
         )
 
-    @app.get(f"{prefix}/artifacts/{{artifact_id}}")
-    async def artifact(request: Request, artifact_id: str) -> dict[str, Any]:
-        return envelope(service.get_artifact(actor(request), artifact_id), request)
+    @app.get(f"{prefix}/artifacts/{{artifact_id}}", response_model=None)
+    async def artifact(
+        request: Request,
+        artifact_id: str,
+        response: Response,
+        if_none_match: str | None = Header(default=None, alias="If-None-Match"),
+    ) -> dict[str, Any] | Response:
+        result = service.get_artifact(actor(request), artifact_id)
+        response.headers["ETag"] = result.sha256
+        if if_none_match and if_none_match.strip('"') == result.sha256:
+            return Response(status_code=304, headers={"ETag": result.sha256})
+        return envelope(result, request)
 
     @app.get(f"{prefix}/artifacts/{{artifact_id}}/content")
     async def artifact_content(request: Request, artifact_id: str) -> FastAPIResponse:
@@ -372,7 +436,7 @@ def mount_knowledge_workspace_routes(
         request: Request,
         revision_id: str,
         body: PublishBody,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
     ) -> dict[str, Any]:
         return envelope(
             invoke(
@@ -392,7 +456,7 @@ def mount_knowledge_workspace_routes(
         request: Request,
         publication_id: str,
         body: PublicationInvokeBody,
-        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+        idempotency_key: str = Header(..., alias="Idempotency-Key", min_length=16, max_length=256),
     ) -> dict[str, Any]:
         return envelope(
             await invoke_async(

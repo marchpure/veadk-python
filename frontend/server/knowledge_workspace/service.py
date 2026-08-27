@@ -83,31 +83,29 @@ class KnowledgeWorkspaceService:
         """Return the browser contract without provider IDs or credentials."""
 
         return {
-            "tenant_id": invocation.tenant_id,
-            "workspace_id": invocation.workspace_id,
             "invocation_id": invocation.invocation_id,
-            "draft_id": invocation.draft_id,
-            "revision_id": invocation.revision_id,
-            "connection_ids": invocation.connection_ids,
             "kind": invocation.kind,
             "status": invocation.status,
-            "request_summary": KnowledgeWorkspaceService._public_value(invocation.request_summary),
-            "final_answer_observed": invocation.final_answer_observed,
-            "request_summary_observed": invocation.request_summary_observed,
-            "done_observed": invocation.done_observed,
-            "error_observed": invocation.error_observed,
-            "error_code": invocation.error_code,
-            "error_message": invocation.error_message,
-            "started_at": invocation.started_at,
-            "finished_at": invocation.finished_at,
             "created_at": invocation.created_at,
+        }
+
+    @staticmethod
+    def public_draft(draft: SkillDraft) -> dict[str, object]:
+        return {
+            "draft_id": draft.draft_id,
+            "goal": draft.goal,
+            "trial_task": draft.trial_task,
+            "connection_ids": draft.connection_ids,
+            "upload_ids": draft.upload_ids,
+            "lifecycle": draft.status,
+            "current_revision_id": draft.current_revision_id,
+            "created_at": draft.created_at,
+            "updated_at": draft.updated_at,
         }
 
     @staticmethod
     def public_revision(revision: SkillRevision) -> dict[str, object]:
         return {
-            "tenant_id": revision.tenant_id,
-            "workspace_id": revision.workspace_id,
             "revision_id": revision.revision_id,
             "draft_id": revision.draft_id,
             "number": revision.number,
@@ -126,8 +124,6 @@ class KnowledgeWorkspaceService:
             if key not in {"autoskill_request_id", "autoskill_agent_id", "autoskill_session_id"}
         }
         return {
-            "tenant_id": artifact.tenant_id,
-            "workspace_id": artifact.workspace_id,
             "artifact_id": artifact.artifact_id,
             "revision_id": artifact.revision_id,
             "invocation_id": artifact.invocation_id,
@@ -139,6 +135,26 @@ class KnowledgeWorkspaceService:
             "csp": artifact.csp,
             "sandbox": artifact.sandbox,
             "created_at": artifact.created_at,
+        }
+
+    @staticmethod
+    def public_upload(upload: WorkspaceUpload) -> dict[str, object]:
+        return {
+            "upload_id": upload.upload_id,
+            "filename": upload.filename,
+            "sha256": upload.sha256,
+            "size_bytes": upload.size_bytes,
+            "media_type": upload.media_type,
+        }
+
+    @staticmethod
+    def public_publication(publication: Publication) -> dict[str, object]:
+        return {
+            "publication_id": publication.publication_id,
+            "revision_id": publication.revision_id,
+            "target_space": publication.target_space,
+            "status": publication.status,
+            "created_at": publication.created_at,
         }
 
     def create_draft(
@@ -218,8 +234,30 @@ class KnowledgeWorkspaceService:
         if_match: str | None,
         trial_task: str | None = None,
         upload_ids: Sequence[str] | None = None,
+        idempotency_key: str | None = None,
+        request_digest: str = "",
     ) -> SkillDraft:
         draft = self.get_draft(actor, draft_id)
+        idempotency_scope = f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:draft-update:{draft_id}"
+        if idempotency_key:
+            try:
+                replay_etag = self.repository.idempotency_value(
+                    idempotency_scope,
+                    idempotency_key,
+                    request_digest,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                raise
+            if replay_etag:
+                replay = self.repository.get_draft(
+                    draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if replay is not None:
+                    return replay
         if if_match and if_match.strip('"') != draft.etag:
             raise KnowledgeWorkspaceError("ETAG_MISMATCH", "draft was modified by another request", 412)
         if draft.status == DraftStatus.GENERATING:
@@ -252,6 +290,18 @@ class KnowledgeWorkspaceService:
             updates["upload_ids"] = uploads
         updated = draft.model_copy(update=updates)
         self.repository.save_draft(updated)
+        if idempotency_key:
+            try:
+                self.repository.idempotent(
+                    idempotency_scope,
+                    idempotency_key,
+                    request_digest,
+                    updated.etag,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                raise
         return updated
 
     def list_drafts(self, actor: Actor) -> tuple[SkillDraft, ...]:
@@ -730,10 +780,29 @@ class KnowledgeWorkspaceService:
                     last_event_id=cursor,
                 )
 
-    async def cancel(self, actor: Actor, invocation_id: str) -> Invocation:
+    async def cancel(
+        self,
+        actor: Actor,
+        invocation_id: str,
+        *,
+        idempotency_key: str | None = None,
+        request_digest: str = "",
+    ) -> Invocation:
         invocation = self.repository.get_invocation(invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
         if invocation is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
+        if idempotency_key:
+            try:
+                self.repository.idempotent(
+                    f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:cancel:{invocation_id}",
+                    idempotency_key,
+                    request_digest,
+                    invocation_id,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                raise
         if invocation.status in {InvocationStatus.SUCCEEDED, InvocationStatus.FAILED, InvocationStatus.CANCELLED}:
             return invocation
         self._cancelled.add(invocation_id)
@@ -778,8 +847,40 @@ class KnowledgeWorkspaceService:
             yield {"heartbeat": True}
             await asyncio.sleep(0.25)
 
-    async def freeze(self, actor: Actor, draft_id: str, invocation_id: str) -> SkillRevision:
+    async def freeze(
+        self,
+        actor: Actor,
+        draft_id: str,
+        invocation_id: str,
+        *,
+        idempotency_key: str | None = None,
+        request_digest: str = "",
+        if_match: str | None = None,
+    ) -> SkillRevision:
         draft = self.get_draft(actor, draft_id)
+        idempotency_scope = f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:freeze:{draft_id}"
+        if idempotency_key:
+            try:
+                existing_id = self.repository.idempotency_value(
+                    idempotency_scope,
+                    idempotency_key,
+                    request_digest,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                raise
+            if existing_id:
+                replay = self.repository.get_revision(
+                    existing_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if replay is not None:
+                    return replay
+        if if_match:
+            if if_match.strip('"') != draft.etag:
+                raise KnowledgeWorkspaceError("ETAG_MISMATCH", "draft was modified by another request", 412)
         invocation = self.repository.get_invocation(invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
         session = self._session(actor, draft_id)
         if invocation is None or invocation.draft_id != draft_id or invocation.status is not InvocationStatus.SUCCEEDED:
@@ -838,12 +939,17 @@ class KnowledgeWorkspaceService:
             )
             view_seen = False
             view_done = False
+            view_content = ""
             async for event in view_stream:
-                view_seen = view_seen or event.event_type == "final_answer"
+                if event.event_type == "final_answer":
+                    view_seen = True
+                    data = event.payload.get("data", {})
+                    answer = data.get("answer") if isinstance(data, Mapping) else ""
+                    view_content = str(answer or "").strip()
                 if event.event_type == "done":
                     view_done = True
                     break
-            if not view_seen or not view_done:
+            if not view_seen or not view_content or not view_done:
                 raise KnowledgeWorkspaceError("SKILL_ZIP_INVALID", "view_skill did not return readable content", 502)
             zip_bytes = await self.autoskill.download(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, file_type="skill", name=skill_name)
             manifest = validate_skill_zip(zip_bytes)
@@ -851,7 +957,27 @@ class KnowledgeWorkspaceService:
         except AutoSkillProtocolError as exc:
             raise KnowledgeWorkspaceError("AUTOSKILL_PROTOCOL_ERROR", str(exc), 502) from exc
         number = len(self.repository.revisions(draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)) + 1
-        revision = SkillRevision(tenant_id=actor.tenant_id, workspace_id=actor.workspace_id, revision_id=new_id("rev"), draft_id=draft_id, number=number, skill_name=str(skill_name), zip_uri=uri, sha256=manifest["sha256"], manifest={k: v for k, v in manifest.items() if k != "skill_md"}, created_from_invocation=invocation_id)
+        revision_id = new_id("rev")
+        if idempotency_key:
+            try:
+                revision_id = self.repository.idempotent(
+                    idempotency_scope,
+                    idempotency_key,
+                    request_digest,
+                    revision_id,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                raise
+            replay = self.repository.get_revision(
+                revision_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+            if replay is not None:
+                return replay
+        revision = SkillRevision(tenant_id=actor.tenant_id, workspace_id=actor.workspace_id, revision_id=revision_id, draft_id=draft_id, number=number, skill_name=str(skill_name), zip_uri=uri, sha256=manifest["sha256"], manifest={k: v for k, v in manifest.items() if k != "skill_md"}, created_from_invocation=invocation_id)
         frozen = self.repository.freeze_revision(revision)
         cursor = len(self.repository.raw_events(invocation_id)) + 1
         self.repository.append_event(

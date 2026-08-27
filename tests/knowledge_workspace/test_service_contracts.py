@@ -4,6 +4,7 @@ import asyncio
 import json
 import io
 import zipfile
+from pathlib import Path
 from collections.abc import AsyncIterator, Sequence
 
 import pytest
@@ -182,6 +183,30 @@ async def test_publication_consumer_gets_fresh_autoskill_identity() -> None:
 
 
 @pytest.mark.asyncio
+async def test_freeze_idempotency_replays_existing_revision() -> None:
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    first = await service.freeze(
+        actor,
+        draft.draft_id,
+        invocation.invocation_id,
+        idempotency_key="freeze-key-123456",
+        request_digest="freeze-digest",
+    )
+    second = await service.freeze(
+        actor,
+        draft.draft_id,
+        invocation.invocation_id,
+        idempotency_key="freeze-key-123456",
+        request_digest="freeze-digest",
+        if_match="stale-etag",
+    )
+    assert second.revision_id == first.revision_id
+
+
+@pytest.mark.asyncio
 async def test_invocation_issues_invocation_bound_lease_and_revokes_it() -> None:
     service, actor, lease = make_service(
         [
@@ -356,3 +381,32 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
     assert saved.status is InvocationStatus.SUCCEEDED
     assert autoskill.commands == 0
     assert autoskill.reconnects == 1
+
+
+def test_sqlite_repository_reopens_durable_workspace_state(tmp_path: Path) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    objects = tmp_path / "objects"
+    actor = Actor("tenant", "workspace", "principal")
+    first = KnowledgeWorkspaceRepository(database, objects)
+    draft = KnowledgeWorkspaceService(first, FakeAutoSkill([])).create_draft(
+        actor, "durable goal", ["connection-a"]
+    )
+    reopened = KnowledgeWorkspaceRepository(database, objects)
+    loaded = reopened.get_draft(
+        draft.draft_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert loaded is not None
+    assert loaded.goal == "durable goal"
+
+
+def test_object_storage_rejects_symlink_alias(tmp_path: Path) -> None:
+    repository = KnowledgeWorkspaceRepository(tmp_path / "db.sqlite3", tmp_path / "objects")
+    content = b"immutable"
+    digest = __import__("hashlib").sha256(content).hexdigest()
+    repository.put_object(digest, content)
+    alias = tmp_path / "objects" / "alias"
+    alias.symlink_to(tmp_path / "objects" / digest)
+    with pytest.raises(ValueError, match="outside"):
+        repository.read_object(str(alias))

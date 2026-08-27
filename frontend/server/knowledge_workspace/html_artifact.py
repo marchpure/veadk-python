@@ -23,7 +23,10 @@ _BLOCKED = re.compile(
     r"\b(on[a-z]+\s*=|javascript\s*:|data\s*:\s*text/html)",
     re.IGNORECASE,
 )
-_EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["'](?:https?:|//)""", re.IGNORECASE)
+_EXTERNAL = re.compile(
+    r"""(?:src|href|srcset)\s*=\s*(?:["']\s*)?(?:https?:|//)""",
+    re.IGNORECASE,
+)
 _EXTERNAL_CSS = re.compile(r"""url\s*\(\s*["']?(?:https?:|//)""", re.IGNORECASE)
 
 

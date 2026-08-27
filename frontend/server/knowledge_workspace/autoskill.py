@@ -108,7 +108,7 @@ class AutoSkillClient:
         params = {"agent_id": agent_id, "session_id": session_id, "request_id": request_id}
         if name:
             params["name"] = name
-        method = "GET" if command in {"list_skill", "view_skill"} and prompt is None else "POST"
+        method = "GET" if command in {"find_skill", "list_skill", "view_skill"} else "POST"
         if method == "GET":
             query = dict(params)
             if prompt:
@@ -243,6 +243,10 @@ class AutoSkillClient:
                     except ValueError as exc:
                         raise AutoSkillProtocolError(str(exc)) from exc
                     for frame in frames:
+                        if frame.heartbeat:
+                            # Provider keepalives prove that the stream is
+                            # alive and move subsequent waits to idle timeout.
+                            first_event_seen = True
                         parsed = parse_upstream_frame(frame)
                         if parsed:
                             first_event_seen = True

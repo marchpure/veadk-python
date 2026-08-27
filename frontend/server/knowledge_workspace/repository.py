@@ -259,6 +259,8 @@ class KnowledgeWorkspaceRepository:
         if digest != __import__("hashlib").sha256(content).hexdigest():
             raise ValueError("object digest does not match content")
         target = self._objects / digest
+        if target.is_symlink():
+            raise ValueError("immutable object path is a symlink")
         try:
             with target.open("xb") as stream:
                 stream.write(content)
@@ -268,9 +270,9 @@ class KnowledgeWorkspaceRepository:
         return str(target)
 
     def read_object(self, uri: str) -> bytes:
-        target = Path(uri).resolve()
+        target = Path(uri)
         root = self._objects.resolve()
-        if target.parent != root:
+        if target.parent.resolve() != root or target.is_symlink():
             raise ValueError("object URI is outside immutable object storage")
         return target.read_bytes()
 
@@ -283,6 +285,18 @@ class KnowledgeWorkspaceRepository:
                 return str(row["value"])
             self._db.execute("INSERT INTO kw_idempotency(scope,key,request_digest,value) VALUES(?,?,?,?)", (scope, key, request_digest, value))
             return value
+
+    def idempotency_value(self, scope: str, key: str, request_digest: str) -> str | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT request_digest,value FROM kw_idempotency WHERE scope=? AND key=?",
+                (scope, key),
+            ).fetchone()
+        if row is None:
+            return None
+        if row["request_digest"] != request_digest:
+            raise ValueError("IDEMPOTENCY_CONFLICT")
+        return str(row["value"])
 
 
 class MappingLike(dict):

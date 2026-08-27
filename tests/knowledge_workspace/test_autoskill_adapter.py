@@ -73,6 +73,9 @@ def test_html_policy_allows_real_static_html_and_rejects_active_content() -> Non
     with pytest.raises(HtmlArtifactError) as error:
         validate_html_artifact(b"<html><script>alert(1)</script></html>")
     assert error.value.code == "ARTIFACT_UNSAFE"
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_html_artifact(b'<html><img srcset="//example.com/a 1x"></html>')
+    assert error.value.code == "ARTIFACT_EXTERNAL_LINK"
 
 
 def test_output_zip_returns_real_html_without_constructing_content() -> None:
@@ -130,6 +133,34 @@ async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() ->
     assert [item.event_type for item in create] == ["done"]
     assert [item.event_type for item in listed] == ["done"]
     assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+async def test_find_skill_uses_documented_query_form() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path.endswith("/find_skill")
+        assert request.url.params["prompt"] == "demo"
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=b'data: {"type":"done","data":{}}\n\n',
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="http://localhost", token="test-token"),
+            client=http,
+        )
+        items = [
+            item async for item in client.find_skill(
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                prompt="demo",
+            )
+        ]
+    assert [item.event_type for item in items] == ["done"]
 
 
 @pytest.mark.asyncio
