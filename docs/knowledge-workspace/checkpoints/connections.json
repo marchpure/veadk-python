@@ -18,10 +18,10 @@
     "remote_url": "https://github.com/volcengine/veadk-python.git",
     "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
-    "commit": "08b09133ffc9c44c66f6fff31511ad9481e446ed",
+    "commit": "44666e23bfa9374fd46dce3ad927dc2d88f224b8",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (pushed to marchpure)"
   },
-  "checkpoint_update_parent_commit": "734cf22e5e1978798d1a379910e5280455479541",
+  "checkpoint_update_parent_commit": "44666e23bfa9374fd46dce3ad927dc2d88f224b8",
   "deployment": {
     "service_command": "CONNECTION_SERVICE_AUTH_SECRET=<secret> CONNECTION_SERVICE_ENCRYPTION_KEY=<secret> npm run start:connection-service",
     "dockerfile": "Dockerfile.connection-service",
