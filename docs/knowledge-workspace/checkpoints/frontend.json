@@ -2,7 +2,7 @@
   "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/frontend-checkpoint.schema.json",
   "checkpoint": "STEP2A_VISUAL_FROZEN",
   "step": "knowledge-asset-workspace-v1-step-2a-frontend",
-  "created_at": "2026-08-27T00:00:00Z",
+  "created_at": "2026-08-28T00:00:00Z",
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
@@ -17,7 +17,7 @@
     "feature_root": "frontend/src/features/knowledge-workspace",
     "integration": "frontend/src/App.tsx?view=knowledge-workspace",
     "production_boundary": "same-origin /api/knowledge/v1 BFF only; no feature-shell iframe, no second SPA, mock fallback, or business localStorage; isolated HTML artifact viewer uses a controlled sandboxed iframe",
-    "feature_loc_excluding_capture_fixtures": 2148,
+    "feature_loc_excluding_capture_fixtures": 2382,
     "capture_fixture_loc": 29
   },
   "migration_entries": [
@@ -57,8 +57,8 @@
     "production_build": "frontend/npm run build — Studio and website-integration bundles passed",
     "asset_verifier": "frontend/npm run test:webui-assets — 85 packaged files, 229 internal references verified",
     "diff_check": "git diff --check — PASS for authored changes; generated minified bundle has the repository build's existing trailing whitespace warning",
-    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 3, event_stream_calls 4, published true",
-    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 3, event_stream_calls 4, published true"
+    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 3, event_stream_calls 4, published true; current page includes real Draft task-run and published Agent-modal wiring",
+    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 3, event_stream_calls 4, published true; current page includes real Draft task-run and published Agent-modal wiring"
   },
   "capture_report": {
     "report": "docs/knowledge-workspace/capture-report.md",
@@ -67,14 +67,14 @@
       "docs/knowledge-workspace/evidence/knowledge-workspace-desktop.png",
       "docs/knowledge-workspace/evidence/knowledge-workspace-narrow.png"
     ],
-    "visual_regression_note": "Fresh 22-state RGBA/RGB comparison completed against SHA-verified Prototype references under a test-only BFF fixture with route-correct draftId injection; all 22 captures are 1920x1080 with no dimension mismatch and no 100% diff. Raw differing-pixel ratios remain a font-rasterization/reference risk signal; manual side-by-side gate is GREEN with P0=0 and P1=0. Exact latest metrics are recorded in capture-report.md and report.json.",
+    "visual_regression_note": "Fresh 22-state RGBA/RGB comparison completed against the SHA-verified v2.20.8.3 Prototype references under a test-only BFF fixture with route-correct draftId injection; all 22 captures are 1920x1080 with no dimension mismatch and no 100% diff. Raw differing-pixel ratios remain a font-rasterization/reference risk signal; manual side-by-side gate is GREEN with P0=0 and P1=0. Latest representative ratios: welcome 32.816%, draft 10.407%, permission 42.457%, published agent modal 36.494%, skill_new 12.130%. Final desktop/narrow E2E also exercised the real draft task-run button and published Agent modal. Exact per-state metrics are recorded in capture-report.md and report.json.",
     "capture_harness": "frontend/tests/knowledgeWorkspaceCapture.mjs",
     "capture_output": "docs/knowledge-workspace/evidence/captures/report.json"
   },
   "build_measurements": {
-    "app_js_bytes": 3349324,
-    "app_js_gzip_bytes": 1059520,
-    "veadk_webui_bytes": 15951928
+    "app_js_bytes": 3362467,
+    "app_js_gzip_bytes": 1062267,
+    "veadk_webui_bytes": 15911912
   },
   "preview_url": "http://127.0.0.1:5174/?view=knowledge-workspace&file=welcome",
   "unfinished_real_integration_dependencies": [

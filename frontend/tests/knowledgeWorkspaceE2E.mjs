@@ -248,10 +248,12 @@ async function main() {
   assert.equal(eventStreamCalls, 1);
   await page.getByRole("button", { name: /重连/ }).click();
   await page.getByText("已完成真实连接试跑。").waitFor();
-  await page.getByPlaceholder("描述修改，或输入任务试跑…").fill("再次检查");
-  await page.getByRole("button", { name: "试跑" }).click();
+  await page.getByRole("button", { name: "开始" }).click();
   await page.getByRole("button", { name: "重试本次运行" }).waitFor();
   await page.getByRole("button", { name: "重试本次运行" }).click();
+  await page.getByText("已完成真实连接试跑。").waitFor();
+  await page.getByPlaceholder("描述修改，或输入任务试跑…").fill("再次检查");
+  await page.getByRole("button", { name: "试跑" }).click();
   await page.getByText("已完成真实连接试跑。").waitFor();
   await page.getByRole("button", { name: "版本" }).click();
   await page.getByText("v1 · support-skill").waitFor();
@@ -261,13 +263,16 @@ async function main() {
   await page.waitForURL(/file=published/);
   await page.reload();
   await page.getByRole("button", { name: "返回工作台" }).waitFor();
+  await page.getByRole("button", { name: "在 Agent 中使用" }).click();
+  await page.getByText("暂无可绑定的 Agent").waitFor();
+  await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
   await page.screenshot({ path: new URL(screenshotName, screenshotDir).pathname, fullPage: true });
   await page.getByRole("button", { name: "返回工作台" }).click();
   await page.getByRole("heading", { name: "我的 Skill" }).waitFor();
   assert.match(new URL(page.url()).search, /file=welcome/);
 
-  assert.equal(invocationCount, 3);
-  assert.equal(eventStreamCalls, 4);
+  assert.equal(invocationCount, 4);
+  assert.equal(eventStreamCalls, 5);
   assert.equal(validationCalls, 1);
   assert.equal(published, true);
   assert.ok(calls.some((call) => call.includes("/events")));
@@ -275,7 +280,7 @@ async function main() {
   console.log(JSON.stringify({
     contract_fixture: true,
     viewport: `${viewport.width}x${viewport.height}`,
-    clicked: ["添加连接", "多选连接", "生成", "SSE 对话", "失败重连", "版本", "发布", "刷新恢复", "右栏布局"],
+    clicked: ["添加连接", "多选连接", "生成", "主区试跑", "SSE 对话", "失败重连", "版本", "发布", "Agent 弹窗", "刷新恢复", "右栏布局"],
     screenshot: `docs/knowledge-workspace/evidence/${screenshotName}`,
     invocation_count: invocationCount,
     published,

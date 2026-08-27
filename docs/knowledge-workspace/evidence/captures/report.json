@@ -7,18 +7,18 @@
       "state_url": "/?file=welcome",
       "route": "welcome",
       "pixels": 2073600,
-      "differing_pixels": 680755,
-      "differing_ratio": 0.32829619984567904,
-      "mean_absolute_rgb_delta": 6.573471579218107
+      "differing_pixels": 680473,
+      "differing_ratio": 0.32816020447530864,
+      "mean_absolute_rgb_delta": 6.568030478395062
     },
     {
       "index": 2,
       "state_url": "/?file=draft_dash_anta",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 213933,
-      "differing_ratio": 0.10316984953703703,
-      "mean_absolute_rgb_delta": 2.603768325617284
+      "differing_pixels": 215798,
+      "differing_ratio": 0.10406925154320988,
+      "mean_absolute_rgb_delta": 2.7097484246399177
     },
     {
       "index": 3,
@@ -34,9 +34,9 @@
       "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1081881,
-      "differing_ratio": 0.5217404513888889,
-      "mean_absolute_rgb_delta": 6.14025591563786
+      "differing_pixels": 1081264,
+      "differing_ratio": 0.5214429012345679,
+      "mean_absolute_rgb_delta": 6.187025623713992
     },
     {
       "index": 5,
@@ -61,9 +61,9 @@
       "state_url": "/?file=draft_dash_anta&state=connection_error",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 880184,
-      "differing_ratio": 0.424471450617284,
-      "mean_absolute_rgb_delta": 3.281731127829218
+      "differing_pixels": 880202,
+      "differing_ratio": 0.4244801311728395,
+      "mean_absolute_rgb_delta": 3.146983828446502
     },
     {
       "index": 8,
@@ -79,27 +79,27 @@
       "state_url": "/?file=draft_dash_anta&modal=advanced",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 982204,
-      "differing_ratio": 0.47367091049382715,
-      "mean_absolute_rgb_delta": 2.947151813271605
+      "differing_pixels": 981517,
+      "differing_ratio": 0.4733396026234568,
+      "mean_absolute_rgb_delta": 2.9503944830246915
     },
     {
       "index": 10,
       "state_url": "/?file=draft_dash_anta&modal=test_records",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 984729,
-      "differing_ratio": 0.47488859953703705,
-      "mean_absolute_rgb_delta": 4.728160686728395
+      "differing_pixels": 985061,
+      "differing_ratio": 0.4750487075617284,
+      "mean_absolute_rgb_delta": 4.73965390303498
     },
     {
       "index": 11,
       "state_url": "/?file=draft_dash_anta&modal=tools",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 968315,
-      "differing_ratio": 0.4669728973765432,
-      "mean_absolute_rgb_delta": 4.518827481995885
+      "differing_pixels": 968163,
+      "differing_ratio": 0.4668995949074074,
+      "mean_absolute_rgb_delta": 4.515632394547325
     },
     {
       "index": 12,
@@ -117,25 +117,25 @@
       "pixels": 2073600,
       "differing_pixels": 756731,
       "differing_ratio": 0.36493586033950615,
-      "mean_absolute_rgb_delta": 3.351904738940329
+      "mean_absolute_rgb_delta": 3.188649209104938
     },
     {
       "index": 14,
       "state_url": "/?file=pub_dash_anta&modal=share_run",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 319220,
-      "differing_ratio": 0.15394483024691358,
-      "mean_absolute_rgb_delta": 2.8925270061728394
+      "differing_pixels": 357082,
+      "differing_ratio": 0.17220389660493826,
+      "mean_absolute_rgb_delta": 3.0939142875514403
     },
     {
       "index": 15,
       "state_url": "/?file=pub_dash_anta&modal=instructions",
       "route": "published",
       "pixels": 2073600,
-      "differing_pixels": 392392,
-      "differing_ratio": 0.18923225308641975,
-      "mean_absolute_rgb_delta": 2.24730195473251
+      "differing_pixels": 430937,
+      "differing_ratio": 0.20782069830246913,
+      "mean_absolute_rgb_delta": 2.4784431262860083
     },
     {
       "index": 16,
@@ -144,16 +144,16 @@
       "pixels": 2073600,
       "differing_pixels": 546520,
       "differing_ratio": 0.2635609567901235,
-      "mean_absolute_rgb_delta": 2.334914641203704
+      "mean_absolute_rgb_delta": 2.3327115483539096
     },
     {
       "index": 17,
       "state_url": "/?file=draft_sop_bluetooth",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 216213,
-      "differing_ratio": 0.10426938657407407,
-      "mean_absolute_rgb_delta": 2.7237157600308644
+      "differing_pixels": 213071,
+      "differing_ratio": 0.1027541473765432,
+      "mean_absolute_rgb_delta": 2.527874710648148
     },
     {
       "index": 18,

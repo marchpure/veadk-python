@@ -29,6 +29,7 @@ test("production feature is bound to the same-origin knowledge BFF", () => {
 test("production feature does not carry prototype business state or outcomes", () => {
   for (const source of [page, client, artifact]) {
     assert.doesNotMatch(source, /mockData|localStorage|setTimeout|安踏|智己|海底捞|haidilao/i);
+    assert.doesNotMatch(source, /经营分析助手|售后诊断助手|门店运营助手|Oracle ERP 销售数据集|区域经理使用/);
   }
   assert.match(page, /knowledgeApi\.listConnections/);
   assert.match(page, /knowledgeApi\.createDraft/);
