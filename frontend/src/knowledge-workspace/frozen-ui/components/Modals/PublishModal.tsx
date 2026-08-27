@@ -58,7 +58,12 @@ export default function PublishModal({
   const resourceName = String((descriptor?.name ?? currentResource?.displayName ?? currentResource?.name ?? currentId) || '当前 Skill');
   const readModel = (currentResource?.readModel ?? currentResource ?? {}) as any;
   const viewModel = (readModel?.skillViewRevision?.viewModel ?? currentResource?.skillViewRevision?.viewModel ?? {}) as any;
-  const kindSpec = (readModel?.publishedVersion?.manifest?.spec?.kindSpec ??
+  const manifest = (readModel?.manifest ??
+    readModel?.publishedVersion?.manifest ??
+    currentResource?.manifest ??
+    {}) as any;
+  const kindSpec = (manifest?.spec?.kindSpec ??
+    readModel?.publishedVersion?.manifest?.spec?.kindSpec ??
     readModel?.publishedVersion?.spec?.kindSpec ??
     readModel?.kindSpec ??
     {}) as any;
@@ -74,6 +79,7 @@ export default function PublishModal({
     : '等待服务端评测';
   const gateLabel = policyGate.decision === 'publishable' ? '可发布' : String(policyGate.decision ?? '等待服务端门禁');
   const operationRisk =
+    manifest?.spec?.contract?.operations?.[0]?.risk ??
     readModel?.publishedVersion?.manifest?.spec?.contract?.operations?.[0]?.risk ??
     readModel?.publishedVersion?.spec?.contract?.operations?.[0]?.risk ??
     kindSpec.actionProposal ??

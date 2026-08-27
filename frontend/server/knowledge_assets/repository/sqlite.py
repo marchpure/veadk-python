@@ -308,6 +308,11 @@ class SqliteKnowledgeAssetRepository:
                 "revision": revision,
                 "draftId": draft_id,
                 "skillRevisionId": f"{draft_id}:{revision}",
+                # The publication surface needs the same durable contract
+                # that authoring and the command boundary validate.  Keep it
+                # server-projected so the UI never reconstructs connector
+                # permissions, inputs, or operation risk from labels.
+                "manifest": manifest,
             }
             if view_payload is not None:
                 read_model["skillViewRevision"] = view_payload

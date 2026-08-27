@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ToyBrick, AlertTriangle } from 'lucide-react';
-import { resourceStore, agentPublicationStore, getResourceDescriptor } from '../../lib/store';
+import { resourceStore, agentPublicationStore, getResourceDescriptor, useStore } from '../../lib/store';
 import { useSearchParams } from 'react-router-dom';
 import { asRecord } from '../../lib/qualityPublicationClient';
 import { bootstrapWorkspace, getWorkspaceAdapter } from '../../../production/store';
@@ -8,7 +8,7 @@ import { createRequestContext } from '../../../production/ports';
 
 export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
   const [searchParams] = useSearchParams();
-  const allResources = resourceStore.getState();
+  const allResources = useStore(resourceStore);
   const descriptor = getResourceDescriptor(fileId, searchParams, allResources);
   const resource = allResources.find((item: any) => item.id === fileId || item.resourceId === fileId) as any;
   
@@ -18,7 +18,7 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
     ? `V${Math.max(1, revision)}.0`
     : String(descriptor?.version || resource?.version || '1.0.0');
   const identity = descriptor?.identity as string;
-  const publications = agentPublicationStore.getState();
+  const publications = useStore(agentPublicationStore);
   const existing = publications.find((item: unknown) => {
     const record = asRecord(item);
     return record.skillId === identity || record.resourceId === identity;
