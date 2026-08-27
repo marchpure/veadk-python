@@ -1,4 +1,4 @@
-"""Seed the session-owned MinIO, Redpanda and ClickHouse test services."""
+"""Seed the session-owned local provider test services."""
 
 from __future__ import annotations
 
@@ -86,6 +86,7 @@ def main() -> None:
     finally:
         oracle.close()
     import pyodbc
+    import pymysql
 
     driver = os.environ.get(
         "STEP3B_SQLSERVER_ODBC_DRIVER", "/opt/homebrew/opt/freetds/lib/libtdsodbc.so"
@@ -112,6 +113,30 @@ def main() -> None:
             )
     finally:
         sqlserver_connection.close()
+    starrocks_connection = pymysql.connect(
+        host=os.environ.get("STEP3B_STARROCKS_HOST", "127.0.0.1"),
+        port=int(os.environ.get("STEP3B_STARROCKS_PORT", "26354")),
+        user=os.environ.get("STEP3B_STARROCKS_USER", "root"),
+        password=os.environ["STEP3B_STARROCKS_PASSWORD"],
+        database=os.environ.get("STEP3B_STARROCKS_DATABASE", "knowledge"),
+        autocommit=True,
+        connect_timeout=10,
+    )
+    try:
+        with starrocks_connection.cursor() as cursor:
+            cursor.execute("DROP TABLE IF EXISTS step3b_starrocks_orders")
+            cursor.execute(
+                "CREATE TABLE step3b_starrocks_orders "
+                "(order_id VARCHAR(32), amount INT) "
+                "DISTRIBUTED BY HASH(order_id) BUCKETS 1 "
+                "PROPERTIES ('replication_num' = '1')"
+            )
+            cursor.execute(
+                "INSERT INTO step3b_starrocks_orders(order_id, amount) "
+                "VALUES ('SR-1', 31), ('SR-2', 44)"
+            )
+    finally:
+        starrocks_connection.close()
     print(
         json.dumps(
             {
@@ -120,6 +145,7 @@ def main() -> None:
                 "clickhouse": "knowledge.step3b_events",
                 "oracle": "STEP3B.STEP3B_ORDERS",
                 "sqlserver": "dbo.step3b_orders",
+                "starrocks": "knowledge.step3b_starrocks_orders",
             }
         )
     )

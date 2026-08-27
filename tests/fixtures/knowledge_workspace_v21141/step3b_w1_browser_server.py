@@ -102,6 +102,14 @@ def _secret(reference: str) -> str | None:
             },
             sort_keys=True,
         )
+    if reference == "secret://workspace-step3/starrocks":
+        return json.dumps(
+            {
+                "username": os.environ.get("STEP3B_STARROCKS_USER", "root"),
+                "password": os.environ["STEP3B_STARROCKS_PASSWORD"],
+            },
+            sort_keys=True,
+        )
     return None
 
 

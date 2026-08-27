@@ -6,22 +6,22 @@ This checkpoint records evidence status, not a claim that all 37 connectors are 
 
 ## Authoritative counts
 
-- `LIVE_VERIFIED`: 7
+- `LIVE_VERIFIED`: 8
 - `LOCAL_PROTOCOL_VERIFIED`: 14
-- `CREDENTIAL_BLOCKED`: 16
+- `CREDENTIAL_BLOCKED`: 15
 - `UNSUPPORTED`: 0
-- PASS total: 21/37
+- PASS total: 22/37
 - `productionPass`: `false`
 - `allConnectorsUsable`: `false`
 
 The R8 PostgreSQL and MySQL live evidence remains authoritative and is retained in
 the matrix. The later local-provider evidence adds S3/MinIO, Kafka/Redpanda,
-ClickHouse, Oracle Free, and SQL Server/Azure SQL Edge without downgrading the
-R8 database results.
+ClickHouse, Oracle Free, SQL Server/Azure SQL Edge, and target-specific
+StarRocks without downgrading the R8 database results.
 
-## R9/R12 evidence
+## R9/R13 evidence
 
-- Browser evidence: `.codex/coordination/knowledge-step3b-integration/CONNECTOR_BROWSER_EVIDENCE_20260827_R12_SQLSERVER.json`
+- Browser evidence: `.codex/coordination/knowledge-step3b-integration/CONNECTOR_BROWSER_EVIDENCE_20260827_R13_STARROCKS.json`
 - Matrix: `STEP3B_CONNECTOR_BROWSER_CAPABILITY_MATRIX_20260827.json`
 - Real BFF/WebUI flow: catalog → bootstrap projection → create → authenticate →
   authorize → discover → sample/read → ingest → SourceRevision →
@@ -29,18 +29,20 @@ R8 database results.
 - Catalog: 37/37 connectors.
 - Bootstrap projection: verified providers available; credential-dependent
   providers remain blocked.
+- StarRocks is now `LIVE_VERIFIED` using a target-specific arm64 StarRocks
+  FE/MySQL protocol service and a server-side `secretRef`.
 - Console/page errors: 0.
 - HAR consistency: pass.
 - Browser refresh and BFF restart recovery: pass.
 
 ## Blocked policy
 
-The 16 blocked entries are not displayed as available and are not counted as
+The 15 blocked entries are not displayed as available and are not counted as
 usable. Their machine-readable required credentials, permissions, and unlock
 steps are in `credentialBlockedDetails` in the matrix. No OAuth success,
 fixed-success result, fixture, or compatible-engine substitution is used.
 
-Doris, StarRocks, and Hive remain blocked because no reliable session-owned
+Doris and Hive remain blocked because no reliable session-owned
 provider/Sandbox was available for a target-specific browser protocol test.
 MySQL is not used as Doris/StarRocks evidence, and another SQL engine is not
 used as Hive evidence.
@@ -54,6 +56,6 @@ Prioritize a real target-specific provider only when it can supply:
 3. SourceRevision and GoldenAssetRevision;
 4. browser evidence including refresh/checkpoint and error paths.
 
-Candidates remain Doris, StarRocks, Hive, OSS, Snowflake, BigQuery, and Feishu,
+Candidates remain Doris, Hive, OSS, Snowflake, BigQuery, and Feishu,
 in that order only after a real local service or official Sandbox is available.
 Until then they remain `CREDENTIAL_BLOCKED`.

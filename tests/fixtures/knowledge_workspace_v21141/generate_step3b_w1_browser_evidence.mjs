@@ -313,7 +313,10 @@ function normalizeLabel(value) {
 
 async function jsonResponse(response) {
   const body = await response.json();
-  assert(response.ok(), `${response.url()} returned ${response.status()}`);
+  assert(
+    response.ok(),
+    `${response.url()} returned ${response.status()}: ${JSON.stringify(body)}`,
+  );
   return body;
 }
 
@@ -487,7 +490,8 @@ const backendEnvironment = {
   STEP3_MCP_SERVER_PATH: mcpServer,
   STEP3_MCP_DATA_PATH: mcpData,
   STEP3B_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
-  STEP3B_LOCAL_PROVIDER_CONNECTORS: "s3,kafka,clickhouse,oracle,sqlserver",
+  STEP3B_LOCAL_PROVIDER_CONNECTORS:
+    "s3,kafka,clickhouse,oracle,sqlserver,starrocks",
   STEP3B_MINIO_ACCESS_KEY: "step3badmin",
   STEP3B_MINIO_SECRET_KEY: "step3bpassword",
   STEP3B_CLICKHOUSE_USER: "step3b",
@@ -496,6 +500,11 @@ const backendEnvironment = {
   STEP3B_ORACLE_PASSWORD: "Step3bAppPassword1!",
   STEP3B_ORACLE_DSN: "127.0.0.1:26352/FREEPDB1",
   STEP3B_SQLSERVER_ODBC_DRIVER: "/opt/homebrew/opt/freetds/lib/libtdsodbc.so",
+  STEP3B_STARROCKS_HOST: "127.0.0.1",
+  STEP3B_STARROCKS_PORT: "26354",
+  STEP3B_STARROCKS_USER: "root",
+  STEP3B_STARROCKS_PASSWORD: process.env.STEP3B_STARROCKS_PASSWORD,
+  STEP3B_STARROCKS_DATABASE: "knowledge",
 };
 const databaseFixture = resolve(
   repository,
@@ -674,8 +683,8 @@ try {
     return states;
   }, {});
   assert(
-    capabilityStates.available === 19 &&
-      capabilityStates.credential_blocked === 18,
+    capabilityStates.available === 20 &&
+      capabilityStates.credential_blocked === 17,
     `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(
@@ -1366,6 +1375,28 @@ try {
       secretRef: "secret://workspace-step3/sqlserver",
     }),
   );
+  providerResults.push(
+    await createAndIngest({
+      connectorKey: "starrocks",
+      displayName: "Browser StarRocks",
+      configuration: {
+        host: "127.0.0.1",
+        port: 26354,
+        database: "knowledge",
+        schemaAllowlist: ["knowledge"],
+        tableAllowlist: ["step3b_starrocks_orders"],
+        query: "SELECT * FROM knowledge.step3b_starrocks_orders",
+        queryParameters: {},
+        pageSize: 10,
+        rowLimit: 10,
+        byteLimit: 100000,
+        timeoutSeconds: 10,
+        maxAttempts: 1,
+      },
+      suffix: "provider-starrocks",
+      secretRef: "secret://workspace-step3/starrocks",
+    }),
+  );
 
   const privateEndpoint = await page.request.post(
     `${frontendOrigin}/api/knowledge-assets/v1/commands`,
@@ -1648,6 +1679,7 @@ try {
       clickhouse: "knowledge.step3b_events",
       oracle: "STEP3B.STEP3B_ORDERS",
       sqlserver: "dbo.step3b_orders",
+      starrocks: "knowledge.step3b_starrocks_orders",
     },
     cases: providerResults.map((item) => ({
       connectorKey: item.connectorKey,

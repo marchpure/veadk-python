@@ -275,6 +275,73 @@ def test_mysql_protocol_warehouses_quote_default_reads_with_backticks(
     assert captured["closed"] is True
 
 
+@pytest.mark.parametrize("connector_key", ["doris", "starrocks"])
+def test_mysql_protocol_warehouses_set_read_only_transaction_without_dialect_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    connector_key: str,
+) -> None:
+    statements: list[str] = []
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, statement: str, _parameters: object | None = None) -> None:
+            statements.append(statement)
+            if connector_key == "starrocks" and statement == "START TRANSACTION READ ONLY":
+                raise AssertionError("StarRocks dialect-invalid transaction statement")
+
+    class Connection:
+        def cursor(self) -> Cursor:
+            return Cursor()
+
+    adapter = _application(
+        tmp_path,
+        secret={"username": "reader", "password": "runtime-password"},
+    ).connector_adapters()[connector_key]
+    connection = Connection()
+    request = ConnectorRequest(
+        connector_key=connector_key,
+        workspace_id="workspace-step3b",
+        principal_id="user-step3b",
+        configuration={
+            "host": "warehouse.example",
+            "port": 9030,
+            "database": "analytics",
+            "schemaAllowlist": ["reporting"],
+            "tableAllowlist": ["orders"],
+        },
+        secret_ref=f"secret://workspace-step3b/{connector_key}",
+        trace_id=f"trace-{connector_key}",
+    )
+
+    class Driver:
+        @staticmethod
+        def connect(**_kwargs: object) -> Connection:
+            return connection
+
+    # _connect is the only place that emits dialect-specific read-only
+    # transaction setup; invoke it through the adapter's real implementation.
+    monkeypatch.setattr(adapter, "_load_driver", lambda: Driver())
+    adapter._connect(request)
+
+    if connector_key == "starrocks":
+        assert statements == [
+            "SET SESSION TRANSACTION READ ONLY",
+            "SET TRANSACTION READ ONLY",
+            "START TRANSACTION",
+        ]
+    else:
+        assert statements == [
+            "SET SESSION TRANSACTION READ ONLY",
+            "START TRANSACTION READ ONLY",
+        ]
+
+
 @pytest.mark.parametrize(
     ("connector_key", "expected_placeholder"),
     [("snowflake", "%(minimum)s"), ("hive", "%(minimum)s")],

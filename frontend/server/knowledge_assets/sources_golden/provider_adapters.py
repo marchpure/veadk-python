@@ -468,7 +468,16 @@ class ExternalDatabaseAdapter(ProviderConnectorAdapter):
             )
             with connection.cursor() as cursor:
                 cursor.execute("SET SESSION TRANSACTION READ ONLY")
-                cursor.execute("START TRANSACTION READ ONLY")
+                if key == "starrocks":
+                    # StarRocks accepts the session read-only setting but its
+                    # MySQL protocol does not implement START TRANSACTION
+                    # READ ONLY. Start the transaction after the setting so
+                    # the adapter remains fail-closed without issuing a
+                    # dialect-invalid statement.
+                    cursor.execute("SET TRANSACTION READ ONLY")
+                    cursor.execute("START TRANSACTION")
+                else:
+                    cursor.execute("START TRANSACTION READ ONLY")
             return connection
         if key == "snowflake":
             return driver.connect(
