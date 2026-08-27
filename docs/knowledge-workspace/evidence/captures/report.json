@@ -1,0 +1,204 @@
+{
+  "contract_fixture": true,
+  "visual_diff_mode": "RGBA per-pixel absolute delta",
+  "states": [
+    {
+      "index": 1,
+      "state_url": "/?file=welcome",
+      "route": "welcome",
+      "pixels": 2073600,
+      "differing_pixels": 1171721,
+      "differing_ratio": 0.5650660686728395,
+      "mean_absolute_rgb_delta": 6.66664737654321
+    },
+    {
+      "index": 2,
+      "state_url": "/?file=draft_dash_anta",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1443009,
+      "differing_ratio": 0.6958955439814815,
+      "mean_absolute_rgb_delta": 4.3508678948045265
+    },
+    {
+      "index": 3,
+      "state_url": "/?file=draft_dash_anta&run_state=success",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1443011,
+      "differing_ratio": 0.6958965084876543,
+      "mean_absolute_rgb_delta": 4.360118795010288
+    },
+    {
+      "index": 4,
+      "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1506729,
+      "differing_ratio": 0.7266247106481482,
+      "mean_absolute_rgb_delta": 11.334341885288065
+    },
+    {
+      "index": 5,
+      "state_url": "/?file=draft_dash_anta&run_state=failed",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1443011,
+      "differing_ratio": 0.6958965084876543,
+      "mean_absolute_rgb_delta": 4.513879083076132
+    },
+    {
+      "index": 6,
+      "state_url": "/?file=draft_dash_anta&state=permission",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1443078,
+      "differing_ratio": 0.6959288194444444,
+      "mean_absolute_rgb_delta": 12.174073591820987
+    },
+    {
+      "index": 7,
+      "state_url": "/?file=draft_dash_anta&state=connection_error",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1443078,
+      "differing_ratio": 0.6959288194444444,
+      "mean_absolute_rgb_delta": 12.162299704218107
+    },
+    {
+      "index": 8,
+      "state_url": "/?file=draft_dash_anta&state=upgrade",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1443008,
+      "differing_ratio": 0.6958950617283951,
+      "mean_absolute_rgb_delta": 5.101036683384773
+    },
+    {
+      "index": 9,
+      "state_url": "/?file=draft_dash_anta&modal=advanced",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1503351,
+      "differing_ratio": 0.7249956597222222,
+      "mean_absolute_rgb_delta": 8.32088348765432
+    },
+    {
+      "index": 10,
+      "state_url": "/?file=draft_dash_anta&modal=test_records",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1524652,
+      "differing_ratio": 0.7352681327160494,
+      "mean_absolute_rgb_delta": 8.494375482253087
+    },
+    {
+      "index": 11,
+      "state_url": "/?file=draft_dash_anta&modal=tools",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1503474,
+      "differing_ratio": 0.7250549768518518,
+      "mean_absolute_rgb_delta": 10.846743987911523
+    },
+    {
+      "index": 12,
+      "state_url": "/?file=pub_dash_anta",
+      "route": "published",
+      "pixels": 2073600,
+      "differing_pixels": 347212,
+      "differing_ratio": 0.1674440586419753,
+      "mean_absolute_rgb_delta": 2.1574827996399177
+    },
+    {
+      "index": 13,
+      "state_url": "/?file=pub_dash_anta&modal=agent",
+      "route": "published",
+      "pixels": 2073600,
+      "differing_pixels": 2073600,
+      "differing_ratio": 1,
+      "mean_absolute_rgb_delta": 87.8441562178498
+    },
+    {
+      "index": 14,
+      "state_url": "/?file=pub_dash_anta&modal=share_run",
+      "route": "published",
+      "pixels": 2073600,
+      "differing_pixels": 2073600,
+      "differing_ratio": 1,
+      "mean_absolute_rgb_delta": 87.86164882330247
+    },
+    {
+      "index": 15,
+      "state_url": "/?file=pub_dash_anta&modal=instructions",
+      "route": "published",
+      "pixels": 2073600,
+      "differing_pixels": 2073600,
+      "differing_ratio": 1,
+      "mean_absolute_rgb_delta": 87.85635979295267
+    },
+    {
+      "index": 16,
+      "state_url": "/?file=pub_dash_anta&modal=versions",
+      "route": "published",
+      "pixels": 2073600,
+      "differing_pixels": 2073600,
+      "differing_ratio": 1,
+      "mean_absolute_rgb_delta": 86.94340004501029
+    },
+    {
+      "index": 17,
+      "state_url": "/?file=draft_sop_bluetooth",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1442738,
+      "differing_ratio": 0.6957648533950618,
+      "mean_absolute_rgb_delta": 4.348147344393004
+    },
+    {
+      "index": 18,
+      "state_url": "/?file=draft_sop_haidilao",
+      "route": "draft",
+      "pixels": 2073600,
+      "differing_pixels": 1442525,
+      "differing_ratio": 0.6956621334876543,
+      "mean_absolute_rgb_delta": 4.3143192193930044
+    },
+    {
+      "index": 19,
+      "state_url": "/?file=skill_new",
+      "route": "skill_new",
+      "pixels": 2073600,
+      "differing_pixels": 846053,
+      "differing_ratio": 0.40801167052469134,
+      "mean_absolute_rgb_delta": 5.838327707047325
+    },
+    {
+      "index": 20,
+      "state_url": "/?file=skill_new&scenario=anta",
+      "route": "skill_new",
+      "pixels": 2073600,
+      "differing_pixels": 846053,
+      "differing_ratio": 0.40801167052469134,
+      "mean_absolute_rgb_delta": 5.835884773662552
+    },
+    {
+      "index": 21,
+      "state_url": "/?file=skill_new&scenario=zhiji",
+      "route": "skill_new",
+      "pixels": 2073600,
+      "differing_pixels": 846053,
+      "differing_ratio": 0.40801167052469134,
+      "mean_absolute_rgb_delta": 5.838327707047325
+    },
+    {
+      "index": 22,
+      "state_url": "/?file=skill_new&scenario=haidilao",
+      "route": "skill_new",
+      "pixels": 2073600,
+      "differing_pixels": 846053,
+      "differing_ratio": 0.40801167052469134,
+      "mean_absolute_rgb_delta": 5.838327707047325
+    }
+  ]
+}

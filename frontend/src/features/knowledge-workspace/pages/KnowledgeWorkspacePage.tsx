@@ -8,19 +8,23 @@ import {
 } from "react";
 import {
   AlertCircle,
+  Bell,
   Check,
   ChevronRight,
   CirclePlus,
+  Database,
   FileText,
   Loader2,
   MessageSquare,
   PanelRight,
   Play,
   RefreshCw,
+  Search,
   Send,
   Settings2,
   Square,
   Upload,
+  User,
   X,
 } from "lucide-react";
 import { login } from "../../../adk/identity";
@@ -30,6 +34,7 @@ import {
   knowledgeApi,
   KnowledgeApiError,
   type CreateConnectionInput,
+  type UploadResult,
 } from "../api/client";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
@@ -52,6 +57,14 @@ type WorkspaceFile =
   | "skill_new"
   | "draft"
   | "published";
+
+interface WorkspaceRoute {
+  file: WorkspaceFile;
+  draftId: string;
+  modal: string;
+  runState: string;
+  state: string;
+}
 
 const STATUS_LABELS: Record<ConnectionProfile["status"], string> = {
   draft: "草稿",
@@ -80,7 +93,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "操作失败，请重试。";
 }
 
-function routeFromLocation(): { file: WorkspaceFile; draftId: string } {
+function routeFromLocation(): WorkspaceRoute {
   const query = new URLSearchParams(window.location.search);
   const requestedFile = query.get("file") || "welcome";
   const file: WorkspaceFile =
@@ -88,6 +101,12 @@ function routeFromLocation(): { file: WorkspaceFile; draftId: string } {
       ? "welcome"
       : requestedFile === "skill_new"
         ? "skill_new"
+        : requestedFile === "connection"
+          ? "connection"
+          : requestedFile === "draft"
+            ? "draft"
+            : requestedFile === "published"
+              ? "published"
         : requestedFile.startsWith("pub_")
           ? "published"
           : requestedFile.startsWith("draft_")
@@ -96,6 +115,9 @@ function routeFromLocation(): { file: WorkspaceFile; draftId: string } {
   return {
     file,
     draftId: query.get("draftId") || "",
+    modal: query.get("modal") || "",
+    runState: query.get("run_state") || "",
+    state: query.get("state") || "",
   };
 }
 
@@ -217,6 +239,14 @@ export function KnowledgeWorkspacePage() {
     () => connections.filter((connection) => connection.status !== "revoked"),
     [connections],
   );
+  const personalConnections = useMemo(
+    () => availableConnections.filter((connection) => connection.scope === "personal"),
+    [availableConnections],
+  );
+  const teamConnections = useMemo(
+    () => availableConnections.filter((connection) => connection.scope === "team"),
+    [availableConnections],
+  );
 
   const openDraft = useCallback((nextDraft: Draft) => {
     setRoute("draft", nextDraft.draft_id);
@@ -226,6 +256,7 @@ export function KnowledgeWorkspacePage() {
     goal: string,
     connectionIds: string[],
     trialTask: string,
+    uploadIds: string[],
   ) => {
     setBusy("generate");
     setError("");
@@ -234,6 +265,7 @@ export function KnowledgeWorkspacePage() {
         goal,
         connection_ids: connectionIds,
         ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
+        ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
       });
       setDraft(created.value.data);
       setEtag(created.etag);
@@ -254,6 +286,14 @@ export function KnowledgeWorkspacePage() {
     } finally {
       setBusy("");
     }
+  }, []);
+
+  const uploadSkillInput = useCallback(async (
+    file: File,
+    onProgress: (percent: number) => void,
+  ): Promise<UploadResult> => {
+    const result = await knowledgeApi.uploadFile(file, "skill_input", onProgress);
+    return result.data;
   }, []);
 
   const [activeInvocation, setActiveInvocation] = useState<Invocation | null>(null);
@@ -370,6 +410,28 @@ export function KnowledgeWorkspacePage() {
     }
   }, [draft, etag]);
 
+  const retryInvocation = useCallback(async () => {
+    if (!draft || !activeInvocation) return;
+    setBusy("retry");
+    setError("");
+    try {
+      const result = activeInvocation.kind === "generate"
+        ? await knowledgeApi.generateDraft(draft.draft_id, etag, draft.trial_task)
+        : await knowledgeApi.sendDraftMessage(
+          draft.draft_id,
+          draft.trial_task || "请重新试跑当前 Skill。",
+          "run",
+          etag,
+        );
+      setActiveInvocation(result.data);
+      setStartedAt(Date.now());
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy("");
+    }
+  }, [activeInvocation, draft, etag]);
+
   const publish = useCallback(async (target: "personal" | "team") => {
     const revision = revisions.at(-1);
     if (!revision) return;
@@ -386,6 +448,13 @@ export function KnowledgeWorkspacePage() {
   }, [draft?.draft_id, revisions]);
 
   const selectedDraft = draft || drafts.find((item) => item.draft_id === route.draftId) || null;
+  const routeModal = route.modal;
+  const closeRouteModal = useCallback(() => {
+    const query = new URLSearchParams(window.location.search);
+    query.delete("modal");
+    window.history.pushState({}, "", `${window.location.pathname}?${query}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, []);
 
   if (authStatus === null) {
     return <div className="kw-auth-state" role="status"><Loader2 className="kw-spin" size={18} /> 正在确认登录状态…</div>;
@@ -401,58 +470,93 @@ export function KnowledgeWorkspacePage() {
   }
   return (
     <div className={`kw-shell${selectedDraft ? " has-draft" : ""}`}>
-      <aside className="kw-sidebar">
-        <div className="kw-brand">
-          <span className="kw-brand-mark">K</span>
-          <span>知识资产</span>
+      <header className="kw-studio-nav">
+        <button className="kw-studio-brand" type="button" onClick={() => setRoute("welcome")}>
+          <span className="kw-studio-mark"><Database size={15} /></span>
+          <span>Knowledge Asset</span>
+        </button>
+        <nav className="kw-studio-links" aria-label="Studio">
+          <button className="is-active" type="button" onClick={() => setRoute("welcome")}>工作台</button>
+          <button type="button" onClick={() => setRoute("skill_new")}>创建</button>
+        </nav>
+        <div className="kw-studio-search">
+          <Search size={15} />
+          <input aria-label="全局搜索资源" placeholder="全局搜索资源…" />
         </div>
-        <button className="kw-new-resource" type="button" aria-label="新建 Skill" onClick={() => setRoute("skill_new")}>
-          <CirclePlus size={16} /> 新建 Skill
-        </button>
-        <div className="kw-tree-label">个人</div>
-        <button
-          className={`kw-tree-item${route.file === "welcome" ? " is-selected" : ""}`}
-          type="button"
-          onClick={() => setRoute("welcome")}
-        >
-          <MessageSquare size={15} /> 工作台
-        </button>
-        <div className="kw-tree-label">我的连接</div>
-        {loading && !availableConnections.length ? <div className="kw-tree-muted">正在读取连接…</div> : null}
-        {availableConnections.map((connection) => (
-          <button
-            className={`kw-tree-item${selectedConnectionIds.includes(connection.connection_id) ? " is-selected" : ""}`}
-            type="button"
-            key={connection.connection_id}
-            onClick={() => {
-              setSelectedConnectionIds([connection.connection_id]);
-              setRoute("connection");
-            }}
-          >
-            <Settings2 size={15} />
-            <span>{connection.display_name}</span>
-            <span className={`kw-status-dot is-${connection.status}`} title={idempotentLabel(connection.status)} />
+        <div className="kw-studio-actions">
+          <button type="button" aria-label="通知"><Bell size={16} /></button>
+          <button type="button" aria-label="用户"><User size={16} /></button>
+        </div>
+      </header>
+      <div className="kw-workspace-frame">
+        <aside className="kw-sidebar">
+          <div className="kw-brand">
+            <span className="kw-brand-mark">K</span>
+            <span>知识资产</span>
+          </div>
+          <button className="kw-new-resource" type="button" aria-label="新建 Skill" onClick={() => setRoute("skill_new")}>
+            <CirclePlus size={16} /> 新建 Skill
           </button>
-        ))}
-        <button className="kw-tree-item kw-tree-add" type="button" onClick={() => setShowConnectionForm(true)}>
-          <CirclePlus size={15} /> 添加连接
-        </button>
-        <div className="kw-tree-label">Skills</div>
-        {drafts.map((item) => (
+          <div className="kw-tree-label">个人工作区</div>
           <button
-            className={`kw-tree-item${item.draft_id === route.draftId ? " is-selected" : ""}`}
+            className={`kw-tree-item${route.file === "welcome" ? " is-selected" : ""}`}
             type="button"
-            key={item.draft_id}
-            onClick={() => openDraft(item)}
+            onClick={() => setRoute("welcome")}
           >
-            <FileText size={15} />
-            <span className="kw-truncate">{item.goal}</span>
+            <MessageSquare size={15} /> 工作台
           </button>
-        ))}
-        <div className="kw-sidebar-footer">通过 Studio BFF 连接</div>
-      </aside>
+          <div className="kw-tree-label">我的连接</div>
+          {loading && !availableConnections.length ? <div className="kw-tree-muted">正在读取连接…</div> : null}
+          {personalConnections.map((connection) => (
+            <button
+              className={`kw-tree-item${selectedConnectionIds.includes(connection.connection_id) ? " is-selected" : ""}`}
+              type="button"
+              key={connection.connection_id}
+              onClick={() => {
+                setSelectedConnectionIds([connection.connection_id]);
+                setRoute("connection");
+              }}
+            >
+              <Settings2 size={15} />
+              <span>{connection.display_name}</span>
+              <span className={`kw-status-dot is-${connection.status}`} title={idempotentLabel(connection.status)} />
+            </button>
+          ))}
+          <button className="kw-tree-item kw-tree-add" type="button" onClick={() => setShowConnectionForm(true)}>
+            <CirclePlus size={15} /> 添加连接
+          </button>
+          <div className="kw-tree-label">我的 Skill</div>
+          {drafts.map((item) => (
+            <button
+              className={`kw-tree-item${item.draft_id === route.draftId ? " is-selected" : ""}`}
+              type="button"
+              key={item.draft_id}
+              onClick={() => openDraft(item)}
+            >
+              <FileText size={15} />
+              <span className="kw-truncate">{item.goal}</span>
+            </button>
+          ))}
+          <div className="kw-tree-label">团队工作区</div>
+          {teamConnections.length ? teamConnections.map((connection) => (
+            <button
+              className={`kw-tree-item${selectedConnectionIds.includes(connection.connection_id) ? " is-selected" : ""}`}
+              type="button"
+              key={connection.connection_id}
+              onClick={() => {
+                setSelectedConnectionIds([connection.connection_id]);
+                setRoute("connection");
+              }}
+            >
+              <Settings2 size={15} />
+              <span>{connection.display_name}</span>
+              <span className={`kw-status-dot is-${connection.status}`} title={idempotentLabel(connection.status)} />
+            </button>
+          )) : <div className="kw-tree-muted">团队目录由当前 BFF 权限返回。</div>}
+          <div className="kw-sidebar-footer">通过 Studio BFF 连接</div>
+        </aside>
 
-      <main className="kw-main">
+        <main className="kw-main">
         <header className="kw-topbar">
           <div className="kw-breadcrumb">
             <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
@@ -475,12 +579,13 @@ export function KnowledgeWorkspacePage() {
             <button type="button" onClick={() => setError("")} aria-label="关闭错误"><X size={14} /></button>
           </div>
         ) : null}
-        {route.file === "skill_new" || route.file === "welcome" && !selectedDraft ? (
+        {route.file === "skill_new" || (route.file === "welcome" && !selectedDraft) ? (
           <SkillNewView
             connections={availableConnections}
             selectedIds={selectedConnectionIds}
             onSelectedIdsChange={setSelectedConnectionIds}
             onCreate={createAndGenerate}
+            onUpload={uploadSkillInput}
             onAddConnection={() => setShowConnectionForm(true)}
             busy={busy === "generate"}
             initialGoal={route.file === "welcome" ? "" : undefined}
@@ -503,6 +608,12 @@ export function KnowledgeWorkspacePage() {
             }}
             busy={busy === "validate" || busy === "discover"}
           />
+        ) : route.file === "published" ? (
+          <PublishedWorkspace
+            draft={selectedDraft}
+            revision={revisions.at(-1) || null}
+            onBack={() => setRoute("welcome")}
+          />
         ) : (
           <DraftWorkspace
             draft={selectedDraft}
@@ -516,13 +627,17 @@ export function KnowledgeWorkspacePage() {
             elapsedMs={elapsedMs}
             activeInvocation={activeInvocation}
             busy={busy}
+            runState={route.runState}
+            state={route.state}
             onSend={sendMessage}
             onCancel={cancel}
             onReconnect={() => void stream()}
+            onRetry={() => void retryInvocation()}
           />
         )}
-      </main>
+        </main>
 
+      </div>
       {showConnectionForm ? (
         <ConnectionForm
           connectors={connectors}
@@ -552,6 +667,23 @@ export function KnowledgeWorkspacePage() {
           </div>
         </Modal>
       ) : null}
+      {routeModal && routeModal !== "publish" ? (
+        <WorkspaceStateModal
+          kind={routeModal}
+          revisions={revisions}
+          connections={availableConnections}
+          onClose={closeRouteModal}
+        />
+      ) : null}
+      {routeModal === "publish" ? (
+        <Modal title="发布 Skill" onClose={closeRouteModal}>
+          <p className="kw-muted">发布会固定当前不可变 Revision，后续修改将创建新版本。</p>
+          <div className="kw-publish-actions">
+            <button type="button" onClick={() => void publish("personal")} disabled={busy === "publish"}>发布到个人</button>
+            <button type="button" className="kw-primary-small" onClick={() => void publish("team")} disabled={busy === "publish"}>发布到团队</button>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }
@@ -561,6 +693,7 @@ function SkillNewView({
   selectedIds,
   onSelectedIdsChange,
   onCreate,
+  onUpload,
   onAddConnection,
   busy,
   initialGoal,
@@ -568,16 +701,40 @@ function SkillNewView({
   connections: ConnectionProfile[];
   selectedIds: string[];
   onSelectedIdsChange: (ids: string[]) => void;
-  onCreate: (goal: string, connectionIds: string[], trialTask: string) => Promise<void>;
+  onCreate: (goal: string, connectionIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
+  onUpload: (file: File, onProgress: (percent: number) => void) => Promise<UploadResult>;
   onAddConnection: () => void;
   busy: boolean;
   initialGoal?: string;
 }) {
   const [goal, setGoal] = useState(initialGoal || "");
   const [trialTask, setTrialTask] = useState("");
+  const [uploads, setUploads] = useState<UploadResult[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (goal.trim() && selectedIds.length) void onCreate(goal, selectedIds, trialTask);
+    if (goal.trim() && selectedIds.length) {
+      void onCreate(goal, selectedIds, trialTask, uploads.map((upload) => upload.upload_id));
+    }
+  };
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    setUploadProgress(0);
+    try {
+      const upload = await onUpload(file, setUploadProgress);
+      setUploads((current) => [...current, upload]);
+      setUploadProgress(100);
+    } catch (cause) {
+      setUploadError(errorMessage(cause));
+    } finally {
+      setUploading(false);
+    }
   };
   return (
     <section className="kw-create">
@@ -628,6 +785,17 @@ function SkillNewView({
           可选：先试一句真实任务
           <textarea value={trialTask} onChange={(event) => setTrialTask(event.target.value)} placeholder="生成后直接用什么输入试跑？" rows={3} />
         </label>
+        <div className="kw-form-section">
+          <div className="kw-form-section-title"><span>可选：上传任务输入</span><span className="kw-muted">文件由 BFF 隔离存储</span></div>
+          <label className="kw-upload-box">
+            <Upload size={16} />
+            <span>{uploading ? `正在上传 ${uploadProgress}%` : "选择文件并显示真实上传进度"}</span>
+            <input type="file" onChange={(event) => void handleUpload(event)} disabled={uploading} />
+          </label>
+          {uploading ? <progress className="kw-upload-progress" max={100} value={uploadProgress}>{uploadProgress}%</progress> : null}
+          {uploads.map((upload) => <div className="kw-uploaded-file" key={upload.upload_id}>{upload.filename} · sha256:{upload.sha256.slice(0, 12)}…</div>)}
+          {uploadError ? <div className="kw-form-error" role="alert">{uploadError}</div> : null}
+        </div>
         <button className="kw-primary" type="submit" disabled={busy || !goal.trim() || !selectedIds.length}>
           {busy ? <Loader2 className="kw-spin" size={16} /> : <Play size={16} />}
           生成并试用 Skill
@@ -686,9 +854,12 @@ function DraftWorkspace({
   elapsedMs,
   activeInvocation,
   busy,
+  runState,
+  state,
   onSend,
   onCancel,
   onReconnect,
+  onRetry,
 }: {
   draft: Draft | null;
   revisions: Revision[];
@@ -701,15 +872,19 @@ function DraftWorkspace({
   elapsedMs: number;
   activeInvocation: Invocation | null;
   busy: string;
+  runState: string;
+  state: string;
   onSend: (message: string, intent: "update" | "run") => Promise<void>;
   onCancel: () => Promise<void>;
   onReconnect: () => void;
+  onRetry: () => void;
 }) {
   const [message, setMessage] = useState("");
   const timelineEnd = useRef<HTMLDivElement>(null);
   useEffect(() => timelineEnd.current?.scrollIntoView({ block: "nearest" }), [events, assistantText]);
   if (!draft) return <div className="kw-empty-page">正在从 BFF 恢复草稿…</div>;
   const seconds = (elapsedMs / 1000).toFixed(1);
+  const failedEvent = [...events].reverse().find((event) => event.type === "run.failed");
   return (
     <section className="kw-draft-layout">
       <div className="kw-draft-center">
@@ -723,6 +898,29 @@ function DraftWorkspace({
             {activeInvocation ? <span>{streamState === "connected" ? "实时运行中" : streamState === "disconnected" ? "连接已断开" : streamState === "done" ? "已结束" : "等待中"} · {seconds}s</span> : null}
           </div>
         </div>
+        {runState === "failed" || state === "permission" || state === "connection_error" || state === "upgrade" ? (
+          <div className={`kw-state-card is-${state || runState}`} role="status">
+            <strong>
+              {state === "permission"
+                ? "当前账号没有访问该资源的权限"
+                : state === "connection_error"
+                  ? "连接暂不可用"
+                  : state === "upgrade"
+                    ? "该能力需要升级当前服务配置"
+                    : "上一次试跑失败"}
+            </strong>
+            <span>
+              {state === "permission"
+                ? "请向工作区管理员申请资源访问权限。"
+                : state === "connection_error"
+                  ? "请检查连接状态后重新验证或稍后重试。"
+                  : state === "upgrade"
+                    ? "可用能力和升级门禁由 BFF 返回。"
+                    : "可以查看失败原因并重试，不会创建重复 invocation。"}
+            </span>
+            {runState === "failed" && activeInvocation ? <button type="button" onClick={onRetry}>重试本次运行</button> : null}
+          </div>
+        ) : null}
         <ArtifactViewer artifact={artifact} />
         <div className="kw-draft-placeholder">
           <FileText size={22} />
@@ -741,6 +939,13 @@ function DraftWorkspace({
             <div className="kw-plan-card"><strong>执行计划</strong>{plan.map((step) => <div key={step.id}><span className={`kw-step-dot is-${step.status}`} />{step.label}</div>)}</div>
           ) : null}
           {assistantText ? <div className="kw-assistant-message">{assistantText}</div> : null}
+          {failedEvent ? (
+            <div className="kw-run-error" role="alert">
+              <strong>本次运行失败</strong>
+              <span>{failedEvent.data.error.message}</span>
+              {failedEvent.data.error.retryable ? <button type="button" onClick={onRetry} disabled={busy === "retry"}>重试本次运行</button> : null}
+            </div>
+          ) : null}
           {events
             .filter((event): event is KnowledgeInvocationEvent & { type: "tool.started" | "tool.completed" } =>
               event.type === "tool.started" || event.type === "tool.completed")
@@ -756,6 +961,65 @@ function DraftWorkspace({
         <Composer value={message} onChange={setMessage} onSend={async (intent) => { await onSend(message, intent); setMessage(""); }} busy={busy === "message"} />
       </aside>
     </section>
+  );
+}
+
+function PublishedWorkspace({
+  draft,
+  revision,
+  onBack,
+}: {
+  draft: Draft | null;
+  revision: Revision | null;
+  onBack: () => void;
+}) {
+  if (!draft || !revision) return <div className="kw-empty-page">正在从 BFF 恢复已发布版本…</div>;
+  return (
+    <section className="kw-published">
+      <span className="kw-eyebrow">PUBLISHED SKILL</span>
+      <h1>{revision.skill_name}</h1>
+      <p>{draft.goal}</p>
+      <div className="kw-published-card">
+        <strong>已发布不可变版本 v{revision.number}</strong>
+        <code>sha256:{revision.sha256}</code>
+        <span>发布状态和可见范围由 BFF 返回。</span>
+      </div>
+      <button type="button" className="kw-primary-small" onClick={onBack}>返回工作台</button>
+    </section>
+  );
+}
+
+function WorkspaceStateModal({
+  kind,
+  revisions,
+  connections,
+  onClose,
+}: {
+  kind: string;
+  revisions: Revision[];
+  connections: ConnectionProfile[];
+  onClose: () => void;
+}) {
+  const content: Record<string, { title: string; body: string }> = {
+    advanced: { title: "高级设置", body: "高级运行参数由当前 BFF 资源策略返回，前端不保存服务端业务状态。" },
+    test_records: { title: "试跑记录", body: "试跑记录由 invocation 与 revision 服务返回。" },
+    tools: { title: "工具与能力", body: `${connections.length} 个连接已由 BFF 返回，可用能力在运行时按权限决定。` },
+    agent: { title: "Agent 授权", body: "发布后的 Agent 授权范围由 publication 返回。" },
+    share_run: { title: "共享试跑", body: "共享试跑会使用已发布 Revision，并由服务端重新校验连接权限。" },
+    instructions: { title: "调用说明", body: "调用说明对应当前不可变 Revision，版本摘要由 BFF 返回。" },
+    versions: { title: "版本历史", body: revisions.length ? `当前共有 ${revisions.length} 个不可变版本。` : "暂无已固化版本。" },
+  };
+  const selected = content[kind] || { title: "工作区状态", body: "该状态由 BFF 资源与权限返回。" };
+  return (
+    <Modal title={selected.title} onClose={onClose}>
+      <p className="kw-muted">{selected.body}</p>
+      {kind === "versions" && revisions.map((revision) => (
+        <div className="kw-version-row" key={revision.revision_id}>
+          <span>v{revision.number} · {revision.skill_name}</span>
+          <code>{revision.sha256.slice(0, 16)}…</code>
+        </div>
+      ))}
+    </Modal>
   );
 }
 

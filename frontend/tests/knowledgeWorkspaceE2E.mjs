@@ -69,6 +69,7 @@ async function main() {
   let published = false;
   let invocationCount = 0;
   let eventStreamCalls = 0;
+  let uploadedIds = [];
 
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -113,11 +114,28 @@ async function main() {
       await route.fulfill({ status: 201, headers: { ETag: "connection-v1" }, contentType: "application/json", body: envelope(connection) });
       return;
     }
+    if (url.pathname === "/api/knowledge/v1/uploads" && request.method() === "POST") {
+      uploadedIds = ["upload-contract"];
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: envelope({
+          upload_id: "upload-contract",
+          filename: "incident.txt",
+          sha256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          size_bytes: 12,
+          media_type: "text/plain",
+        }),
+      });
+      return;
+    }
     if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "GET") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([draft]) });
       return;
     }
     if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "POST") {
+      const body = JSON.parse(request.postData() || "{}");
+      assert.deepEqual(body.upload_ids, uploadedIds);
       await route.fulfill({ status: 201, headers: { ETag: "draft-v1" }, contentType: "application/json", body: envelope(draft) });
       return;
     }
@@ -154,13 +172,16 @@ async function main() {
     if (url.pathname.endsWith("/events")) {
       eventStreamCalls += 1;
       const reconnectOnlyFrames = eventStreamCalls === 1;
+      const failedFrames = eventStreamCalls === 3;
       const frames = [
         `id: evt-1\nevent: run.started\ndata: ${JSON.stringify({ id: "evt-1", type: "run.started", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { kind: "generate", status: "running" } })}\n\n`,
         `id: evt-2\nevent: plan.updated\ndata: ${JSON.stringify({ id: "evt-2", type: "plan.updated", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { steps: [{ id: "step-1", label: "读取真实连接", status: "completed" }] } })}\n\n`,
-        `id: evt-3\nevent: assistant.delta\ndata: ${JSON.stringify({ id: "evt-3", type: "assistant.delta", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { text: reconnectOnlyFrames ? "连接中断，等待重连。" : "已完成真实连接试跑。", sequence: 0 } })}\n\n`,
+        `id: evt-3\nevent: assistant.delta\ndata: ${JSON.stringify({ id: "evt-3", type: "assistant.delta", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { text: reconnectOnlyFrames ? "连接中断，等待重连。" : failedFrames ? "本次运行即将失败。" : "已完成真实连接试跑。", sequence: 0 } })}\n\n`,
         `id: evt-4\nevent: artifact.created\ndata: ${JSON.stringify({ id: "evt-4", type: "artifact.created", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { artifact_id: artifact.artifact_id, revision_id: artifact.revision_id, media_type: artifact.media_type, sha256: artifact.sha256 } })}\n\n`,
         `id: evt-5\nevent: revision.created\ndata: ${JSON.stringify({ id: "evt-5", type: "revision.created", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { revision_id: revision.revision_id, draft_id: draft.draft_id, number: 1, sha256: revision.sha256 } })}\n\n`,
-        `id: evt-6\nevent: run.completed\ndata: ${JSON.stringify({ id: "evt-6", type: "run.completed", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { status: "succeeded", finished_at: "2026-08-27T00:00:01Z", revision_id: revision.revision_id, artifact_ids: [artifact.artifact_id] } })}\n\n`,
+        failedFrames
+          ? `id: evt-6\nevent: run.failed\ndata: ${JSON.stringify({ id: "evt-6", type: "run.failed", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { status: "failed", finished_at: "2026-08-27T00:00:01Z", error: { code: "AUTOSKILL_UNAVAILABLE", message: "试跑服务暂不可用。", retryable: true } } })}\n\n`
+          : `id: evt-6\nevent: run.completed\ndata: ${JSON.stringify({ id: "evt-6", type: "run.completed", invocation_id: "invocation-contract", occurred_at: "2026-08-27T00:00:00Z", data: { status: "succeeded", finished_at: "2026-08-27T00:00:01Z", revision_id: revision.revision_id, artifact_ids: [artifact.artifact_id] } })}\n\n`,
       ].slice(0, reconnectOnlyFrames ? 3 : undefined).join("");
       await route.fulfill({ status: 200, headers: { "Content-Type": "text/event-stream" }, body: frames });
       return;
@@ -198,21 +219,37 @@ async function main() {
   await page.getByRole("checkbox", { name: /Contract API/ }).check();
   await page.getByLabel("谁使用，解决什么问题？").fill("让支持工程师排查线上告警并给出处理建议");
   await page.getByLabel("可选：先试一句真实任务").fill("查询最近一条告警");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "incident.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("incident data"),
+  });
+  await page.getByText(/incident\.txt/).waitFor();
   await page.getByRole("button", { name: "生成并试用 Skill" }).click();
   await page.getByRole("button", { name: /重连/ }).waitFor();
   assert.equal(eventStreamCalls, 1);
   await page.getByRole("button", { name: /重连/ }).click();
+  await page.getByText("已完成真实连接试跑。").waitFor();
+  await page.getByPlaceholder("描述修改，或输入任务试跑…").fill("再次检查");
+  await page.getByRole("button", { name: "试跑" }).click();
+  await page.getByRole("button", { name: "重试本次运行" }).waitFor();
+  await page.getByRole("button", { name: "重试本次运行" }).click();
   await page.getByText("已完成真实连接试跑。").waitFor();
   await page.getByRole("button", { name: "版本" }).click();
   await page.getByText("v1 · support-skill").waitFor();
   await page.getByRole("button", { name: "关闭" }).click();
   await page.getByRole("button", { name: "发布" }).click();
   await page.getByRole("button", { name: "发布到个人" }).click();
+  await page.waitForURL(/file=published/);
   await page.reload();
+  await page.getByRole("button", { name: "返回工作台" }).waitFor();
   await page.screenshot({ path: new URL(screenshotName, screenshotDir).pathname, fullPage: true });
+  await page.getByRole("button", { name: "返回工作台" }).click();
+  await page.getByText("让 Agent 帮你解决一个真实问题").waitFor();
+  assert.match(new URL(page.url()).search, /file=welcome/);
 
-  assert.equal(invocationCount, 1);
-  assert.equal(eventStreamCalls, 2);
+  assert.equal(invocationCount, 3);
+  assert.equal(eventStreamCalls, 4);
   assert.equal(published, true);
   assert.ok(calls.some((call) => call.includes("/events")));
   assert.ok(calls.some((call) => call.includes("/publish")));

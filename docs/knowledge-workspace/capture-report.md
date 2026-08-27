@@ -5,20 +5,61 @@
 `frontend/src/features/knowledge-workspace/test-fixtures/captures.ts` records
 all 22 prototype state URLs. Production routing intentionally maps only the
 server-backed state families (`welcome`, `skill_new`, `draft_*`, `pub_*`);
-prototype scenario names and business outcomes are test-fixture data only.
+prototype scenario names and business outcomes remain test-fixture data only.
 
 Automated capture fixture check: PASS (22 unique state URLs).
 
 ## Visual regression
 
-| Viewport | Fixture baseline | Result |
-| --- | --- | --- |
-| Desktop 1440×900 | Contract-fixture browser run | PASS — [desktop screenshot](evidence/knowledge-workspace-desktop.png) |
-| Narrow 390×844 | Contract-fixture browser run | PASS — [narrow screenshot](evidence/knowledge-workspace-narrow.png) |
+The capture harness compares each 1920×1080 production capture with its
+downloaded prototype reference using an RGB per-pixel absolute delta. It runs
+against a test-only BFF contract fixture; it is not real-service E2E evidence.
 
-The browser run captures the implemented layout and interaction sequence. It
-is not a pixel-diff against the prototype capture URLs, and it does not claim
-real-service completion.
+| State family | States | Differing-pixel ratio | Mean RGB delta | Classification |
+| --- | ---: | ---: | ---: | --- |
+| Welcome | 1 | 56.5% | 6.67 | Structural shell differs; no prototype business data copied |
+| Draft base/success/failure | 5 | 69.6% | 4.35–4.51 | Structural/artifact content differs |
+| Draft permission/connection/upgrade | 3 | 69.6% | 5.10–12.17 | Route state is represented; prototype demo content differs |
+| Draft modal states | 3 | 72.5–73.5% | 8.32–10.85 | Server-backed modal shell differs from prototype demo panels |
+| Published base | 1 | 16.7% | 2.16 | Shared shell is close; server-backed revision content differs |
+| Published modal states | 4 | 100.0% | 86.94–87.86 | Route modal is represented without fabricated publication data |
+| Skill-new states | 4 | 40.8% | 5.84 | Shared shell is closer; form/content differs |
+
+Overall result: the capture harness PASS means all 22 captures and comparisons
+completed. The visual diff is intentionally classified as NOT GREEN: these
+are honest mismatches against a richer prototype, not a claim of pixel-perfect
+parity.
+
+Per-state measurements:
+
+| # | Route/state | Differing-pixel ratio | Mean RGB delta |
+| ---: | --- | ---: | ---: |
+| 1 | `welcome` | 56.5% | 6.67 |
+| 2 | `draft_dash_anta` | 69.6% | 4.35 |
+| 3 | `draft_dash_anta&run_state=success` | 69.6% | 4.36 |
+| 4 | `draft_dash_anta&run_state=success&modal=publish` | 72.7% | 11.33 |
+| 5 | `draft_dash_anta&run_state=failed` | 69.6% | 4.51 |
+| 6 | `draft_dash_anta&state=permission` | 69.6% | 12.17 |
+| 7 | `draft_dash_anta&state=connection_error` | 69.6% | 12.16 |
+| 8 | `draft_dash_anta&state=upgrade` | 69.6% | 5.10 |
+| 9 | `draft_dash_anta&modal=advanced` | 72.5% | 8.32 |
+| 10 | `draft_dash_anta&modal=test_records` | 73.5% | 8.49 |
+| 11 | `draft_dash_anta&modal=tools` | 72.5% | 10.85 |
+| 12 | `pub_dash_anta` | 16.7% | 2.16 |
+| 13 | `pub_dash_anta&modal=agent` | 100.0% | 87.84 |
+| 14 | `pub_dash_anta&modal=share_run` | 100.0% | 87.86 |
+| 15 | `pub_dash_anta&modal=instructions` | 100.0% | 87.86 |
+| 16 | `pub_dash_anta&modal=versions` | 100.0% | 86.94 |
+| 17 | `draft_sop_bluetooth` | 69.6% | 4.35 |
+| 18 | `draft_sop_haidilao` | 69.6% | 4.31 |
+| 19 | `skill_new` | 40.8% | 5.84 |
+| 20 | `skill_new&scenario=anta` | 40.8% | 5.84 |
+| 21 | `skill_new&scenario=zhiji` | 40.8% | 5.84 |
+| 22 | `skill_new&scenario=haidilao` | 40.8% | 5.84 |
+
+The first percentage column is the differing-pixel ratio reported by
+`report.json`; the table preserves the exact per-state classification while
+the JSON contains the raw pixel counts and dimensions.
 
 ## Interaction checklist
 
@@ -26,23 +67,25 @@ real-service completion.
 | --- | --- | --- |
 | Add connection | Dynamic JSON Schema modal → `POST /connections` | Contract client + boundary tests |
 | Multi-select connections | `SkillNewView` reads BFF `ConnectionProfile[]` | Contract client + boundary tests |
-| Generate | `POST /skills/drafts` → `POST /generate` | Contract client |
-| SSE conversation | `GET /invocations/{id}/events` | Normalized event union, parser, reconnect cursor |
-| Failure retry | Error code mapping + explicit reconnect/retry action | Page implementation |
-| Refresh recovery | URL `draftId` → `GET draft` + revisions; query cache only for reads | Page implementation |
-| Versions | `GET revisions` + immutable digest display | Page implementation |
-| Publish | `POST /skill-revisions/{id}/publish` | Contract client |
-| Return path | Studio breadcrumb + browser history / `popstate` | Page implementation |
-| Right-pane layout | Responsive `.kw-chat` shell | CSS + production build |
+| Upload task input | File picker → `POST /uploads` with progress and digest | Browser contract fixture + contract test |
+| Generate | `POST /skills/drafts` → `POST /generate` | Browser contract fixture |
+| SSE conversation | `GET /invocations/{id}/events` | Normalized event union, Last-Event-ID reconnect |
+| Failure retry | Error code mapping + explicit retry action | Browser contract fixture + page implementation |
+| Refresh recovery | URL `draftId` → `GET draft` + revisions; query cache only for reads | Browser contract fixture |
+| Versions | `GET revisions` + immutable digest display | Browser contract fixture |
+| Publish | `POST /skill-revisions/{id}/publish` | Browser contract fixture |
+| Return path | Studio breadcrumb + browser history / `popstate` | Browser contract fixture |
+| Directory geometry | Studio 48px nav, 248px directory, responsive main pane | Capture harness + screenshots |
 
 ## Browser evidence
 
 `frontend/tests/knowledgeWorkspaceE2E.mjs` is a test-only Playwright contract
-fixture. It intercepts the same-origin BFF and verifies the UI contract at both
-viewports, including a forced first-stream disconnect followed by an explicit
-Last-Event-ID reconnect. Both runs passed with one invocation, two event-stream
-requests, and a successful publish.
+fixture. It intercepts the same-origin BFF and verifies the UI contract at
+1440×900 and 390×844, including upload, forced stream disconnect, explicit
+Last-Event-ID reconnect, retry, publish, refresh recovery, and return path.
+Both runs passed with `invocation_count: 3` and `published: true`.
 
-Real-click recording and real BFF evidence remain deferred until the BFF,
-Connection Service, and AutoSkill Adapter are deployed together. Contract
-fixtures must not be interpreted as real end-to-end completion.
+Real authenticated desktop and narrow visual/interaction acceptance remains
+deferred until the BFF, Connection Service, and AutoSkill Adapter are deployed
+together. `STEP2A_FROZEN` is retained; the fixture must not be interpreted as
+real-service completion.
