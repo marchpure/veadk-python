@@ -1,0 +1,87 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/frontend-checkpoint.schema.json",
+  "checkpoint": "STEP2A_FROZEN",
+  "step": "knowledge-asset-workspace-v1-step-2a-frontend",
+  "created_at": "2026-08-27T00:00:00Z",
+  "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
+  "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
+  "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
+  "implementation_commit": "89e74c642e2e3d5726558395e209443ba5f8d9c0",
+  "remote": {
+    "name": "marchpure",
+    "url": "git@github.com:marchpure/veadk-python.git",
+    "branch": "feat/knowledge-v1-frontend-20260827T000000Z"
+  },
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-frontend-20260827T000000Z",
+  "scope": {
+    "feature_root": "frontend/src/features/knowledge-workspace",
+    "integration": "frontend/src/App.tsx?view=knowledge-workspace",
+    "production_boundary": "same-origin /api/knowledge/v1 BFF only; no iframe, second SPA, mock fallback, or business localStorage",
+    "feature_loc_excluding_capture_fixtures": 1612,
+    "capture_fixture_loc": 29
+  },
+  "migration_entries": [
+    {
+      "source": "Prototype WorkspaceLayout and pane geometry",
+      "destination": "frontend/src/features/knowledge-workspace/pages/knowledge-workspace.css",
+      "replacement": "Studio route, authenticated BFF reads, responsive shell"
+    },
+    {
+      "source": "Prototype SkillNewView and connection multi-select",
+      "destination": "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+      "replacement": "connector definitions, connections, drafts, and generation APIs"
+    },
+    {
+      "source": "Prototype ConnectionDetailView/AddDataView",
+      "destination": "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+      "replacement": "dynamic JSON Schema form plus server-owned validate/discover status"
+    },
+    {
+      "source": "Prototype ChatAssistant and draft workspace",
+      "destination": "frontend/src/features/knowledge-workspace/api/client.ts and frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+      "replacement": "normalized contract SSE, Last-Event-ID reconnect, cancel, artifact/revision updates"
+    },
+    {
+      "source": "Prototype artifact/version/publish grouping",
+      "destination": "frontend/src/features/knowledge-workspace/artifact/ArtifactViewer.tsx and KnowledgeWorkspacePage.tsx",
+      "replacement": "controlled artifact URL, digest, immutable revisions, and publication API"
+    }
+  ],
+  "tests": {
+    "validator": "python3 tools/validate_knowledge_workspace.py — PASS",
+    "boundary_contract": "node --test frontend/tests/knowledgeWorkspaceBoundary.test.mjs frontend/tests/knowledgeWorkspaceContract.test.mjs — 6 passed, 0 failed",
+    "frontend_suite": "frontend/npm test — 844 passed, 0 failed",
+    "production_build": "frontend/npm run build — Studio and website-integration bundles passed",
+    "asset_verifier": "frontend/npm run test:webui-assets — 85 packaged files, 229 internal references verified",
+    "diff_check": "git diff --check — PASS for authored changes; generated minified bundle contains the repository build's existing trailing whitespace warning",
+    "browser_contract_fixture_desktop": "frontend/tests/knowledgeWorkspaceE2E.mjs at 1440x900 — PASS; invocation_count 1, event_stream_calls 2, published true",
+    "browser_contract_fixture_narrow": "frontend/tests/knowledgeWorkspaceE2E.mjs at 390x844 — PASS; invocation_count 1, event_stream_calls 2, published true"
+  },
+  "capture_report": {
+    "report": "docs/knowledge-workspace/capture-report.md",
+    "prototype_capture_fixture": "frontend/src/features/knowledge-workspace/test-fixtures/captures.ts — 22 route/state URLs",
+    "screenshots": [
+      "docs/knowledge-workspace/evidence/knowledge-workspace-desktop.png",
+      "docs/knowledge-workspace/evidence/knowledge-workspace-narrow.png"
+    ],
+    "visual_regression_note": "Screenshots are contract-fixture browser evidence, not pixel-diffs against the prototype and not real-service E2E evidence."
+  },
+  "build_measurements": {
+    "app_js_bytes": 3261550,
+    "app_js_gzip_bytes": 1056130,
+    "veadk_webui_bytes": 15930839
+  },
+  "preview_url": "http://127.0.0.1:5174/?view=knowledge-workspace&file=welcome",
+  "unfinished_real_integration_dependencies": [
+    "Deploy and wire the Studio BFF persistence and authorization boundary.",
+    "Deploy Connection Service with verified connector catalog, credential vault, validate/discover jobs, leases, and audit.",
+    "Deploy the AutoSkill adapter with real stateful invoke/stream/stop mapping and normalized SSE.",
+    "Provide real service evidence for SSE replay, cancellation, HTML/ZIP artifact validation, immutable revision creation, and publication.",
+    "Run real authenticated desktop and narrow visual/interaction acceptance after all three services are deployed."
+  ],
+  "constraints": [
+    "Connection Service and AutoSkill server implementations are out of scope for STEP 2A.",
+    "frontend/tests/knowledgeWorkspaceE2E.mjs is test-only and intercepts the BFF contract; it is not a production fallback.",
+    "No files in /Users/bytedance/.codex/worktrees/knowledge-autoskill-mvp were modified."
+  ]
+}
