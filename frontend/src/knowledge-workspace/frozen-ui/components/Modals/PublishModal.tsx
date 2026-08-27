@@ -56,6 +56,33 @@ export default function PublishModal({
   const draftId = String(currentResource?.draftId ?? currentResource?.id ?? descriptor?.id ?? '');
   const revision = Number(currentResource?.revision ?? searchParams.get('revision') ?? 0);
   const resourceName = String((descriptor?.name ?? currentResource?.displayName ?? currentResource?.name ?? currentId) || '当前 Skill');
+  const readModel = (currentResource?.readModel ?? currentResource ?? {}) as any;
+  const viewModel = (readModel?.skillViewRevision?.viewModel ?? currentResource?.skillViewRevision?.viewModel ?? {}) as any;
+  const kindSpec = (readModel?.publishedVersion?.manifest?.spec?.kindSpec ??
+    readModel?.publishedVersion?.spec?.kindSpec ??
+    readModel?.kindSpec ??
+    {}) as any;
+  const inputFields = Array.isArray(kindSpec.inputFields)
+    ? kindSpec.inputFields.map((field: any) => String(field?.label ?? field?.name ?? '')).filter(Boolean)
+    : Array.isArray(viewModel.fields)
+      ? viewModel.fields.map((field: any) => String(field?.label ?? field?.name ?? '')).filter(Boolean)
+      : [];
+  const evaluation = readModel?.evaluationRun ?? {};
+  const policyGate = readModel?.policyGateResult ?? {};
+  const evaluationLabel = evaluation.status === 'succeeded'
+    ? `评测通过${Number.isFinite(Number(evaluation.score)) ? ` · ${Math.round(Number(evaluation.score) * 100)}%` : ''}`
+    : '等待服务端评测';
+  const gateLabel = policyGate.decision === 'publishable' ? '可发布' : String(policyGate.decision ?? '等待服务端门禁');
+  const operationRisk =
+    readModel?.publishedVersion?.manifest?.spec?.contract?.operations?.[0]?.risk ??
+    readModel?.publishedVersion?.spec?.contract?.operations?.[0]?.risk ??
+    kindSpec.actionProposal ??
+    (Array.isArray(viewModel.actionProposals) && viewModel.actionProposals.length === 0
+      ? '仅读取/查询数据'
+      : '由服务端权限策略决定');
+  const inputRequirement = inputFields.length ? inputFields.join('、') : '由服务端 revision 定义';
+  const agentAudience = '所有团队 Agent';
+  const versionNote = `V${Math.max(1, revision || 1)}.0`;
   const canPublish = Boolean(
     (currentResource?.resourceKind === 'skill_draft' || currentResource?.lifecycle === 'draft') &&
     draftId &&
@@ -100,51 +127,68 @@ export default function PublishModal({
       aria-modal="true"
       aria-labelledby="publish-modal-title"
     >
-      <div className="w-full max-w-md max-h-[calc(100dvh-32px)] overflow-y-auto rounded-2xl bg-white shadow-xl">
+      <div className="flex h-[618px] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl max-h-[calc(100dvh-32px)]">
         <div className="flex items-center justify-between border-b border-slate-100 p-5">
           <h2 id="publish-modal-title" className="text-lg font-semibold text-slate-900">发布到团队工作区</h2>
           <button type="button" onClick={onClose} aria-label="关闭" title="关闭" className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6 max-[520px]:p-5">
+        <div className="flex-1 overflow-y-auto p-6 max-[520px]:p-5">
           <p className="mb-4 text-sm leading-6 text-slate-700 max-[520px]:mb-3 max-[520px]:leading-5">
-            将 <span className="font-semibold text-slate-900">“{resourceName}”</span> 提交给服务端 publication.publish。发布门禁、版本和团队快照只能由服务端返回。
+            确定要将 <span className="font-semibold text-slate-900">“{resourceName}”</span> 发布到团队工作区吗？
           </p>
 
-          <div className="mb-5 space-y-3 max-[520px]:mb-4">
+          <div className="mb-4 space-y-3 max-[520px]:mb-3 max-[520px]:space-y-2.5">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-target-dir">目标团队目录</label>
-              <select id="publish-target-dir" value={selectedDir} onChange={(event) => setSelectedDir(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
-                <option value="">由服务端默认策略决定</option>
-                <option value="team">团队默认空间</option>
-              </select>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-name">发布名称</label>
+              <input id="publish-name" value={resourceName} readOnly className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700" />
+            </div>
+            <div className="grid grid-cols-2 gap-4 max-[520px]:gap-2.5">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-target-dir">适用团队目录</label>
+                <select id="publish-target-dir" value={selectedDir} onChange={(event) => setSelectedDir(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                  <option value="">由服务端默认策略决定</option>
+                  <option value="team">团队默认空间</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-agent-audience">允许调用的 Agent</label>
+                <select id="publish-agent-audience" defaultValue="all" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                  <option value="all">{agentAudience}</option>
+                  <option value="support">仅售后服务 Agent</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 max-[520px]:gap-2.5">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-input-requirement">要求输入信息</label>
+                <input id="publish-input-requirement" value={inputRequirement} readOnly className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-permission">操作权限</label>
+                <select id="publish-permission" defaultValue={operationRisk === '仅读取/查询数据' ? 'read' : 'policy'} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500">
+                  <option value="read">仅读取/查询数据</option>
+                  <option value="policy">{operationRisk}</option>
+                </select>
+              </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-semver">发布版本</label>
-              <input
-                id="publish-semver"
-                value={semver}
-                onChange={(event) => setSemver(event.target.value)}
-                placeholder="例如 1.0.0"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              />
+              <label className="mb-1.5 block text-xs font-medium text-slate-600" htmlFor="publish-semver">版本说明 ({versionNote})</label>
+              <textarea id="publish-semver" value={semver} onChange={(event) => setSemver(event.target.value)} placeholder="描述本次发布的改动，例如 1.0.0" rows={2} className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500" />
             </div>
           </div>
 
-          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 max-[520px]:mb-3 max-[520px]:p-3">
-            <div className="mb-2 flex items-center text-sm font-semibold text-slate-800">
-              <GateIcon className="mr-2 h-4 w-4 text-slate-500" /> 发布门禁
+          <div className="mb-4 flex items-center rounded-xl border border-blue-200 bg-blue-50 p-3 shadow-inner max-[520px]:mb-3">
+            <GateIcon className="mr-2 h-4.5 w-4.5 shrink-0 text-blue-600" />
+            <div className="text-xs font-medium leading-relaxed text-blue-800">
+              {evaluationLabel} · {gateLabel}。安全与合规扫描将在发布过程中由服务端执行，确保不泄露敏感数据。
             </div>
-            <p className="text-xs leading-5 text-slate-600">
-              发布门禁、版本和团队快照只能由服务端返回；若当前 revision 尚未通过评测，服务端会拒绝发布。
-            </p>
           </div>
-
-          <div className="mb-5 flex items-start rounded-xl border border-amber-200/60 bg-amber-50 p-4 max-[520px]:mb-4 max-[520px]:p-3">
+          <div className="mb-3 flex items-start rounded-xl border border-amber-200/60 bg-amber-50 p-3 max-[520px]:mb-2">
             <AlertIcon className="mr-3 mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-600" />
             <div className="text-xs leading-relaxed text-amber-800">
-              该操作不会创建浏览器本地团队版本。若缺少 SkillDraft、revision 或 semver，确认按钮会保持禁用。
+              缺少 SkillDraft、revision 或版本说明时，确认按钮会保持禁用。
             </div>
           </div>
 

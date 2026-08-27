@@ -76,7 +76,7 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
       aria-modal="true"
       aria-labelledby="publish-agent-title"
     >
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div className="flex min-h-[364px] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl max-[520px]:min-h-[388px]">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3">
           <h2 id="publish-agent-title" className="flex items-center text-lg font-bold text-slate-900">
             <ToyBrick size={19} className="mr-2 text-blue-600" /> 发布到 Agent
@@ -91,7 +91,7 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
           </button>
         </div>
 
-        <div className="space-y-3 px-5 py-3 sm:px-6">
+        <div className="flex-1 space-y-3 px-5 py-3 sm:px-6">
           <div className="text-sm leading-5 text-slate-700">
             <span className="block font-bold text-slate-900">“{resourceName}” ({version})</span>
             <span className="text-xs text-slate-500">发布后，其他平台的 Agent 可搜索并选择此资源。</span>
