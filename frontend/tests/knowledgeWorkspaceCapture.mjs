@@ -274,7 +274,11 @@ async function main() {
         goal: "门店经理使用，希望查询卫生巡检得分并下发整改通报。",
         trial_task: "获取 SH-0021 门店今日巡检的扣分明细，并下发整改通知。",
       } : {}),
-      lifecycle: runState === "failed" ? "failed" : "generated",
+      lifecycle: runState === "failed"
+        ? "failed"
+        : runState === "success"
+          ? "ready_to_publish"
+          : "generated",
     };
     if (url.pathname === "/api/knowledge/v1/connector-definitions") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([{

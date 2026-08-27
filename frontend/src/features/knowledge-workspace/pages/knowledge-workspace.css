@@ -141,6 +141,28 @@
   .kw-agent-modal .kw-agent-empty { min-height: 180px; border-top: 1px solid #e2e8f0; }
 }
 
+.kw-run-state-card.is-success {
+  border-color: #bce6ca;
+  background: #effaf3;
+  color: #18764c;
+}
+.kw-run-state-card.is-success span {
+  color: #56856c;
+}
+.kw-run-state-card.is-success .kw-run-state-icon {
+  background: #dcfce7;
+}
+.kw-success-revision {
+  justify-self: end;
+  padding: 4px 8px;
+  border: 1px solid #bce6ca;
+  border-radius: 6px;
+  background: #fff;
+  color: #18764c !important;
+  font-size: 11px !important;
+  font-weight: 700;
+}
+
 /* Prototype v2.20.8.3 geometry: keep the real BFF-backed content while
  * matching the shared dialog sizes and the creation form's spacing tokens. */
 .kw-state-dialog { width: min(384px, 100%); padding: 24px; border-radius: 16px; }

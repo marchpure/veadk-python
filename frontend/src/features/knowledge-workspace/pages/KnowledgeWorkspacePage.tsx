@@ -1143,6 +1143,16 @@ function DraftWorkspace({
             <div className="kw-upgrade-actions"><button type="button" onClick={onRetryLoad}>继续使用原版本</button><button type="button" className="is-warning" onClick={onRetryLoad}>重新生成</button></div>
           </div>
         ) : null}
+        {draft.lifecycle === "ready_to_publish" ? (
+          <div className="kw-run-state-card is-success" role="status">
+            <div className="kw-run-state-icon"><CheckCircle2 size={18} /></div>
+            <div>
+              <strong>已生成 Skill</strong>
+              <span>当前版本已由 BFF 返回，可以继续试跑或发布。</span>
+            </div>
+            <span className="kw-success-revision">v{revisions.at(-1)?.number || "—"}</span>
+          </div>
+        ) : null}
         <div className="kw-draft-artifact-card">
           <div className="kw-draft-section-heading">
             <div>
