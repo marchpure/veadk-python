@@ -292,8 +292,8 @@ def test_mysql_protocol_warehouses_set_read_only_transaction_without_dialect_err
 
         def execute(self, statement: str, _parameters: object | None = None) -> None:
             statements.append(statement)
-            if connector_key == "starrocks" and statement == "START TRANSACTION READ ONLY":
-                raise AssertionError("StarRocks dialect-invalid transaction statement")
+            if connector_key in {"doris", "starrocks"} and statement == "START TRANSACTION READ ONLY":
+                raise AssertionError("Doris-family dialect-invalid transaction statement")
 
     class Connection:
         def cursor(self) -> Cursor:
@@ -329,16 +329,11 @@ def test_mysql_protocol_warehouses_set_read_only_transaction_without_dialect_err
     monkeypatch.setattr(adapter, "_load_driver", lambda: Driver())
     adapter._connect(request)
 
-    if connector_key == "starrocks":
+    if connector_key in {"doris", "starrocks"}:
         assert statements == [
             "SET SESSION TRANSACTION READ ONLY",
             "SET TRANSACTION READ ONLY",
             "START TRANSACTION",
-        ]
-    else:
-        assert statements == [
-            "SET SESSION TRANSACTION READ ONLY",
-            "START TRANSACTION READ ONLY",
         ]
 
 

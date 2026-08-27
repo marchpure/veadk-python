@@ -1,54 +1,67 @@
 {
-  "schemaVersion": "knowledge-assets.step3b.connector-browser-matrix.v1",
-  "validationScope": "production-real-bff",
-  "productionPass": false,
-  "total": 37,
-  "counts": {
-    "passed": 23,
-    "credentialBlocked": 14
+  "schemaVersion": "knowledge-assets.step3b.w1-browser-evidence.v1",
+  "generatedAt": "2026-08-27T05:58:57.859Z",
+  "repository": "/Users/bytedance/.codex/worktrees/knowledge-step3b-integration",
+  "runtimeDirectory": "/tmp/step3b-r9-local-browser-doris-3",
+  "ports": {
+    "bff": 63425,
+    "vite": 63426
   },
-  "connectors": [
+  "status": "PASS",
+  "catalog": {
+    "total": 37,
+    "categoryCounts": {
+      "office": 10,
+      "file": 8,
+      "db": 11,
+      "api": 5,
+      "custom": 3
+    },
+    "capabilityStates": {
+      "credential_blocked": 16,
+      "available": 21
+    },
+    "source": "GET /api/knowledge-assets/v1/bootstrap",
+    "enteredFromSidebarPlus": true
+  },
+  "connectorUiAudit": [
     {
       "connectorKey": "lark_doc",
       "category": "office",
       "name": "飞书文档",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "documentRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "documentRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-01-lark_doc.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "documentRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "documentRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -210,49 +223,47 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-01-lark_doc.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_wiki",
       "category": "office",
       "name": "飞书知识库 Wiki",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds",
-          "wikiRef"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds",
-          "wikiRef"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-02-lark_wiki.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds",
+        "wikiRef"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds",
+        "wikiRef"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -414,49 +425,47 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-02-lark_wiki.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_drive",
       "category": "office",
       "name": "飞书云盘",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "folderRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "folderRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-03-lark_drive.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "folderRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "folderRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -618,55 +627,53 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-03-lark_drive.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_meeting",
       "category": "office",
       "name": "飞书会议",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "attendees",
-          "calendarRef",
-          "dateFrom",
-          "dateTo",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "attendees",
-          "calendarRef",
-          "dateFrom",
-          "dateTo",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-04-lark_meeting.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "attendees",
+        "calendarRef",
+        "dateFrom",
+        "dateTo",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "attendees",
+        "calendarRef",
+        "dateFrom",
+        "dateTo",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -869,49 +876,47 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-04-lark_meeting.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_minutes",
       "category": "office",
       "name": "飞书妙记",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "minutesRef",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "minutesRef",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-05-lark_minutes.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "minutesRef",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "minutesRef",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -1073,53 +1078,51 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-05-lark_minutes.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_group",
       "category": "office",
       "name": "飞书群聊/话题消息",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "chatRef",
-          "includeAttachments",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeRange",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "chatRef",
-          "includeAttachments",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeRange",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-06-lark_group.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "chatRef",
+        "includeAttachments",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeRange",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "chatRef",
+        "includeAttachments",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeRange",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -1308,51 +1311,49 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-06-lark_group.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_chat",
       "category": "office",
       "name": "单聊记录",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "chatRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeRange",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "chatRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeRange",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-07-lark_chat.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "chatRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeRange",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "chatRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeRange",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -1528,53 +1529,51 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-07-lark_chat.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_sheet",
       "category": "office",
       "name": "飞书电子表格",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "cellRange",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "sheetName",
-          "sheetRef",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "cellRange",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "sheetName",
-          "sheetRef",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-08-lark_sheet.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "cellRange",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "sheetName",
+        "sheetRef",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "cellRange",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "sheetName",
+        "sheetRef",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -1762,53 +1761,51 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-08-lark_sheet.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_base",
       "category": "office",
       "name": "飞书多维表格 Base",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "appRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "tableRef",
-          "timeoutSeconds",
-          "viewRef"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "appRef",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "tableRef",
-          "timeoutSeconds",
-          "viewRef"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-09-lark_base.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "appRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "tableRef",
+        "timeoutSeconds",
+        "viewRef"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "appRef",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "tableRef",
+        "timeoutSeconds",
+        "viewRef"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -1997,51 +1994,49 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-09-lark_base.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "lark_mail",
       "category": "office",
       "name": "飞书邮件",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "apiBaseUrl",
-          "folder",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "query",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "apiBaseUrl",
-          "folder",
-          "maxAttempts",
-          "maxPages",
-          "maxResponseBytes",
-          "pageSize",
-          "query",
-          "rateLimitPerMinute",
-          "refreshSeconds",
-          "scopeRef",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-10-lark_mail.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "apiBaseUrl",
+        "folder",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "query",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "apiBaseUrl",
+        "folder",
+        "maxAttempts",
+        "maxPages",
+        "maxResponseBytes",
+        "pageSize",
+        "query",
+        "rateLimitPerMinute",
+        "refreshSeconds",
+        "scopeRef",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2216,31 +2211,29 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-10-lark_mail.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "csv",
       "category": "file",
       "name": "CSV",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "CSV file",
-          "Maximum retry attempts",
-          "CSV file",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-11-csv.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "CSV file",
+        "Maximum retry attempts",
+        "CSV file",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2281,34 +2274,32 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-11-csv.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "excel",
       "category": "file",
       "name": "Excel",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "sheetAllowlist",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Excel file",
-          "Sheets",
-          "Maximum retry attempts",
-          "Excel file",
-          "Sheets",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-12-excel.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "sheetAllowlist",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Excel file",
+        "Sheets",
+        "Maximum retry attempts",
+        "Excel file",
+        "Sheets",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2362,37 +2353,35 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-12-excel.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "json",
       "category": "file",
       "name": "JSON",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "maxDepth",
-          "maxRows",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "JSON file",
-          "Maximum nesting depth",
-          "Maximum records",
-          "Maximum retry attempts",
-          "JSON file",
-          "Maximum nesting depth",
-          "Maximum records",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-13-json.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxDepth",
+        "maxRows",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "JSON file",
+        "Maximum nesting depth",
+        "Maximum records",
+        "Maximum retry attempts",
+        "JSON file",
+        "Maximum nesting depth",
+        "Maximum records",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2459,43 +2448,41 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-13-json.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "parquet",
       "category": "file",
       "name": "Parquet",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "maxRows",
-          "maxColumns",
-          "maxUncompressedBytes",
-          "maxNestingDepth",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Parquet file",
-          "Maximum records",
-          "Maximum columns",
-          "Maximum uncompressed bytes",
-          "Maximum schema nesting depth",
-          "Maximum retry attempts",
-          "Parquet file",
-          "Maximum records",
-          "Maximum columns",
-          "Maximum uncompressed bytes",
-          "Maximum schema nesting depth",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-14-parquet.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxRows",
+        "maxColumns",
+        "maxUncompressedBytes",
+        "maxNestingDepth",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Parquet file",
+        "Maximum records",
+        "Maximum columns",
+        "Maximum uncompressed bytes",
+        "Maximum schema nesting depth",
+        "Maximum retry attempts",
+        "Parquet file",
+        "Maximum records",
+        "Maximum columns",
+        "Maximum uncompressed bytes",
+        "Maximum schema nesting depth",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2588,34 +2575,32 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-14-parquet.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "doc_txt",
       "category": "file",
       "name": "PDF/Markdown/TXT/HTML",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "maxTextChars",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "PDF, Markdown, TXT, or HTML file",
-          "Maximum extracted characters",
-          "Maximum retry attempts",
-          "PDF, Markdown, TXT, or HTML file",
-          "Maximum extracted characters",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-15-doc_txt.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxTextChars",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "PDF, Markdown, TXT, or HTML file",
+        "Maximum extracted characters",
+        "Maximum retry attempts",
+        "PDF, Markdown, TXT, or HTML file",
+        "Maximum extracted characters",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2669,31 +2654,29 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-15-doc_txt.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "local_file",
       "category": "file",
       "name": "本地 Markdown",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Markdown file",
-          "Maximum retry attempts",
-          "Markdown file",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-16-local_file.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Markdown file",
+        "Maximum retry attempts",
+        "Markdown file",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2734,45 +2717,58 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-16-local_file.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "s3",
       "category": "file",
       "name": "AWS S3",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "bucket",
-          "endpoint",
-          "maxAttempts",
-          "maxObjectBytes",
-          "maxObjects",
-          "objectPrefix",
-          "region",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "bucket",
-          "endpoint",
-          "maxAttempts",
-          "maxObjectBytes",
-          "maxObjects",
-          "objectPrefix",
-          "region",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-17-s3.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R12_SQLSERVER.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "bucket",
+        "objectPrefix",
+        "region",
+        "endpoint",
+        "maxObjects",
+        "maxObjectBytes",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Bucket",
+        "Object prefix",
+        "Region",
+        "S3-compatible endpoint",
+        "Maximum objects",
+        "Maximum object bytes",
+        "Request timeout",
+        "Maximum retry attempts",
+        "Bucket",
+        "Object prefix",
+        "Region",
+        "S3-compatible endpoint",
+        "Maximum objects",
+        "Maximum object bytes",
+        "Request timeout",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Bucket",
+        "Object prefix",
+        "Region",
+        "S3-compatible endpoint",
+        "Maximum objects",
+        "Maximum object bytes",
+        "Request timeout",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -2907,45 +2903,43 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-17-s3.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "oss",
       "category": "file",
       "name": "Aliyun OSS",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "bucket",
-          "endpoint",
-          "maxAttempts",
-          "maxObjectBytes",
-          "maxObjects",
-          "objectPrefix",
-          "region",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "bucket",
-          "endpoint",
-          "maxAttempts",
-          "maxObjectBytes",
-          "maxObjects",
-          "objectPrefix",
-          "region",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-18-oss.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "bucket",
+        "endpoint",
+        "maxAttempts",
+        "maxObjectBytes",
+        "maxObjects",
+        "objectPrefix",
+        "region",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "bucket",
+        "endpoint",
+        "maxAttempts",
+        "maxObjectBytes",
+        "maxObjects",
+        "objectPrefix",
+        "region",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -3081,56 +3075,51 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-18-oss.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "postgresql",
       "category": "db",
       "name": "PostgreSQL",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-19-postgresql.png",
-      "evidence": [
-        "CONNECTOR_BROWSER_EVIDENCE_20260827_R8_FULL.json",
-        "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json"
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "byteLimit",
+        "database",
+        "host",
+        "maxAttempts",
+        "pageSize",
+        "port",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
       ],
-      "verificationCategory": "LIVE_VERIFIED",
+      "renderedInputLabels": [
+        "byteLimit",
+        "database",
+        "host",
+        "maxAttempts",
+        "pageSize",
+        "port",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -3322,75 +3311,50 @@
           "additionalProperties": false
         }
       },
-      "liveEvidence": [
-        {
-          "connectorKey": "postgresql",
-          "port": 26342,
-          "connectionId": "connection-b6121b8ef87d679fdd202286",
-          "sourceRevisionId": "source-2a28a7ad0fdfe1fdbb01f324",
-          "initialGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r1-409bc179",
-          "refreshedGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r2-2bee477a",
-          "schemaDriftStatus": "schema_drift"
-        },
-        {
-          "connectorKey": "mysql",
-          "port": 26343,
-          "connectionId": "connection-9905b261f0b635a0a82b86e3",
-          "sourceRevisionId": "source-09db740fcf5f5002df0bd23e",
-          "initialGoldenRevisionId": "golden-5c3020525269f772c82b4772-r1-409bc179",
-          "refreshedGoldenRevisionId": "golden-5c3020525269f772c82b4772-r2-2bee477a",
-          "schemaDriftStatus": "schema_drift"
-        }
-      ]
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-19-postgresql.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "mysql",
       "category": "db",
       "name": "MySQL",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-20-mysql.png",
-      "evidence": [
-        "CONNECTOR_BROWSER_EVIDENCE_20260827_R8_FULL.json",
-        "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json"
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "byteLimit",
+        "database",
+        "host",
+        "maxAttempts",
+        "pageSize",
+        "port",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
       ],
-      "verificationCategory": "LIVE_VERIFIED",
+      "renderedInputLabels": [
+        "byteLimit",
+        "database",
+        "host",
+        "maxAttempts",
+        "pageSize",
+        "port",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -3582,72 +3546,73 @@
           "additionalProperties": false
         }
       },
-      "liveEvidence": [
-        {
-          "connectorKey": "postgresql",
-          "port": 26342,
-          "connectionId": "connection-b6121b8ef87d679fdd202286",
-          "sourceRevisionId": "source-2a28a7ad0fdfe1fdbb01f324",
-          "initialGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r1-409bc179",
-          "refreshedGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r2-2bee477a",
-          "schemaDriftStatus": "schema_drift"
-        },
-        {
-          "connectorKey": "mysql",
-          "port": 26343,
-          "connectionId": "connection-9905b261f0b635a0a82b86e3",
-          "sourceRevisionId": "source-09db740fcf5f5002df0bd23e",
-          "initialGoldenRevisionId": "golden-5c3020525269f772c82b4772-r1-409bc179",
-          "refreshedGoldenRevisionId": "golden-5c3020525269f772c82b4772-r2-2bee477a",
-          "schemaDriftStatus": "schema_drift"
-        }
-      ]
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-20-mysql.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "oracle",
       "category": "db",
       "name": "Oracle",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "serviceName",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "serviceName",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-21-oracle.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R12_SQLSERVER.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "serviceName",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Host",
+        "Port",
+        "Service name",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts",
+        "Host",
+        "Port",
+        "Service name",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Host",
+        "Port",
+        "Service name",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -3838,53 +3803,74 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-21-oracle.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "sqlserver",
       "category": "db",
       "name": "SQL Server",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-22-sqlserver.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R12_SQLSERVER.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts",
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -4075,40 +4061,38 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-22-sqlserver.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "sqlite",
       "category": "db",
       "name": "SQLite",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "sourceRef",
-          "tableAllowlist",
-          "query",
-          "rowLimit",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "SQLite database",
-          "Allowed tables",
-          "Read-only parameterized query",
-          "Maximum rows",
-          "Maximum retry attempts",
-          "SQLite database",
-          "Allowed tables",
-          "Read-only parameterized query",
-          "Maximum rows",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-23-sqlite.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "tableAllowlist",
+        "query",
+        "rowLimit",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "SQLite database",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Maximum rows",
+        "Maximum retry attempts",
+        "SQLite database",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Maximum rows",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -4188,53 +4172,74 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-23-sqlite.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "clickhouse",
       "category": "db",
       "name": "ClickHouse",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-24-clickhouse.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R12_SQLSERVER.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts",
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -4425,53 +4430,74 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-24-clickhouse.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "doris",
       "category": "db",
       "name": "Doris",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-25-doris.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R14_DORIS.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts",
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -4662,53 +4688,74 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-25-doris.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "starrocks",
       "category": "db",
       "name": "StarRocks",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-r13-starrocks-secure.2Nnn8s/connector-26-starrocks.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R13_STARROCKS.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts",
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Host",
+        "Port",
+        "Database",
+        "Allowed schemas",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Bound query parameters",
+        "Fetch page size",
+        "Maximum rows",
+        "Maximum bytes",
+        "Timeout in seconds",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -4899,53 +4946,51 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-26-starrocks.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "snowflake",
       "category": "db",
       "name": "Snowflake",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "account",
-          "byteLimit",
-          "database",
-          "maxAttempts",
-          "pageSize",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds",
-          "warehouse"
-        ],
-        "renderedInputLabels": [
-          "account",
-          "byteLimit",
-          "database",
-          "maxAttempts",
-          "pageSize",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds",
-          "warehouse"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-27-snowflake.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "account",
+        "byteLimit",
+        "database",
+        "maxAttempts",
+        "pageSize",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds",
+        "warehouse"
+      ],
+      "renderedInputLabels": [
+        "account",
+        "byteLimit",
+        "database",
+        "maxAttempts",
+        "pageSize",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds",
+        "warehouse"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -5136,51 +5181,49 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-27-snowflake.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "bigquery",
       "category": "db",
       "name": "BigQuery",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "datasetId",
-          "maxAttempts",
-          "pageSize",
-          "projectId",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "datasetId",
-          "maxAttempts",
-          "pageSize",
-          "projectId",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-28-bigquery.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "byteLimit",
+        "datasetId",
+        "maxAttempts",
+        "pageSize",
+        "projectId",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "byteLimit",
+        "datasetId",
+        "maxAttempts",
+        "pageSize",
+        "projectId",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -5357,53 +5400,51 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-28-bigquery.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "hive",
       "category": "db",
       "name": "Hive",
+      "descriptionPresent": true,
       "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
-      "formEvidence": {
-        "inputFields": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "renderedInputLabels": [
-          "byteLimit",
-          "database",
-          "host",
-          "maxAttempts",
-          "pageSize",
-          "port",
-          "query",
-          "queryParameters",
-          "rowLimit",
-          "schemaAllowlist",
-          "tableAllowlist",
-          "timeoutSeconds"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-29-hive.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "CREDENTIAL_BLOCKED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "byteLimit",
+        "database",
+        "host",
+        "maxAttempts",
+        "pageSize",
+        "port",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
+      ],
+      "renderedInputLabels": [
+        "byteLimit",
+        "database",
+        "host",
+        "maxAttempts",
+        "pageSize",
+        "port",
+        "query",
+        "queryParameters",
+        "rowLimit",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "timeoutSeconds"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "secretRef"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -5594,76 +5635,74 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-29-hive.png",
+      "status": "CREDENTIAL_BLOCKED"
     },
     {
       "connectorKey": "rest_api",
       "category": "api",
       "name": "REST / OpenAPI",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "endpoint",
-          "operationAllowlist",
-          "paginationMode",
-          "pageSize",
-          "maxPages",
-          "maxRows",
-          "maxResponseBytes",
-          "rateLimitPerMinute",
-          "timeoutSeconds",
-          "refreshSeconds",
-          "termsRef",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Endpoint",
-          "Allowed operations",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Terms reference",
-          "Maximum retry attempts",
-          "Endpoint",
-          "Allowed operations",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Terms reference",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "Endpoint",
-          "Allowed operations",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Terms reference",
-          "Maximum retry attempts"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-30-rest_api.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "endpoint",
+        "operationAllowlist",
+        "paginationMode",
+        "pageSize",
+        "maxPages",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "termsRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Endpoint",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts",
+        "Endpoint",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Endpoint",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -5854,64 +5893,62 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-30-rest_api.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "graphql",
       "category": "api",
       "name": "GraphQL",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "endpoint",
-          "query",
-          "operationAllowlist",
-          "maxRows",
-          "maxResponseBytes",
-          "rateLimitPerMinute",
-          "timeoutSeconds",
-          "refreshSeconds",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Endpoint",
-          "Query",
-          "Allowed operations",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Maximum retry attempts",
-          "Endpoint",
-          "Query",
-          "Allowed operations",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "Endpoint",
-          "Query",
-          "Allowed operations",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Maximum retry attempts"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-31-graphql.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "endpoint",
+        "query",
+        "operationAllowlist",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Endpoint",
+        "Query",
+        "Allowed operations",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts",
+        "Endpoint",
+        "Query",
+        "Allowed operations",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Endpoint",
+        "Query",
+        "Allowed operations",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -6059,76 +6096,74 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-31-graphql.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "web_discovery",
       "category": "api",
       "name": "Web API Discovery",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "endpoint",
-          "operationAllowlist",
-          "paginationMode",
-          "pageSize",
-          "maxPages",
-          "maxRows",
-          "maxResponseBytes",
-          "rateLimitPerMinute",
-          "timeoutSeconds",
-          "refreshSeconds",
-          "termsRef",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Target URL",
-          "Allowed operations",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Terms reference",
-          "Maximum retry attempts",
-          "Target URL",
-          "Allowed operations",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Terms reference",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "Target URL",
-          "Allowed operations",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Terms reference",
-          "Maximum retry attempts"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-32-web_discovery.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "endpoint",
+        "operationAllowlist",
+        "paginationMode",
+        "pageSize",
+        "maxPages",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "termsRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Target URL",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts",
+        "Target URL",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Target URL",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -6319,52 +6354,50 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-32-web_discovery.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "webhook",
       "category": "api",
       "name": "Webhook",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "listenPath",
-          "schemaRef",
-          "maxEventBytes",
-          "maxEvents",
-          "rateLimitPerMinute",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Listener path",
-          "Payload schema reference",
-          "Maximum event bytes",
-          "Maximum retained events",
-          "Maximum deliveries per minute",
-          "Maximum retry attempts",
-          "Listener path",
-          "Payload schema reference",
-          "Maximum event bytes",
-          "Maximum retained events",
-          "Maximum deliveries per minute",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "Listener path",
-          "Payload schema reference",
-          "Maximum event bytes",
-          "Maximum retained events",
-          "Maximum deliveries per minute",
-          "Maximum retry attempts"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-33-webhook.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "listenPath",
+        "schemaRef",
+        "maxEventBytes",
+        "maxEvents",
+        "rateLimitPerMinute",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Listener path",
+        "Payload schema reference",
+        "Maximum event bytes",
+        "Maximum retained events",
+        "Maximum deliveries per minute",
+        "Maximum retry attempts",
+        "Listener path",
+        "Payload schema reference",
+        "Maximum event bytes",
+        "Maximum retained events",
+        "Maximum deliveries per minute",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Listener path",
+        "Payload schema reference",
+        "Maximum event bytes",
+        "Maximum retained events",
+        "Maximum deliveries per minute",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -6474,43 +6507,54 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-33-webhook.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "kafka",
       "category": "api",
       "name": "Kafka",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "bootstrapServers",
-          "consumerGroup",
-          "maxAttempts",
-          "maxMessageBytes",
-          "maxMessages",
-          "timeoutSeconds",
-          "topics"
-        ],
-        "renderedInputLabels": [
-          "bootstrapServers",
-          "consumerGroup",
-          "maxAttempts",
-          "maxMessageBytes",
-          "maxMessages",
-          "timeoutSeconds",
-          "topics"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "secretRef"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-34-kafka.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R12_SQLSERVER.json",
-      "verificationCategory": "LIVE_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "bootstrapServers",
+        "topics",
+        "consumerGroup",
+        "maxMessages",
+        "maxMessageBytes",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Bootstrap servers",
+        "Topic allowlist",
+        "Consumer group",
+        "Maximum messages",
+        "Maximum message bytes",
+        "Poll timeout",
+        "Maximum retry attempts",
+        "Bootstrap servers",
+        "Topic allowlist",
+        "Consumer group",
+        "Maximum messages",
+        "Maximum message bytes",
+        "Poll timeout",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Bootstrap servers",
+        "Topic allowlist",
+        "Consumer group",
+        "Maximum messages",
+        "Maximum message bytes",
+        "Poll timeout",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -6634,28 +6678,26 @@
           ],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-34-kafka.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "mcp_custom",
       "category": "custom",
       "name": "MCP Server",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "profileId"
-        ],
-        "renderedInputLabels": [
-          "服务端 MCP Profile",
-          "服务端 MCP Profile"
-        ],
-        "credentialFields": [],
-        "renderedCredentialLabels": []
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-35-mcp_custom.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "profileId"
+      ],
+      "renderedInputLabels": [
+        "服务端 MCP Profile",
+        "服务端 MCP Profile"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
       "schemaContract": {
         "input": {
           "properties": {
@@ -6683,80 +6725,78 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-35-mcp_custom.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "custom_http",
       "category": "custom",
       "name": "自定义 HTTP Connector",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "name",
-          "endpoint",
-          "operationAllowlist",
-          "method",
-          "paginationMode",
-          "pageSize",
-          "maxPages",
-          "maxRows",
-          "maxResponseBytes",
-          "rateLimitPerMinute",
-          "timeoutSeconds",
-          "refreshSeconds",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "Definition name",
-          "Base URL",
-          "Allowed operations",
-          "Method",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Maximum retry attempts",
-          "Definition name",
-          "Base URL",
-          "Allowed operations",
-          "Method",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "Definition name",
-          "Base URL",
-          "Allowed operations",
-          "Method",
-          "Pagination",
-          "Page size",
-          "Maximum pages",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Refresh interval",
-          "Maximum retry attempts"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-36-custom_http.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "name",
+        "endpoint",
+        "operationAllowlist",
+        "method",
+        "paginationMode",
+        "pageSize",
+        "maxPages",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Definition name",
+        "Base URL",
+        "Allowed operations",
+        "Method",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts",
+        "Definition name",
+        "Base URL",
+        "Allowed operations",
+        "Method",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Definition name",
+        "Base URL",
+        "Allowed operations",
+        "Method",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -6963,60 +7003,58 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-36-custom_http.png",
+      "status": "PASS"
     },
     {
       "connectorKey": "openapi_spec",
       "category": "custom",
       "name": "上传 OpenAPI Spec",
+      "descriptionPresent": true,
       "capabilityState": "available",
-      "browserStatus": "PASS",
-      "formEvidence": {
-        "inputFields": [
-          "specRef",
-          "operationAllowlist",
-          "serverUrl",
-          "maxRows",
-          "maxResponseBytes",
-          "rateLimitPerMinute",
-          "timeoutSeconds",
-          "maxAttempts"
-        ],
-        "renderedInputLabels": [
-          "OpenAPI YAML or JSON",
-          "Allowed operations",
-          "Server URL override",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Maximum retry attempts",
-          "OpenAPI YAML or JSON",
-          "Allowed operations",
-          "Server URL override",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Maximum retry attempts"
-        ],
-        "credentialFields": [
-          "secretRef"
-        ],
-        "renderedCredentialLabels": [
-          "OpenAPI YAML or JSON",
-          "Allowed operations",
-          "Server URL override",
-          "Maximum records",
-          "Maximum response bytes",
-          "Maximum requests per minute",
-          "Request timeout in seconds",
-          "Maximum retry attempts"
-        ]
-      },
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r9d/connector-37-openapi_spec.png",
-      "evidence": "CONNECTOR_BROWSER_EVIDENCE_20260827_R9.json",
-      "verificationCategory": "LOCAL_PROTOCOL_VERIFIED",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "specRef",
+        "operationAllowlist",
+        "serverUrl",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "OpenAPI YAML or JSON",
+        "Allowed operations",
+        "Server URL override",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Maximum retry attempts",
+        "OpenAPI YAML or JSON",
+        "Allowed operations",
+        "Server URL override",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "OpenAPI YAML or JSON",
+        "Allowed operations",
+        "Server URL override",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Maximum retry attempts"
+      ],
       "schemaContract": {
         "input": {
           "properties": {
@@ -7150,493 +7188,558 @@
           "required": [],
           "additionalProperties": false
         }
-      }
+      },
+      "screenshot": "/tmp/step3b-r9-local-browser-doris-3/connector-37-openapi_spec.png",
+      "status": "PASS"
     }
   ],
-  "runtimeDirectory": "/tmp/step3b-r13-starrocks-secure.2Nnn8s",
-  "browserEvidence": {
-    "status": "PASS",
-    "report": "/tmp/step3b-r9-local-browser-doris-3/browser-evidence.json",
-    "localProviders": {
-      "status": "PASS",
-      "seed": {
-        "minio": "step3b-r9/golden/orders.json",
-        "redpanda": "step3b-events",
-        "clickhouse": "knowledge.step3b_events",
-        "oracle": "STEP3B.STEP3B_ORDERS",
-        "sqlserver": "dbo.step3b_orders",
-        "starrocks": "knowledge.step3b_starrocks_orders",
-        "doris": "knowledge.step3b_doris_orders"
-      },
-      "cases": [
-        {
-          "connectorKey": "s3",
-          "connectionId": "connection-e4526a3f3ef5bbb490a92a2e",
-          "sourceRevisionId": "source-66334a32334345b47fdd80c3",
-          "goldenRevisionId": "golden-56f0c0b7f3b7f0ad4627ab48-r1-78533c01"
+  "mcp": {
+    "profileId": "browser-official-sdk",
+    "createAccepted": true,
+    "ingestAccepted": true,
+    "connectionId": "connection-b800a8a10b2a84e34cb4da82",
+    "discoveredResources": [
+      {
+        "id": "mcp-tool-42d01c0892083109e8ef4d27",
+        "name": "infrastructure.metrics",
+        "resourceType": "tool",
+        "schemaName": null,
+        "rowCount": null,
+        "fields": [],
+        "inputSchema": {
+          "properties": {
+            "service": {
+              "default": "all",
+              "title": "Service",
+              "type": "string"
+            }
+          },
+          "title": "infrastructure_metricsArguments",
+          "type": "object"
         },
-        {
-          "connectorKey": "kafka",
-          "connectionId": "connection-e629a2570724483ba6a7367a",
-          "sourceRevisionId": "source-9ab7ae97b25aab0ab0498461",
-          "goldenRevisionId": "golden-9790cc56c06701331dad234a-r1-6c21104f"
+        "outputSchema": {
+          "additionalProperties": true,
+          "title": "infrastructure_metricsDictOutput",
+          "type": "object"
         },
-        {
-          "connectorKey": "clickhouse",
-          "connectionId": "connection-8ae8980967c2f7400c2c3865",
-          "sourceRevisionId": "source-01522ea5bcefa35afe5c70d3",
-          "goldenRevisionId": "golden-5393138feea822bbb93e398e-r1-35dc729c"
-        },
-        {
-          "connectorKey": "oracle",
-          "connectionId": "connection-82ce0e3c772c400c5b8ed605",
-          "sourceRevisionId": "source-70364899e30e4011164031d6",
-          "goldenRevisionId": "golden-edd754ef29409e7a5998e7c6-r1-2ac3f205"
-        },
-        {
-          "connectorKey": "sqlserver",
-          "connectionId": "connection-cf2e944b2a9d814725648306",
-          "sourceRevisionId": "source-960d0ed4fa73fcb5143ba7a7",
-          "goldenRevisionId": "golden-77d5b178d0fd4a04748c60b3-r1-9f68d405"
-        },
-        {
-          "connectorKey": "starrocks",
-          "connectionId": "connection-4df386b71720ff2332a78e6f",
-          "sourceRevisionId": "source-4b436a77d220a85216f27bb6",
-          "goldenRevisionId": "golden-11a94153d733bb9c77b0d7e3-r1-15fec7f9"
-        },
-        {
-          "connectorKey": "doris",
-          "connectionId": "connection-2ba8fb8544d62e40bde5c20d",
-          "sourceRevisionId": "source-0924808d2ba6216b0bce6a3d",
-          "goldenRevisionId": "golden-997cc78dcf8835f8d2e1ff8a-r1-9524610b"
-        }
-      ]
-    },
-    "catalogCapabilityStates": {
-      "credential_blocked": 16,
-      "available": 21
-    },
-    "consoleErrors": [],
-    "restartRecovery": {
-      "browserRefresh": "PASS",
-      "bffRestart": "PASS",
-      "connectionId": "connection-419013c4cb91092d880c0947",
-      "goldenRevisionId": "golden-fb7cfedbbeae591d12321c79-r1-9f6ee516",
-      "restoredGoldenRevisionIds": [
-        "golden-6764882ad63609219b7ec383-r1-83f212ba",
-        "golden-78940e98a3a8f400e018391f-r1-83f212ba",
-        "golden-b302c3092b976e5a85eb4c38-r1-83f212ba",
-        "golden-e9ac4194b697e9bebcec228d-r1-83f212ba",
-        "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213",
-        "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29",
-        "golden-df935ba99a890e6d4c5e9920-r1-71d78a48",
-        "golden-15af3085706502ef74c54aa9-r1-9d4db370",
-        "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338",
-        "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
-        "golden-2f5d836256a8755d32dabdd5-r2-2bee477a",
-        "golden-5c3020525269f772c82b4772-r2-2bee477a",
-        "golden-fb7cfedbbeae591d12321c79-r1-9f6ee516"
-      ],
-      "durableDatabase": "/tmp/step3b-r13-starrocks-secure.2Nnn8s/.veadk/knowledge-assets-step3.sqlite3",
-      "durableSourceGoldenDatabase": "/tmp/step3b-r13-starrocks-secure.2Nnn8s/.veadk/sources-golden/sources-golden.sqlite3",
-      "screenshot": "/tmp/step3b-r13-starrocks-secure.2Nnn8s/07-after-bff-restart.png"
-    },
-    "harConsistency": {
-      "status": "PASS",
-      "requestCount": 4856,
-      "correlatedTraceCount": 13,
-      "apiRequestContextTraceCapturedInServerEvidence": false,
-      "sensitiveHeadersRedacted": true
-    },
-    "negativeCases": {
-      "postgresqlWrongPassword": {
-        "status": 422,
-        "code": "DATABASE_AUTHENTICATION_FAILED"
-      },
-      "postgresqlWriteSql": {
-        "status": 422,
-        "code": "DATABASE_CONFIGURATION_INVALID"
-      },
-      "postgresqlOversized": {
-        "status": 422,
-        "code": "DATABASE_ROW_LIMIT"
-      },
-      "mysqlWrongPassword": {
-        "status": 422,
-        "code": "DATABASE_AUTHENTICATION_FAILED"
-      },
-      "mysqlWriteSql": {
-        "status": 422,
-        "code": "DATABASE_CONFIGURATION_INVALID"
-      },
-      "mysqlOversized": {
-        "status": 422,
-        "code": "DATABASE_ROW_LIMIT"
-      },
-      "httpOversized": {
-        "status": 422,
-        "code": "HTTP_DISCOVERY_FAILED"
-      },
-      "revokedContext": {
-        "status": 404,
-        "code": "GOLDEN_REVISION_NOT_FOUND"
-      },
-      "httpTimeout": {
-        "status": 422,
-        "code": "HTTP_DISCOVERY_FAILED"
+        "permission": "read"
       }
+    ],
+    "sourceRevisionId": "source-cbd39a45d2d13f0fd5297474",
+    "sourceDigest": "82a2482fde92c8e6ca22f2cc46b937a94fb98c20406ee8fef0bf9b53a0330fe8",
+    "goldenRevisionId": "golden-041d50ca64d5ec20e50e0a2e-r1-9f6ee516",
+    "goldenOutputDigest": "9f6ee516eaa2dd1867f15f7fafdf0cb9f49c62fb845745d03b130d4eae7ebbe7",
+    "browserSubmittedExecutionFields": false,
+    "processTraces": [
+      {
+        "pid": 74277,
+        "status": "succeeded",
+        "shutdownMode": "stdio_eof",
+        "processReaped": true,
+        "exchangeMethods": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "shutdown",
+          "stdio/eof"
+        ]
+      },
+      {
+        "pid": 74296,
+        "status": "succeeded",
+        "shutdownMode": "stdio_eof",
+        "processReaped": true,
+        "exchangeMethods": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "tools/call",
+          "shutdown",
+          "stdio/eof"
+        ]
+      }
+    ],
+    "screenshot": "/tmp/step3b-r9-local-browser-doris-3/06-mcp-ingested.png"
+  },
+  "localSources": {
+    "status": "PASS",
+    "cases": [
+      {
+        "connectorKey": "csv",
+        "connectionId": "connection-3f608c7b4dd28156d753e096",
+        "sourceRevisionId": "source-71de1bcfe4c1b7824c0b10bd",
+        "goldenRevisionId": "golden-6764882ad63609219b7ec383-r1-83f212ba"
+      },
+      {
+        "connectorKey": "excel",
+        "connectionId": "connection-9e31458594efcca2d3b9fb68",
+        "sourceRevisionId": "source-12126069f2b22a742a671c60",
+        "goldenRevisionId": "golden-55020ecc91c6b2d26d4d4740-r1-83f212ba"
+      },
+      {
+        "connectorKey": "json",
+        "connectionId": "connection-19b74f9d682c021b6834d498",
+        "sourceRevisionId": "source-28c5532c5e12bad034f0eb40",
+        "goldenRevisionId": "golden-b302c3092b976e5a85eb4c38-r1-83f212ba"
+      },
+      {
+        "connectorKey": "parquet",
+        "connectionId": "connection-f87eabb83e166b94bbfee698",
+        "sourceRevisionId": "source-9bde5fe3ff44d81e0ef902f6",
+        "goldenRevisionId": "golden-e9ac4194b697e9bebcec228d-r1-83f212ba"
+      },
+      {
+        "connectorKey": "doc_txt",
+        "connectionId": "connection-2e3d89ee296c257433390e2a",
+        "sourceRevisionId": "source-afe0e7a06d48ef16a02e63a2",
+        "goldenRevisionId": "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213"
+      },
+      {
+        "connectorKey": "local_file",
+        "connectionId": "connection-38848b3fe8f758d245d8c845",
+        "sourceRevisionId": "source-816957c6f28662c63a7d7167",
+        "goldenRevisionId": "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29"
+      },
+      {
+        "connectorKey": "doc_txt",
+        "connectionId": "connection-706b7cf69dc137fe70ea27f7",
+        "sourceRevisionId": "source-231915cae385164fcfb307fa",
+        "goldenRevisionId": "golden-df935ba99a890e6d4c5e9920-r1-71d78a48"
+      },
+      {
+        "connectorKey": "doc_txt",
+        "connectionId": "connection-f11b672051c96a34a0d96100",
+        "sourceRevisionId": "source-b8658d6cc3c6966fc012c9ab",
+        "goldenRevisionId": "golden-15af3085706502ef74c54aa9-r1-9d4db370"
+      },
+      {
+        "connectorKey": "sqlite",
+        "connectionId": "connection-b9d53d1cac7039750c08c638",
+        "sourceRevisionId": "source-66f1fd0b799d1b39de5608e3",
+        "goldenRevisionId": "golden-b8f700e0c47ce947209c1ae1-r1-83f212ba"
+      }
+    ]
+  },
+  "httpSources": {
+    "status": "PASS",
+    "rest": {
+      "connectionId": "connection-265920c046bf659ddbfbcb38",
+      "goldenRevisionId": "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338"
+    },
+    "openapi": {
+      "connectionId": "connection-bf23938c4110db22b4eae223",
+      "goldenRevisionId": "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
+      "refreshStatus": "schema_drift"
+    },
+    "ssrf": {
+      "status": 422,
+      "code": "HTTP_CONFIGURATION_INVALID"
     }
   },
-  "checks": {
-    "consoleErrors": [],
-    "restartRecovery": {
-      "browserRefresh": "PASS",
-      "bffRestart": "PASS",
-      "connectionId": "connection-b0acfcb7a4589b0d5c18f71b",
-      "goldenRevisionId": "golden-bea39b7af4ad157094a179fd-r1-9f6ee516",
-      "restoredGoldenRevisionIds": [
-        "golden-6764882ad63609219b7ec383-r1-83f212ba",
-        "golden-120cfceae938c0b1c68166c7-r1-83f212ba",
-        "golden-b302c3092b976e5a85eb4c38-r1-83f212ba",
-        "golden-e9ac4194b697e9bebcec228d-r1-83f212ba",
-        "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213",
-        "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29",
-        "golden-df935ba99a890e6d4c5e9920-r1-71d78a48",
-        "golden-15af3085706502ef74c54aa9-r1-9d4db370",
-        "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338",
-        "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
-        "golden-bea39b7af4ad157094a179fd-r1-9f6ee516"
-      ],
-      "durableDatabase": "/tmp/step3b-r13-starrocks-final2.HyXcYd/.veadk/knowledge-assets-step3.sqlite3",
-      "durableSourceGoldenDatabase": "/tmp/step3b-r13-starrocks-final2.HyXcYd/.veadk/sources-golden/sources-golden.sqlite3",
-      "screenshot": "/tmp/step3b-r13-starrocks-final2.HyXcYd/07-after-bff-restart.png"
+  "localProviders": {
+    "status": "PASS",
+    "seed": {
+      "minio": "step3b-r9/golden/orders.json",
+      "redpanda": "step3b-events",
+      "clickhouse": "knowledge.step3b_events",
+      "oracle": "STEP3B.STEP3B_ORDERS",
+      "sqlserver": "dbo.step3b_orders",
+      "starrocks": "knowledge.step3b_starrocks_orders",
+      "doris": "knowledge.step3b_doris_orders"
     },
-    "harConsistency": {
-      "status": "PASS",
-      "requestCount": 4826,
-      "correlatedTraceCount": 10,
-      "apiRequestContextTraceCapturedInServerEvidence": false,
-      "sensitiveHeadersRedacted": true
-    },
-    "negativeCases": {
-      "httpOversized": {
-        "status": 422,
-        "code": "HTTP_DISCOVERY_FAILED"
+    "cases": [
+      {
+        "connectorKey": "s3",
+        "connectionId": "connection-e4526a3f3ef5bbb490a92a2e",
+        "sourceRevisionId": "source-66334a32334345b47fdd80c3",
+        "goldenRevisionId": "golden-56f0c0b7f3b7f0ad4627ab48-r1-78533c01"
       },
-      "revokedContext": {
-        "status": 404,
-        "code": "GOLDEN_REVISION_NOT_FOUND"
+      {
+        "connectorKey": "kafka",
+        "connectionId": "connection-e629a2570724483ba6a7367a",
+        "sourceRevisionId": "source-9ab7ae97b25aab0ab0498461",
+        "goldenRevisionId": "golden-9790cc56c06701331dad234a-r1-6c21104f"
       },
-      "httpTimeout": {
-        "status": 422,
-        "code": "HTTP_DISCOVERY_FAILED"
+      {
+        "connectorKey": "clickhouse",
+        "connectionId": "connection-8ae8980967c2f7400c2c3865",
+        "sourceRevisionId": "source-3f10df27bba05e49e1760be5",
+        "goldenRevisionId": "golden-5393138feea822bbb93e398e-r1-8ddc2a61"
+      },
+      {
+        "connectorKey": "oracle",
+        "connectionId": "connection-82ce0e3c772c400c5b8ed605",
+        "sourceRevisionId": "source-70364899e30e4011164031d6",
+        "goldenRevisionId": "golden-edd754ef29409e7a5998e7c6-r1-2ac3f205"
+      },
+      {
+        "connectorKey": "sqlserver",
+        "connectionId": "connection-cf2e944b2a9d814725648306",
+        "sourceRevisionId": "source-960d0ed4fa73fcb5143ba7a7",
+        "goldenRevisionId": "golden-77d5b178d0fd4a04748c60b3-r1-9f68d405"
+      },
+      {
+        "connectorKey": "starrocks",
+        "connectionId": "connection-4df386b71720ff2332a78e6f",
+        "sourceRevisionId": "source-4b436a77d220a85216f27bb6",
+        "goldenRevisionId": "golden-11a94153d733bb9c77b0d7e3-r1-15fec7f9"
+      },
+      {
+        "connectorKey": "doris",
+        "connectionId": "connection-2ba8fb8544d62e40bde5c20d",
+        "sourceRevisionId": "source-0924808d2ba6216b0bce6a3d",
+        "goldenRevisionId": "golden-997cc78dcf8835f8d2e1ff8a-r1-9524610b"
       }
+    ]
+  },
+  "httpFixture": {
+    "implementation": "node:http",
+    "runtimeVersion": "v22.22.3",
+    "origin": "http://127.0.0.1:63444"
+  },
+  "context": {
+    "status": "PASS",
+    "contextReference": {
+      "kind": "golden_asset",
+      "objectId": "golden-6764882ad63609219b7ec383",
+      "revision": "golden-6764882ad63609219b7ec383-r1-83f212ba",
+      "providerRevision": "source-71de1bcfe4c1b7824c0b10bd"
+    },
+    "submittedReference": {
+      "kind": "golden_asset",
+      "object_id": "golden-6764882ad63609219b7ec383",
+      "revision": "golden-6764882ad63609219b7ec383-r1-83f212ba",
+      "scope": "team"
+    },
+    "crossWorkspaceStatus": 404,
+    "forgedReferenceStatus": 422,
+    "addedThroughVisibleUi": true,
+    "screenshot": "/tmp/step3b-r9-local-browser-doris-3/06-non-mcp-context-added.png"
+  },
+  "databases": {
+    "status": "SKIPPED",
+    "reason": "STEP3B_DB_PASSWORD not set"
+  },
+  "operationTraceConsistency": {
+    "status": "PASS",
+    "webhook": {
+      "connectionId": "connection-5a5c2ccabcaade70af8fa618",
+      "traceId": "browser-webhook-delivery",
+      "operationCount": 1,
+      "eventCount": 1
+    },
+    "csv": {
+      "connectionId": "connection-3f608c7b4dd28156d753e096",
+      "traceId": "browser-csv-orders-csv-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "rest": {
+      "connectionId": "connection-265920c046bf659ddbfbcb38",
+      "traceId": "browser-rest-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "openapi": {
+      "connectionId": "connection-bf23938c4110db22b4eae223",
+      "traceId": "browser-openapi-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "s3": {
+      "connectionId": "connection-e4526a3f3ef5bbb490a92a2e",
+      "traceId": "browser-provider-s3-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "kafka": {
+      "connectionId": "connection-e629a2570724483ba6a7367a",
+      "traceId": "browser-provider-kafka-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "clickhouse": {
+      "connectionId": "connection-8ae8980967c2f7400c2c3865",
+      "traceId": "browser-provider-clickhouse-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "oracle": {
+      "connectionId": "connection-82ce0e3c772c400c5b8ed605",
+      "traceId": "browser-provider-oracle-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "sqlserver": {
+      "connectionId": "connection-cf2e944b2a9d814725648306",
+      "traceId": "browser-provider-sqlserver-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "starrocks": {
+      "connectionId": "connection-4df386b71720ff2332a78e6f",
+      "traceId": "browser-provider-starrocks-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "doris": {
+      "connectionId": "connection-2ba8fb8544d62e40bde5c20d",
+      "traceId": "browser-provider-doris-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
     },
     "mcp": {
-      "profileId": "browser-official-sdk",
-      "createAccepted": true,
-      "ingestAccepted": true,
-      "connectionId": "connection-6c88d609c807dad30ec6ce32",
-      "discoveredResources": [
-        {
-          "id": "mcp-tool-42d01c0892083109e8ef4d27",
-          "name": "infrastructure.metrics",
-          "resourceType": "tool",
-          "schemaName": null,
-          "rowCount": null,
-          "fields": [],
-          "inputSchema": {
-            "properties": {
-              "service": {
-                "default": "all",
-                "title": "Service",
-                "type": "string"
-              }
-            },
-            "title": "infrastructure_metricsArguments",
-            "type": "object"
-          },
-          "outputSchema": {
-            "additionalProperties": true,
-            "title": "infrastructure_metricsDictOutput",
-            "type": "object"
-          },
-          "permission": "read"
-        }
-      ],
-      "sourceRevisionId": "source-36d7722b6fef51343ea03a8c",
-      "sourceDigest": "82a2482fde92c8e6ca22f2cc46b937a94fb98c20406ee8fef0bf9b53a0330fe8",
-      "goldenRevisionId": "golden-16d925c4eaee30f7e4f96a1d-r1-9f6ee516",
-      "goldenOutputDigest": "9f6ee516eaa2dd1867f15f7fafdf0cb9f49c62fb845745d03b130d4eae7ebbe7",
-      "browserSubmittedExecutionFields": false,
-      "processTraces": [
-        {
-          "pid": 85205,
-          "status": "succeeded",
-          "shutdownMode": "stdio_eof",
-          "processReaped": true,
-          "exchangeMethods": [
-            "initialize",
-            "notifications/initialized",
-            "tools/list",
-            "shutdown",
-            "stdio/eof"
-          ]
-        },
-        {
-          "pid": 85206,
-          "status": "succeeded",
-          "shutdownMode": "stdio_eof",
-          "processReaped": true,
-          "exchangeMethods": [
-            "initialize",
-            "notifications/initialized",
-            "tools/list",
-            "tools/call",
-            "shutdown",
-            "stdio/eof"
-          ]
-        }
-      ],
-      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r5/06-mcp-ingested.png"
-    },
-    "localSources": {
-      "status": "PASS",
-      "cases": [
-        {
-          "connectorKey": "csv",
-          "connectionId": "connection-3f608c7b4dd28156d753e096",
-          "sourceRevisionId": "source-71de1bcfe4c1b7824c0b10bd",
-          "goldenRevisionId": "golden-6764882ad63609219b7ec383-r1-83f212ba"
-        },
-        {
-          "connectorKey": "excel",
-          "connectionId": "connection-9e31458594efcca2d3b9fb68",
-          "sourceRevisionId": "source-a35ce95ee4b2f3d9aecbd65c",
-          "goldenRevisionId": "golden-120cfceae938c0b1c68166c7-r1-83f212ba"
-        },
-        {
-          "connectorKey": "json",
-          "connectionId": "connection-19b74f9d682c021b6834d498",
-          "sourceRevisionId": "source-28c5532c5e12bad034f0eb40",
-          "goldenRevisionId": "golden-b302c3092b976e5a85eb4c38-r1-83f212ba"
-        },
-        {
-          "connectorKey": "parquet",
-          "connectionId": "connection-f87eabb83e166b94bbfee698",
-          "sourceRevisionId": "source-9bde5fe3ff44d81e0ef902f6",
-          "goldenRevisionId": "golden-e9ac4194b697e9bebcec228d-r1-83f212ba"
-        },
-        {
-          "connectorKey": "doc_txt",
-          "connectionId": "connection-2e3d89ee296c257433390e2a",
-          "sourceRevisionId": "source-afe0e7a06d48ef16a02e63a2",
-          "goldenRevisionId": "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213"
-        },
-        {
-          "connectorKey": "local_file",
-          "connectionId": "connection-38848b3fe8f758d245d8c845",
-          "sourceRevisionId": "source-816957c6f28662c63a7d7167",
-          "goldenRevisionId": "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29"
-        },
-        {
-          "connectorKey": "doc_txt",
-          "connectionId": "connection-706b7cf69dc137fe70ea27f7",
-          "sourceRevisionId": "source-231915cae385164fcfb307fa",
-          "goldenRevisionId": "golden-df935ba99a890e6d4c5e9920-r1-71d78a48"
-        },
-        {
-          "connectorKey": "doc_txt",
-          "connectionId": "connection-f11b672051c96a34a0d96100",
-          "sourceRevisionId": "source-b8658d6cc3c6966fc012c9ab",
-          "goldenRevisionId": "golden-15af3085706502ef74c54aa9-r1-9d4db370"
-        },
-        {
-          "connectorKey": "sqlite",
-          "connectionId": "connection-b9d53d1cac7039750c08c638",
-          "sourceRevisionId": "source-66f1fd0b799d1b39de5608e3",
-          "goldenRevisionId": "golden-b8f700e0c47ce947209c1ae1-r1-83f212ba"
-        }
+      "connectionId": "connection-b800a8a10b2a84e34cb4da82",
+      "traceId": "9c0a96c4-4578-4535-83e8-a8f7cc47e023",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
       ]
+    }
+  },
+  "harConsistency": {
+    "status": "PASS",
+    "requestCount": 4838,
+    "correlatedTraceCount": 12,
+    "apiRequestContextTraceCapturedInServerEvidence": false,
+    "sensitiveHeadersRedacted": true
+  },
+  "negativeCases": {
+    "httpOversized": {
+      "status": 422,
+      "code": "HTTP_DISCOVERY_FAILED"
     },
-    "httpSources": {
-      "status": "PASS",
-      "rest": {
-        "connectionId": "connection-265920c046bf659ddbfbcb38",
-        "goldenRevisionId": "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338"
-      },
-      "openapi": {
-        "connectionId": "connection-bf23938c4110db22b4eae223",
-        "goldenRevisionId": "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
-        "refreshStatus": "schema_drift"
-      },
-      "ssrf": {
-        "status": 422,
-        "code": "HTTP_CONFIGURATION_INVALID"
-      }
+    "revokedContext": {
+      "status": 404,
+      "code": "GOLDEN_REVISION_NOT_FOUND"
     },
-    "browserSchemaDom": "PASS",
-    "blockedConnectorCount": 15,
-    "liveDatabaseEvidence": "R8_PASS",
-    "nextLocalVerification": [
-      "doris",
-      "hive",
-      "oss",
-      "snowflake",
-      "bigquery",
-      "lark"
+    "httpTimeout": {
+      "status": 422,
+      "code": "HTTP_DISCOVERY_FAILED"
+    }
+  },
+  "restartRecovery": {
+    "browserRefresh": "PASS",
+    "bffRestart": "PASS",
+    "connectionId": "connection-b800a8a10b2a84e34cb4da82",
+    "goldenRevisionId": "golden-041d50ca64d5ec20e50e0a2e-r1-9f6ee516",
+    "restoredGoldenRevisionIds": [
+      "golden-6764882ad63609219b7ec383-r1-83f212ba",
+      "golden-55020ecc91c6b2d26d4d4740-r1-83f212ba",
+      "golden-b302c3092b976e5a85eb4c38-r1-83f212ba",
+      "golden-e9ac4194b697e9bebcec228d-r1-83f212ba",
+      "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213",
+      "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29",
+      "golden-df935ba99a890e6d4c5e9920-r1-71d78a48",
+      "golden-15af3085706502ef74c54aa9-r1-9d4db370",
+      "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338",
+      "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
+      "golden-041d50ca64d5ec20e50e0a2e-r1-9f6ee516"
     ],
-    "credentialBlockedRecovery": "secretRef + provider/sandbox + required scopes",
-    "credentialBlockedDetails": {
-      "lark_doc": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "document read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize the tenant scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_wiki": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "Wiki space/node read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize Wiki scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_drive": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "Drive file read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize Drive scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_meeting": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "calendar/meeting read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize meeting scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_minutes": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "meeting-minutes read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize minutes scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_group": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "group read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize group scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_chat": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "chat history read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize chat scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_sheet": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "spreadsheet read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize spreadsheet scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_base": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "Base/app/table read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize Base scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "lark_mail": {
-        "required": [
-          "server-side secretRef for a Feishu tenant/app credential",
-          "mail read permission and tenant authorization"
-        ],
-        "unlock": "Configure the secretRef in the server secret store, authorize mail scopes, then rerun authenticate → discover → read → ingest in the browser."
-      },
-      "oss": {
-        "required": [
-          "server-side secretRef for an Alibaba Cloud OSS credential",
-          "OSS endpoint, bucket, region, ListObjects and GetObject permission"
-        ],
-        "unlock": "Configure the secretRef in the server secret store and a real OSS/Sandbox bucket, then rerun authenticate → discover → read → ingest → checkpoint in the browser."
-      },
-      "doris": {
-        "required": [
-          "server-side secretRef for a real Apache Doris endpoint",
-          "Doris FE MySQL endpoint, database, read-only user and network access"
-        ],
-        "unlock": "Provide a real Doris FE/Sandbox and the PyMySQL-compatible read-only secretRef; do not substitute MySQL, then rerun the full browser protocol flow."
-      },
-      "snowflake": {
-        "required": [
-          "server-side secretRef for a Snowflake account credential",
-          "account, warehouse, database/schema and read-only role with network policy access"
-        ],
-        "unlock": "Configure the server secretRef and an official Snowflake account/Sandbox, then rerun authenticate → discover → read → ingest → checkpoint in the browser."
-      },
-      "bigquery": {
-        "required": [
-          "server-side secretRef for a Google service account or workload identity",
-          "project/location plus BigQuery job, metadata and read-session permissions"
-        ],
-        "unlock": "Configure the server secretRef and an official GCP test project, then rerun authenticate → discover → read → ingest → checkpoint in the browser."
-      },
-      "hive": {
-        "required": [
-          "server-side secretRef for a real HiveServer2 deployment",
-          "HiveServer2 endpoint, authentication mode, database and read-only permission"
-        ],
-        "unlock": "Provide a real HiveServer2/Sandbox and the required PyHive/Thrift driver configuration; do not substitute another SQL engine, then rerun the full browser protocol flow."
-      }
-    }
+    "durableDatabase": "/tmp/step3b-r9-local-browser-doris-3/.veadk/knowledge-assets-step3.sqlite3",
+    "durableSourceGoldenDatabase": "/tmp/step3b-r9-local-browser-doris-3/.veadk/sources-golden/sources-golden.sqlite3",
+    "screenshot": "/tmp/step3b-r9-local-browser-doris-3/07-after-bff-restart.png"
   },
-  "generatedAt": "2026-08-27T14:58:00+08:00",
-  "connectorGateStatus": "PARTIAL_CREDENTIAL_BLOCKED",
-  "allConnectorsUsable": false,
-  "verificationCategories": {
-    "LIVE_VERIFIED": 9,
-    "LOCAL_PROTOCOL_VERIFIED": 14,
-    "CREDENTIAL_BLOCKED": 14,
-    "UNSUPPORTED": 0
+  "sharedUiSeam": {
+    "status": "RESOLVED",
+    "owner": "shared frozen UI and command composition",
+    "observed": "Non-MCP file connectors upload a real File, create a server connection, discover a resource, and ingest Source/Golden revisions.",
+    "existingCommands": [
+      "source-golden.connection.create",
+      "source-golden.ingest"
+    ]
   },
-  "browserEvidencePath": ".codex/coordination/knowledge-step3b-integration/CONNECTOR_BROWSER_EVIDENCE_20260827_R14_DORIS.json",
-  "targetProviderProbes": {
-    "generatedAt": "2026-08-27T14:40:00+08:00",
-    "scope": "R9-next-local-provider-probe",
-    "classificationChanged": true,
-    "doris": {
-      "verificationCategory": "LIVE_VERIFIED",
-      "status": "PASS",
-      "targetSpecificServiceStarted": true,
-      "reasonCode": "TARGET_SPECIFIC_BROWSER_LIFECYCLE_PASSED",
-      "attemptedTargets": [
-        "apache/doris:latest",
-        "apache/doris:2.1.7",
-        "apache/doris:2.1.6",
-        "apache/doris:2.0.5",
-        "selectdb/doris:2.1.7",
-        "apache/doris:all-in-one-4.1.3"
-      ],
-      "observed": "The official apache/doris:all-in-one-4.1.3 arm64 target is running as step3b-doris-integration. The browser used its FE/MySQL endpoint at 127.0.0.1:26359 with a server-side read-only secretRef and completed validate, authenticate, authorize, discover, read, ingest, SourceRevision, GoldenAssetRevision, checkpoint, context resolution, refresh, browser refresh, and BFF restart recovery. Console/page errors were zero.",
-      "unlock": "No unlock action is required for this session-owned local target; retain the server-side secretRef and rerun the target-specific browser evidence when the target is recreated."
-    },
-    "hive": {
-      "verificationCategory": "CREDENTIAL_BLOCKED",
-      "status": "BLOCKED",
-      "targetSpecificServiceStarted": false,
-      "reasonCode": "TARGET_PROVIDER_AND_DRIVER_UNAVAILABLE",
-      "attemptedTargets": [
-        "apache/hive:3.1.3",
-        "bde2020/hive:2.3.2"
-      ],
-      "observed": "apache/hive:3.1.3 could not finish its large image pull. bde2020/hive:2.3.2 was pulled and run as a real linux/amd64 HiveServer2 target, but its default startup required HDFS before the service could listen; a session-owned NameNode/DataNode was then started, yet the HiveServer2 process still exited without a Thrift listener. A standalone local-filesystem launch also exited without a listener, and a foreground launch produced no listener before timeout. PyHive/Thrift was installed for the NONE-auth probe, but no authenticate or SQL handshake succeeded.",
-      "unlock": "Provide a running session-owned HiveServer2 or official Sandbox plus the official PyHive/Thrift driver, server-side secretRef, database, and read-only permissions; then rerun authenticate → discover → read → ingest → checkpoint in the browser."
-    }
-  }
+  "artifacts": {
+    "har": "/tmp/step3b-r9-local-browser-doris-3/browser.har",
+    "video": "/tmp/step3b-r9-local-browser-doris-3/browser.webm",
+    "browserLog": "/tmp/step3b-r9-local-browser-doris-3/browser-console.json",
+    "serverLog": "/tmp/step3b-r9-local-browser-doris-3/server.log",
+    "mcpTranscript": "/tmp/step3b-r9-local-browser-doris-3/mcp-transcript.json",
+    "screenshots": [
+      "/tmp/step3b-r9-local-browser-doris-3/01-home.png",
+      "/tmp/step3b-r9-local-browser-doris-3/02-new-resource.png",
+      "/tmp/step3b-r9-local-browser-doris-3/03-catalog-all.png",
+      "/tmp/step3b-r9-local-browser-doris-3/category-office.png",
+      "/tmp/step3b-r9-local-browser-doris-3/category-file.png",
+      "/tmp/step3b-r9-local-browser-doris-3/category-db.png",
+      "/tmp/step3b-r9-local-browser-doris-3/category-api.png",
+      "/tmp/step3b-r9-local-browser-doris-3/category-custom.png",
+      "/tmp/step3b-r9-local-browser-doris-3/04-search-openapi.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-01-lark_doc.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-02-lark_wiki.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-03-lark_drive.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-04-lark_meeting.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-05-lark_minutes.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-06-lark_group.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-07-lark_chat.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-08-lark_sheet.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-09-lark_base.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-10-lark_mail.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-11-csv.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-12-excel.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-13-json.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-14-parquet.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-15-doc_txt.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-16-local_file.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-17-s3.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-18-oss.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-19-postgresql.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-20-mysql.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-21-oracle.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-22-sqlserver.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-23-sqlite.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-24-clickhouse.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-25-doris.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-26-starrocks.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-27-snowflake.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-28-bigquery.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-29-hive.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-30-rest_api.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-31-graphql.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-32-web_discovery.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-33-webhook.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-34-kafka.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-35-mcp_custom.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-36-custom_http.png",
+      "/tmp/step3b-r9-local-browser-doris-3/connector-37-openapi_spec.png",
+      "/tmp/step3b-r9-local-browser-doris-3/06-non-mcp-context-added.png",
+      "/tmp/step3b-r9-local-browser-doris-3/06-mcp-ingested.png",
+      "/tmp/step3b-r9-local-browser-doris-3/07-after-bff-restart.png"
+    ]
+  },
+  "browser": {
+    "name": "chromium",
+    "version": "151.0.7922.174"
+  },
+  "consoleErrors": []
 }

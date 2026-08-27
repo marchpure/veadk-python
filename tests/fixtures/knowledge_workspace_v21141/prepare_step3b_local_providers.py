@@ -137,6 +137,32 @@ def main() -> None:
             )
     finally:
         starrocks_connection.close()
+    doris_connection = pymysql.connect(
+        host=os.environ.get("STEP3B_DORIS_HOST", "127.0.0.1"),
+        port=int(os.environ.get("STEP3B_DORIS_PORT", "26359")),
+        user=os.environ.get("STEP3B_DORIS_USER", "step3b"),
+        password=os.environ.get("STEP3B_DORIS_PASSWORD", "Step3bDorisPassword1!"),
+        database=os.environ.get("STEP3B_DORIS_DATABASE", "knowledge"),
+        autocommit=True,
+        connect_timeout=10,
+    )
+    try:
+        with doris_connection.cursor() as cursor:
+            # The browser BFF deliberately uses a read-only Doris secret. The
+            # table is provisioned by the session-owned target bootstrap; the
+            # seed step must not escalate that secret into DDL/DML.
+            cursor.execute(
+                "SELECT order_id, amount FROM step3b_doris_orders "
+                "ORDER BY order_id LIMIT 2"
+            )
+            rows = cursor.fetchall()
+            if len(rows) < 1:
+                raise RuntimeError(
+                    "Doris seed table is empty; provision it with an administrator "
+                    "before running browser evidence."
+                )
+    finally:
+        doris_connection.close()
     print(
         json.dumps(
             {
@@ -145,7 +171,8 @@ def main() -> None:
                 "clickhouse": "knowledge.step3b_events",
                 "oracle": "STEP3B.STEP3B_ORDERS",
                 "sqlserver": "dbo.step3b_orders",
-                "starrocks": "knowledge.step3b_starrocks_orders",
+        "starrocks": "knowledge.step3b_starrocks_orders",
+        "doris": "knowledge.step3b_doris_orders",
             }
         )
     )

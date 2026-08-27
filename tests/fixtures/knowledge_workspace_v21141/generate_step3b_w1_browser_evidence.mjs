@@ -491,7 +491,7 @@ const backendEnvironment = {
   STEP3_MCP_DATA_PATH: mcpData,
   STEP3B_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
   STEP3B_LOCAL_PROVIDER_CONNECTORS:
-    "s3,kafka,clickhouse,oracle,sqlserver,starrocks",
+    "s3,kafka,clickhouse,oracle,sqlserver,starrocks,doris",
   STEP3B_MINIO_ACCESS_KEY: "step3badmin",
   STEP3B_MINIO_SECRET_KEY: "step3bpassword",
   STEP3B_CLICKHOUSE_USER: "step3b",
@@ -505,6 +505,9 @@ const backendEnvironment = {
   STEP3B_STARROCKS_USER: "root",
   STEP3B_STARROCKS_PASSWORD: process.env.STEP3B_STARROCKS_PASSWORD,
   STEP3B_STARROCKS_DATABASE: "knowledge",
+  STEP3B_DORIS_USER: "step3b",
+  STEP3B_DORIS_PASSWORD: "Step3bDorisPassword1!",
+  STEP3B_DORIS_PORT: "26359",
 };
 const databaseFixture = resolve(
   repository,
@@ -683,8 +686,8 @@ try {
     return states;
   }, {});
   assert(
-    capabilityStates.available === 20 &&
-      capabilityStates.credential_blocked === 17,
+    capabilityStates.available === 21 &&
+      capabilityStates.credential_blocked === 16,
     `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(
@@ -1397,6 +1400,28 @@ try {
       secretRef: "secret://workspace-step3/starrocks",
     }),
   );
+  providerResults.push(
+    await createAndIngest({
+      connectorKey: "doris",
+      displayName: "Browser Doris",
+      configuration: {
+        host: "127.0.0.1",
+        port: 26359,
+        database: "knowledge",
+        schemaAllowlist: ["knowledge"],
+        tableAllowlist: ["step3b_doris_orders"],
+        query: "SELECT * FROM knowledge.step3b_doris_orders",
+        queryParameters: {},
+        pageSize: 10,
+        rowLimit: 10,
+        byteLimit: 100000,
+        timeoutSeconds: 10,
+        maxAttempts: 1,
+      },
+      suffix: "provider-doris",
+      secretRef: "secret://workspace-step3/doris",
+    }),
+  );
 
   const privateEndpoint = await page.request.post(
     `${frontendOrigin}/api/knowledge-assets/v1/commands`,
@@ -1680,6 +1705,7 @@ try {
       oracle: "STEP3B.STEP3B_ORDERS",
       sqlserver: "dbo.step3b_orders",
       starrocks: "knowledge.step3b_starrocks_orders",
+      doris: "knowledge.step3b_doris_orders",
     },
     cases: providerResults.map((item) => ({
       connectorKey: item.connectorKey,

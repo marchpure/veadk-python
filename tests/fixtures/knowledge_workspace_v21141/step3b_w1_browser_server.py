@@ -88,6 +88,16 @@ def _secret(reference: str) -> str | None:
             },
             sort_keys=True,
         )
+    if reference == "secret://workspace-step3/doris":
+        return json.dumps(
+            {
+                "username": os.environ.get("STEP3B_DORIS_USER", "step3b"),
+                "password": os.environ.get(
+                    "STEP3B_DORIS_PASSWORD", "Step3bDorisPassword1!"
+                ),
+            },
+            sort_keys=True,
+        )
     if reference == "secret://workspace-step3/sqlserver":
         return json.dumps(
             {
