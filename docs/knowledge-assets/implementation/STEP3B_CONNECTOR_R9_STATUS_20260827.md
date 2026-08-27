@@ -64,9 +64,11 @@ Until then they remain `CREDENTIAL_BLOCKED`.
 
 The next local-provider probe did not change the matrix classification:
 
-- Doris remains `CREDENTIAL_BLOCKED`: no reliable session-owned Apache Doris
-  FE/MySQL target or official Sandbox was available. MySQL was not used as
-  Doris evidence.
+- Doris remains `CREDENTIAL_BLOCKED`: the older probed tags were absent, while
+  the official `apache/doris:all-in-one-4.1.3` tag was confirmed with an
+  arm64 manifest. Its approximately 1.74GB image pull timed out after roughly
+  0.6GB of layers and produced no local image or FE/MySQL service, so no Doris
+  protocol stage was run. MySQL was not used as Doris evidence.
 - Hive remains `CREDENTIAL_BLOCKED`: `apache/hive:3.1.3` could not finish its
   large image pull. A real `bde2020/hive:2.3.2` HiveServer2 target was pulled
   and started under amd64 emulation; its default HDFS dependency, a
