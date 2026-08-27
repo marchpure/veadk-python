@@ -7601,7 +7601,7 @@
   "browserEvidencePath": ".codex/coordination/knowledge-step3b-integration/CONNECTOR_BROWSER_EVIDENCE_20260827_R13_STARROCKS.json"
   ,
   "targetProviderProbes": {
-    "generatedAt": "2026-08-27T14:00:00+08:00",
+    "generatedAt": "2026-08-27T14:40:00+08:00",
     "scope": "R9-next-local-provider-probe",
     "classificationChanged": false,
     "doris": {
@@ -7613,9 +7613,10 @@
         "apache/doris:latest",
         "apache/doris:2.1.7",
         "apache/doris:2.1.6",
-        "apache/doris:2.0.5"
+        "apache/doris:2.0.5",
+        "selectdb/doris:2.1.7"
       ],
-      "observed": "No usable standard Apache Doris image manifest was available in the session registry probe.",
+      "observed": "No usable target-specific Apache Doris image manifest was available in the session registry probe; no FE/MySQL service was started.",
       "unlock": "Provide a session-owned Apache Doris FE/MySQL service or official Doris Sandbox, then run the full target-specific browser flow with server-side secretRef."
     },
     "hive": {
@@ -7624,9 +7625,10 @@
       "targetSpecificServiceStarted": false,
       "reasonCode": "TARGET_PROVIDER_AND_DRIVER_UNAVAILABLE",
       "attemptedTargets": [
-        "apache/hive:3.1.3"
+        "apache/hive:3.1.3",
+        "bde2020/hive:2.3.2"
       ],
-      "observed": "The Hive image manifest is discoverable, but the large image pull was interrupted before a HiveServer2 service could start; the session environment also lacks pyhive, thrift, and thrift_sasl.",
+      "observed": "apache/hive:3.1.3 could not finish its large image pull. bde2020/hive:2.3.2 was pulled and run as a real linux/amd64 HiveServer2 target, but its default startup required HDFS before the service could listen; a session-owned NameNode/DataNode was then started, yet the HiveServer2 process still exited without a Thrift listener. A standalone local-filesystem launch also exited without a listener, and a foreground launch produced no listener before timeout. PyHive/Thrift was installed for the NONE-auth probe, but no authenticate or SQL handshake succeeded.",
       "unlock": "Provide a running session-owned HiveServer2 or official Sandbox plus the official PyHive/Thrift driver, server-side secretRef, database, and read-only permissions; then rerun authenticate → discover → read → ingest → checkpoint in the browser."
     }
   }

@@ -67,10 +67,13 @@ The next local-provider probe did not change the matrix classification:
 - Doris remains `CREDENTIAL_BLOCKED`: no reliable session-owned Apache Doris
   FE/MySQL target or official Sandbox was available. MySQL was not used as
   Doris evidence.
-- Hive remains `CREDENTIAL_BLOCKED`: an `apache/hive:3.1.3` manifest was
-  discoverable, but the image pull was interrupted before HiveServer2 could
-  start, and the session environment does not contain the official
-  `pyhive`/Thrift runtime.
+- Hive remains `CREDENTIAL_BLOCKED`: `apache/hive:3.1.3` could not finish its
+  large image pull. A real `bde2020/hive:2.3.2` HiveServer2 target was pulled
+  and started under amd64 emulation; its default HDFS dependency, a
+  session-owned NameNode/DataNode retry, and a standalone local-filesystem
+  retry all failed to produce a Thrift listener. A foreground launch timed out
+  before listening. PyHive/Thrift was installed for a NONE-auth probe, but no
+  authenticate or SQL handshake succeeded.
 
 The machine-readable probe details, attempted targets, observed blocker, and
 unlock steps are recorded in `targetProviderProbes` in the authoritative
