@@ -43,6 +43,11 @@ function parseArgs(argv) {
   const result = {
     outputRoot: process.env.KNOWLEDGE_V2152_EVIDENCE_DIR || DEFAULT_OUTPUT_ROOT,
     prototypeDir: process.env.KNOWLEDGE_V2152_PROTOTYPE_DIR || "",
+    referenceDir: process.env.KNOWLEDGE_V2152_REFERENCE_DIR || "",
+    reuseReference: process.env.KNOWLEDGE_V2152_REUSE_REFERENCE === "1",
+    actualOnly: process.env.KNOWLEDGE_V2152_ACTUAL_ONLY === "1",
+    states: null,
+    viewports: null,
     keepServer: false,
     prototypeSourceServer: false,
     realBff: process.env.STEP3B_REAL_BFF === "1",
@@ -58,6 +63,37 @@ function parseArgs(argv) {
     }
     if (key === "--prototype-source-server") {
       result.prototypeSourceServer = true;
+      continue;
+    }
+    if (key === "--reuse-reference") {
+      result.reuseReference = true;
+      continue;
+    }
+    if (key === "--actual-only") {
+      result.actualOnly = true;
+      continue;
+    }
+    if (key === "--states" && value) {
+      result.states = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => item === "welcome" ? "home" : item);
+      index += 1;
+      continue;
+    }
+    if (key === "--viewports" && value) {
+      result.viewports = value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => item === "desktop-1440" ? "studio-1440" : item);
+      index += 1;
+      continue;
+    }
+    if (key === "--reference-dir" && value) {
+      result.referenceDir = value;
+      index += 1;
       continue;
     }
     if (key === "--real-bff") {
@@ -87,19 +123,28 @@ function parseArgs(argv) {
     throw new Error(
       "usage: knowledge_step3b_w4_v2152_visual_evidence.mjs " +
         "[--output-root DIR] [--prototype-dir DIR] [--keep-server] " +
-        "[--prototype-source-server] [--real-bff --bff-origin URL --workspace ID]",
+        "[--prototype-source-server] [--real-bff --bff-origin URL --workspace ID] " +
+        "[--states state-a,state-b] [--viewports desktop-1440,mobile-390] " +
+        "[--reference-dir DIR] [--reuse-reference] [--actual-only]",
     );
   }
   if (!result.prototypeDir && existsSync(PROTOTYPE_POINTER)) {
     result.prototypeDir = readFileSync(PROTOTYPE_POINTER, "utf8").trim();
   }
-  if (!result.prototypeDir) {
+  if (!result.prototypeDir && !result.actualOnly && !result.reuseReference) {
     throw new Error(
       "missing prototype dir; set KNOWLEDGE_V2152_PROTOTYPE_DIR or /tmp/knowledge-v2152-latest-dir.txt",
     );
   }
+  if (result.reuseReference && !result.actualOnly && !result.referenceDir) {
+    throw new Error(
+      "--reuse-reference/--actual-only requires --reference-dir DIR",
+    );
+  }
   return result;
 }
+
+export { VIEWPORTS };
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -1302,6 +1347,7 @@ async function capturePrototypeReference(browser, state, viewport, prototypeCapt
         consoleErrors,
         failedRequests,
         dom: summary,
+        metadata: { sourceUrl: `${prototypeOrigin}${state.stateUrl}` },
       };
     } catch (error) {
       consoleErrors.push(`prototype-source fallback: ${error.message}`);
@@ -1322,7 +1368,74 @@ async function capturePrototypeReference(browser, state, viewport, prototypeCapt
     consoleErrors,
     failedRequests,
     dom: { fallback: "reference derived from captures.json TOS PNG", stateUrl: state.stateUrl },
+    metadata: { sourceUrl: prototypeCapture.tosUrl },
   };
+}
+
+function referenceCachePaths(referenceDir, state, viewport) {
+  const root = join(resolve(referenceDir), viewport.name, state.name);
+  return {
+    root,
+    image: join(root, "reference.png"),
+    metadata: join(root, "reference.json"),
+  };
+}
+
+function readCachedReference(referenceDir, state, viewport) {
+  const paths = referenceCachePaths(referenceDir, state, viewport);
+  if (!existsSync(paths.image) || !existsSync(paths.metadata)) {
+    throw new Error(
+      `reference cache missing for ${state.name}/${viewport.name}: ${paths.root}`,
+    );
+  }
+  const metadata = JSON.parse(readFileSync(paths.metadata, "utf8"));
+  const image = readFileSync(paths.image);
+  const digest = sha256(image);
+  if (metadata.state !== state.name ||
+      metadata.viewport !== viewport.name ||
+      metadata.stateUrl !== state.stateUrl ||
+      metadata.sha256 !== digest) {
+    throw new Error(
+      `reference cache metadata/SHA mismatch for ${state.name}/${viewport.name}`,
+    );
+  }
+  const dimensions = decodePng(image);
+  if (dimensions.width !== viewport.width || dimensions.height !== viewport.height) {
+    throw new Error(
+      `reference cache dimensions mismatch for ${state.name}/${viewport.name}`,
+    );
+  }
+  return {
+    source: "reference-cache",
+    path: paths.image,
+    sha256: digest,
+    consoleErrors: [],
+    failedRequests: [],
+    dom: { cached: true, stateUrl: state.stateUrl },
+    metadata,
+  };
+}
+
+function persistReferenceCache(referenceDir, state, viewport, reference) {
+  if (!referenceDir) return;
+  const paths = referenceCachePaths(referenceDir, state, viewport);
+  mkdirp(paths.root);
+  const image = readFileSync(reference.path);
+  const digest = sha256(image);
+  const metadata = {
+    schemaVersion: "step3b.prototype-reference-cache.v1",
+    state: state.name,
+    stateUrl: state.stateUrl,
+    viewport: viewport.name,
+    dimensions: { width: viewport.width, height: viewport.height },
+    source: reference.source,
+    sourceUrl: reference.metadata?.sourceUrl ?? null,
+    capturedAt: new Date().toISOString(),
+    sha256: digest,
+  };
+  writeFileSync(paths.image, image);
+  writeFileSync(paths.metadata, `${JSON.stringify(metadata, null, 2)}\n`);
+  return { ...reference, sha256: digest, metadata };
 }
 
 async function waitForRendered(page, state) {
@@ -1474,6 +1587,10 @@ async function collectAgentPaneWidthEvidence(browser, localOrigin, state, viewpo
     const paneUrl = new URL(state.stateUrl, localOrigin);
     paneUrl.searchParams.set("studio", "knowledge");
     paneUrl.searchParams.set("pane", paneState);
+    // Width probing isolates the shell toggle. A clarification state carries
+    // chat=clarify, which intentionally forces the assistant open in the
+    // product journey; leaving it here would make the "closed" sample open.
+    paneUrl.searchParams.delete("chat");
     const waiters = createRequiredResponseWaiters(page, state);
     await page.goto(paneUrl.toString(), { waitUntil: "networkidle", timeout: 30_000 });
     await settleRequiredResponses(waiters, observed.responseErrors, "playwright-navigation:agent-pane-width");
@@ -1696,10 +1813,31 @@ async function main() {
   const outputRoot = resolve(options.outputRoot);
   mkdirp(outputRoot);
   const fixture = JSON.parse(readFileSync(FIXTURE_PATH, "utf8"));
-  const prototypeCaptures = JSON.parse(
-    readFileSync(resolve(options.prototypeDir, "prototype/captures.json"), "utf8"),
-  );
+  const prototypeCaptures = options.actualOnly || options.reuseReference
+    ? { captures: [] }
+    : JSON.parse(
+        readFileSync(resolve(options.prototypeDir, "prototype/captures.json"), "utf8"),
+      );
   const capturesByUrl = stateCaptureMap(prototypeCaptures);
+  const selectedStates = options.states
+    ? fixture.states.filter((state) => options.states.includes(state.name))
+    : fixture.states;
+  const selectedViewports = options.viewports
+    ? VIEWPORTS.filter((viewport) => options.viewports.includes(viewport.name))
+    : VIEWPORTS;
+  const missingStates = (options.states ?? []).filter(
+    (name) => !fixture.states.some((state) => state.name === name),
+  );
+  const missingViewports = (options.viewports ?? []).filter(
+    (name) => !VIEWPORTS.some((viewport) => viewport.name === name),
+  );
+  if (missingStates.length || missingViewports.length ||
+      !selectedStates.length || !selectedViewports.length) {
+    throw new Error(
+      `invalid visual selection: states=${missingStates.join(",") || "ok"} ` +
+      `viewports=${missingViewports.join(",") || "ok"}`,
+    );
+  }
       const localServer = options.realBff
         ? await startVite(
             FRONTEND_DIR,
@@ -1707,26 +1845,44 @@ async function main() {
             options.bffOrigin,
           )
         : await startProductionWorkspaceServer(FRONTEND_DIR, 5179);
-      const prototypeServer = options.prototypeSourceServer
+      const prototypeServer = !options.actualOnly && !options.reuseReference && options.prototypeSourceServer
         ? await startPrototypeServer(options.prototypeDir, 5180)
-        : { origin: null, skippedReason: "using captures.json TOS PNG reference", close: async () => {} };
+        : {
+            origin: null,
+            skippedReason: options.actualOnly
+              ? "actual-only"
+              : options.reuseReference
+                ? "reusing reference cache"
+                : "using captures.json TOS PNG reference",
+            close: async () => {},
+          };
   const browser = await chromium.launch({ headless: true });
   const entries = [];
   try {
-    for (const state of fixture.states) {
+    for (const state of selectedStates) {
       const prototypeCapture = capturesByUrl.get(state.stateUrl);
-      if (!prototypeCapture) throw new Error(`missing prototype capture for ${state.stateUrl}`);
-      for (const viewport of VIEWPORTS) {
+      if (!options.actualOnly && !options.reuseReference && !prototypeCapture) {
+        throw new Error(`missing prototype capture for ${state.stateUrl}`);
+      }
+      for (const viewport of selectedViewports) {
         const root = join(outputRoot, viewport.name, state.name);
         mkdirp(root);
-        const reference = await capturePrototypeReference(
-          browser,
-          state,
-          viewport,
-          prototypeCapture,
-          join(root, "reference"),
-          prototypeServer.origin,
-        );
+        let reference = null;
+        if (!options.actualOnly) {
+          reference = options.reuseReference
+            ? readCachedReference(options.referenceDir, state, viewport)
+            : await capturePrototypeReference(
+                browser,
+                state,
+                viewport,
+                prototypeCapture,
+                join(root, "reference"),
+                prototypeServer.origin,
+              );
+          if (!options.reuseReference) {
+            reference = persistReferenceCache(options.referenceDir, state, viewport, reference);
+          }
+        }
         const actual = await captureW4Actual(
           browser,
           state,
@@ -1734,26 +1890,28 @@ async function main() {
           join(root, "actual"),
           localServer.origin,
         );
-        const referencePng = readFileSync(reference.path);
         const actualPng = readFileSync(actual.path);
-        const diff = createDiffArtifacts(referencePng, actualPng);
         const diffDir = join(root, "diff");
         mkdirp(diffDir);
-        const overlayPath = join(diffDir, "overlay.png");
-        writeFileSync(overlayPath, diff.overlayPng);
+        const diff = reference
+          ? createDiffArtifacts(readFileSync(reference.path), actualPng)
+          : null;
+        const overlayPath = diff ? join(diffDir, "overlay.png") : null;
+        if (diff) writeFileSync(overlayPath, diff.overlayPng);
         const entry = {
           state: state.name,
           routeId: state.routeId,
           stateUrl: state.stateUrl,
           viewport: viewport.name,
           dimensions: { width: viewport.width, height: viewport.height },
-          reference: {
-            source: reference.source,
-            path: reference.path,
-            sha256: reference.sha256,
-            consoleErrors: reference.consoleErrors,
-            failedRequests: reference.failedRequests,
-          },
+          reference: reference ? {
+              source: reference.source,
+              path: reference.path,
+              sha256: reference.sha256,
+              consoleErrors: reference.consoleErrors,
+              failedRequests: reference.failedRequests,
+              metadata: reference.metadata,
+            } : null,
           actual: {
             path: actual.path,
             sha256: actual.sha256,
@@ -1762,12 +1920,12 @@ async function main() {
             failedRequests: actual.failedRequests,
             responseErrors: actual.responseErrors,
           },
-          diff: {
-            overlayPath,
-            sha256: sha256(diff.overlayPng),
-            dimensionsEqual: diff.dimensionsEqual,
-            mismatchRatio: diff.mismatchRatio,
-          },
+          diff: diff ? {
+              overlayPath,
+              sha256: sha256(diff.overlayPng),
+              dimensionsEqual: diff.dimensionsEqual,
+              mismatchRatio: diff.mismatchRatio,
+            } : null,
           dom: actual.dom,
           keyboard: actual.keyboard,
           agentPane: actual.agentPane,
@@ -1807,9 +1965,15 @@ async function main() {
         "Integration MAIN vertical production wiring",
       ],
       localOrigin: localServer.origin,
-      states: fixture.states.length,
-      viewports: VIEWPORTS.map((viewport) => viewport.name),
+      states: selectedStates.length,
+      stateNames: selectedStates.map((state) => state.name),
+      viewports: selectedViewports.map((viewport) => viewport.name),
       screenshots: entries.length,
+      referenceMode: options.actualOnly
+        ? "actual-only"
+        : options.reuseReference
+          ? "reuse-reference-cache"
+          : "capture-and-cache-reference",
       promptHandoff,
       networkGate: {
         failedRequestsTotal: networkGate.failedRequestsTotal,
