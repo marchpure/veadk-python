@@ -36,8 +36,12 @@ if profile_id or server_path or data_path:
         "outputBytes": 1_000_000,
     }
 
+repository_path = os.getenv(
+    "STEP3B_DATABASE_PATH", ".veadk/knowledge-assets-step3.sqlite3"
+)
+workspace_id = os.getenv("STEP3B_WORKSPACE_ID", "workspace-step3")
 app = create_app(
-    repository_path=".veadk/knowledge-assets-step3.sqlite3",
-    identity_resolver=lambda request: ("workspace-step3", "editor"),
+    repository_path=repository_path,
+    identity_resolver=lambda request: (workspace_id, "editor"),
     mcp_profiles=mcp_profiles,
 )

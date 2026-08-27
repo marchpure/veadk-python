@@ -1859,14 +1859,15 @@ def test_publish_and_reinvoke_require_and_consume_real_revision_evidence() -> No
     assert version["id"] == f"published://{draft.id}:1.0.0"
     bootstrap = client.get("/api/knowledge-assets/v1/bootstrap").json()
     assert bootstrap["publications"] == [
-        {
-            "id": version["id"],
-            "skillId": draft.id,
-            "revision": str(draft.revision),
-            "version": "1.0.0",
-            "status": "published",
-        }
-    ]
+            {
+                "id": version["id"],
+                "skillId": draft.id,
+                "revision": str(draft.revision),
+                "version": "1.0.0",
+                "status": "published",
+                "visibility": "team",
+            }
+        ]
     invoked = client.post(
         "/api/knowledge-assets/v1/commands",
         json={

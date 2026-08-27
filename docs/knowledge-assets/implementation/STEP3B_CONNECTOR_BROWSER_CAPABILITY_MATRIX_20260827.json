@@ -7215,9 +7215,10 @@
       ]
     },
     "catalogCapabilityStates": {
-      "credential_blocked": 16,
-      "available": 21
+      "credential_blocked": 13,
+      "available": 24
     },
+    "catalogCapabilityStatesSource": "authoritative merged R8-R15 classification",
     "consoleErrors": [],
     "restartRecovery": {
       "browserRefresh": "PASS",
@@ -7478,11 +7479,9 @@
       }
     },
     "browserSchemaDom": "PASS",
-    "blockedConnectorCount": 15,
+    "blockedConnectorCount": 13,
     "liveDatabaseEvidence": "R8_PASS",
     "nextLocalVerification": [
-      "doris",
-      "hive",
       "oss",
       "snowflake",
       "bigquery",

@@ -45,9 +45,13 @@ function parseArgs(argv) {
     prototypeDir: process.env.KNOWLEDGE_V2152_PROTOTYPE_DIR || "",
     keepServer: false,
     prototypeSourceServer: false,
+    realBff: process.env.STEP3B_REAL_BFF === "1",
+    bffOrigin: process.env.STEP3B_BFF_ORIGIN || "",
+    workspace: process.env.STEP3B_WORKSPACE_ID || "workspace-step3",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
+    const value = argv[index + 1];
     if (key === "--keep-server") {
       result.keepServer = true;
       continue;
@@ -56,7 +60,20 @@ function parseArgs(argv) {
       result.prototypeSourceServer = true;
       continue;
     }
-    const value = argv[index + 1];
+    if (key === "--real-bff") {
+      result.realBff = true;
+      continue;
+    }
+    if (key === "--bff-origin" && value) {
+      result.bffOrigin = value;
+      index += 1;
+      continue;
+    }
+    if (key === "--workspace" && value) {
+      result.workspace = value;
+      index += 1;
+      continue;
+    }
     if (key === "--output-root" && value) {
       result.outputRoot = value;
       index += 1;
@@ -69,7 +86,8 @@ function parseArgs(argv) {
     }
     throw new Error(
       "usage: knowledge_step3b_w4_v2152_visual_evidence.mjs " +
-        "[--output-root DIR] [--prototype-dir DIR] [--keep-server] [--prototype-source-server]",
+        "[--output-root DIR] [--prototype-dir DIR] [--keep-server] " +
+        "[--prototype-source-server] [--real-bff --bff-origin URL --workspace ID]",
     );
   }
   if (!result.prototypeDir && existsSync(PROTOTYPE_POINTER)) {
@@ -221,8 +239,9 @@ function createRequiredResponseWaiters(page, state) {
     waiters.push(
       page
         .waitForResponse((response) =>
-          response.url().includes("/__w4_v2152_artifacts/") &&
-          response.url().endsWith(".html"),
+          (response.url().includes("/__w4_v2152_artifacts/") ||
+            response.url().includes("/api/knowledge-assets/v1/workspaces/")) &&
+          response.url().includes("/artifacts/"),
         { timeout: 15_000 })
         .then((response) => ({
           name: "trusted-html-artifact",
@@ -232,7 +251,7 @@ function createRequiredResponseWaiters(page, state) {
         }))
         .catch((error) => ({
           name: "trusted-html-artifact",
-          url: "/__w4_v2152_artifacts/*.html",
+          url: "/api/knowledge-assets/v1/workspaces/*/skill-view-revisions/*/artifacts/*",
           status: 0,
           ok: false,
           error: error instanceof Error ? error.message : String(error),
@@ -339,13 +358,17 @@ async function waitForHttp(url, timeoutMs = 30_000) {
   throw new Error(`server did not become ready at ${url}: ${lastError}`);
 }
 
-async function startVite(root, port) {
+async function startVite(root, port, apiTarget) {
   const child = spawn(
     process.execPath,
     [resolve(root, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
     {
       cwd: root,
-      env: { ...process.env, FORCE_COLOR: "0" },
+      env: {
+        ...process.env,
+        FORCE_COLOR: "0",
+        ...(apiTarget ? { VEADK_API_TARGET: apiTarget } : {}),
+      },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
@@ -1316,6 +1339,40 @@ async function waitForRendered(page, state) {
   }, null, { timeout: 15_000 }).catch(() => undefined);
 }
 
+async function resolveRealStateUrl(page, state, origin) {
+  const url = new URL(state.stateUrl, origin);
+  if (state.routeId === "welcome") return url;
+  const response = await page.request.get(
+    `${origin}/api/knowledge-assets/v1/bootstrap`,
+  );
+  if (!response.ok()) {
+    throw new Error(`real bootstrap failed while resolving ${state.name}: HTTP ${response.status()}`);
+  }
+  const body = await response.json();
+  const resources = Array.isArray(body.resources) ? body.resources : [];
+  const drafts = resources.filter((item) => item.resourceKind === "skill_draft");
+  const published = resources.filter((item) => item.resourceKind === "published_skill");
+  let resource;
+  if (state.name.startsWith("bluetooth-sop") || state.name === "edit-sop-step" || state.name === "publish-to-agent") {
+    resource = drafts.find((item) => /蓝牙断连排查/.test(String(item.displayName ?? item.name ?? "")));
+  } else if (state.name.startsWith("anta-dashboard") || state.name === "publish-team") {
+    resource = drafts.find((item) => item.subtype === "dashboard");
+  } else if (state.name.startsWith("haidilao-sop")) {
+    resource = drafts.find((item) => /门店卫生巡检/.test(String(item.displayName ?? item.name ?? "")));
+  } else if (state.name === "published-sop-monitoring") {
+    resource = published[0];
+  } else if (state.name === "optimization-draft") {
+    resource = drafts.find((item) => /优化草稿/.test(String(item.displayName ?? item.name ?? "")));
+  }
+  if (!resource?.id) {
+    throw new Error(`real bootstrap has no dynamic resource for ${state.name}`);
+  }
+  url.searchParams.set("file", String(resource.id));
+  const viewRevisionId = resource.viewRevisionId ?? resource.skillViewRevision?.id;
+  if (viewRevisionId) url.searchParams.set("view_revision_id", String(viewRevisionId));
+  return url;
+}
+
 async function collectDomAndLayoutSummary(page) {
   return await page.evaluate(() => {
     const viewport = { width: window.innerWidth, height: window.innerHeight };
@@ -1413,7 +1470,6 @@ async function collectAgentPaneWidthEvidence(browser, localOrigin, state, viewpo
       locale: "zh-CN",
       colorScheme: "light",
     });
-    await routeW4Api(page, state, localOrigin);
     const observed = installPageEvidenceObservers(page, "playwright-navigation:agent-pane-width");
     const paneUrl = new URL(state.stateUrl, localOrigin);
     paneUrl.searchParams.set("studio", "knowledge");
@@ -1508,9 +1564,11 @@ async function captureW4Actual(browser, state, viewport, outputDir, localOrigin)
   const pageErrors = [];
   const failedRequests = [];
   const responseErrors = [];
-  await routeW4Api(page, state, localOrigin);
+  if (!localOrigin) {
+    throw new Error("real BFF origin is required for production-real-bff capture");
+  }
   const observed = installPageEvidenceObservers(page, "initial-capture");
-  const url = new URL(state.stateUrl, localOrigin);
+  const url = await resolveRealStateUrl(page, state, localOrigin);
   url.searchParams.set("studio", "knowledge");
   const waiters = createRequiredResponseWaiters(page, state);
   await page.goto(url.toString(), { waitUntil: "networkidle", timeout: 30_000 });
@@ -1544,7 +1602,7 @@ async function captureW4Actual(browser, state, viewport, outputDir, localOrigin)
   };
 }
 
-async function runPromptHandoffRegression(browser, localOrigin, outputRoot) {
+async function runPromptHandoffRegression(browser, localOrigin, outputRoot, realBff = false) {
   const outputDir = join(outputRoot, "regressions", "home-to-builder-prompt");
   mkdirp(outputDir);
   const page = await browser.newPage({
@@ -1554,7 +1612,7 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot) {
     colorScheme: "light",
   });
   const state = { name: "home", stateUrl: "/?file=welcome", routeId: "welcome" };
-  await routeW4Api(page, state, localOrigin);
+  if (!realBff) await routeW4Api(page, state, localOrigin);
   const observed = installPageEvidenceObservers(page, "home-to-builder-prompt");
   const prompt = "请基于真实工作区资源生成一个 Dashboard Skill，并保留上下文。";
   const readPromptValues = async () => {
@@ -1642,7 +1700,13 @@ async function main() {
     readFileSync(resolve(options.prototypeDir, "prototype/captures.json"), "utf8"),
   );
   const capturesByUrl = stateCaptureMap(prototypeCaptures);
-      const localServer = await startProductionWorkspaceServer(FRONTEND_DIR, 5179);
+      const localServer = options.realBff
+        ? await startVite(
+            FRONTEND_DIR,
+            Number(process.env.STEP3B_WEB_PORT || 18401),
+            options.bffOrigin,
+          )
+        : await startProductionWorkspaceServer(FRONTEND_DIR, 5179);
       const prototypeServer = options.prototypeSourceServer
         ? await startPrototypeServer(options.prototypeDir, 5180)
         : { origin: null, skippedReason: "using captures.json TOS PNG reference", close: async () => {} };
@@ -1722,7 +1786,9 @@ async function main() {
         entries.push(entry);
       }
     }
-    const promptHandoff = await runPromptHandoffRegression(browser, localServer.origin, outputRoot);
+    const promptHandoff = options.realBff
+      ? { status: "skipped-real-bff", reason: "requires model-backed authoring prompt and is recorded separately" }
+      : await runPromptHandoffRegression(browser, localServer.origin, outputRoot);
     const networkGate = evaluateEvidenceGate(entries, promptHandoff);
     const failures = networkGate.failures;
     const report = {
@@ -1730,9 +1796,11 @@ async function main() {
       generatedAt: new Date().toISOString(),
       prototypeDir: options.prototypeDir,
       prototypeReference: prototypeServer.origin ? "prototype source server" : "captures.json TOS PNG fallback",
-      validationScope: "w4-ui-typed-seam",
-      productionPass: false,
-      integrationPending: [
+      validationScope: options.realBff
+        ? "production-real-bff"
+        : "w4-ui-typed-seam",
+      productionPass: options.realBff && networkGate.status === "pass",
+      integrationPending: options.realBff ? [] : [
         "W1 connector/backend services",
         "W2 authoring/runtime streaming backend",
         "W3 trusted renderer/template registry/runtime",
@@ -1759,7 +1827,7 @@ async function main() {
     writeFileSync(
       join(outputRoot, "README.md"),
       [
-        "# STEP3B W4 v2.15.2 browser evidence",
+        "# STEP3B production-real-bff v2.15.2 browser evidence",
         "",
         `Generated at: ${report.generatedAt}`,
         `Prototype dir: ${options.prototypeDir}`,
