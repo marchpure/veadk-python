@@ -738,6 +738,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api/knowledge-assets": localApiProxy(),
+      "/api/source-golden": localApiProxy(),
       "/api/knowledge-domains": localApiProxy(),
       "/list-apps": localApiProxy(),
       "/apps": localApiProxy(),

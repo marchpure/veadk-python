@@ -13,7 +13,10 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
   const resource = allResources.find((item: any) => item.id === fileId || item.resourceId === fileId) as any;
   
   const resourceName = descriptor?.name as string;
-  const version = String(descriptor?.version || resource?.version || '1.0.0');
+  const revision = Number(resource?.revision ?? 1);
+  const version = resource?.lifecycle === 'draft'
+    ? `V${Math.max(1, revision)}.0`
+    : String(descriptor?.version || resource?.version || '1.0.0');
   const identity = descriptor?.identity as string;
   const publications = agentPublicationStore.getState();
   const existing = publications.find((item: unknown) => {
@@ -42,9 +45,8 @@ export default function PublishAgentModal({ onClose, fileId, showToast }: any) {
     setError('取消发布必须由服务端撤销命令确认；当前未执行本地删除。');
   };
   const published = existingRecord;
-  const hasExistingPublication = Boolean(existing);
+  const hasExistingPublication = Boolean(existing && resource?.lifecycle !== 'draft');
   const draftId = String((resource as any)?.draftId ?? resource?.id ?? '');
-  const revision = Number((resource as any)?.revision ?? 1);
   const canPublish = Boolean(
     descriptor &&
     descriptor.resourceKind === 'skill_draft' &&

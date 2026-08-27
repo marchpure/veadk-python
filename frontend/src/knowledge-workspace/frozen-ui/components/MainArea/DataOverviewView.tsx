@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Plus, Search, Filter, MoreHorizontal, ShieldAlert, CheckCircle2, FileSpreadsheet, Webhook, Globe, Server, ChevronDown, ChevronRight, Activity, Clock, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { connectionStore, useStore } from '../../lib/store';
+import { connectionStore, resourceStore, useStore } from '../../lib/store';
 
 export default function DataOverviewView({ setSearchParams, searchParams }: any) {
   const connections = useStore(connectionStore);
+  const resources = useStore(resourceStore);
 
   const handleAddData = () => {
     const p = new URLSearchParams(searchParams);
@@ -115,7 +116,35 @@ export default function DataOverviewView({ setSearchParams, searchParams }: any)
                       </div>
                     </td>
                     <td className="px-4 md:px-6 py-4 text-right">
-                      <button onClick={(e) => handleAddContext({ ...conn, identity: conn.id, name: conn.displayName, type: 'connection' }, e)} className="text-blue-600 hover:text-blue-800 bg-white border border-blue-200 px-3 py-1.5 rounded-md font-medium text-xs mr-2 transition-colors outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                      <button
+                        onClick={(e) => {
+                          const golden = resources.find((resource: any) =>
+                            conn.goldenRevisionIds.includes(resource.goldenRevisionId),
+                          );
+                          const contextRef = golden?.assetId && golden?.goldenRevisionId
+                            ? {
+                              kind: 'golden_asset',
+                              objectId: String(golden.assetId),
+                              revision: String(golden.goldenRevisionId),
+                              scope: golden.space === 'team' ? 'team' : 'personal',
+                            }
+                            : undefined;
+                          handleAddContext({
+                            ...conn,
+                            ...(golden ? {
+                              id: golden.id,
+                              resourceId: golden.id,
+                              assetId: golden.assetId,
+                              goldenRevisionId: golden.goldenRevisionId,
+                            } : {}),
+                            identity: `${conn.id}:${golden?.id ?? ''}`,
+                            name: conn.displayName,
+                            type: 'connection',
+                            ...(contextRef ? { contextRef } : {}),
+                          }, e);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 bg-white border border-blue-200 px-3 py-1.5 rounded-md font-medium text-xs mr-2 transition-colors outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                      >
                         作为上下文加入
                       </button>
                     </td>

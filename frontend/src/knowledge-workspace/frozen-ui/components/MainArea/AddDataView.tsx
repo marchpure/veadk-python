@@ -35,6 +35,7 @@ const categories = [
 const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: ConnectorDef, showToast: any, handleClose: any }) => {
   const [wizardStep, setWizardStep] = useState(1);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
   
   // Custom Connector definition state
   const [customDef, setCustomDef] = useState({ name: '', desc: '', fields: 'endpoint, method' });
@@ -68,11 +69,11 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
         setWizardStep(2);
       } else {
         setWizardStep(3);
-        startJob();
+        void startJob();
       }
     } else if (wizardStep === 2) {
       setWizardStep(3);
-      startJob();
+      void startJob();
     } else if (wizardStep === 3) {
       if (jobState === 'done') setWizardStep(4);
     } else if (wizardStep === 4) {
@@ -129,15 +130,170 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
         }
         return;
       }
-      setJobState('fail');
-      setOperationError('该连接器尚未接入 STEP 3 的真实 Source/Golden command，已停止，不创建本地假连接。');
+      if (jobState === 'done') {
+        handleClose();
+      } else {
+        setJobState('fail');
+        setOperationError('连接尚未完成服务端校验，无法保存。');
+      }
     }
   };
 
-  const startJob = () => {
-    setJobState('fail');
+  const workspaceScopedPath = (path: string) => {
+    if (typeof window === 'undefined') return path;
+    const workspace = new URL(window.location.href).searchParams.get('workspace');
+    return workspace
+      ? `${path}${path.includes('?') ? '&' : '?'}workspace=${encodeURIComponent(workspace)}`
+      : path;
+  };
+
+  const operationMessage = (value: unknown, fallback: string) => {
+    if (!value || typeof value !== 'object') return fallback;
+    const record = value as Record<string, unknown>;
+    const error = record.error;
+    if (error && typeof error === 'object') {
+      const message = (error as Record<string, unknown>).message;
+      if (typeof message === 'string' && message) return message;
+      const code = (error as Record<string, unknown>).code;
+      if (typeof code === 'string' && code) return `${code}: ${fallback}`;
+    }
+    for (const key of ['validation', 'discovery']) {
+      const operation = record[key];
+      if (operation && typeof operation === 'object') {
+        const reason = (operation as Record<string, unknown>).reason;
+        if (reason && typeof reason === 'object') {
+          const message = (reason as Record<string, unknown>).message;
+          const code = (reason as Record<string, unknown>).code;
+          if (typeof message === 'string' && message) {
+            return typeof code === 'string' && code
+              ? `${code}: ${message}`
+              : message;
+          }
+        }
+      }
+    }
+    const message = record.message;
+    return typeof message === 'string' && message ? message : fallback;
+  };
+
+  const parseConfigurationValue = (key: string, value: string): unknown => {
+    const type = sourceObj.inputSchema[key];
+    if (type === 'number') {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : value;
+    }
+    if (type === 'boolean') return value === 'true';
+    if (type === 'string_array') {
+      return value.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+    return value;
+  };
+
+  const startJob = async () => {
+    setJobState('running');
     setJobStepIdx(0);
-    setOperationError('该连接器的发现流程尚未接入真实服务端执行，不能用定时动画或固定结果代替。');
+    setOperationError('');
+    try {
+      const configuration: Record<string, unknown> = {};
+      for (const [key, type] of Object.entries(sourceObj.inputSchema)) {
+        const value = formData[key];
+        if (type === 'file' || !value) continue;
+        configuration[key] = parseConfigurationValue(key, value);
+      }
+
+      for (const [key, file] of Object.entries(selectedFiles)) {
+        setJobStepIdx(1);
+        const uploadContext = createRequestContext();
+        const body = new FormData();
+        body.append('upload', file, file.name);
+        const response = await fetch(workspaceScopedPath('/api/source-golden/v1/uploads'), {
+          method: 'POST',
+          headers: {
+            'X-Request-ID': uploadContext.requestId,
+            'Idempotency-Key': uploadContext.idempotencyKey,
+          },
+          body,
+        });
+        let uploadResult: unknown = null;
+        try {
+          uploadResult = await response.json();
+        } catch {
+          // The typed error below is sufficient when the server has no JSON body.
+        }
+        if (!response.ok || !uploadResult || typeof uploadResult !== 'object') {
+          throw new Error(operationMessage(uploadResult, `文件上传失败（HTTP ${response.status}）。`));
+        }
+        const sourceRef = (uploadResult as Record<string, unknown>).sourceRef;
+        if (typeof sourceRef !== 'string' || !sourceRef) {
+          throw new Error('文件上传响应缺少服务端 sourceRef。');
+        }
+        configuration[key] = sourceRef;
+      }
+
+      setJobStepIdx(2);
+      const secretRef = sourceObj.credentialSchema?.secretRef
+        ? formData.secretRef || null
+        : null;
+      const created = await getWorkspaceAdapter().command(
+        {
+          command: 'source-golden.connection.create',
+          payload: {
+            connectorKey: sourceObj.connectorKey,
+            displayName: finalName,
+            scope: space,
+            configuration,
+            ...(secretRef ? { secretRef } : {}),
+          },
+        },
+        createRequestContext(),
+      );
+      if (!created.accepted) {
+        throw new Error(operationMessage(created.result, '服务端未接受连接配置。'));
+      }
+      const connection = created.result?.connection;
+      const connectionId = connection && typeof connection === 'object'
+        ? (connection as Record<string, unknown>).id
+        : null;
+      const resources = created.result?.discovery &&
+        typeof created.result.discovery === 'object'
+        ? (created.result.discovery as Record<string, unknown>).resources
+        : null;
+      const resourceId = Array.isArray(resources) && resources[0] &&
+        typeof resources[0] === 'object'
+        ? (resources[0] as Record<string, unknown>).id
+        : null;
+      if (typeof connectionId !== 'string' || !connectionId) {
+        throw new Error('服务端连接响应缺少 connectionId。');
+      }
+      if (typeof resourceId !== 'string' || !resourceId) {
+        throw new Error('服务端 discovery 未返回可 ingest 的 resourceId。');
+      }
+
+      setJobStepIdx(3);
+      const ingested = await getWorkspaceAdapter().command(
+        {
+          command: 'source-golden.ingest',
+          payload: {
+            connectionId,
+            resourceId,
+            recipeOperations: ['trim'],
+            toolArguments: {},
+          },
+        },
+        createRequestContext(),
+      );
+      if (!ingested.accepted) {
+        throw new Error(operationMessage(ingested.result, '服务端未接受 Source/Golden ingest。'));
+      }
+      await bootstrapWorkspace();
+      setJobStepIdx(sourceObj.discoveryPipeline.length);
+      setJobState('done');
+      showToast?.(`${sourceObj.name} 已完成真实连接、发现与 Golden ingest。`);
+    } catch (error) {
+      setJobState('fail');
+      setJobStepIdx(0);
+      setOperationError(error instanceof Error ? error.message : '连接器操作失败。');
+    }
   };
 
   const renderField = (key: string, type: string) => {
@@ -146,7 +302,16 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
         <div key={key} className="col-span-2">
           <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">{key} 文件</label>
           <div className="border border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors cursor-pointer relative bg-white">
-            <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={() => setFormData(p=>({...p, [key]: 'selected_file.csv'}))} />
+            <input
+              type="file"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                setSelectedFiles((current) => ({ ...current, [key]: file }));
+                setFormData((current) => ({ ...current, [key]: file.name }));
+              }}
+            />
             <FileSpreadsheet size={24} className="text-slate-400 mb-2" />
             <span className="text-sm font-medium text-slate-600">{formData[key] ? formData[key] : '点击或拖拽文件上传'}</span>
           </div>
