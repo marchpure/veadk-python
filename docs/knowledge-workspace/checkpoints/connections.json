@@ -10,7 +10,7 @@
     "remote_url": "git@github.com:marchpure/open-connector.git",
     "branch": "feat/connection-service-v1",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-service-open-connector",
-    "commit": "691160781ae598873f09bed9cff63a9223d5b500",
+    "commit": "03b8d20e17f9fbc155a170f31521ec16c5e31c8e",
     "remote_branch": "fork/feat/connection-service-v1 (pushed to marchpure)"
   },
   "veadk_repo": {
