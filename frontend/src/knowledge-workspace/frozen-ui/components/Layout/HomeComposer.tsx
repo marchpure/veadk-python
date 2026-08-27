@@ -106,21 +106,35 @@ function normalizeRef(ref: unknown): ResourceRef | undefined {
 }
 
 function toContextChip(item: Record<string, unknown>): ContextChip {
-  const id = String(item.identity ?? item.id ?? item.resourceId ?? "");
-  const resourceId = String(item.resourceId ?? item.id ?? "");
+  const resourceKind = String(item.resourceKind ?? item.type ?? item.subtype ?? "resource");
+  const resourceId = String(
+    item.resourceId ??
+    item.assetId ??
+    (resourceKind === "golden_asset" ? item.id : "") ??
+    item.id ??
+    "",
+  );
+  const id = String(item.identity ?? resourceId);
   const serverRef = normalizeRef(item.contextRef) ?? normalizeRef(getServerContextRef(resourceId));
   const revision = String(
-    item.revision ??
-    item.version ??
-    item.goldenRevisionId ??
-    item.golden_revision_id ??
-    serverRef?.revision ??
-    "",
+    resourceKind === "golden_asset"
+      ? item.goldenRevisionId ??
+        item.golden_revision_id ??
+        item.revision ??
+        item.version ??
+        serverRef?.revision ??
+        ""
+      : item.revision ??
+        item.version ??
+        item.goldenRevisionId ??
+        item.golden_revision_id ??
+        serverRef?.revision ??
+        "",
   );
   return {
     id,
     name: String(item.displayName ?? item.name ?? id),
-    type: String(item.resourceKind ?? item.type ?? item.subtype ?? "resource"),
+    type: resourceKind,
     revision: revision || undefined,
     source: String(item.space ?? item.scope ?? "workspace"),
     contextRef: serverRef,

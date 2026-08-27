@@ -1745,16 +1745,34 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot, real
   let waiters = createRequiredResponseWaiters(page, state);
   await page.goto(`${localOrigin}/?studio=knowledge&file=welcome`, { waitUntil: "networkidle", timeout: 30_000 });
   await settleRequiredResponses(waiters, observed.responseErrors, "home-to-builder-prompt:initial");
-  await page.getByLabel("描述要构建的 Skill").fill(`${prompt} @Workspace`);
-  await page
-    .locator("button")
-    .filter({ hasText: "Workspace dataset revision" })
-    .last()
-    .click();
+  if (realBff) {
+    await page.getByLabel("描述要构建的 Skill").fill(`${prompt} @库存`);
+    await page
+      .locator("button")
+      .filter({ hasText: "库存明细.csv" })
+      .last()
+      .click();
+  } else {
+    await page.getByLabel("描述要构建的 Skill").fill(`${prompt} @Workspace`);
+    await page
+      .locator("button")
+      .filter({ hasText: "Workspace dataset revision" })
+      .last()
+      .click();
+  }
   await page.getByLabel("描述要构建的 Skill").fill(prompt);
-  await page.getByRole("button", { name: /Semantic/ }).click();
+  if (realBff) {
+    await page.getByRole("button", { name: "模板库", exact: true }).click();
+    const templateDialog = page.getByRole("dialog", { name: "模板库" });
+    await templateDialog.getByRole("button", { name: /^Dashboard/ }).click();
+  } else {
+    await page.getByRole("button", { name: /Semantic/ }).click();
+  }
   await page.getByRole("button", { name: /生成 Skill/ }).click();
-  await page.waitForURL(/file=skill_builder/, { timeout: 15_000 });
+  // Real BFF authoring may spend several seconds running the durable Agent
+  // operation before it commits the builder route. Keep this a real user-flow
+  // wait, but allow the server-backed operation enough time to complete.
+  await page.waitForURL(/file=skill_builder/, { timeout: 45_000 });
   const builderValues = await readPromptValues();
   const url = new URL(page.url());
   observed.setAction("home-to-builder-prompt:reload");
@@ -1763,7 +1781,7 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot, real
   await settleRequiredResponses(waiters, observed.responseErrors, "home-to-builder-prompt:reload");
   const reloadedValues = await readPromptValues();
   const result = {
-    status: builderValues.includes(prompt) && reloadedValues.includes(prompt) ? "pass" : "fail",
+    status: "fail",
     prompt,
     builderValue: builderValues.find((value) => value === prompt) ?? builderValues[0] ?? "",
     reloadedValue: reloadedValues.find((value) => value === prompt) ?? reloadedValues[0] ?? "",
@@ -1775,11 +1793,36 @@ async function runPromptHandoffRegression(browser, localOrigin, outputRoot, real
     workspaceScope: url.searchParams.get("workspace_scope"),
     draftId: url.searchParams.get("draft_id"),
     operationId: url.searchParams.get("operation_id"),
+    serverOperation: null,
     failedRequests: observed.failedRequests,
     responseErrors: observed.responseErrors,
     consoleErrors: observed.consoleErrors,
     pageErrors: observed.pageErrors,
   };
+  if (result.operationId) {
+    const operationResponse = await page.request.get(
+      `${localOrigin}/api/knowledge-assets/v1/authoring/operations/${encodeURIComponent(result.operationId)}`,
+    );
+    if (operationResponse.ok()) {
+      result.serverOperation = await operationResponse.json();
+    } else {
+      observed.responseErrors.push({
+        url: operationResponse.url(),
+        status: operationResponse.status(),
+        statusText: "authoring operation read failed",
+        method: "GET",
+        resourceType: "fetch",
+        action: "home-to-builder-prompt:operation-read",
+        required: "authoring-operation",
+      });
+    }
+  }
+  result.status = builderValues.includes(prompt)
+    && reloadedValues.includes(prompt)
+    && Boolean(result.operationId)
+    && Boolean(result.serverOperation)
+    ? "pass"
+    : "fail";
   await page.screenshot({ path: join(outputDir, "after-reload.png"), fullPage: false });
   writeFileSync(join(outputDir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
   await page.close();
@@ -1944,9 +1987,12 @@ async function main() {
         entries.push(entry);
       }
     }
-    const promptHandoff = options.realBff
-      ? { status: "skipped-real-bff", reason: "requires model-backed authoring prompt and is recorded separately" }
-      : await runPromptHandoffRegression(browser, localServer.origin, outputRoot);
+    const promptHandoff = await runPromptHandoffRegression(
+      browser,
+      localServer.origin,
+      outputRoot,
+      options.realBff,
+    );
     const networkGate = evaluateEvidenceGate(entries, promptHandoff);
     const failures = networkGate.failures;
     const report = {
