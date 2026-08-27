@@ -5,7 +5,7 @@
     {
       "connectorKey": "lark_doc",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -64,7 +64,7 @@
     {
       "connectorKey": "lark_wiki",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -123,7 +123,7 @@
     {
       "connectorKey": "lark_drive",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -182,7 +182,7 @@
     {
       "connectorKey": "lark_meeting",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -245,7 +245,7 @@
     {
       "connectorKey": "lark_minutes",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -304,7 +304,7 @@
     {
       "connectorKey": "lark_group",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -365,7 +365,7 @@
     {
       "connectorKey": "lark_chat",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -426,7 +426,7 @@
     {
       "connectorKey": "lark_sheet",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -485,7 +485,7 @@
     {
       "connectorKey": "lark_base",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -544,7 +544,7 @@
     {
       "connectorKey": "lark_mail",
       "category": "office",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -909,7 +909,7 @@
     {
       "connectorKey": "s3",
       "category": "file",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -969,7 +969,7 @@
     {
       "connectorKey": "oss",
       "category": "file",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1147,7 +1147,7 @@
     {
       "connectorKey": "oracle",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1203,7 +1203,7 @@
     {
       "connectorKey": "sqlserver",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1310,7 +1310,7 @@
     {
       "connectorKey": "clickhouse",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1372,7 +1372,7 @@
     {
       "connectorKey": "doris",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1434,7 +1434,7 @@
     {
       "connectorKey": "starrocks",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1496,7 +1496,7 @@
     {
       "connectorKey": "snowflake",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1556,7 +1556,7 @@
     {
       "connectorKey": "bigquery",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1621,7 +1621,7 @@
     {
       "connectorKey": "hive",
       "category": "db",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",
@@ -1891,7 +1891,7 @@
     {
       "connectorKey": "kafka",
       "category": "api",
-      "capabilityState": "available",
+      "capabilityState": "credential_blocked",
       "permissions": {
         "readScopes": [
           "workspace.member",

@@ -85,6 +85,10 @@ class FormField(ContractModel):
     default: str | int | float | bool | list[str] | None = None
     options: list[str] = Field(default_factory=list)
     secret_reference: bool = False
+    format: str | None = None
+    min: float | None = None
+    max: float | None = None
+    conditional: dict[str, object] | None = None
 
 
 class FormSchema(ContractModel):
@@ -123,7 +127,7 @@ class ConnectorDefinition(ContractModel):
 
 class CreateCustomConnectorAction(ContractModel):
     connector_key: Literal["create_custom"] = "create_custom"
-    capability_state: Literal["configurable"] = "configurable"
+    capability_state: Literal["unsupported"] = "unsupported"
     required_permission: str = "connector.definition.create"
 
 

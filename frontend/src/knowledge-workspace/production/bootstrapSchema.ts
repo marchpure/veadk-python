@@ -4,10 +4,33 @@ export interface WorkspaceConnectorDefinition {
   name: string;
   desc: string;
   capabilities: string[];
-  inputSchema: Record<string, string>;
-  credentialSchema: Record<string, string> | null;
+  inputSchema: WorkspaceFormSchema;
+  credentialSchema: WorkspaceFormSchema;
   discoveryPipeline: string[];
   syncModes: string[];
+  capabilityState?: "available" | "configurable" | "credential_blocked" | "unsupported";
+  reason?: { code: string; message: string; retryable?: boolean };
+  permissions?: Record<string, unknown>;
+}
+
+export interface WorkspaceFormField {
+  type: "string" | "integer" | "number" | "boolean" | "file" | "url" | "select" | "string_array" | "object";
+  title: string;
+  description?: string;
+  required?: boolean;
+  default?: string | number | boolean | string[] | null;
+  options?: string[];
+  secretReference?: boolean;
+  format?: string;
+  min?: number;
+  max?: number;
+  conditional?: Record<string, unknown>;
+}
+
+export interface WorkspaceFormSchema {
+  properties: Record<string, WorkspaceFormField>;
+  required?: string[];
+  additionalProperties?: false;
 }
 
 export interface WorkspaceMcpProfile {
@@ -125,11 +148,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
 
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((item) => typeof item === "string")
-  );
+function isFormSchema(value: unknown): value is WorkspaceFormSchema {
+  if (!isRecord(value) || !isRecord(value.properties)) return false;
+  return Object.values(value.properties).every((field) => {
+    if (!isRecord(field) || typeof field.type !== "string" || typeof field.title !== "string") return false;
+    if (field.options !== undefined && (!Array.isArray(field.options) || !field.options.every((item) => typeof item === "string"))) return false;
+    return true;
+  });
 }
 
 function isConnector(
@@ -143,9 +168,8 @@ function isConnector(
     typeof value.desc === "string" &&
     Array.isArray(value.capabilities) &&
     value.capabilities.every((item) => typeof item === "string") &&
-    isStringRecord(value.inputSchema) &&
-    (value.credentialSchema === null ||
-      isStringRecord(value.credentialSchema)) &&
+    isFormSchema(value.inputSchema) &&
+    isFormSchema(value.credentialSchema) &&
     Array.isArray(value.discoveryPipeline) &&
     value.discoveryPipeline.every((item) => typeof item === "string") &&
     Array.isArray(value.syncModes) &&

@@ -67,6 +67,10 @@ def test_http_api_upload_create_ingest_read_refresh_context_and_revoke(
             "default": None,
             "options": [],
             "secretReference": False,
+            "format": None,
+            "min": None,
+            "max": None,
+            "conditional": None,
         }
     }
     assert mcp["credentialSchema"]["properties"] == {}

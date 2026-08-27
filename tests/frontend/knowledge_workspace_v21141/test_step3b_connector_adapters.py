@@ -1043,7 +1043,16 @@ def test_capability_matrix_has_one_complete_truthful_row_per_adapter(
     assert matrix.total == 37
     assert len(matrix.connectors) == 37
     assert len({row.connector_key for row in matrix.connectors}) == 37
-    assert {row.capability_state for row in matrix.connectors} == {"available"}
+    assert {row.capability_state for row in matrix.connectors} == {
+        "available",
+        "credential_blocked",
+    }
+    assert sum(
+        row.capability_state == "available" for row in matrix.connectors
+    ) == 16
+    assert sum(
+        row.capability_state == "credential_blocked" for row in matrix.connectors
+    ) == 21
     for row in matrix.connectors:
         assert row.capability.catalog == "present"
         assert row.capability.form == "validated"
@@ -1059,8 +1068,9 @@ def test_capability_matrix_has_one_complete_truthful_row_per_adapter(
             reference.startswith("tests/frontend/knowledge_workspace_v21141/test_step3")
             for reference in row.capability.evidence
         )
-        if row.capability.live_e2e == "external_blocked":
+        if row.capability_state == "credential_blocked":
             assert row.capability.blocker
+            assert row.capability.live_e2e == "external_blocked"
             assert row.capability.credential_state == "external_blocked"
             assert row.certification.verification_command.endswith(row.connector_key)
             assert "provider_verify" in row.certification.verification_command

@@ -90,6 +90,13 @@ def mount_source_golden_routes(
             mode="json", by_alias=True
         )
 
+    @app.get(f"{prefix}/capability-matrix")
+    async def capability_matrix(request: Request) -> object:
+        del request
+        return application.connector_capability_matrix().model_dump(
+            mode="json", by_alias=True
+        )
+
     @app.get(f"{prefix}/overview")
     async def overview(request: Request) -> object:
         return application.data_overview(identity_resolver(request)).model_dump(

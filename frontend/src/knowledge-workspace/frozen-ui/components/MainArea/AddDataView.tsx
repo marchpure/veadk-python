@@ -13,6 +13,7 @@ import {
   useStore as useProductionStore,
   bootstrapWorkspace,
 } from '../../../production/store';
+import type { WorkspaceFormField } from '../../../production/bootstrapSchema';
 
 const getRegistryIcon = (category: string) => {
   if (category === 'office') return FileSpreadsheet;
@@ -34,7 +35,7 @@ const categories = [
 
 const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: ConnectorDef, showToast: any, handleClose: any }) => {
   const [wizardStep, setWizardStep] = useState(1);
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
   
   // Custom Connector definition state
@@ -65,7 +66,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
         setWizardStep(4);
         return;
       }
-      if (sourceObj.credentialSchema) {
+      if (Object.keys(sourceObj.credentialSchema?.properties ?? {}).length > 0) {
         setWizardStep(2);
       } else {
         setWizardStep(3);
@@ -176,15 +177,24 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     return typeof message === 'string' && message ? message : fallback;
   };
 
-  const parseConfigurationValue = (key: string, value: string): unknown => {
-    const type = sourceObj.inputSchema[key];
-    if (type === 'number') {
+  const parseConfigurationValue = (_key: string, value: unknown, field?: WorkspaceFormField): unknown => {
+    const type = field?.type;
+    if (type === 'number' || type === 'integer') {
+      if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : value;
     }
-    if (type === 'boolean') return value === 'true';
+    if (type === 'boolean') return value === true || value === 'true';
     if (type === 'string_array') {
-      return value.split(',').map((item) => item.trim()).filter(Boolean);
+      if (Array.isArray(value)) return value;
+      return String(value).split(',').map((item) => item.trim()).filter(Boolean);
+    }
+    if (type === 'object' && typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
     }
     return value;
   };
@@ -195,10 +205,14 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     setOperationError('');
     try {
       const configuration: Record<string, unknown> = {};
-      for (const [key, type] of Object.entries(sourceObj.inputSchema)) {
-        const value = formData[key];
-        if (type === 'file' || !value) continue;
-        configuration[key] = parseConfigurationValue(key, value);
+      const allFields = {
+        ...sourceObj.inputSchema.properties,
+        ...sourceObj.credentialSchema.properties,
+      };
+      for (const [key, field] of Object.entries(allFields)) {
+        const value = formData[key] ?? field.default;
+        if (field.secretReference || field.type === 'file' || value === undefined || value === null || value === '') continue;
+        configuration[key] = parseConfigurationValue(key, value, field);
       }
 
       for (const [key, file] of Object.entries(selectedFiles)) {
@@ -231,8 +245,10 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
       }
 
       setJobStepIdx(2);
-      const secretRef = sourceObj.credentialSchema?.secretRef
-        ? formData.secretRef || null
+      const secretField = Object.entries(sourceObj.credentialSchema?.properties ?? {})
+        .find(([, field]) => field.secretReference);
+      const secretRef = secretField
+        ? (typeof formData[secretField[0]] === 'string' ? formData[secretField[0]] as string : null)
         : null;
       const created = await getWorkspaceAdapter().command(
         {
@@ -296,11 +312,15 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     }
   };
 
-  const renderField = (key: string, type: string) => {
+  const renderField = (key: string, field: WorkspaceFormField) => {
+    const type = field.type;
+    const label = field.title || key;
+    const required = Boolean(field.required || sourceObj.inputSchema.required?.includes(key) || sourceObj.credentialSchema.required?.includes(key));
+    const options = field.options ?? [];
     if (type === 'file') {
       return (
         <div key={key} className="col-span-2">
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">{key} 文件</label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
           <div className="border border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors cursor-pointer relative bg-white">
             <input
               type="file"
@@ -313,7 +333,8 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
               }}
             />
             <FileSpreadsheet size={24} className="text-slate-400 mb-2" />
-            <span className="text-sm font-medium text-slate-600">{formData[key] ? formData[key] : '点击或拖拽文件上传'}</span>
+            <span className="text-sm font-medium text-slate-600">{formData[key] ? String(formData[key]) : `点击或拖拽${label}`}</span>
+            {field.description && <span className="mt-1 text-xs text-slate-400">{field.description}</span>}
           </div>
         </div>
       );
@@ -321,35 +342,73 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     if (type === 'select') {
       return (
         <div key={key}>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">{key}</label>
-          <select onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white">
-            <option>请选择...</option>
-            <option>选项 A</option>
-            <option>选项 B</option>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
+          <select value={formData[key] ?? String(field.default ?? '')} onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white">
+            {!required && <option value="">请选择...</option>}
+            {options.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
+          {field.description && <p className="mt-1 text-xs text-slate-500">{field.description}</p>}
         </div>
       );
     }
-    if (type === 'oauth') {
+    if (field.secretReference) {
       return (
         <div key={key} className="col-span-2 flex items-center justify-between bg-white border border-slate-200 p-4 rounded-lg">
           <div className="flex items-center">
             <ShieldCheck size={20} className="text-green-500 mr-3" />
             <div>
-              <div className="font-semibold text-slate-800 text-sm">OAuth 授权认证</div>
-              <div className="text-xs text-slate-500">此应用请求获取您在该平台的数据读取权限</div>
+              <div className="font-semibold text-slate-800 text-sm">服务端凭据引用</div>
+              <div className="text-xs text-slate-500">{field.description || '填写 secret:// 引用；密钥不会保存在浏览器。'}</div>
             </div>
           </div>
-          <button onClick={() => setFormData(p=>({...p, [key]: 'authorized'}))} className={cn("px-4 py-1.5 rounded-md text-sm font-medium transition-colors outline-none", formData[key] ? "bg-green-50 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700")}>
-            {formData[key] ? '已授权' : '点击授权'}
-          </button>
+          <input type="text" value={formData[key] ?? ''} onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))} placeholder="secret://..." className="w-44 border border-slate-300 rounded-md px-3 py-2 text-sm" />
         </div>
       )
     }
+    if (type === 'boolean') {
+      return (
+        <label key={key} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
+          <input
+            type="checkbox"
+            checked={formData[key] === true || (formData[key] === undefined && field.default === true)}
+            onChange={e => setFormData(p => ({ ...p, [key]: e.target.checked }))}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-700">{label}{required ? ' *' : ''}</span>
+            {field.description && <span className="block text-xs text-slate-500">{field.description}</span>}
+          </span>
+        </label>
+      );
+    }
+    if (type === 'string_array' || type === 'object') {
+      return (
+        <div key={key} className="col-span-2">
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
+          <textarea
+            value={String(formData[key] ?? (Array.isArray(field.default) ? field.default.join(', ') : field.default ?? ''))}
+            placeholder={field.description || label}
+            onChange={e => setFormData(p => ({ ...p, [key]: e.target.value }))}
+            className="min-h-20 w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white"
+          />
+          {field.description && <p className="mt-1 text-xs text-slate-500">{field.description}</p>}
+        </div>
+      );
+    }
     return (
       <div key={key} className={key.includes('url') || key.includes('endpoint') ? 'col-span-2' : ''}>
-        <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wider">{key}</label>
-        <input type={type === 'password' ? 'password' : 'text'} placeholder={`Enter ${key}...`} onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white" />
+        <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
+        <input
+          type={type === 'integer' || type === 'number' ? 'number' : type === 'url' ? 'url' : 'text'}
+          min={field.min}
+          max={field.max}
+          step={type === 'integer' ? 1 : type === 'number' ? 'any' : undefined}
+          value={String(formData[key] ?? field.default ?? '')}
+          placeholder={field.description || label}
+          onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))}
+          className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white"
+        />
+        {field.description && <p className="mt-1 text-xs text-slate-500">{field.description}</p>}
       </div>
     );
   };
@@ -365,7 +424,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
         </h3>
         <div className="flex items-center space-x-1.5">
           {[1, 2, 3, 4].map(s => {
-            if (s === 2 && !sourceObj.credentialSchema && sourceObj.connectorKey !== 'create_custom') return null;
+            if (s === 2 && Object.keys(sourceObj.credentialSchema?.properties ?? {}).length === 0 && sourceObj.connectorKey !== 'create_custom') return null;
             if (s > 1 && sourceObj.connectorKey === 'create_custom') return null;
             return (
               <React.Fragment key={s}>
@@ -404,7 +463,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
               </div>
             ) : sourceObj.inputSchema ? (
               <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl grid grid-cols-2 gap-5">
-                {Object.entries(sourceObj.inputSchema).map(([k, v]) => renderField(k, v as string))}
+                {Object.entries(sourceObj.inputSchema.properties).map(([k, v]) => renderField(k, v))}
               </div>
             ) : (
               <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl flex items-center text-slate-500 text-sm">该连接器不需要额外输入配置。</div>
@@ -441,9 +500,9 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
           <div className="animate-in slide-in-from-right-4 max-w-2xl mx-auto space-y-6 pt-4">
             <h4 className="text-base font-bold text-slate-800">步骤 2: 授权与鉴权测试</h4>
             <p className="text-sm text-slate-500 mb-6">提供访问此数据源所需的凭证 (Credential Schema)。</p>
-            {sourceObj.credentialSchema ? (
+            {Object.keys(sourceObj.credentialSchema?.properties ?? {}).length > 0 ? (
               <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl grid grid-cols-2 gap-5">
-                {Object.entries(sourceObj.credentialSchema).map(([k, v]) => renderField(k, v as string))}
+                {Object.entries(sourceObj.credentialSchema.properties).map(([k, v]) => renderField(k, v))}
               </div>
             ) : null}
           </div>
@@ -549,6 +608,11 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
 
   const allConnectors = getRegistry();
   const currentSourceObj = source ? allConnectors.find(x => x.connectorKey === source) : null;
+  const currentSourceBlocked = Boolean(
+    currentSourceObj &&
+    (currentSourceObj.capabilityState === 'credential_blocked' ||
+      currentSourceObj.capabilityState === 'unsupported'),
+  );
   
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -596,17 +660,23 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                      {filteredSources.map(s => {
                        const Icon = getRegistryIcon(s.category);
+                       const blocked = s.capabilityState === 'credential_blocked' || s.capabilityState === 'unsupported';
                        return (
                          <button
                            key={s.connectorKey}
-                           onClick={() => { const p = new URLSearchParams(searchParams); p.set('step', '2'); p.set('source', s.connectorKey); setSearchParams(p); }}
-                           className={cn("flex flex-col text-left p-4 bg-white border rounded-xl transition-all outline-none focus:ring-2 focus:ring-blue-500 hover:border-blue-400 hover:shadow-md", s.connectorKey === 'create_custom' ? "border-dashed border-slate-300 bg-slate-50/50 hover:bg-white" : "border-slate-200")}
+                           onClick={() => { if (blocked) return; const p = new URLSearchParams(searchParams); p.set('step', '2'); p.set('source', s.connectorKey); setSearchParams(p); }}
+                           disabled={blocked}
+                           title={blocked ? (s.reason?.message || '需要服务端凭据后才能配置') : undefined}
+                           className={cn("flex flex-col text-left p-4 bg-white border rounded-xl transition-all outline-none focus:ring-2 focus:ring-blue-500", blocked ? "cursor-not-allowed border-amber-200 bg-amber-50/30 opacity-75" : "hover:border-blue-400 hover:shadow-md", s.connectorKey === 'create_custom' ? "border-dashed border-slate-300 bg-slate-50/50 hover:bg-white" : "border-slate-200")}
                          >
                            <div className="flex items-start justify-between w-full mb-3">
                              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm", s.connectorKey === 'create_custom' ? "bg-slate-100 text-slate-600 border border-slate-200" : "bg-blue-50 text-blue-600 border border-blue-100")}><Icon size={20} /></div>
                            </div>
                            <h4 className="font-bold text-slate-800 text-sm mb-1 truncate">{s.name}</h4>
                            <p className="text-xs text-slate-500 line-clamp-2 mb-3 h-8 leading-relaxed">{s.desc}</p>
+                           <span className={cn("mb-2 self-start rounded px-1.5 py-0.5 text-[10px] font-semibold", blocked ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800")}>
+                             {blocked ? '需要凭据' : '可配置'}
+                           </span>
                            <div className="flex flex-wrap gap-1 mt-auto">
                              {s.capabilities.map(c => <span key={c} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200/50">{c}</span>)}
                            </div>
@@ -618,7 +688,23 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
              </div>
            </div>
          )}
-         {(step === 2 || source) && currentSourceObj && (
+         {(step === 2 || source) && currentSourceObj && currentSourceBlocked && (
+           <div className="flex flex-col h-full bg-slate-50 min-w-0 w-full">
+             <div className="h-16 px-4 md:px-6 border-b border-slate-200 flex items-center bg-white shrink-0 shadow-sm z-10">
+               <button onClick={() => { const p = new URLSearchParams(searchParams); p.delete('step'); p.delete('source'); setSearchParams(p); }} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors outline-none focus:ring-2 focus:ring-slate-300" aria-label="返回连接器目录"><ArrowLeft size={18} /></button>
+               <h2 className="ml-3 font-bold text-slate-800 text-lg tracking-tight truncate">暂不可配置：{currentSourceObj.name}</h2>
+             </div>
+             <div className="flex-1 flex items-center justify-center p-6">
+               <div className="max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+                 <ShieldCheck size={28} className="mx-auto mb-3 text-amber-600" />
+                 <h3 className="text-base font-bold text-amber-900">需要服务端凭据</h3>
+                 <p className="mt-2 text-sm leading-6 text-amber-800">{currentSourceObj.reason?.message || '请先配置 provider 凭据或官方 sandbox。'}</p>
+                 <p className="mt-3 text-xs text-amber-700">状态：CREDENTIAL_BLOCKED。页面不会创建本地成功结果。</p>
+               </div>
+             </div>
+           </div>
+         )}
+         {(step === 2 || source) && currentSourceObj && !currentSourceBlocked && (
            <div className="flex flex-col h-full bg-slate-50 min-w-0 w-full">
              <div className="h-16 px-4 md:px-6 border-b border-slate-200 flex items-center justify-between bg-white shrink-0 shadow-sm z-10">
                <div className="flex items-center space-x-3">

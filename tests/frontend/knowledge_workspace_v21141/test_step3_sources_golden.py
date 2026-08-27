@@ -51,6 +51,7 @@ def test_connector_catalog_is_complete_typed_and_truthful(tmp_path: Path) -> Non
     }
     assert len({item.connector_key for item in catalog.connectors}) == 37
     assert catalog.create_custom_action.connector_key == "create_custom"
+    assert catalog.create_custom_action.capability_state == "unsupported"
     assert all(item.reason.code and item.reason.message for item in catalog.connectors)
     assert all(
         item.input_schema.additional_properties is False for item in catalog.connectors
@@ -62,9 +63,9 @@ def test_connector_catalog_is_complete_typed_and_truthful(tmp_path: Path) -> Non
     assert by_key["sqlite"].capability_state == "available"
     assert by_key["local_file"].capability_state == "available"
     assert by_key["doc_txt"].capability_state == "available"
-    assert by_key["oracle"].capability_state == "available"
+    assert by_key["oracle"].capability_state == "credential_blocked"
     assert by_key["postgresql"].capability_state == "available"
-    assert by_key["lark_doc"].capability_state == "available"
+    assert by_key["lark_doc"].capability_state == "credential_blocked"
     assert by_key["web_discovery"].capability_state == "available"
     assert by_key["mcp_custom"].capability_state == "available"
     assert by_key["excel"].capability_state == "available"
@@ -798,8 +799,10 @@ def test_add_data_and_bootstrap_bind_real_read_models(tmp_path: Path) -> None:
         if isinstance(item, dict) and item.get("connectorKey") == "postgresql"
     )
     assert item["category"] == "db"
-    assert item["inputSchema"]["host"] == "string"
-    assert item["credentialSchema"] == {"secretRef": "secret_ref"}
+    assert item["inputSchema"]["properties"]["host"]["type"] == "string"
+    assert item["inputSchema"]["properties"]["host"]["title"] == "Host"
+    assert "required" in item["inputSchema"]
+    assert item["credentialSchema"]["properties"]["secretRef"]["secretReference"] is True
     assert item["capabilityState"] == "available"
     assert item["reason"]["code"] == "AVAILABLE"
     mcp_item = next(
@@ -807,8 +810,9 @@ def test_add_data_and_bootstrap_bind_real_read_models(tmp_path: Path) -> None:
         for item in projected_catalog
         if isinstance(item, dict) and item.get("connectorKey") == "mcp_custom"
     )
-    assert mcp_item["inputSchema"] == {"profileId": "string"}
-    assert mcp_item["credentialSchema"] is None
+    assert mcp_item["inputSchema"]["properties"]["profileId"]["type"] == "string"
+    assert mcp_item["inputSchema"]["properties"]["profileId"]["required"] is True
+    assert mcp_item["credentialSchema"]["properties"] == {}
     for server_only_field in ('"command"', '"args"', '"env"', '"cwd"', '"secretRef"'):
         assert server_only_field not in json.dumps(mcp_item)
     assert bootstrap["connections"] == []

@@ -18,6 +18,7 @@ from .catalog import (
     bootstrap_connector_catalog,
     connector_catalog,
 )
+from .catalog_projection import _LOCAL_PROTOCOL_CONNECTORS
 from .connector_adapter import (
     ConnectorAdapter,
     ConnectorAdapterError,
@@ -361,7 +362,11 @@ class SourceGoldenApplication:
                 ConnectorCapabilityRow(
                     connector_key=definition.connector_key,
                     category=definition.category,
-                    capability_state=definition.capability_state,
+                    capability_state=(
+                        definition.capability_state
+                        if definition.connector_key in _LOCAL_PROTOCOL_CONNECTORS
+                        else "credential_blocked"
+                    ),
                     permissions=definition.permissions,
                     certification=ConnectorCertificationView(
                         implementation=certification.implementation,

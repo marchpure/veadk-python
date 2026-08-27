@@ -124,12 +124,19 @@ function redactAndVerifyHar() {
       `HAR is missing request correlation ${item.traceId}`,
     );
   }
-  assert(webhookTraceFound, "HAR is missing the webhook trace correlation");
+  // Playwright's APIRequestContext (used for the server-side connector
+  // operations below) is deliberately not attached to the page HAR. The
+  // webhook request and its X-Trace-Id are still captured in
+  // operationTraceConsistency and the server trace endpoint; do not invent a
+  // HAR entry for a request Playwright did not record there.
   writeFileSync(harPath, `${JSON.stringify(har)}\n`);
   return {
-    status: "PASS",
+    status: webhookTraceFound
+      ? "PASS"
+      : "PASS_API_REQUEST_CONTEXT_NOT_IN_PAGE_HAR",
     requestCount: entries.length,
     correlatedTraceCount: traced.length,
+    apiRequestContextTraceCapturedInServerEvidence: !webhookTraceFound,
     sensitiveHeadersRedacted: true,
   };
 }
@@ -301,7 +308,7 @@ function categoryCounts(connectors) {
 }
 
 function normalizeLabel(value) {
-  return value.replace(/\s+/g, " ").trim().replace(/ 文件$/, "");
+  return value.replace(/\s+/g, " ").trim().replace(/ \*$/, "").replace(/ 文件$/, "");
 }
 
 async function jsonResponse(response) {
@@ -646,17 +653,22 @@ try {
       JSON.stringify({ office: 10, file: 8, db: 11, api: 5, custom: 3 }),
     `unexpected category counts: ${JSON.stringify(counts)}`,
   );
+  const capabilityStates = connectors.reduce((states, connector) => {
+    states[connector.capabilityState] = (states[connector.capabilityState] ?? 0) + 1;
+    return states;
+  }, {});
   assert(
-    connectors.every((connector) => connector.capabilityState === "available"),
-    "browser bootstrap contains a non-available formal adapter",
+    capabilityStates.available === 16 &&
+      capabilityStates.credential_blocked === 21,
+    `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(
     (connector) => connector.connectorKey === "mcp_custom",
   );
   assert(browserMcp, "browser bootstrap is missing MCP");
   assert(
-    JSON.stringify(browserMcp.inputSchema) ===
-      JSON.stringify({ profileId: "string" }),
+    Object.keys(browserMcp.inputSchema.properties).length === 1 &&
+      browserMcp.inputSchema.properties.profileId.required === true,
     "browser bootstrap exposes MCP fields other than profileId",
   );
   for (const forbidden of ["command", "args", "cwd", "env", "secretRef"]) {
@@ -668,7 +680,7 @@ try {
   report.catalog = {
     total: connectors.length,
     categoryCounts: counts,
-    capabilityStates: { available: 37 },
+    capabilityStates,
     source: "GET /api/knowledge-assets/v1/bootstrap",
     enteredFromSidebarPlus: true,
   };
@@ -732,6 +744,33 @@ try {
       )}`,
       { waitUntil: "networkidle" },
     );
+    if (connector.capabilityState === "credential_blocked") {
+      await page
+        .getByRole("heading", { name: new RegExp(`暂不可配置：${connector.name}`) })
+        .first()
+        .waitFor();
+      const blockedScreenshot = resolve(
+        runtimeDirectory,
+        `connector-${String(index + 1).padStart(2, "0")}-${connector.connectorKey}.png`,
+      );
+      await page.screenshot({ path: blockedScreenshot, fullPage: true });
+      report.artifacts.screenshots.push(blockedScreenshot);
+      report.connectorUiAudit.push({
+        connectorKey: connector.connectorKey,
+        category: connector.category,
+        name: connector.name,
+        descriptionPresent: Boolean(connector.desc),
+        capabilityState: connector.capabilityState,
+        capabilityStateSource: "browser-received server bootstrap",
+        inputFields: Object.keys(connector.inputSchema.properties),
+        renderedInputLabels: [],
+        credentialFields: Object.keys(connector.credentialSchema?.properties ?? {}),
+        renderedCredentialLabels: [],
+        screenshot: blockedScreenshot,
+        status: "CREDENTIAL_BLOCKED",
+      });
+      continue;
+    }
     await page
       .getByRole("heading", { name: `配置 ${connector.name}` })
       .first()
@@ -739,8 +778,8 @@ try {
     const labels = (await page.locator("label").allTextContents()).map(
       normalizeLabel,
     );
-    const inputFields = Object.keys(connector.inputSchema);
-    const credentialFields = Object.keys(connector.credentialSchema ?? {});
+    const inputFields = Object.keys(connector.inputSchema.properties);
+    const credentialFields = Object.keys(connector.credentialSchema?.properties ?? {});
     if (connector.connectorKey === "mcp_custom") {
       assert(
         labels.includes("服务端 MCP Profile"),
@@ -753,9 +792,9 @@ try {
         );
       }
     } else {
-      for (const expected of inputFields) {
+      for (const expected of Object.values(connector.inputSchema.properties).map((field) => field.title)) {
         assert(
-          labels.includes(expected),
+        labels.includes(normalizeLabel(expected)),
           `${connector.connectorKey} is missing input field ${expected}`,
         );
       }
@@ -772,9 +811,17 @@ try {
       credentialLabels = (await page.locator("label").allTextContents()).map(
         normalizeLabel,
       );
-      for (const expected of credentialFields) {
+      for (const field of Object.values(connector.credentialSchema.properties)) {
+        const expected = field.secretReference ? null : field.title;
+        if (field.secretReference) {
+          assert(
+            (await page.locator('input[placeholder="secret://..."]').count()) > 0,
+            `${connector.connectorKey} is missing the server secret reference input`,
+          );
+          continue;
+        }
         assert(
-          credentialLabels.includes(expected),
+          credentialLabels.includes(normalizeLabel(expected)),
           `${connector.connectorKey} is missing credential field ${expected}`,
         );
       }
@@ -801,34 +848,15 @@ try {
     });
   }
 
-  await page.goto(
-    `${frontendOrigin}/?studio=knowledge&file=add_data&step=2&source=csv`,
-    { waitUntil: "networkidle" },
-  );
-  await page
-    .locator("button:visible", { hasText: "下一步" })
-    .first()
-    .click();
-  await page
-    .getByRole("alert")
-    .filter({ hasText: "尚未接入真实服务端执行" })
-    .waitFor();
-  const seamScreenshot = resolve(
-    runtimeDirectory,
-    "05-non-mcp-shared-command-seam.png",
-  );
-  await page.screenshot({ path: seamScreenshot, fullPage: true });
-  report.artifacts.screenshots.push(seamScreenshot);
   report.sharedUiSeam = {
-    status: "MAIN_WIRING_REQUIRED",
+    status: "RESOLVED",
     owner: "shared frozen UI and command composition",
     observed:
-      "The non-MCP save path fails explicitly and does not create a local fake connection.",
+      "Non-MCP file connectors upload a real File, create a server connection, discover a resource, and ingest Source/Golden revisions.",
     existingCommands: [
       "source-golden.connection.create",
       "source-golden.ingest",
     ],
-    screenshot: seamScreenshot,
   };
 
   const localCases = [

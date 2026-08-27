@@ -6,11 +6,37 @@ from collections import Counter
 from collections.abc import Sequence
 
 from .models import (
+    CapabilityReason,
     ConnectorCatalogView,
     ConnectorCategory,
     ConnectorDefinition,
     FormField,
     FormSchema,
+)
+
+# These adapters are implemented and exercised against deterministic local
+# protocol fixtures.  Provider-backed adapters remain visible in the catalog,
+# but must not be advertised as ready until a server-side credential/provider
+# is available for the current workspace.
+_LOCAL_PROTOCOL_CONNECTORS = frozenset(
+    {
+        "csv",
+        "excel",
+        "json",
+        "parquet",
+        "doc_txt",
+        "local_file",
+        "sqlite",
+        "postgresql",
+        "mysql",
+        "rest_api",
+        "graphql",
+        "web_discovery",
+        "webhook",
+        "mcp_custom",
+        "custom_http",
+        "openapi_spec",
+    }
 )
 
 _MCP_BROWSER_SCHEMA = FormSchema(
@@ -30,14 +56,28 @@ _MCP_BROWSER_SCHEMA = FormSchema(
 
 def _public_definition(definition: ConnectorDefinition) -> ConnectorDefinition:
     """Remove server-only MCP execution settings from browser-facing catalogs."""
-    if definition.connector_key != "mcp_custom":
-        return definition
-    return definition.model_copy(
-        update={
-            "input_schema": _MCP_BROWSER_SCHEMA,
-            "credential_schema": FormSchema(properties={}),
-        }
-    )
+    updates: dict[str, object] = {}
+    if definition.connector_key == "mcp_custom":
+        updates.update(
+            {
+                "input_schema": _MCP_BROWSER_SCHEMA,
+                "credential_schema": FormSchema(properties={}),
+            }
+        )
+    if definition.connector_key not in _LOCAL_PROTOCOL_CONNECTORS:
+        updates.update(
+            {
+                "capability_state": "credential_blocked",
+                "reason": CapabilityReason(
+                    code="CREDENTIAL_REQUIRED",
+                    message=(
+                        "需要服务端 secretRef 和可访问的 provider/sandbox；"
+                        "当前工作区尚未提供外部凭据。"
+                    ),
+                ),
+            }
+        )
+    return definition.model_copy(update=updates) if updates else definition
 
 
 def connector_catalog_view(
@@ -78,11 +118,6 @@ def connector_catalog_view(
 def bootstrap_catalog(
     connectors: Sequence[ConnectorDefinition],
 ) -> list[dict[str, object]]:
-    field_types = {
-        "integer": "number",
-        "url": "string",
-        "string_array": "string",
-    }
     return [
         {
             "connectorKey": definition.connector_key,
@@ -90,16 +125,14 @@ def bootstrap_catalog(
             "name": definition.name,
             "desc": definition.description,
             "capabilities": definition.capabilities,
-            "inputSchema": {
-                key: field_types.get(field.type, field.type)
-                for key, field in definition.input_schema.properties.items()
-            },
-            "credentialSchema": (
-                {
-                    key: ("secret_ref" if field.secret_reference else field.type)
-                    for key, field in definition.credential_schema.properties.items()
-                }
-                or None
+            # Keep the complete server-owned form contract.  The browser needs
+            # required/default/options/description and secret-reference
+            # metadata to render a truthful configuration flow.
+            "inputSchema": definition.input_schema.model_dump(
+                mode="json", by_alias=True
+            ),
+            "credentialSchema": definition.credential_schema.model_dump(
+                mode="json", by_alias=True
             ),
             "discoveryPipeline": definition.discovery_modes,
             "syncModes": definition.sync_modes,
