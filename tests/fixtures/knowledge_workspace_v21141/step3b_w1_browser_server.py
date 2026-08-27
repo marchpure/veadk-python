@@ -78,6 +78,16 @@ def _secret(reference: str) -> str | None:
             },
             sort_keys=True,
         )
+    if reference == "secret://workspace-step3/oracle":
+        return json.dumps(
+            {
+                "username": os.environ.get("STEP3B_ORACLE_USER", "step3b"),
+                "password": os.environ.get(
+                    "STEP3B_ORACLE_PASSWORD", "Step3bAppPassword1!"
+                ),
+            },
+            sort_keys=True,
+        )
     return None
 
 

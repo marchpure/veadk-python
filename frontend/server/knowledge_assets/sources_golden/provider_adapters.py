@@ -630,10 +630,14 @@ class ExternalDatabaseAdapter(ProviderConnectorAdapter):
                 try:
                     if key == "oracle":
                         bound = dict(parameters)
-                        bound["_adapter_limit"] = limit + 1
+                        # Oracle bind names may not begin with an underscore
+                        # when using the thin ``oracledb`` driver. Keep this
+                        # adapter-owned name distinct from user parameters
+                        # while remaining valid for Oracle's bind parser.
+                        bound["adapter_limit"] = limit + 1
                         cursor.execute(
                             f"SELECT * FROM ({statement}) "
-                            "WHERE ROWNUM <= :_adapter_limit",
+                            "WHERE ROWNUM <= :adapter_limit",
                             bound,
                         )
                     elif key == "sqlserver":

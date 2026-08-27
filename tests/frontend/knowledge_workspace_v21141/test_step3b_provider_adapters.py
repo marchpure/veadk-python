@@ -406,6 +406,92 @@ def test_external_databases_reject_private_endpoint_without_allowlist(
     assert failure.value.stage == "validate"
 
 
+def test_oracle_read_uses_driver_safe_bound_parameter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    application = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path / "uploads",
+        web_resolver=lambda _host: ["127.0.0.1"],
+        network_allow_private_hosts={"127.0.0.1"},
+        secret_resolver=lambda _ref: json.dumps(
+            {"username": "reader", "password": "runtime-password"}
+        ),
+    )
+    adapter = application.connector_adapters()["oracle"]
+    captured: dict[str, object] = {}
+
+    class Cursor:
+        description = [("amount", "NUMBER", True)]
+        fetched = False
+
+        def execute(self, statement: str, parameters: object) -> None:
+            captured["statement"] = statement
+            captured["parameters"] = parameters
+
+        def fetchmany(self, _size: int) -> list[tuple[int]]:
+            if self.fetched:
+                return []
+            self.fetched = True
+            return [(12,)]
+
+        def close(self) -> None:
+            return None
+
+    class Connection:
+        def cursor(self) -> Cursor:
+            return Cursor()
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(adapter, "_connect", lambda _request: Connection())
+    monkeypatch.setattr(
+        adapter,
+        "_pin_endpoint",
+        lambda _request, stage: frozenset({"127.0.0.1"}),
+    )
+    monkeypatch.setattr(
+        adapter,
+        "_verify_endpoint_pin",
+        lambda request, pinned, stage: None,
+    )
+    request = ConnectorRequest(
+        connector_key="oracle",
+        workspace_id="workspace-step3b",
+        principal_id="user-step3b",
+        configuration={
+            "host": "127.0.0.1",
+            "port": 1521,
+            "serviceName": "FREEPDB1",
+            "schemaAllowlist": ["REPORTING"],
+            "tableAllowlist": ["ORDERS"],
+            "query": "SELECT * FROM REPORTING.ORDERS",
+            "queryParameters": {},
+            "rowLimit": 10,
+            "pageSize": 10,
+            "byteLimit": 10000,
+            "timeoutSeconds": 5,
+        },
+        secret_ref="secret://workspace-step3b/oracle",
+        trace_id="trace-oracle-bound",
+        resource=DiscoveredResource(
+            id="reporting.orders",
+            name="ORDERS",
+            schema_name="REPORTING",
+            resource_type="table",
+        ),
+    )
+
+    result = adapter.read(request)
+
+    assert result.rows == [{"amount": 12}]
+    assert "ROWNUM <= :adapter_limit" in str(captured["statement"])
+    assert captured["parameters"]["adapter_limit"] == 11
+
+
 @pytest.mark.parametrize(
     "connector_key",
     ["oracle", "sqlserver", "clickhouse", "doris", "starrocks", "hive"],

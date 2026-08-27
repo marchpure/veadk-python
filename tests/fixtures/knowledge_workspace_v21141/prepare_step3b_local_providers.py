@@ -11,6 +11,7 @@ def main() -> None:
     from clickhouse_connect import get_client
     from confluent_kafka import Producer
     from confluent_kafka.admin import AdminClient, NewTopic
+    import oracledb
 
     s3 = boto3.client(
         "s3",
@@ -62,9 +63,36 @@ def main() -> None:
     )
     client.command("INSERT INTO knowledge.step3b_events VALUES ('CH-1', 9)")
     client.close()
+    oracle = oracledb.connect(
+        user=os.environ.get("STEP3B_ORACLE_USER", "step3b"),
+        password=os.environ.get("STEP3B_ORACLE_PASSWORD", "Step3bAppPassword1!"),
+        dsn=os.environ.get("STEP3B_ORACLE_DSN", "127.0.0.1:26352/FREEPDB1"),
+    )
+    try:
+        with oracle.cursor() as cursor:
+            try:
+                cursor.execute("DROP TABLE step3b_orders PURGE")
+            except oracledb.DatabaseError as error:
+                if "ORA-00942" not in str(error):
+                    raise
+            cursor.execute(
+                "CREATE TABLE step3b_orders "
+                "(order_id VARCHAR2(32) PRIMARY KEY, amount NUMBER NOT NULL)"
+            )
+            cursor.execute(
+                "INSERT INTO step3b_orders(order_id, amount) VALUES ('O-1', 17)"
+            )
+        oracle.commit()
+    finally:
+        oracle.close()
     print(
         json.dumps(
-            {"s3": bucket, "kafka": topic, "clickhouse": "knowledge.step3b_events"}
+            {
+                "s3": bucket,
+                "kafka": topic,
+                "clickhouse": "knowledge.step3b_events",
+                "oracle": "STEP3B.STEP3B_ORDERS",
+            }
         )
     )
 
