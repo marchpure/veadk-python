@@ -10,6 +10,7 @@ import { hydrateWorkspaceData } from "./data";
 import type {
   WorkspaceMcpProfile,
   WorkspaceTemplateSpec,
+  WorkspaceFormSchema,
 } from "./bootstrapSchema";
 import type { ActionLoopState } from "./actionLoop";
 
@@ -53,10 +54,13 @@ export interface ConnectorDef {
   name: string;
   desc: string;
   capabilities: string[];
-  inputSchema: Record<string, string>;
-  credentialSchema: Record<string, string> | null;
+  inputSchema: WorkspaceFormSchema;
+  credentialSchema: WorkspaceFormSchema;
   discoveryPipeline: string[];
   syncModes: string[];
+  capabilityState?: "available" | "configurable" | "credential_blocked" | "unsupported";
+  reason?: { code: string; message: string; retryable?: boolean };
+  permissions?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
