@@ -18,7 +18,7 @@
     "remote_url": "https://github.com/volcengine/veadk-python.git",
     "branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service",
     "worktree": "/Users/bytedance/.codex/worktrees/knowledge-connection-autoskill-v1-step2b-connection-service",
-    "commit": "579b2a2da6881be134a576dc41253c1bd6301d95",
+    "commit": "82e75923dbf265fc3c02896351bd4bd6525d3625",
     "remote_branch": "feat/knowledge-connection-autoskill-v1-step2b-connection-service (pushed to marchpure)"
   },
   "deployment": {
@@ -63,7 +63,7 @@
     "replaceable persistence, object-storage, secret-storage, and worker-dispatch boundaries"
   ],
   "evidence": {
-    "focused_unit_contract_security": "41 behavior tests across 10 control-plane test files",
+    "focused_unit_contract_security": "control-plane behavior tests include real Chrome, Streamable HTTP, SSE, stdio, security, lifecycle, and persistence coverage",
     "full_upstream_suite": "163 files passed, 1 file skipped; 1467 tests passed, 4 skipped",
     "typecheck": "passed",
     "lint": "passed with deny-warnings",
@@ -91,7 +91,7 @@
     "license_sbom": {
       "apache_license": "LICENSE.txt and NOTICE.md preserved",
       "dependency_audit": "npm audit and npm audit --omit=dev both report zero vulnerabilities",
-      "sbom": "CycloneDX 1.5, 590 components, /tmp/step2b-npm-sbom-current.json, SHA-256 57697cbdcfee5b9d48c27a8a7426f1dd5d907280585b90c90ebe361eaaf30a90",
+      "sbom": "CycloneDX 1.5, 591 components, /tmp/step2b-npm-sbom-final.json, SHA-256 95e704770c07036cb5c9e250e1d86fb231553f52a753240e0fd298c96b072998",
       "evidence_manifest": "docs/connection-service-evidence.json in service worktree"
     }
   },
