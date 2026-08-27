@@ -39,20 +39,41 @@ def _secret(reference: str) -> str | None:
     database_password = os.environ.get("STEP3B_DB_PASSWORD")
     if database_password and reference.startswith("secret://workspace-step3/"):
         connector = reference.rsplit("/", 1)[-1]
-        if connector not in {
+        if connector in {
             "postgresql",
             "mysql",
             "postgresql-wrong",
             "mysql-wrong",
         }:
-            return None
+            return json.dumps(
+                {
+                    "username": "step3b",
+                    "password": (
+                        "definitely-wrong"
+                        if connector.endswith("-wrong")
+                        else database_password
+                    ),
+                },
+                sort_keys=True,
+            )
+    if reference == "secret://workspace-step3/s3":
         return json.dumps(
             {
-                "username": "step3b",
-                "password": (
-                    "definitely-wrong"
-                    if connector.endswith("-wrong")
-                    else database_password
+                "accessKeyId": os.environ.get("STEP3B_MINIO_ACCESS_KEY", "step3badmin"),
+                "secretAccessKey": os.environ.get(
+                    "STEP3B_MINIO_SECRET_KEY", "step3bpassword"
+                ),
+            },
+            sort_keys=True,
+        )
+    if reference == "secret://workspace-step3/kafka":
+        return json.dumps({})
+    if reference == "secret://workspace-step3/clickhouse":
+        return json.dumps(
+            {
+                "username": os.environ.get("STEP3B_CLICKHOUSE_USER", "step3b"),
+                "password": os.environ.get(
+                    "STEP3B_CLICKHOUSE_PASSWORD", "step3bpassword"
                 ),
             },
             sort_keys=True,
@@ -79,6 +100,14 @@ if _profile_id and _server_path and _data_path:
         "outputBytes": 1_000_000,
     }
 
+
+_local_provider_connectors = frozenset(
+    item.strip()
+    for item in os.environ.get("STEP3B_LOCAL_PROVIDER_CONNECTORS", "").split(",")
+    if item.strip()
+)
+
+
 sources_golden = SourceGoldenApplication(
     database_path=_runtime_root / "sources-golden.sqlite3",
     artifact_root=_runtime_root / "artifacts",
@@ -86,6 +115,7 @@ sources_golden = SourceGoldenApplication(
     secret_resolver=_secret,
     network_allow_private_hosts={"127.0.0.1", "localhost"},
     mcp_profiles=_mcp_profiles,
+    verified_provider_connectors=set(_local_provider_connectors),
 )
 application = KnowledgeAssetApplication(
     cast(

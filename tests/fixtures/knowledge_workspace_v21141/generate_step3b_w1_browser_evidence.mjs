@@ -487,6 +487,11 @@ const backendEnvironment = {
   STEP3_MCP_SERVER_PATH: mcpServer,
   STEP3_MCP_DATA_PATH: mcpData,
   STEP3B_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
+  STEP3B_LOCAL_PROVIDER_CONNECTORS: "s3,kafka,clickhouse",
+  STEP3B_MINIO_ACCESS_KEY: "step3badmin",
+  STEP3B_MINIO_SECRET_KEY: "step3bpassword",
+  STEP3B_CLICKHOUSE_USER: "step3b",
+  STEP3B_CLICKHOUSE_PASSWORD: "step3bpassword",
 };
 const databaseFixture = resolve(
   repository,
@@ -524,6 +529,7 @@ const report = {
   mcp: {},
   localSources: {},
   httpSources: {},
+  localProviders: {},
   httpFixture: {},
   context: {},
   databases: { status: "SKIPPED", reason: "STEP3B_DB_PASSWORD not set" },
@@ -560,6 +566,12 @@ try {
     fixtureBuilder.once("exit", resolveExit),
   );
   assert(fixtureExit === 0, "source fixture generation failed");
+  await runFixtureCommand("local-provider-seed", [
+    resolve(
+      repository,
+      "tests/fixtures/knowledge_workspace_v21141/prepare_step3b_local_providers.py",
+    ),
+  ]);
   httpFixture = await startHttpFixture();
   report.httpFixture = {
     implementation: "node:http",
@@ -658,8 +670,8 @@ try {
     return states;
   }, {});
   assert(
-    capabilityStates.available === 14 &&
-      capabilityStates.credential_blocked === 23,
+    capabilityStates.available === 17 &&
+      capabilityStates.credential_blocked === 20,
     `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(
@@ -1248,6 +1260,65 @@ try {
     };
   }
 
+  const providerResults = [];
+  providerResults.push(
+    await createAndIngest({
+      connectorKey: "s3",
+      displayName: "Browser MinIO S3",
+      configuration: {
+        bucket: "step3b-r9",
+        objectPrefix: "golden/",
+        endpoint: "http://127.0.0.1:26344",
+        region: "us-east-1",
+        maxObjects: 10,
+        maxObjectBytes: 100000,
+        timeoutSeconds: 5,
+        maxAttempts: 1,
+      },
+      suffix: "provider-s3",
+      secretRef: "secret://workspace-step3/s3",
+    }),
+  );
+  providerResults.push(
+    await createAndIngest({
+      connectorKey: "kafka",
+      displayName: "Browser Redpanda Kafka",
+      configuration: {
+        bootstrapServers: ["127.0.0.1:26346"],
+        topics: ["step3b-events"],
+        consumerGroup: "step3b-browser-r9",
+        maxMessages: 10,
+        maxMessageBytes: 100000,
+        timeoutSeconds: 5,
+        maxAttempts: 1,
+      },
+      suffix: "provider-kafka",
+      secretRef: "secret://workspace-step3/kafka",
+    }),
+  );
+  providerResults.push(
+    await createAndIngest({
+      connectorKey: "clickhouse",
+      displayName: "Browser ClickHouse",
+      configuration: {
+        host: "127.0.0.1",
+        port: 26350,
+        database: "knowledge",
+        schemaAllowlist: ["knowledge"],
+        tableAllowlist: ["step3b_events"],
+        query: "SELECT * FROM knowledge.step3b_events",
+        queryParameters: {},
+        pageSize: 10,
+        rowLimit: 10,
+        byteLimit: 100000,
+        timeoutSeconds: 5,
+        maxAttempts: 1,
+      },
+      suffix: "provider-clickhouse",
+      secretRef: "secret://workspace-step3/clickhouse",
+    }),
+  );
+
   const privateEndpoint = await page.request.post(
     `${frontendOrigin}/api/knowledge-assets/v1/commands`,
     {
@@ -1521,6 +1592,20 @@ try {
       code: privateEndpointBody.code,
     },
   };
+  report.localProviders = {
+    status: "PASS",
+    seed: {
+      minio: "step3b-r9/golden/orders.json",
+      redpanda: "step3b-events",
+      clickhouse: "knowledge.step3b_events",
+    },
+    cases: providerResults.map((item) => ({
+      connectorKey: item.connectorKey,
+      connectionId: item.connection.id,
+      sourceRevisionId: item.source.id,
+      goldenRevisionId: item.golden.id,
+    })),
+  };
   const traceResults = {
     webhook: webhookTraceEvidence,
     csv: await operationTraceEvidence(localResults[0], [
@@ -1546,6 +1631,15 @@ try {
     ]),
   };
   for (const result of databaseResults) {
+    traceResults[result.connectorKey] = await operationTraceEvidence(result, [
+      "validate",
+      "discover",
+      "read",
+      "checkpoint",
+      "close",
+    ]);
+  }
+  for (const result of providerResults) {
     traceResults[result.connectorKey] = await operationTraceEvidence(result, [
       "validate",
       "discover",

@@ -758,15 +758,25 @@ assert len({item.connector_key for item in BUILTIN_CONNECTORS}) == 37
 
 
 def connector_catalog(
-    *, category: ConnectorCategory | None = None, query: str | None = None
+    *,
+    category: ConnectorCategory | None = None,
+    query: str | None = None,
+    enabled_provider_connectors: frozenset[str] = frozenset(),
 ) -> ConnectorCatalogView:
     return connector_catalog_view(
         BUILTIN_CONNECTORS,
         category=category,
         query=query,
+        enabled_provider_connectors=enabled_provider_connectors,
     )
 
 
-def bootstrap_connector_catalog() -> list[dict[str, object]]:
+def bootstrap_connector_catalog(
+    *,
+    enabled_provider_connectors: frozenset[str] = frozenset(),
+) -> list[dict[str, object]]:
     """Project the typed catalog into the frozen Workspace bootstrap shape."""
-    return bootstrap_catalog(BUILTIN_CONNECTORS)
+    return bootstrap_catalog(
+        BUILTIN_CONNECTORS,
+        enabled_provider_connectors=enabled_provider_connectors,
+    )

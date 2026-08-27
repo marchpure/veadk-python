@@ -52,7 +52,11 @@ _MCP_BROWSER_SCHEMA = FormSchema(
 )
 
 
-def _public_definition(definition: ConnectorDefinition) -> ConnectorDefinition:
+def _public_definition(
+    definition: ConnectorDefinition,
+    *,
+    enabled_provider_connectors: frozenset[str] = frozenset(),
+) -> ConnectorDefinition:
     """Remove server-only MCP execution settings from browser-facing catalogs."""
     updates: dict[str, object] = {}
     if definition.connector_key == "mcp_custom":
@@ -62,7 +66,10 @@ def _public_definition(definition: ConnectorDefinition) -> ConnectorDefinition:
                 "credential_schema": FormSchema(properties={}),
             }
         )
-    if definition.connector_key not in _LOCAL_PROTOCOL_CONNECTORS:
+    if (
+        definition.connector_key not in _LOCAL_PROTOCOL_CONNECTORS
+        and definition.connector_key not in enabled_provider_connectors
+    ):
         updates.update(
             {
                 "capability_state": "credential_blocked",
@@ -83,10 +90,14 @@ def connector_catalog_view(
     *,
     category: ConnectorCategory | None = None,
     query: str | None = None,
+    enabled_provider_connectors: frozenset[str] = frozenset(),
 ) -> ConnectorCatalogView:
     normalized = (query or "").strip().casefold()
     rows = [
-        _public_definition(item)
+        _public_definition(
+            item,
+            enabled_provider_connectors=enabled_provider_connectors,
+        )
         for item in connectors
         if (category is None or item.category == category)
         and (
@@ -115,6 +126,8 @@ def connector_catalog_view(
 
 def bootstrap_catalog(
     connectors: Sequence[ConnectorDefinition],
+    *,
+    enabled_provider_connectors: frozenset[str] = frozenset(),
 ) -> list[dict[str, object]]:
     return [
         {
@@ -141,5 +154,10 @@ def bootstrap_catalog(
             ),
         }
         for raw_definition in connectors
-        for definition in [_public_definition(raw_definition)]
+        for definition in [
+            _public_definition(
+                raw_definition,
+                enabled_provider_connectors=enabled_provider_connectors,
+            )
+        ]
     ]

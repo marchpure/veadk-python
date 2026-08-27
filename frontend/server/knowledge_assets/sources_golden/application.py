@@ -127,6 +127,7 @@ class SourceGoldenApplication:
         mcp_profiles: dict[str, dict[str, object]] | None = None,
         network_allow_private_hosts: set[str] | None = None,
         http_transport=None,
+        verified_provider_connectors: set[str] | None = None,
     ) -> None:
         self.database_path = Path(database_path)
         self.artifact_root = Path(artifact_root)
@@ -141,6 +142,9 @@ class SourceGoldenApplication:
         self._web_resolver = web_resolver
         self._network_allow_private_hosts = set(network_allow_private_hosts or ())
         self._provider_execution_enabled = secret_resolver is not None
+        self._verified_provider_connectors = frozenset(
+            verified_provider_connectors or ()
+        )
         self._secret_resolver = secret_resolver or (lambda _ref: None)
         self._http_transport = SecureHttpTransport(
             resolver=web_resolver,
@@ -325,7 +329,11 @@ class SourceGoldenApplication:
         query: str | None = None,
     ) -> ConnectorCatalogView:
         del context
-        return connector_catalog(category=category, query=query)
+        return connector_catalog(
+            category=category,
+            query=query,
+            enabled_provider_connectors=self._verified_provider_connectors,
+        )
 
     def connector_adapters(self) -> Mapping[str, ConnectorAdapter]:
         """Return the immutable server registry used for all 37 catalog keys."""
@@ -355,9 +363,17 @@ class SourceGoldenApplication:
             certification = self._connector_registry[
                 definition.connector_key
             ].certification
-            external_blocked = definition.connector_key not in locally_verified
+            provider_verified = (
+                definition.connector_key in self._verified_provider_connectors
+            )
+            external_blocked = (
+                definition.connector_key not in locally_verified
+                and not provider_verified
+            )
             verification_category = (
-                "LOCAL_PROTOCOL_VERIFIED"
+                "LIVE_VERIFIED"
+                if provider_verified
+                else "LOCAL_PROTOCOL_VERIFIED"
                 if definition.connector_key in locally_verified
                 else "CREDENTIAL_BLOCKED"
             )
@@ -367,7 +383,10 @@ class SourceGoldenApplication:
                     category=definition.category,
                     capability_state=(
                         definition.capability_state
-                        if definition.connector_key in _LOCAL_PROTOCOL_CONNECTORS
+                        if (
+                            definition.connector_key in _LOCAL_PROTOCOL_CONNECTORS
+                            or provider_verified
+                        )
                         else "credential_blocked"
                     ),
                     permissions=definition.permissions,
@@ -391,6 +410,8 @@ class SourceGoldenApplication:
                         credential_state=(
                             "external_blocked"
                             if external_blocked
+                            else "available"
+                            if provider_verified
                             else "not_required"
                         ),
                         blocker=(
@@ -412,7 +433,10 @@ class SourceGoldenApplication:
     ) -> AddDataView:
         catalog = self.connector_catalog(context)
         selected = (
-            _public_definition(self._definition(connector_key))
+            _public_definition(
+                self._definition(connector_key),
+                enabled_provider_connectors=self._verified_provider_connectors,
+            )
             if connector_key is not None
             else None
         )
@@ -442,7 +466,9 @@ class SourceGoldenApplication:
                 for asset in overview.golden_assets
             ],
             "workspaceData": {
-                "connectorCatalog": bootstrap_connector_catalog(),
+                "connectorCatalog": bootstrap_connector_catalog(
+                    enabled_provider_connectors=self._verified_provider_connectors,
+                ),
                 "mcpProfileCatalog": self.mcp_profile_catalog(),
             },
         }
