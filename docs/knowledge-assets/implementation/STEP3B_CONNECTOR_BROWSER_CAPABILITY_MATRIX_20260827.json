@@ -7606,6 +7606,28 @@
     "UNSUPPORTED": 0
   },
   "browserEvidencePath": ".codex/coordination/knowledge-step3b-integration/CONNECTOR_BROWSER_EVIDENCE_20260827_R15_HIVE.json",
+  "providerAvailabilityAudit": {
+    "generatedAt": "2026-08-27T16:00:00+08:00",
+    "classificationChanged": false,
+    "sessionOwnedTargets": [
+      "minio:s3",
+      "redpanda:kafka",
+      "clickhouse",
+      "oracle",
+      "sqlserver",
+      "starrocks",
+      "doris",
+      "hive"
+    ],
+    "externalTargetsUnavailable": [
+      "oss",
+      "snowflake",
+      "bigquery",
+      "lark"
+    ],
+    "policy": "Do not substitute MinIO for Aliyun OSS or local protocol fixtures for external provider credentials.",
+    "evidence": "R9 follow-up audit: no new target-specific provider or official Sandbox credentials were available; existing classifications remain authoritative."
+  },
   "targetProviderProbes": {
     "generatedAt": "2026-08-27T14:40:00+08:00",
     "scope": "R9-next-local-provider-probe",

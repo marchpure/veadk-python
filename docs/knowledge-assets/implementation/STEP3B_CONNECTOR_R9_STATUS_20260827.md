@@ -85,5 +85,25 @@ unlock steps are recorded in `targetProviderProbes` in the authoritative
 matrix. No unstarted or substitute service is counted as a verification.
 
 Focused provider tests: `.venv/bin/pytest`
-(`test_step3b_provider_adapters.py`) — 48 passed. The complete prior
-connector suite remains 109 passed at R13.
+(`test_step3b_provider_adapters.py`) — 51 passed. The current combined
+connector adapter, provider, Lark, HTTP API, and source-golden focused suite
+is 159 passed. The separate BFF/authoring regression remains 107 passed.
+
+## R9 follow-up provider availability audit
+
+The session-owned local targets currently available are the same targets
+already represented in the matrix: MinIO for the S3 connector, Redpanda for
+Kafka, and target-specific ClickHouse, Oracle, SQL Server, StarRocks, Doris,
+and Hive services. No new target-specific Aliyun OSS, Snowflake, BigQuery, or
+Feishu provider/Sandbox credentials are present in this session.
+
+Therefore no credential classification is changed by this follow-up:
+
+- Aliyun OSS remains `CREDENTIAL_BLOCKED`; MinIO/S3 evidence is not substituted.
+- Snowflake remains `CREDENTIAL_BLOCKED` pending an account, warehouse,
+  database/schema, read-only role, and server-side `secretRef`.
+- BigQuery remains `CREDENTIAL_BLOCKED` pending a test project/service-account
+  or workload-identity `secretRef`, dataset access, and read-session
+  permissions.
+- All ten Feishu connectors remain `CREDENTIAL_BLOCKED` pending a real tenant
+  app credential, server-side `secretRef`, and connector-specific scopes.
