@@ -658,8 +658,8 @@ try {
     return states;
   }, {});
   assert(
-    capabilityStates.available === 16 &&
-      capabilityStates.credential_blocked === 21,
+    capabilityStates.available === 14 &&
+      capabilityStates.credential_blocked === 23,
     `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(

@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "knowledge-assets.step3b.connector-browser-evidence-summary.v1",
+  "validationScope": "production-real-bff",
+  "productionPass": true,
+  "sourceReport": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser-evidence.json",
+  "runtimeDirectory": "/tmp/step3b-p0-connector-matrix-20260827-r8",
+  "catalog": {
+    "total": 37,
+    "categoryCounts": {
+      "office": 10,
+      "file": 8,
+      "db": 11,
+      "api": 5,
+      "custom": 3
+    },
+    "capabilityStates": {
+      "available": 14,
+      "credential_blocked": 23
+    },
+    "enteredFromSidebarPlus": true
+  },
+  "localProtocolJourneys": {
+    "status": "PASS",
+    "connectors": [
+      "csv",
+      "excel",
+      "json",
+      "parquet",
+      "doc_txt",
+      "local_file",
+      "sqlite",
+      "rest_api",
+      "graphql",
+      "web_discovery",
+      "webhook",
+      "mcp_custom",
+      "custom_http",
+      "openapi_spec"
+    ],
+    "browserConsoleErrors": 0,
+    "contextAddedThroughVisibleUi": true
+  },
+  "databaseJourneys": {
+    "status": "PASS",
+    "provider": {
+      "postgresql": "PostgreSQL 16.15",
+      "mysql": "MySQL 8.4.11"
+    },
+    "cases": [
+      {
+        "connectorKey": "postgresql",
+        "port": 26342,
+        "connectionId": "connection-b6121b8ef87d679fdd202286",
+        "sourceRevisionId": "source-2a28a7ad0fdfe1fdbb01f324",
+        "initialGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r1-409bc179",
+        "refreshedGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r2-2bee477a",
+        "schemaDriftStatus": "schema_drift",
+        "negativeCases": [
+          "wrong_password",
+          "write_sql",
+          "row_limit"
+        ]
+      },
+      {
+        "connectorKey": "mysql",
+        "port": 26343,
+        "connectionId": "connection-9905b261f0b635a0a82b86e3",
+        "sourceRevisionId": "source-09db740fcf5f5002df0bd23e",
+        "initialGoldenRevisionId": "golden-5c3020525269f772c82b4772-r1-409bc179",
+        "refreshedGoldenRevisionId": "golden-5c3020525269f772c82b4772-r2-2bee477a",
+        "schemaDriftStatus": "schema_drift",
+        "negativeCases": [
+          "wrong_password",
+          "write_sql",
+          "row_limit"
+        ]
+      }
+    ]
+  },
+  "httpJourneys": {
+    "status": "PASS",
+    "restGoldenRevision": "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338",
+    "openapiGoldenRevision": "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
+    "openapiRefresh": "schema_drift",
+    "ssrfStatus": 422,
+    "timeoutStatus": 422,
+    "oversizedStatus": 422
+  },
+  "mcpJourney": {
+    "status": "PASS",
+    "connectionId": "connection-332bdc0e37bafa1c549bb327",
+    "sourceRevisionId": "source-5f8fe0fbd7d4b11017df7acd",
+    "goldenRevisionId": "golden-8d15227921ab30756423ca09-r1-9f6ee516",
+    "processesReaped": true,
+    "toolDiscoveryAndCall": true
+  },
+  "contextAndRecovery": {
+    "status": "PASS",
+    "crossWorkspaceStatus": 404,
+    "forgedReferenceStatus": 422,
+    "browserRefresh": "PASS",
+    "bffRestart": "PASS"
+  },
+  "externalCredentials": {
+    "status": "CREDENTIAL_BLOCKED",
+    "count": 23,
+    "connectors": [
+      "lark_doc",
+      "lark_wiki",
+      "lark_drive",
+      "lark_meeting",
+      "lark_minutes",
+      "lark_group",
+      "lark_chat",
+      "lark_sheet",
+      "lark_base",
+      "lark_mail",
+      "s3",
+      "oss",
+      "oracle",
+      "sqlserver",
+      "clickhouse",
+      "doris",
+      "starrocks",
+      "snowflake",
+      "bigquery",
+      "hive",
+      "kafka",
+      "postgresql",
+      "mysql"
+    ],
+    "note": "PostgreSQL/MySQL have live provider evidence in this isolated run, but remain credential_blocked in the empty acceptance workspace until a server-side secretRef is configured."
+  },
+  "artifacts": {
+    "report": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser-evidence.json",
+    "har": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser.har",
+    "console": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser-console.json",
+    "serverLog": "/tmp/step3b-p0-connector-matrix-20260827-r8/server.log",
+    "mcpTranscript": "/tmp/step3b-p0-connector-matrix-20260827-r8/mcp-transcript.json"
+  }
+}
