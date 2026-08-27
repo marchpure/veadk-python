@@ -749,6 +749,37 @@ try {
         .getByRole("heading", { name: new RegExp(`暂不可配置：${connector.name}`) })
         .first()
         .waitFor();
+      const renderedInputFields = await page
+        .locator('[data-connector-schema="input"]')
+        .evaluateAll((elements) =>
+          [
+            ...new Set(
+              elements
+                .map((element) => element.getAttribute("data-connector-field"))
+                .filter((value) => Boolean(value)),
+            ),
+          ],
+        );
+      const expectedInputFields = Object.keys(connector.inputSchema.properties);
+      assert(
+        JSON.stringify(renderedInputFields.sort()) ===
+          JSON.stringify(expectedInputFields.sort()),
+        `${connector.connectorKey} blocked form did not render the complete input schema`,
+      );
+      const renderedCredentialFields = await page
+        .locator('[data-connector-schema="credential"]')
+        .evaluateAll((elements) =>
+          [
+            ...new Set(
+              elements
+                .map((element) => element.getAttribute("data-connector-field"))
+                .filter((value) => Boolean(value)),
+            ),
+          ],
+        );
+      const expectedCredentialFields = Object.keys(
+        connector.credentialSchema?.properties ?? {},
+      );
       const blockedScreenshot = resolve(
         runtimeDirectory,
         `connector-${String(index + 1).padStart(2, "0")}-${connector.connectorKey}.png`,
@@ -762,10 +793,14 @@ try {
         descriptionPresent: Boolean(connector.desc),
         capabilityState: connector.capabilityState,
         capabilityStateSource: "browser-received server bootstrap",
-        inputFields: Object.keys(connector.inputSchema.properties),
-        renderedInputLabels: [],
-        credentialFields: Object.keys(connector.credentialSchema?.properties ?? {}),
-        renderedCredentialLabels: [],
+        inputFields: expectedInputFields,
+        renderedInputLabels: renderedInputFields,
+        credentialFields: expectedCredentialFields,
+        renderedCredentialLabels: renderedCredentialFields,
+        schemaContract: {
+          input: connector.inputSchema,
+          credential: connector.credentialSchema,
+        },
         screenshot: blockedScreenshot,
         status: "CREDENTIAL_BLOCKED",
       });
@@ -843,6 +878,10 @@ try {
       renderedInputLabels: labels,
       credentialFields,
       renderedCredentialLabels: credentialLabels,
+      schemaContract: {
+        input: connector.inputSchema,
+        credential: connector.credentialSchema,
+      },
       screenshot,
       status: "PASS",
     });

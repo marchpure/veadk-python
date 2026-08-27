@@ -150,9 +150,88 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isFormSchema(value: unknown): value is WorkspaceFormSchema {
   if (!isRecord(value) || !isRecord(value.properties)) return false;
+  if (
+    value.required !== undefined &&
+    (!Array.isArray(value.required) ||
+      !value.required.every((item) => typeof item === "string") ||
+      value.required.some((item) => !(item in value.properties)))
+  ) {
+    return false;
+  }
   return Object.values(value.properties).every((field) => {
     if (!isRecord(field) || typeof field.type !== "string" || typeof field.title !== "string") return false;
+    if (
+      field.required !== undefined &&
+      typeof field.required !== "boolean"
+    ) {
+      return false;
+    }
+    if (
+      field.description !== undefined &&
+      field.description !== null &&
+      typeof field.description !== "string"
+    ) {
+      return false;
+    }
+    if (
+      field.default !== undefined &&
+      field.default !== null &&
+      !["string", "number", "boolean"].includes(typeof field.default) &&
+      !(
+        Array.isArray(field.default) &&
+        field.default.every((item) => typeof item === "string")
+      )
+    ) {
+      return false;
+    }
     if (field.options !== undefined && (!Array.isArray(field.options) || !field.options.every((item) => typeof item === "string"))) return false;
+    if (
+      field.secretReference !== undefined &&
+      typeof field.secretReference !== "boolean"
+    ) {
+      return false;
+    }
+    if (
+      field.format !== undefined &&
+      field.format !== null &&
+      typeof field.format !== "string"
+    ) {
+      return false;
+    }
+    if (
+      field.min !== undefined &&
+      field.min !== null &&
+      (typeof field.min !== "number" || !Number.isFinite(field.min))
+    ) {
+      return false;
+    }
+    if (
+      field.max !== undefined &&
+      field.max !== null &&
+      (typeof field.max !== "number" || !Number.isFinite(field.max))
+    ) {
+      return false;
+    }
+    if (
+      field.min !== undefined &&
+      field.max !== undefined &&
+      field.min > field.max
+    ) {
+      return false;
+    }
+    if (
+      field.conditional !== undefined &&
+      field.conditional !== null &&
+      (!isRecord(field.conditional) ||
+        Object.values(field.conditional).some(
+          (item) =>
+            !["string", "number", "boolean"].includes(typeof item) &&
+            item !== null &&
+            !Array.isArray(item),
+        ))
+    ) {
+      return false;
+    }
     return true;
   });
 }

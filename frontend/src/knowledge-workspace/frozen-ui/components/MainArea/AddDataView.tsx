@@ -342,7 +342,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     ].filter(Boolean).join(' · ');
     if (type === 'file') {
       return (
-        <div key={key} className="col-span-2">
+        <div key={key} data-connector-field={key} className="col-span-2">
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
           <div className="border border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors cursor-pointer relative bg-white">
             <input
@@ -364,7 +364,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     }
     if (type === 'select') {
       return (
-        <div key={key}>
+        <div key={key} data-connector-field={key}>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
           <select value={formData[key] ?? String(field.default ?? '')} onChange={e=>setFormData(p=>({...p, [key]: e.target.value}))} className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white">
             {!required && <option value="">请选择...</option>}
@@ -376,7 +376,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     }
     if (field.secretReference) {
       return (
-        <div key={key} className="col-span-2 flex items-center justify-between bg-white border border-slate-200 p-4 rounded-lg">
+        <div key={key} data-connector-field={key} className="col-span-2 flex items-center justify-between bg-white border border-slate-200 p-4 rounded-lg">
           <div className="flex items-center">
             <ShieldCheck size={20} className="text-green-500 mr-3" />
             <div>
@@ -390,7 +390,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     }
     if (type === 'boolean') {
       return (
-        <label key={key} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
+        <label key={key} data-connector-field={key} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
           <input
             type="checkbox"
             checked={formData[key] === true || (formData[key] === undefined && field.default === true)}
@@ -406,7 +406,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
     }
     if (type === 'string_array' || type === 'object') {
       return (
-        <div key={key} className="col-span-2">
+        <div key={key} data-connector-field={key} className="col-span-2">
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
           <textarea
             value={String(formData[key] ?? (Array.isArray(field.default) ? field.default.join(', ') : field.default ?? ''))}
@@ -419,7 +419,7 @@ const WizardForm = ({ sourceObj, showToast, handleClose }: { sourceObj: Connecto
       );
     }
     return (
-      <div key={key} className={key.includes('url') || key.includes('endpoint') ? 'col-span-2' : ''}>
+      <div key={key} data-connector-field={key} className={key.includes('url') || key.includes('endpoint') ? 'col-span-2' : ''}>
         <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}{required ? ' *' : ''}</label>
         <input
           type={type === 'integer' || type === 'number' ? 'number' : type === 'url' ? 'url' : 'text'}
@@ -727,7 +727,7 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
                    <div className="mb-3 text-xs font-bold uppercase tracking-wide text-amber-900">服务端配置契约</div>
                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                      {Object.entries(currentSourceObj.inputSchema?.properties ?? {}).map(([key, field]) => (
-                       <div key={key} className="rounded-lg border border-slate-200 bg-white p-3">
+                       <div key={key} data-connector-schema="input" data-connector-field={key} className="rounded-lg border border-slate-200 bg-white p-3">
                          <div className="text-sm font-semibold text-slate-800">
                            {field.title || key}
                            {(field.required || currentSourceObj.inputSchema.required?.includes(key)) && <span className="ml-1 text-rose-600">*</span>}
@@ -745,7 +745,7 @@ export default function AddDataView({ searchParams, setSearchParams, showToast }
                      <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                        <div className="text-sm font-semibold text-amber-900">授权方式</div>
                        {Object.entries(currentSourceObj.credentialSchema.properties).map(([key, field]) => (
-                         <div key={key} className="mt-1 text-xs text-amber-800">
+                         <div key={key} data-connector-schema="credential" data-connector-field={key} className="mt-1 text-xs text-amber-800">
                            {field.title || key}：{field.description || '需由服务端 secret store 提供引用'}
                          </div>
                        ))}

@@ -1,0 +1,1689 @@
+{
+  "schemaVersion": "knowledge-assets.step3b.w1-browser-evidence.v1",
+  "generatedAt": "2026-08-27T03:18:54.408Z",
+  "repository": "/Users/bytedance/.codex/worktrees/knowledge-step3b-integration",
+  "runtimeDirectory": "/tmp/step3b-p0-connector-matrix-20260827-r8",
+  "ports": {
+    "bff": 62833,
+    "vite": 62834
+  },
+  "status": "PASS",
+  "catalog": {
+    "total": 37,
+    "categoryCounts": {
+      "office": 10,
+      "file": 8,
+      "db": 11,
+      "api": 5,
+      "custom": 3
+    },
+    "capabilityStates": {
+      "credential_blocked": 23,
+      "available": 14
+    },
+    "source": "GET /api/knowledge-assets/v1/bootstrap",
+    "enteredFromSidebarPlus": true
+  },
+  "connectorUiAudit": [
+    {
+      "connectorKey": "lark_doc",
+      "category": "office",
+      "name": "飞书文档",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "documentRef",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-01-lark_doc.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_wiki",
+      "category": "office",
+      "name": "飞书知识库 Wiki",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "wikiRef",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-02-lark_wiki.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_drive",
+      "category": "office",
+      "name": "飞书云盘",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "folderRef",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-03-lark_drive.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_meeting",
+      "category": "office",
+      "name": "飞书会议",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "calendarRef",
+        "dateFrom",
+        "dateTo",
+        "attendees",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-04-lark_meeting.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_minutes",
+      "category": "office",
+      "name": "飞书妙记",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "minutesRef",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-05-lark_minutes.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_group",
+      "category": "office",
+      "name": "飞书群聊/话题消息",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "chatRef",
+        "timeRange",
+        "includeAttachments",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-06-lark_group.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_chat",
+      "category": "office",
+      "name": "单聊记录",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "chatRef",
+        "timeRange",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-07-lark_chat.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_sheet",
+      "category": "office",
+      "name": "飞书电子表格",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sheetRef",
+        "sheetName",
+        "cellRange",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-08-lark_sheet.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_base",
+      "category": "office",
+      "name": "飞书多维表格 Base",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "appRef",
+        "tableRef",
+        "viewRef",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-09-lark_base.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "lark_mail",
+      "category": "office",
+      "name": "飞书邮件",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "folder",
+        "query",
+        "scopeRef",
+        "apiBaseUrl",
+        "pageSize",
+        "maxPages",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-10-lark_mail.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "csv",
+      "category": "file",
+      "name": "CSV",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "CSV file",
+        "Maximum retry attempts",
+        "CSV file",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-11-csv.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "excel",
+      "category": "file",
+      "name": "Excel",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "sheetAllowlist",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Excel file",
+        "Sheets",
+        "Maximum retry attempts",
+        "Excel file",
+        "Sheets",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-12-excel.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "json",
+      "category": "file",
+      "name": "JSON",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxDepth",
+        "maxRows",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "JSON file",
+        "Maximum nesting depth",
+        "Maximum records",
+        "Maximum retry attempts",
+        "JSON file",
+        "Maximum nesting depth",
+        "Maximum records",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-13-json.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "parquet",
+      "category": "file",
+      "name": "Parquet",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxRows",
+        "maxColumns",
+        "maxUncompressedBytes",
+        "maxNestingDepth",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Parquet file",
+        "Maximum records",
+        "Maximum columns",
+        "Maximum uncompressed bytes",
+        "Maximum schema nesting depth",
+        "Maximum retry attempts",
+        "Parquet file",
+        "Maximum records",
+        "Maximum columns",
+        "Maximum uncompressed bytes",
+        "Maximum schema nesting depth",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-14-parquet.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "doc_txt",
+      "category": "file",
+      "name": "PDF/Markdown/TXT/HTML",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxTextChars",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "PDF, Markdown, TXT, or HTML file",
+        "Maximum extracted characters",
+        "Maximum retry attempts",
+        "PDF, Markdown, TXT, or HTML file",
+        "Maximum extracted characters",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-15-doc_txt.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "local_file",
+      "category": "file",
+      "name": "本地 Markdown",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Markdown file",
+        "Maximum retry attempts",
+        "Markdown file",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-16-local_file.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "s3",
+      "category": "file",
+      "name": "AWS S3",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "bucket",
+        "objectPrefix",
+        "region",
+        "endpoint",
+        "maxObjects",
+        "maxObjectBytes",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-17-s3.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "oss",
+      "category": "file",
+      "name": "Aliyun OSS",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "bucket",
+        "objectPrefix",
+        "endpoint",
+        "region",
+        "maxObjects",
+        "maxObjectBytes",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-18-oss.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "postgresql",
+      "category": "db",
+      "name": "PostgreSQL",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-19-postgresql.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "mysql",
+      "category": "db",
+      "name": "MySQL",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-20-mysql.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "oracle",
+      "category": "db",
+      "name": "Oracle",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "serviceName",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-21-oracle.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "sqlserver",
+      "category": "db",
+      "name": "SQL Server",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-22-sqlserver.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "sqlite",
+      "category": "db",
+      "name": "SQLite",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "sourceRef",
+        "tableAllowlist",
+        "query",
+        "rowLimit",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "SQLite database",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Maximum rows",
+        "Maximum retry attempts",
+        "SQLite database",
+        "Allowed tables",
+        "Read-only parameterized query",
+        "Maximum rows",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-23-sqlite.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "clickhouse",
+      "category": "db",
+      "name": "ClickHouse",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-24-clickhouse.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "doris",
+      "category": "db",
+      "name": "Doris",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-25-doris.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "starrocks",
+      "category": "db",
+      "name": "StarRocks",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-26-starrocks.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "snowflake",
+      "category": "db",
+      "name": "Snowflake",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "account",
+        "warehouse",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-27-snowflake.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "bigquery",
+      "category": "db",
+      "name": "BigQuery",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "projectId",
+        "datasetId",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-28-bigquery.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "hive",
+      "category": "db",
+      "name": "Hive",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "host",
+        "port",
+        "database",
+        "schemaAllowlist",
+        "tableAllowlist",
+        "query",
+        "queryParameters",
+        "pageSize",
+        "rowLimit",
+        "byteLimit",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-29-hive.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "rest_api",
+      "category": "api",
+      "name": "REST / OpenAPI",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "endpoint",
+        "operationAllowlist",
+        "paginationMode",
+        "pageSize",
+        "maxPages",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "termsRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Endpoint",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts",
+        "Endpoint",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Endpoint",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-30-rest_api.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "graphql",
+      "category": "api",
+      "name": "GraphQL",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "endpoint",
+        "query",
+        "operationAllowlist",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Endpoint",
+        "Query",
+        "Allowed operations",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts",
+        "Endpoint",
+        "Query",
+        "Allowed operations",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Endpoint",
+        "Query",
+        "Allowed operations",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-31-graphql.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "web_discovery",
+      "category": "api",
+      "name": "Web API Discovery",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "endpoint",
+        "operationAllowlist",
+        "paginationMode",
+        "pageSize",
+        "maxPages",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "termsRef",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Target URL",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts",
+        "Target URL",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Target URL",
+        "Allowed operations",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Terms reference",
+        "Maximum retry attempts"
+      ],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-32-web_discovery.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "webhook",
+      "category": "api",
+      "name": "Webhook",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "listenPath",
+        "schemaRef",
+        "maxEventBytes",
+        "maxEvents",
+        "rateLimitPerMinute",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Listener path",
+        "Payload schema reference",
+        "Maximum event bytes",
+        "Maximum retained events",
+        "Maximum deliveries per minute",
+        "Maximum retry attempts",
+        "Listener path",
+        "Payload schema reference",
+        "Maximum event bytes",
+        "Maximum retained events",
+        "Maximum deliveries per minute",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Listener path",
+        "Payload schema reference",
+        "Maximum event bytes",
+        "Maximum retained events",
+        "Maximum deliveries per minute",
+        "Maximum retry attempts"
+      ],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-33-webhook.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "kafka",
+      "category": "api",
+      "name": "Kafka",
+      "descriptionPresent": true,
+      "capabilityState": "credential_blocked",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "bootstrapServers",
+        "topics",
+        "consumerGroup",
+        "maxMessages",
+        "maxMessageBytes",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-34-kafka.png",
+      "status": "CREDENTIAL_BLOCKED"
+    },
+    {
+      "connectorKey": "mcp_custom",
+      "category": "custom",
+      "name": "MCP Server",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "profileId"
+      ],
+      "renderedInputLabels": [
+        "服务端 MCP Profile",
+        "服务端 MCP Profile"
+      ],
+      "credentialFields": [],
+      "renderedCredentialLabels": [],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-35-mcp_custom.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "custom_http",
+      "category": "custom",
+      "name": "自定义 HTTP Connector",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "name",
+        "endpoint",
+        "operationAllowlist",
+        "method",
+        "paginationMode",
+        "pageSize",
+        "maxPages",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "refreshSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "Definition name",
+        "Base URL",
+        "Allowed operations",
+        "Method",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts",
+        "Definition name",
+        "Base URL",
+        "Allowed operations",
+        "Method",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "Definition name",
+        "Base URL",
+        "Allowed operations",
+        "Method",
+        "Pagination",
+        "Page size",
+        "Maximum pages",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Refresh interval",
+        "Maximum retry attempts"
+      ],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-36-custom_http.png",
+      "status": "PASS"
+    },
+    {
+      "connectorKey": "openapi_spec",
+      "category": "custom",
+      "name": "上传 OpenAPI Spec",
+      "descriptionPresent": true,
+      "capabilityState": "available",
+      "capabilityStateSource": "browser-received server bootstrap",
+      "inputFields": [
+        "specRef",
+        "operationAllowlist",
+        "serverUrl",
+        "maxRows",
+        "maxResponseBytes",
+        "rateLimitPerMinute",
+        "timeoutSeconds",
+        "maxAttempts"
+      ],
+      "renderedInputLabels": [
+        "OpenAPI YAML or JSON",
+        "Allowed operations",
+        "Server URL override",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Maximum retry attempts",
+        "OpenAPI YAML or JSON",
+        "Allowed operations",
+        "Server URL override",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "credentialFields": [
+        "secretRef"
+      ],
+      "renderedCredentialLabels": [
+        "OpenAPI YAML or JSON",
+        "Allowed operations",
+        "Server URL override",
+        "Maximum records",
+        "Maximum response bytes",
+        "Maximum requests per minute",
+        "Request timeout in seconds",
+        "Maximum retry attempts"
+      ],
+      "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-37-openapi_spec.png",
+      "status": "PASS"
+    }
+  ],
+  "mcp": {
+    "profileId": "browser-official-sdk",
+    "createAccepted": true,
+    "ingestAccepted": true,
+    "connectionId": "connection-332bdc0e37bafa1c549bb327",
+    "discoveredResources": [
+      {
+        "id": "mcp-tool-42d01c0892083109e8ef4d27",
+        "name": "infrastructure.metrics",
+        "resourceType": "tool",
+        "schemaName": null,
+        "rowCount": null,
+        "fields": [],
+        "inputSchema": {
+          "properties": {
+            "service": {
+              "default": "all",
+              "title": "Service",
+              "type": "string"
+            }
+          },
+          "title": "infrastructure_metricsArguments",
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "title": "infrastructure_metricsDictOutput",
+          "type": "object"
+        },
+        "permission": "read"
+      }
+    ],
+    "sourceRevisionId": "source-5f8fe0fbd7d4b11017df7acd",
+    "sourceDigest": "82a2482fde92c8e6ca22f2cc46b937a94fb98c20406ee8fef0bf9b53a0330fe8",
+    "goldenRevisionId": "golden-8d15227921ab30756423ca09-r1-9f6ee516",
+    "goldenOutputDigest": "9f6ee516eaa2dd1867f15f7fafdf0cb9f49c62fb845745d03b130d4eae7ebbe7",
+    "browserSubmittedExecutionFields": false,
+    "processTraces": [
+      {
+        "pid": 13637,
+        "status": "succeeded",
+        "shutdownMode": "stdio_eof",
+        "processReaped": true,
+        "exchangeMethods": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "shutdown",
+          "stdio/eof"
+        ]
+      },
+      {
+        "pid": 13645,
+        "status": "succeeded",
+        "shutdownMode": "stdio_eof",
+        "processReaped": true,
+        "exchangeMethods": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "tools/call",
+          "shutdown",
+          "stdio/eof"
+        ]
+      }
+    ],
+    "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/06-mcp-ingested.png"
+  },
+  "localSources": {
+    "status": "PASS",
+    "cases": [
+      {
+        "connectorKey": "csv",
+        "connectionId": "connection-3f608c7b4dd28156d753e096",
+        "sourceRevisionId": "source-71de1bcfe4c1b7824c0b10bd",
+        "goldenRevisionId": "golden-6764882ad63609219b7ec383-r1-83f212ba"
+      },
+      {
+        "connectorKey": "excel",
+        "connectionId": "connection-9e31458594efcca2d3b9fb68",
+        "sourceRevisionId": "source-39363e423efa9d755b99a1af",
+        "goldenRevisionId": "golden-7caa420d739f0bfc2dc449e6-r1-83f212ba"
+      },
+      {
+        "connectorKey": "json",
+        "connectionId": "connection-19b74f9d682c021b6834d498",
+        "sourceRevisionId": "source-28c5532c5e12bad034f0eb40",
+        "goldenRevisionId": "golden-b302c3092b976e5a85eb4c38-r1-83f212ba"
+      },
+      {
+        "connectorKey": "parquet",
+        "connectionId": "connection-f87eabb83e166b94bbfee698",
+        "sourceRevisionId": "source-9bde5fe3ff44d81e0ef902f6",
+        "goldenRevisionId": "golden-e9ac4194b697e9bebcec228d-r1-83f212ba"
+      },
+      {
+        "connectorKey": "doc_txt",
+        "connectionId": "connection-2e3d89ee296c257433390e2a",
+        "sourceRevisionId": "source-afe0e7a06d48ef16a02e63a2",
+        "goldenRevisionId": "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213"
+      },
+      {
+        "connectorKey": "local_file",
+        "connectionId": "connection-38848b3fe8f758d245d8c845",
+        "sourceRevisionId": "source-816957c6f28662c63a7d7167",
+        "goldenRevisionId": "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29"
+      },
+      {
+        "connectorKey": "doc_txt",
+        "connectionId": "connection-706b7cf69dc137fe70ea27f7",
+        "sourceRevisionId": "source-231915cae385164fcfb307fa",
+        "goldenRevisionId": "golden-df935ba99a890e6d4c5e9920-r1-71d78a48"
+      },
+      {
+        "connectorKey": "doc_txt",
+        "connectionId": "connection-f11b672051c96a34a0d96100",
+        "sourceRevisionId": "source-b8658d6cc3c6966fc012c9ab",
+        "goldenRevisionId": "golden-15af3085706502ef74c54aa9-r1-9d4db370"
+      },
+      {
+        "connectorKey": "sqlite",
+        "connectionId": "connection-b9d53d1cac7039750c08c638",
+        "sourceRevisionId": "source-66f1fd0b799d1b39de5608e3",
+        "goldenRevisionId": "golden-b8f700e0c47ce947209c1ae1-r1-83f212ba"
+      }
+    ]
+  },
+  "httpSources": {
+    "status": "PASS",
+    "rest": {
+      "connectionId": "connection-265920c046bf659ddbfbcb38",
+      "goldenRevisionId": "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338"
+    },
+    "openapi": {
+      "connectionId": "connection-bf23938c4110db22b4eae223",
+      "goldenRevisionId": "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
+      "refreshStatus": "schema_drift"
+    },
+    "ssrf": {
+      "status": 422,
+      "code": "HTTP_CONFIGURATION_INVALID"
+    }
+  },
+  "httpFixture": {
+    "implementation": "node:http",
+    "runtimeVersion": "v22.22.3",
+    "origin": "http://127.0.0.1:62837"
+  },
+  "context": {
+    "status": "PASS",
+    "contextReference": {
+      "kind": "golden_asset",
+      "objectId": "golden-6764882ad63609219b7ec383",
+      "revision": "golden-6764882ad63609219b7ec383-r1-83f212ba",
+      "providerRevision": "source-71de1bcfe4c1b7824c0b10bd"
+    },
+    "submittedReference": {
+      "kind": "golden_asset",
+      "object_id": "golden-6764882ad63609219b7ec383",
+      "revision": "golden-6764882ad63609219b7ec383-r1-83f212ba",
+      "scope": "team"
+    },
+    "crossWorkspaceStatus": 404,
+    "forgedReferenceStatus": 422,
+    "addedThroughVisibleUi": true,
+    "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/06-non-mcp-context-added.png"
+  },
+  "databases": {
+    "status": "PASS",
+    "images": {
+      "postgresql": "postgres:16-alpine",
+      "mysql": "mysql:8.4"
+    },
+    "versions": {
+      "mysql": "8.4.11",
+      "postgresql": "PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit"
+    },
+    "cases": [
+      {
+        "connectorKey": "postgresql",
+        "port": 26342,
+        "connectionId": "connection-b6121b8ef87d679fdd202286",
+        "sourceRevisionId": "source-2a28a7ad0fdfe1fdbb01f324",
+        "initialGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r1-409bc179",
+        "refreshedGoldenRevisionId": "golden-2f5d836256a8755d32dabdd5-r2-2bee477a",
+        "schemaDriftStatus": "schema_drift"
+      },
+      {
+        "connectorKey": "mysql",
+        "port": 26343,
+        "connectionId": "connection-9905b261f0b635a0a82b86e3",
+        "sourceRevisionId": "source-09db740fcf5f5002df0bd23e",
+        "initialGoldenRevisionId": "golden-5c3020525269f772c82b4772-r1-409bc179",
+        "refreshedGoldenRevisionId": "golden-5c3020525269f772c82b4772-r2-2bee477a",
+        "schemaDriftStatus": "schema_drift"
+      }
+    ]
+  },
+  "operationTraceConsistency": {
+    "status": "PASS",
+    "webhook": {
+      "connectionId": "connection-5a5c2ccabcaade70af8fa618",
+      "traceId": "browser-webhook-delivery",
+      "operationCount": 1,
+      "eventCount": 1
+    },
+    "csv": {
+      "connectionId": "connection-3f608c7b4dd28156d753e096",
+      "traceId": "browser-csv-orders-csv-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "rest": {
+      "connectionId": "connection-265920c046bf659ddbfbcb38",
+      "traceId": "browser-rest-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "openapi": {
+      "connectionId": "connection-bf23938c4110db22b4eae223",
+      "traceId": "browser-openapi-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "postgresql": {
+      "connectionId": "connection-b6121b8ef87d679fdd202286",
+      "traceId": "browser-database-postgresql-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "mysql": {
+      "connectionId": "connection-9905b261f0b635a0a82b86e3",
+      "traceId": "browser-database-mysql-ingest",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    },
+    "mcp": {
+      "connectionId": "connection-332bdc0e37bafa1c549bb327",
+      "traceId": "49ece8f6-dc9f-4ba7-9a29-d00e3e81491c",
+      "operationCount": 10,
+      "eventCount": 0,
+      "operations": [
+        "authenticate",
+        "authorize",
+        "sample",
+        "read",
+        "ingest",
+        "profile",
+        "clean",
+        "golden",
+        "checkpoint",
+        "close"
+      ]
+    }
+  },
+  "harConsistency": {
+    "status": "PASS",
+    "requestCount": 4820,
+    "correlatedTraceCount": 7,
+    "apiRequestContextTraceCapturedInServerEvidence": false,
+    "sensitiveHeadersRedacted": true
+  },
+  "negativeCases": {
+    "postgresqlWrongPassword": {
+      "status": 422,
+      "code": "DATABASE_AUTHENTICATION_FAILED"
+    },
+    "postgresqlWriteSql": {
+      "status": 422,
+      "code": "DATABASE_CONFIGURATION_INVALID"
+    },
+    "postgresqlOversized": {
+      "status": 422,
+      "code": "DATABASE_ROW_LIMIT"
+    },
+    "mysqlWrongPassword": {
+      "status": 422,
+      "code": "DATABASE_AUTHENTICATION_FAILED"
+    },
+    "mysqlWriteSql": {
+      "status": 422,
+      "code": "DATABASE_CONFIGURATION_INVALID"
+    },
+    "mysqlOversized": {
+      "status": 422,
+      "code": "DATABASE_ROW_LIMIT"
+    },
+    "httpOversized": {
+      "status": 422,
+      "code": "HTTP_DISCOVERY_FAILED"
+    },
+    "revokedContext": {
+      "status": 404,
+      "code": "GOLDEN_REVISION_NOT_FOUND"
+    },
+    "httpTimeout": {
+      "status": 422,
+      "code": "HTTP_DISCOVERY_FAILED"
+    }
+  },
+  "restartRecovery": {
+    "browserRefresh": "PASS",
+    "bffRestart": "PASS",
+    "connectionId": "connection-332bdc0e37bafa1c549bb327",
+    "goldenRevisionId": "golden-8d15227921ab30756423ca09-r1-9f6ee516",
+    "restoredGoldenRevisionIds": [
+      "golden-6764882ad63609219b7ec383-r1-83f212ba",
+      "golden-7caa420d739f0bfc2dc449e6-r1-83f212ba",
+      "golden-b302c3092b976e5a85eb4c38-r1-83f212ba",
+      "golden-e9ac4194b697e9bebcec228d-r1-83f212ba",
+      "golden-6d9ff39b2157efdf2a7f80bd-r1-b1fe7213",
+      "golden-a96d71cf1e3d83162c49aafa-r1-6cd9fd29",
+      "golden-df935ba99a890e6d4c5e9920-r1-71d78a48",
+      "golden-15af3085706502ef74c54aa9-r1-9d4db370",
+      "golden-62e4a1ed836e3fd8c5245cfb-r1-c7eb3338",
+      "golden-45bd2d29b81a2f9ed4ce22c1-r1-c7eb3338",
+      "golden-2f5d836256a8755d32dabdd5-r2-2bee477a",
+      "golden-5c3020525269f772c82b4772-r2-2bee477a",
+      "golden-8d15227921ab30756423ca09-r1-9f6ee516"
+    ],
+    "durableDatabase": "/tmp/step3b-p0-connector-matrix-20260827-r8/.veadk/knowledge-assets-step3.sqlite3",
+    "durableSourceGoldenDatabase": "/tmp/step3b-p0-connector-matrix-20260827-r8/.veadk/sources-golden/sources-golden.sqlite3",
+    "screenshot": "/tmp/step3b-p0-connector-matrix-20260827-r8/07-after-bff-restart.png"
+  },
+  "sharedUiSeam": {
+    "status": "RESOLVED",
+    "owner": "shared frozen UI and command composition",
+    "observed": "Non-MCP file connectors upload a real File, create a server connection, discover a resource, and ingest Source/Golden revisions.",
+    "existingCommands": [
+      "source-golden.connection.create",
+      "source-golden.ingest"
+    ]
+  },
+  "artifacts": {
+    "har": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser.har",
+    "video": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser.webm",
+    "browserLog": "/tmp/step3b-p0-connector-matrix-20260827-r8/browser-console.json",
+    "serverLog": "/tmp/step3b-p0-connector-matrix-20260827-r8/server.log",
+    "mcpTranscript": "/tmp/step3b-p0-connector-matrix-20260827-r8/mcp-transcript.json",
+    "screenshots": [
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/01-home.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/02-new-resource.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/03-catalog-all.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/category-office.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/category-file.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/category-db.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/category-api.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/category-custom.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/04-search-openapi.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-01-lark_doc.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-02-lark_wiki.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-03-lark_drive.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-04-lark_meeting.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-05-lark_minutes.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-06-lark_group.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-07-lark_chat.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-08-lark_sheet.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-09-lark_base.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-10-lark_mail.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-11-csv.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-12-excel.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-13-json.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-14-parquet.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-15-doc_txt.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-16-local_file.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-17-s3.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-18-oss.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-19-postgresql.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-20-mysql.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-21-oracle.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-22-sqlserver.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-23-sqlite.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-24-clickhouse.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-25-doris.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-26-starrocks.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-27-snowflake.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-28-bigquery.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-29-hive.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-30-rest_api.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-31-graphql.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-32-web_discovery.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-33-webhook.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-34-kafka.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-35-mcp_custom.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-36-custom_http.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/connector-37-openapi_spec.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/06-non-mcp-context-added.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/06-mcp-ingested.png",
+      "/tmp/step3b-p0-connector-matrix-20260827-r8/07-after-bff-restart.png"
+    ]
+  },
+  "browser": {
+    "name": "chromium",
+    "version": "151.0.7922.174"
+  },
+  "consoleErrors": []
+}
