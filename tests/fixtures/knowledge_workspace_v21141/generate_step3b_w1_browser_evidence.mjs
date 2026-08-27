@@ -487,7 +487,7 @@ const backendEnvironment = {
   STEP3_MCP_SERVER_PATH: mcpServer,
   STEP3_MCP_DATA_PATH: mcpData,
   STEP3B_WEBHOOK_SECRET: randomBytes(32).toString("hex"),
-  STEP3B_LOCAL_PROVIDER_CONNECTORS: "s3,kafka,clickhouse,oracle",
+  STEP3B_LOCAL_PROVIDER_CONNECTORS: "s3,kafka,clickhouse,oracle,sqlserver",
   STEP3B_MINIO_ACCESS_KEY: "step3badmin",
   STEP3B_MINIO_SECRET_KEY: "step3bpassword",
   STEP3B_CLICKHOUSE_USER: "step3b",
@@ -495,6 +495,7 @@ const backendEnvironment = {
   STEP3B_ORACLE_USER: "step3b",
   STEP3B_ORACLE_PASSWORD: "Step3bAppPassword1!",
   STEP3B_ORACLE_DSN: "127.0.0.1:26352/FREEPDB1",
+  STEP3B_SQLSERVER_ODBC_DRIVER: "/opt/homebrew/opt/freetds/lib/libtdsodbc.so",
 };
 const databaseFixture = resolve(
   repository,
@@ -673,8 +674,8 @@ try {
     return states;
   }, {});
   assert(
-    capabilityStates.available === 18 &&
-      capabilityStates.credential_blocked === 19,
+    capabilityStates.available === 19 &&
+      capabilityStates.credential_blocked === 18,
     `unexpected capability states: ${JSON.stringify(capabilityStates)}`,
   );
   const browserMcp = connectors.find(
@@ -1343,6 +1344,28 @@ try {
       secretRef: "secret://workspace-step3/oracle",
     }),
   );
+  providerResults.push(
+    await createAndIngest({
+      connectorKey: "sqlserver",
+      displayName: "Browser Azure SQL Edge",
+      configuration: {
+        host: "127.0.0.1",
+        port: 26353,
+        database: "knowledge",
+        schemaAllowlist: ["dbo"],
+        tableAllowlist: ["step3b_orders"],
+        query: "SELECT * FROM dbo.step3b_orders",
+        queryParameters: {},
+        pageSize: 10,
+        rowLimit: 10,
+        byteLimit: 100000,
+        timeoutSeconds: 10,
+        maxAttempts: 1,
+      },
+      suffix: "provider-sqlserver",
+      secretRef: "secret://workspace-step3/sqlserver",
+    }),
+  );
 
   const privateEndpoint = await page.request.post(
     `${frontendOrigin}/api/knowledge-assets/v1/commands`,
@@ -1624,6 +1647,7 @@ try {
       redpanda: "step3b-events",
       clickhouse: "knowledge.step3b_events",
       oracle: "STEP3B.STEP3B_ORDERS",
+      sqlserver: "dbo.step3b_orders",
     },
     cases: providerResults.map((item) => ({
       connectorKey: item.connectorKey,

@@ -88,6 +88,20 @@ def _secret(reference: str) -> str | None:
             },
             sort_keys=True,
         )
+    if reference == "secret://workspace-step3/sqlserver":
+        return json.dumps(
+            {
+                "username": "sa",
+                "password": "Step3bSqlPassword1!",
+                "connectionString": (
+                    "DRIVER=/opt/homebrew/opt/freetds/lib/libtdsodbc.so;"
+                    "SERVER=127.0.0.1;PORT=26353;DATABASE=knowledge;"
+                    "UID=sa;PWD=Step3bSqlPassword1!;TDS_Version=7.4;"
+                    "Encrypt=no;TrustServerCertificate=yes;"
+                ),
+            },
+            sort_keys=True,
+        )
     return None
 
 

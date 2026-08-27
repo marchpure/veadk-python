@@ -679,10 +679,10 @@ class ExternalDatabaseAdapter(ProviderConnectorAdapter):
                         raw_rows.extend(page)
                     rows = []
                     for raw_row in raw_rows:
-                        if not isinstance(raw_row, (list, tuple)):
-                            raise TypeError(
-                                "database driver returned a non-sequence row"
-                            )
+                        if not hasattr(raw_row, "__getitem__") or not hasattr(
+                            raw_row, "__len__"
+                        ):
+                            raise TypeError("database driver returned a non-sequence row")
                         rows.append(
                             {
                                 name: _json_value(raw_row[index])
@@ -1934,7 +1934,7 @@ def _metadata_resources(
     if not isinstance(metadata, Iterable):
         raise TypeError("database metadata must be iterable")
     for raw_row in metadata:
-        if not isinstance(raw_row, (list, tuple)):
+        if not hasattr(raw_row, "__getitem__") or not hasattr(raw_row, "__len__"):
             raise TypeError("database metadata row must be a sequence")
         row = list(raw_row)
         schema, table, field, data_type, *nullable = row

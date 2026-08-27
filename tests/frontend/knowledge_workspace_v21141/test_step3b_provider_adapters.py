@@ -492,6 +492,107 @@ def test_oracle_read_uses_driver_safe_bound_parameter(
     assert captured["parameters"]["adapter_limit"] == 11
 
 
+def test_external_database_accepts_driver_row_objects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    application = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path / "uploads",
+        web_resolver=lambda _host: ["127.0.0.1"],
+        network_allow_private_hosts={"127.0.0.1"},
+        secret_resolver=lambda _ref: json.dumps(
+            {"username": "reader", "password": "runtime-password"}
+        ),
+    )
+    adapter = application.connector_adapters()["sqlserver"]
+
+    class DriverRow:
+        def __init__(self, *values: object) -> None:
+            self.values = values
+
+        def __getitem__(self, index: int) -> object:
+            return self.values[index]
+
+        def __len__(self) -> int:
+            return len(self.values)
+
+    class Cursor:
+        description = [("amount", "int", True)]
+        finished = False
+
+        def execute(self, statement: str, parameters: object) -> None:
+            del statement, parameters
+
+        def fetchall(self) -> list[DriverRow]:
+            return [
+                DriverRow("dbo", "ORDERS", "amount", "int", "NO"),
+            ]
+
+        def fetchmany(self, _size: int) -> list[DriverRow]:
+            if self.finished:
+                return []
+            self.finished = True
+            return [DriverRow(12)]
+
+        def close(self) -> None:
+            return None
+
+    class Connection:
+        def cursor(self) -> Cursor:
+            return Cursor()
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(adapter, "_connect", lambda _request: Connection())
+    monkeypatch.setattr(
+        adapter,
+        "_pin_endpoint",
+        lambda _request, stage: frozenset({"127.0.0.1"}),
+    )
+    monkeypatch.setattr(
+        adapter,
+        "_verify_endpoint_pin",
+        lambda request, pinned, stage: None,
+    )
+    configuration = {
+        "host": "127.0.0.1",
+        "port": 1433,
+        "database": "knowledge",
+        "schemaAllowlist": ["dbo"],
+        "tableAllowlist": ["ORDERS"],
+        "query": "SELECT * FROM dbo.ORDERS",
+        "queryParameters": {},
+        "rowLimit": 10,
+        "pageSize": 10,
+        "byteLimit": 10000,
+        "timeoutSeconds": 5,
+    }
+    request = ConnectorRequest(
+        connector_key="sqlserver",
+        workspace_id="workspace-step3b",
+        principal_id="user-step3b",
+        configuration=configuration,
+        secret_ref="secret://workspace-step3b/sqlserver",
+        trace_id="trace-sqlserver-row",
+        resource=DiscoveredResource(
+            id="dbo.orders",
+            name="ORDERS",
+            schema_name="dbo",
+            resource_type="table",
+        ),
+    )
+
+    # The adapter's driver loading and credential connection are outside this
+    # seam; exercise the exact row-shape conversion used by discovery/read.
+    discovery = adapter._discover(request)
+    assert discovery[0].name == "ORDERS"
+    result = adapter._read_rows(request)
+    assert result == [{"amount": 12}]
+
+
 @pytest.mark.parametrize(
     "connector_key",
     ["oracle", "sqlserver", "clickhouse", "doris", "starrocks", "hive"],

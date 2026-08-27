@@ -85,6 +85,33 @@ def main() -> None:
         oracle.commit()
     finally:
         oracle.close()
+    import pyodbc
+
+    driver = os.environ.get(
+        "STEP3B_SQLSERVER_ODBC_DRIVER", "/opt/homebrew/opt/freetds/lib/libtdsodbc.so"
+    )
+    sqlserver_connection = pyodbc.connect(
+        "DRIVER={driver};SERVER=127.0.0.1;PORT=26353;DATABASE=knowledge;"
+        "UID=sa;PWD=Step3bSqlPassword1!;TDS_Version=7.4;Encrypt=no;"
+        "TrustServerCertificate=yes;".format(driver=driver),
+        autocommit=True,
+        timeout=10,
+    )
+    try:
+        with sqlserver_connection.cursor() as cursor:
+            cursor.execute(
+                "IF OBJECT_ID('dbo.step3b_orders', 'U') IS NOT NULL "
+                "DROP TABLE dbo.step3b_orders"
+            )
+            cursor.execute(
+                "CREATE TABLE dbo.step3b_orders "
+                "(order_id varchar(32) primary key, amount int not null)"
+            )
+            cursor.execute(
+                "INSERT INTO dbo.step3b_orders(order_id, amount) VALUES ('M-1', 23)"
+            )
+    finally:
+        sqlserver_connection.close()
     print(
         json.dumps(
             {
@@ -92,6 +119,7 @@ def main() -> None:
                 "kafka": topic,
                 "clickhouse": "knowledge.step3b_events",
                 "oracle": "STEP3B.STEP3B_ORDERS",
+                "sqlserver": "dbo.step3b_orders",
             }
         )
     )
