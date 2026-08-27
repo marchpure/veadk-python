@@ -244,6 +244,7 @@ import {
   FeedbackUpIcon,
   IssueFeedbackIcon,
 } from "./ui/icons/FeedbackIcons";
+import { KnowledgeWorkspacePage } from "./features/knowledge-workspace/pages/KnowledgeWorkspacePage";
 
 interface IssueFeedbackTarget {
   turn: Turn;
@@ -992,6 +993,14 @@ function sessionUsageKey(app: string, session: string): string {
 }
 
 export default function App() {
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("view") === "knowledge-workspace") {
+    return <KnowledgeWorkspacePage />;
+  }
+  return <StudioApp />;
+}
+
+function StudioApp() {
   const [apps, setApps] = useState<string[]>([]);
   const [appName, setAppName] = useState("");
   const [sessions, setSessions] = useState<AdkSession[]>([]);
