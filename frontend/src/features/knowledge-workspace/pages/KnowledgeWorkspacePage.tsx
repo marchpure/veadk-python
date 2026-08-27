@@ -78,12 +78,20 @@ const STATUS_LABELS: Record<ConnectionProfile["status"], string> = {
 const ERROR_LABELS: Record<string, string> = {
   AUTH_REQUIRED: "登录状态已失效，请重新登录后重试。",
   FORBIDDEN: "当前账号没有访问该资源的权限。",
+  WORKSPACE_NOT_FOUND: "当前工作区不存在或已被移除，请返回工作台后重试。",
   CONNECTION_NOT_READY: "连接尚未可用，请先完成验证。",
   CONNECTION_VALIDATION_FAILED: "连接验证失败，请检查配置并重试。",
+  LEASE_EXPIRED: "连接授权已过期，请重新验证连接后重试。",
   AUTOSKILL_UNAVAILABLE: "Skill 服务暂不可用，请稍后重试。",
   AUTOSKILL_PROTOCOL_ERROR: "Skill 服务协议异常，请联系管理员。",
+  SKILL_ZIP_INVALID: "生成的 Skill 包未通过安全校验，请重新生成。",
+  ARTIFACT_UNSAFE: "运行产物未通过安全校验，暂不能展示。",
   REVISION_CONFLICT: "草稿已被其他操作更新，请刷新后重试。",
   PUBLISH_GATE_FAILED: "发布门禁未通过，请先完成真实运行和检查。",
+  IDEMPOTENCY_CONFLICT: "请求已被重复提交且内容不一致，请刷新后重试。",
+  PRECONDITION_FAILED: "草稿已发生变化，请刷新后重试。",
+  NOT_FOUND: "请求的知识资产不存在，可能已被移除。",
+  INVALID_ARGUMENT: "提交的信息不完整或格式不正确，请检查后重试。",
 };
 
 function errorMessage(error: unknown): string {
@@ -166,6 +174,7 @@ export function KnowledgeWorkspacePage() {
   const [showConnectionForm, setShowConnectionForm] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
+  const [welcomeGoal, setWelcomeGoal] = useState("");
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const popstate = useCallback(() => setRouteState(routeFromLocation()), []);
 
@@ -305,6 +314,7 @@ export function KnowledgeWorkspacePage() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
   const lastEventIdRef = useRef("");
+  const terminalInvocationRef = useRef(false);
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -329,8 +339,14 @@ export function KnowledgeWorkspacePage() {
         .then((result) => setRevisions(result.data))
         .catch((cause) => setError(errorMessage(cause)));
     }
-    if (event.type === "run.completed") setStreamState("done");
-    if (event.type === "run.failed" || event.type === "run.cancelled") setStreamState("done");
+    if (
+      event.type === "run.completed"
+      || event.type === "run.failed"
+      || event.type === "run.cancelled"
+    ) {
+      terminalInvocationRef.current = true;
+      setStreamState("done");
+    }
   }, [draft]);
 
   const stream = useCallback(async () => {
@@ -338,6 +354,7 @@ export function KnowledgeWorkspacePage() {
     streamAbortRef.current?.abort();
     const controller = new AbortController();
     streamAbortRef.current = controller;
+    terminalInvocationRef.current = false;
     setStreamState("connected");
     if (!startedAt) setStartedAt(Date.now());
     try {
@@ -348,7 +365,9 @@ export function KnowledgeWorkspacePage() {
       })) {
         applyEvent(event);
       }
-      if (!controller.signal.aborted) setStreamState("disconnected");
+      if (!controller.signal.aborted && !terminalInvocationRef.current) {
+        setStreamState("disconnected");
+      }
     } catch (cause) {
       if (!controller.signal.aborted) {
         setStreamState("disconnected");
@@ -579,17 +598,22 @@ export function KnowledgeWorkspacePage() {
             <button type="button" onClick={() => setError("")} aria-label="关闭错误"><X size={14} /></button>
           </div>
         ) : null}
-        {route.file === "skill_new" || (route.file === "welcome" && !selectedDraft) ? (
-          <SkillNewView
-            connections={availableConnections}
-            selectedIds={selectedConnectionIds}
-            onSelectedIdsChange={setSelectedConnectionIds}
-            onCreate={createAndGenerate}
-            onUpload={uploadSkillInput}
-            onAddConnection={() => setShowConnectionForm(true)}
-            busy={busy === "generate"}
-            initialGoal={route.file === "welcome" ? "" : undefined}
-          />
+        {route.file === "welcome" && !selectedDraft ? (
+          <WelcomeEntryView onCreate={(goal) => { setWelcomeGoal(goal); setRoute("skill_new"); }} />
+        ) : route.file === "skill_new" ? (
+          <section className="kw-create-layout">
+            <SkillNewView
+              connections={personalConnections}
+              selectedIds={selectedConnectionIds}
+              onSelectedIdsChange={setSelectedConnectionIds}
+              onCreate={createAndGenerate}
+              onUpload={uploadSkillInput}
+              onAddConnection={() => setShowConnectionForm(true)}
+              busy={busy === "generate"}
+              initialGoal={welcomeGoal}
+            />
+            <CreationRail connectionCount={personalConnections.length} />
+          </section>
         ) : route.file === "connection" ? (
           <ConnectionDetailView
             connection={connections.find((item) => selectedConnectionIds.includes(item.connection_id)) || null}
@@ -802,6 +826,54 @@ function SkillNewView({
         </button>
       </form>
     </section>
+  );
+}
+
+function WelcomeEntryView({ onCreate }: { onCreate: (goal: string) => void }) {
+  const [message, setMessage] = useState("");
+  return (
+    <section className="kw-welcome-entry">
+      <div className="kw-welcome-entry-mark"><MessageSquare size={22} /></div>
+      <span className="kw-eyebrow">KNOWLEDGE WORKSPACE V1</span>
+      <h1>从一个真实问题开始</h1>
+      <p>告诉 Agent 谁会使用、希望解决什么问题。下一步会让你选择真实连接，再生成并试用 Skill。</p>
+      <div className="kw-welcome-composer">
+        <textarea
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder="例如：让支持工程师排查线上告警并给出处理建议"
+          rows={3}
+          aria-label="描述你的问题"
+        />
+        <div className="kw-welcome-composer-footer">
+          <span>不会在浏览器中保存凭据或运行结果。</span>
+          <button type="button" className="kw-primary-small" onClick={() => onCreate(message)}>
+            <Send size={14} /> 开始创建
+          </button>
+        </div>
+      </div>
+      <button type="button" className="kw-link-button kw-welcome-create-link" onClick={() => onCreate(message)}>
+        或直接打开 Skill 创建表单 <ChevronRight size={14} />
+      </button>
+    </section>
+  );
+}
+
+function CreationRail({ connectionCount }: { connectionCount: number }) {
+  return (
+    <aside className="kw-creation-rail" aria-label="创建流程">
+      <div className="kw-creation-rail-heading">
+        <MessageSquare size={16} />
+        <strong>创建助手</strong>
+      </div>
+      <p>先描述真实问题，再授权可访问的连接。生成后可以在右侧对话中继续修改。</p>
+      <ol>
+        <li className="is-active"><span>1</span><div><strong>描述目标</strong><small>说明谁使用、要解决什么问题</small></div></li>
+        <li><span>2</span><div><strong>选择连接</strong><small>{connectionCount} 个连接由当前 BFF 返回</small></div></li>
+        <li><span>3</span><div><strong>生成并试用</strong><small>运行状态和结果来自真实服务</small></div></li>
+      </ol>
+      <div className="kw-creation-rail-note">不会在浏览器中保存凭据或生成结果。</div>
+    </aside>
   );
 }
 
@@ -1062,8 +1134,20 @@ function ConnectionForm({
   const [error, setError] = useState("");
   const connector = connectors.find((item) => item.connector_key === connectorKey);
   const fields = [
-    ...schemaProperties(connector?.config_schema).map(([name, schema]) => [name, schema, "config"] as const),
-    ...schemaProperties(connector?.auth_schema).map(([name, schema]) => [name, schema, "credential"] as const),
+    ...schemaProperties(connector?.config_schema).map(([name, schema]) => [
+      name,
+      schema,
+      "config",
+      Array.isArray(connector?.config_schema.required)
+        && connector.config_schema.required.includes(name),
+    ] as const),
+    ...schemaProperties(connector?.auth_schema).map(([name, schema]) => [
+      name,
+      schema,
+      "credential",
+      Array.isArray(connector?.auth_schema.required)
+        && connector.auth_schema.required.includes(name),
+    ] as const),
   ];
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -1102,13 +1186,13 @@ function ConnectionForm({
         </label>
         <label>显示名称<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
         <label>归属<select value={scope} onChange={(event) => setScope(event.target.value as "personal" | "team")}><option value="personal">个人</option><option value="team">团队</option></select></label>
-        {fields.map(([name, schema, group]) => (
+        {fields.map(([name, schema, group, required]) => (
           <label key={`${group}:${name}`}>{String(schema.title || name)}
             <input
               type={schema.format === "password" || group === "credential" ? "password" : "text"}
               value={String(values[name] || "")}
               onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))}
-              required={Array.isArray(schema.required) ? schema.required.includes(name) : false}
+              required={required}
             />
           </label>
         ))}

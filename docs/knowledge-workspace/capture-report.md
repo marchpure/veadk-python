@@ -17,13 +17,13 @@ against a test-only BFF contract fixture; it is not real-service E2E evidence.
 
 | State family | States | Differing-pixel ratio | Mean RGB delta | Classification |
 | --- | ---: | ---: | ---: | --- |
-| Welcome | 1 | 56.5% | 6.67 | Structural shell differs; no prototype business data copied |
-| Draft base/success/failure | 5 | 69.6% | 4.35–4.51 | Structural/artifact content differs |
+| Welcome | 1 | 48.6% | 6.61 | Conversation entry shell differs; no prototype business data copied |
+| Draft base/success/failure/SOP | 5 | 69.6% | 4.34–4.50 | Structural/artifact content differs |
 | Draft permission/connection/upgrade | 3 | 69.6% | 5.10–12.17 | Route state is represented; prototype demo content differs |
-| Draft modal states | 3 | 72.5–73.5% | 8.32–10.85 | Server-backed modal shell differs from prototype demo panels |
+| Draft modal states | 4 | 72.5–73.5% | 8.32–11.33 | Server-backed modal shell differs from prototype demo panels |
 | Published base | 1 | 16.7% | 2.16 | Shared shell is close; server-backed revision content differs |
 | Published modal states | 4 | 100.0% | 86.94–87.86 | Route modal is represented without fabricated publication data |
-| Skill-new states | 4 | 40.8% | 5.84 | Shared shell is closer; form/content differs |
+| Skill-new states | 4 | 43.9% | 6.16 | Creation rail is represented; form/content differs |
 
 Overall result: the capture harness PASS means all 22 captures and comparisons
 completed. The visual diff is intentionally classified as NOT GREEN: these
@@ -34,11 +34,11 @@ Per-state measurements:
 
 | # | Route/state | Differing-pixel ratio | Mean RGB delta |
 | ---: | --- | ---: | ---: |
-| 1 | `welcome` | 56.5% | 6.67 |
-| 2 | `draft_dash_anta` | 69.6% | 4.35 |
+| 1 | `welcome` | 48.6% | 6.61 |
+| 2 | `draft_dash_anta` | 69.6% | 4.36 |
 | 3 | `draft_dash_anta&run_state=success` | 69.6% | 4.36 |
 | 4 | `draft_dash_anta&run_state=success&modal=publish` | 72.7% | 11.33 |
-| 5 | `draft_dash_anta&run_state=failed` | 69.6% | 4.51 |
+| 5 | `draft_dash_anta&run_state=failed` | 69.6% | 4.50 |
 | 6 | `draft_dash_anta&state=permission` | 69.6% | 12.17 |
 | 7 | `draft_dash_anta&state=connection_error` | 69.6% | 12.16 |
 | 8 | `draft_dash_anta&state=upgrade` | 69.6% | 5.10 |
@@ -50,12 +50,12 @@ Per-state measurements:
 | 14 | `pub_dash_anta&modal=share_run` | 100.0% | 87.86 |
 | 15 | `pub_dash_anta&modal=instructions` | 100.0% | 87.86 |
 | 16 | `pub_dash_anta&modal=versions` | 100.0% | 86.94 |
-| 17 | `draft_sop_bluetooth` | 69.6% | 4.35 |
+| 17 | `draft_sop_bluetooth` | 69.6% | 4.34 |
 | 18 | `draft_sop_haidilao` | 69.6% | 4.31 |
-| 19 | `skill_new` | 40.8% | 5.84 |
-| 20 | `skill_new&scenario=anta` | 40.8% | 5.84 |
-| 21 | `skill_new&scenario=zhiji` | 40.8% | 5.84 |
-| 22 | `skill_new&scenario=haidilao` | 40.8% | 5.84 |
+| 19 | `skill_new` | 43.9% | 6.16 |
+| 20 | `skill_new&scenario=anta` | 43.9% | 6.16 |
+| 21 | `skill_new&scenario=zhiji` | 43.9% | 6.16 |
+| 22 | `skill_new&scenario=haidilao` | 43.9% | 6.16 |
 
 The first percentage column is the differing-pixel ratio reported by
 `report.json`; the table preserves the exact per-state classification while

@@ -7,18 +7,18 @@
       "state_url": "/?file=welcome",
       "route": "welcome",
       "pixels": 2073600,
-      "differing_pixels": 1171721,
-      "differing_ratio": 0.5650660686728395,
-      "mean_absolute_rgb_delta": 6.66664737654321
+      "differing_pixels": 1007688,
+      "differing_ratio": 0.48596064814814816,
+      "mean_absolute_rgb_delta": 6.605115419238683
     },
     {
       "index": 2,
       "state_url": "/?file=draft_dash_anta",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443009,
-      "differing_ratio": 0.6958955439814815,
-      "mean_absolute_rgb_delta": 4.3508678948045265
+      "differing_pixels": 1443011,
+      "differing_ratio": 0.6958965084876543,
+      "mean_absolute_rgb_delta": 4.360118795010288
     },
     {
       "index": 3,
@@ -43,36 +43,36 @@
       "state_url": "/?file=draft_dash_anta&run_state=failed",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443011,
-      "differing_ratio": 0.6958965084876543,
-      "mean_absolute_rgb_delta": 4.513879083076132
+      "differing_pixels": 1443009,
+      "differing_ratio": 0.6958955439814815,
+      "mean_absolute_rgb_delta": 4.504628182870371
     },
     {
       "index": 6,
       "state_url": "/?file=draft_dash_anta&state=permission",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443078,
-      "differing_ratio": 0.6959288194444444,
-      "mean_absolute_rgb_delta": 12.174073591820987
+      "differing_pixels": 1443076,
+      "differing_ratio": 0.6959278549382716,
+      "mean_absolute_rgb_delta": 12.16883342978395
     },
     {
       "index": 7,
       "state_url": "/?file=draft_dash_anta&state=connection_error",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443078,
-      "differing_ratio": 0.6959288194444444,
-      "mean_absolute_rgb_delta": 12.162299704218107
+      "differing_pixels": 1443076,
+      "differing_ratio": 0.6959278549382716,
+      "mean_absolute_rgb_delta": 12.157059220679013
     },
     {
       "index": 8,
       "state_url": "/?file=draft_dash_anta&state=upgrade",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1443008,
-      "differing_ratio": 0.6958950617283951,
-      "mean_absolute_rgb_delta": 5.101036683384773
+      "differing_pixels": 1443010,
+      "differing_ratio": 0.6958960262345679,
+      "mean_absolute_rgb_delta": 5.1041883680555555
     },
     {
       "index": 9,
@@ -108,7 +108,7 @@
       "pixels": 2073600,
       "differing_pixels": 347212,
       "differing_ratio": 0.1674440586419753,
-      "mean_absolute_rgb_delta": 2.1574827996399177
+      "mean_absolute_rgb_delta": 2.15748247813786
     },
     {
       "index": 13,
@@ -151,9 +151,9 @@
       "state_url": "/?file=draft_sop_bluetooth",
       "route": "draft",
       "pixels": 2073600,
-      "differing_pixels": 1442738,
-      "differing_ratio": 0.6957648533950618,
-      "mean_absolute_rgb_delta": 4.348147344393004
+      "differing_pixels": 1442736,
+      "differing_ratio": 0.6957638888888888,
+      "mean_absolute_rgb_delta": 4.338896444187243
     },
     {
       "index": 18,
@@ -169,36 +169,36 @@
       "state_url": "/?file=skill_new",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 846053,
-      "differing_ratio": 0.40801167052469134,
-      "mean_absolute_rgb_delta": 5.838327707047325
+      "differing_pixels": 910260,
+      "differing_ratio": 0.43897569444444445,
+      "mean_absolute_rgb_delta": 6.164254758230452
     },
     {
       "index": 20,
       "state_url": "/?file=skill_new&scenario=anta",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 846053,
-      "differing_ratio": 0.40801167052469134,
-      "mean_absolute_rgb_delta": 5.835884773662552
+      "differing_pixels": 910260,
+      "differing_ratio": 0.43897569444444445,
+      "mean_absolute_rgb_delta": 6.164254758230452
     },
     {
       "index": 21,
       "state_url": "/?file=skill_new&scenario=zhiji",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 846053,
-      "differing_ratio": 0.40801167052469134,
-      "mean_absolute_rgb_delta": 5.838327707047325
+      "differing_pixels": 910260,
+      "differing_ratio": 0.43897569444444445,
+      "mean_absolute_rgb_delta": 6.164254758230452
     },
     {
       "index": 22,
       "state_url": "/?file=skill_new&scenario=haidilao",
       "route": "skill_new",
       "pixels": 2073600,
-      "differing_pixels": 846053,
-      "differing_ratio": 0.40801167052469134,
-      "mean_absolute_rgb_delta": 5.838327707047325
+      "differing_pixels": 910260,
+      "differing_ratio": 0.43897569444444445,
+      "mean_absolute_rgb_delta": 6.164254758230452
     }
   ]
 }

@@ -216,7 +216,11 @@ async function main() {
   for (const [index, capture] of captureStates.entries()) {
     const query = new URLSearchParams(new URL(capture.stateUrl, "http://capture.local").search);
     query.set("view", "knowledge-workspace");
-    query.set("draftId", "draft-contract");
+    if (capture.route === "draft" || capture.route === "published") {
+      query.set("draftId", "draft-contract");
+    } else {
+      query.delete("draftId");
+    }
     const url = `http://127.0.0.1:5174/?${query}`;
     await page.goto(url);
     const actualPath = path.join(outputDir, `${String(index + 1).padStart(2, "0")}.png`);

@@ -14,6 +14,7 @@ const captures = await readFile(path.join(featureRoot, "test-fixtures/captures.t
 test("production feature is bound to the same-origin knowledge BFF", () => {
   assert.match(client, /const API_ROOT = "\/api\/knowledge\/v1"/);
   assert.doesNotMatch(client, /autoskill|openconnector|fixture/i);
+  assert.doesNotMatch(page, /<iframe/);
   assert.match(client, /Idempotency-Key/);
   assert.match(client, /If-Match/);
   assert.match(client, /Last-Event-ID/);
@@ -44,4 +45,20 @@ test("artifact viewer is isolated and digest-visible", () => {
   assert.match(artifact, /artifact\.sha256/);
   assert.match(artifact, /startsWith\("\/api\/knowledge\/v1\/artifacts\/"\)/);
   assert.doesNotMatch(artifact, /allow-same-origin/);
+});
+
+test("route states and server errors remain actionable without client outcomes", () => {
+  for (const code of [
+    "WORKSPACE_NOT_FOUND",
+    "LEASE_EXPIRED",
+    "SKILL_ZIP_INVALID",
+    "ARTIFACT_UNSAFE",
+    "IDEMPOTENCY_CONFLICT",
+    "PRECONDITION_FAILED",
+  ]) {
+    assert.match(page, new RegExp(code));
+  }
+  assert.match(page, /terminalInvocationRef/);
+  assert.match(page, /CreationRail/);
+  assert.match(page, /config_schema\.required/);
 });

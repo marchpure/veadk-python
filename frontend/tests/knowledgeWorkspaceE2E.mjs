@@ -245,7 +245,7 @@ async function main() {
   await page.getByRole("button", { name: "返回工作台" }).waitFor();
   await page.screenshot({ path: new URL(screenshotName, screenshotDir).pathname, fullPage: true });
   await page.getByRole("button", { name: "返回工作台" }).click();
-  await page.getByText("让 Agent 帮你解决一个真实问题").waitFor();
+  await page.getByText("从一个真实问题开始").waitFor();
   assert.match(new URL(page.url()).search, /file=welcome/);
 
   assert.equal(invocationCount, 3);
