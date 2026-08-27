@@ -303,8 +303,8 @@
       "connectorKey": "csv",
       "category": "file",
       "name": "CSV",
-      "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
+      "capabilityState": "available",
+      "browserStatus": "PASS",
       "formEvidence": {
         "inputFields": [
           "sourceRef",
@@ -326,8 +326,8 @@
       "connectorKey": "excel",
       "category": "file",
       "name": "Excel",
-      "capabilityState": "credential_blocked",
-      "browserStatus": "CREDENTIAL_BLOCKED",
+      "capabilityState": "available",
+      "browserStatus": "PASS",
       "formEvidence": {
         "inputFields": [
           "sourceRef",
@@ -517,8 +517,8 @@
       "connectorKey": "postgresql",
       "category": "db",
       "name": "PostgreSQL",
-      "capabilityState": "available",
-      "browserStatus": "PASS",
+      "capabilityState": "credential_blocked",
+      "browserStatus": "CREDENTIAL_BLOCKED",
       "formEvidence": {
         "inputFields": [
           "host",
@@ -585,8 +585,8 @@
       "connectorKey": "mysql",
       "category": "db",
       "name": "MySQL",
-      "capabilityState": "available",
-      "browserStatus": "PASS",
+      "capabilityState": "credential_blocked",
+      "browserStatus": "CREDENTIAL_BLOCKED",
       "formEvidence": {
         "inputFields": [
           "host",
