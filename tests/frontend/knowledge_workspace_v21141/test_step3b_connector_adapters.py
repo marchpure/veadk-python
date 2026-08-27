@@ -1084,6 +1084,40 @@ def test_capability_matrix_has_one_complete_truthful_row_per_adapter(
             assert row.capability.verification_category == "LOCAL_PROTOCOL_VERIFIED"
 
 
+def test_explicit_local_provider_verification_projects_only_enabled_connectors(
+    tmp_path: Path,
+) -> None:
+    application = SourceGoldenApplication(
+        database_path=tmp_path / "sources-golden.sqlite3",
+        artifact_root=tmp_path / "artifacts",
+        source_root=tmp_path / "uploads",
+        web_resolver=lambda _host: ["127.0.0.1"],
+        network_allow_private_hosts={"127.0.0.1"},
+        secret_resolver=lambda _ref: json.dumps({}),
+        verified_provider_connectors={"s3", "kafka", "clickhouse"},
+    )
+
+    matrix = {
+        row.connector_key: row
+        for row in application.connector_capability_matrix().connectors
+    }
+    catalog = {
+        item.connector_key: item
+        for item in application.connector_catalog(_context()).connectors
+    }
+
+    for connector_key in ("s3", "kafka", "clickhouse"):
+        assert matrix[connector_key].capability_state == "available"
+        assert matrix[connector_key].capability.verification_category == "LIVE_VERIFIED"
+        assert matrix[connector_key].capability.credential_state == "available"
+        assert matrix[connector_key].capability.blocker is None
+        assert catalog[connector_key].capability_state == "available"
+
+    assert matrix["oss"].capability_state == "credential_blocked"
+    assert matrix["oss"].capability.verification_category == "CREDENTIAL_BLOCKED"
+    assert catalog["oss"].capability_state == "credential_blocked"
+
+
 def test_legacy_xls_is_not_advertised_without_a_runtime_parser(
     tmp_path: Path,
 ) -> None:
