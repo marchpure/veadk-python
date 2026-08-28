@@ -36,6 +36,8 @@
 .kw-oracle-discovery { display: grid; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid #bbf7d0; border-radius: 10px; background: #f0fdf4; color: #166534; }
 .kw-oracle-discovery > div { display: flex; gap: 12px; font-size: 12px; }
 .kw-oracle-discovery > div span { min-width: 64px; color: #4d7c0f; }
+.kw-resource-preview, .kw-resource-tools { display: grid; gap: 8px; margin: 12px 0; }
+.kw-resource-tools .kw-tool-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
 .kw-tree-add { color: var(--kw-muted); }
 .kw-tree-muted, .kw-muted, .kw-inline-empty { padding: 8px 10px; color: var(--kw-muted); font-size: 12px; }
 .kw-sidebar-footer { margin-top: auto; padding: 18px 10px 0; color: #9b9da5; font-size: 11px; }

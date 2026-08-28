@@ -35,11 +35,17 @@ test("specialized adapters use real capability routes and durable resources", ()
   assert.match(client, /saveRestResource/);
   assert.match(client, /saveOracleResource/);
   assert.match(client, /saveMcpResource/);
+  assert.match(client, /callMcpAdapter/);
+  assert.match(client, /\/adapters\/mcp\/call/);
   assert.match(client, /previewAdapterFile/);
   assert.match(page, /knowledgeApi\.validateOracleAdapter/);
   assert.match(page, /knowledgeApi\.discoverOracleAdapter/);
   assert.match(page, /schemas|tables/);
   assert.match(page, /knowledgeApi\.listResources/);
+  assert.match(page, /WorkspaceResourceDetail/);
+  assert.match(page, /加入 Skill 上下文/);
+  assert.match(page, /真实文件预览/);
+  assert.match(page, /真实调用/);
   assert.doesNotMatch(page, /resource_id:\s*`upload:/);
 });
 

@@ -378,6 +378,25 @@ class ConnectionServiceGateway:
         )
         return dict(response.json().get("definition", {}))
 
+    async def call_mcp(
+        self,
+        definition_id: str,
+        *,
+        name: str,
+        arguments: Mapping[str, Any] | None = None,
+        **actor: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            f"/v1/adapters/mcp/definitions/{definition_id}/call",
+            json={
+                "name": name,
+                "arguments": dict(arguments or {}),
+            },
+            **actor,
+        )
+        return dict(response.json().get("result", {}))
+
     async def configure_oauth(
         self,
         *,

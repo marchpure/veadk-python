@@ -60,12 +60,14 @@ export type WorkspaceResourceKind =
   | "mcp"
   | "files";
 
+export type WorkspaceResourceStatus = "beta" | "verified" | "dev" | "error";
+
 export interface WorkspaceResource {
   resource_id: string;
   kind: WorkspaceResourceKind;
   display_name: string;
   scope: ConnectionScope;
-  status: "beta" | "verified" | "dev" | "error";
+  status: WorkspaceResourceStatus;
   metadata?: JsonObject;
   created_at: string;
   updated_at: string;

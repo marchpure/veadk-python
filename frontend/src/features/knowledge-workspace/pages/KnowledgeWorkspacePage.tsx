@@ -78,6 +78,7 @@ import "./knowledge-workspace.css";
 type WorkspaceFile =
   | "welcome"
   | "connection"
+  | "resource"
   | "skill_new"
   | "draft"
   | "published";
@@ -86,6 +87,7 @@ interface WorkspaceRoute {
   file: WorkspaceFile;
   draftId: string;
   connectionId: string;
+  resourceId: string;
   modal: string;
 }
 
@@ -157,9 +159,11 @@ function routeFromLocation(): WorkspaceRoute {
       ? "welcome"
       : requestedFile === "skill_new"
         ? "skill_new"
-        : requestedFile === "connection"
-          ? "connection"
-          : requestedFile === "draft"
+      : requestedFile === "connection"
+        ? "connection"
+        : requestedFile === "resource"
+          ? "resource"
+        : requestedFile === "draft"
             ? "draft"
             : requestedFile === "published"
               ? "published"
@@ -172,16 +176,18 @@ function routeFromLocation(): WorkspaceRoute {
     file,
     draftId: query.get("draftId") || "",
     connectionId: query.get("connectionId") || "",
+    resourceId: query.get("resourceId") || "",
     modal: query.get("modal") || "",
   };
 }
 
-function setRoute(file: WorkspaceFile, draftId = "", connectionId = "") {
+function setRoute(file: WorkspaceFile, draftId = "", connectionId = "", resourceId = "") {
   const query = new URLSearchParams();
   query.set("view", "knowledge-workspace");
   query.set("file", file);
   if (draftId) query.set("draftId", draftId);
   if (connectionId) query.set("connectionId", connectionId);
+  if (resourceId) query.set("resourceId", resourceId);
   window.history.pushState({}, "", `${window.location.pathname}?${query}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
@@ -662,6 +668,10 @@ export function KnowledgeWorkspacePage() {
     (item) => item.connection_id === route.connectionId
       || selectedConnectionIds.includes(item.connection_id),
   ) || null;
+  const selectedResource = resources.find(
+    (item) => item.resource_id === route.resourceId
+      || selectedResourceIds.includes(item.resource_id),
+  ) || null;
   const selectedRevision = selectedDraft?.current_revision_id
     ? revisions.find((item) => item.revision_id === selectedDraft.current_revision_id) || null
     : revisions.reduce<Revision | null>(
@@ -778,12 +788,12 @@ export function KnowledgeWorkspacePage() {
               title={`${resource.display_name} · ${resource.kind} · ${resource.status}`}
               onClick={() => {
                 setSelectedResourceIds([resource.resource_id]);
-                setRoute("skill_new");
+                setRoute("resource", "", "", resource.resource_id);
               }}
             >
               <FileText size={15} />
               <span>{resource.display_name}</span>
-              <span className="kw-status-dot is-ready" title={`${resource.kind} · ${resource.status}`} />
+              <span className={`kw-status-dot is-${resource.status}`} title={`${resource.kind} · ${resource.status}`} />
             </button>
           )) : <div className="kw-tree-muted">暂无专用资源。</div>}
           <div className="kw-tree-label">我的 Skill</div>
@@ -855,6 +865,13 @@ export function KnowledgeWorkspacePage() {
               {selectedConnection ? <><ChevronRight size={14} /><span>{selectedConnection.display_name}</span></> : null}
             </div>
           </header>
+        ) : route.file === "resource" ? (
+          <header className="kw-topbar">
+            <div className="kw-breadcrumb">
+              <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
+              {selectedResource ? <><ChevronRight size={14} /><span>{selectedResource.display_name}</span></> : null}
+            </div>
+          </header>
         ) : null}
         {error && !draftResourceError ? (
           <div className="kw-error" role="alert">
@@ -920,6 +937,15 @@ export function KnowledgeWorkspacePage() {
             }}
             busy={busy === "validate" || busy === "discover"}
             job={connectionJob}
+          />
+        ) : route.file === "resource" ? (
+          <WorkspaceResourceDetail
+            resource={selectedResource}
+            onUse={() => {
+              if (!selectedResource) return;
+              setSelectedResourceIds([selectedResource.resource_id]);
+              setRoute("skill_new");
+            }}
           />
         ) : route.file === "published" ? (
           <PublishedWorkspace
@@ -1250,6 +1276,113 @@ function ConnectionDetailView({
         </div>
       </div>
       <pre className="kw-safe-profile">{JSON.stringify(connection.profile || {}, null, 2)}</pre>
+    </section>
+  );
+}
+
+function WorkspaceResourceDetail({
+  resource,
+  onUse,
+}: {
+  resource: WorkspaceResource | null;
+  onUse: () => void;
+}) {
+  const [preview, setPreview] = useState<JsonObject | null>(null);
+  const [toolResults, setToolResults] = useState<Record<string, JsonObject>>({});
+  const [busyTool, setBusyTool] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreview(null);
+    setError("");
+    if (resource?.kind !== "files") return () => { cancelled = true; };
+    const uploadId = resource.metadata?.upload_id;
+    if (typeof uploadId !== "string" || !uploadId) {
+      setError("文件资源缺少 BFF 上传引用，无法预览。");
+      return () => { cancelled = true; };
+    }
+    void knowledgeApi.previewAdapterFile(uploadId)
+      .then((result) => {
+        if (!cancelled) setPreview(result.data);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(errorMessage(cause));
+      });
+    return () => { cancelled = true; };
+  }, [resource?.kind, resource?.resource_id, resource?.metadata?.upload_id]);
+
+  if (!resource) return <div className="kw-empty-page">请选择一个资源。</div>;
+  const metadata = resource.metadata || {};
+  const discovery = metadata.discovery;
+  const discoveryObject = discovery
+    && typeof discovery === "object"
+    && !Array.isArray(discovery)
+    ? discovery as JsonObject
+    : null;
+  const tools: JsonObject[] = discoveryObject && Array.isArray(discoveryObject.tools)
+    ? discoveryObject.tools.filter(
+      (tool): tool is JsonObject => Boolean(tool) && typeof tool === "object" && !Array.isArray(tool),
+    )
+    : [];
+  const definitionId = typeof metadata.definition_id === "string" ? metadata.definition_id : "";
+  return (
+    <section className="kw-detail">
+      <div className="kw-detail-heading">
+        <div>
+          <span className="kw-eyebrow">RESOURCE</span>
+          <h1>{resource.display_name}</h1>
+          <p>{resource.kind} · {resource.scope === "team" ? "团队资源" : "个人资源"}</p>
+        </div>
+        <span className={`kw-pill is-${resource.status}`}>{resource.status}</span>
+      </div>
+      <div className="kw-detail-card">
+        <h2>真实资源详情</h2>
+        <p>该资源由 BFF 持久化，并由 Connection Service adapter 提供能力。</p>
+        {error ? <div className="kw-form-error" role="alert">{error}</div> : null}
+        {resource.kind === "files" ? (
+          <div className="kw-resource-preview" data-testid="resource-preview">
+            <strong>真实文件预览</strong>
+            {preview ? <pre className="kw-safe-profile">{JSON.stringify(preview, null, 2)}</pre> : <span>正在读取预览…</span>}
+          </div>
+        ) : null}
+        {resource.kind === "mcp" && tools.length ? (
+          <div className="kw-resource-tools" data-testid="mcp-tools">
+            <strong>已发现 MCP 工具</strong>
+            {tools.map((tool) => {
+              const name = typeof tool.name === "string" ? tool.name : "";
+              return (
+                <div className="kw-tool-row" key={name}>
+                  <span>{name}</span>
+                  <button
+                    type="button"
+                    disabled={!definitionId || busyTool === name}
+                    onClick={async () => {
+                      setBusyTool(name);
+                      setError("");
+                      try {
+                        const result = await knowledgeApi.callMcpAdapter(definitionId, name, {});
+                        setToolResults((current) => ({ ...current, [name]: result.data }));
+                      } catch (cause) {
+                        setError(errorMessage(cause));
+                      } finally {
+                        setBusyTool("");
+                      }
+                    }}
+                  >
+                    {busyTool === name ? "调用中…" : "真实调用"}
+                  </button>
+                  {toolResults[name] ? <pre className="kw-safe-profile">{JSON.stringify(toolResults[name], null, 2)}</pre> : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        <pre className="kw-safe-profile">{JSON.stringify(metadata, null, 2)}</pre>
+        <div className="kw-detail-actions">
+          <button type="button" className="kw-primary-small" onClick={onUse}>加入 Skill 上下文</button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1637,6 +1770,7 @@ function ConnectionForm({
                   endpoint: values.endpoint,
                   command: values.command,
                   args: parseStringList(values.args),
+                  allowedCommands: values.command ? [String(values.command)] : [],
                   allowedTools: parseStringList(values.allowedTools),
                   allowedLocalhostPorts: parseStringList(values.allowedLocalhostPorts).map(Number),
                   allowLocalhostDev: values.allowLocalhostDev === true
@@ -1703,7 +1837,7 @@ function ConnectionForm({
                     onClick={() => { setConnectorKey(item.connector_key); setValues({}); setResult(null); }}
                   >
                     <strong>{item.display_name}</strong>
-                    <small>{item.category === "adapter" ? "专用适配器" : item.status} · {item.capabilities.join(" / ")}</small>
+                    <small>{item.status} · {item.category === "adapter" ? "专用适配器" : "provider"} · {item.capabilities.join(" / ")}</small>
                     <span>{authSchemaOptions(item.auth_schema).map((option) => option.label).join("、") || "无需凭据"}</span>
                   </button>
                 ))}
@@ -1753,6 +1887,11 @@ function ConnectionForm({
           <div className="kw-form-note">
             专用适配器不创建普通 provider connection。请使用 BFF 暴露的真实 adapter API：
             {connector?.endpoints?.join("、") || "Connection Service adapter endpoints"}。
+          </div>
+        ) : null}
+        {connectorKey === "rest_openapi" ? (
+          <div className="kw-form-note">
+            当前入口是粘贴 OpenAPI JSON 创建真实 API 资源；网页解析生成 OpenAPI 属于后续能力，不会在此处伪造成功。
           </div>
         ) : null}
         {result ? (

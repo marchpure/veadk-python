@@ -20,6 +20,7 @@ const KNOWLEDGE_WORKSPACE_QUERY_KEYS = new Set([
   "file",
   "draftId",
   "connectionId",
+  "resourceId",
   "modal",
   "run_state",
   "state",

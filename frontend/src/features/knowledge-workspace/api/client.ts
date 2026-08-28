@@ -202,6 +202,7 @@ export interface KnowledgeApi {
   saveOracleResource(body: JsonObject): Promise<ApiEnvelope<WorkspaceResource>>;
   discoverMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
   registerMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  callMcpAdapter(definitionId: string, name: string, callArguments?: JsonObject): Promise<ApiEnvelope<JsonObject>>;
   saveMcpResource(body: JsonObject): Promise<ApiEnvelope<WorkspaceResource>>;
   authorizeOAuth(input: OAuthAuthorizeInput): Promise<ApiEnvelope<JsonObject>>;
   listAdapterFiles(signal?: AbortSignal): Promise<ApiEnvelope<JsonObject[]>>;
@@ -326,6 +327,17 @@ export const knowledgeApi: KnowledgeApi = {
   async registerMcpAdapter(definition) {
     const result = await request<AdapterCapabilityResult>("/adapters/mcp/register", {
       method: "POST", body: JSON.stringify({ definition }),
+    });
+    return result.envelope;
+  },
+  async callMcpAdapter(definitionId, name, callArguments = {}) {
+    const result = await request<JsonObject>("/adapters/mcp/call", {
+      method: "POST",
+      body: JSON.stringify({
+        definition_id: definitionId,
+        name,
+        arguments: callArguments,
+      }),
     });
     return result.envelope;
   },

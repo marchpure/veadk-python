@@ -110,6 +110,18 @@ class SpecializedGateway:
         assert definition["transport"] == "stdio"
         return {"id": "mcp-definition-1"}
 
+    async def call_mcp(
+        self,
+        definition_id: str,
+        *,
+        name: str,
+        arguments: dict[str, object],
+        **_: str,
+    ) -> dict[str, object]:
+        assert definition_id == "mcp-definition-1"
+        assert name == "echo"
+        return {"content": [{"type": "text", "text": json.dumps(arguments)}]}
+
     async def upload_file(self, **_: object) -> str:
         return "internal-file-1"
 
@@ -232,8 +244,25 @@ async def test_specialized_routes_validate_discover_register_and_preview(
             headers=ACTOR_HEADERS,
             json={"definition": definition},
         )
+        called = await client.post(
+            "/api/knowledge/v1/adapters/mcp/call",
+            headers=ACTOR_HEADERS,
+            json={
+                "definition_id": "mcp-definition-1",
+                "name": "echo",
+                "arguments": {"value": "real-call"},
+            },
+        )
         assert mcp.json()["data"]["tools"][0]["name"] == "echo"
         assert registered.json()["data"]["id"] == "mcp-definition-1"
+        assert called.json()["data"]["content"][0]["text"] == '{"value": "real-call"}'
+
+        invalid_call = await client.post(
+            "/api/knowledge/v1/adapters/mcp/call",
+            headers=ACTOR_HEADERS,
+            json={"definition_id": "mcp-definition-1"},
+        )
+        assert invalid_call.status_code == 422
 
         upload = await client.post(
             "/api/knowledge/v1/uploads",

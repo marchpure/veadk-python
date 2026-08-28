@@ -532,6 +532,32 @@ def mount_knowledge_workspace_routes(
         )
         return envelope(result, request)
 
+    @app.post(f"{prefix}/adapters/mcp/call")
+    async def call_mcp_adapter(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        definition_id = str(body.get("definition_id") or "").strip()
+        name = str(body.get("name") or "").strip()
+        arguments = body.get("arguments")
+        if not definition_id or not name or (
+            arguments is not None
+            and (not isinstance(arguments, dict) or isinstance(arguments, list))
+        ):
+            raise HTTPException(status_code=422, detail={
+                "code": "INVALID_ARGUMENT",
+                "message": "definition_id, name, and object arguments are required",
+                "retryable": False,
+            })
+        result = await connection_call(
+            lambda: require_connections().call_mcp(
+                definition_id,
+                name=name,
+                arguments=arguments if isinstance(arguments, dict) else {},
+                **connection_actor(request),
+            )
+        )
+        return envelope(result, request)
+
     @app.post(f"{prefix}/resources/mcp")
     async def save_mcp_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
         definition = body.get("definition")
@@ -985,6 +1011,7 @@ def mount_knowledge_workspace_routes(
                 status="beta",
                 source_id=connection_file_id,
                 metadata={
+                    "upload_id": upload_id,
                     "filename": filename,
                     "sha256": digest,
                     "size_bytes": len(content),
