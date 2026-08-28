@@ -212,6 +212,28 @@ def _duration_ms(value: Any) -> int:
         return 0
 
 
+def _identifier(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text[:256] if text else None
+
+
+def _safe_summary(value: Any, *, limit: int = 2_000) -> str:
+    """Return display-safe summary text without exposing structured payloads."""
+
+    if not isinstance(value, str):
+        return ""
+    return str(sanitize_event_payload(value))[:limit]
+
+
+def _non_negative_int(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
 def normalize_upstream_event(
     event: ParsedUpstreamEvent,
     *,
@@ -223,12 +245,18 @@ def normalize_upstream_event(
     now = datetime.now(timezone.utc).isoformat()
     data = _data(event.payload)
     kind = event.event_type.casefold().replace("-", "_")
+    is_turn = re.fullmatch(r"turn[ _]+\d+", kind) is not None
     base = {
-        "id": f"{invocation_id}:{cursor}",
+        "id": event.event_id
+        or _identifier(event.payload.get("id"))
+        or f"{invocation_id}:{cursor}",
         "invocation_id": invocation_id,
         "occurred_at": now,
     }
-    if event.malformed or kind not in {
+    parent_id = _identifier(event.payload.get("parent_id"))
+    if parent_id is not None:
+        base["parent_id"] = parent_id
+    if event.malformed or (not is_turn and kind not in {
         "planning",
         "action",
         "observation",
@@ -237,16 +265,41 @@ def normalize_upstream_event(
         "state_update",
         "error",
         "done",
-    }:
+    }):
         return None
+    if is_turn:
+        turn_number = int(re.search(r"\d+", kind).group())
+        return {
+            **base,
+            "type": "turn.started",
+            "data": {
+                "turn_number": turn_number,
+                "title": _safe_summary(data.get("title"), limit=256)
+                or f"Turn {turn_number}",
+                "status": "running",
+            },
+        }
     if kind == "planning":
         steps = _plan_steps(data.get("steps") or data.get("plan") or [])
         return {
             **base,
-            "type": "plan.updated",
-            "data": {"steps": steps, "summary": str(data.get("summary", ""))[:2000]},
+            "type": "activity.started",
+            "data": {
+                "activity_id": str(base["id"]),
+                "activity_kind": "planning",
+                "title": _safe_summary(data.get("title"), limit=256)
+                or "Planning",
+                "status": "running",
+                "summary": _safe_summary(data.get("summary") or data.get("text")),
+                "steps": steps,
+            },
         }
     if kind == "action":
+        call_id = (
+            _identifier(data.get("call_id"))
+            or _identifier(event.payload.get("id"))
+            or str(base["id"])
+        )
         action = str(
             data.get("status") or data.get("phase") or data.get("event") or "started"
         ).casefold()
@@ -266,9 +319,11 @@ def normalize_upstream_event(
         }:
             return {
                 **base,
-                "type": "tool.completed",
+                "type": "activity.completed",
                 "data": {
-                    "tool_call_id": f"{invocation_id}:tool:{cursor}",
+                    "activity_id": call_id,
+                    "activity_kind": "tool",
+                    "call_id": call_id,
                     "tool_name": tool,
                     "status": "failed"
                     if action == "failed"
@@ -276,48 +331,55 @@ def normalize_upstream_event(
                     if action in {"cancelled", "succeeded"}
                     else "succeeded",
                     "duration_ms": _duration_ms(data.get("duration_ms")),
-                    "output_summary": str(
-                        data.get("output_summary") or data.get("output") or ""
-                    )[:2000],
+                    "output_summary": _safe_summary(data.get("output_summary")),
                 },
             }
         return {
             **base,
-            "type": "tool.started",
+            "type": "activity.started",
             "data": {
-                "tool_call_id": f"{invocation_id}:tool:{cursor}",
+                "activity_id": call_id,
+                "activity_kind": "tool",
+                "call_id": call_id,
                 "tool_name": tool,
-                "input_summary": str(
-                    data.get("input_summary") or data.get("input") or ""
-                )[:2000],
+                "status": "running",
+                "input_summary": _safe_summary(data.get("input_summary")),
             },
         }
     if kind == "observation":
+        call_id = (
+            _identifier(data.get("call_id"))
+            or parent_id
+            or _identifier(event.payload.get("id"))
+            or str(base["id"])
+        )
         return {
             **base,
-            "type": "tool.completed",
+            "type": "activity.completed",
             "data": {
-                "tool_call_id": f"{invocation_id}:tool:{cursor}",
-                "tool_name": str(data.get("tool_name") or "autoskill.observation"),
-                "status": "succeeded",
+                "activity_id": call_id,
+                "activity_kind": "tool",
+                "call_id": call_id,
+                "tool_name": str(
+                    data.get("tool_name")
+                    or data.get("name")
+                    or "autoskill.observation"
+                ),
+                "status": "succeeded" if data.get("ok", True) else "failed",
                 "duration_ms": _duration_ms(data.get("duration_ms")),
-                "output_summary": str(
-                    data.get("summary")
-                    or data.get("observation")
-                    or data.get("output")
-                    or ""
-                )[:2000],
+                "output_summary": _safe_summary(
+                    data.get("summary") or data.get("output_summary")
+                ),
+                "error_summary": _safe_summary(data.get("error")),
             },
         }
     if kind == "final_answer":
         text = data.get("answer", data.get("text", data.get("content", "")))
         return {
             **base,
-            "type": "assistant.delta",
+            "type": "assistant.final",
             "data": {
-                "text": str(sanitize_event_payload(text)),
-                "sequence": cursor,
-                "final": True,
+                "content": str(sanitize_event_payload(text)),
             },
         }
     if kind == "error":
@@ -340,26 +402,55 @@ def normalize_upstream_event(
             },
         }
     if kind == "request_summary":
-        # request_summary is retained in raw evidence and folded into the
-        # gated run.completed event; it is not a browser event type in the
-        # STEP 1 normalized event schema.
-        return None
-    if kind == "state_update":
-        ready = bool(data.get("state_ready"))
+        model = data.get("model")
+        counts = data.get("counts")
+        usage = data.get("usage")
+        safe_usage: dict[str, int | float] = {}
+        if isinstance(usage, Mapping):
+            for key in (
+                "total_tokens",
+                "total_input_tokens",
+                "total_output_tokens",
+                "api_elapsed_seconds",
+                "total_wall_duration_seconds",
+                "total_duration_seconds",
+            ):
+                value = usage.get(key)
+                if isinstance(value, (int, float)) and value >= 0:
+                    safe_usage[key] = value
         return {
             **base,
-            "type": "plan.updated",
+            "type": "request.summary",
             "data": {
-                "steps": [
-                    {
-                        "id": "state",
-                        "label": "state snapshot ready"
-                        if ready
-                        else "state snapshot updating",
-                        "status": "completed" if ready else "running",
-                    }
-                ],
-                "summary": "AutoSkill state snapshot updated",
+                "status": _safe_summary(data.get("status"), limit=64),
+                "model": _safe_summary(
+                    model.get("model_name") or model.get("model_id")
+                    if isinstance(model, Mapping)
+                    else model,
+                    limit=256,
+                ),
+                "skills": {
+                    "used": _non_negative_int(
+                        counts.get("used") if isinstance(counts, Mapping) else 0
+                    ),
+                    "created": _non_negative_int(
+                        counts.get("created") if isinstance(counts, Mapping) else 0
+                    ),
+                    "updated": _non_negative_int(
+                        counts.get("updated") if isinstance(counts, Mapping) else 0
+                    ),
+                },
+                "usage": safe_usage,
+                "message": _safe_summary(data.get("message")),
+            },
+        }
+    if kind == "state_update":
+        return {
+            **base,
+            "type": "state.updated",
+            "data": {
+                "state_ready": bool(data.get("state_ready")),
+                "remote_saved": bool(data.get("remote_saved")),
             },
         }
     return None

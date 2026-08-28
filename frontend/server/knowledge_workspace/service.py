@@ -100,8 +100,31 @@ class KnowledgeWorkspaceService:
             "invocation_id": invocation.invocation_id,
             "kind": invocation.kind,
             "status": invocation.status,
+            "message": invocation.message,
+            "model": invocation.model,
+            "started_at": invocation.started_at,
+            "finished_at": invocation.finished_at,
             "created_at": invocation.created_at,
         }
+
+    def conversation(self, actor: Actor, draft_id: str) -> list[dict[str, object]]:
+        self.get_draft(actor, draft_id)
+        return [
+            {
+                "invocation": self.public_invocation(invocation),
+                "events": [
+                    item["event"]
+                    for item in self.repository.events_after(
+                        invocation.invocation_id
+                    )
+                ],
+            }
+            for invocation in self.repository.invocations_for_draft(
+                draft_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+        ]
 
     @staticmethod
     def public_draft(draft: SkillDraft) -> dict[str, object]:
@@ -450,7 +473,7 @@ class KnowledgeWorkspaceService:
             authoring_session_id=session.authoring_session_id,
             principal_id=actor.principal_id,
             kind=kind,
-            message=message,
+            message=message or draft.goal,
             model=model,
             autoskill_agent_id=autoskill_agent_id or session.autoskill_agent_id,
             autoskill_session_id=autoskill_session_id or session.autoskill_session_id,
@@ -524,7 +547,7 @@ class KnowledgeWorkspaceService:
         last_event_id: str | None = None
         lease_id = invocation.lease_id
         terminal_event: ParsedUpstreamEvent | None = None
-        invalid_event: ParsedUpstreamEvent | None = None
+        malformed_event: ParsedUpstreamEvent | None = None
         try:
             prior_events = self.repository.raw_events(invocation.invocation_id)
             prior_raw = [item["raw"] for item in prior_events]
@@ -735,27 +758,18 @@ class KnowledgeWorkspaceService:
                     cursor=len(self.repository.raw_events(invocation.invocation_id))
                     + 1,
                 )
-                if event.malformed or kind not in {
-                    "planning",
-                    "action",
-                    "observation",
-                    "final_answer",
-                    "request_summary",
-                    "state_update",
-                    "error",
-                    "done",
-                }:
-                    invalid_event = event
+                if event.malformed:
+                    malformed_event = event
                 if kind == "done":
                     terminal_event = event
                     break
                 await self._append(current, event, normalized)
             if terminal_event is not None:
                 await self._append(current, terminal_event, None)
-            if invalid_event is not None:
+            if malformed_event is not None:
                 raise KnowledgeWorkspaceError(
                     "AUTOSKILL_PROTOCOL_ERROR",
-                    "AutoSkill emitted an unknown or malformed event",
+                    "AutoSkill emitted a malformed event",
                     502,
                 )
             if invocation.invocation_id in self._cancelled:

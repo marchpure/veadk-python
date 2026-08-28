@@ -430,7 +430,7 @@ async def test_completion_requires_summary_final_answer_done_and_no_error(
 
 
 @pytest.mark.asyncio
-async def test_unknown_event_is_not_a_success_path() -> None:
+async def test_unknown_nonterminal_event_is_archived_without_killing_success() -> None:
     service, actor, _ = make_service(
         [
             event("final_answer", {"answer": "answer"}),
@@ -446,7 +446,7 @@ async def test_unknown_event_is_not_a_success_path() -> None:
         invocation.invocation_id, tenant_id="tenant", workspace_id="workspace"
     )
     assert saved is not None
-    assert saved.status is InvocationStatus.FAILED
+    assert saved.status is InvocationStatus.SUCCEEDED
     assert "secret" not in json.dumps(
         service.repository.raw_events(invocation.invocation_id)
     )
@@ -554,6 +554,28 @@ def test_sqlite_repository_reopens_durable_workspace_state(tmp_path: Path) -> No
     )
     assert loaded is not None
     assert loaded.goal == "durable goal"
+
+
+def test_event_replay_uses_sequence_cursor_without_replacing_semantic_id() -> None:
+    repository = KnowledgeWorkspaceRepository()
+    repository.append_event(
+        "inv",
+        {"type": "Turn 1"},
+        {
+            "id": "upstream-turn",
+            "type": "turn.started",
+            "invocation_id": "inv",
+            "occurred_at": "2026-08-28T00:00:00+00:00",
+            "data": {"turn_number": 1, "title": "Turn 1", "status": "running"},
+        },
+        "upstream-turn",
+    )
+
+    event = repository.events_after("inv")[0]["event"]
+
+    assert event["id"] == "upstream-turn"
+    assert event["cursor"] == "1"
+    assert repository.events_after("inv", after=int(event["cursor"])) == ()
 
 
 def test_object_storage_rejects_symlink_alias(tmp_path: Path) -> None:

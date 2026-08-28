@@ -696,6 +696,16 @@ def mount_knowledge_workspace_routes(
         payload["meta"]["etag"] = result.etag
         return payload
 
+    @app.get(f"{prefix}/skills/drafts/{{draft_id}}/conversation")
+    async def conversation(request: Request, draft_id: str) -> dict[str, Any]:
+        values = invoke(lambda: service.conversation(actor(request), draft_id))
+        for item in values:
+            invocation = item["invocation"]
+            invocation["event_url"] = (
+                f"{prefix}/invocations/{invocation['invocation_id']}/events"
+            )
+        return envelope(values, request)
+
     @app.post(f"{prefix}/skills/drafts/{{draft_id}}/generate", status_code=202)
     async def generate(
         request: Request,
@@ -791,7 +801,7 @@ def mount_knowledge_workspace_routes(
                 if event.get("heartbeat"):
                     yield ": heartbeat\n\n"
                 else:
-                    yield f"id: {event['id']}\nevent: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False, separators=(',', ':'))}\n\n"
+                    yield f"id: {event['cursor']}\nevent: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False, separators=(',', ':'))}\n\n"
 
         return StreamingResponse(
             stream(),

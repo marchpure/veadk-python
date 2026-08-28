@@ -69,7 +69,11 @@ export interface Invocation {
   invocation_id: string;
   kind: "generate" | "update" | "run" | "validate" | "discover";
   status: InvocationStatus;
+  message: string;
+  model?: string;
   event_url: string;
+  started_at?: string;
+  finished_at?: string;
   created_at: string;
 }
 
@@ -123,12 +127,17 @@ export interface PlanStep {
   status: "pending" | "running" | "completed" | "failed" | "cancelled";
 }
 
-export type KnowledgeInvocationEvent =
+interface InvocationEventBase {
+  id: string;
+  cursor: string;
+  invocation_id: string;
+  occurred_at: string;
+  parent_id?: string;
+}
+
+export type KnowledgeInvocationEvent = InvocationEventBase & (
   | {
-      id: string;
       type: "run.started";
-      invocation_id: string;
-      occurred_at: string;
       data: {
         kind: "generate" | "update" | "run" | "validate" | "discover";
         status: "running";
@@ -137,24 +146,23 @@ export type KnowledgeInvocationEvent =
       };
     }
   | {
-      id: string;
       type: "assistant.delta";
-      invocation_id: string;
-      occurred_at: string;
       data: { text: string; sequence: number; final?: boolean };
     }
   | {
-      id: string;
+      type: "assistant.progress";
+      data: { text: string };
+    }
+  | {
+      type: "assistant.final";
+      data: { content: string };
+    }
+  | {
       type: "plan.updated";
-      invocation_id: string;
-      occurred_at: string;
       data: { steps: PlanStep[]; summary?: string };
     }
   | {
-      id: string;
       type: "tool.started" | "tool.completed";
-      invocation_id: string;
-      occurred_at: string;
       data: {
         tool_call_id: string;
         tool_name: string;
@@ -168,10 +176,46 @@ export type KnowledgeInvocationEvent =
       };
     }
   | {
-      id: string;
+      type: "turn.started";
+      data: {
+        turn_number: number;
+        title: string;
+        status: "running";
+      };
+    }
+  | {
+      type: "activity.started" | "activity.completed";
+      data: {
+        activity_id: string;
+        activity_kind: "planning" | "tool";
+        title?: string;
+        status: "running" | "succeeded" | "failed" | "cancelled";
+        call_id?: string;
+        tool_name?: string;
+        summary?: string;
+        input_summary?: string;
+        output_summary?: string;
+        error_summary?: string;
+        duration_ms?: number;
+        steps?: PlanStep[];
+      };
+    }
+  | {
+      type: "request.summary";
+      data: {
+        status?: string;
+        model?: string;
+        skills: { used: number; created: number; updated: number };
+        usage?: JsonObject;
+        message?: string;
+      };
+    }
+  | {
+      type: "state.updated";
+      data: { state_ready: boolean; remote_saved: boolean };
+    }
+  | {
       type: "artifact.created";
-      invocation_id: string;
-      occurred_at: string;
       data: {
         artifact_id: string;
         revision_id: string;
@@ -182,10 +226,7 @@ export type KnowledgeInvocationEvent =
       };
     }
   | {
-      id: string;
       type: "revision.created";
-      invocation_id: string;
-      occurred_at: string;
       data: {
         revision_id: string;
         draft_id: string;
@@ -195,10 +236,7 @@ export type KnowledgeInvocationEvent =
       };
     }
   | {
-      id: string;
       type: "run.completed";
-      invocation_id: string;
-      occurred_at: string;
       data: {
         status: "succeeded";
         finished_at: string;
@@ -208,10 +246,7 @@ export type KnowledgeInvocationEvent =
       };
     }
   | {
-      id: string;
       type: "run.failed";
-      invocation_id: string;
-      occurred_at: string;
       data: {
         status: "failed";
         error: InvocationError;
@@ -219,12 +254,15 @@ export type KnowledgeInvocationEvent =
       };
     }
   | {
-      id: string;
       type: "run.cancelled";
-      invocation_id: string;
-      occurred_at: string;
       data: { status: "cancelled"; finished_at?: string };
-    };
+    }
+);
+
+export interface ConversationHistoryEntry {
+  invocation: Invocation;
+  events: KnowledgeInvocationEvent[];
+}
 
 export interface InvocationError {
   code: string;

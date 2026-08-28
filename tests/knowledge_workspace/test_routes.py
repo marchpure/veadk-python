@@ -7,9 +7,10 @@ import pytest
 from fastapi import FastAPI
 
 from frontend.server.knowledge_workspace.autoskill import UnavailableAutoSkillClient
+from frontend.server.knowledge_workspace.models import Invocation, InvocationKind
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
 from frontend.server.knowledge_workspace.routes import mount_knowledge_workspace_routes
-from frontend.server.knowledge_workspace.service import KnowledgeWorkspaceService
+from frontend.server.knowledge_workspace.service import Actor, KnowledgeWorkspaceService
 
 
 def test_routes_require_trusted_actor_resolver_by_default() -> None:
@@ -284,6 +285,10 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
             "invocation_id",
             "kind",
             "status",
+            "message",
+            "model",
+            "started_at",
+            "finished_at",
             "created_at",
             "event_url",
         }
@@ -335,3 +340,70 @@ async def test_routes_require_concurrency_headers_and_support_not_modified() -> 
             headers={**headers, "if-none-match": etag},
         )
         assert loaded.status_code == 304
+
+
+@pytest.mark.asyncio
+async def test_draft_conversation_restores_ordered_turns_from_bff_events() -> None:
+    app = FastAPI()
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(
+        repository,
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    actor = Actor("tenant", "workspace", "principal")
+    actor_headers = {
+        "x-tenant-id": actor.tenant_id,
+        "x-workspace-id": actor.workspace_id,
+        "x-principal-id": actor.principal_id,
+    }
+    draft = service.create_draft(actor, "goal", ["connection"])
+    session = repository.get_session(
+        draft.draft_id, tenant_id="tenant", workspace_id="workspace"
+    )
+    assert session is not None
+    for index, message in enumerate(("first question", "second question"), start=1):
+        invocation = Invocation(
+            tenant_id="tenant",
+            workspace_id="workspace",
+            invocation_id=f"inv-{index}",
+            draft_id=draft.draft_id,
+            authoring_session_id=session.authoring_session_id,
+            kind=InvocationKind.RUN,
+            autoskill_agent_id="private-agent",
+            autoskill_session_id="private-session",
+            autoskill_request_id=f"private-request-{index}",
+            message=message,
+        )
+        repository.save_invocation(invocation)
+        repository.append_event(
+            invocation.invocation_id,
+            {"type": "final_answer", "data": {"answer": f"answer {index}"}},
+            {
+                "id": f"answer-{index}",
+                "type": "assistant.final",
+                "invocation_id": invocation.invocation_id,
+                "occurred_at": f"2026-08-28T00:00:0{index}+00:00",
+                "data": {"content": f"answer {index}"},
+            },
+            f"answer-{index}",
+        )
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/conversation",
+            headers=actor_headers,
+        )
+
+    assert response.status_code == 200
+    turns = response.json()["data"]
+    assert [turn["invocation"]["message"] for turn in turns] == [
+        "first question",
+        "second question",
+    ]
+    assert turns[0]["events"][0]["id"] == "answer-1"
+    assert turns[0]["events"][0]["cursor"] == "1"
+    assert "private-agent" not in response.text
+    assert "private-session" not in response.text
+    assert "private-request" not in response.text

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type FormEvent,
@@ -22,15 +23,12 @@ import {
   Loader2,
   MessageSquare,
   MoreHorizontal,
-  PanelRight,
   Play,
   RefreshCw,
   Search,
-  Send,
   ShieldCheck,
   Settings2,
   Share2,
-  Square,
   ToyBrick,
   Upload,
   User,
@@ -38,6 +36,12 @@ import {
 } from "lucide-react";
 import { login, resolveIdentity, type AuthStatus } from "../../../adk/identity";
 import { ArtifactViewer } from "../artifact/ArtifactViewer";
+import { AssistantPanel } from "../assistant/AssistantPanel";
+import {
+  assistantReducer,
+  initialAssistantState,
+} from "../assistant/assistant-reducer";
+import type { ConversationTurnModel } from "../assistant/assistant-model";
 import {
   knowledgeApi,
   KnowledgeApiError,
@@ -48,7 +52,6 @@ import {
 import { Modal } from "../components/Modal";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
-  ArchivedInvocationEvent,
   Artifact,
   ConnectorDefinition,
   ConnectionProfile,
@@ -56,7 +59,6 @@ import type {
   Invocation,
   JsonObject,
   KnowledgeInvocationEvent,
-  PlanStep,
   Revision,
 } from "../domain/types";
 import {
@@ -126,10 +128,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "操作失败，请重试。";
 }
 
-function invocationErrorMessage(error: { code: string; message: string }): string {
-  return ERROR_LABELS[error.code] || error.message;
-}
-
 function formatServerTimestamp(value?: string): string {
   if (!value) return "时间由 BFF 返回";
   const date = new Date(value);
@@ -138,11 +136,10 @@ function formatServerTimestamp(value?: string): string {
     : date.toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
 }
 
-function formatElapsed(milliseconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes ? `${minutes}分${String(seconds).padStart(2, "0")}秒` : `${seconds}秒`;
+function formatElapsed(startedAt?: string, now = Date.now()): string {
+  if (!startedAt) return "0s";
+  const seconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
 function routeFromLocation(): WorkspaceRoute {
@@ -223,6 +220,14 @@ export function KnowledgeWorkspacePage() {
     kind: "validate" | "discover";
     status: JobResult["status"];
   } | null>(null);
+  const [assistantState, dispatchAssistant] = useReducer(
+    assistantReducer,
+    initialAssistantState,
+  );
+  const [activeInvocation, setActiveInvocation] = useState<Invocation | null>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const lastCursorRef = useRef(new Map<string, string>());
+  const terminalInvocationRef = useRef(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const popstate = useCallback(() => setRouteState(routeFromLocation()), []);
 
@@ -317,9 +322,28 @@ export function KnowledgeWorkspacePage() {
         writeQuery(`draft:${route.draftId}`, result.value.data);
         setEtag(result.etag);
         setSelectedConnectionIds(result.value.data.connection_ids);
-        const revisionResult = await knowledgeApi.listRevisions(route.draftId, controller.signal);
+        const [revisionResult, conversationResult] = await Promise.all([
+          knowledgeApi.listRevisions(route.draftId, controller.signal),
+          knowledgeApi.getConversation(route.draftId, controller.signal),
+        ]);
         setRevisions(revisionResult.data);
         writeQuery(`revisions:${route.draftId}`, revisionResult.data);
+        dispatchAssistant({
+          type: "history.restored",
+          entries: conversationResult.data,
+        });
+        lastCursorRef.current = new Map(
+          conversationResult.data.flatMap((entry) => {
+            const cursor = entry.events.at(-1)?.cursor;
+            return cursor ? [[entry.invocation.invocation_id, cursor] as const] : [];
+          }),
+        );
+        const active = [...conversationResult.data].reverse().find(
+          (entry) =>
+            entry.invocation.status === "queued"
+            || entry.invocation.status === "running",
+        );
+        setActiveInvocation(active?.invocation || null);
       })
       .catch((cause) => {
         if (!controller.signal.aborted) {
@@ -383,6 +407,7 @@ export function KnowledgeWorkspacePage() {
         trialTask.trim() || undefined,
       );
       setActiveInvocation(invocation.data);
+      dispatchAssistant({ type: "invocation.started", invocation: invocation.data });
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -398,28 +423,10 @@ export function KnowledgeWorkspacePage() {
     return result.data;
   }, []);
 
-  const [activeInvocation, setActiveInvocation] = useState<Invocation | null>(null);
-  const [events, setEvents] = useState<KnowledgeInvocationEvent[]>([]);
-  const [unknownEvents, setUnknownEvents] = useState<ArchivedInvocationEvent[]>([]);
-  const [assistantText, setAssistantText] = useState("");
-  const [plan, setPlan] = useState<PlanStep[]>([]);
-  const [streamState, setStreamState] = useState<"idle" | "connected" | "disconnected" | "done">("idle");
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  const streamAbortRef = useRef<AbortController | null>(null);
-  const lastEventIdRef = useRef("");
-  const terminalInvocationRef = useRef(false);
-  const seenEventIdsRef = useRef(new Set<string>());
-
   const applyEvent = useCallback((event: KnowledgeInvocationEvent) => {
-    if (seenEventIdsRef.current.has(event.id)) return;
-    seenEventIdsRef.current.add(event.id);
-    setEvents((current) => [...current, event]);
-    lastEventIdRef.current = event.id;
-    if (event.type === "assistant.delta") {
-      setAssistantText((current) => current + event.data.text);
-    } else if (event.type === "plan.updated") {
-      setPlan(event.data.steps);
-    } else if (event.type === "artifact.created") {
+    dispatchAssistant({ type: "event.received", event });
+    lastCursorRef.current.set(event.invocation_id, event.cursor);
+    if (event.type === "artifact.created") {
       void knowledgeApi.getArtifact(event.data.artifact_id)
         .then((result) => {
           setArtifact(result.value.data);
@@ -440,46 +447,59 @@ export function KnowledgeWorkspacePage() {
       || event.type === "run.cancelled"
     ) {
       terminalInvocationRef.current = true;
-      setStreamState("done");
+      dispatchAssistant({
+        type: "connection.changed",
+        invocationId: event.invocation_id,
+        state: "idle",
+      });
     }
   }, [draft]);
 
-  const stream = useCallback(async () => {
-    if (!activeInvocation) return;
+  const stream = useCallback(async (invocation = activeInvocation) => {
+    if (!invocation) return;
     streamAbortRef.current?.abort();
     const controller = new AbortController();
     streamAbortRef.current = controller;
     terminalInvocationRef.current = false;
-    setStreamState("connected");
-    if (!startedAt) setStartedAt(Date.now());
+    dispatchAssistant({
+      type: "connection.changed",
+      invocationId: invocation.invocation_id,
+      state: "connected",
+    });
     try {
-      for await (const event of knowledgeApi.streamInvocationEvents(activeInvocation, {
+      for await (const event of knowledgeApi.streamInvocationEvents(invocation, {
         signal: controller.signal,
-        lastEventId: lastEventIdRef.current || undefined,
-        onUnknown: (unknown) => setUnknownEvents((current) => [...current, unknown]),
+        lastEventId: lastCursorRef.current.get(invocation.invocation_id),
+        onUnknown: (unknown) => dispatchAssistant({
+          type: "unknown.received",
+          invocationId: invocation.invocation_id,
+          event: unknown,
+        }),
       })) {
         applyEvent(event);
       }
       if (!controller.signal.aborted && !terminalInvocationRef.current) {
-        setStreamState("disconnected");
+        dispatchAssistant({
+          type: "connection.changed",
+          invocationId: invocation.invocation_id,
+          state: "disconnected",
+        });
       }
     } catch (cause) {
       if (!controller.signal.aborted) {
-        setStreamState("disconnected");
+        dispatchAssistant({
+          type: "connection.changed",
+          invocationId: invocation.invocation_id,
+          state: "disconnected",
+        });
         setError(errorMessage(cause));
       }
     }
-  }, [activeInvocation, applyEvent, startedAt]);
+  }, [activeInvocation, applyEvent]);
 
   useEffect(() => {
     if (activeInvocation) {
-      setEvents([]);
-      setUnknownEvents([]);
-      setAssistantText("");
-      setPlan([]);
-      lastEventIdRef.current = "";
-      seenEventIdsRef.current = new Set();
-      void stream();
+      void stream(activeInvocation);
     }
     return () => streamAbortRef.current?.abort();
     // A new invocation starts one subscription. Reconnect is explicit.
@@ -490,9 +510,14 @@ export function KnowledgeWorkspacePage() {
     if (!activeInvocation) return;
     setBusy("cancel");
     try {
-      await knowledgeApi.cancelInvocation(activeInvocation.invocation_id);
+      const result = await knowledgeApi.cancelInvocation(activeInvocation.invocation_id);
       streamAbortRef.current?.abort();
-      setStreamState("done");
+      dispatchAssistant({
+        type: "invocation.cancelled",
+        invocationId: activeInvocation.invocation_id,
+        finishedAt: result.data.finished_at || new Date().toISOString(),
+      });
+      setActiveInvocation(null);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -502,6 +527,16 @@ export function KnowledgeWorkspacePage() {
 
   const sendMessage = useCallback(async (message: string, intent: "update" | "run") => {
     if (!draft || !message.trim()) return;
+    const optimisticId = `pending-${globalThis.crypto?.randomUUID?.() || Date.now()}`;
+    const optimistic: Invocation = {
+      invocation_id: optimisticId,
+      kind: intent,
+      status: "queued",
+      message: message.trim(),
+      event_url: "",
+      created_at: new Date().toISOString(),
+    };
+    dispatchAssistant({ type: "invocation.started", invocation: optimistic });
     setBusy("message");
     setError("");
     try {
@@ -512,35 +547,48 @@ export function KnowledgeWorkspacePage() {
         etag,
       );
       setActiveInvocation(result.data);
-      setAssistantText("");
-      setPlan([]);
-      setEvents([]);
-      setUnknownEvents([]);
-      lastEventIdRef.current = "";
-      seenEventIdsRef.current = new Set();
-      setStartedAt(Date.now());
+      dispatchAssistant({
+        type: "invocation.confirmed",
+        optimisticId,
+        invocation: result.data,
+      });
     } catch (cause) {
+      dispatchAssistant({
+        type: "invocation.rejected",
+        invocationId: optimisticId,
+        error: {
+          code: cause instanceof KnowledgeApiError ? cause.code : "SUBMIT_FAILED",
+          message: errorMessage(cause),
+          retryable: cause instanceof KnowledgeApiError ? cause.retryable : true,
+        },
+      });
       setError(errorMessage(cause));
     } finally {
       setBusy("");
     }
   }, [draft, etag]);
 
-  const retryInvocation = useCallback(async () => {
-    if (!draft || !activeInvocation) return;
+  const retryInvocation = useCallback(async (turn?: ConversationTurnModel) => {
+    if (!draft) return;
+    const source = turn?.invocation || activeInvocation;
+    if (!source) return;
     setBusy("retry");
     setError("");
     try {
-      const result = activeInvocation.kind === "generate"
-        ? await knowledgeApi.generateDraft(draft.draft_id, etag, draft.trial_task)
+      const result = source.kind === "generate"
+        ? await knowledgeApi.generateDraft(draft.draft_id, etag, source.message)
         : await knowledgeApi.sendDraftMessage(
           draft.draft_id,
-          draft.trial_task || "请重新试跑当前 Skill。",
-          "run",
+          source.message,
+          source.kind === "update" ? "update" : "run",
           etag,
       );
+      dispatchAssistant({
+        type: "invocation.started",
+        invocation: result.data,
+        retryOf: source.invocation_id,
+      });
       setActiveInvocation(result.data);
-      setStartedAt(Date.now());
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -807,19 +855,16 @@ export function KnowledgeWorkspacePage() {
             draft={selectedDraft}
             revisions={revisions}
             artifact={artifact}
-            events={events}
-            unknownEvents={unknownEvents}
-            assistantText={assistantText}
-            plan={plan}
-            streamState={streamState}
-            activeInvocation={activeInvocation}
-            startedAt={startedAt}
+            turns={assistantState.turns}
             busy={busy}
             resourceError={draftResourceError}
             onSend={sendMessage}
             onCancel={cancel}
-            onReconnect={() => void stream()}
-            onRetry={() => void retryInvocation()}
+            onReconnect={(turn) => {
+              setActiveInvocation(turn.invocation);
+              void stream(turn.invocation);
+            }}
+            onRetry={(turn) => void retryInvocation(turn)}
             onRun={(message) => sendMessage(message, "run")}
             onRetryLoad={() => {
               setError("");
@@ -1102,13 +1147,7 @@ function DraftWorkspace({
   draft,
   revisions,
   artifact,
-  events,
-  unknownEvents,
-  assistantText,
-  plan,
-  streamState,
-  activeInvocation,
-  startedAt,
+  turns,
   busy,
   resourceError,
   onSend,
@@ -1121,37 +1160,29 @@ function DraftWorkspace({
   draft: Draft | null;
   revisions: Revision[];
   artifact: Artifact | null;
-  events: KnowledgeInvocationEvent[];
-  unknownEvents: ArchivedInvocationEvent[];
-  assistantText: string;
-  plan: PlanStep[];
-  streamState: "idle" | "connected" | "disconnected" | "done";
-  activeInvocation: Invocation | null;
-  startedAt: number | null;
+  turns: ConversationTurnModel[];
   busy: string;
   resourceError: { code: string; message: string } | null;
   onSend: (message: string, intent: "update" | "run") => Promise<void>;
   onCancel: () => Promise<void>;
-  onReconnect: () => void;
-  onRetry: () => void;
+  onReconnect: (turn: ConversationTurnModel) => void;
+  onRetry: (turn: ConversationTurnModel) => void;
   onRun: (message: string) => Promise<void>;
   onRetryLoad: () => void;
 }) {
-  const [message, setMessage] = useState("");
   const [task, setTask] = useState(draft?.trial_task || draft?.goal || "");
-  const [elapsedNow, setElapsedNow] = useState(() => Date.now());
-  const timelineEnd = useRef<HTMLDivElement>(null);
-  useEffect(() => timelineEnd.current?.scrollIntoView({ block: "nearest" }), [events, assistantText]);
-  useEffect(() => {
-    if (!startedAt) return undefined;
-    setElapsedNow(Date.now());
-    if (streamState === "done") return undefined;
-    const timer = window.setInterval(() => setElapsedNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [startedAt, streamState]);
+  const [elapsedNow, setElapsedNow] = useState(Date.now());
   useEffect(() => {
     setTask(draft?.trial_task || draft?.goal || "");
   }, [draft?.draft_id, draft?.trial_task, draft?.goal]);
+  const activeTurn = [...turns].reverse().find(
+    (turn) => turn.status === "queued" || turn.status === "running",
+  );
+  useEffect(() => {
+    if (!activeTurn) return;
+    const timer = window.setInterval(() => setElapsedNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeTurn?.invocationId]);
   if (!draft) {
     return (
       <div className="kw-empty-page">
@@ -1165,7 +1196,6 @@ function DraftWorkspace({
       </div>
     );
   }
-  const failedEvent = [...events].reverse().find((event) => event.type === "run.failed");
   const errorState = resourceError?.code === "FORBIDDEN"
     ? "permission"
     : resourceError?.code === "CONNECTION_NOT_READY"
@@ -1173,9 +1203,6 @@ function DraftWorkspace({
       : resourceError?.code === "PUBLISH_GATE_FAILED"
         ? "upgrade"
         : "";
-  const elapsedLabel = startedAt
-    ? `· 已耗时 ${formatElapsed(elapsedNow - startedAt)}`
-    : "";
   return (
     <section className="kw-draft-layout">
       <div className="kw-draft-center">
@@ -1186,7 +1213,10 @@ function DraftWorkspace({
               <strong>运行失败</strong>
               <span>上一次试跑没有完成，可以检查连接后重试。</span>
             </div>
-            <button type="button" onClick={onRetry}>重试本次运行</button>
+            <button type="button" onClick={() => {
+              const latest = turns.at(-1);
+              if (latest) onRetry(latest);
+            }}>重试本次运行</button>
           </div>
         ) : null}
         {errorState === "upgrade" ? (
@@ -1218,6 +1248,7 @@ function DraftWorkspace({
           <textarea className="kw-draft-task-input" value={task} onChange={(event) => setTask(event.target.value)} rows={3} aria-label="真实业务任务" />
           <div className="kw-draft-task-footer">
             <span><Database size={13} /> 已连接 {draft.connection_ids.length} 个数据源</span>
+            {activeTurn ? <span>已耗时 {formatElapsed(activeTurn.startedAt, elapsedNow)}</span> : null}
             <button type="button" className="kw-primary-small" onClick={() => void onRun(task)} disabled={busy === "message" || !task.trim()}><Play size={13} /> 开始</button>
           </div>
           {!artifact ? (
@@ -1236,51 +1267,14 @@ function DraftWorkspace({
           </div>
         ) : null}
       </div>
-      <aside className="kw-chat">
-        <div className="kw-chat-heading">
-          <div className="kw-chat-title"><PanelRight size={16} /> 分析助手 <span>{activeInvocation ? `· 实时 ${elapsedLabel}` : ""}</span></div>
-          {activeInvocation && streamState === "connected" ? <button type="button" onClick={() => void onCancel()}><Square size={13} /> 取消</button> : null}
-          {activeInvocation && streamState === "disconnected" ? <button type="button" onClick={onReconnect}><RefreshCw size={13} /> 从 {events.at(-1)?.id || "起点"} 重连</button> : null}
-        </div>
-        <div className="kw-timeline" aria-live="polite">
-          {!events.length && !assistantText ? (
-            <div className="kw-chat-welcome">
-              <div className="kw-chat-bot-avatar"><MessageSquare size={13} /></div>
-              <div className="kw-chat-welcome-body">
-                <div className="kw-chat-message">你好！正在为您提供关于 <strong>{revisions.at(-1)?.skill_name || "当前 Skill"}</strong> 的协助。</div>
-                <div className="kw-chat-suggestions">
-                  {["看看最近的经营异常", "补充历史数据证据", "调整 Skill 的判断逻辑"].map((suggestion) => (
-                    <button key={suggestion} type="button" onClick={() => setMessage(suggestion)}>{suggestion}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-          {plan.length ? (
-            <div className="kw-plan-card"><strong>执行计划</strong>{plan.map((step) => <div key={step.id}><span className={`kw-step-dot is-${step.status}`} />{step.label}</div>)}</div>
-          ) : null}
-          {assistantText ? <div className="kw-assistant-message">{assistantText}</div> : null}
-          {failedEvent ? (
-            <div className="kw-run-error" role="alert">
-              <strong>本次运行失败</strong>
-              <span>{invocationErrorMessage(failedEvent.data.error)}</span>
-              {failedEvent.data.error.retryable ? <button type="button" onClick={onRetry} disabled={busy === "retry"}>重试本次运行</button> : null}
-            </div>
-          ) : null}
-          {events
-            .filter((event): event is KnowledgeInvocationEvent & { type: "tool.started" | "tool.completed" } =>
-              event.type === "tool.started" || event.type === "tool.completed")
-            .map((event) => (
-              <div className="kw-tool-card" key={event.id}>
-                <strong>{event.data.tool_name}</strong>
-                <span>{event.type === "tool.started" ? "调用中…" : `${event.data.status || "完成"} · ${event.data.duration_ms ?? 0}ms`}</span>
-              </div>
-            ))}
-          {unknownEvents.length ? <details className="kw-unknown-events"><summary>已归档 {unknownEvents.length} 个未知事件</summary><pre>{unknownEvents.map((event) => `${event.id} ${event.type}`).join("\n")}</pre></details> : null}
-          <div ref={timelineEnd} />
-        </div>
-        <Composer value={message} onChange={setMessage} onSend={async (intent) => { await onSend(message, intent); setMessage(""); }} busy={busy === "message"} />
-      </aside>
+      <AssistantPanel
+        turns={turns}
+        busy={busy === "message" || busy === "retry" || busy === "cancel"}
+        onSend={onSend}
+        onCancel={onCancel}
+        onReconnect={onReconnect}
+        onRetry={onRetry}
+      />
     </section>
   );
 }
@@ -1422,28 +1416,6 @@ function PublishGateModal({
         <div className="kw-publish-checks">{checks.map(([label, passed]) => <div className={passed ? "is-passed" : "is-blocked"} key={label}>{passed ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}<span>{label}</span><small>{passed ? "已通过" : "待处理"}</small></div>)}</div>
         <footer className="kw-publish-footer"><span>将固定当前不可变 Revision v{revision?.number || "—"}。</span><div><button type="button" onClick={onClose}>取消</button><button type="button" className="kw-primary-small" onClick={() => void onPublish("team")} disabled={busy || !revision}>确认发布</button></div></footer>
       </section>
-    </div>
-  );
-}
-
-function Composer({
-  value,
-  onChange,
-  onSend,
-  busy,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onSend: (intent: "update" | "run") => Promise<void>;
-  busy: boolean;
-}) {
-  return (
-    <div className="kw-composer">
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder="描述修改，或输入任务试跑…" rows={3} />
-      <div className="kw-composer-actions">
-        <button type="button" onClick={() => void onSend("update")} disabled={busy || !value.trim()}><Send size={14} /> 修改</button>
-        <button type="button" className="kw-primary-small" onClick={() => void onSend("run")} disabled={busy || !value.trim()}><Play size={14} /> 试跑</button>
-      </div>
     </div>
   );
 }

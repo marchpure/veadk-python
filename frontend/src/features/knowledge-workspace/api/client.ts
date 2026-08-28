@@ -7,6 +7,7 @@ import type {
   Artifact,
   ConnectorDefinition,
   ConnectionProfile,
+  ConversationHistoryEntry,
   Draft,
   Invocation,
   JsonObject,
@@ -183,6 +184,7 @@ export interface KnowledgeApi {
   ): Promise<ApiEnvelope<JobResult>>;
   listDrafts(signal?: AbortSignal): Promise<ApiEnvelope<Draft[]>>;
   getDraft(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
+  getConversation(id: string, signal?: AbortSignal): Promise<ApiEnvelope<ConversationHistoryEntry[]>>;
   createDraft(input: CreateDraftInput): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   updateDraft(id: string, input: UpdateDraftInput, etag?: string): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   generateDraft(id: string, etag?: string, message?: string): Promise<ApiEnvelope<Invocation>>;
@@ -294,6 +296,13 @@ export const knowledgeApi: KnowledgeApi = {
   async getDraft(id, signal) {
     const result = await request<Draft>(`/skills/drafts/${encodeURIComponent(id)}`, { signal });
     return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
+  },
+  async getConversation(id, signal) {
+    const result = await request<ConversationHistoryEntry[]>(
+      `/skills/drafts/${encodeURIComponent(id)}/conversation`,
+      { signal },
+    );
+    return result.envelope;
   },
   async createDraft(input) {
     const result = await request<Draft>("/skills/drafts", {
@@ -435,53 +444,86 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
     typeof value.data !== "object" ||
     Array.isArray(value.data)
   ) return undefined;
+  const normalizedValue = {
+    ...value,
+    cursor: typeof value.cursor === "string" ? value.cursor : value.id,
+  };
   const data = value.data as JsonObject;
   if (
     type === "run.started" &&
     (data.status === "running") &&
     typeof data.kind === "string"
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "assistant.delta" &&
     typeof data.text === "string" &&
     typeof data.sequence === "number"
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "assistant.progress" &&
+    typeof data.text === "string"
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "assistant.final" &&
+    typeof data.content === "string"
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "turn.started" &&
+    typeof data.turn_number === "number" &&
+    typeof data.title === "string"
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    (type === "activity.started" || type === "activity.completed") &&
+    typeof data.activity_id === "string" &&
+    (data.activity_kind === "planning" || data.activity_kind === "tool")
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "request.summary" &&
+    data.skills &&
+    typeof data.skills === "object" &&
+    !Array.isArray(data.skills)
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "state.updated" &&
+    typeof data.state_ready === "boolean" &&
+    typeof data.remote_saved === "boolean"
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (type === "plan.updated" && Array.isArray(data.steps)) {
-    return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+    return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   }
   if (
     (type === "tool.started" || type === "tool.completed") &&
     typeof data.tool_call_id === "string" &&
     typeof data.tool_name === "string"
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "artifact.created" &&
     typeof data.artifact_id === "string" &&
     typeof data.revision_id === "string" &&
     typeof data.media_type === "string" &&
     typeof data.sha256 === "string"
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "revision.created" &&
     typeof data.revision_id === "string" &&
     typeof data.draft_id === "string" &&
     typeof data.number === "number" &&
     typeof data.sha256 === "string"
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "run.completed" &&
     data.status === "succeeded" &&
     typeof data.finished_at === "string"
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "run.failed" &&
     data.status === "failed" &&
     data.error &&
     typeof data.error === "object" &&
     !Array.isArray(data.error)
-  ) return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (type === "run.cancelled" && data.status === "cancelled") {
-    return { ...value, type, data } as unknown as KnowledgeInvocationEvent;
+    return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   }
   return undefined;
 }

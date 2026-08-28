@@ -129,6 +129,68 @@ def test_unknown_and_malformed_events_are_archived_but_not_normalized() -> None:
     assert normalize_upstream_event(malformed, invocation_id="inv", cursor=2) is None
 
 
+def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationships() -> None:
+    parsed = parse_sse(
+        [
+            'id: evt-turn\ndata: {"type":"Turn 1","id":1,"data":{"title":"Investigate"}}\n\n',
+            'id: evt-plan\ndata: {"type":"Planning","parent_id":1,"data":{"title":"Check source","reasoning":"private chain","tools":[{"name":"search","arguments":{"authorization":"Bearer secret"}}]}}\n\n',
+            'id: evt-action\ndata: {"type":"Action","id":"call-7","parent_id":1,"data":{"title":"search","name":"search","call_id":"call-7","arguments":{"query":"safe","token":"secret"}}}\n\n',
+            'id: evt-observation\ndata: {"type":"Observation","parent_id":"call-7","data":{"call_id":"call-7","name":"search","ok":true,"output":{"summary":"found","credential":"secret"}}}\n\n',
+            'id: evt-final\ndata: {"type":"final_answer","data":{"answer":"# Result"}}\n\n',
+        ]
+    )
+
+    normalized = [
+        normalize_upstream_event(item, invocation_id="inv", cursor=index + 1)
+        for index, item in enumerate(parsed)
+    ]
+
+    assert [item["type"] for item in normalized] == [
+        "turn.started",
+        "activity.started",
+        "activity.started",
+        "activity.completed",
+        "assistant.final",
+    ]
+    assert [item["id"] for item in normalized] == [
+        "evt-turn",
+        "evt-plan",
+        "evt-action",
+        "evt-observation",
+        "evt-final",
+    ]
+    assert normalized[1]["parent_id"] == "1"
+    assert normalized[2]["parent_id"] == "1"
+    assert normalized[2]["data"]["call_id"] == "call-7"
+    assert normalized[3]["parent_id"] == "call-7"
+    assert normalized[3]["data"]["call_id"] == "call-7"
+    assert "reasoning" not in json.dumps(normalized)
+    assert "secret" not in json.dumps(normalized)
+    assert normalized[4]["data"]["content"] == "# Result"
+
+
+def test_request_summary_and_state_update_keep_distinct_safe_semantics() -> None:
+    parsed = parse_sse(
+        [
+            'id: summary-1\ndata: {"type":"request_summary","data":{"status":"succeeded","model":{"model_name":"GPT-5.5"},"counts":{"used":2,"created":1},"usage":{"total_tokens":42},"authorization":"Bearer secret","lease_id":"lease-secret"}}\n\n',
+            'id: state-1\ndata: {"type":"state_update","data":{"state_ready":true,"remote_saved":true,"internal_url":"http://127.0.0.1:3417/private"}}\n\n',
+        ]
+    )
+
+    summary = normalize_upstream_event(parsed[0], invocation_id="inv", cursor=1)
+    state = normalize_upstream_event(parsed[1], invocation_id="inv", cursor=2)
+
+    assert summary["type"] == "request.summary"
+    assert summary["data"]["status"] == "succeeded"
+    assert summary["data"]["model"] == "GPT-5.5"
+    assert summary["data"]["skills"] == {"used": 2, "created": 1, "updated": 0}
+    assert summary["data"]["usage"]["total_tokens"] == 42
+    assert state["type"] == "state.updated"
+    assert state["data"] == {"state_ready": True, "remote_saved": True}
+    assert "secret" not in json.dumps([summary, state])
+    assert "127.0.0.1" not in json.dumps([summary, state])
+
+
 def test_skill_zip_requires_single_skillhub_root_and_rejects_slip_and_symlink() -> None:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:

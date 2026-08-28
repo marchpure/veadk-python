@@ -654,7 +654,50 @@
 }
 .kw-publish-footer .kw-primary-small { border-color: #1677ff; background: #1677ff; color: #fff; }
 
+/* Assistant conversation: compact, durable turns with safe overflow. */
+.kw-conversation-turn { display: grid; gap: 10px; margin: 0 0 22px; }
+.kw-user-message { align-self: end; max-width: 92%; padding: 9px 11px; border-radius: 10px 10px 3px 10px; background: #eff6ff; color: #1e3a8a; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.kw-assistant-response { min-width: 0; }
+.kw-activity-timeline { display: grid; gap: 7px; margin: 4px 0 9px; }
+.kw-activity-empty { color: #94a3b8; font-size: 11px; }
+.kw-activity-list { display: grid; gap: 6px; }
+.kw-activity { min-width: 0; padding: 8px 10px; border: 1px solid #e5eaf1; border-radius: 8px; background: #fbfcfe; }
+.kw-activity-heading { display: flex; align-items: center; gap: 7px; min-width: 0; color: #475569; font-size: 11px; }
+.kw-activity-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #94a3b8; }
+.kw-activity.is-running .kw-activity-dot { background: #3b82f6; box-shadow: 0 0 0 3px #dbeafe; }
+.kw-activity.is-succeeded .kw-activity-dot { background: #22a06b; }
+.kw-activity.is-failed .kw-activity-dot { background: #dc2626; }
+.kw-activity-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kw-activity-status, .kw-activity-duration { margin-left: auto; color: #94a3b8; font-size: 10px; white-space: nowrap; }
+.kw-activity-duration { margin-left: 0; }
+.kw-activity-detail { margin-top: 7px; color: #64748b; font-size: 11px; line-height: 1.55; }
+.kw-activity-detail summary { cursor: pointer; color: #64748b; }
+.kw-activity-detail div { margin-top: 5px; overflow-wrap: anywhere; }
+.kw-assistant-message { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.kw-assistant-markdown { min-width: 0; overflow-wrap: anywhere; }
+.kw-assistant-markdown pre, .kw-assistant-markdown table { max-width: 100%; overflow: auto; }
+.kw-assistant-markdown pre { padding: 10px; border-radius: 7px; background: #f1f5f9; white-space: pre; }
+.kw-run-summary { display: grid; gap: 6px; margin-top: 9px; padding: 9px 10px; border: 1px solid #e5eaf1; border-radius: 8px; color: #64748b; font-size: 10px; }
+.kw-run-summary-heading { display: flex; justify-content: space-between; gap: 8px; color: #475569; font-weight: 650; }
+.kw-run-summary-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; }
+.kw-run-recovery { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 9px; padding: 9px 10px; border: 1px solid #f0d794; border-radius: 8px; background: #fffaf0; color: #805d19; font-size: 11px; }
+.kw-run-recovery button, .kw-back-to-latest { padding: 6px 9px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; font-size: 11px; }
+.kw-run-recovery button { margin-left: auto; }
+.kw-persistence-error { margin-top: 9px; padding: 8px 10px; border-radius: 7px; background: #fff5f5; color: #a42b2b; font-size: 11px; }
+.kw-back-to-latest { position: absolute; right: 14px; bottom: 90px; z-index: 2; box-shadow: 0 3px 12px #0f172a1c; }
+
 @media (max-width: 720px) {
+  .kw-workspace-frame { grid-template-columns: 1fr; }
+  .kw-sidebar { display: none; }
+  .kw-chat { width: 100%; max-width: none; min-width: 0; flex-basis: auto; }
+  .kw-draft-layout { flex-direction: column; overflow: auto; }
+  .kw-draft-center { flex: 0 0 auto; padding: 0 16px 24px; }
+  .kw-chat { min-height: min(560px, 65vh); }
+  .kw-chat-heading { padding: 13px 14px; }
+  .kw-timeline { padding: 12px 14px; }
+  .kw-composer { padding: 10px 12px; }
+  .kw-draft-topbar { padding-inline: 14px !important; }
+  .kw-draft-topbar-heading h1 { max-width: 48vw; }
   .kw-state-modal-overlay { padding: 12px; }
   .kw-state-modal { max-height: 92vh; border-radius: 18px; }
   .kw-state-modal-header { padding: 18px 20px; }
@@ -667,4 +710,13 @@
   .kw-version-drawer { width: min(384px, 100%); border-radius: 0; }
   .kw-publish-footer { align-items: flex-start; flex-direction: column; padding: 20px; }
   .kw-publish-footer > div { width: 100%; justify-content: flex-end; }
+}
+
+@media (max-width: 390px) {
+  .kw-draft-topbar-heading h1 { max-width: 42vw; font-size: 14px; }
+  .kw-draft-top-actions button { padding-inline: 7px; }
+  .kw-user-message { max-width: 96%; }
+  .kw-activity-status { display: none; }
+  .kw-composer-actions { justify-content: stretch; }
+  .kw-composer-actions button { flex: 1; }
 }

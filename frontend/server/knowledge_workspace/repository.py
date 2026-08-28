@@ -182,6 +182,28 @@ class KnowledgeWorkspaceRepository:
             if json.loads(row["payload"]).get("status") in {"queued", "running"}
         )
 
+    def invocations_for_draft(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+    ) -> tuple[Invocation, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_invocations WHERE draft_id=? AND tenant_id=? AND workspace_id=?",
+                (draft_id, tenant_id, workspace_id),
+            ).fetchall()
+        return tuple(
+            sorted(
+                (
+                    Invocation.model_validate(json.loads(row["payload"]))
+                    for row in rows
+                ),
+                key=lambda item: (item.created_at, item.invocation_id),
+            )
+        )
+
     def invocations_for_revision(
         self,
         revision_id: str,
@@ -244,7 +266,10 @@ class KnowledgeWorkspaceRepository:
         return tuple(
             {
                 "sequence": int(row["sequence"]),
-                "event": json.loads(row["normalized_payload"]),
+                "event": {
+                    **json.loads(row["normalized_payload"]),
+                    "cursor": str(int(row["sequence"])),
+                },
             }
             for row in rows
             if row["normalized_payload"]
