@@ -1,0 +1,66 @@
+{
+  "agent_id": "069c…4ce7",
+  "autoskill_authorization": "anonymous",
+  "autoskill_base_url": "https://test-bytebrain.byted.org",
+  "connection": {
+    "connector_key": "hackernews",
+    "discover_status": "succeeded",
+    "discovered_action_count": 14,
+    "status": "ready",
+    "validate_status": "succeeded"
+  },
+  "connection_id": "db9d…a50a",
+  "connection_service_base_url": "http://127.0.0.1:3417",
+  "connection_service_runtime": "https://annelle-figured-intimately.ngrok-free.dev",
+  "cross_session_id": "ae48…69e8",
+  "health": {
+    "state_mode": "stateful",
+    "status": "ok"
+  },
+  "lifecycle_mode": "existing_skill_replay",
+  "message": "no successful Connection audit matched AutoSkill invocation 4bab…ecc6",
+  "models": {
+    "count": 7,
+    "default_model_id": "GPT-5.5"
+  },
+  "reason": "RuntimeError",
+  "requests": [
+    {
+      "event_types": [
+        "final_answer",
+        "state_update",
+        "request_summary",
+        "done"
+      ],
+      "kind": "list_skill",
+      "request_id": "1ced…3184",
+      "summary_status": "succeeded"
+    },
+    {
+      "event_types": [
+        "final_answer",
+        "state_update",
+        "request_summary",
+        "done"
+      ],
+      "kind": "view_skill",
+      "request_id": "4196…4aaa",
+      "summary_status": "succeeded"
+    }
+  ],
+  "session_id": "a5eb…4eea",
+  "skill_name": "hackernews-live-dashboard-b5c1014d",
+  "skill_zip_before": {
+    "compressed_bytes": 2422,
+    "expanded_bytes": 5235,
+    "file_count": 1,
+    "paths": [
+      "skillhub/hackernews-live-dashboard-b5c1014d/SKILL.md"
+    ],
+    "root": "skillhub/hackernews-live-dashboard-b5c1014d/",
+    "sha256": "1137f293f5a9417b95440ce608a547fb2df9ad310d688012aabf13fe76f4b105",
+    "skill_md_bytes": 5235,
+    "skill_name": "hackernews-live-dashboard-b5c1014d"
+  },
+  "status": "BLOCKED"
+}

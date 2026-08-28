@@ -18,7 +18,7 @@
   },
   "passed": {
     "official_autoskill_lifecycle": {
-      "stages": [
+      "stages_verified": [
         "health",
         "models",
         "create_skill",
@@ -27,8 +27,7 @@
         "download",
         "invoke",
         "update_skill",
-        "second_download",
-        "cross_session_invoke"
+        "second_download"
       ],
       "required_sse_events": [
         "planning",
@@ -62,7 +61,8 @@
       "zip_before_sha256": "6b1456e98f282216c40e26a080e94efeb804fa127ac9af884264a37a80b85cf4",
       "zip_after_sha256": "d958443a5eb4502b0bc204f872c232d1a54e598be4123e345ac3b5e462a1b467",
       "zip_digest_changed": true,
-      "html_output": "output_files/hackernews-live.html"
+      "html_output": "output_files/hackernews-live.html",
+      "cross_session_invoke": "blocked; see blocked.only_remaining_blocker"
     },
     "runtime_boundary": {
       "bff_process_local_mcp_sessions": false,
@@ -76,7 +76,12 @@
     "only_remaining_blocker": {
       "code": "OFFICIAL_AGENT_NEW_SESSION_TOOL_SELECTION_NONDETERMINISTIC",
       "description": "A fresh AutoSkill session completed its real SSE request without selecting the configured Hacker News MCP tool, so no exact Connection audit record was produced.",
-      "latest_request_id": "03e6…142b",
+      "latest_request_id": "4bab…ecc6",
+      "attempts": [
+        {"request_id": "03e6…142b", "result": "SSE completed without Connection audit"},
+        {"request_id": "b972…1ab5", "result": "SSE completed without Connection audit"},
+        {"request_id": "4bab…ecc6", "result": "list_skill/view_skill succeeded; invoke produced no Connection audit"}
+      ],
       "classification": "official Agent behavior; no mock, fixture, local AutoSkill, provider fallback, or prompt mutation accepted"
     }
   },

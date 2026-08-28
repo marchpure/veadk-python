@@ -1,8 +1,8 @@
 {
   "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/integration-checkpoint.schema.json",
-  "checkpoint": "STEP3_BLOCKED_AUTOSKILL_CREDENTIAL",
-  "step": "knowledge-asset-workspace-v1-step-3",
-  "created_at": "2026-08-28T01:38:45Z",
+  "checkpoint": "STEP2_INTEGRATION_FROZEN_WITH_OFFICIAL_CROSS_SESSION_BLOCKER",
+  "step": "knowledge-asset-workspace-v1-step-2-integration",
+  "created_at": "2026-08-28T14:20:00+08:00",
   "branch": "feat/knowledge-v1-integration",
   "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-integration",
   "inputs": {
@@ -36,28 +36,28 @@
   ],
   "service_start": {
     "connection_service": "exact SHA local process on 127.0.0.1:3417; /v1/health returned 200",
-    "autoskill_remote": "health returned 200 stateful",
-    "autoskill_local": "exact SHA health passed; real create_skill reached its configured model provider and was rejected for invalid credentials"
+    "autoskill_remote": "https://test-bytebrain.byted.org/openapi/autoskill/v1; health returned 200 stateful; anonymous access"
   },
   "acceptance_url": "http://127.0.0.1:5187/?view=knowledge-workspace&file=welcome",
   "acceptance_url_scope": "unique local contract-fixture browser verification only; not real A-D evidence",
-  "evidence": "docs/knowledge-workspace/evidence/integration-72b75fa8/results.json",
+  "evidence": [
+    "docs/knowledge-workspace/evidence/step2-integration-frozen.json",
+    "docs/knowledge-workspace/evidence/step2-cross-session-final.json",
+    "docs/knowledge-workspace/evidence/step2-existing-replay-final.json"
+  ],
   "journeys": {
-    "A": "BLOCKED_AUTOSKILL_CREDENTIAL",
-    "B": "BLOCKED_AUTOSKILL_CREDENTIAL",
-    "C": "BLOCKED_AUTOSKILL_CREDENTIAL",
-    "D": "BLOCKED_AUTOSKILL_CREDENTIAL"
+    "A": "DEFERRED_OUT_OF_FROZEN_SCOPE",
+    "B": "DEFERRED_OUT_OF_FROZEN_SCOPE",
+    "C": "PARTIAL_HACKERNEWS_VERTICAL; CROSS_SESSION_BLOCKED",
+    "D": "DEFERRED_OUT_OF_FROZEN_SCOPE"
   },
   "tests": {
-    "backend": "103 passed",
-    "frontend": "847 passed",
+    "backend_focused": "33 passed",
+    "connection_service_focused": "58 passed",
     "typescript": "passed",
-    "boundary_contract": "9 passed",
-    "production_build": "passed",
-    "webui_assets": "85 packaged files and 229 internal references verified",
-    "open_connector": "163 files passed, 1 skipped; 1467 tests passed, 4 skipped",
-    "pre_commit": "ruff check, ruff format and gitleaks passed",
-    "forbidden_pattern_scan": "passed for Knowledge Workspace production source"
+    "inherited_frontend_behavior": "17 passed",
+    "inherited_production_build": "passed",
+    "inherited_webui_assets": "85 packaged files and 229 internal references verified"
   },
   "visual": {
     "baseline": "STEP2A_VISUAL_FROZEN",
@@ -66,10 +66,14 @@
     "contract_fixture_desktop_and_narrow": "passed"
   },
   "hard_blocker": {
-    "reason": "AUTOSKILL_CREDENTIAL",
-    "remote_token": "not configured",
-    "local_model_credential": "real provider rejected the configured credential",
-    "remaining_gate": "authenticated create_skill, update_skill and Skill ZIP download, followed by real HTML validation, immutable revision, publication and cross-session invocation for A-D",
+    "reason": "OFFICIAL_AGENT_NEW_SESSION_TOOL_SELECTION_NONDETERMINISTIC",
+    "description": "The official anonymous stateful AutoSkill API completed real SSE for a fresh session, but did not select the configured Hacker News MCP tool, so no exact Connection audit matched the request. A second attempt timed out during SSE setup and a subsequent existing-Skill replay again completed list/view but produced no matching audit.",
+    "attempts": [
+      {"request_id": "03e6…142b", "status": "BLOCKED_NO_CONNECTION_AUDIT"},
+      {"request_id": "b972…1ab5", "status": "BLOCKED_NO_CONNECTION_AUDIT"},
+      {"request_id": "4bab…ecc6", "status": "BLOCKED_NO_CONNECTION_AUDIT"}
+    ],
+    "remaining_gate": "A stable official AutoSkill cross-session invoke that selects the configured Connection MCP tool and produces an exact durable audit correlation",
     "mock_fallback_used": false
   },
   "external_non_blocking": [
@@ -78,9 +82,10 @@
     "veFaaS production deployment"
   ],
   "non_claims": [
-    "A-D did not pass.",
+    "Oracle, database, file and self-hosted MCP connector coverage remains deferred out of this frozen scope.",
     "No fixture or deterministic client counts as a real AutoSkill success.",
-    "No real ZIP, HTML, revision, publication or cross-session success is claimed.",
+    "The existing real update and second Skill ZIP revision are evidenced; the fresh cross-session Connection tool call remains blocked.",
+    "No cross-Agent Publication Registry is claimed.",
     "The exact Connection Service has no tenant control-plane audit-read endpoint; BFF runtime execution instead requires its auditPersisted=true acknowledgement."
   ]
 }

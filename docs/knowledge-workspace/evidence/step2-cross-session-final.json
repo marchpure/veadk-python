@@ -1,0 +1,29 @@
+{
+  "agent_id": "069c…4ce7",
+  "autoskill_authorization": "anonymous",
+  "autoskill_base_url": "https://test-bytebrain.byted.org",
+  "connection": {
+    "connector_key": "hackernews",
+    "resume_mode": "previously_validated_and_discovered",
+    "status": "ready"
+  },
+  "connection_id": "db9d…a50a",
+  "connection_service_base_url": "http://127.0.0.1:3417",
+  "connection_service_runtime": "https://annelle-figured-intimately.ngrok-free.dev",
+  "cross_session_id": "4293…4349",
+  "health": {
+    "state_mode": "stateful",
+    "status": "ok"
+  },
+  "lifecycle_mode": "existing_skill_replay",
+  "message": "no successful Connection audit matched AutoSkill invocation b972…1ab5",
+  "models": {
+    "count": 7,
+    "default_model_id": "GPT-5.5"
+  },
+  "reason": "RuntimeError",
+  "requests": [],
+  "session_id": "ba4d…c4c1",
+  "skill_name": "hackernews-live-dashboard-b5c1014d",
+  "status": "BLOCKED"
+}
