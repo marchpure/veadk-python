@@ -149,6 +149,31 @@ class FreezeAutoSkill(FakeAutoSkill):
             yield item
 
 
+class UnorderedFreezeAutoSkill(FreezeAutoSkill):
+    async def command(
+        self, command: str, **kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
+        if command == "list_skill":
+            answer = json.dumps(
+                {
+                    "data": {
+                        "command": "list-skill",
+                        "data": {
+                            "skills": [
+                                {"name": "pre-existing"},
+                                {"name": "demo"},
+                            ]
+                        },
+                    }
+                }
+            )
+            for item in (event("final_answer", {"answer": answer}), event("done")):
+                yield item
+            return
+        async for item in super().command(command, **kwargs):
+            yield item
+
+
 class QueryFailureAutoSkill(FreezeAutoSkill):
     async def command(
         self, command: str, **kwargs: object
@@ -220,6 +245,56 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
     )
     publication = service.publish(actor, revision.revision_id, "personal")
     assert publication.revision_id == revision.revision_id
+
+
+@pytest.mark.asyncio
+async def test_freeze_binds_created_skill_when_list_is_not_creation_ordered() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    autoskill = UnorderedFreezeAutoSkill(
+        [
+            event(
+                "final_answer",
+                {
+                    "answer": json.dumps(
+                        {
+                            "data": {
+                                "message": "已创建 skill `demo`",
+                            }
+                        }
+                    )
+                },
+            ),
+            event("request_summary", {"status": "success"}),
+            event("done"),
+        ]
+    )
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        FakeLeasePort(),
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    saved = service.repository.get_invocation(
+        invocation.invocation_id, tenant_id="tenant", workspace_id="workspace"
+    )
+    assert saved is not None
+    service.repository.save_invocation(
+        saved.model_copy(
+            update={
+                "request_summary": {
+                    "status": "succeeded",
+                    "skills_created": ["demo"],
+                    "target_skill": "demo",
+                }
+            }
+        )
+    )
+
+    revision = await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+
+    assert revision.skill_name == "demo"
 
 
 @pytest.mark.asyncio

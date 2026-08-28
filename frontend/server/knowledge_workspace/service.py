@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -91,6 +92,58 @@ class KnowledgeWorkspaceService:
         if isinstance(value, (list, tuple)):
             return [KnowledgeWorkspaceService._public_value(item) for item in value]
         return value
+
+    def _created_skill_names(self, invocation: Invocation) -> tuple[str, ...]:
+        """Recover Skill names reported by the durable create result.
+
+        list_skill is not creation-ordered, so its first item may be an
+        unrelated pre-existing Skill. Prefer the provider's structured
+        request_summary identity and retain a textual fallback for older
+        provider responses.
+        """
+
+        names: list[str] = []
+        summary = invocation.request_summary
+        if isinstance(summary, Mapping):
+            created = summary.get("skills_created")
+            if isinstance(created, (list, tuple)):
+                names.extend(
+                    item for item in created if isinstance(item, str) and item
+                )
+            target = summary.get("target_skill")
+            if isinstance(target, str) and target and target not in names:
+                names.append(target)
+        pattern = re.compile(
+            r"(?:skill|技能)\s+[`'\"“「]([^`'\"”」\s]+)[`'\"”」]",
+            re.IGNORECASE,
+        )
+        for item in self.repository.raw_events(invocation.invocation_id):
+            raw = item.get("raw")
+            if not isinstance(raw, Mapping):
+                continue
+            if str(raw.get("type", "")).casefold().replace("-", "_") != "final_answer":
+                continue
+            data = raw.get("data")
+            answer = data.get("answer") if isinstance(data, Mapping) else None
+            if not isinstance(answer, str) or not answer.strip():
+                continue
+            candidates: list[str] = []
+            try:
+                decoded = json.loads(answer)
+            except (TypeError, ValueError):
+                decoded = None
+            if isinstance(decoded, Mapping):
+                candidates.extend(
+                    match.group(1)
+                    for match in pattern.finditer(
+                        json.dumps(decoded, ensure_ascii=False)
+                    )
+                )
+            candidates.extend(match.group(1) for match in pattern.finditer(answer))
+            for name in candidates:
+                if name not in names:
+                    names.append(name)
+        return tuple(names)
 
     @staticmethod
     def public_invocation(invocation: Invocation) -> dict[str, object]:
@@ -1393,7 +1446,7 @@ class KnowledgeWorkspaceService:
                 state=state,
                 invocation=invocation,
             )
-            skill_name = None
+            listed_names: list[str] = []
             for event in names:
                 if event.event_type == "final_answer":
                     data = event.payload.get("data", {})
@@ -1409,12 +1462,24 @@ class KnowledgeWorkspaceService:
                             skill_data = payload_data.get("data", payload_data)
                             if isinstance(skill_data, Mapping):
                                 skills = skill_data.get("skills", [])
-                                if isinstance(skills, list) and skills:
-                                    first = skills[0]
-                                    if isinstance(first, Mapping):
-                                        skill_name = first.get("name")
+                                if isinstance(skills, list):
+                                    for item in skills:
+                                        if not isinstance(item, Mapping):
+                                            continue
+                                        name = item.get("name")
+                                        if (
+                                            isinstance(name, str)
+                                            and name
+                                            and name not in listed_names
+                                        ):
+                                            listed_names.append(name)
                     except (TypeError, ValueError, IndexError, AttributeError):
                         pass
+            created_names = self._created_skill_names(invocation)
+            skill_name = next(
+                (name for name in created_names if name in listed_names),
+                listed_names[0] if listed_names else None,
+            )
             if not skill_name:
                 raise KnowledgeWorkspaceError(
                     "SKILL_ZIP_INVALID", "AutoSkill did not return a Skill name", 502
