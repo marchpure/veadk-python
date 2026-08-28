@@ -11118,11 +11118,14 @@ def _run_frontend_server(
             # app's own API/navigation requests already forward it via auth.ts.)
             qs = request.url.query
             if not qs:
-                return HTMLResponse(_index_html)
+                return HTMLResponse(
+                    _index_html,
+                    headers={"Cache-Control": "no-store"},
+                )
             html = _ASSET_REF.sub(
                 lambda m: f"{m.group(1)}{m.group(2)}?{qs}{m.group(3)}", _index_html
             )
-            return HTMLResponse(html)
+            return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
         # Built assets (the gateway has already authorized the request).
         app.mount(
