@@ -65,6 +65,7 @@ export default defineConfig({
       // proxy intentionally preserves Origin instead of using localApiProxy().
       "/embed": { target: API_TARGET },
       "/web": localApiProxy(),
+      "/api": localApiProxy(),
       "/skillhub": {
         target: SKILLHUB_TARGET,
         changeOrigin: true,

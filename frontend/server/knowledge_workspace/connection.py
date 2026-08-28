@@ -268,6 +268,72 @@ class ConnectionServiceGateway:
         items = payload.get("items", [])
         return [self._catalog_item(item) for item in items if isinstance(item, Mapping)]
 
+    async def adapter_capabilities(self, **actor: str) -> list[dict[str, Any]]:
+        payload = (await self._request("GET", "/v1/adapters/capabilities", **actor)).json()
+        items = payload.get("items", [])
+        return [
+            self._adapter_item(item)
+            for item in items
+            if isinstance(item, Mapping)
+        ]
+
+    async def validate_rest(
+        self, body: Mapping[str, Any], **actor: str
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST", "/v1/adapters/rest/validate", json=dict(body), **actor
+        )
+        return dict(response.json().get("result", {}))
+
+    async def validate_oracle(
+        self, body: Mapping[str, Any], **actor: str
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST", "/v1/adapters/oracle/validate", json=dict(body), **actor
+        )
+        return dict(response.json().get("result", {}))
+
+    async def discover_oracle(
+        self, body: Mapping[str, Any], **actor: str
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST", "/v1/adapters/oracle/discover", json=dict(body), **actor
+        )
+        return dict(response.json().get("result", {}))
+
+    async def discover_mcp(
+        self, definition: Mapping[str, Any], **actor: str
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/v1/adapters/mcp/discover",
+            json={"definition": dict(definition)},
+            **actor,
+        )
+        return dict(response.json())
+
+    async def register_mcp(
+        self, definition: Mapping[str, Any], **actor: str
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/v1/adapters/mcp/definitions",
+            json={"definition": dict(definition)},
+            **actor,
+        )
+        return dict(response.json().get("definition", {}))
+
+    async def list_files(self, **actor: str) -> list[dict[str, Any]]:
+        payload = (await self._request("GET", "/v1/files", **actor)).json()
+        items = payload.get("items", [])
+        return [dict(item) for item in items if isinstance(item, Mapping)]
+
+    async def preview_file(self, file_id: str, **actor: str) -> dict[str, Any]:
+        response = await self._request(
+            "GET", f"/v1/files/{file_id}/preview", **actor
+        )
+        return dict(response.json().get("preview", {}))
+
     async def _catalog_by_service(self, **actor: str) -> dict[str, Mapping[str, Any]]:
         payload = (await self._request("GET", "/v1/catalog", **actor)).json()
         items = payload.get("items", [])
@@ -720,6 +786,20 @@ class ConnectionServiceGateway:
             "capabilities": capabilities,
             "config_schema": cls._schema(item, "configSchema"),
             "auth_schema": cls._schema(item, "authSchema"),
+        }
+
+    @staticmethod
+    def _adapter_item(item: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            "connector_key": str(item["service"]),
+            "version": str(item.get("connectorDefinitionVersion") or "1.0.0"),
+            "display_name": str(item["displayName"]),
+            "category": "adapter",
+            "status": str(item["tier"]),
+            "capabilities": [str(value) for value in item.get("capabilities", [])],
+            "config_schema": dict(item.get("configSchema") or {}),
+            "auth_schema": dict(item.get("authSchema") or {}),
+            "endpoints": [str(value) for value in item.get("endpoints", [])],
         }
 
     @staticmethod

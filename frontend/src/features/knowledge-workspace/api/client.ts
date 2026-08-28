@@ -11,6 +11,7 @@ import type {
   Draft,
   Invocation,
   JsonObject,
+  JsonValue,
   KnowledgeInvocationEvent,
   Meta,
   Publication,
@@ -64,6 +65,12 @@ export interface UploadResult {
   sha256: string;
   size_bytes: number;
   media_type?: string;
+}
+
+export interface AdapterCapabilityResult {
+  definitionVersion?: string;
+  operations?: JsonObject[];
+  [key: string]: JsonValue | undefined;
 }
 
 export interface JobResult {
@@ -175,6 +182,13 @@ export interface KnowledgeApi {
   getConnection(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<ConnectionProfile>; etag: string }>;
   createConnection(input: CreateConnectionInput): Promise<ApiEnvelope<ConnectionProfile>>;
   uploadFile(file: File, purpose: "context" | "skill_input", onProgress?: (percent: number) => void): Promise<ApiEnvelope<UploadResult>>;
+  validateRestAdapter(body: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  validateOracleAdapter(body: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  discoverOracleAdapter(body: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  discoverMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  registerMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  listAdapterFiles(signal?: AbortSignal): Promise<ApiEnvelope<JsonObject[]>>;
+  previewAdapterFile(fileId: string, signal?: AbortSignal): Promise<ApiEnvelope<JsonObject>>;
   validateConnection(id: string): Promise<ApiEnvelope<JobResult>>;
   discoverConnection(id: string): Promise<ApiEnvelope<JobResult>>;
   getConnectionJob(id: string, signal?: AbortSignal): Promise<ApiEnvelope<JobResult>>;
@@ -247,6 +261,44 @@ export const knowledgeApi: KnowledgeApi = {
     });
     if (!response.ok) throw await readError(response);
     return envelope<UploadResult>(await response.json(), "/uploads");
+  },
+  async validateRestAdapter(body) {
+    const result = await request<AdapterCapabilityResult>("/adapters/rest/validate", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return result.envelope;
+  },
+  async validateOracleAdapter(body) {
+    const result = await request<AdapterCapabilityResult>("/adapters/oracle/validate", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return result.envelope;
+  },
+  async discoverOracleAdapter(body) {
+    const result = await request<AdapterCapabilityResult>("/adapters/oracle/discover", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return result.envelope;
+  },
+  async discoverMcpAdapter(definition) {
+    const result = await request<AdapterCapabilityResult>("/adapters/mcp/discover", {
+      method: "POST", body: JSON.stringify({ definition }),
+    });
+    return result.envelope;
+  },
+  async registerMcpAdapter(definition) {
+    const result = await request<AdapterCapabilityResult>("/adapters/mcp/register", {
+      method: "POST", body: JSON.stringify({ definition }),
+    });
+    return result.envelope;
+  },
+  async listAdapterFiles(signal) {
+    const result = await request<JsonObject[]>("/adapter-files", { signal });
+    return result.envelope;
+  },
+  async previewAdapterFile(fileId, signal) {
+    const result = await request<JsonObject>(`/adapter-files/${encodeURIComponent(fileId)}/preview`, { signal });
+    return result.envelope;
   },
   async validateConnection(id) {
     const result = await request<JobResult>(

@@ -34,7 +34,12 @@ import {
   User,
   X,
 } from "lucide-react";
-import { login, resolveIdentity, type AuthStatus } from "../../../adk/identity";
+import {
+  resolveIdentity,
+  setLocalUser,
+  USERNAME_RE,
+  type AuthStatus,
+} from "../../../adk/identity";
 import { ArtifactViewer } from "../artifact/ArtifactViewer";
 import { AssistantPanel } from "../assistant/AssistantPanel";
 import {
@@ -58,6 +63,7 @@ import type {
   Draft,
   Invocation,
   JsonObject,
+  JsonValue,
   KnowledgeInvocationEvent,
   Revision,
 } from "../domain/types";
@@ -183,6 +189,19 @@ function idempotentLabel(status: ConnectionProfile["status"]): string {
   return STATUS_LABELS[status] || status;
 }
 
+function parseJsonObject(value: JsonValue | undefined, label: string): JsonObject {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${label}不能为空`);
+  const parsed: unknown = JSON.parse(value);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${label}必须是 JSON 对象`);
+  return parsed as JsonObject;
+}
+
+function parseStringList(value: JsonValue | undefined): string[] {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value !== "string") return [];
+  return value.split(/[\n,\s]+/u).map((item) => item.trim()).filter(Boolean);
+}
+
 export function KnowledgeWorkspacePage() {
   const [route, setRouteState] = useState(routeFromLocation);
   const [connections, setConnections] = useState<ConnectionProfile[]>(
@@ -229,6 +248,7 @@ export function KnowledgeWorkspacePage() {
   const lastCursorRef = useRef(new Map<string, string>());
   const terminalInvocationRef = useRef(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [localLoginName, setLocalLoginName] = useState("");
   const popstate = useCallback(() => setRouteState(routeFromLocation()), []);
 
   useEffect(() => {
@@ -652,7 +672,29 @@ export function KnowledgeWorkspacePage() {
       <div className="kw-auth-state">
         <h1>请先登录知识资产工作台</h1>
         <p>工作台中的连接、草稿和 Artifact 由 Studio 身份权限保护。</p>
-        <button type="button" className="kw-primary-small" onClick={login}>登录</button>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!USERNAME_RE.test(localLoginName)) return;
+            setLocalUser(localLoginName);
+            setAuthStatus("authenticated");
+          }}
+        >
+          <input
+            aria-label="用户名"
+            value={localLoginName}
+            onChange={(event) => setLocalLoginName(event.target.value)}
+            placeholder="用户名（字母 + 数字，最多 16 位）"
+            maxLength={16}
+          />
+          <button
+            type="submit"
+            className="kw-primary-small"
+            disabled={!USERNAME_RE.test(localLoginName)}
+          >
+            使用本地用户名进入
+          </button>
+        </form>
       </div>
     );
   }
@@ -879,6 +921,7 @@ export function KnowledgeWorkspacePage() {
         <ConnectionForm
           connectors={connectors}
           onClose={() => setShowConnectionForm(false)}
+          onUpload={(file) => knowledgeApi.uploadFile(file, "context").then((value) => value.data)}
           onCreated={async (created) => {
             setShowConnectionForm(false);
             setSelectedConnectionIds([created.connection_id]);
@@ -1424,10 +1467,12 @@ function ConnectionForm({
   connectors,
   onClose,
   onCreated,
+  onUpload,
 }: {
   connectors: ConnectorDefinition[];
   onClose: () => void;
   onCreated: (connection: ConnectionProfile) => Promise<void>;
+  onUpload: (file: File) => Promise<UploadResult>;
 }) {
   const [connectorKey, setConnectorKey] = useState(connectors[0]?.connector_key || "");
   const [displayName, setDisplayName] = useState("");
@@ -1435,7 +1480,10 @@ function ConnectionForm({
   const [values, setValues] = useState<JsonObject>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [result, setResult] = useState<JsonObject | null>(null);
+  const [fileResult, setFileResult] = useState<UploadResult | null>(null);
   const connector = connectors.find((item) => item.connector_key === connectorKey);
+  const isAdapter = connector?.category === "adapter";
   const authOptions = authSchemaOptions(connector?.auth_schema);
   const selectedAuthType = typeof values._auth_type === "string"
     ? values._auth_type
@@ -1478,6 +1526,44 @@ function ConnectionForm({
       credential,
     };
     try {
+      if (isAdapter) {
+        const adapterResult = connectorKey === "rest_openapi"
+          ? await knowledgeApi.validateRestAdapter({
+            baseUrl: values.baseUrl,
+            spec: parseJsonObject(values.spec, "OpenAPI JSON"),
+            confirmed: values.confirmed === true || values.confirmed === "true",
+            auth: {
+              type: values.authType || "none",
+              header: values.header,
+              value: values.value,
+              token: values.token,
+            },
+          })
+          : connectorKey === "oracle_database"
+            ? await validateAndDiscoverOracle(values)
+            : connectorKey === "mcp"
+              ? await knowledgeApi.discoverMcpAdapter({
+                transport: values.transport || "streamable_http",
+                endpoint: values.endpoint,
+                command: values.command,
+                args: parseStringList(values.args),
+                allowedTools: parseStringList(values.allowedTools),
+              })
+              : await knowledgeApi.listAdapterFiles();
+        if (connectorKey === "mcp") {
+          await knowledgeApi.registerMcpAdapter({
+            transport: values.transport || "streamable_http",
+            endpoint: values.endpoint,
+            command: values.command,
+            args: parseStringList(values.args),
+            allowedTools: parseStringList(values.allowedTools),
+          });
+        }
+        setResult(Array.isArray(adapterResult.data)
+          ? { items: adapterResult.data }
+          : adapterResult.data as JsonObject);
+        return;
+      }
       const created = await knowledgeApi.createConnection(input);
       const started = await knowledgeApi.validateConnection(created.data.connection_id);
       await knowledgeApi.waitForConnectionJob(started);
@@ -1494,7 +1580,7 @@ function ConnectionForm({
         <label>连接类型
           <select value={connectorKey} onChange={(event) => { setConnectorKey(event.target.value); setValues({}); }} required>
             <option value="" disabled>请选择后端已启用的连接</option>
-            {connectors.map((item) => <option value={item.connector_key} key={item.connector_key}>{item.display_name} · {item.status}</option>)}
+            {connectors.map((item) => <option value={item.connector_key} key={item.connector_key}>{item.display_name} · {item.category === "adapter" ? "专用适配器" : item.status}</option>)}
           </select>
         </label>
         <label>显示名称<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
@@ -1519,12 +1605,67 @@ function ConnectionForm({
             />
           </label>
         ))}
+        {isAdapter ? (
+          <div className="kw-form-note">
+            专用适配器不创建普通 provider connection。请使用 BFF 暴露的真实 adapter API：
+            {connector?.endpoints?.join("、") || "Connection Service adapter endpoints"}。
+          </div>
+        ) : null}
+        {result ? (
+          <pre className="kw-safe-profile">{JSON.stringify(result, null, 2)}</pre>
+        ) : null}
+        {isAdapter && connectorKey === "files" ? (
+          <label>上传文件
+            <input
+              type="file"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  const uploaded = await onUpload(file);
+                  setFileResult(uploaded);
+                  if (uploaded.upload_id) {
+                    const preview = await knowledgeApi.previewAdapterFile(uploaded.upload_id);
+                    setResult(preview.data);
+                  }
+                } catch (cause) {
+                  setError(errorMessage(cause));
+                }
+              }}
+            />
+          </label>
+        ) : null}
+        {fileResult ? (
+          <div className="kw-form-note">
+            已通过 Connection Service 上传：{fileResult.filename}
+          </div>
+        ) : null}
         {error ? <div className="kw-form-error" role="alert">{error}</div> : null}
         <div className="kw-modal-actions">
           <button type="button" onClick={onClose}>取消</button>
-          <button type="submit" className="kw-primary-small" disabled={busy || !connectorKey}>{busy ? <Loader2 className="kw-spin" size={14} /> : <Upload size={14} />} 保存并验证</button>
+          <button type="submit" className="kw-primary-small" disabled={busy || !connectorKey}>{busy ? <Loader2 className="kw-spin" size={14} /> : <Upload size={14} />} {isAdapter ? "调用真实适配器" : "保存并验证"}</button>
         </div>
       </form>
     </Modal>
   );
+}
+
+async function validateAndDiscoverOracle(values: JsonObject): Promise<JsonObject> {
+  const body = {
+    config: {
+      host: values.host,
+      port: Number(values.port || 1521),
+      serviceName: values.serviceName,
+      sid: values.sid,
+      allowedSchemas: parseStringList(values.allowedSchemas),
+    },
+    user: values.user,
+    password: values.password,
+  };
+  const validation = await knowledgeApi.validateOracleAdapter(body);
+  const discovery = await knowledgeApi.discoverOracleAdapter(body);
+  return {
+    validation: validation.data as unknown as JsonValue,
+    discovery: discovery.data as unknown as JsonValue,
+  };
 }

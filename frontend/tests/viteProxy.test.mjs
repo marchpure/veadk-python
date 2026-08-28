@@ -30,6 +30,7 @@ test("local API proxy strips browser origin headers before forwarding", () => {
     "/dev",
     "/oauth2",
     "/web",
+    "/api",
   ]) {
     assert.match(source, new RegExp(`['"]${route}['"]\\s*:\\s*localApiProxy\\(\\)`));
   }

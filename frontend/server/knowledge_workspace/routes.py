@@ -315,8 +315,119 @@ def mount_knowledge_workspace_routes(
 
     @app.get(f"{prefix}/connector-definitions")
     async def connector_definitions(request: Request) -> dict[str, Any]:
-        result = await connection_call(
+        providers = await connection_call(
             lambda: require_connections().catalog(**connection_actor(request))
+        )
+        adapters = await connection_call(
+            lambda: require_connections().adapter_capabilities(**connection_actor(request))
+        )
+        return envelope([*providers, *adapters], request)
+
+    @app.post(f"{prefix}/adapters/rest/validate")
+    async def validate_rest_adapter(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        result = await connection_call(
+            lambda: require_connections().validate_rest(
+                body, **connection_actor(request)
+            )
+        )
+        return envelope(result, request)
+
+    @app.post(f"{prefix}/adapters/oracle/validate")
+    async def validate_oracle_adapter(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        result = await connection_call(
+            lambda: require_connections().validate_oracle(
+                body, **connection_actor(request)
+            )
+        )
+        return envelope(result, request)
+
+    @app.post(f"{prefix}/adapters/oracle/discover")
+    async def discover_oracle_adapter(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        result = await connection_call(
+            lambda: require_connections().discover_oracle(
+                body, **connection_actor(request)
+            )
+        )
+        return envelope(result, request)
+
+    @app.post(f"{prefix}/adapters/mcp/discover")
+    async def discover_mcp_adapter(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        definition = body.get("definition")
+        if not isinstance(definition, dict):
+            raise HTTPException(status_code=422, detail={
+                "code": "INVALID_ARGUMENT",
+                "message": "definition is required",
+                "retryable": False,
+            })
+        result = await connection_call(
+            lambda: require_connections().discover_mcp(
+                definition, **connection_actor(request)
+            )
+        )
+        return envelope(result, request)
+
+    @app.post(f"{prefix}/adapters/mcp/register")
+    async def register_mcp_adapter(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        definition = body.get("definition")
+        if not isinstance(definition, dict):
+            raise HTTPException(status_code=422, detail={
+                "code": "INVALID_ARGUMENT",
+                "message": "definition is required",
+                "retryable": False,
+            })
+        result = await connection_call(
+            lambda: require_connections().register_mcp(
+                definition, **connection_actor(request)
+            )
+        )
+        return envelope(result, request)
+
+    @app.get(f"{prefix}/adapter-files")
+    async def adapter_files(request: Request) -> dict[str, Any]:
+        result = await connection_call(
+            lambda: require_connections().list_files(**connection_actor(request))
+        )
+        # The Connection Service file id is an internal control-plane
+        # reference. Browser callers use the BFF upload id for preview.
+        result = [
+            {
+                key: value
+                for key, value in item.items()
+                if key not in {"fileId", "downloadUrl", "tenantId", "workspaceId"}
+            }
+            for item in result
+        ]
+        return envelope(result, request)
+
+    @app.get(f"{prefix}/adapter-files/{{file_id}}/preview")
+    async def adapter_file_preview(
+        request: Request, file_id: str
+    ) -> dict[str, Any]:
+        upload = service.repository.get_upload(
+            file_id,
+            tenant_id=actor(request).tenant_id,
+            workspace_id=actor(request).workspace_id,
+        )
+        if upload is None or not upload.connection_file_id:
+            raise HTTPException(status_code=404, detail={
+                "code": "NOT_FOUND",
+                "message": "file preview is not available",
+                "retryable": False,
+            })
+        result = await connection_call(
+            lambda: require_connections().preview_file(
+                upload.connection_file_id, **connection_actor(request)
+            )
         )
         return envelope(result, request)
 

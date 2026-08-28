@@ -38,6 +38,7 @@ export interface ConnectorDefinition {
   capabilities: string[];
   config_schema: JsonObject;
   auth_schema: JsonObject;
+  endpoints?: string[];
 }
 
 export interface ConnectionProfile {
