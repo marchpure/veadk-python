@@ -8,13 +8,11 @@ import hmac
 import io
 import json
 import os
-import re
-import secrets
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping, Protocol, Sequence
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 
@@ -72,7 +70,7 @@ class ConnectionServiceConfig:
     base_url: str
     auth_secret: str
     audience: str = "knowledge-runtime"
-    bridge_base_url: str | None = None
+    runtime_public_url: str | None = None
     timeout_seconds: float = 30.0
 
     @classmethod
@@ -92,18 +90,12 @@ class ConnectionServiceConfig:
                 "KNOWLEDGE_CONNECTION_SERVICE_AUDIENCE",
                 "knowledge-runtime",
             ),
-            bridge_base_url=(
-                os.getenv("KNOWLEDGE_CONNECTION_BRIDGE_BASE_URL", "").rstrip("/")
-                or None
+            runtime_public_url=(
+                os.getenv("KNOWLEDGE_CONNECTION_SERVICE_RUNTIME_PUBLIC_URL", "")
+                .rstrip("/")
+                or base_url
             ),
         )
-
-
-@dataclass
-class _McpBridgeSession:
-    server: Any
-    invocation_id: str
-    expires_at: datetime
 
 
 class ConnectionServiceGateway:
@@ -138,8 +130,6 @@ class ConnectionServiceGateway:
             )
         self.config = config
         self._client = client
-        self._mcp_transport: Any = None
-        self._mcp_sessions: dict[str, _McpBridgeSession] = {}
 
     @staticmethod
     def _b64url(value: bytes) -> str:
@@ -433,6 +423,17 @@ class ConnectionServiceGateway:
             **({"error": job["error"]} if "error" in job else {}),
         }
 
+    async def list_audit(self, **actor: str) -> list[dict[str, Any]]:
+        payload = (await self._request("GET", "/v1/audit", **actor)).json()
+        items = payload.get("items", [])
+        if not isinstance(items, list):
+            raise ConnectionServiceError(
+                "CONNECTION_AUDIT_INVALID",
+                "Connection Service returned an invalid audit response",
+                502,
+            )
+        return [dict(item) for item in items if isinstance(item, Mapping)]
+
     async def issue(
         self,
         *,
@@ -575,199 +576,80 @@ class ConnectionServiceGateway:
         session_id: str,
         invocation_id: str,
     ) -> None:
-        parsed_bridge = (
-            urlsplit(self.config.bridge_base_url)
-            if self.config.bridge_base_url
+        parsed_runtime = (
+            urlsplit(self.config.runtime_public_url)
+            if self.config.runtime_public_url
             else None
         )
         if (
-            parsed_bridge is None
-            or parsed_bridge.scheme != "https"
-            or not parsed_bridge.hostname
-            or parsed_bridge.username
-            or parsed_bridge.password
-            or parsed_bridge.query
-            or parsed_bridge.fragment
+            parsed_runtime is None
+            or parsed_runtime.scheme != "https"
+            or not parsed_runtime.hostname
+            or parsed_runtime.username
+            or parsed_runtime.password
+            or parsed_runtime.query
+            or parsed_runtime.fragment
         ):
             raise ConnectionServiceError(
                 "CONNECTION_RUNTIME_UNAVAILABLE",
-                "The lease-scoped AutoSkill tool bridge requires a public HTTPS URL",
+                "The Connection Service MCP runtime requires a public HTTPS URL",
                 503,
             )
-        from mcp import types
-        from mcp.server import Server
 
         runtime = json.loads(context.runtime_ref)
-        lease_by_connection = {
-            str(item["connection_id"]): {
-                "token": str(item["token"]),
-                "allowed_actions": frozenset(
-                    str(action) for action in item.get("allowed_actions", [])
-                ),
-            }
-            for item in runtime["leases"]
-        }
-        actor, _ = self._read_lease_reference(context.lease_id)
-        actor_value = {
-            "tenant_id": actor[0],
-            "workspace_id": actor[1],
-            "principal_id": actor[2],
-        }
-        tool_records: dict[str, dict[str, Any]] = {}
-        for connection_id in context.connection_ids:
-            job = await self.start_job(connection_id, "discover", **actor_value)
-            if job["status"] != "succeeded":
-                raise ConnectionServiceError(
-                    "CONNECTION_DISCOVERY_FAILED",
-                    "Connection action discovery did not succeed",
-                    502,
-                )
-            for action in job.get("result", {}).get("actions", []):
-                if not isinstance(action, Mapping) or not action.get("executable"):
-                    continue
-                action_id = str(action["id"])
-                lease = lease_by_connection[connection_id]
-                if action_id not in lease["allowed_actions"]:
-                    continue
-                tool_name = self._tool_name(connection_id, action_id)
-                tool_records[tool_name] = {
-                    "connection_id": connection_id,
-                    "action_id": action_id,
-                    "description": str(action.get("description") or action_id),
-                    "input_schema": action.get("inputSchema")
-                    if isinstance(action.get("inputSchema"), Mapping)
-                    else {"type": "object", "properties": {}},
-                    "lease_token": lease["token"],
-                }
-        if not tool_records:
+        leases = runtime.get("leases")
+        if not isinstance(leases, list) or not leases:
             raise ConnectionServiceError(
                 "CONNECTION_NOT_READY",
-                "Selected connections have no executable runtime actions",
+                "Connection Service did not issue runtime leases",
                 409,
             )
-
-        bridge_token = secrets.token_urlsafe(32)
-        server = Server("knowledge-connections")
-
-        @server.list_tools()
-        async def list_tools() -> list[Any]:
-            return [
-                types.Tool(
-                    name=name,
-                    description=record["description"],
-                    inputSchema=record["input_schema"],
-                )
-                for name, record in tool_records.items()
-            ]
-
-        @server.call_tool()
-        async def call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-            active = self._mcp_sessions.get(bridge_token)
-            if active is None or active.expires_at <= datetime.now(timezone.utc):
-                self._mcp_sessions.pop(bridge_token, None)
+        servers: dict[str, dict[str, Any]] = {}
+        for index, item in enumerate(leases):
+            if not isinstance(item, Mapping):
                 raise ConnectionServiceError(
-                    "LEASE_EXPIRED", "Connection runtime session expired", 401
-                )
-            record = tool_records.get(name)
-            if record is None:
-                raise ValueError("Unknown connection action")
-            response = await self._request(
-                "POST",
-                f"/v1/runtime/actions/{record['action_id']}",
-                headers={"X-Connection-Lease": record["lease_token"]},
-                json={
-                    "invocationId": invocation_id,
-                    "audience": self.config.audience,
-                    "connectionId": record["connection_id"],
-                    "input": arguments,
-                },
-                **actor_value,
-            )
-            payload = response.json()
-            if payload.get("auditPersisted") is not True:
-                raise ConnectionServiceError(
-                    "CONNECTION_AUDIT_UNAVAILABLE",
-                    "Connection action audit was not persisted",
+                    "CONNECTION_RUNTIME_INVALID",
+                    "Connection Service returned an invalid runtime lease",
                     502,
                 )
-            return payload
-
-        self._mcp_sessions[bridge_token] = _McpBridgeSession(
-            server=server,
-            invocation_id=invocation_id,
-            expires_at=context.expires_at,
-        )
-        try:
-            state = await autoskill.download_optional_state(
-                agent_id=agent_id, session_id=session_id
+            connection_id = str(item.get("connection_id") or "")
+            lease_token = str(item.get("token") or "")
+            if not connection_id or not lease_token:
+                raise ConnectionServiceError(
+                    "CONNECTION_RUNTIME_INVALID",
+                    "Connection Service returned an invalid runtime lease",
+                    502,
+                )
+            query = urlencode(
+                {
+                    "connectionId": connection_id,
+                    "invocationId": invocation_id,
+                    "audience": self.config.audience,
+                }
             )
-            configured = self._state_with_mcp(
-                state,
-                (
-                    f"{self.config.bridge_base_url}/api/knowledge/v1/"
-                    f"connection-runtime/{bridge_token}/sse"
+            servers[f"knowledge-connection-{index + 1}"] = {
+                "transport": "http",
+                "url": (
+                    f"{self.config.runtime_public_url}/v1/runtime/mcp/sse?{query}"
                 ),
-            )
-            await autoskill.upload(
-                agent_id=agent_id,
-                session_id=session_id,
-                file_type="state",
-                file_name="state.zip",
-                content=configured,
-            )
-        except Exception:
-            self._mcp_sessions.pop(bridge_token, None)
-            raise
-
-    def _transport(self) -> Any:
-        if self._mcp_transport is None:
-            from mcp.server.sse import SseServerTransport
-
-            self._mcp_transport = SseServerTransport(
-                "/api/knowledge/v1/connection-runtime/messages/"
-            )
-        return self._mcp_transport
-
-    async def mcp_sse(self, request: Any, bridge_token: str) -> Any:
-        from starlette.responses import Response
-
-        session = self._mcp_sessions.get(bridge_token)
-        if session is None or session.expires_at <= datetime.now(timezone.utc):
-            self._mcp_sessions.pop(bridge_token, None)
-            raise ConnectionServiceError(
-                "LEASE_EXPIRED", "Connection runtime session expired", 401
-            )
-        transport = self._transport()
-        async with transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await session.server.run(
-                streams[0],
-                streams[1],
-                session.server.create_initialization_options(),
-            )
-        return Response()
-
-    @property
-    def mcp_message_app(self) -> Any:
-        return self._transport().handle_post_message
-
-    def forget_invocation(self, invocation_id: str) -> None:
-        stale = [
-            token
-            for token, session in self._mcp_sessions.items()
-            if session.invocation_id == invocation_id
-        ]
-        for token in stale:
-            self._mcp_sessions.pop(token, None)
+                "headers": {"X-Connection-Lease": lease_token},
+            }
+        state = await autoskill.download_optional_state(
+            agent_id=agent_id, session_id=session_id
+        )
+        configured = self._state_with_mcp(state, servers)
+        await autoskill.upload(
+            agent_id=agent_id,
+            session_id=session_id,
+            file_type="state",
+            file_name="state.zip",
+            content=configured,
+        )
 
     @staticmethod
-    def _tool_name(connection_id: str, action_id: str) -> str:
-        raw = f"{connection_id[:12]}__{action_id}"
-        return re.sub(r"[^A-Za-z0-9_.-]", "_", raw)[:120]
-
-    @staticmethod
-    def _state_with_mcp(state: bytes | None, url: str) -> bytes:
+    def _state_with_mcp(
+        state: bytes | None, servers: Mapping[str, Mapping[str, Any]]
+    ) -> bytes:
         import yaml
 
         entries: dict[str, bytes] = {}
@@ -788,14 +670,7 @@ class ConnectionServiceGateway:
                         )
                     entries[info.filename] = archive.read(info)
         entries["mcp_config.yaml"] = yaml.safe_dump(
-            {
-                "servers": {
-                    "knowledge-connections": {
-                        "transport": "http",
-                        "url": url,
-                    }
-                }
-            },
+            {"servers": dict(servers)},
             sort_keys=True,
         ).encode("utf-8")
         output = io.BytesIO()
@@ -804,8 +679,8 @@ class ConnectionServiceGateway:
                 archive.writestr(name, content)
         return output.getvalue()
 
-    @staticmethod
-    def _catalog_item(item: Mapping[str, Any]) -> dict[str, Any]:
+    @classmethod
+    def _catalog_item(cls, item: Mapping[str, Any]) -> dict[str, Any]:
         action_ids = [str(value) for value in item.get("actionIds", [])]
         capabilities = ["validate", "discover"]
         if action_ids:
@@ -817,9 +692,20 @@ class ConnectionServiceGateway:
             "category": "connection",
             "status": str(item["tier"]),
             "capabilities": capabilities,
-            "config_schema": {"type": "object", "properties": {}},
-            "auth_schema": {"type": "object", "properties": {}},
+            "config_schema": cls._schema(item, "configSchema"),
+            "auth_schema": cls._schema(item, "authSchema"),
         }
+
+    @staticmethod
+    def _schema(item: Mapping[str, Any], key: str) -> dict[str, Any]:
+        schema = item.get(key)
+        if not isinstance(schema, Mapping):
+            raise ConnectionServiceError(
+                "CONNECTION_CATALOG_INVALID",
+                f"Connection Service catalog item is missing {key}",
+                502,
+            )
+        return dict(schema)
 
     @staticmethod
     def _connection(item: Mapping[str, Any]) -> dict[str, Any]:

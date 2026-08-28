@@ -59,6 +59,11 @@ import type {
   PlanStep,
   Revision,
 } from "../domain/types";
+import {
+  authSchemaOptions,
+  schemaForAuth,
+  schemaProperties,
+} from "../domain/connectionSchema";
 import "./knowledge-workspace.css";
 
 type WorkspaceFile =
@@ -179,16 +184,6 @@ function setRoute(file: WorkspaceFile, draftId = "", connectionId = "") {
 
 function idempotentLabel(status: ConnectionProfile["status"]): string {
   return STATUS_LABELS[status] || status;
-}
-
-function schemaProperties(schema: JsonObject | undefined): Array<[string, JsonObject]> {
-  const properties = schema?.properties;
-  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return [];
-  return Object.entries(properties).flatMap(([name, value]) => (
-    value && typeof value === "object" && !Array.isArray(value)
-      ? [[name, value as JsonObject]]
-      : []
-  ));
 }
 
 export function KnowledgeWorkspacePage() {
@@ -769,21 +764,31 @@ export function KnowledgeWorkspacePage() {
             onValidate={async (id) => {
               setBusy("validate");
               try {
-                const result = await knowledgeApi.validateConnection(id);
+                const started = await knowledgeApi.validateConnection(id);
+                setConnectionJob({ kind: "validate", status: started.data.status });
+                const result = await knowledgeApi.waitForConnectionJob(started);
                 setConnectionJob({ kind: "validate", status: result.data.status });
                 await reloadDirectory();
               }
-              catch (cause) { setError(errorMessage(cause)); }
+              catch (cause) {
+                setConnectionJob({ kind: "validate", status: "failed" });
+                setError(errorMessage(cause));
+              }
               finally { setBusy(""); }
             }}
             onDiscover={async (id) => {
               setBusy("discover");
               try {
-                const result = await knowledgeApi.discoverConnection(id);
+                const started = await knowledgeApi.discoverConnection(id);
+                setConnectionJob({ kind: "discover", status: started.data.status });
+                const result = await knowledgeApi.waitForConnectionJob(started);
                 setConnectionJob({ kind: "discover", status: result.data.status });
                 await reloadDirectory();
               }
-              catch (cause) { setError(errorMessage(cause)); }
+              catch (cause) {
+                setConnectionJob({ kind: "discover", status: "failed" });
+                setError(errorMessage(cause));
+              }
               finally { setBusy(""); }
             }}
             busy={busy === "validate" || busy === "discover"}
@@ -1084,8 +1089,8 @@ function ConnectionDetailView({
           </p>
         ) : null}
         <div className="kw-detail-actions">
-          <button type="button" onClick={() => void onValidate(connection.connection_id)} disabled={busy}><RefreshCw size={15} /> 验证连接</button>
-          <button type="button" onClick={() => void onDiscover(connection.connection_id)} disabled={busy}><Settings2 size={15} /> 发现能力</button>
+          <button type="button" onClick={() => void onValidate(connection.connection_id)} disabled={busy}><RefreshCw size={15} /> {job?.kind === "validate" && job.status === "failed" ? "重试验证" : "验证连接"}</button>
+          <button type="button" onClick={() => void onDiscover(connection.connection_id)} disabled={busy}><Settings2 size={15} /> {job?.kind === "discover" && job.status === "failed" ? "重试发现" : "发现能力"}</button>
         </div>
       </div>
       <pre className="kw-safe-profile">{JSON.stringify(connection.profile || {}, null, 2)}</pre>
@@ -1459,20 +1464,26 @@ function ConnectionForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const connector = connectors.find((item) => item.connector_key === connectorKey);
+  const authOptions = authSchemaOptions(connector?.auth_schema);
+  const selectedAuthType = typeof values._auth_type === "string"
+    ? values._auth_type
+    : authOptions[0]?.value || "";
+  const selectedConfigSchema = schemaForAuth(connector?.config_schema, selectedAuthType);
+  const selectedAuthSchema = schemaForAuth(connector?.auth_schema, selectedAuthType);
   const fields = [
-    ...schemaProperties(connector?.config_schema).map(([name, schema]) => [
+    ...schemaProperties(selectedConfigSchema).map(([name, schema]) => [
       name,
       schema,
       "config",
-      Array.isArray(connector?.config_schema.required)
-        && connector.config_schema.required.includes(name),
+      Array.isArray(selectedConfigSchema?.required)
+        && selectedConfigSchema.required.includes(name),
     ] as const),
-    ...schemaProperties(connector?.auth_schema).map(([name, schema]) => [
+    ...schemaProperties(selectedAuthSchema).map(([name, schema]) => [
       name,
       schema,
       "credential",
-      Array.isArray(connector?.auth_schema.required)
-        && connector.auth_schema.required.includes(name),
+      Array.isArray(selectedAuthSchema?.required)
+        && selectedAuthSchema.required.includes(name),
     ] as const),
   ];
   const submit = async (event: FormEvent) => {
@@ -1480,7 +1491,9 @@ function ConnectionForm({
     setBusy(true);
     setError("");
     const config: JsonObject = {};
-    const credential: JsonObject = {};
+    const credential: JsonObject = selectedAuthType
+      ? { _auth_type: selectedAuthType }
+      : {};
     for (const [name, , group] of fields) {
       if (group === "config") config[name] = values[name] ?? "";
       else credential[name] = values[name] ?? "";
@@ -1494,7 +1507,8 @@ function ConnectionForm({
     };
     try {
       const created = await knowledgeApi.createConnection(input);
-      await knowledgeApi.validateConnection(created.data.connection_id);
+      const started = await knowledgeApi.validateConnection(created.data.connection_id);
+      await knowledgeApi.waitForConnectionJob(started);
       await onCreated(created.data);
     } catch (cause) {
       setError(errorMessage(cause));
@@ -1513,6 +1527,16 @@ function ConnectionForm({
         </label>
         <label>显示名称<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
         <label>归属<select value={scope} onChange={(event) => setScope(event.target.value as "personal" | "team")}><option value="personal">个人</option><option value="team">团队</option></select></label>
+        {authOptions.length > 1 ? (
+          <label>认证方式
+            <select
+              value={selectedAuthType}
+              onChange={(event) => setValues({ _auth_type: event.target.value })}
+            >
+              {authOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        ) : null}
         {fields.map(([name, schema, group, required]) => (
           <label key={`${group}:${name}`}>{String(schema.title || name)}
             <input

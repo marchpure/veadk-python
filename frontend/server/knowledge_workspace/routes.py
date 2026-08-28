@@ -514,29 +514,6 @@ def mount_knowledge_workspace_routes(
         )
         return envelope(result, request)
 
-    @app.get(
-        f"{prefix}/connection-runtime/{{bridge_token}}/sse",
-        include_in_schema=False,
-    )
-    async def connection_runtime_sse(request: Request, bridge_token: str) -> Response:
-        try:
-            return await require_connections().mcp_sse(request, bridge_token)
-        except ConnectionServiceError as exc:
-            raise HTTPException(
-                status_code=exc.status_code,
-                detail={
-                    "code": exc.code,
-                    "message": str(exc),
-                    "retryable": False,
-                },
-            ) from exc
-
-    if connection_gateway is not None:
-        app.mount(
-            f"{prefix}/connection-runtime/messages",
-            connection_gateway.mcp_message_app,
-        )
-
     @app.post(f"{prefix}/uploads", status_code=201)
     async def upload(
         request: Request,

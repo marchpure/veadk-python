@@ -29,6 +29,16 @@ test("client covers the browser-facing REST resource groups", () => {
   }
 });
 
+test("connection jobs are polled to a terminal state with timeout and retry support", () => {
+  assert.match(client, /getConnectionJob/);
+  assert.match(client, /waitForConnectionJob/);
+  assert.match(client, /\/connection-jobs\//);
+  assert.match(client, /CONNECTION_JOB_TIMEOUT/);
+  assert.match(client, /retryable/);
+  assert.match(page, /waitForConnectionJob/);
+  assert.match(page, /重试/);
+});
+
 test("workspace exposes upload, retry, team directory, published return, and failure-state behavior", () => {
   assert.match(page, /uploadSkillInput/);
   assert.match(page, /upload_ids/);

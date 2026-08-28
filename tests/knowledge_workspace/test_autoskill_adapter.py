@@ -29,6 +29,76 @@ from frontend.server.knowledge_workspace.autoskill import (
     AutoSkillProtocolError,
 )
 
+OFFICIAL_AUTOSKILL_BASE_URL = "https://test-bytebrain.byted.org"
+
+
+@pytest.mark.asyncio
+async def test_official_autoskill_defaults_to_anonymous_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KNOWLEDGE_AUTOSKILL_BASE_URL", raising=False)
+    monkeypatch.delenv("KNOWLEDGE_AUTOSKILL_TOKEN", raising=False)
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"status": "ok", "state_mode": "stateful"})
+
+    config = AutoSkillConfig.from_env()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(config, client=http)
+        assert (await client.health())["status"] == "ok"
+
+    assert config.base_url == OFFICIAL_AUTOSKILL_BASE_URL
+    assert config.token is None
+    assert "authorization" not in requests[0].headers
+
+
+def test_production_autoskill_requires_an_explicit_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "production")
+    monkeypatch.delenv("KNOWLEDGE_AUTOSKILL_BASE_URL", raising=False)
+
+    with pytest.raises(
+        AutoSkillProtocolError,
+        match="production AutoSkill base URL is not configured",
+    ):
+        AutoSkillConfig.from_env()
+
+
+def test_production_autoskill_accepts_an_explicit_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "production")
+    monkeypatch.setenv(
+        "KNOWLEDGE_AUTOSKILL_BASE_URL",
+        "https://autoskill.production.example/",
+    )
+
+    assert (
+        AutoSkillConfig.from_env().base_url
+        == "https://autoskill.production.example"
+    )
+
+
+@pytest.mark.asyncio
+async def test_configured_autoskill_token_is_sent_as_bearer_auth() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"status": "ok", "state_mode": "stateful"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(token="configured-token"),
+            client=http,
+        )
+        assert (await client.health())["status"] == "ok"
+
+    assert requests[0].headers["authorization"] == "Bearer configured-token"
+
 
 def test_sse_parser_handles_split_frames_heartbeat_and_multiline_data() -> None:
     parser = SseParser()
@@ -37,6 +107,14 @@ def test_sse_parser_handles_split_frames_heartbeat_and_multiline_data() -> None:
     assert frames[0].event_id == "7"
     assert json.loads(frames[0].data)["type"] == "final_answer"
     assert frames[1].heartbeat is True
+
+
+def test_default_timeouts_allow_long_running_official_skill_generation() -> None:
+    config = AutoSkillConfig()
+
+    assert config.timeout_seconds >= 1_800
+    assert config.first_event_timeout_seconds >= 180
+    assert config.idle_timeout_seconds >= 180
 
 
 def test_unknown_and_malformed_events_are_archived_but_not_normalized() -> None:
@@ -147,11 +225,20 @@ async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() ->
 
 
 @pytest.mark.asyncio
-async def test_find_skill_uses_documented_query_form() -> None:
+async def test_find_skill_uses_documented_multipart_post_form() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.method == "GET"
+        assert request.method == "POST"
         assert request.url.path.endswith("/find_skill")
-        assert request.url.params["prompt"] == "demo"
+        assert not request.url.params
+        assert request.headers["content-type"].startswith("multipart/form-data;")
+        assert b'name="agent_id"' in request.content
+        assert b"agent" in request.content
+        assert b'name="session_id"' in request.content
+        assert b"session" in request.content
+        assert b'name="request_id"' in request.content
+        assert b"request" in request.content
+        assert b'name="prompt"' in request.content
+        assert b"demo" in request.content
         return httpx.Response(
             200,
             headers={"content-type": "text/event-stream"},

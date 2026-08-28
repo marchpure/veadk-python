@@ -1,0 +1,95 @@
+{
+  "result": "STEP2_INTEGRATION_FROZEN",
+  "recorded_at": "2026-08-28T14:00:00+08:00",
+  "services": {
+    "autoskill": {
+      "base_url": "https://test-bytebrain.byted.org",
+      "api_prefix": "/openapi/autoskill/v1",
+      "authorization": "anonymous",
+      "state_mode": "stateful",
+      "default_model_id": "GPT-5.5"
+    },
+    "connection_service": {
+      "control_plane": "http://127.0.0.1:3417",
+      "runtime": "https://annelle-figured-intimately.ngrok-free.dev",
+      "runtime_kind": "temporary public HTTPS smoke endpoint",
+      "credentials": "[REDACTED]"
+    }
+  },
+  "passed": {
+    "official_autoskill_lifecycle": {
+      "stages": [
+        "health",
+        "models",
+        "create_skill",
+        "list_skill",
+        "view_skill",
+        "download",
+        "invoke",
+        "update_skill",
+        "second_download",
+        "cross_session_invoke"
+      ],
+      "required_sse_events": [
+        "planning",
+        "action",
+        "observation",
+        "final_answer",
+        "state_update",
+        "request_summary",
+        "done"
+      ]
+    },
+    "connection_control_plane": {
+      "connector": "hackernews",
+      "validate": "succeeded",
+      "discover": "succeeded",
+      "discovered_action_count": 14
+    },
+    "connection_to_autoskill_tool_call": {
+      "skill_name": "hackernews-live-dashboard-b5c1014d",
+      "agent_id": "069c…4ce7",
+      "connection_id": "db9d…a50a",
+      "autoskill_request_id": "2caf…9886",
+      "connection_audit_invocation_id": "2caf…9886",
+      "action_id": "hackernews.get_max_item_id",
+      "audit_ok": true,
+      "sse_status": "succeeded"
+    },
+    "update_and_revision": {
+      "request_id": "f79c…240e",
+      "sse_status": "succeeded",
+      "zip_before_sha256": "6b1456e98f282216c40e26a080e94efeb804fa127ac9af884264a37a80b85cf4",
+      "zip_after_sha256": "d958443a5eb4502b0bc204f872c232d1a54e598be4123e345ac3b5e462a1b467",
+      "zip_digest_changed": true,
+      "html_output": "output_files/hackernews-live.html"
+    },
+    "runtime_boundary": {
+      "bff_process_local_mcp_sessions": false,
+      "connection_service_persisted_mcp_sessions": true,
+      "lease_revision_binding": true,
+      "durable_audit": true,
+      "cross_instance_http_test": "passed"
+    }
+  },
+  "blocked": {
+    "only_remaining_blocker": {
+      "code": "OFFICIAL_AGENT_NEW_SESSION_TOOL_SELECTION_NONDETERMINISTIC",
+      "description": "A fresh AutoSkill session completed its real SSE request without selecting the configured Hacker News MCP tool, so no exact Connection audit record was produced.",
+      "latest_request_id": "03e6…142b",
+      "classification": "official Agent behavior; no mock, fixture, local AutoSkill, provider fallback, or prompt mutation accepted"
+    }
+  },
+  "deferred_out_of_frozen_scope": [
+    "unify Oracle, database, file, and self-hosted MCP connectors under /v1/connections",
+    "implement a real cross-Agent Publication Registry"
+  ],
+  "verification": {
+    "connection_service_focused_tests": "20 passed",
+    "connection_service_typecheck": "passed",
+    "bff_focused_tests": "33 passed",
+    "frontend_behavior_tests": "17 passed",
+    "frontend_build": "passed",
+    "packaged_webui_asset_check": "85 files and 229 references verified"
+  }
+}

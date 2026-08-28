@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const featureRoot = path.join(root, "src/features/knowledge-workspace");
 const page = await readFile(path.join(featureRoot, "pages/KnowledgeWorkspacePage.tsx"), "utf8");
 const client = await readFile(path.join(featureRoot, "api/client.ts"), "utf8");
+const connectionSchema = await readFile(path.join(featureRoot, "domain/connectionSchema.ts"), "utf8");
 const artifact = await readFile(path.join(featureRoot, "artifact/ArtifactViewer.tsx"), "utf8");
 const captures = await readFile(path.join(featureRoot, "test-fixtures/captures.ts"), "utf8");
 
@@ -67,7 +68,8 @@ test("route states and server errors remain actionable without client outcomes",
   }
   assert.match(page, /terminalInvocationRef/);
   assert.match(page, /CreationRail/);
-  assert.match(page, /config_schema\.required/);
+  assert.match(page, /selectedConfigSchema\.required/);
+  assert.match(connectionSchema, /schema\?\.oneOf/);
   assert.doesNotMatch(page, /route\.runState|route\.state/);
   assert.match(page, /knowledgeApi\.validateConnection\(created\.data\.connection_id\)/);
   assert.match(page, /connectionId/);

@@ -24,25 +24,36 @@ class AutoSkillProtocolError(RuntimeError):
     pass
 
 
+OFFICIAL_AUTOSKILL_BASE_URL = "https://test-bytebrain.byted.org"
+
+
 @dataclass(frozen=True)
 class AutoSkillConfig:
-    base_url: str
-    token: str
+    base_url: str = OFFICIAL_AUTOSKILL_BASE_URL
+    token: str | None = None
     state_mode: str = "stateful"
-    timeout_seconds: float = 300.0
+    timeout_seconds: float = 1_800.0
     connect_timeout_seconds: float = 10.0
-    first_event_timeout_seconds: float = 30.0
-    idle_timeout_seconds: float = 60.0
+    first_event_timeout_seconds: float = 180.0
+    idle_timeout_seconds: float = 180.0
     max_reconnects: int = 2
     max_event_bytes: int = 2 * 1024 * 1024
     max_response_bytes: int = 20 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "AutoSkillConfig":
-        base = os.getenv("KNOWLEDGE_AUTOSKILL_BASE_URL", "").rstrip("/")
-        token = os.getenv("KNOWLEDGE_AUTOSKILL_TOKEN", "")
-        if not base or not token:
-            raise AutoSkillProtocolError("AutoSkill base URL/token are not configured")
+        configured_base = os.getenv("KNOWLEDGE_AUTOSKILL_BASE_URL", "").strip()
+        environment = os.getenv(
+            "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
+        ).strip().casefold()
+        if environment in {"production", "prod"} and not configured_base:
+            raise AutoSkillProtocolError(
+                "production AutoSkill base URL is not configured"
+            )
+        base = (configured_base or OFFICIAL_AUTOSKILL_BASE_URL).rstrip("/")
+        token = os.getenv("KNOWLEDGE_AUTOSKILL_TOKEN", "").strip() or None
+        if not base:
+            raise AutoSkillProtocolError("AutoSkill base URL is not configured")
         return cls(
             base_url=base,
             token=token,
@@ -71,10 +82,10 @@ class AutoSkillClient:
         self._client = client
 
     def _headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self.config.token}",
-            "Accept": "application/json",
-        }
+        headers = {"Accept": "application/json"}
+        if self.config.token:
+            headers["Authorization"] = f"Bearer {self.config.token}"
+        return headers
 
     def _url(self, path: str) -> str:
         return f"{self.config.base_url}/openapi/autoskill/v1/{path.lstrip('/')}"
@@ -164,9 +175,7 @@ class AutoSkillClient:
         }
         if name:
             params["name"] = name
-        method = (
-            "GET" if command in {"find_skill", "list_skill", "view_skill"} else "POST"
-        )
+        method = "GET" if command in {"list_skill", "view_skill"} else "POST"
         if method == "GET":
             query = dict(params)
             if prompt:

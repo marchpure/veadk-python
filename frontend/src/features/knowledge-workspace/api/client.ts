@@ -1,6 +1,7 @@
 import { withAuth } from "../../../adk/auth";
 import { withLocalUser } from "../../../adk/identity";
 import { parseSSE } from "../../../adk/sse";
+import { ConnectionJobPollError, waitForConnectionJob } from "./connectionJobs";
 import type {
   ArchivedInvocationEvent,
   Artifact,
@@ -70,6 +71,14 @@ export interface JobResult {
   event_url?: string;
   result?: JsonObject;
   error?: JsonObject;
+}
+
+export interface ConnectionJobWaitOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+  retryAttempts?: number;
+  wait?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 }
 
 export interface FreezeRevisionInput {
@@ -167,6 +176,11 @@ export interface KnowledgeApi {
   uploadFile(file: File, purpose: "context" | "skill_input", onProgress?: (percent: number) => void): Promise<ApiEnvelope<UploadResult>>;
   validateConnection(id: string): Promise<ApiEnvelope<JobResult>>;
   discoverConnection(id: string): Promise<ApiEnvelope<JobResult>>;
+  getConnectionJob(id: string, signal?: AbortSignal): Promise<ApiEnvelope<JobResult>>;
+  waitForConnectionJob(
+    initial: ApiEnvelope<JobResult>,
+    options?: ConnectionJobWaitOptions,
+  ): Promise<ApiEnvelope<JobResult>>;
   listDrafts(signal?: AbortSignal): Promise<ApiEnvelope<Draft[]>>;
   getDraft(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   createDraft(input: CreateDraftInput): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
@@ -245,6 +259,33 @@ export const knowledgeApi: KnowledgeApi = {
       { method: "POST", body: JSON.stringify({}), idempotencyKey: key("discover") },
     );
     return result.envelope;
+  },
+  async getConnectionJob(id, signal) {
+    const result = await request<JobResult>(
+      `/connection-jobs/${encodeURIComponent(id)}`,
+      { signal },
+    );
+    return result.envelope;
+  },
+  async waitForConnectionJob(initial, options = {}) {
+    try {
+      return await waitForConnectionJob(
+        initial,
+        (jobId, signal) => knowledgeApi.getConnectionJob(jobId, signal),
+        options,
+      );
+    } catch (error) {
+      if (error instanceof ConnectionJobPollError) {
+        throw new KnowledgeApiError(
+          error.message,
+          error.code === "CONNECTION_JOB_TIMEOUT" ? 408 : 502,
+          error.code,
+          error.retryable,
+          error.details,
+        );
+      }
+      throw error;
+    }
   },
   async listDrafts(signal) {
     const result = await request<Draft[]>("/skills/drafts", { signal });

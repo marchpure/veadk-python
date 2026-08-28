@@ -3,19 +3,13 @@ from __future__ import annotations
 import base64
 import io
 import json
-import socket
 import zipfile
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
-import anyio
 import httpx
 import pytest
-import uvicorn
 from fastapi import FastAPI
-from mcp import ClientSession
-from mcp.client.sse import sse_client
-from mcp.shared.memory import create_connected_server_and_client_session
 
 from frontend.server.knowledge_workspace.autoskill import UnavailableAutoSkillClient
 from frontend.server.knowledge_workspace.connection import (
@@ -130,7 +124,7 @@ def bridge_gateway(
         ConnectionServiceConfig(
             "https://connections.test",
             "test-secret",
-            bridge_base_url="https://bridge.example.test",
+            runtime_public_url="https://runtime.connections.test",
         ),
         client=client,
     )
@@ -186,6 +180,20 @@ async def test_gateway_signs_server_actor_and_never_returns_credentials() -> Non
                             "displayName": "Fixture",
                             "tier": "beta",
                             "actionIds": ["fixture.read"],
+                            "configSchema": {
+                                "type": "object",
+                                "properties": {"region": {"type": "string"}},
+                            },
+                            "authSchema": {
+                                "type": "object",
+                                "required": ["secret"],
+                                "properties": {
+                                    "secret": {
+                                        "type": "string",
+                                        "format": "password",
+                                    }
+                                },
+                            },
                         }
                     ]
                 },
@@ -227,6 +235,103 @@ async def test_gateway_signs_server_actor_and_never_returns_credentials() -> Non
 
 
 @pytest.mark.asyncio
+async def test_gateway_forwards_connection_service_catalog_schemas() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/catalog"
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "service": "fixture",
+                        "connectorDefinitionVersion": "1.0.0",
+                        "displayName": "Fixture",
+                        "tier": "beta",
+                        "actionIds": ["fixture.read"],
+                        "configSchema": {
+                            "type": "object",
+                            "required": ["region"],
+                            "properties": {"region": {"type": "string"}},
+                        },
+                        "authSchema": {
+                            "type": "object",
+                            "required": ["secret"],
+                            "properties": {
+                                "secret": {
+                                    "type": "string",
+                                    "format": "password",
+                                }
+                            },
+                        },
+                    }
+                ]
+            },
+        )
+
+    items = await gateway(handler).catalog(**ACTOR)
+
+    assert items[0]["config_schema"]["required"] == ["region"]
+    assert items[0]["auth_schema"]["properties"]["secret"]["format"] == "password"
+
+
+@pytest.mark.asyncio
+async def test_gateway_rejects_catalog_entries_without_service_owned_schemas() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/catalog"
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "service": "fixture",
+                        "connectorDefinitionVersion": "1.0.0",
+                        "displayName": "Fixture",
+                        "tier": "beta",
+                        "actionIds": [],
+                    }
+                ]
+            },
+        )
+
+    with pytest.raises(ConnectionServiceError) as captured:
+        await gateway(handler).catalog(**ACTOR)
+
+    assert captured.value.code == "CONNECTION_CATALOG_INVALID"
+
+
+@pytest.mark.asyncio
+async def test_gateway_returns_connection_audit_with_invocation_correlation() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/audit"
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": "execution-1",
+                        "invocationId": "autoskill-request-1",
+                        "connectionId": "connection-1",
+                        "actionId": "fixture.read",
+                        "ok": True,
+                    }
+                ]
+            },
+        )
+
+    items = await gateway(handler).list_audit(**ACTOR)
+
+    assert items == [
+        {
+            "id": "execution-1",
+            "invocationId": "autoskill-request-1",
+            "connectionId": "connection-1",
+            "actionId": "fixture.read",
+            "ok": True,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_gateway_lease_uses_real_actions_caps_ttl_and_survives_restart() -> None:
     requests: list[tuple[str, str, dict[str, object]]] = []
 
@@ -244,6 +349,14 @@ async def test_gateway_lease_uses_real_actions_caps_ttl_and_survives_restart() -
                             "displayName": "Fixture",
                             "tier": "beta",
                             "actionIds": ["fixture.read"],
+                            "configSchema": {
+                                "type": "object",
+                                "properties": {},
+                            },
+                            "authSchema": {
+                                "type": "object",
+                                "properties": {},
+                            },
                         }
                     ]
                 },
@@ -303,7 +416,7 @@ async def test_gateway_lease_uses_real_actions_caps_ttl_and_survives_restart() -
 
 
 @pytest.mark.asyncio
-async def test_bridge_uploads_safe_state_and_exposes_only_granted_executable_tools() -> None:
+async def test_gateway_uploads_direct_lease_scoped_connection_service_runtime() -> None:
     existing = io.BytesIO()
     with zipfile.ZipFile(existing, "w") as archive:
         archive.writestr("memory.md", "safe context")
@@ -327,41 +440,25 @@ async def test_bridge_uploads_safe_state_and_exposes_only_granted_executable_too
     with zipfile.ZipFile(io.BytesIO(autoskill.uploaded)) as archive:
         assert set(archive.namelist()) == {"memory.md", "mcp_config.yaml"}
         state_text = archive.read("mcp_config.yaml").decode()
-    assert "https://bridge.example.test/api/knowledge/v1/connection-runtime/" in state_text
-    assert "lease-token-secret" not in state_text
-    assert "Authorization" not in state_text
-
-    session = next(iter(target._mcp_sessions.values()))
-    async with create_connected_server_and_client_session(
-        session.server, raise_exceptions=True
-    ) as client:
-        listed = await client.list_tools()
-        assert [tool.name for tool in listed.tools] == [
-            "connection-1__fixture.read"
-        ]
-        result = await client.call_tool(
-            listed.tools[0].name, {"query": "safe"}
-        )
-    assert result.structuredContent == {
-        "ok": True,
-        "result": {"rows": 1},
-        "executionId": "execution-1",
-        "auditPersisted": True,
-    }
-    runtime_request = requests[-1]
-    assert runtime_request.url.path == "/v1/runtime/actions/fixture.read"
-    assert "lease-token-secret" not in runtime_request.content.decode()
+    assert (
+        "https://runtime.connections.test/v1/runtime/mcp/sse?"
+        "connectionId=connection-1&invocationId=invocation-bridge"
+        "&audience=knowledge-runtime"
+    ) in state_text
+    assert "X-Connection-Lease: lease-token-secret" in state_text
+    assert "connection-runtime" not in state_text
+    assert requests == []
 
 
 @pytest.mark.asyncio
-async def test_bridge_requires_public_https_and_cleans_failed_or_finished_sessions() -> None:
+async def test_gateway_requires_public_https_for_connection_service_runtime() -> None:
     requests: list[httpx.Request] = []
     target = bridge_gateway(requests)
     invalid = ConnectionServiceGateway(
         ConnectionServiceConfig(
             "https://connections.test",
             "test-secret",
-            bridge_base_url="http://127.0.0.1:8000",
+            runtime_public_url="http://127.0.0.1:3400",
         ),
         client=target._client,
     )
@@ -373,148 +470,6 @@ async def test_bridge_requires_public_https_and_cleans_failed_or_finished_sessio
             session_id="session-1",
             invocation_id="invocation-bridge",
         )
-
-    with pytest.raises(RuntimeError, match="upload failed"):
-        await target.prepare_autoskill(
-            context=bridge_context(target),
-            autoskill=RecordingAutoSkill(fail_upload=True),
-            agent_id="agent-1",
-            session_id="session-1",
-            invocation_id="invocation-bridge",
-        )
-    assert target._mcp_sessions == {}
-
-    await target.prepare_autoskill(
-        context=bridge_context(target),
-        autoskill=RecordingAutoSkill(),
-        agent_id="agent-1",
-        session_id="session-1",
-        invocation_id="invocation-bridge",
-    )
-    assert target._mcp_sessions
-    target.forget_invocation("invocation-bridge")
-    assert target._mcp_sessions == {}
-
-    expired = bridge_context(target).model_copy(
-        update={"expires_at": datetime.now(timezone.utc) - timedelta(seconds=1)}
-    )
-    await target.prepare_autoskill(
-        context=expired,
-        autoskill=RecordingAutoSkill(),
-        agent_id="agent-1",
-        session_id="session-1",
-        invocation_id="expired-invocation",
-    )
-    expired_token = next(iter(target._mcp_sessions))
-    app = FastAPI()
-    service = KnowledgeWorkspaceService(
-        KnowledgeWorkspaceRepository(),
-        UnavailableAutoSkillClient("not configured"),
-    )
-    mount_knowledge_workspace_routes(
-        app,
-        service,
-        connection_gateway=target,
-        allow_insecure_test_headers=True,
-    )
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        response = await client.get(
-            f"/api/knowledge/v1/connection-runtime/{expired_token}/sse"
-        )
-    assert response.status_code == 401
-    assert response.json()["error"]["code"] == "LEASE_EXPIRED"
-    assert expired_token not in target._mcp_sessions
-
-
-@pytest.mark.asyncio
-async def test_bridge_fails_closed_when_runtime_audit_is_not_persisted() -> None:
-    requests: list[httpx.Request] = []
-    target = bridge_gateway(requests, audit_persisted=False)
-    await target.prepare_autoskill(
-        context=bridge_context(target),
-        autoskill=RecordingAutoSkill(),
-        agent_id="agent-1",
-        session_id="session-1",
-        invocation_id="invocation-bridge",
-    )
-    session = next(iter(target._mcp_sessions.values()))
-    async with create_connected_server_and_client_session(
-        session.server, raise_exceptions=True
-    ) as client:
-        listed = await client.list_tools()
-        result = await client.call_tool(listed.tools[0].name, {"query": "safe"})
-    assert result.isError is True
-    assert "audit was not persisted" in str(result.content)
-
-
-@pytest.mark.asyncio
-async def test_bridge_routes_complete_a_real_legacy_sse_mcp_exchange() -> None:
-    requests: list[httpx.Request] = []
-    target = bridge_gateway(requests)
-    autoskill = RecordingAutoSkill()
-    await target.prepare_autoskill(
-        context=bridge_context(target),
-        autoskill=autoskill,
-        agent_id="agent-1",
-        session_id="session-1",
-        invocation_id="invocation-bridge",
-    )
-    assert autoskill.uploaded is not None
-    with zipfile.ZipFile(io.BytesIO(autoskill.uploaded)) as archive:
-        state_text = archive.read("mcp_config.yaml").decode()
-    bridge_token = state_text.split("connection-runtime/", 1)[1].split("/sse", 1)[0]
-
-    app = FastAPI()
-    service = KnowledgeWorkspaceService(
-        KnowledgeWorkspaceRepository(),
-        UnavailableAutoSkillClient("not configured"),
-    )
-    mount_knowledge_workspace_routes(
-        app,
-        service,
-        connection_gateway=target,
-        allow_insecure_test_headers=True,
-    )
-    sock = socket.socket()
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    config = uvicorn.Config(app, log_level="warning", lifespan="off")
-    server = uvicorn.Server(config)
-    task = anyio.create_task_group()
-    async with task:
-        task.start_soon(server.serve, [sock])
-        while not server.started:
-            await anyio.sleep(0.01)
-        try:
-            url = (
-                f"http://127.0.0.1:{port}/api/knowledge/v1/"
-                f"connection-runtime/{bridge_token}/sse"
-            )
-            async with sse_client(url) as streams:
-                async with ClientSession(*streams) as client:
-                    await client.initialize()
-                    listed = await client.list_tools()
-                    assert [tool.name for tool in listed.tools] == [
-                        "connection-1__fixture.read"
-                    ]
-                    result = await client.call_tool(
-                        listed.tools[0].name, {"query": "safe"}
-                    )
-                    assert result.structuredContent == {
-                        "ok": True,
-                        "result": {"rows": 1},
-                        "executionId": "execution-1",
-                        "auditPersisted": True,
-                    }
-        finally:
-            server.should_exit = True
-    assert any(
-        request.url.path == "/v1/runtime/actions/fixture.read"
-        for request in requests
-    )
-
 
 @pytest.mark.asyncio
 async def test_gateway_maps_upstream_errors_without_echoing_authorization() -> None:
@@ -628,6 +583,19 @@ async def test_connection_routes_replay_idempotently_and_use_error_contract() ->
                             "displayName": "Fixture",
                             "tier": "beta",
                             "actionIds": ["fixture.read"],
+                            "configSchema": {
+                                "type": "object",
+                                "properties": {},
+                            },
+                            "authSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "secret": {
+                                        "type": "string",
+                                        "format": "password",
+                                    }
+                                },
+                            },
                         }
                     ]
                 },

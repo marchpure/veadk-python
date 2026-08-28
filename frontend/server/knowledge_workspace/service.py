@@ -931,11 +931,6 @@ class KnowledgeWorkspaceService:
                     await self.connection_context.revoke(lease_id)
                 except Exception:
                     pass
-                forget_invocation = getattr(
-                    self.connection_context, "forget_invocation", None
-                )
-                if forget_invocation is not None:
-                    forget_invocation(invocation.invocation_id)
             self._tasks.pop(invocation.invocation_id, None)
 
     async def _capture_output(
