@@ -15,6 +15,15 @@ const LOCAL_QUERY_KEYS = new Set([
   "projectId",
   "versionId",
 ]);
+const KNOWLEDGE_WORKSPACE_QUERY_KEYS = new Set([
+  "file",
+  "draftId",
+  "connectionId",
+  "modal",
+  "run_state",
+  "state",
+  "scenario",
+]);
 
 let cached: string | null = null;
 
@@ -28,9 +37,11 @@ function authQuery(): string {
   const intelligentDeploymentDeepLink =
     incoming.get("view") === "runtime-deploy"
     && incoming.get("source") === "intelligent-development";
+  const knowledgeWorkspaceRoute = incoming.get("view") === "knowledge-workspace";
   incoming.forEach((value, key) => {
     (
       intelligentDeploymentDeepLink && LOCAL_QUERY_KEYS.has(key)
+      || knowledgeWorkspaceRoute && KNOWLEDGE_WORKSPACE_QUERY_KEYS.has(key)
         ? local
         : forwarded
     ).append(key, value);

@@ -72,3 +72,16 @@ The following are not source material for production behavior:
 | `final_answer`, `request_summary`, `error`, `done` | Never infer revision/publication from one event; completion requires persistence gates |
 | Stateful `agent_id/session_id/request_id` | IDs stay server-side and are never editable browser resource IDs |
 
+## STEP 2A frontend migration entries
+
+| Source | Destination | Preserved | Replaced/removed | Evidence |
+| --- | --- | --- | --- | --- |
+| Prototype `WorkspaceLayout` / pane geometry | `frontend/src/features/knowledge-workspace/pages/knowledge-workspace.css` | Three-pane shell, responsive right conversation pane, directory hierarchy, visual tokens | Prototype store, localStorage resources, hard-coded user state | Boundary test + production build |
+| Prototype `SkillNewView` | `KnowledgeWorkspacePage.tsx` `SkillNewView` | Goal → connection multi-select → optional trial task | Scenario inference, template/type/renderer choice, pseudo generation | Contract test + BFF calls |
+| Prototype `ConnectionDetailView` / `AddDataView` | `KnowledgeWorkspacePage.tsx` `ConnectionDetailView` / `ConnectionForm` | Dynamic schema fields, validate/discover controls, status presentation | Timer-driven discovery, fake OAuth, “all supported” status | Contract client + boundary test |
+| Prototype `ChatAssistant` | `api/client.ts` + `DraftWorkspace` | Delta text, plan, tool cards, elapsed time, cancel, reconnect, auto-scroll | Fixed replies, client-side completion inference | Event schema test + SSE client |
+| Prototype `ArtifactHeader` / draft/publish modals | `artifact/ArtifactViewer.tsx` + `DraftWorkspace` | Artifact, versions, publish grouping and modal semantics | Local revision list, pseudo-success publish | Controlled URL/digest test + BFF client |
+| Existing Studio `adk/auth.ts` / `adk/sse.ts` | `api/client.ts` | Auth forwarding and shared fetch-SSE parsing | Direct upstream service URLs | Same-origin API boundary test |
+
+No Prototype source file, `mockData`, business localStorage store, or legacy
+BuildPlan/ArtifactSpec/renderer implementation was copied into production.

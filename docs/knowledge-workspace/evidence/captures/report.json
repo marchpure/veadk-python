@@ -1,0 +1,763 @@
+{
+  "contract_fixture": true,
+  "visual_diff_mode": "RGBA per-pixel absolute delta",
+  "states": [
+    {
+      "index": 1,
+      "state_url": "/?file=welcome",
+      "route": "welcome",
+      "render_check": {
+        "shell": true,
+        "route": "welcome",
+        "state_url": "/?file=welcome",
+        "welcome": true,
+        "draft": false,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": null,
+        "evidence_key": "welcome",
+        "evidence": [
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 680473,
+      "differing_ratio": 0.32816020447530864,
+      "mean_absolute_rgb_delta": 6.568030478395062
+    },
+    {
+      "index": 2,
+      "state_url": "/?file=draft_dash_anta",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "draft",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 230925,
+      "differing_ratio": 0.11136429398148148,
+      "mean_absolute_rgb_delta": 2.7119277263374486
+    },
+    {
+      "index": 3,
+      "state_url": "/?file=draft_dash_anta&run_state=success",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&run_state=success",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "success",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 324007,
+      "differing_ratio": 0.15625337577160495,
+      "mean_absolute_rgb_delta": 3.2085525977366256
+    },
+    {
+      "index": 4,
+      "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&run_state=success&modal=publish",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "发布门禁检查"
+        ],
+        "modal": "publish",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": {
+          "left": 704,
+          "top": 289,
+          "width": 512,
+          "height": 502
+        },
+        "evidence_key": "publish",
+        "evidence": [
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 1024527,
+      "differing_ratio": 0.49408130787037036,
+      "mean_absolute_rgb_delta": 4.544105420524692
+    },
+    {
+      "index": 5,
+      "state_url": "/?file=draft_dash_anta&run_state=failed",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&run_state=failed",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "failed",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 322435,
+      "differing_ratio": 0.1554952739197531,
+      "mean_absolute_rgb_delta": 3.1333756108539093
+    },
+    {
+      "index": 6,
+      "state_url": "/?file=draft_dash_anta&state=permission",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&state=permission",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": true,
+        "overlay_covers_center": true,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "permission",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 883936,
+      "differing_ratio": 0.42628086419753086,
+      "mean_absolute_rgb_delta": 3.8585579025205763
+    },
+    {
+      "index": 7,
+      "state_url": "/?file=draft_dash_anta&state=connection_error",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&state=connection_error",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": true,
+        "overlay_covers_center": true,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "connection_error",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 883712,
+      "differing_ratio": 0.42617283950617285,
+      "mean_absolute_rgb_delta": 3.755657471707819
+    },
+    {
+      "index": 8,
+      "state_url": "/?file=draft_dash_anta&state=upgrade",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&state=upgrade",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "upgrade",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 307850,
+      "differing_ratio": 0.14846161265432098,
+      "mean_absolute_rgb_delta": 3.6786548353909465
+    },
+    {
+      "index": 9,
+      "state_url": "/?file=draft_dash_anta&modal=advanced",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&modal=advanced",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "modal": "advanced",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": {
+          "left": 672,
+          "top": 369,
+          "width": 576,
+          "height": 342
+        },
+        "evidence_key": "advanced",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 955175,
+      "differing_ratio": 0.46063609182098764,
+      "mean_absolute_rgb_delta": 2.079196405606996
+    },
+    {
+      "index": 10,
+      "state_url": "/?file=draft_dash_anta&modal=test_records",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&modal=test_records",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "modal": "test_records",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": {
+          "left": 512,
+          "top": 420,
+          "width": 896,
+          "height": 241
+        },
+        "evidence_key": "test_records",
+        "evidence": [
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 1008705,
+      "differing_ratio": 0.486451099537037,
+      "mean_absolute_rgb_delta": 3.0312146347736624
+    },
+    {
+      "index": 11,
+      "state_url": "/?file=draft_dash_anta&modal=tools",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_dash_anta&modal=tools",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "modal": "tools",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": {
+          "left": 624,
+          "top": 358,
+          "width": 672,
+          "height": 364
+        },
+        "evidence_key": "tools",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 965070,
+      "differing_ratio": 0.4654079861111111,
+      "mean_absolute_rgb_delta": 2.384182741769547
+    },
+    {
+      "index": 12,
+      "state_url": "/?file=pub_dash_anta",
+      "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta",
+        "welcome": false,
+        "draft": false,
+        "published": true,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": null,
+        "evidence_key": "published",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 198669,
+      "differing_ratio": 0.09580873842592592,
+      "mean_absolute_rgb_delta": 1.6393344907407408
+    },
+    {
+      "index": 13,
+      "state_url": "/?file=pub_dash_anta&modal=agent",
+      "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=agent",
+        "welcome": false,
+        "draft": false,
+        "published": true,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "modal": "agent",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": {
+          "left": 512,
+          "top": 269,
+          "width": 896,
+          "height": 542
+        },
+        "evidence_key": "agent",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 1974642,
+      "differing_ratio": 0.952277199074074,
+      "mean_absolute_rgb_delta": 70.59405590920782
+    },
+    {
+      "index": 14,
+      "state_url": "/?file=pub_dash_anta&modal=share_run",
+      "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=share_run",
+        "welcome": false,
+        "draft": false,
+        "published": true,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "modal": "share_run",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": {
+          "left": 704,
+          "top": 310,
+          "width": 512,
+          "height": 460
+        },
+        "evidence_key": "share_run",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 1996180,
+      "differing_ratio": 0.9626639660493828,
+      "mean_absolute_rgb_delta": 81.84073768647119
+    },
+    {
+      "index": 15,
+      "state_url": "/?file=pub_dash_anta&modal=instructions",
+      "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=instructions",
+        "welcome": false,
+        "draft": false,
+        "published": true,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "区域异常经营分析"
+        ],
+        "modal": "instructions",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": {
+          "left": 704,
+          "top": 180,
+          "width": 512,
+          "height": 720
+        },
+        "evidence_key": "instructions",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 1914960,
+      "differing_ratio": 0.9234953703703703,
+      "mean_absolute_rgb_delta": 75.4050106095679
+    },
+    {
+      "index": 16,
+      "state_url": "/?file=pub_dash_anta&modal=versions",
+      "route": "published",
+      "render_check": {
+        "shell": true,
+        "route": "published",
+        "state_url": "/?file=pub_dash_anta&modal=versions",
+        "welcome": false,
+        "draft": false,
+        "published": true,
+        "skill_new": false,
+        "dialog_count": 1,
+        "dialog_labels": [
+          "版本记录"
+        ],
+        "modal": "versions",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": {
+          "left": 1536,
+          "top": 0,
+          "width": 384,
+          "height": 1080
+        },
+        "evidence_key": "versions",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 2060247,
+      "differing_ratio": 0.993560474537037,
+      "mean_absolute_rgb_delta": 73.37728587962962
+    },
+    {
+      "index": 17,
+      "state_url": "/?file=draft_sop_bluetooth",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_sop_bluetooth",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "sop_bluetooth",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 231013,
+      "differing_ratio": 0.11140673225308642,
+      "mean_absolute_rgb_delta": 2.715027327674897
+    },
+    {
+      "index": 18,
+      "state_url": "/?file=draft_sop_haidilao",
+      "route": "draft",
+      "render_check": {
+        "shell": true,
+        "route": "draft",
+        "state_url": "/?file=draft_sop_haidilao",
+        "welcome": false,
+        "draft": true,
+        "published": false,
+        "skill_new": false,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 380,
+        "modal_geometry": null,
+        "evidence_key": "sop_haidilao",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 229581,
+      "differing_ratio": 0.11071614583333333,
+      "mean_absolute_rgb_delta": 2.6577957818930042
+    },
+    {
+      "index": 19,
+      "state_url": "/?file=skill_new",
+      "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new",
+        "welcome": false,
+        "draft": false,
+        "published": false,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": null,
+        "evidence_key": "skill_new",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
+    },
+    {
+      "index": 20,
+      "state_url": "/?file=skill_new&scenario=anta",
+      "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new&scenario=anta",
+        "welcome": false,
+        "draft": false,
+        "published": false,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": null,
+        "evidence_key": "skill_new",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
+    },
+    {
+      "index": 21,
+      "state_url": "/?file=skill_new&scenario=zhiji",
+      "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new&scenario=zhiji",
+        "welcome": false,
+        "draft": false,
+        "published": false,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": null,
+        "evidence_key": "skill_new",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
+    },
+    {
+      "index": 22,
+      "state_url": "/?file=skill_new&scenario=haidilao",
+      "route": "skill_new",
+      "render_check": {
+        "shell": true,
+        "route": "skill_new",
+        "state_url": "/?file=skill_new&scenario=haidilao",
+        "welcome": false,
+        "draft": false,
+        "published": false,
+        "skill_new": true,
+        "dialog_count": 0,
+        "dialog_labels": [],
+        "modal": "",
+        "modal_selector_visible": true,
+        "modal_text_present": true,
+        "has_state_overlay": false,
+        "overlay_covers_center": false,
+        "chat_width": 0,
+        "modal_geometry": null,
+        "evidence_key": "skill_new",
+        "evidence": [
+          true,
+          true
+        ]
+      },
+      "pixels": 2073600,
+      "differing_pixels": 251520,
+      "differing_ratio": 0.12129629629629629,
+      "mean_absolute_rgb_delta": 3.986436953446502
+    }
+  ]
+}
