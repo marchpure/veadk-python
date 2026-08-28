@@ -58,6 +58,7 @@ test("connection chooser is card-based and OAuth/MCP states are explicit", () =>
   assert.match(page, /kw-connector-cards/);
   assert.match(page, /kw-connector-card/);
   assert.doesNotMatch(page, /<select[^>]+value=\{connectorKey\}/);
+  assert.match(page, /connectorCredentialLabel/);
   assert.match(page, /需要配置 OAuth 应用并发起授权/);
   assert.match(page, /我确认这是本地开发 MCP/);
   assert.match(page, /允许的本地端口/);

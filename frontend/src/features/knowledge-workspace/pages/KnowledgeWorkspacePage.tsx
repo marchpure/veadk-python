@@ -1867,7 +1867,7 @@ function ConnectionForm({
                   >
                     <strong>{item.display_name}</strong>
                     <small>{item.status} · {item.category === "adapter" ? "专用适配器" : "provider"} · {item.capabilities.join(" / ")}</small>
-                    <span>{authSchemaOptions(item.auth_schema).map((option) => option.label).join("、") || "无需凭据"}</span>
+                    <span>{connectorCredentialLabel(item)}</span>
                   </button>
                 ))}
               </div>
@@ -2004,6 +2004,34 @@ function oracleBody(values: JsonObject): JsonObject {
     user: values.user,
     password: values.password,
   };
+}
+
+function connectorCredentialLabel(connector: ConnectorDefinition): string {
+  const authOptions = authSchemaOptions(connector.auth_schema);
+  if (authOptions.length) {
+    return authOptions.map((option) => option.label).join("、");
+  }
+  const properties = connector.auth_schema.properties;
+  const required = Array.isArray(connector.auth_schema.required)
+    ? connector.auth_schema.required.filter((name): name is string => typeof name === "string")
+    : [];
+  if (required.length) {
+    const labels = required.map((name) => {
+      const schema = properties && typeof properties === "object" && !Array.isArray(properties)
+        ? properties[name]
+        : undefined;
+      return schema && typeof schema === "object" && !Array.isArray(schema)
+        && typeof schema.title === "string"
+        ? schema.title
+        : name;
+    });
+    return labels.join(" / ");
+  }
+  if (properties && typeof properties === "object" && !Array.isArray(properties)
+    && Object.keys(properties).length > 0) {
+    return "可选 API 凭据";
+  }
+  return "无需凭据";
 }
 
 function connectorGroups(
