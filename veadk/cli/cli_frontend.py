@@ -2352,6 +2352,56 @@ def _run_frontend_server(
         create_region_candidates_resolver=_knowledge_create_regions,
     )
 
+    # Knowledge Workspace V1 AutoSkill routes are always same-origin. If the
+    # deployment has not supplied server-side credentials, the route remains
+    # present but every upstream operation fails closed with a typed error.
+    from frontend.server.knowledge_workspace import (
+        AutoSkillClient,
+        AutoSkillConfig,
+        Actor,
+        KnowledgeWorkspaceRepository,
+        KnowledgeWorkspaceService,
+        UnavailableAutoSkillClient,
+        mount_knowledge_workspace_routes,
+    )
+
+    try:
+        autoskill_client = AutoSkillClient(AutoSkillConfig.from_env())
+    except Exception as error:
+        autoskill_client = UnavailableAutoSkillClient(
+            f"AutoSkill is not configured: {type(error).__name__}"
+        )
+    knowledge_service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(
+            os.getenv(
+                "KNOWLEDGE_WORKSPACE_DATABASE",
+                ".veadk/knowledge-workspace.sqlite3",
+            ),
+            os.getenv(
+                "KNOWLEDGE_WORKSPACE_OBJECT_ROOT",
+                ".veadk/knowledge-workspace-objects",
+            ),
+        ),
+        autoskill_client,
+    )
+
+    def _knowledge_workspace_actor(request: Request, resolver: Any) -> Actor:
+        principal = resolver(request)
+        owner_id = str(getattr(principal, "owner_id", "") or "local")
+        return Actor(
+            tenant_id=owner_id,
+            workspace_id="studio",
+            principal_id=owner_id,
+        )
+
+    mount_knowledge_workspace_routes(
+        app,
+        knowledge_service,
+        actor_resolver=lambda request: _knowledge_workspace_actor(
+            request, _knowledge_identity
+        ),
+    )
+
     from frontend.server.video.routes import (
         build_video_service,
         mount_video_routes,

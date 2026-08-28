@@ -853,6 +853,7 @@ components:
             sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
             size_bytes: { type: integer, minimum: 0 }
             media_type: { type: string }
+            purpose: { type: string, enum: [context, skill_input] }
           additionalProperties: false
         meta: { $ref: '#/components/schemas/Meta' }
     Draft:
@@ -865,6 +866,9 @@ components:
         connection_ids:
           type: array
           minItems: 1
+          items: { type: string }
+        upload_ids:
+          type: array
           items: { type: string }
         lifecycle:
           type: string
@@ -981,10 +985,14 @@ components:
         revision_id: { type: string }
         invocation_id: { type: string }
         media_type: { type: string }
+        encoding: { type: string }
+        size_bytes: { type: integer, minimum: 1 }
         uri: { type: string }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         title: { type: string }
         lineage: { type: object, additionalProperties: true }
+        csp: { type: string }
+        sandbox: { type: string }
         created_at: { type: string, format: date-time }
       additionalProperties: false
     ArtifactResponse:

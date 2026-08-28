@@ -1,0 +1,87 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/autoskill-checkpoint.schema.json",
+  "checkpoint": "STEP2C_FROZEN",
+  "step": "knowledge-asset-workspace-v1-step-2c",
+  "created_at": "2026-08-28T00:00:00+08:00",
+  "base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
+  "parent_bootstrap_commit": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
+  "implementation_commit": "1400d9ec62e68ab988cdb3b12c09cb12a4df9c0b",
+  "branch": "feat/knowledge-v1-autoskill",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-autoskill",
+  "autoskill": {
+    "source_ref": "8dc9f14c1a0b0169ef865f3d87d4a6ea3e623533",
+    "base_url": "https://test-bytebrain.byted.org",
+    "api_prefix": "/openapi/autoskill/v1",
+    "state_mode": "stateful",
+    "credentials": "not present; no authenticated request was attempted",
+    "health_probe": {
+      "url": "https://test-bytebrain.byted.org/openapi/autoskill/health",
+      "status_code": 200,
+      "response": {
+        "status": "ok",
+        "state_mode": "stateful"
+      }
+    },
+    "real_smoke": {
+      "command": "KNOWLEDGE_AUTOSKILL_BASE_URL=https://test-bytebrain.byted.org python tools/autoskill_real_smoke.py",
+      "status": "BLOCKED",
+      "exit_code": 2,
+      "evidence": "KNOWLEDGE_AUTOSKILL_TOKEN is not configured",
+      "mock_fallback": false
+    }
+  },
+  "implementation": {
+    "package": "frontend/server/knowledge_workspace",
+    "surfaces": [
+      "typed server-only AutoSkill HTTP client",
+      "multipart form and query parameter protocol mapping",
+      "incremental SSE parsing, redaction, bounding, normalization",
+      "Last-Event-ID reconnect, bounded retry, stop, first-event/idle/total timeouts",
+      "stateful and stateless invocation/state snapshot handling",
+      "restart recovery resumes by reconnecting the existing request",
+      "immutable Skill ZIP validation and content-addressed storage",
+      "real HTML artifact validation with CSP/sandbox metadata",
+      "tenant/workspace-scoped upload ingestion with idempotent forwarding",
+      "OpenAPI-aligned public DTOs, required concurrency headers, and 304 caching",
+      "draft/session/invocation/revision/artifact/publication models",
+      "tenant/workspace-qualified SQLite persistence",
+      "invocation-bound least-privilege lease issue/revoke lifecycle",
+      "injected cross-Agent PublicationRegistryPort boundary",
+      "trusted actor resolver required by default; insecure header adapter is test-only",
+      "durable per-invocation provider request lineage",
+      "same-origin FastAPI routes with draft PATCH/ETag and idempotency"
+    ],
+    "security_evidence": [
+      "ZIP traversal, absolute path, duplicate, symlink/device, compression-ratio, size, depth, root, and SKILL.md checks",
+      "HTML UTF-8, active-content, external-resource, and size policy",
+      "raw SSE secret redaction and payload bounds",
+      "tenant/workspace qualification on resource reads",
+      "no browser-facing AutoSkill URL, provider IDs, request IDs, or token",
+      "trusted Studio principal actor mapping in production composition",
+      "symlink-safe object reads and non-empty view_skill completion gate",
+      "server-side connection context is required for connection-backed invocation",
+      "query-command errors/unknown/malformed events are archived and fail closed",
+      "publication requires an invocation lease and artifact from that authorized run"
+    ],
+    "immutability_evidence": [
+      "SHA-256 content-addressed object keys",
+      "exclusive object creation and digest collision check",
+      "insert-once revision/artifact/publication metadata",
+      "publication policy snapshot fixes revision/run/artifact evidence",
+      "revision freeze downloads and validates the actual Skill ZIP"
+    ]
+  },
+  "tests": {
+    "command": "pytest -q tests/knowledge_workspace tests/frontend/server/test_intelligent_development_routes.py",
+    "result": "92 passed",
+    "compileall": "PASS",
+    "contract_validator": "PASS",
+    "git_diff_check": "PASS",
+    "lifecycle_evidence": "freeze → real run → HTML artifact → lease-backed publication gate passed with deterministic service contract; authenticated live lifecycle remains blocked"
+  },
+  "limitations": [
+    "Authenticated AutoSkill create/list/view/download/invoke/update/second-ZIP evidence remains blocked until a real KNOWLEDGE_AUTOSKILL_TOKEN is supplied.",
+    "Connection Service is consumed through an invocation-context port; this worktree does not claim the independent Connection Service implementation.",
+    "This checkpoint is for STEP2C only and does not claim three-way integration or production readiness."
+  ]
+}
