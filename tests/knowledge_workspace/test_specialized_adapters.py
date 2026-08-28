@@ -69,6 +69,9 @@ def test_adapter_capabilities_preserve_beta_tier() -> None:
 
 
 class SpecializedGateway:
+    def __init__(self) -> None:
+        self.saved_resources: list[dict[str, object]] = []
+
     async def catalog(self, **_: str) -> list[dict[str, object]]:
         return []
 
@@ -109,6 +112,22 @@ class SpecializedGateway:
 
     async def upload_file(self, **_: object) -> str:
         return "internal-file-1"
+
+    async def save_adapter_resource(self, **kwargs: object) -> dict[str, object]:
+        resource = {
+            "resourceId": f"adapter-{len(self.saved_resources) + 1}",
+            "kind": kwargs["kind"],
+            "displayName": kwargs["display_name"],
+            "status": "ready",
+            "tier": "beta",
+            "sourceType": "adapter",
+            "metadata": kwargs.get("metadata", {}),
+        }
+        self.saved_resources.append(resource)
+        return resource
+
+    async def list_adapter_resources(self, **_: str) -> list[dict[str, object]]:
+        return list(self.saved_resources)
 
     async def list_files(self, **_: str) -> list[dict[str, object]]:
         return [{"fileId": "internal-file-1", "name": "data.csv", "tenantId": "tenant-a"}]
@@ -179,6 +198,29 @@ async def test_specialized_routes_validate_discover_register_and_preview(
         assert oracle.json()["data"]["rows"] == [{"OK": 1}]
         assert discovery.json()["data"]["tables"] == ["ORDERS"]
 
+        saved_oracle = await client.post(
+            "/api/knowledge/v1/resources/oracle",
+            headers=ACTOR_HEADERS,
+            json={**oracle_body, "display_name": "Oracle fixture", "scope": "personal"},
+        )
+        assert saved_oracle.status_code == 200
+        assert saved_oracle.json()["data"]["kind"] == "oracle_database"
+        assert saved_oracle.json()["data"]["status"] == "beta"
+        assert saved_oracle.json()["data"]["metadata"]["discovery"]["tables"] == ["ORDERS"]
+
+        saved_rest = await client.post(
+            "/api/knowledge/v1/resources/rest",
+            headers=ACTOR_HEADERS,
+            json={
+                "display_name": "REST fixture",
+                "scope": "personal",
+                "baseUrl": "https://example.test",
+                "spec": {"openapi": "3.0.0"},
+            },
+        )
+        assert saved_rest.status_code == 200
+        assert saved_rest.json()["data"]["kind"] == "rest_openapi"
+
         definition = {"transport": "stdio", "command": "echo"}
         mcp = await client.post(
             "/api/knowledge/v1/adapters/mcp/discover",
@@ -211,3 +253,26 @@ async def test_specialized_routes_validate_discover_register_and_preview(
         )
         assert preview.json()["data"]["rows"] == [["Ada"]]
         assert "internal-file-1" not in preview.text
+
+        resources = await client.get(
+            "/api/knowledge/v1/resources", headers=ACTOR_HEADERS
+        )
+        assert resources.status_code == 200
+        file_resources = [
+            item for item in resources.json()["data"] if item["kind"] == "files"
+        ]
+        assert file_resources
+        resource = file_resources[0]
+        assert resource["status"] == "beta"
+        assert "internal-file-1" not in resources.text
+
+        draft = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers={**ACTOR_HEADERS, "idempotency-key": "resource-draft-key"},
+            json={
+                "goal": "summarize uploaded data",
+                "resource_ids": [resource["resource_id"]],
+            },
+        )
+        assert draft.status_code == 201
+        assert draft.json()["data"]["resource_ids"] == [resource["resource_id"]]

@@ -7,6 +7,7 @@ import type {
   Artifact,
   ConnectorDefinition,
   ConnectionProfile,
+  WorkspaceResource,
   ConversationHistoryEntry,
   Draft,
   Invocation,
@@ -49,6 +50,7 @@ export interface CreateConnectionInput {
 export interface CreateDraftInput {
   goal: string;
   connection_ids: string[];
+  resource_ids?: string[];
   trial_task?: string;
   upload_ids?: string[];
 }
@@ -56,6 +58,7 @@ export interface CreateDraftInput {
 export interface UpdateDraftInput {
   goal?: string;
   connection_ids?: string[];
+  resource_ids?: string[];
   trial_task?: string;
 }
 
@@ -96,7 +99,15 @@ export interface FreezeRevisionInput {
 export interface PublicationInvokeInput {
   message: string;
   connection_ids?: string[];
+  resource_ids?: string[];
   upload_ids?: string[];
+}
+
+export interface OAuthAuthorizeInput {
+  service: string;
+  client_id: string;
+  client_secret: string;
+  connection_name?: string;
 }
 
 type RequestOptions = RequestInit & {
@@ -179,14 +190,20 @@ function key(prefix: string): string {
 export interface KnowledgeApi {
   listConnectorDefinitions(signal?: AbortSignal): Promise<ApiEnvelope<ConnectorDefinition[]>>;
   listConnections(signal?: AbortSignal): Promise<ApiEnvelope<ConnectionProfile[]>>;
+  listResources(signal?: AbortSignal): Promise<ApiEnvelope<WorkspaceResource[]>>;
+  getResource(id: string, signal?: AbortSignal): Promise<ApiEnvelope<WorkspaceResource>>;
   getConnection(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<ConnectionProfile>; etag: string }>;
   createConnection(input: CreateConnectionInput): Promise<ApiEnvelope<ConnectionProfile>>;
   uploadFile(file: File, purpose: "context" | "skill_input", onProgress?: (percent: number) => void): Promise<ApiEnvelope<UploadResult>>;
   validateRestAdapter(body: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  saveRestResource(body: JsonObject): Promise<ApiEnvelope<WorkspaceResource>>;
   validateOracleAdapter(body: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
   discoverOracleAdapter(body: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  saveOracleResource(body: JsonObject): Promise<ApiEnvelope<WorkspaceResource>>;
   discoverMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
   registerMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
+  saveMcpResource(body: JsonObject): Promise<ApiEnvelope<WorkspaceResource>>;
+  authorizeOAuth(input: OAuthAuthorizeInput): Promise<ApiEnvelope<JsonObject>>;
   listAdapterFiles(signal?: AbortSignal): Promise<ApiEnvelope<JsonObject[]>>;
   previewAdapterFile(fileId: string, signal?: AbortSignal): Promise<ApiEnvelope<JsonObject>>;
   validateConnection(id: string): Promise<ApiEnvelope<JobResult>>;
@@ -206,7 +223,7 @@ export interface KnowledgeApi {
   cancelInvocation(id: string): Promise<ApiEnvelope<Invocation>>;
   listRevisions(id: string, signal?: AbortSignal): Promise<ApiEnvelope<Revision[]>>;
   freezeRevision(id: string, input: FreezeRevisionInput, etag?: string): Promise<{ value: ApiEnvelope<Revision>; etag: string }>;
-  runRevision(id: string, connection_ids: string[], message: string, uploadIds?: string[]): Promise<ApiEnvelope<Invocation>>;
+  runRevision(id: string, connection_ids: string[], message: string, uploadIds?: string[], resourceIds?: string[]): Promise<ApiEnvelope<Invocation>>;
   getArtifact(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Artifact>; etag: string }>;
   publishRevision(id: string, target_space: "personal" | "team", display_name?: string): Promise<ApiEnvelope<Publication>>;
   invokePublication(id: string, input: PublicationInvokeInput): Promise<ApiEnvelope<Invocation>>;
@@ -223,6 +240,14 @@ export const knowledgeApi: KnowledgeApi = {
   },
   async listConnections(signal) {
     const result = await request<ConnectionProfile[]>("/connections", { signal });
+    return result.envelope;
+  },
+  async listResources(signal) {
+    const result = await request<WorkspaceResource[]>("/resources", { signal });
+    return result.envelope;
+  },
+  async getResource(id, signal) {
+    const result = await request<WorkspaceResource>(`/resources/${encodeURIComponent(id)}`, { signal });
     return result.envelope;
   },
   async getConnection(id, signal) {
@@ -268,6 +293,12 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return result.envelope;
   },
+  async saveRestResource(body) {
+    const result = await request<WorkspaceResource>("/resources/rest", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return result.envelope;
+  },
   async validateOracleAdapter(body) {
     const result = await request<AdapterCapabilityResult>("/adapters/oracle/validate", {
       method: "POST", body: JSON.stringify(body),
@@ -276,6 +307,12 @@ export const knowledgeApi: KnowledgeApi = {
   },
   async discoverOracleAdapter(body) {
     const result = await request<AdapterCapabilityResult>("/adapters/oracle/discover", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return result.envelope;
+  },
+  async saveOracleResource(body) {
+    const result = await request<WorkspaceResource>("/resources/oracle", {
       method: "POST", body: JSON.stringify(body),
     });
     return result.envelope;
@@ -289,6 +326,19 @@ export const knowledgeApi: KnowledgeApi = {
   async registerMcpAdapter(definition) {
     const result = await request<AdapterCapabilityResult>("/adapters/mcp/register", {
       method: "POST", body: JSON.stringify({ definition }),
+    });
+    return result.envelope;
+  },
+  async saveMcpResource(body) {
+    const result = await request<WorkspaceResource>("/resources/mcp", {
+      method: "POST", body: JSON.stringify(body),
+    });
+    return result.envelope;
+  },
+  async authorizeOAuth(input) {
+    const result = await request<JsonObject>("/oauth/authorize", {
+      method: "POST",
+      body: JSON.stringify(input),
     });
     return result.envelope;
   },
@@ -418,13 +468,14 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
   },
-  async runRevision(id, connection_ids, message, uploadIds) {
+  async runRevision(id, connection_ids, message, uploadIds, resourceIds) {
     const result = await request<Invocation>(`/skill-revisions/${encodeURIComponent(id)}/run`, {
       method: "POST",
       body: JSON.stringify({
         connection_ids,
         message,
         ...(uploadIds?.length ? { upload_ids: uploadIds } : {}),
+        ...(resourceIds?.length ? { resource_ids: resourceIds } : {}),
       }),
       idempotencyKey: key("run"),
     });

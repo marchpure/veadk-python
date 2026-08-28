@@ -40,7 +40,10 @@ from .models import (
     SkillDraft,
     SkillRevision,
     WorkspaceUpload,
+    WorkspaceResource,
+    WorkspaceResourceKind,
     new_id,
+    utc_now,
 )
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
 
@@ -48,7 +51,8 @@ from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
 class CreateDraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str = Field(min_length=1, max_length=8_000)
-    connection_ids: list[str] = Field(min_length=1, max_length=64)
+    connection_ids: list[str] = Field(default_factory=list, max_length=64)
+    resource_ids: list[str] = Field(default_factory=list, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
@@ -56,7 +60,8 @@ class CreateDraftBody(BaseModel):
 class UpdateDraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str | None = Field(default=None, min_length=1, max_length=8_000)
-    connection_ids: list[str] | None = Field(default=None, min_length=1, max_length=64)
+    connection_ids: list[str] | None = Field(default=None, max_length=64)
+    resource_ids: list[str] | None = Field(default=None, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] | None = Field(default=None, max_length=64)
 
@@ -81,7 +86,8 @@ class FreezeBody(BaseModel):
 
 class RunBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    connection_ids: list[str] = Field(min_length=1, max_length=64)
+    connection_ids: list[str] = Field(default_factory=list, max_length=64)
+    resource_ids: list[str] = Field(default_factory=list, max_length=64)
     message: str = Field(min_length=1, max_length=20_000)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
@@ -94,7 +100,8 @@ class PublishBody(BaseModel):
 class PublicationInvokeBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=20_000)
-    connection_ids: list[str] = Field(min_length=1, max_length=64)
+    connection_ids: list[str] = Field(default_factory=list, max_length=64)
+    resource_ids: list[str] = Field(default_factory=list, max_length=64)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
 
@@ -323,6 +330,42 @@ def mount_knowledge_workspace_routes(
         )
         return envelope([*providers, *adapters], request)
 
+    @app.get(f"{prefix}/resources")
+    async def list_resources(request: Request) -> dict[str, Any]:
+        local = {
+            item.resource_id: service.public_resource(item)
+            for item in service.repository.list_resources(
+                tenant_id=actor(request).tenant_id,
+                workspace_id=actor(request).workspace_id,
+            )
+        }
+        if connection_gateway is not None:
+            for item in await connection_call(
+                lambda: connection_gateway.list_adapter_resources(
+                    **connection_actor(request)
+                )
+            ):
+                # The BFF owns the browser identity. Connection Service
+                # resources remain server-side and are projected through the
+                # BFF resource records only.
+                continue
+        return envelope(list(local.values()), request)
+
+    @app.get(f"{prefix}/resources/{{resource_id}}")
+    async def get_resource(request: Request, resource_id: str) -> dict[str, Any]:
+        item = service.repository.get_resource(
+            resource_id,
+            tenant_id=actor(request).tenant_id,
+            workspace_id=actor(request).workspace_id,
+        )
+        if item is None:
+            raise HTTPException(status_code=404, detail={
+                "code": "NOT_FOUND",
+                "message": "resource not found",
+                "retryable": False,
+            })
+        return envelope(service.public_resource(item), request)
+
     @app.post(f"{prefix}/adapters/rest/validate")
     async def validate_rest_adapter(
         request: Request, body: dict[str, Any]
@@ -333,6 +376,46 @@ def mount_knowledge_workspace_routes(
             )
         )
         return envelope(result, request)
+
+    @app.post(f"{prefix}/resources/rest")
+    async def save_rest_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+        result = await connection_call(
+            lambda: require_connections().validate_rest(
+                body, **connection_actor(request)
+            )
+        )
+        actor_value = actor(request)
+        adapter_resource = await connection_call(
+            lambda: require_connections().save_adapter_resource(
+                kind="rest_openapi",
+                display_name=str(body.get("display_name") or body.get("baseUrl") or "REST / OpenAPI"),
+                visibility=str(body.get("scope") or "personal"),
+                source_id=hashlib.sha256(
+                    json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")
+                ).hexdigest(),
+                metadata={"validation": result},
+                definition=body,
+                **connection_actor(request),
+            )
+        )
+        resource = WorkspaceResource(
+            tenant_id=actor_value.tenant_id,
+            workspace_id=actor_value.workspace_id,
+            resource_id=new_id("resource"),
+            kind=WorkspaceResourceKind.REST_OPENAPI,
+            display_name=str(body.get("display_name") or body.get("baseUrl") or "REST / OpenAPI"),
+            scope=str(body.get("scope") or "personal"),
+            status="beta",
+            source_id=hashlib.sha256(
+                json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            ).hexdigest(),
+            metadata={"validation": result},
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            adapter_resource_id=str(adapter_resource["resourceId"]),
+        )
+        service.repository.save_resource(resource)
+        return envelope(service.public_resource(resource), request)
 
     @app.post(f"{prefix}/adapters/oracle/validate")
     async def validate_oracle_adapter(
@@ -355,6 +438,63 @@ def mount_knowledge_workspace_routes(
             )
         )
         return envelope(result, request)
+
+    @app.post(f"{prefix}/resources/oracle")
+    async def save_oracle_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+        validation = await connection_call(
+            lambda: require_connections().validate_oracle(
+                body, **connection_actor(request)
+            )
+        )
+        discovery = await connection_call(
+            lambda: require_connections().discover_oracle(
+                body, **connection_actor(request)
+            )
+        )
+        actor_value = actor(request)
+        config = body.get("config")
+        display_name = (
+            str(body.get("display_name"))
+            if body.get("display_name")
+            else str((config or {}).get("host") or "Oracle Database")
+        )
+        source_id = hashlib.sha256(
+            json.dumps(
+                {
+                    "config": config,
+                    "user": body.get("user"),
+                },
+                sort_keys=True,
+                ensure_ascii=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        adapter_resource = await connection_call(
+            lambda: require_connections().save_adapter_resource(
+                kind="oracle_database",
+                display_name=display_name,
+                visibility=str(body.get("scope") or "personal"),
+                source_id=source_id,
+                metadata={"validation": validation, "discovery": discovery},
+                definition=body,
+                **connection_actor(request),
+            )
+        )
+        resource = WorkspaceResource(
+            tenant_id=actor_value.tenant_id,
+            workspace_id=actor_value.workspace_id,
+            resource_id=new_id("resource"),
+            kind=WorkspaceResourceKind.ORACLE,
+            display_name=display_name,
+            scope=str(body.get("scope") or "personal"),
+            status="beta",
+            source_id=source_id,
+            metadata={"validation": validation, "discovery": discovery},
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            adapter_resource_id=str(adapter_resource["resourceId"]),
+        )
+        service.repository.save_resource(resource)
+        return envelope(service.public_resource(resource), request)
 
     @app.post(f"{prefix}/adapters/mcp/discover")
     async def discover_mcp_adapter(
@@ -391,6 +531,61 @@ def mount_knowledge_workspace_routes(
             )
         )
         return envelope(result, request)
+
+    @app.post(f"{prefix}/resources/mcp")
+    async def save_mcp_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+        definition = body.get("definition")
+        if not isinstance(definition, dict):
+            raise HTTPException(status_code=422, detail={
+                "code": "INVALID_ARGUMENT",
+                "message": "definition is required",
+                "retryable": False,
+            })
+        discovered = await connection_call(
+            lambda: require_connections().discover_mcp(
+                definition, **connection_actor(request)
+            )
+        )
+        registered = await connection_call(
+            lambda: require_connections().register_mcp(
+                definition, **connection_actor(request)
+            )
+        )
+        actor_value = actor(request)
+        definition_id = str(registered.get("id") or registered.get("definitionId") or "")
+        if not definition_id:
+            raise HTTPException(status_code=502, detail={
+                "code": "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "message": "MCP registration did not return a definition id",
+                "retryable": False,
+            })
+        adapter_resource = await connection_call(
+            lambda: require_connections().save_adapter_resource(
+                kind="mcp",
+                display_name=str(body.get("display_name") or "MCP Server"),
+                visibility=str(body.get("scope") or "personal"),
+                source_id=definition_id,
+                metadata={"discovery": discovered, "definition_id": definition_id},
+                definition=definition,
+                **connection_actor(request),
+            )
+        )
+        resource = WorkspaceResource(
+            tenant_id=actor_value.tenant_id,
+            workspace_id=actor_value.workspace_id,
+            resource_id=new_id("resource"),
+            kind=WorkspaceResourceKind.MCP,
+            display_name=str(body.get("display_name") or "MCP Server"),
+            scope=str(body.get("scope") or "personal"),
+            status="beta",
+            source_id=definition_id,
+            metadata={"discovery": discovered, "definition_id": definition_id},
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            adapter_resource_id=str(adapter_resource["resourceId"]),
+        )
+        service.repository.save_resource(resource)
+        return envelope(service.public_resource(resource), request)
 
     @app.get(f"{prefix}/adapter-files")
     async def adapter_files(request: Request) -> dict[str, Any]:
@@ -475,6 +670,34 @@ def mount_knowledge_workspace_routes(
             )
         assert result is not None
         response.headers["ETag"] = str(result.pop("_revision"))
+        return envelope(result, request)
+
+    @app.post(f"{prefix}/oauth/authorize")
+    async def authorize_oauth(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+        service_name = str(body.get("service") or "").strip()
+        client_id = str(body.get("client_id") or "").strip()
+        client_secret = str(body.get("client_secret") or "")
+        if not service_name or not client_id or not client_secret:
+            raise HTTPException(status_code=422, detail={
+                "code": "INVALID_ARGUMENT",
+                "message": "OAuth service, client ID, and client secret are required",
+                "retryable": False,
+            })
+        await connection_call(
+            lambda: require_connections().configure_oauth(
+                service=service_name,
+                client_id=client_id,
+                client_secret=client_secret,
+                **connection_actor(request),
+            )
+        )
+        result = await connection_call(
+            lambda: require_connections().start_oauth(
+                service=service_name,
+                connection_name=str(body.get("connection_name") or service_name),
+                **connection_actor(request),
+            )
+        )
         return envelope(result, request)
 
     @app.patch(f"{prefix}/connections/{{connection_id}}")
@@ -733,7 +956,47 @@ def mount_knowledge_workspace_routes(
             uri=uri,
             connection_file_id=connection_file_id,
         )
-        return envelope(service.repository.save_upload(value), request)
+        saved = service.repository.save_upload(value)
+        if connection_file_id:
+            adapter_resource = await connection_call(
+                lambda: require_connections().save_adapter_resource(
+                    kind="files",
+                    display_name=filename,
+                    visibility="personal",
+                    source_id=connection_file_id,
+                    metadata={
+                        "filename": filename,
+                        "sha256": digest,
+                        "size_bytes": len(content),
+                        "media_type": file.content_type or "application/octet-stream",
+                        "purpose": purpose,
+                    },
+                    definition={"fileId": connection_file_id},
+                    **connection_actor(request),
+                )
+            )
+            resource = WorkspaceResource(
+                tenant_id=actor_value.tenant_id,
+                workspace_id=actor_value.workspace_id,
+                resource_id=f"resource_{upload_id}",
+                kind=WorkspaceResourceKind.FILE,
+                display_name=filename,
+                scope="personal",
+                status="beta",
+                source_id=connection_file_id,
+                metadata={
+                    "filename": filename,
+                    "sha256": digest,
+                    "size_bytes": len(content),
+                    "media_type": file.content_type or "application/octet-stream",
+                    "purpose": purpose,
+                },
+                created_at=value.created_at,
+                updated_at=value.created_at,
+                adapter_resource_id=str(adapter_resource["resourceId"]),
+            )
+            service.repository.save_resource(resource)
+        return envelope(saved, request)
 
     @app.get(f"{prefix}/skills/drafts")
     async def list_drafts(request: Request) -> dict[str, Any]:
@@ -753,6 +1016,7 @@ def mount_knowledge_workspace_routes(
                 actor(request),
                 body.goal,
                 body.connection_ids,
+                resource_ids=body.resource_ids,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,
                 idempotency_key=idempotency_key,
@@ -795,6 +1059,7 @@ def mount_knowledge_workspace_routes(
                 draft_id,
                 goal=body.goal,
                 connection_ids=body.connection_ids,
+                resource_ids=body.resource_ids,
                 if_match=if_match,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,
@@ -991,6 +1256,7 @@ def mount_knowledge_workspace_routes(
                     revision_id,
                     body.message,
                     body.connection_ids,
+                    resource_ids=body.resource_ids,
                     upload_ids=body.upload_ids,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
@@ -1075,6 +1341,7 @@ def mount_knowledge_workspace_routes(
                     publication_id,
                     body.message,
                     body.connection_ids,
+                    resource_ids=body.resource_ids,
                     upload_ids=body.upload_ids,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),

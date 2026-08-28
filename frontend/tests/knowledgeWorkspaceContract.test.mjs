@@ -29,6 +29,29 @@ test("client covers the browser-facing REST resource groups", () => {
   }
 });
 
+test("specialized adapters use real capability routes and durable resources", () => {
+  assert.match(client, /discoverOracleAdapter/);
+  assert.match(client, /\/adapters\/oracle\/discover/);
+  assert.match(client, /saveRestResource/);
+  assert.match(client, /saveOracleResource/);
+  assert.match(client, /saveMcpResource/);
+  assert.match(client, /previewAdapterFile/);
+  assert.match(page, /knowledgeApi\.validateOracleAdapter/);
+  assert.match(page, /knowledgeApi\.discoverOracleAdapter/);
+  assert.match(page, /schemas|tables/);
+  assert.match(page, /knowledgeApi\.listResources/);
+  assert.doesNotMatch(page, /resource_id:\s*`upload:/);
+});
+
+test("connection chooser is card-based and OAuth/MCP states are explicit", () => {
+  assert.match(page, /kw-connector-cards/);
+  assert.match(page, /kw-connector-card/);
+  assert.doesNotMatch(page, /<select[^>]+value=\{connectorKey\}/);
+  assert.match(page, /需要配置 OAuth 应用并发起授权/);
+  assert.match(page, /我确认这是本地开发 MCP/);
+  assert.match(page, /允许的本地端口/);
+});
+
 test("connection jobs are polled to a terminal state with timeout and retry support", () => {
   assert.match(client, /getConnectionJob/);
   assert.match(client, /waitForConnectionJob/);

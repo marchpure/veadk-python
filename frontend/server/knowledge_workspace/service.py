@@ -27,6 +27,7 @@ from .models import (
     SkillDraft,
     SkillRevision,
     WorkspaceUpload,
+    WorkspaceResource,
     new_id,
     utc_now,
 )
@@ -184,6 +185,7 @@ class KnowledgeWorkspaceService:
             "goal": draft.goal,
             "trial_task": draft.trial_task,
             "connection_ids": draft.connection_ids,
+            "resource_ids": draft.resource_ids,
             "upload_ids": draft.upload_ids,
             "lifecycle": draft.status,
             "current_revision_id": draft.current_revision_id,
@@ -232,6 +234,19 @@ class KnowledgeWorkspaceService:
         }
 
     @staticmethod
+    def public_resource(resource: WorkspaceResource) -> dict[str, object]:
+        return {
+            "resource_id": resource.resource_id,
+            "kind": resource.kind,
+            "display_name": resource.display_name,
+            "scope": resource.scope,
+            "status": resource.status,
+            "metadata": KnowledgeWorkspaceService._public_value(resource.metadata),
+            "created_at": resource.created_at,
+            "updated_at": resource.updated_at,
+        }
+
+    @staticmethod
     def public_publication(publication: Publication) -> dict[str, object]:
         return {
             "publication_id": publication.publication_id,
@@ -247,6 +262,7 @@ class KnowledgeWorkspaceService:
         goal: str,
         connection_ids: Sequence[str],
         *,
+        resource_ids: Sequence[str] = (),
         trial_task: str | None = None,
         upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
@@ -255,9 +271,10 @@ class KnowledgeWorkspaceService:
         if not goal.strip():
             raise KnowledgeWorkspaceError("INVALID_REQUEST", "goal is required", 400)
         unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
-        if not unique:
+        resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
+        if not unique and not resources:
             raise KnowledgeWorkspaceError(
-                "CONNECTION_NOT_READY", "at least one connection is required", 409
+                "CONNECTION_NOT_READY", "at least one connection or resource is required", 409
             )
         uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
         for upload_id in uploads:
@@ -270,6 +287,16 @@ class KnowledgeWorkspaceService:
                 is None
             ):
                 raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
+        for resource_id in resources:
+            if (
+                self.repository.get_resource(
+                    resource_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                is None
+            ):
+                raise KnowledgeWorkspaceError("NOT_FOUND", "resource not found", 404)
         draft_id = new_id("draft")
         if idempotency_key:
             try:
@@ -304,6 +331,7 @@ class KnowledgeWorkspaceService:
             if trial_task and trial_task.strip()
             else None,
             connection_ids=unique,
+            resource_ids=resources,
             upload_ids=uploads,
             etag=new_id("etag"),
         )
@@ -328,6 +356,7 @@ class KnowledgeWorkspaceService:
         connection_ids: Sequence[str] | None,
         if_match: str | None,
         trial_task: str | None = None,
+        resource_ids: Sequence[str] | None = None,
         upload_ids: Sequence[str] | None = None,
         idempotency_key: str | None = None,
         request_digest: str = "",
@@ -378,11 +407,20 @@ class KnowledgeWorkspaceService:
             updates["goal"] = goal.strip()
         if connection_ids is not None:
             unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
-            if not unique:
-                raise KnowledgeWorkspaceError(
-                    "CONNECTION_NOT_READY", "at least one connection is required", 409
-                )
             updates["connection_ids"] = unique
+        if resource_ids is not None:
+            resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
+            for resource_id in resources:
+                if (
+                    self.repository.get_resource(
+                        resource_id,
+                        tenant_id=actor.tenant_id,
+                        workspace_id=actor.workspace_id,
+                    )
+                    is None
+                ):
+                    raise KnowledgeWorkspaceError("NOT_FOUND", "resource not found", 404)
+            updates["resource_ids"] = resources
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
         if upload_ids is not None:
@@ -399,6 +437,12 @@ class KnowledgeWorkspaceService:
                     raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
             updates["upload_ids"] = uploads
         updated = draft.model_copy(update=updates)
+        if not updated.connection_ids and not updated.resource_ids:
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY",
+                "at least one connection or resource is required",
+                409,
+            )
         self.repository.save_draft(updated)
         if idempotency_key:
             try:
@@ -458,6 +502,7 @@ class KnowledgeWorkspaceService:
         model: str | None = None,
         revision_id: str | None = None,
         connection_ids: Sequence[str] = (),
+        resource_ids: Sequence[str] = (),
         upload_ids: Sequence[str] = (),
         lease_id: str | None = None,
         if_match: str | None = None,
@@ -473,6 +518,7 @@ class KnowledgeWorkspaceService:
                 "ETAG_MISMATCH", "draft was modified by another request", 412
             )
         effective_connection_ids = tuple(connection_ids) or draft.connection_ids
+        effective_resource_ids = tuple(resource_ids) or draft.resource_ids
         effective_upload_ids = tuple(upload_ids) or draft.upload_ids
         for upload_id in effective_upload_ids:
             if (
@@ -484,6 +530,16 @@ class KnowledgeWorkspaceService:
                 is None
             ):
                 raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
+        for resource_id in effective_resource_ids:
+            if (
+                self.repository.get_resource(
+                    resource_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                is None
+            ):
+                raise KnowledgeWorkspaceError("NOT_FOUND", "resource not found", 404)
         invocation_id = new_id("inv")
         if idempotency_key:
             try:
@@ -519,6 +575,7 @@ class KnowledgeWorkspaceService:
             draft_id=draft_id,
             revision_id=revision_id,
             connection_ids=effective_connection_ids,
+            resource_ids=effective_resource_ids,
             upload_ids=effective_upload_ids,
             lease_id=lease_id,
             authoring_session_id=session.authoring_session_id,
@@ -645,7 +702,7 @@ class KnowledgeWorkspaceService:
                 )
                 self.repository.save_invocation(cancelled)
                 return
-            if invocation.connection_ids and self.connection_context is None:
+            if (invocation.connection_ids or invocation.resource_ids) and self.connection_context is None:
                 raise KnowledgeWorkspaceError(
                     "CONNECTION_CONTEXT_UNAVAILABLE",
                     "a server-side connection invocation context is required",
@@ -657,7 +714,7 @@ class KnowledgeWorkspaceService:
             if (
                 lease_id is None
                 and self.connection_context is not None
-                and invocation.connection_ids
+                and (invocation.connection_ids or invocation.resource_ids)
             ):
                 allowed_actions = (
                     ("connection.execute",)
@@ -670,6 +727,18 @@ class KnowledgeWorkspaceService:
                     principal_id=actor.principal_id,
                     invocation_id=invocation.autoskill_request_id,
                     connection_ids=invocation.connection_ids,
+                    resource_ids=tuple(
+                        resource.adapter_resource_id
+                        for resource_id in invocation.resource_ids
+                        if (
+                            resource := self.repository.get_resource(
+                                resource_id,
+                                tenant_id=actor.tenant_id,
+                                workspace_id=actor.workspace_id,
+                            )
+                        ) is not None
+                        and resource.adapter_resource_id
+                    ),
                     allowed_actions=allowed_actions,
                     ttl_seconds=1800,
                 )
@@ -1627,6 +1696,7 @@ class KnowledgeWorkspaceService:
         message: str,
         connection_ids: Sequence[str],
         *,
+        resource_ids: Sequence[str] = (),
         upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
         request_digest: str = "",
@@ -1636,7 +1706,7 @@ class KnowledgeWorkspaceService:
         )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
-        if not connection_ids:
+        if not connection_ids and not resource_ids:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "connection permission is required", 409
             )
@@ -1648,6 +1718,7 @@ class KnowledgeWorkspaceService:
             message=message,
             revision_id=revision_id,
             connection_ids=connection_ids,
+            resource_ids=resource_ids,
             upload_ids=upload_ids,
             idempotency_key=idempotency_key,
             request_digest=request_digest,
@@ -1824,6 +1895,7 @@ class KnowledgeWorkspaceService:
         message: str,
         connection_ids: Sequence[str],
         *,
+        resource_ids: Sequence[str] = (),
         upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
         request_digest: str = "",
@@ -1835,7 +1907,7 @@ class KnowledgeWorkspaceService:
         )
         if publication is None or publication.status != "published":
             raise KnowledgeWorkspaceError("NOT_FOUND", "publication not found", 404)
-        if not connection_ids:
+        if not connection_ids and not resource_ids:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "consumer authorization is required", 403
             )
@@ -1859,6 +1931,7 @@ class KnowledgeWorkspaceService:
             message=message,
             revision_id=revision.revision_id,
             connection_ids=connection_ids,
+            resource_ids=resource_ids,
             upload_ids=upload_ids,
             idempotency_key=idempotency_key,
             request_digest=request_digest,

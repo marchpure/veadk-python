@@ -42,6 +42,13 @@ class DraftStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class WorkspaceResourceKind(StrEnum):
+    ORACLE = "oracle_database"
+    REST_OPENAPI = "rest_openapi"
+    MCP = "mcp"
+    FILE = "files"
+
+
 class ImmutableModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -54,6 +61,7 @@ class SkillDraft(ImmutableModel):
     goal: str = Field(min_length=1, max_length=8_000)
     trial_task: str | None = Field(default=None, max_length=20_000)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     status: DraftStatus = DraftStatus.EDITING
     current_revision_id: str | None = None
@@ -80,6 +88,7 @@ class Invocation(ImmutableModel):
     draft_id: str = Field(min_length=1, max_length=160)
     revision_id: str | None = Field(default=None, max_length=160)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     lease_id: str | None = Field(default=None, max_length=4_096)
     authoring_session_id: str = Field(min_length=1, max_length=160)
@@ -160,3 +169,25 @@ class WorkspaceUpload(ImmutableModel):
     uri: str = Field(min_length=1, max_length=2_048)
     connection_file_id: str | None = Field(default=None, min_length=1, max_length=512)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class WorkspaceResource(ImmutableModel):
+    """A durable BFF-owned view of a real specialized adapter resource.
+
+    The adapter remains owned by Connection Service.  This record only stores
+    the stable browser/context identity and safe, non-secret metadata needed
+    to render and author a Skill.
+    """
+
+    tenant_id: str = Field(min_length=1, max_length=160)
+    workspace_id: str = Field(min_length=1, max_length=160)
+    resource_id: str = Field(min_length=1, max_length=160)
+    kind: WorkspaceResourceKind
+    display_name: str = Field(min_length=1, max_length=160)
+    scope: str = Field(pattern=r"^(personal|team)$")
+    status: str = Field(pattern=r"^(beta|verified|dev|error)$")
+    source_id: str = Field(min_length=1, max_length=512)
+    adapter_resource_id: str | None = Field(default=None, max_length=512)
+    metadata: Mapping[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)

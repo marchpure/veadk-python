@@ -54,11 +54,29 @@ export interface ConnectionProfile {
   updated_at: string;
 }
 
+export type WorkspaceResourceKind =
+  | "oracle_database"
+  | "rest_openapi"
+  | "mcp"
+  | "files";
+
+export interface WorkspaceResource {
+  resource_id: string;
+  kind: WorkspaceResourceKind;
+  display_name: string;
+  scope: ConnectionScope;
+  status: "beta" | "verified" | "dev" | "error";
+  metadata?: JsonObject;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Draft {
   draft_id: string;
   goal: string;
   trial_task?: string;
   connection_ids: string[];
+  resource_ids: string[];
   lifecycle: DraftLifecycle;
   current_revision_id?: string;
   active_invocation_id?: string;

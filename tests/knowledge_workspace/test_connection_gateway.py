@@ -381,6 +381,8 @@ async def test_gateway_lease_uses_real_actions_caps_ttl_and_survives_restart() -
                     ]
                 },
             )
+        if request.url.path == "/v1/adapter-resources":
+            return httpx.Response(200, json={"items": []})
         if request.url.path == "/v1/connections/connection-1/lease":
             assert body["allowedActions"] == ["fixture.read"]
             assert body["ttlSeconds"] == 900
@@ -525,8 +527,27 @@ async def test_upload_route_scans_with_connection_service_without_exposing_file_
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        assert request.url.path == "/v1/files"
-        return httpx.Response(201, json={"file": {"fileId": "private-file-1"}})
+        if request.url.path == "/v1/files":
+            return httpx.Response(201, json={"file": {"fileId": "private-file-1"}})
+        if request.url.path == "/v1/adapter-resources":
+            body = json.loads(request.content)
+            assert body["kind"] == "files"
+            assert body["sourceId"] == "private-file-1"
+            return httpx.Response(
+                201,
+                json={
+                    "resource": {
+                        "resourceId": "adapter-file-1",
+                        "kind": "files",
+                        "displayName": "people.csv",
+                        "status": "ready",
+                        "tier": "beta",
+                        "sourceType": "adapter",
+                        "metadata": body["metadata"],
+                    }
+                },
+            )
+        raise AssertionError(request.url.path)
 
     app = FastAPI()
     service = KnowledgeWorkspaceService(
@@ -562,7 +583,7 @@ async def test_upload_route_scans_with_connection_service_without_exposing_file_
         )
     assert first.status_code == replay.status_code == 201
     assert first.json() == replay.json()
-    assert calls == 1
+    assert calls == 2
     assert "private-file-1" not in first.text
 
 

@@ -15,6 +15,7 @@ from .models import (
     Publication,
     SkillDraft,
     SkillRevision,
+    WorkspaceResource,
     WorkspaceUpload,
 )
 
@@ -48,6 +49,7 @@ class KnowledgeWorkspaceRepository:
             CREATE TABLE IF NOT EXISTS kw_artifacts (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_publications (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_uploads (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS kw_resources (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_idempotency (scope TEXT NOT NULL, key TEXT NOT NULL, request_digest TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(scope, key));
             """
         )
@@ -123,6 +125,50 @@ class KnowledgeWorkspaceRepository:
                 (upload_id, tenant_id, workspace_id),
             ).fetchone()
         return self._model(row, WorkspaceUpload)
+
+    def save_resource(self, resource: WorkspaceResource) -> WorkspaceResource:
+        with self._lock:
+            payload = self._json(resource)
+            row = self._db.execute(
+                "SELECT payload FROM kw_resources WHERE id=?", (resource.resource_id,)
+            ).fetchone()
+            if row:
+                if row["payload"] != payload:
+                    raise ValueError("immutable resource mutation")
+                return resource
+            self._db.execute(
+                "INSERT INTO kw_resources(id,tenant_id,workspace_id,payload) VALUES(?,?,?,?)",
+                (
+                    resource.resource_id,
+                    resource.tenant_id,
+                    resource.workspace_id,
+                    payload,
+                ),
+            )
+        return resource
+
+    def get_resource(
+        self, resource_id: str, *, tenant_id: str, workspace_id: str
+    ) -> WorkspaceResource | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT payload FROM kw_resources WHERE id=? AND tenant_id=? AND workspace_id=?",
+                (resource_id, tenant_id, workspace_id),
+            ).fetchone()
+        return self._model(row, WorkspaceResource)
+
+    def list_resources(
+        self, *, tenant_id: str, workspace_id: str
+    ) -> tuple[WorkspaceResource, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_resources WHERE tenant_id=? AND workspace_id=? ORDER BY json_extract(payload, '$.created_at'), id",
+                (tenant_id, workspace_id),
+            ).fetchall()
+        return tuple(
+            WorkspaceResource.model_validate(json.loads(row["payload"]))
+            for row in rows
+        )
 
     def save_session(self, session: AuthoringSession) -> None:
         with self._lock:

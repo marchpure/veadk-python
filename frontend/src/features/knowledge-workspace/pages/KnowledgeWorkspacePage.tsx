@@ -66,6 +66,7 @@ import type {
   JsonValue,
   KnowledgeInvocationEvent,
   Revision,
+  WorkspaceResource,
 } from "../domain/types";
 import {
   authSchemaOptions,
@@ -207,6 +208,9 @@ export function KnowledgeWorkspacePage() {
   const [connections, setConnections] = useState<ConnectionProfile[]>(
     () => readQuery<ConnectionProfile[]>("connections") || [],
   );
+  const [resources, setResources] = useState<WorkspaceResource[]>(
+    () => readQuery<WorkspaceResource[]>("resources") || [],
+  );
   const [connectors, setConnectors] = useState<ConnectorDefinition[]>(
     () => readQuery<ConnectorDefinition[]>("connector-definitions") || [],
   );
@@ -228,6 +232,7 @@ export function KnowledgeWorkspacePage() {
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -253,7 +258,14 @@ export function KnowledgeWorkspacePage() {
 
   useEffect(() => {
     void resolveIdentity()
-      .then((identity) => setAuthStatus(identity.status))
+      .then((identity) => {
+        if (identity.local && identity.status === "unauthenticated") {
+          setLocalUser("tester");
+          setAuthStatus("authenticated");
+          return;
+        }
+        setAuthStatus(identity.status);
+      })
       .catch(() => setAuthStatus("unauthenticated"));
   }, []);
 
@@ -264,14 +276,16 @@ export function KnowledgeWorkspacePage() {
   }, [authStatus, popstate]);
 
   const reloadDirectory = useCallback(async (signal?: AbortSignal) => {
-    const [connectionResult, connectorResult, draftResult] = await Promise.all([
+    const [connectionResult, connectorResult, draftResult, resourceResult] = await Promise.all([
       knowledgeApi.listConnections(signal),
       knowledgeApi.listConnectorDefinitions(signal),
       knowledgeApi.listDrafts(signal),
+      knowledgeApi.listResources(signal),
     ]);
     setConnections(writeQuery("connections", connectionResult.data));
     setConnectors(writeQuery("connector-definitions", connectorResult.data));
     setDrafts(writeQuery("drafts", draftResult.data));
+    setResources(writeQuery("resources", resourceResult.data));
     connectionResult.data.forEach((connection) => {
       writeQuery(`connection:${connection.connection_id}`, connection);
     });
@@ -342,6 +356,7 @@ export function KnowledgeWorkspacePage() {
         writeQuery(`draft:${route.draftId}`, result.value.data);
         setEtag(result.etag);
         setSelectedConnectionIds(result.value.data.connection_ids);
+        setSelectedResourceIds(result.value.data.resource_ids);
         const [revisionResult, conversationResult] = await Promise.all([
           knowledgeApi.listRevisions(route.draftId, controller.signal),
           knowledgeApi.getConversation(route.draftId, controller.signal),
@@ -400,6 +415,7 @@ export function KnowledgeWorkspacePage() {
   const createAndGenerate = useCallback(async (
     goal: string,
     connectionIds: string[],
+    resourceIds: string[],
     trialTask: string,
     uploadIds: string[],
   ) => {
@@ -409,6 +425,7 @@ export function KnowledgeWorkspacePage() {
       const created = await knowledgeApi.createDraft({
         goal,
         connection_ids: connectionIds,
+        ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
         ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
         ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
       });
@@ -416,6 +433,7 @@ export function KnowledgeWorkspacePage() {
       writeQuery(`draft:${created.value.data.draft_id}`, created.value.data);
       setEtag(created.etag);
       setSelectedConnectionIds(connectionIds);
+      setSelectedResourceIds(resourceIds);
       setDrafts((current) => [
         ...current.filter((item) => item.draft_id !== created.value.data.draft_id),
         created.value.data,
@@ -751,6 +769,23 @@ export function KnowledgeWorkspacePage() {
           <button className="kw-tree-item kw-tree-add" type="button" onClick={() => setShowConnectionForm(true)}>
             <CirclePlus size={15} /> 添加连接
           </button>
+          <div className="kw-tree-label">我的资源</div>
+          {resources.length ? resources.map((resource) => (
+            <button
+              className={`kw-tree-item${selectedResourceIds.includes(resource.resource_id) ? " is-selected" : ""}`}
+              type="button"
+              key={resource.resource_id}
+              title={`${resource.display_name} · ${resource.kind} · ${resource.status}`}
+              onClick={() => {
+                setSelectedResourceIds([resource.resource_id]);
+                setRoute("skill_new");
+              }}
+            >
+              <FileText size={15} />
+              <span>{resource.display_name}</span>
+              <span className="kw-status-dot is-ready" title={`${resource.kind} · ${resource.status}`} />
+            </button>
+          )) : <div className="kw-tree-muted">暂无专用资源。</div>}
           <div className="kw-tree-label">我的 Skill</div>
           {drafts.map((item) => (
             <button
@@ -835,11 +870,13 @@ export function KnowledgeWorkspacePage() {
           />
         ) : route.file === "skill_new" ? (
           <section className="kw-create-layout is-skill-new">
-            <SkillNewView
-              connections={personalConnections}
-              selectedIds={selectedConnectionIds}
-              onSelectedIdsChange={setSelectedConnectionIds}
-              onCreate={createAndGenerate}
+          <SkillNewView
+            connections={personalConnections}
+            resources={resources}
+            selectedIds={selectedConnectionIds}
+            selectedResourceIds={selectedResourceIds}
+            onSelectedIdsChange={setSelectedConnectionIds}
+            onCreate={createAndGenerate}
               onUpload={uploadSkillInput}
               onAddConnection={() => setShowConnectionForm(true)}
               busy={busy === "generate"}
@@ -928,6 +965,11 @@ export function KnowledgeWorkspacePage() {
             await reloadDirectory();
             setRoute("connection", "", created.connection_id);
           }}
+          onResourceCreated={async () => {
+            // Keep the form open long enough to show the real adapter result;
+            // the durable resource is already visible in the refreshed tree.
+            await reloadDirectory();
+          }}
         />
       ) : null}
       {showVersions ? (
@@ -975,7 +1017,9 @@ export function KnowledgeWorkspacePage() {
 
 function SkillNewView({
   connections,
+  resources,
   selectedIds,
+  selectedResourceIds,
   onSelectedIdsChange,
   onCreate,
   onUpload,
@@ -985,9 +1029,11 @@ function SkillNewView({
   onBack,
 }: {
   connections: ConnectionProfile[];
+  resources: WorkspaceResource[];
   selectedIds: string[];
+  selectedResourceIds: string[];
   onSelectedIdsChange: (ids: string[]) => void;
-  onCreate: (goal: string, connectionIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
+  onCreate: (goal: string, connectionIds: string[], resourceIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
   onUpload: (file: File, onProgress: (percent: number) => void) => Promise<UploadResult>;
   onAddConnection: () => void;
   busy: boolean;
@@ -1000,10 +1046,14 @@ function SkillNewView({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [resourceIds, setResourceIds] = useState<string[]>(selectedResourceIds);
+  useEffect(() => {
+    setResourceIds(selectedResourceIds);
+  }, [selectedResourceIds]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (goal.trim() && selectedIds.length) {
-      void onCreate(goal, selectedIds, trialTask, uploads.map((upload) => upload.upload_id));
+    if (goal.trim() && (selectedIds.length || resourceIds.length)) {
+      void onCreate(goal, selectedIds, resourceIds, trialTask, uploads.map((upload) => upload.upload_id));
     }
   };
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1071,6 +1121,24 @@ function SkillNewView({
           )) : (
             <div className="kw-inline-empty">暂无可用连接，请先添加并验证连接。</div>
           )}
+          {resources.map((resource) => (
+            <label className={`kw-connection-choice${resourceIds.includes(resource.resource_id) ? " is-selected" : ""}`} key={resource.resource_id}>
+              <input
+                type="checkbox"
+                checked={resourceIds.includes(resource.resource_id)}
+                onChange={(event) => setResourceIds((current) => (
+                  event.target.checked
+                    ? [...current, resource.resource_id]
+                    : current.filter((id) => id !== resource.resource_id)
+                ))}
+              />
+              <span className="kw-choice-copy">
+                <strong>{resource.display_name}</strong>
+                <small>{resource.kind} · {resource.status} · 专用资源</small>
+              </span>
+              <Check size={16} />
+            </label>
+          ))}
         </div>
         <label>
           <span className="kw-form-step-label">3. 先试一句任务（可选）</span>
@@ -1087,7 +1155,7 @@ function SkillNewView({
           {uploads.map((upload) => <div className="kw-uploaded-file" key={upload.upload_id}>{upload.filename} · sha256:{upload.sha256.slice(0, 12)}…</div>)}
           {uploadError ? <div className="kw-form-error" role="alert">{uploadError}</div> : null}
         </div>
-        <button className="kw-primary" type="submit" disabled={busy || !goal.trim() || !selectedIds.length}>
+        <button className="kw-primary" type="submit" disabled={busy || !goal.trim() || (!selectedIds.length && !resourceIds.length)}>
           {busy ? <Loader2 className="kw-spin" size={16} /> : <Play size={16} />}
           生成并试用 Skill
         </button>
@@ -1467,11 +1535,13 @@ function ConnectionForm({
   connectors,
   onClose,
   onCreated,
+  onResourceCreated,
   onUpload,
 }: {
   connectors: ConnectorDefinition[];
   onClose: () => void;
   onCreated: (connection: ConnectionProfile) => Promise<void>;
+  onResourceCreated: (resource: WorkspaceResource) => Promise<void>;
   onUpload: (file: File) => Promise<UploadResult>;
 }) {
   const [connectorKey, setConnectorKey] = useState(connectors[0]?.connector_key || "");
@@ -1526,9 +1596,28 @@ function ConnectionForm({
       credential,
     };
     try {
+      if (connectorKey === "oracle_database") {
+        const oracle = oracleBody(values);
+        const validation = await knowledgeApi.validateOracleAdapter(oracle);
+        const discovery = await knowledgeApi.discoverOracleAdapter(oracle);
+        const saved = await knowledgeApi.saveOracleResource({
+          display_name: displayName.trim() || "Oracle Database",
+          scope,
+          ...oracle,
+        });
+        setResult({
+          validation: validation.data as unknown as JsonValue,
+          discovery: discovery.data as unknown as JsonValue,
+          resource: saved.data as unknown as JsonValue,
+        });
+        await onResourceCreated(saved.data);
+        return;
+      }
       if (isAdapter) {
         const adapterResult = connectorKey === "rest_openapi"
-          ? await knowledgeApi.validateRestAdapter({
+          ? await knowledgeApi.saveRestResource({
+            display_name: displayName.trim() || "REST / OpenAPI",
+            scope,
             baseUrl: values.baseUrl,
             spec: parseJsonObject(values.spec, "OpenAPI JSON"),
             confirmed: values.confirmed === true || values.confirmed === "true",
@@ -1539,29 +1628,52 @@ function ConnectionForm({
               token: values.token,
             },
           })
-          : connectorKey === "oracle_database"
-            ? await validateAndDiscoverOracle(values)
-            : connectorKey === "mcp"
-              ? await knowledgeApi.discoverMcpAdapter({
-                transport: values.transport || "streamable_http",
-                endpoint: values.endpoint,
-                command: values.command,
-                args: parseStringList(values.args),
-                allowedTools: parseStringList(values.allowedTools),
+          : connectorKey === "mcp"
+              ? await knowledgeApi.saveMcpResource({
+                display_name: displayName.trim() || "MCP Server",
+                scope,
+                definition: {
+                  transport: values.transport || "streamable_http",
+                  endpoint: values.endpoint,
+                  command: values.command,
+                  args: parseStringList(values.args),
+                  allowedTools: parseStringList(values.allowedTools),
+                  allowedLocalhostPorts: parseStringList(values.allowedLocalhostPorts).map(Number),
+                  allowLocalhostDev: values.allowLocalhostDev === true
+                    || values.allowLocalhostDev === "true",
+                  allowPrivateNetwork: values.allowPrivateNetwork === true
+                    || values.allowPrivateNetwork === "true",
+                },
               })
               : await knowledgeApi.listAdapterFiles();
-        if (connectorKey === "mcp") {
-          await knowledgeApi.registerMcpAdapter({
-            transport: values.transport || "streamable_http",
-            endpoint: values.endpoint,
-            command: values.command,
-            args: parseStringList(values.args),
-            allowedTools: parseStringList(values.allowedTools),
-          });
+        if (connectorKey === "files") {
+          if (!fileResult) throw new Error("请先选择并上传文件");
+          const resources = await knowledgeApi.listResources();
+          const resource = resources.data.find(
+            (item) =>
+              item.kind === "files"
+              && item.display_name === fileResult.filename,
+          );
+          if (!resource) throw new Error("文件已上传，但 BFF 未返回可复用的资源记录");
+          await onResourceCreated(resource);
+          return;
         }
         setResult(Array.isArray(adapterResult.data)
           ? { items: adapterResult.data }
-          : adapterResult.data as JsonObject);
+          : adapterResult.data as unknown as JsonObject);
+        if (adapterResult.data && typeof adapterResult.data === "object" && !Array.isArray(adapterResult.data) && "resource_id" in adapterResult.data) {
+          await onResourceCreated(adapterResult.data as unknown as WorkspaceResource);
+        }
+        return;
+      }
+      if (selectedAuthType === "oauth2") {
+        const oauth = await knowledgeApi.authorizeOAuth({
+          service: connectorKey,
+          client_id: String(values.client_id || ""),
+          client_secret: String(values.client_secret || ""),
+          connection_name: displayName.trim() || connectorKey,
+        });
+        setResult(oauth.data);
         return;
       }
       const created = await knowledgeApi.createConnection(input);
@@ -1577,12 +1689,28 @@ function ConnectionForm({
   return (
     <Modal title="添加连接" onClose={onClose}>
       <form className="kw-connection-form" onSubmit={submit}>
-        <label>连接类型
-          <select value={connectorKey} onChange={(event) => { setConnectorKey(event.target.value); setValues({}); }} required>
-            <option value="" disabled>请选择后端已启用的连接</option>
-            {connectors.map((item) => <option value={item.connector_key} key={item.connector_key}>{item.display_name} · {item.category === "adapter" ? "专用适配器" : item.status}</option>)}
-          </select>
-        </label>
+        <div className="kw-connector-cards" role="list" aria-label="连接类型">
+          {connectorGroups(connectors).map(([group, items]) => (
+            <section key={group} className="kw-connector-group">
+              <h3>{group}</h3>
+              <div className="kw-connector-grid">
+                {items.map((item) => (
+                  <button
+                    type="button"
+                    role="listitem"
+                    key={item.connector_key}
+                    className={`kw-connector-card${item.connector_key === connectorKey ? " is-selected" : ""}`}
+                    onClick={() => { setConnectorKey(item.connector_key); setValues({}); setResult(null); }}
+                  >
+                    <strong>{item.display_name}</strong>
+                    <small>{item.category === "adapter" ? "专用适配器" : item.status} · {item.capabilities.join(" / ")}</small>
+                    <span>{authSchemaOptions(item.auth_schema).map((option) => option.label).join("、") || "无需凭据"}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
         <label>显示名称<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
         <label>归属<select value={scope} onChange={(event) => setScope(event.target.value as "personal" | "team")}><option value="personal">个人</option><option value="team">团队</option></select></label>
         {authOptions.length > 1 ? (
@@ -1605,6 +1733,22 @@ function ConnectionForm({
             />
           </label>
         ))}
+        {selectedAuthType === "oauth2" ? (
+          <div className="kw-oauth-box">
+            <strong>需要配置 OAuth 应用并发起授权</strong>
+            <span>Connection Service 会返回真实授权入口；不会提交 no_auth。</span>
+            <label>OAuth Client ID<input value={String(values.client_id || "")} onChange={(event) => setValues((current) => ({ ...current, client_id: event.target.value }))} required /></label>
+            <label>OAuth Client Secret<input type="password" value={String(values.client_secret || "")} onChange={(event) => setValues((current) => ({ ...current, client_secret: event.target.value }))} required /></label>
+          </div>
+        ) : null}
+        {connectorKey === "mcp" && (
+          <div className="kw-oauth-box">
+            <strong>本地 MCP 仅限开发模式</strong>
+            <span>默认拒绝 localhost / 私网；如确为本地自建服务，请勾选确认并填写明确端口。</span>
+            <label><input type="checkbox" checked={values.allowLocalhostDev === true} onChange={(event) => setValues((current) => ({ ...current, allowLocalhostDev: event.target.checked }))} /> 我确认这是本地开发 MCP</label>
+            <label>允许的本地端口<input value={String(values.allowedLocalhostPorts || "")} onChange={(event) => setValues((current) => ({ ...current, allowedLocalhostPorts: event.target.value }))} placeholder="例如 3000" /></label>
+          </div>
+        )}
         {isAdapter ? (
           <div className="kw-form-note">
             专用适配器不创建普通 provider connection。请使用 BFF 暴露的真实 adapter API：
@@ -1612,7 +1756,12 @@ function ConnectionForm({
           </div>
         ) : null}
         {result ? (
-          <pre className="kw-safe-profile">{JSON.stringify(result, null, 2)}</pre>
+          <>
+            {connectorKey === "oracle_database" ? (
+              <OracleDiscoveryResult result={result} />
+            ) : null}
+            <pre className="kw-safe-profile">{JSON.stringify(result, null, 2)}</pre>
+          </>
         ) : null}
         {isAdapter && connectorKey === "files" ? (
           <label>上传文件
@@ -1643,15 +1792,31 @@ function ConnectionForm({
         {error ? <div className="kw-form-error" role="alert">{error}</div> : null}
         <div className="kw-modal-actions">
           <button type="button" onClick={onClose}>取消</button>
-          <button type="submit" className="kw-primary-small" disabled={busy || !connectorKey}>{busy ? <Loader2 className="kw-spin" size={14} /> : <Upload size={14} />} {isAdapter ? "调用真实适配器" : "保存并验证"}</button>
+          <button type="submit" className="kw-primary-small" disabled={busy || !connectorKey}>{busy ? <Loader2 className="kw-spin" size={14} /> : <Upload size={14} />} {selectedAuthType === "oauth2" ? "配置并发起 OAuth" : isAdapter ? "保存专用资源" : "保存并验证"}</button>
         </div>
       </form>
     </Modal>
   );
 }
 
-async function validateAndDiscoverOracle(values: JsonObject): Promise<JsonObject> {
-  const body = {
+function OracleDiscoveryResult({ result }: { result: JsonObject }) {
+  const discovery = result.discovery;
+  const record = discovery && typeof discovery === "object" && !Array.isArray(discovery)
+    ? discovery as JsonObject
+    : {};
+  const schemas = Array.isArray(record.schemas) ? record.schemas.map(String) : [];
+  const tables = Array.isArray(record.tables) ? record.tables.map(String) : [];
+  return (
+    <div className="kw-oracle-discovery" data-testid="oracle-discovery-result">
+      <strong>真实 Oracle Schema / Table discovery</strong>
+      <div><span>Schemas</span><b>{schemas.length ? schemas.join("、") : "由服务返回为空"}</b></div>
+      <div><span>Tables</span><b>{tables.length ? tables.join("、") : "由服务返回为空"}</b></div>
+    </div>
+  );
+}
+
+function oracleBody(values: JsonObject): JsonObject {
+  return {
     config: {
       host: values.host,
       port: Number(values.port || 1521),
@@ -1662,10 +1827,20 @@ async function validateAndDiscoverOracle(values: JsonObject): Promise<JsonObject
     user: values.user,
     password: values.password,
   };
-  const validation = await knowledgeApi.validateOracleAdapter(body);
-  const discovery = await knowledgeApi.discoverOracleAdapter(body);
-  return {
-    validation: validation.data as unknown as JsonValue,
-    discovery: discovery.data as unknown as JsonValue,
-  };
+}
+
+function connectorGroups(
+  connectors: ConnectorDefinition[],
+): Array<[string, ConnectorDefinition[]]> {
+  const labels: Array<[string, string[]]> = [
+    ["数据库", ["oracle_database", "postgresql", "mysql", "sql_server", "clickhouse", "doris", "starrocks"]],
+    ["对象存储", ["volcengine_tos", "aliyun_oss", "aws_s3"]],
+    ["办公协作", ["feishu", "dingtalk", "wecom"]],
+    ["API / MCP", ["rest_openapi", "mcp", "hackernews"]],
+    ["文件", ["files"]],
+  ];
+  return labels.flatMap(([group, keys]) => {
+    const items = keys.flatMap((key) => connectors.filter((item) => item.connector_key === key));
+    return items.length ? [[group, items] as [string, ConnectorDefinition[]]] : [];
+  });
 }

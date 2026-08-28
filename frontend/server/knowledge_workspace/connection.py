@@ -31,7 +31,8 @@ class EphemeralConnectionContext(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     lease_id: str = Field(min_length=1, max_length=4_096)
-    connection_ids: tuple[str, ...] = Field(min_length=1, max_length=64)
+    connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     allowed_actions: tuple[str, ...] = Field(min_length=1, max_length=128)
     expires_at: datetime
     runtime_ref: str = Field(min_length=1, max_length=32_768)
@@ -48,6 +49,7 @@ class ConnectionInvocationContextPort(Protocol):
         connection_ids: Sequence[str],
         allowed_actions: Sequence[str],
         ttl_seconds: int,
+        resource_ids: Sequence[str] = (),
     ) -> EphemeralConnectionContext:
         """Issue a short-lived, invocation-bound least-privilege context."""
 
@@ -277,6 +279,59 @@ class ConnectionServiceGateway:
             if isinstance(item, Mapping)
         ]
 
+    async def list_adapter_resources(self, **actor: str) -> list[dict[str, Any]]:
+        payload = (await self._request("GET", "/v1/adapter-resources", **actor)).json()
+        items = payload.get("items", [])
+        return [dict(item) for item in items if isinstance(item, Mapping)]
+
+    async def save_adapter_resource(
+        self,
+        *,
+        kind: str,
+        display_name: str,
+        visibility: str,
+        source_id: str,
+        metadata: Mapping[str, Any] | None = None,
+        definition: Mapping[str, Any] | None = None,
+        **actor: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/v1/adapter-resources",
+            json={
+                "kind": kind,
+                "displayName": display_name,
+                "visibility": visibility,
+                "sourceId": source_id,
+                "metadata": dict(metadata or {}),
+                "definition": dict(definition or {}),
+            },
+            **actor,
+        )
+        resource = response.json().get("resource")
+        if not isinstance(resource, Mapping):
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "Connection Service adapter resource response is invalid",
+                502,
+            )
+        return dict(resource)
+
+    async def get_adapter_resource(
+        self, resource_id: str, **actor: str
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "GET", f"/v1/adapter-resources/{resource_id}", **actor
+        )
+        resource = response.json().get("resource")
+        if not isinstance(resource, Mapping):
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "Connection Service adapter resource response is invalid",
+                502,
+            )
+        return dict(resource)
+
     async def validate_rest(
         self, body: Mapping[str, Any], **actor: str
     ) -> dict[str, Any]:
@@ -322,6 +377,41 @@ class ConnectionServiceGateway:
             **actor,
         )
         return dict(response.json().get("definition", {}))
+
+    async def configure_oauth(
+        self,
+        *,
+        service: str,
+        client_id: str,
+        client_secret: str,
+        **actor: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/v1/oauth/configs",
+            json={
+                "service": service,
+                "clientId": client_id,
+                "clientSecret": client_secret,
+            },
+            **actor,
+        )
+        return dict(response.json().get("config", {}))
+
+    async def start_oauth(
+        self,
+        *,
+        service: str,
+        connection_name: str,
+        **actor: str,
+    ) -> dict[str, Any]:
+        response = await self._request(
+            "POST",
+            "/v1/oauth/authorizations",
+            json={"service": service, "connectionName": connection_name},
+            **actor,
+        )
+        return dict(response.json())
 
     async def list_files(self, **actor: str) -> list[dict[str, Any]]:
         payload = (await self._request("GET", "/v1/files", **actor)).json()
@@ -534,6 +624,7 @@ class ConnectionServiceGateway:
         principal_id: str,
         invocation_id: str,
         connection_ids: Sequence[str],
+        resource_ids: Sequence[str] = (),
         allowed_actions: Sequence[str],
         ttl_seconds: int,
     ) -> EphemeralConnectionContext:
@@ -542,7 +633,27 @@ class ConnectionServiceGateway:
             "workspace_id": workspace_id,
             "principal_id": principal_id,
         }
+        if not connection_ids and not resource_ids:
+            raise ConnectionServiceError(
+                "CONNECTION_NOT_READY",
+                "At least one connection or adapter resource is required",
+                409,
+            )
         catalog = await self._catalog_by_service(**actor)
+        resources: dict[str, dict[str, Any]] = {}
+        if resource_ids:
+            requested_resource_ids = set(resource_ids)
+            resources = {
+                str(item.get("resourceId")): item
+                for item in await self.list_adapter_resources(**actor)
+                if item.get("resourceId") in requested_resource_ids
+            }
+        if len(resources) != len(set(resource_ids)):
+            raise ConnectionServiceError(
+                "ADAPTER_RESOURCE_NOT_FOUND",
+                "One or more adapter resources are not visible to this workspace",
+                404,
+            )
         connections = {
             item["connection_id"]: item
             for item in await self.list_connections(**actor)
@@ -555,7 +666,10 @@ class ConnectionServiceGateway:
                 404,
             )
         action_ids_by_connection: dict[str, tuple[str, ...]] = {}
-        all_actions: list[str] = []
+        all_actions: list[str] = [
+            f"adapter.{str(resources[item].get('kind') or 'resource')}.read"
+            for item in resource_ids
+        ]
         for connection_id in connection_ids:
             definition = catalog.get(str(connections[connection_id]["connector_key"]))
             action_ids = tuple(
@@ -622,6 +736,7 @@ class ConnectionServiceGateway:
         return EphemeralConnectionContext(
             lease_id=lease_id,
             connection_ids=tuple(connection_ids),
+            resource_ids=tuple(resource_ids),
             allowed_actions=tuple(dict.fromkeys(all_actions)),
             expires_at=expires_at or datetime.now(timezone.utc),
             runtime_ref=json.dumps(
@@ -636,6 +751,14 @@ class ConnectionServiceGateway:
                             ),
                         }
                         for connection_id, _, token in issued
+                    ],
+                    "resources": [
+                        {
+                            "resource_id": resource_id,
+                            "kind": resources[resource_id].get("kind"),
+                            "metadata": resources[resource_id].get("metadata", {}),
+                        }
+                        for resource_id in resource_ids
                     ],
                 },
                 separators=(",", ":"),
@@ -690,10 +813,13 @@ class ConnectionServiceGateway:
 
         runtime = json.loads(context.runtime_ref)
         leases = runtime.get("leases")
-        if not isinstance(leases, list) or not leases:
+        resources = runtime.get("resources")
+        if (not isinstance(leases, list) or not leases) and (
+            not isinstance(resources, list) or not resources
+        ):
             raise ConnectionServiceError(
                 "CONNECTION_NOT_READY",
-                "Connection Service did not issue runtime leases",
+                "Connection Service did not issue runtime context",
                 409,
             )
         servers: dict[str, dict[str, Any]] = {}
@@ -729,7 +855,7 @@ class ConnectionServiceGateway:
         state = await autoskill.download_optional_state(
             agent_id=agent_id, session_id=session_id
         )
-        configured = self._state_with_mcp(state, servers)
+        configured = self._state_with_mcp(state, servers, resources or [])
         await autoskill.upload(
             agent_id=agent_id,
             session_id=session_id,
@@ -740,7 +866,9 @@ class ConnectionServiceGateway:
 
     @staticmethod
     def _state_with_mcp(
-        state: bytes | None, servers: Mapping[str, Mapping[str, Any]]
+        state: bytes | None,
+        servers: Mapping[str, Mapping[str, Any]],
+        resources: Sequence[Mapping[str, Any]] = (),
     ) -> bytes:
         import yaml
 
@@ -762,7 +890,18 @@ class ConnectionServiceGateway:
                         )
                     entries[info.filename] = archive.read(info)
         entries["mcp_config.yaml"] = yaml.safe_dump(
-            {"servers": dict(servers)},
+            {
+                "servers": dict(servers),
+                "knowledge_adapter_resources": [
+                    {
+                        "resource_id": str(item.get("resource_id") or ""),
+                        "kind": str(item.get("kind") or ""),
+                        "metadata": item.get("metadata", {}),
+                    }
+                    for item in resources
+                    if item.get("resource_id")
+                ],
+            },
             sort_keys=True,
         ).encode("utf-8")
         output = io.BytesIO()
