@@ -7,6 +7,13 @@
   "oneOf": [
     { "$ref": "#/$defs/runStarted" },
     { "$ref": "#/$defs/assistantDelta" },
+    { "$ref": "#/$defs/assistantProgress" },
+    { "$ref": "#/$defs/assistantFinal" },
+    { "$ref": "#/$defs/turnStarted" },
+    { "$ref": "#/$defs/activityStarted" },
+    { "$ref": "#/$defs/activityCompleted" },
+    { "$ref": "#/$defs/requestSummary" },
+    { "$ref": "#/$defs/stateUpdated" },
     { "$ref": "#/$defs/planUpdated" },
     { "$ref": "#/$defs/toolStarted" },
     { "$ref": "#/$defs/toolCompleted" },
@@ -27,6 +34,13 @@
           "enum": [
             "run.started",
             "assistant.delta",
+            "assistant.progress",
+            "assistant.final",
+            "turn.started",
+            "activity.started",
+            "activity.completed",
+            "request.summary",
+            "state.updated",
             "plan.updated",
             "tool.started",
             "tool.completed",
@@ -39,6 +53,8 @@
         },
         "invocation_id": { "type": "string", "minLength": 1 },
         "occurred_at": { "type": "string", "format": "date-time" },
+        "cursor": { "type": "string", "pattern": "^[0-9]+$" },
+        "parent_id": { "type": "string", "minLength": 1 },
         "data": { "type": "object" }
       },
       "additionalProperties": false
@@ -84,6 +100,169 @@
         }
       ]
     },
+    "assistantProgress": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "assistant.progress" },
+            "data": {
+              "type": "object",
+              "required": ["text"],
+              "properties": { "text": { "type": "string" } },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "assistantFinal": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "assistant.final" },
+            "data": {
+              "type": "object",
+              "required": ["content"],
+              "properties": { "content": { "type": "string" } },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "turnStarted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "turn.started" },
+            "data": {
+              "type": "object",
+              "required": ["turn_number", "title", "status"],
+              "properties": {
+                "turn_number": { "type": "integer", "minimum": 1 },
+                "title": { "type": "string" },
+                "status": { "const": "running" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "activityStarted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "activity.started" },
+            "data": { "$ref": "#/$defs/activityData" }
+          }
+        }
+      ]
+    },
+    "activityCompleted": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "activity.completed" },
+            "data": { "$ref": "#/$defs/activityData" }
+          }
+        }
+      ]
+    },
+    "activityData": {
+      "type": "object",
+      "required": ["activity_id", "activity_kind", "status"],
+      "properties": {
+        "activity_id": { "type": "string", "minLength": 1 },
+        "activity_kind": { "enum": ["planning", "tool"] },
+        "title": { "type": "string" },
+        "status": { "enum": ["running", "succeeded", "failed", "cancelled"] },
+        "call_id": { "type": "string" },
+        "tool_name": { "type": "string" },
+        "summary": { "type": "string" },
+        "input_summary": { "type": "string" },
+        "output_summary": { "type": "string" },
+        "error_summary": { "type": "string" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/planStep" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "requestSummary": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "request.summary" },
+            "data": {
+              "type": "object",
+              "required": ["skills"],
+              "properties": {
+                "status": { "type": "string" },
+                "model": { "type": "string" },
+                "skills": {
+                  "type": "object",
+                  "required": ["used", "created", "updated"],
+                  "properties": {
+                    "used": { "type": "integer", "minimum": 0 },
+                    "created": { "type": "integer", "minimum": 0 },
+                    "updated": { "type": "integer", "minimum": 0 }
+                  },
+                  "additionalProperties": false
+                },
+                "usage": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number", "minimum": 0 }
+                },
+                "message": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "stateUpdated": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "properties": {
+            "type": { "const": "state.updated" },
+            "data": {
+              "type": "object",
+              "properties": {
+                "state_ready": { "type": "boolean" },
+                "remote_saved": { "type": "boolean" },
+                "error_summary": { "type": "string" }
+              },
+              "anyOf": [
+                { "required": ["state_ready"] },
+                { "required": ["remote_saved"] }
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "planStep": {
+      "type": "object",
+      "required": ["id", "label", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "status": { "enum": ["pending", "running", "completed", "failed", "cancelled"] }
+      },
+      "additionalProperties": false
+    },
     "planUpdated": {
       "allOf": [
         { "$ref": "#/$defs/base" },
@@ -96,16 +275,7 @@
               "properties": {
                 "steps": {
                   "type": "array",
-                  "items": {
-                    "type": "object",
-                    "required": ["id", "label", "status"],
-                    "properties": {
-                      "id": { "type": "string" },
-                      "label": { "type": "string" },
-                      "status": { "enum": ["pending", "running", "completed", "failed", "cancelled"] }
-                    },
-                    "additionalProperties": false
-                  }
+                  "items": { "$ref": "#/$defs/planStep" }
                 },
                 "summary": { "type": "string" }
               },
@@ -279,4 +449,3 @@
     }
   }
 }
-

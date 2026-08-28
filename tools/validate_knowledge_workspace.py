@@ -14,7 +14,6 @@ import re
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs" / "knowledge-workspace"
 
@@ -40,6 +39,7 @@ def main() -> int:
         "/skills/drafts",
         "/skills/drafts/{draft_id}/generate",
         "/skills/drafts/{draft_id}/messages",
+        "/skills/drafts/{draft_id}/conversation",
         "/invocations/{invocation_id}/events",
         "/invocations/{invocation_id}/cancel",
         "/skills/drafts/{draft_id}/revisions",
@@ -58,6 +58,13 @@ def main() -> int:
     event_types = [
         "run.started",
         "assistant.delta",
+        "assistant.progress",
+        "assistant.final",
+        "turn.started",
+        "activity.started",
+        "activity.completed",
+        "request.summary",
+        "state.updated",
         "plan.updated",
         "tool.started",
         "tool.completed",

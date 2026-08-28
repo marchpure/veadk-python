@@ -52,8 +52,9 @@ export interface ConversationTurnModel {
   requestSummary?: RequestSummary;
   error?: { code: string; message: string; retryable: boolean };
   stateUpdate?: {
-    stateReady: boolean;
-    remoteSaved: boolean;
+    stateReady?: boolean;
+    remoteSaved?: boolean;
+    errorSummary?: string;
   };
   status: InvocationStatus;
   createdAt: string;

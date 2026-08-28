@@ -212,7 +212,11 @@ export type KnowledgeInvocationEvent = InvocationEventBase & (
     }
   | {
       type: "state.updated";
-      data: { state_ready: boolean; remote_saved: boolean };
+      data: {
+        state_ready?: boolean;
+        remote_saved?: boolean;
+        error_summary?: string;
+      };
     }
   | {
       type: "artifact.created";

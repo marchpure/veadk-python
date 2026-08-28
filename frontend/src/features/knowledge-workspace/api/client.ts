@@ -485,8 +485,22 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "state.updated" &&
-    typeof data.state_ready === "boolean" &&
-    typeof data.remote_saved === "boolean"
+    (
+      data.state_ready === undefined
+      || typeof data.state_ready === "boolean"
+    ) &&
+    (
+      data.remote_saved === undefined
+      || typeof data.remote_saved === "boolean"
+    ) &&
+    (
+      data.error_summary === undefined
+      || typeof data.error_summary === "string"
+    ) &&
+    (
+      typeof data.state_ready === "boolean"
+      || typeof data.remote_saved === "boolean"
+    )
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (type === "plan.updated" && Array.isArray(data.steps)) {
     return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;

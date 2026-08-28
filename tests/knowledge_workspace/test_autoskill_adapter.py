@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import zipfile
-import asyncio
 
 import httpx
 import pytest
 
+from frontend.server.knowledge_workspace.autoskill import (
+    AutoSkillClient,
+    AutoSkillConfig,
+    AutoSkillProtocolError,
+)
 from frontend.server.knowledge_workspace.html_artifact import (
     HtmlArtifactError,
     validate_html_artifact,
@@ -22,11 +27,6 @@ from frontend.server.knowledge_workspace.sse import (
 from frontend.server.knowledge_workspace.zip_validator import (
     SkillZipError,
     validate_skill_zip,
-)
-from frontend.server.knowledge_workspace.autoskill import (
-    AutoSkillClient,
-    AutoSkillConfig,
-    AutoSkillProtocolError,
 )
 
 OFFICIAL_AUTOSKILL_BASE_URL = "https://test-bytebrain.byted.org"
@@ -153,11 +153,11 @@ def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationship
         "assistant.final",
     ]
     assert [item["id"] for item in normalized] == [
-        "evt-turn",
-        "evt-plan",
-        "evt-action",
-        "evt-observation",
-        "evt-final",
+        "1",
+        "inv:2",
+        "call-7",
+        "inv:4",
+        "inv:5",
     ]
     assert normalized[1]["parent_id"] == "1"
     assert normalized[2]["parent_id"] == "1"
@@ -167,6 +167,53 @@ def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationship
     assert "reasoning" not in json.dumps(normalized)
     assert "secret" not in json.dumps(normalized)
     assert normalized[4]["data"]["content"] == "# Result"
+
+
+def test_normalizes_official_autoskill_event_shape_without_transport_id_breaking_tree() -> None:
+    parsed = parse_sse(
+        [
+            'id: 0\ndata: {"type":"Turn 1","id":1,"parent_id":null,"data":{"title":"mcp_lookup"}}\n\n',
+            'id: 1\ndata: {"type":"Planning","id":null,"parent_id":1,"data":{"title":"Calling 1 tool(s): mcp_lookup","text":"private scratch text","reasoning":"private chain","tools":[{"name":"mcp_lookup","arguments":{"url":"http://127.0.0.1:3417/private"}}]}}\n\n',
+            'id: 2\ndata: {"type":"Action","id":"call-real","parent_id":1,"data":{"title":"mcp_lookup","name":"mcp_lookup","call_id":"call-real","arguments":{"authorization":"Bearer secret"}}}\n\n',
+            'id: 3\ndata: {"type":"Observation","id":null,"parent_id":"call-real","data":{"call_id":"call-real","name":"mcp_lookup","ok":true,"output":"raw payload"}}\n\n',
+        ]
+    )
+
+    normalized = [
+        normalize_upstream_event(item, invocation_id="inv", cursor=index + 1)
+        for index, item in enumerate(parsed)
+    ]
+
+    assert normalized[0]["id"] == "1"
+    assert normalized[1]["parent_id"] == normalized[0]["id"]
+    assert normalized[1]["data"]["steps"] == [
+        {"id": "step-1", "label": "mcp_lookup", "status": "running"}
+    ]
+    assert normalized[2]["parent_id"] == normalized[0]["id"]
+    assert normalized[2]["data"]["call_id"] == "call-real"
+    assert normalized[3]["parent_id"] == normalized[2]["data"]["call_id"]
+    assert normalized[3]["data"]["call_id"] == normalized[2]["data"]["call_id"]
+    assert "private scratch text" not in json.dumps(normalized)
+    assert "private chain" not in json.dumps(normalized)
+    assert "127.0.0.1" not in json.dumps(normalized)
+    assert "raw payload" not in json.dumps(normalized)
+    assert "duration_ms" not in normalized[3]["data"]
+
+
+def test_planning_drops_unlabelled_structured_items_instead_of_stringifying_payloads() -> None:
+    event = parse_sse(
+        [
+            'id: 0\ndata: {"type":"Planning","parent_id":1,"data":{"tools":[{"arguments":{"password":"secret"}},{"name":"safe_tool","arguments":{"query":"private"}}]}}\n\n',
+        ]
+    )[0]
+
+    normalized = normalize_upstream_event(event, invocation_id="inv", cursor=1)
+
+    assert normalized["data"]["steps"] == [
+        {"id": "step-2", "label": "safe_tool", "status": "running"}
+    ]
+    assert "secret" not in json.dumps(normalized)
+    assert "private" not in json.dumps(normalized)
 
 
 def test_request_summary_and_state_update_keep_distinct_safe_semantics() -> None:
@@ -189,6 +236,26 @@ def test_request_summary_and_state_update_keep_distinct_safe_semantics() -> None
     assert state["data"] == {"state_ready": True, "remote_saved": True}
     assert "secret" not in json.dumps([summary, state])
     assert "127.0.0.1" not in json.dumps([summary, state])
+
+
+def test_state_update_preserves_only_flags_the_provider_actually_sent() -> None:
+    remote_saved = parse_sse(
+        [
+            'id: state-1\ndata: {"type":"state_update","data":{"remote_saved":true}}\n\n',
+        ]
+    )[0]
+    state_ready = parse_sse(
+        [
+            'id: state-2\ndata: {"type":"state_update","data":{"state_ready":false,"error":"save failed at http://localhost:9000/private"}}\n\n',
+        ]
+    )[0]
+
+    remote = normalize_upstream_event(remote_saved, invocation_id="inv", cursor=1)
+    failed = normalize_upstream_event(state_ready, invocation_id="inv", cursor=2)
+
+    assert remote["data"] == {"remote_saved": True}
+    assert failed["data"]["state_ready"] is False
+    assert failed["data"]["error_summary"] == "save failed at [INTERNAL_URL]"
 
 
 def test_skill_zip_requires_single_skillhub_root_and_rejects_slip_and_symlink() -> None:

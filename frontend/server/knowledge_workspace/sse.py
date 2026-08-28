@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,8 @@ _SECRET_KEYS = {
     "authorization",
     "cookie",
     "credential",
+    "lease",
+    "lease_id",
     "password",
     "secret",
     "secret_key",
@@ -43,6 +46,22 @@ _SECRET_ASSIGNMENT = re.compile(
     r"""(?i)["']?(?:api[_-]?key|access[_-]?key|authorization|cookie|credential|password|secret|session[_-]?token|token)["']?\s*[:=]\s*(?:["']?bearer\s+)?["']?[^\s,;}"']+"""
 )
 _SECRET_BEARER = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
+_INTERNAL_URL = re.compile(
+    r"""(?ix)
+    https?://
+    (?:
+        localhost
+        | 127(?:\.\d{1,3}){3}
+        | 10(?:\.\d{1,3}){3}
+        | 192\.168(?:\.\d{1,3}){2}
+        | 172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}
+        | 169\.254(?:\.\d{1,3}){2}
+        | [a-z0-9.-]+\.internal
+    )
+    (?::\d+)?
+    (?:/[^\s<>"']*)?
+    """
+)
 
 
 def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
@@ -50,7 +69,7 @@ def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
 
     normalized = key.casefold().replace("-", "_")
     if normalized in _SECRET_KEYS or normalized.endswith(
-        ("_token", "_secret", "_password")
+        ("_token", "_secret", "_password", "_credential", "_lease")
     ):
         return "[REDACTED]"
     if depth >= 6:
@@ -60,7 +79,8 @@ def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
     if isinstance(value, str):
         bounded = value[:8_000]
         bounded = _SECRET_ASSIGNMENT.sub("[REDACTED]", bounded)
-        return _SECRET_BEARER.sub("[REDACTED]", bounded)
+        bounded = _SECRET_BEARER.sub("[REDACTED]", bounded)
+        return _INTERNAL_URL.sub("[INTERNAL_URL]", bounded)
     if isinstance(value, Mapping):
         return {
             str(item_key)[:160]: sanitize_event_payload(
@@ -116,8 +136,7 @@ class SseParser:
                 frames.append(SseFrame(None, None, "", heartbeat=True))
                 continue
             field, _, value = line.partition(":")
-            if value.startswith(" "):
-                value = value[1:]
+            value = value.removeprefix(" ")
             if field == "id":
                 self._event_id = value
             elif field == "event":
@@ -184,17 +203,15 @@ def _plan_steps(value: Any) -> list[dict[str, str]]:
     for index, item in enumerate(values):
         if isinstance(item, Mapping):
             status = str(item.get("status") or "running").casefold()
+            label = item.get("label") or item.get("name") or item.get("description")
+            if not isinstance(label, str) or not label.strip():
+                continue
             result.append(
                 {
                     "id": str(
                         item.get("id") or item.get("step_id") or f"step-{index + 1}"
                     ),
-                    "label": str(
-                        item.get("label")
-                        or item.get("name")
-                        or item.get("description")
-                        or item
-                    ),
+                    "label": str(sanitize_event_payload(label))[:256],
                     "status": status if status in valid_statuses else "running",
                 }
             )
@@ -245,18 +262,19 @@ def normalize_upstream_event(
     now = datetime.now(timezone.utc).isoformat()
     data = _data(event.payload)
     kind = event.event_type.casefold().replace("-", "_")
-    is_turn = re.fullmatch(r"turn[ _]+\d+", kind) is not None
+    turn_match = re.fullmatch(r"turn[ _]+(\d+)", kind)
+    semantic_id = _identifier(event.payload.get("id"))
     base = {
-        "id": event.event_id
-        or _identifier(event.payload.get("id"))
-        or f"{invocation_id}:{cursor}",
+        # AutoSkill's JSON id expresses the event tree. Its SSE id is only a
+        # replay cursor and may collide with a semantic id from another event.
+        "id": semantic_id or f"{invocation_id}:{cursor}",
         "invocation_id": invocation_id,
         "occurred_at": now,
     }
     parent_id = _identifier(event.payload.get("parent_id"))
     if parent_id is not None:
         base["parent_id"] = parent_id
-    if event.malformed or (not is_turn and kind not in {
+    if event.malformed or (turn_match is None and kind not in {
         "planning",
         "action",
         "observation",
@@ -267,8 +285,8 @@ def normalize_upstream_event(
         "done",
     }):
         return None
-    if is_turn:
-        turn_number = int(re.search(r"\d+", kind).group())
+    if turn_match is not None:
+        turn_number = int(turn_match.group(1))
         return {
             **base,
             "type": "turn.started",
@@ -280,7 +298,9 @@ def normalize_upstream_event(
             },
         }
     if kind == "planning":
-        steps = _plan_steps(data.get("steps") or data.get("plan") or [])
+        steps = _plan_steps(
+            data.get("steps") or data.get("plan") or data.get("tools") or []
+        )
         return {
             **base,
             "type": "activity.started",
@@ -290,7 +310,9 @@ def normalize_upstream_event(
                 "title": _safe_summary(data.get("title"), limit=256)
                 or "Planning",
                 "status": "running",
-                "summary": _safe_summary(data.get("summary") or data.get("text")),
+                # AutoSkill's `text` and `reasoning` are model scratch output.
+                # Only an explicitly public summary may cross the BFF boundary.
+                "summary": _safe_summary(data.get("summary")),
                 "steps": steps,
             },
         }
@@ -330,7 +352,11 @@ def normalize_upstream_event(
                     else action
                     if action in {"cancelled", "succeeded"}
                     else "succeeded",
-                    "duration_ms": _duration_ms(data.get("duration_ms")),
+                    **(
+                        {"duration_ms": _duration_ms(data.get("duration_ms"))}
+                        if data.get("duration_ms") is not None
+                        else {}
+                    ),
                     "output_summary": _safe_summary(data.get("output_summary")),
                 },
             }
@@ -366,11 +392,15 @@ def normalize_upstream_event(
                     or "autoskill.observation"
                 ),
                 "status": "succeeded" if data.get("ok", True) else "failed",
-                "duration_ms": _duration_ms(data.get("duration_ms")),
-                "output_summary": _safe_summary(
-                    data.get("summary") or data.get("output_summary")
+                **(
+                    {"duration_ms": _duration_ms(data.get("duration_ms"))}
+                    if data.get("duration_ms") is not None
+                    else {}
                 ),
-                "error_summary": _safe_summary(data.get("error")),
+                "output_summary": _safe_summary(
+                    data.get("output_summary") or data.get("summary")
+                ),
+                "error_summary": _safe_summary(data.get("error_summary")),
             },
         }
     if kind == "final_answer":
@@ -445,13 +475,17 @@ def normalize_upstream_event(
             },
         }
     if kind == "state_update":
+        state_data: dict[str, Any] = {}
+        if "state_ready" in data:
+            state_data["state_ready"] = bool(data["state_ready"])
+        if "remote_saved" in data:
+            state_data["remote_saved"] = bool(data["remote_saved"])
+        if data.get("error"):
+            state_data["error_summary"] = _safe_summary(data["error"])
         return {
             **base,
             "type": "state.updated",
-            "data": {
-                "state_ready": bool(data.get("state_ready")),
-                "remote_saved": bool(data.get("remote_saved")),
-            },
+            "data": state_data,
         }
     return None
 

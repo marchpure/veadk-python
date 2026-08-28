@@ -29,8 +29,8 @@ from .models import (
     new_id,
     utc_now,
 )
-from .repository import KnowledgeWorkspaceRepository
 from .registry import PublicationRegistryPort
+from .repository import KnowledgeWorkspaceRepository
 from .sse import ParsedUpstreamEvent, normalize_upstream_event, sanitize_event_payload
 from .zip_validator import SkillZipError, validate_skill_zip
 
@@ -847,7 +847,6 @@ class KnowledgeWorkspaceService:
                         "finished_at": finished.finished_at.isoformat()
                         if finished.finished_at
                         else utc_now().isoformat(),
-                        "request_summary": self._public_value(dict(summary)),
                         "artifact_ids": [
                             item.artifact_id
                             for item in self.repository.artifacts_for_revision(
@@ -1087,11 +1086,12 @@ class KnowledgeWorkspaceService:
         state: bytes | None = None,
         invocation: Invocation | None = None,
     ) -> list[ParsedUpstreamEvent]:
-        """Collect one query command and reject protocol errors.
+        """Collect one query command and reject malformed or terminal errors.
 
         Skill queries are part of the revision completion gate.  A provider
-        error, malformed event, unknown event, or missing terminal ``done``
-        therefore cannot be treated as an empty/partial query result.
+        error, malformed event, or missing terminal ``done`` therefore cannot
+        be treated as an empty/partial query result. Compatible unknown
+        progress events remain durably archived and are otherwise ignored.
         """
 
         allowed = {
@@ -1131,12 +1131,14 @@ class KnowledgeWorkspaceService:
                             if event.event_id
                             else None,
                         )
-                    if event.malformed or kind not in allowed:
+                    if event.malformed:
                         raise KnowledgeWorkspaceError(
                             "AUTOSKILL_PROTOCOL_ERROR",
                             f"AutoSkill emitted an invalid {command} event",
                             502,
                         )
+                    if kind not in allowed:
+                        continue
                     if kind == "error":
                         raise KnowledgeWorkspaceError(
                             "AUTOSKILL_PROTOCOL_ERROR",

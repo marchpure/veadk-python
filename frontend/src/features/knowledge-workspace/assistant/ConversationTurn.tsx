@@ -23,7 +23,11 @@ export function ConversationTurn({
           streaming={turn.status === "running"}
         />
         {turn.stateUpdate && !turn.stateUpdate.stateReady ? (
-          <div className="kw-persistence-error" role="alert">运行状态保存失败</div>
+          turn.stateUpdate.stateReady === false ? (
+            <div className="kw-persistence-error" role="alert">
+              {turn.stateUpdate.errorSummary || "运行状态保存失败"}
+            </div>
+          ) : null
         ) : null}
         {turn.connectionState === "disconnected" ? (
           <div className="kw-run-recovery" role="alert">

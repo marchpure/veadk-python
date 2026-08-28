@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import io
+import json
 import zipfile
-from pathlib import Path
 from collections.abc import AsyncIterator, Sequence
+from pathlib import Path
 
 import pytest
 
@@ -150,6 +150,16 @@ class QueryFailureAutoSkill(FreezeAutoSkill):
             yield event("error", {"code": "QUERY_FAILED", "message": "no list"})
             yield event("done")
             return
+        async for item in super().command(command, **kwargs):
+            yield item
+
+
+class QueryUnknownAutoSkill(FreezeAutoSkill):
+    async def command(
+        self, command: str, **kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
+        if command in {"list_skill", "view_skill"}:
+            yield event("future_provider_progress", {"message": "compatible"})
         async for item in super().command(command, **kwargs):
             yield item
 
@@ -323,6 +333,33 @@ async def test_freeze_fails_closed_when_skill_query_emits_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_freeze_archives_unknown_query_progress_without_killing_success() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        QueryUnknownAutoSkill(
+            [
+                event("final_answer", {"answer": "created"}),
+                event("request_summary", {"status": "success"}),
+                event("done"),
+            ]
+        ),
+        FakeLeasePort(),
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    revision = await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+
+    assert revision.skill_name == "demo"
+    raw = service.repository.raw_events(invocation.invocation_id)
+    assert sum(
+        item["raw"].get("type") == "future_provider_progress" for item in raw
+    ) == 2
+
+
+@pytest.mark.asyncio
 async def test_freeze_persists_distinct_query_request_ids() -> None:
     service, actor = make_freeze_service()
     draft = service.create_draft(actor, "goal", ["connection-a"])
@@ -434,7 +471,15 @@ async def test_unknown_nonterminal_event_is_archived_without_killing_success() -
     service, actor, _ = make_service(
         [
             event("final_answer", {"answer": "answer"}),
-            event("request_summary", {"status": "success"}),
+            event(
+                "request_summary",
+                {
+                    "status": "success",
+                    "lease_id": "lease-secret",
+                    "credential": "credential-secret",
+                    "internal_url": "http://127.0.0.1:3417/private",
+                },
+            ),
             event("future_provider_event", {"token": "secret"}),
             event("done"),
         ]
@@ -450,6 +495,12 @@ async def test_unknown_nonterminal_event_is_archived_without_killing_success() -
     assert "secret" not in json.dumps(
         service.repository.raw_events(invocation.invocation_id)
     )
+    browser_events = json.dumps(
+        service.repository.events_after(invocation.invocation_id)
+    )
+    assert "lease_id" not in browser_events
+    assert "credential" not in browser_events
+    assert "127.0.0.1" not in browser_events
 
 
 @pytest.mark.asyncio

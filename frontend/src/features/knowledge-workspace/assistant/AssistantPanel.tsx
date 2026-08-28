@@ -28,6 +28,7 @@ export function AssistantPanel({
   const [following, setFollowing] = useState(true);
   const scroller = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
+  const submitting = useRef(false);
   const activeTurn = [...turns].reverse().find(
     (turn) => turn.status === "queued" || turn.status === "running",
   );
@@ -39,17 +40,28 @@ export function AssistantPanel({
 
   const submit = async (intent: "update" | "run") => {
     const value = message.trim();
-    if (!value || busy || activeTurn) return;
+    if (!value || busy || activeTurn || submitting.current) return;
+    submitting.current = true;
     setMessage("");
     setFollowing(true);
-    await onSend(value, intent);
+    try {
+      await onSend(value, intent);
+    } finally {
+      submitting.current = false;
+    }
   };
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     void submit("run");
   };
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.shiftKey || composing.current || event.nativeEvent.isComposing) {
+    if (
+      event.key !== "Enter"
+      || event.shiftKey
+      || composing.current
+      || event.nativeEvent.isComposing
+      || event.nativeEvent.keyCode === 229
+    ) {
       return;
     }
     event.preventDefault();

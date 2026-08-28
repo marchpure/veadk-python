@@ -68,8 +68,8 @@ The following are not source material for production behavior:
 | `GET /stream` | Replay from `Last-Event-ID`; reconnect without a second invoke |
 | `POST /stop` | Idempotent cancel; record local terminal state only after service confirmation |
 | `/upload`, `/download` | Isolated inputs and Skill/output downloads; validate ZIP/path/size/digest |
-| `planning`, `action`, `observation` | Normalize to `plan.updated`, `tool.started`, `tool.completed` |
-| `final_answer`, `request_summary`, `error`, `done` | Never infer revision/publication from one event; completion requires persistence gates |
+| `Turn N`, `planning`, `action`, `observation` | Preserve semantic IDs and parents; normalize to `turn.started` plus paired `activity.started` / `activity.completed` |
+| `final_answer`, `request_summary`, `state_update`, `error`, `done` | Emit `assistant.final`, redacted `request.summary`, and independent `state.updated`; never infer revision/publication from one event; completion requires persistence gates |
 | Stateful `agent_id/session_id/request_id` | IDs stay server-side and are never editable browser resource IDs |
 
 ## STEP 2A frontend migration entries
@@ -79,7 +79,7 @@ The following are not source material for production behavior:
 | Prototype `WorkspaceLayout` / pane geometry | `frontend/src/features/knowledge-workspace/pages/knowledge-workspace.css` | Three-pane shell, responsive right conversation pane, directory hierarchy, visual tokens | Prototype store, localStorage resources, hard-coded user state | Boundary test + production build |
 | Prototype `SkillNewView` | `KnowledgeWorkspacePage.tsx` `SkillNewView` | Goal → connection multi-select → optional trial task | Scenario inference, template/type/renderer choice, pseudo generation | Contract test + BFF calls |
 | Prototype `ConnectionDetailView` / `AddDataView` | `KnowledgeWorkspacePage.tsx` `ConnectionDetailView` / `ConnectionForm` | Dynamic schema fields, validate/discover controls, status presentation | Timer-driven discovery, fake OAuth, “all supported” status | Contract client + boundary test |
-| Prototype `ChatAssistant` | `api/client.ts` + `DraftWorkspace` | Delta text, plan, tool cards, elapsed time, cancel, reconnect, auto-scroll | Fixed replies, client-side completion inference | Event schema test + SSE client |
+| Prototype `ChatAssistant` | `assistant/*`, `api/client.ts` + `DraftWorkspace` | Ordered turns, paired tool activities, Markdown answer, elapsed time, cancel, reconnect, smart scroll | Fixed replies, client-side completion inference, single response string, browser persistence | Event/reducer/component tests + SSE client + BFF conversation restore |
 | Prototype `ArtifactHeader` / draft/publish modals | `artifact/ArtifactViewer.tsx` + `DraftWorkspace` | Artifact, versions, publish grouping and modal semantics | Local revision list, pseudo-success publish | Controlled URL/digest test + BFF client |
 | Existing Studio `adk/auth.ts` / `adk/sse.ts` | `api/client.ts` | Auth forwarding and shared fetch-SSE parsing | Direct upstream service URLs | Same-origin API boundary test |
 

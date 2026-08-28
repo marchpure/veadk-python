@@ -52,7 +52,7 @@ test("retains two messages and merges action observation by call_id during repla
     }, "1"),
     event("inv-1", "observation-1", 3, "activity.completed", {
       activity_id: "call-1", activity_kind: "tool", call_id: "call-1",
-      tool_name: "search", status: "succeeded", output_summary: "found",
+      status: "succeeded", output_summary: "found",
       duration_ms: 12,
     }, "call-1"),
     event("inv-1", "final-1", 4, "assistant.final", { content: "# First" }),
@@ -76,9 +76,31 @@ test("retains two messages and merges action observation by call_id during repla
   assert.equal(replayed.turns[0].activities.length, 2);
   assert.equal(replayed.turns[0].activities[1].callId, "call-1");
   assert.equal(replayed.turns[0].activities[1].status, "succeeded");
+  assert.equal(replayed.turns[0].activities[1].title, "search");
+  assert.equal(replayed.turns[0].activities[1].startedAt, "2026-08-28T00:00:02Z");
+  assert.equal(replayed.turns[0].activities[1].durationMs, 12);
   assert.equal(replayed.turns[0].activities[1].outputSummary, "found");
   assert.equal(replayed.turns[0].eventIds.length, 4);
   assert.equal(replayed.turns[0].assistantContent, "# First");
+});
+
+test("derives tool duration from action and observation timestamps when provider omits it", () => {
+  const events = [
+    event("inv-1", "action-1", 2, "activity.started", {
+      activity_id: "call-1", activity_kind: "tool", call_id: "call-1",
+      tool_name: "search", status: "running",
+    }),
+    event("inv-1", "observation-1", 5, "activity.completed", {
+      activity_id: "call-1", activity_kind: "tool", call_id: "call-1",
+      status: "succeeded",
+    }),
+  ];
+  const state = assistantReducer(initialAssistantState, {
+    type: "history.restored",
+    entries: [{ invocation: invocation("inv-1", "question"), events }],
+  });
+
+  assert.equal(state.turns[0].activities[0].durationMs, 3000);
 });
 
 test("state updates do not replace planning and terminal states retain partial content", () => {
@@ -116,6 +138,22 @@ test("state updates do not replace planning and terminal states retain partial c
   assert.equal(state.turns[0].stateUpdate?.stateReady, true);
   assert.equal(state.turns[0].assistantContent, "partial");
   assert.equal(state.turns[0].status, "cancelled");
+});
+
+test("remote-only state updates do not invent a failed state_ready flag", () => {
+  let state = assistantReducer(initialAssistantState, {
+    type: "invocation.started",
+    invocation: invocation("inv-1", "question"),
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "state-1", 1, "state.updated", {
+      remote_saved: true,
+    }),
+  });
+
+  assert.equal(state.turns[0].stateUpdate?.remoteSaved, true);
+  assert.equal(state.turns[0].stateUpdate?.stateReady, undefined);
 });
 
 test("shows a submitted user turn immediately and reconciles the server invocation", () => {

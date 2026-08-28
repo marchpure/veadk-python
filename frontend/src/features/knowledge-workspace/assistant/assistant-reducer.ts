@@ -93,12 +93,19 @@ function mergeActivity(
   const index = activities.findIndex((activity) => (activity.callId || activity.id) === key);
   if (index < 0) return [...activities, incoming];
   const current = activities[index];
+  const derivedDuration = incoming.durationMs ?? (
+    incoming.completedAt
+      ? Math.max(0, Date.parse(incoming.completedAt) - Date.parse(current.startedAt))
+      : undefined
+  );
   const next = [...activities];
   next[index] = {
     ...current,
     ...incoming,
     startedAt: current.startedAt,
+    title: incoming.title === "执行步骤" ? current.title : incoming.title,
     inputSummary: current.inputSummary || incoming.inputSummary,
+    durationMs: derivedDuration,
   };
   return next;
 }
@@ -122,6 +129,7 @@ function applyEvent(turn: ConversationTurnModel, event: KnowledgeInvocationEvent
     next.stateUpdate = {
       stateReady: event.data.state_ready,
       remoteSaved: event.data.remote_saved,
+      errorSummary: event.data.error_summary,
     };
   } else if (event.type === "run.started") {
     next.status = "running";

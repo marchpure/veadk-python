@@ -407,6 +407,27 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /skills/drafts/{draft_id}/conversation:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+    get:
+      tags: [drafts, invocations]
+      operationId: getDraftConversation
+      summary: Restore the durable ordered conversation for a draft
+      description: |
+        Returns browser-safe invocation metadata and normalized persisted events.
+        Provider IDs, credentials, leases, internal URLs, and raw tool payloads
+        are never returned.
+      responses:
+        '200':
+          description: Ordered conversation turns and their normalized events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
   /invocations/{invocation_id}/events:
     parameters:
       - $ref: '#/components/parameters/InvocationId'
@@ -926,12 +947,16 @@ components:
       additionalProperties: false
     Invocation:
       type: object
-      required: [invocation_id, kind, status, event_url, created_at]
+      required: [invocation_id, kind, status, message, event_url, created_at]
       properties:
         invocation_id: { type: string }
         kind: { type: string, enum: [generate, update, run, validate, discover] }
         status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
+        message: { type: string }
+        model: { type: string }
         event_url: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
       additionalProperties: false
     InvocationResponse:
@@ -939,6 +964,35 @@ components:
       required: [data, meta]
       properties:
         data: { $ref: '#/components/schemas/Invocation' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ConversationEvent:
+      type: object
+      required: [id, cursor, type, invocation_id, occurred_at, data]
+      properties:
+        id: { type: string, description: Stable semantic event ID. }
+        cursor: { type: string, pattern: '^[0-9]+$', description: Durable replay cursor used by Last-Event-ID. }
+        type: { type: string }
+        invocation_id: { type: string }
+        occurred_at: { type: string, format: date-time }
+        parent_id: { type: string }
+        data: { type: object, additionalProperties: true }
+      additionalProperties: false
+    ConversationTurn:
+      type: object
+      required: [invocation, events]
+      properties:
+        invocation: { $ref: '#/components/schemas/Invocation' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/ConversationEvent' }
+      additionalProperties: false
+    ConversationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ConversationTurn' }
         meta: { $ref: '#/components/schemas/Meta' }
     Revision:
       type: object
