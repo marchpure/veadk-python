@@ -173,3 +173,33 @@ test("shows a submitted user turn immediately and reconciles the server invocati
   assert.equal(state.turns[0].invocationId, "inv-3");
   assert.equal(state.turns[0].userMessage, "new question");
 });
+
+test("history restore does not overwrite a live invocation receiving events", () => {
+  let state = assistantReducer(initialAssistantState, {
+    type: "invocation.started",
+    invocation: invocation("inv-live", "live question"),
+  });
+  state = assistantReducer(state, {
+    type: "connection.changed",
+    invocationId: "inv-live",
+    state: "connected",
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-live", "started", 1, "run.started", {
+      kind: "run", status: "running",
+    }),
+  });
+
+  state = assistantReducer(state, {
+    type: "history.restored",
+    entries: [{
+      invocation: invocation("inv-live", "live question"),
+      events: [],
+    }],
+  });
+
+  assert.deepEqual(state.turns[0].eventIds, ["started"]);
+  assert.equal(state.turns[0].connectionState, "connected");
+  assert.equal(state.turns[0].status, "running");
+});

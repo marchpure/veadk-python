@@ -183,7 +183,30 @@ export function assistantReducer(
   action: AssistantAction,
 ): AssistantState {
   if (action.type === "history.restored") {
-    return { turns: action.entries.map(restoreEntry) };
+    const restored = action.entries.map(restoreEntry);
+    const restoredById = new Map(restored.map((turn) => [turn.invocationId, turn]));
+    const merged = state.turns.map((current) => {
+      const restoredTurn = restoredById.get(current.invocationId);
+      if (!restoredTurn) return current;
+      const hasLiveState =
+        current.eventIds.length > 0
+        || current.connectionState !== "idle"
+        || current.status !== current.invocation.status;
+      return hasLiveState
+        ? {
+          ...current,
+          invocation: restoredTurn.invocation,
+          userMessage: restoredTurn.userMessage,
+        }
+        : restoredTurn;
+    });
+    const currentIds = new Set(state.turns.map((turn) => turn.invocationId));
+    return {
+      turns: [
+        ...merged,
+        ...restored.filter((turn) => !currentIds.has(turn.invocationId)),
+      ],
+    };
   }
   if (action.type === "invocation.started") {
     const existing = state.turns.findIndex(

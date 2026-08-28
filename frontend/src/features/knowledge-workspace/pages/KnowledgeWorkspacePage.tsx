@@ -384,7 +384,16 @@ export function KnowledgeWorkspacePage() {
             entry.invocation.status === "queued"
             || entry.invocation.status === "running",
         );
-        setActiveInvocation(active?.invocation || null);
+        setActiveInvocation((current) => {
+          if (
+            current
+            && active
+            && current.invocation_id === active.invocation.invocation_id
+          ) {
+            return current;
+          }
+          return active?.invocation || null;
+        });
       })
       .catch((cause) => {
         if (!controller.signal.aborted) {
@@ -966,8 +975,11 @@ export function KnowledgeWorkspacePage() {
             onSend={sendMessage}
             onCancel={cancel}
             onReconnect={(turn) => {
-              setActiveInvocation(turn.invocation);
-              void stream(turn.invocation);
+              if (activeInvocation?.invocation_id === turn.invocation.invocation_id) {
+                void stream(activeInvocation);
+              } else {
+                setActiveInvocation(turn.invocation);
+              }
             }}
             onRetry={(turn) => void retryInvocation(turn)}
             onRun={(message) => sendMessage(message, "run")}
