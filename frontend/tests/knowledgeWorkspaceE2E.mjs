@@ -283,13 +283,16 @@ async function main() {
     } else if (modal === "instructions") {
       await page.getByText("业务用途").waitFor();
     } else {
-      await dialog.locator("h2").getByText("版本记录").waitFor();
+      await dialog.locator("h2").getByText("来源与版本历史").waitFor();
       const versionModalBox = await dialog.boundingBox();
       if (viewport.width >= 900) {
-        assert.ok(versionModalBox && versionModalBox.width >= 440 && versionModalBox.width <= 456, JSON.stringify(versionModalBox));
         assert.ok(
           versionModalBox
-          && Math.abs(versionModalBox.x - (viewport.width - versionModalBox.width) / 2) <= 2,
+          && versionModalBox.width >= 380
+          && versionModalBox.width <= 388
+          && versionModalBox.x + versionModalBox.width === viewport.width
+          && versionModalBox.y === 0
+          && versionModalBox.height === viewport.height,
           JSON.stringify(versionModalBox),
         );
       } else {

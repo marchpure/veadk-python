@@ -49,7 +49,7 @@ const expectedModalState = {
   agent: { selector: '[data-state-modal="agent"]', text: "选择绑定目标 Agent" },
   share_run: { selector: '[data-state-modal="share_run"]', text: "分享本次结果" },
   instructions: { selector: '[data-state-modal="instructions"]', text: "调用说明" },
-  versions: { selector: '[data-state-modal="versions"]', text: "版本记录" },
+  versions: { selector: '[data-state-modal="versions"]', text: "来源与版本历史" },
 };
 
 const expectedStateEvidence = {
@@ -522,8 +522,10 @@ async function main() {
       assert.equal(renderCheck.modal_text_present, true, `${capture.stateUrl}: expected modal content did not render`);
       if (capture.stateUrl.includes("modal=versions")) {
         assert.ok(renderCheck.modal_geometry, `${capture.stateUrl}: version modal geometry missing`);
-        assert.ok(renderCheck.modal_geometry.width >= 400, `${capture.stateUrl}: version modal is not a centered modal`);
-        assert.ok(renderCheck.modal_geometry.left > 400, `${capture.stateUrl}: version modal is incorrectly docked`);
+        assert.ok(renderCheck.modal_geometry.width >= 380 && renderCheck.modal_geometry.width <= 388, `${capture.stateUrl}: version drawer width is not 384px`);
+        assert.equal(renderCheck.modal_geometry.left, 1536, `${capture.stateUrl}: version drawer is not right-docked`);
+        assert.equal(renderCheck.modal_geometry.top, 0, `${capture.stateUrl}: version drawer is not full-height`);
+        assert.equal(renderCheck.modal_geometry.height, 1080, `${capture.stateUrl}: version drawer is not full-height`);
       }
     }
     if (capture.route === "skill_new") assert.equal(renderCheck.skill_new, true, `${capture.stateUrl}: skill form did not render`);
