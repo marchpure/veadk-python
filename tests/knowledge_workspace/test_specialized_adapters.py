@@ -100,7 +100,9 @@ class SpecializedGateway:
 
     async def discover_oracle(self, body: dict[str, object], **_: str) -> dict[str, object]:
         assert body["config"]["serviceName"] == "FREEPDB1"
-        return {"schemas": ["APP"], "schema": "APP", "tables": ["ORDERS"]}
+        if body.get("schema"):
+            return {"schema": body["schema"], "tables": ["ORDERS"]}
+        return {"schemas": ["APP"]}
 
     async def discover_mcp(self, definition: dict[str, object], **_: str) -> dict[str, object]:
         assert definition["transport"] == "stdio"
@@ -202,13 +204,19 @@ async def test_specialized_routes_validate_discover_register_and_preview(
             headers=ACTOR_HEADERS,
             json=oracle_body,
         )
-        discovery = await client.post(
+        schema_discovery = await client.post(
             "/api/knowledge/v1/adapters/oracle/discover",
             headers=ACTOR_HEADERS,
             json=oracle_body,
         )
+        table_discovery = await client.post(
+            "/api/knowledge/v1/adapters/oracle/discover",
+            headers=ACTOR_HEADERS,
+            json={**oracle_body, "schema": "APP"},
+        )
         assert oracle.json()["data"]["rows"] == [{"OK": 1}]
-        assert discovery.json()["data"]["tables"] == ["ORDERS"]
+        assert schema_discovery.json()["data"]["schemas"] == ["APP"]
+        assert table_discovery.json()["data"]["tables"] == ["ORDERS"]
 
         saved_oracle = await client.post(
             "/api/knowledge/v1/resources/oracle",
@@ -218,6 +226,7 @@ async def test_specialized_routes_validate_discover_register_and_preview(
         assert saved_oracle.status_code == 200
         assert saved_oracle.json()["data"]["kind"] == "oracle_database"
         assert saved_oracle.json()["data"]["status"] == "beta"
+        assert saved_oracle.json()["data"]["metadata"]["discovery"]["schemas"] == ["APP"]
         assert saved_oracle.json()["data"]["metadata"]["discovery"]["tables"] == ["ORDERS"]
 
         saved_rest = await client.post(
@@ -257,6 +266,19 @@ async def test_specialized_routes_validate_discover_register_and_preview(
         assert registered.json()["data"]["id"] == "mcp-definition-1"
         assert called.json()["data"]["content"][0]["text"] == '{"value": "real-call"}'
 
+        saved_mcp = await client.post(
+            "/api/knowledge/v1/resources/mcp",
+            headers=ACTOR_HEADERS,
+            json={
+                "display_name": "MCP fixture",
+                "scope": "personal",
+                "definition": definition,
+            },
+        )
+        assert saved_mcp.status_code == 200
+        assert saved_mcp.json()["data"]["kind"] == "mcp"
+        assert saved_mcp.json()["data"]["status"] == "beta"
+
         invalid_call = await client.post(
             "/api/knowledge/v1/adapters/mcp/call",
             headers=ACTOR_HEADERS,
@@ -287,12 +309,18 @@ async def test_specialized_routes_validate_discover_register_and_preview(
             "/api/knowledge/v1/resources", headers=ACTOR_HEADERS
         )
         assert resources.status_code == 200
-        file_resources = [
-            item for item in resources.json()["data"] if item["kind"] == "files"
-        ]
-        assert file_resources
-        resource = file_resources[0]
-        assert resource["status"] == "beta"
+        resource_by_kind = {
+            item["kind"]: item
+            for item in resources.json()["data"]
+        }
+        assert set(resource_by_kind) >= {
+            "oracle_database",
+            "rest_openapi",
+            "mcp",
+            "files",
+        }
+        assert all(item["status"] == "beta" for item in resource_by_kind.values())
+        resource = resource_by_kind["files"]
         assert "internal-file-1" not in resources.text
 
         draft = await client.post(
@@ -300,8 +328,14 @@ async def test_specialized_routes_validate_discover_register_and_preview(
             headers={**ACTOR_HEADERS, "idempotency-key": "resource-draft-key"},
             json={
                 "goal": "summarize uploaded data",
-                "resource_ids": [resource["resource_id"]],
+                "resource_ids": [
+                    resource_by_kind[kind]["resource_id"]
+                    for kind in ("oracle_database", "rest_openapi", "mcp", "files")
+                ],
             },
         )
         assert draft.status_code == 201
-        assert draft.json()["data"]["resource_ids"] == [resource["resource_id"]]
+        assert draft.json()["data"]["resource_ids"] == [
+            resource_by_kind[kind]["resource_id"]
+            for kind in ("oracle_database", "rest_openapi", "mcp", "files")
+        ]

@@ -50,6 +50,7 @@ import type { ConversationTurnModel } from "../assistant/assistant-model";
 import {
   knowledgeApi,
   KnowledgeApiError,
+  type AdapterCapabilityResult,
   type CreateConnectionInput,
   type JobResult,
   type UploadResult,
@@ -1003,10 +1004,11 @@ export function KnowledgeWorkspacePage() {
             await reloadDirectory();
             setRoute("connection", "", created.connection_id);
           }}
-          onResourceCreated={async () => {
-            // Keep the form open long enough to show the real adapter result;
-            // the durable resource is already visible in the refreshed tree.
+          onResourceCreated={async (resource) => {
+            setShowConnectionForm(false);
+            setSelectedResourceIds([resource.resource_id]);
             await reloadDirectory();
+            setRoute("resource", "", "", resource.resource_id);
           }}
         />
       ) : null}
@@ -1744,11 +1746,26 @@ function ConnectionForm({
       if (connectorKey === "oracle_database") {
         const oracle = oracleBody(values);
         const validation = await knowledgeApi.validateOracleAdapter(oracle);
-        const discovery = await knowledgeApi.discoverOracleAdapter(oracle);
+        const schemaDiscovery = await knowledgeApi.discoverOracleAdapter(oracle);
+        const schemas = Array.isArray(schemaDiscovery.data.schemas)
+          ? schemaDiscovery.data.schemas.map(String).filter(Boolean)
+          : [];
+        const selectedSchema = schemas[0];
+        const tableDiscovery = selectedSchema
+          ? await knowledgeApi.discoverOracleAdapter({
+            ...oracle,
+            schema: selectedSchema,
+          })
+          : null;
+        const discovery: AdapterCapabilityResult = {
+          ...schemaDiscovery.data,
+          ...(tableDiscovery?.data || {}),
+        };
         const saved = await knowledgeApi.saveOracleResource({
           display_name: displayName.trim() || "Oracle Database",
           scope,
           ...oracle,
+          ...(selectedSchema ? { schema: selectedSchema } : {}),
         });
         setResult({
           validation: validation.data as unknown as JsonValue,
@@ -1798,7 +1815,7 @@ function ConnectionForm({
           const resource = resources.data.find(
             (item) =>
               item.kind === "files"
-              && item.display_name === fileResult.filename,
+              && item.metadata?.upload_id === fileResult.upload_id,
           );
           if (!resource) throw new Error("文件已上传，但 BFF 未返回可复用的资源记录");
           await onResourceCreated(resource);
@@ -1833,7 +1850,7 @@ function ConnectionForm({
     }
   };
   return (
-    <Modal title="添加连接" onClose={onClose}>
+    <Modal title="添加连接或资源" onClose={onClose}>
       <form className="kw-connection-form" onSubmit={submit}>
         <div className="kw-connector-cards" role="list" aria-label="连接类型">
           {connectorGroups(connectors).map(([group, items]) => (
@@ -1871,12 +1888,21 @@ function ConnectionForm({
         ) : null}
         {fields.map(([name, schema, group, required]) => (
           <label key={`${group}:${name}`}>{String(schema.title || name)}
-            <input
-              type={schema.format === "password" || group === "credential" ? "password" : "text"}
-              value={String(values[name] || "")}
-              onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))}
-              required={required}
-            />
+            {schema.type === "boolean" ? (
+              <input
+                type="checkbox"
+                checked={values[name] === true || values[name] === "true"}
+                onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.checked }))}
+                required={required}
+              />
+            ) : (
+              <input
+                type={schema.format === "password" || group === "credential" ? "password" : "text"}
+                value={String(values[name] || "")}
+                onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))}
+                required={required}
+              />
+            )}
           </label>
         ))}
         {selectedAuthType === "oauth2" ? (
@@ -1897,7 +1923,7 @@ function ConnectionForm({
         )}
         {isAdapter ? (
           <div className="kw-form-note">
-            专用适配器不创建普通 provider connection。请使用 BFF 暴露的真实 adapter API：
+            专用适配器不创建普通 provider connection，会保存为可加入 Skill 上下文的真实资源。请使用 BFF 暴露的真实 adapter API：
             {connector?.endpoints?.join("、") || "Connection Service adapter endpoints"}。
           </div>
         ) : null}
@@ -1937,7 +1963,7 @@ function ConnectionForm({
         ) : null}
         {fileResult ? (
           <div className="kw-form-note">
-            已通过 Connection Service 上传：{fileResult.filename}
+            已通过 Connection Service 上传并创建文件资源：{fileResult.filename}
           </div>
         ) : null}
         {error ? <div className="kw-form-error" role="alert">{error}</div> : null}

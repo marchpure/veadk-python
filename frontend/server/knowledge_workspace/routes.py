@@ -446,11 +446,27 @@ def mount_knowledge_workspace_routes(
                 body, **connection_actor(request)
             )
         )
-        discovery = await connection_call(
+        schema_discovery_body = {
+            key: value for key, value in body.items() if key not in {"schema", "table"}
+        }
+        schema_discovery = await connection_call(
             lambda: require_connections().discover_oracle(
-                body, **connection_actor(request)
+                schema_discovery_body, **connection_actor(request)
             )
         )
+        discovery = dict(schema_discovery)
+        schemas = schema_discovery.get("schemas")
+        selected_schema = str(body.get("schema") or "").strip()
+        if not selected_schema and isinstance(schemas, list) and schemas:
+            selected_schema = str(schemas[0])
+        if selected_schema:
+            table_discovery = await connection_call(
+                lambda: require_connections().discover_oracle(
+                    {**body, "schema": selected_schema},
+                    **connection_actor(request),
+                )
+            )
+            discovery.update(table_discovery)
         actor_value = actor(request)
         config = body.get("config")
         display_name = (

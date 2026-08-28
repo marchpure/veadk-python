@@ -40,12 +40,17 @@ test("specialized adapters use real capability routes and durable resources", ()
   assert.match(client, /previewAdapterFile/);
   assert.match(page, /knowledgeApi\.validateOracleAdapter/);
   assert.match(page, /knowledgeApi\.discoverOracleAdapter/);
+  assert.match(page, /schemaDiscovery/);
+  assert.match(page, /tableDiscovery/);
+  assert.match(page, /selectedSchema/);
   assert.match(page, /schemas|tables/);
   assert.match(page, /knowledgeApi\.listResources/);
   assert.match(page, /WorkspaceResourceDetail/);
   assert.match(page, /加入 Skill 上下文/);
   assert.match(page, /真实文件预览/);
   assert.match(page, /真实调用/);
+  assert.match(page, /setShowConnectionForm\(false\)/);
+  assert.match(page, /metadata\?\.upload_id === fileResult\.upload_id/);
   assert.doesNotMatch(page, /resource_id:\s*`upload:/);
 });
 
