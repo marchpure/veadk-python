@@ -6,7 +6,7 @@
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
-  "implementation_commit": "2e06b107d7de3caa1d833f246136b37c63d3fc17",
+  "implementation_commit": "2e06b107b62cde9fc343064289df99991278679e",
   "remote": {
     "name": "marchpure",
     "url": "git@github.com:marchpure/veadk-python.git",
@@ -17,7 +17,7 @@
     "feature_root": "frontend/src/features/knowledge-workspace",
     "integration": "frontend/src/App.tsx?view=knowledge-workspace",
     "production_boundary": "same-origin /api/knowledge/v1 BFF only; no feature-shell iframe, no second SPA, mock fallback, or business localStorage; isolated HTML artifact viewer uses a controlled sandboxed iframe",
-    "feature_loc_excluding_capture_fixtures": 2382,
+    "feature_loc_excluding_capture_fixtures": 2929,
     "capture_fixture_loc": 29
   },
   "migration_entries": [
@@ -72,9 +72,9 @@
     "capture_output": "docs/knowledge-workspace/evidence/captures/report.json"
   },
   "build_measurements": {
-    "app_js_bytes": 3366606,
-    "app_js_gzip_bytes": 1062490,
-    "veadk_webui_bytes": 16470016
+    "app_js_bytes": 3363593,
+    "app_js_gzip_bytes": 1062491,
+    "veadk_webui_bytes": 15988738
   },
   "preview_url": "http://127.0.0.1:5174/?view=knowledge-workspace&file=welcome",
   "unfinished_real_integration_dependencies": [
