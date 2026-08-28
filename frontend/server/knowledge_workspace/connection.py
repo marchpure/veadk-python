@@ -8,6 +8,7 @@ import hmac
 import io
 import json
 import os
+import re
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -318,21 +319,46 @@ class ConnectionServiceGateway:
             json={
                 "service": body["connector_key"],
                 "authType": auth_type,
-                "connectionName": body["display_name"],
+                "connectionName": service_connection_name(
+                    str(body["display_name"]),
+                    str(body["connector_key"]),
+                ),
                 "visibility": body["scope"],
                 "values": values,
             },
             **actor,
         )
-        connection = self._connection(response.json()["connection"])
+        created = response.json()["connection"]
+        if not isinstance(created, Mapping) or not created.get("id"):
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "Connection Service create response is missing connection.id",
+                502,
+            )
+        # Some Connection Service versions return a complete record from
+        # create; newer versions return only a redacted summary.  Preserve a
+        # complete canonical response, and resolve summary-only responses
+        # through the tenant list before exposing them to the workspace API.
+        canonical_fields = {
+            "visibility",
+            "status",
+            "connectorDefinitionVersion",
+            "createdAt",
+            "updatedAt",
+            "revision",
+        }
+        if canonical_fields.issubset(created):
+            connection = self._connection(created)
+        else:
+            connection = await self.get_connection(str(created["id"]), **actor)
         if body["scope"] != connection["scope"]:
-            response = await self._request(
+            await self._request(
                 "PATCH",
                 f"/v1/connections/{connection['connection_id']}",
                 json={"visibility": body["scope"]},
                 **actor,
             )
-            connection = self._connection(response.json()["connection"])
+            connection = await self.get_connection(connection["connection_id"], **actor)
         return connection
 
     async def update_connection(
@@ -708,16 +734,36 @@ class ConnectionServiceGateway:
         return dict(schema)
 
     @staticmethod
-    def _connection(item: Mapping[str, Any]) -> dict[str, Any]:
+    def _connection(
+        item: Mapping[str, Any],
+        *,
+        default_scope: str = "personal",
+        default_status: str = "error",
+        default_definition_version: str = "1.0.0",
+    ) -> dict[str, Any]:
         return {
             "connection_id": str(item["id"]),
             "connector_key": str(item["service"]),
             "display_name": str(item["connectionName"]),
-            "scope": str(item["visibility"]),
-            "status": str(item["status"]),
-            "definition_version": str(item["connectorDefinitionVersion"]),
+            "scope": str(item.get("visibility") or default_scope),
+            "status": str(item.get("status") or default_status),
+            "definition_version": str(
+                item.get("connectorDefinitionVersion")
+                or default_definition_version
+            ),
             "profile": item.get("profile", {}),
             "created_at": str(item["createdAt"]),
             "updated_at": str(item["updatedAt"]),
             "_revision": int(item["revision"]),
         }
+
+
+def service_connection_name(display_name: str, connector_key: str) -> str:
+    """Map the UI label to Connection Service's bounded identifier format."""
+
+    normalized = re.sub(r"[^A-Za-z0-9_-]+", "-", display_name.strip()).strip("-_")
+    normalized = normalized[:64].rstrip("-_")
+    if normalized and normalized[0].isalnum():
+        return normalized
+    fallback = re.sub(r"[^A-Za-z0-9_-]+", "-", connector_key).strip("-_")
+    return (fallback[:64].rstrip("-_") or "connection")
