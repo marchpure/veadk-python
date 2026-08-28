@@ -1,6 +1,6 @@
 # Knowledge Workspace Assistant UX verification
 
-Status: implementation complete; real-live acceptance remains blocked.
+Status: frozen after real official AutoSkill, MCP, BFF recovery, and browser acceptance.
 
 ## Requirement matrix
 
@@ -11,9 +11,10 @@ Status: implementation complete; real-live acceptance remains blocked.
 | Durable multi-turn restore and event deduplication | route, reducer, and component tests | Pass |
 | Cancel, retry, reconnect, and numeric `Last-Event-ID` | service, client, and reducer tests | Pass |
 | Markdown final answer with raw HTML disabled | component contract and production build | Pass |
-| Desktop 1440×900 and mobile 390×844 layout | screenshots below | Pass with contract fixtures |
-| Real official AutoSkill lifecycle | `tools/autoskill_real_smoke.py` | Blocked: update stream stopped producing events |
-| Real MCP Action/Observation and browser refresh/reconnect | prior integration evidence | Blocked: official agent did not select the configured MCP tool |
+| Desktop 1440×900 and mobile 390×844 layout | real screenshots below | Pass |
+| Real official AutoSkill lifecycle | `real-autoskill-mcp.json` | Pass: create, invoke, and update; Turns 1–22 |
+| Real MCP Action/Observation | matching Connection Service audit in `real-autoskill-mcp.json` | Pass: `hackernews.get_max_item_id`, `ok: true` |
+| Real browser Markdown, refresh, reconnect, and dedupe | `real-browser-e2e.json` | Pass |
 
 ## AutoSkill ChatPanel comparison
 
@@ -35,33 +36,54 @@ completed timelines, and stricter browser-safe redaction.
 
 ## Visual evidence
 
+- `evidence/assistant-ux/assistant-real-desktop-1440x900.png`
+  (`450e076584a929c809e46e38cb6639bc4dd6db9b3cf2ebb1fcc24dd782b8a44f`)
+- `evidence/assistant-ux/assistant-real-mobile-390x844.png`
+  (`35d53f953285691fc96a332685d6592e894240df69ccedee81bc9b2bcb6dd43a`)
 - `evidence/assistant-ux/assistant-desktop-1440x900.png`
   (`066102e6be045fd9125eda3326df0875c3386c6360ab027357381de0504371c7`)
 - `evidence/assistant-ux/assistant-mobile-390x844.png`
   (`8eaa67ba0250bbfecbeb9af100d4469b33068e1a410056928dceaba2fd97b7c2`)
 
-These screenshots use contract fixtures and are not represented as real
-AutoSkill evidence.
+The `assistant-real-*` screenshots use the official AutoSkill endpoint through
+the real BFF. The two screenshots without `real` in their names remain
+deterministic contract-fixture regression evidence.
 
-## Real-live status
+## Real-live acceptance
 
 The official endpoint
 `https://test-bytebrain.byted.org/openapi/autoskill/v1/health` returned
-`{"status":"ok","state_mode":"stateful"}` on 2026-08-28. A fresh lifecycle run
-advanced through create, list, view, and invoke, then produced no terminal
-event for the update stream and was stopped after eight minutes. Since the
-runner only emits its redacted JSON report after the complete lifecycle, this
-partial run is not counted as acceptance evidence.
+`{"status":"ok","state_mode":"stateful"}` on 2026-08-28.
 
-The exact Connection Service configuration is not present in the current
-environment, port 3417 has no listener, and no public runtime tunnel is active.
-Earlier real attempts are recorded in:
+`real-autoskill-mcp.json` records a sanitized real lifecycle. Create ran for
+Turns 1–8, invoke ran for Turns 9–17, and update ran for Turns 18–22. Each
+stage produced semantic Action/Observation events and a terminal Markdown
+answer. The invoke request has a matching Connection Service audit for
+`hackernews.get_max_item_id` with `ok: true`. The HTML artifact was validated,
+and the differing pre/post Skill ZIP hashes prove the update persisted.
 
-- `evidence/step2-existing-replay-final.json`
-- `evidence/step2-cross-session-final.json`
-- `checkpoints/integration.json`
+`real-browser-e2e.json` records a separate real BFF/browser acceptance run.
+A transparent test proxy forwarded the real SSE bytes and closed the first
+downstream stream after three complete event frames. The UI exposed
+“继续接收”, then reconnected with numeric `Last-Event-ID: 2`. The real stream
+contained 15 browser-safe events, including two upstream Turns, five activity
+starts, three completions, and one final answer. The completed conversation had
+one user turn and seven rendered activities both before and after navigation.
+Before restoring, the test cleared localStorage and sessionStorage;
+the final Markdown heading/list/table and full activity history were restored
+from the BFF without duplicates. No response, event, or result was synthesized.
 
-Those attempts reached the official stateful service but did not yield a
-matching real Connection audit because the agent did not select the configured
-MCP tool. No fixture or forced prompt is substituted for this gate. Therefore
-`KNOWLEDGE_ASSISTANT_UX_FROZEN` is intentionally not declared.
+Raw identifiers, credentials, lease material, internal runtime URLs, and raw
+tool payloads are excluded from committed evidence.
+
+## Final verification
+
+- Backend: 118 tests passed.
+- Frontend: 862 tests passed.
+- TypeScript: `tsc --noEmit` passed.
+- Production bundles: Studio and website integration builds passed; only the
+  repository's existing chunk-size warnings remain.
+- Contract: `tools/validate_knowledge_workspace.py` passed.
+- Quality gates: Ruff check/format and Gitleaks passed.
+
+KNOWLEDGE_ASSISTANT_UX_FROZEN

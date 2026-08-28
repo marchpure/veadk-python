@@ -20,10 +20,12 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import sys
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -45,7 +47,6 @@ from frontend.server.knowledge_workspace.html_artifact import (
 )
 from frontend.server.knowledge_workspace.sse import ParsedUpstreamEvent
 from frontend.server.knowledge_workspace.zip_validator import validate_skill_zip
-
 
 ACTOR = {
     "tenant_id": "knowledge-step2-smoke",
@@ -223,6 +224,23 @@ async def invoke_with_connection_audit(
     last_error: RuntimeError | None = None
     for attempt in range(1, attempts + 1):
         invocation_id = str(uuid.uuid4())
+
+        def invoke(
+            request_id: str = invocation_id,
+            attempt_number: int = attempt,
+        ) -> Any:
+            return autoskill.invoke(
+                agent_id=agent_id,
+                session_id=session_id,
+                request_id=request_id,
+                message=(
+                    f"Use the shared `{skill_name}` now. This is live-data attempt "
+                    f"{attempt_number}: first call the configured MCP tool `{tool_name}` "
+                    "and use its returned max_item_id before writing "
+                    "output_files/hackernews-live.html. Never reuse a prior value."
+                ),
+            )
+
         events, summary = await run_with_connection(
             gateway,
             autoskill,
@@ -230,17 +248,7 @@ async def invoke_with_connection_audit(
             agent_id=agent_id,
             session_id=session_id,
             invocation_id=invocation_id,
-            stream=lambda: autoskill.invoke(
-                agent_id=agent_id,
-                session_id=session_id,
-                request_id=invocation_id,
-                message=(
-                    f"Use the shared `{skill_name}` now. This is live-data attempt "
-                    f"{attempt}: first call the configured MCP tool `{tool_name}` "
-                    "and use its returned max_item_id before writing "
-                    "output_files/hackernews-live.html. Never reuse a prior value."
-                ),
-            ),
+            stream=invoke,
         )
         try:
             audit = await audit_for(gateway, invocation_id)
@@ -279,9 +287,32 @@ def request_evidence(
     }
 
 
+def persist_progress(
+    evidence_path: Path | None,
+    result: Mapping[str, Any],
+    *,
+    resume_path: Path | None = None,
+    resume: Mapping[str, Any] | None = None,
+) -> None:
+    """Persist browser-safe evidence and optional local-only resume identifiers."""
+
+    if evidence_path is not None:
+        evidence_path.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    if resume_path is not None and resume is not None:
+        resume_path.write_text(
+            json.dumps(resume, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(resume_path, 0o600)
+
+
 async def main(
     evidence_path: Path | None,
     *,
+    resume_path: Path | None = None,
     existing_agent_id: str | None = None,
     existing_skill_name: str | None = None,
     existing_connection_id: str | None = None,
@@ -309,7 +340,9 @@ async def main(
         session_id = str(uuid.uuid4())
         cross_session_id = str(uuid.uuid4())
         connection_name = f"hackernews-smoke-{uuid.uuid4().hex[:8]}"
-        skill_name = existing_skill_name or f"hackernews-live-dashboard-{uuid.uuid4().hex[:8]}"
+        skill_name = (
+            existing_skill_name or f"hackernews-live-dashboard-{uuid.uuid4().hex[:8]}"
+        )
         result.update(
             {
                 "autoskill_base_url": autoskill_config.base_url,
@@ -326,6 +359,13 @@ async def main(
                 "requests": [],
             }
         )
+        resume = {
+            "agent_id": agent_id,
+            "connection_id": existing_connection_id,
+            "session_id": session_id,
+            "skill_name": skill_name,
+        }
+        persist_progress(evidence_path, result, resume_path=resume_path, resume=resume)
 
         health = await autoskill.health()
         models = await autoskill.models()
@@ -348,7 +388,9 @@ async def main(
             None,
         )
         if hackernews is None:
-            raise RuntimeError("Hacker News is not enabled in Connection Service catalog")
+            raise RuntimeError(
+                "Hacker News is not enabled in Connection Service catalog"
+            )
         if not hackernews["config_schema"] or not hackernews["auth_schema"]:
             raise RuntimeError("Connection Service omitted provider-owned schemas")
         if existing_connection_id:
@@ -370,6 +412,8 @@ async def main(
                 **ACTOR,
             )
             connection_id = connection["connection_id"]
+        resume["connection_id"] = connection_id
+        persist_progress(evidence_path, result, resume_path=resume_path, resume=resume)
         tool_name = f"{connection_id[:12]}__hackernews.get_max_item_id"
         result["connection_id"] = redacted(connection_id)
         if not cross_session_only:
@@ -404,17 +448,20 @@ async def main(
             }
 
         if cross_session_only:
-            cross_id, cross_events, cross_summary, cross_audit = (
-                await invoke_with_connection_audit(
-                    gateway,
-                    autoskill,
-                    connection_id=connection_id,
-                    agent_id=agent_id,
-                    session_id=cross_session_id,
-                    skill_name=skill_name,
-                    tool_name=tool_name,
-                    kind="cross-session invoke",
-                )
+            (
+                cross_id,
+                cross_events,
+                cross_summary,
+                cross_audit,
+            ) = await invoke_with_connection_audit(
+                gateway,
+                autoskill,
+                connection_id=connection_id,
+                agent_id=agent_id,
+                session_id=cross_session_id,
+                skill_name=skill_name,
+                tool_name=tool_name,
+                kind="cross-session invoke",
             )
             result["requests"].append(
                 request_evidence(
@@ -471,7 +518,9 @@ async def main(
                 ),
             )
             result["requests"].append(
-                request_evidence("create_skill", create_id, create_events, create_summary)
+                request_evidence(
+                    "create_skill", create_id, create_events, create_summary
+                )
             )
             created_names = [
                 str(value)
@@ -480,6 +529,10 @@ async def main(
             ]
             if created_names:
                 skill_name = created_names[0]
+            resume["skill_name"] = skill_name
+            persist_progress(
+                evidence_path, result, resume_path=resume_path, resume=resume
+            )
 
         list_id = str(uuid.uuid4())
         list_events, list_summary = await collect(
@@ -493,11 +546,10 @@ async def main(
         result["requests"].append(
             request_evidence("list_skill", list_id, list_events, list_summary)
         )
+        persist_progress(evidence_path, result, resume_path=resume_path, resume=resume)
         listed = final_answer_data(list_events).get("skills", [])
         if skill_name not in {
-            str(item.get("name"))
-            for item in listed
-            if isinstance(item, Mapping)
+            str(item.get("name")) for item in listed if isinstance(item, Mapping)
         }:
             raise RuntimeError("created Skill was not returned by list_skill")
 
@@ -514,6 +566,7 @@ async def main(
         result["requests"].append(
             request_evidence("view_skill", view_id, view_events, view_summary)
         )
+        persist_progress(evidence_path, result, resume_path=resume_path, resume=resume)
         first_zip = validate_skill_zip(
             await autoskill.download(
                 agent_id=agent_id,
@@ -526,17 +579,20 @@ async def main(
             key: value for key, value in first_zip.items() if key != "skill_md"
         }
 
-        invoke_id, invoke_events, invoke_summary, invoke_audit = (
-            await invoke_with_connection_audit(
-                gateway,
-                autoskill,
-                connection_id=connection_id,
-                agent_id=agent_id,
-                session_id=session_id,
-                skill_name=skill_name,
-                tool_name=tool_name,
-                kind="invoke",
-            )
+        (
+            invoke_id,
+            invoke_events,
+            invoke_summary,
+            invoke_audit,
+        ) = await invoke_with_connection_audit(
+            gateway,
+            autoskill,
+            connection_id=connection_id,
+            agent_id=agent_id,
+            session_id=session_id,
+            skill_name=skill_name,
+            tool_name=tool_name,
+            kind="invoke",
         )
         result["requests"].append(
             request_evidence(
@@ -555,6 +611,7 @@ async def main(
             )
         )
         result["html_first"] = first_html
+        persist_progress(evidence_path, result, resume_path=resume_path, resume=resume)
 
         update_id = str(uuid.uuid4())
         update_events, update_summary = await run_with_connection(
@@ -577,9 +634,7 @@ async def main(
             ),
         )
         result["requests"].append(
-            request_evidence(
-                "update_skill", update_id, update_events, update_summary
-            )
+            request_evidence("update_skill", update_id, update_events, update_summary)
         )
         second_zip = validate_skill_zip(
             await autoskill.download(
@@ -594,18 +649,22 @@ async def main(
         result["skill_zip_after"] = {
             key: value for key, value in second_zip.items() if key != "skill_md"
         }
+        persist_progress(evidence_path, result, resume_path=resume_path, resume=resume)
 
-        cross_id, cross_events, cross_summary, cross_audit = (
-            await invoke_with_connection_audit(
-                gateway,
-                autoskill,
-                connection_id=connection_id,
-                agent_id=agent_id,
-                session_id=cross_session_id,
-                skill_name=skill_name,
-                tool_name=tool_name,
-                kind="cross-session invoke",
-            )
+        (
+            cross_id,
+            cross_events,
+            cross_summary,
+            cross_audit,
+        ) = await invoke_with_connection_audit(
+            gateway,
+            autoskill,
+            connection_id=connection_id,
+            agent_id=agent_id,
+            session_id=cross_session_id,
+            skill_name=skill_name,
+            tool_name=tool_name,
+            kind="cross-session invoke",
         )
         result["requests"].append(
             request_evidence(
@@ -652,8 +711,9 @@ async def main(
         return_code = 0
 
     rendered = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)
-    if evidence_path is not None:
-        evidence_path.write_text(rendered + "\n", encoding="utf-8")
+    persist_progress(
+        evidence_path, result, resume_path=resume_path, resume=locals().get("resume")
+    )
     print(rendered)
     return return_code
 
@@ -661,6 +721,7 @@ async def main(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--evidence", type=Path)
+    parser.add_argument("--resume-file", type=Path)
     parser.add_argument("--existing-agent-id")
     parser.add_argument("--existing-skill-name")
     parser.add_argument("--existing-connection-id")
@@ -670,6 +731,7 @@ if __name__ == "__main__":
         asyncio.run(
             main(
                 args.evidence,
+                resume_path=args.resume_file,
                 existing_agent_id=args.existing_agent_id,
                 existing_skill_name=args.existing_skill_name,
                 existing_connection_id=args.existing_connection_id,

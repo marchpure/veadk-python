@@ -1,0 +1,76 @@
+{
+  "status": "PASS",
+  "recorded_at": "2026-08-28",
+  "official_autoskill": {
+    "environment": "official test service",
+    "health": {
+      "status": "ok",
+      "state_mode": "stateful"
+    }
+  },
+  "lifecycle": {
+    "create_skill": {
+      "status": "succeeded",
+      "turns": "1-8",
+      "semantic_events": [
+        "turn",
+        "planning",
+        "action",
+        "observation",
+        "final_answer",
+        "state_update",
+        "request_summary",
+        "done"
+      ]
+    },
+    "invoke": {
+      "status": "succeeded",
+      "turns": "9-17",
+      "semantic_events": [
+        "turn",
+        "planning",
+        "action",
+        "observation",
+        "final_answer",
+        "state_update",
+        "request_summary",
+        "done"
+      ],
+      "matching_connection_audit": {
+        "action_id": "hackernews.get_max_item_id",
+        "ok": true
+      }
+    },
+    "update_skill": {
+      "status": "succeeded",
+      "turns": "18-22",
+      "semantic_events": [
+        "turn",
+        "planning",
+        "action",
+        "observation",
+        "final_answer",
+        "state_update",
+        "request_summary",
+        "done"
+      ]
+    }
+  },
+  "artifact": {
+    "name": "output_files/hackernews-live.html",
+    "media_type": "text/html",
+    "size_bytes": 2160,
+    "content_sha256": "160cda3210d0cbd71e7d7a0351240c4926432b1ccc4675f6a16367d4851dfbf3"
+  },
+  "skill_persistence": {
+    "before_sha256": "878a05fdbd6759bdb2a5ebc7388839a018721e7a80ee512ff38e2b1a1c5112dc",
+    "after_sha256": "f547dfff41f5e5893ba529bc0749ad78584871c3de56880bbb686541e85e3734",
+    "changed": true
+  },
+  "privacy": {
+    "raw_identifiers_included": false,
+    "credentials_included": false,
+    "lease_data_included": false,
+    "raw_tool_payloads_included": false
+  }
+}

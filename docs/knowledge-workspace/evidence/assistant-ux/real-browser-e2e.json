@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "official_autoskill": true,
+  "real_bff": true,
+  "viewport": [
+    "1440x900",
+    "390x844"
+  ],
+  "disconnect": {
+    "observed": true,
+    "forced_after_event_frames": 3,
+    "reconnect_last_event_id": "2"
+  },
+  "deduplication": {
+    "activities_before_reload": 7,
+    "activities_after_reload": 7,
+    "turns_before_reload": 1,
+    "turns_after_reload": 1
+  },
+  "semantic_sse": {
+    "event_count": 15,
+    "event_types": [
+      "run.started",
+      "turn.started",
+      "activity.started",
+      "activity.completed",
+      "assistant.final",
+      "state.updated",
+      "request.summary",
+      "run.completed"
+    ],
+    "upstream_turns": 2,
+    "activity_started": 5,
+    "activity_completed": 3,
+    "final_answers": 1
+  },
+  "durable_refresh_restore": true,
+  "browser_storage_cleared_before_restore": true,
+  "markdown_final": true,
+  "screenshots": [
+    "assistant-real-desktop-1440x900.png",
+    "assistant-real-mobile-390x844.png"
+  ]
+}
