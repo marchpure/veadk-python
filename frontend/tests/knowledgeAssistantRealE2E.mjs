@@ -179,13 +179,17 @@ try {
     assistantText: (await restoredTurn.locator(".kw-assistant-message").innerText()).trim(),
   };
   assert.deepEqual(afterReload, beforeReload);
-  const conversationSummary = await page.evaluate(async (id) => {
+  const conversationSummary = await page.evaluate(async ({ id, invocationId }) => {
     const response = await fetch(
       `/api/knowledge/v1/skills/drafts/${encodeURIComponent(id)}/conversation`,
     );
     assertResponse(response);
     const payload = await response.json();
-    const events = payload.data.flatMap((entry) => entry.events);
+    const current = payload.data.find(
+      (entry) => entry.invocation.invocation_id === invocationId,
+    );
+    if (!current) throw new Error("current invocation missing from conversation");
+    const events = current.events;
     const types = events.map((event) => event.type).filter(Boolean);
     return {
       event_count: events.length,
@@ -199,7 +203,7 @@ try {
     function assertResponse(response) {
       if (!response.ok) throw new Error(`conversation returned HTTP ${response.status}`);
     }
-  }, draftId);
+  }, { id: draftId, invocationId });
   assert.ok(conversationSummary.upstream_turns >= 2);
   assert.equal(conversationSummary.final_answers, 1);
 

@@ -41,6 +41,7 @@ class FakeAutoSkill:
         self.events = tuple(events)
         self.stops: list[str] = []
         self.uploads: list[dict[str, object]] = []
+        self.request_ids: list[str] = []
         self.output = b"<!doctype html><html><body>real output</body></html>"
         self.skill_zip = make_skill_zip("demo", "# Demo\n")
 
@@ -52,12 +53,14 @@ class FakeAutoSkill:
         return self.output if kwargs["file_type"] == "output" else self.skill_zip
 
     async def command(
-        self, *_args: object, **_kwargs: object
+        self, *_args: object, **kwargs: object
     ) -> AsyncIterator[ParsedUpstreamEvent]:
+        self.request_ids.append(str(kwargs["request_id"]))
         for item in self.events:
             yield item
 
-    async def invoke(self, **_kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+        self.request_ids.append(str(kwargs["request_id"]))
         for item in self.events:
             yield item
 
@@ -80,6 +83,7 @@ def make_skill_zip(name: str, content: str) -> bytes:
 class FakeLeasePort:
     def __init__(self) -> None:
         self.issued: list[dict[str, object]] = []
+        self.prepared: list[dict[str, object]] = []
         self.revoked: list[str] = []
 
     async def issue(self, **kwargs: object) -> EphemeralConnectionContext:
@@ -96,6 +100,9 @@ class FakeLeasePort:
 
     async def revoke(self, lease_id: str) -> None:
         self.revoked.append(lease_id)
+
+    async def prepare_autoskill(self, **kwargs: object) -> None:
+        self.prepared.append(kwargs)
 
 
 class FakePublicationRegistry:
@@ -354,9 +361,9 @@ async def test_freeze_archives_unknown_query_progress_without_killing_success() 
 
     assert revision.skill_name == "demo"
     raw = service.repository.raw_events(invocation.invocation_id)
-    assert sum(
-        item["raw"].get("type") == "future_provider_progress" for item in raw
-    ) == 2
+    assert (
+        sum(item["raw"].get("type") == "future_provider_progress" for item in raw) == 2
+    )
 
 
 @pytest.mark.asyncio
@@ -377,7 +384,7 @@ async def test_freeze_persists_distinct_query_request_ids() -> None:
 
 
 @pytest.mark.asyncio
-async def test_invocation_issues_invocation_bound_lease_and_revokes_it() -> None:
+async def test_invocation_uses_autoskill_request_id_for_connection_runtime() -> None:
     service, actor, lease = make_service(
         [
             event("final_answer", {"answer": "created"}),
@@ -395,9 +402,11 @@ async def test_invocation_issues_invocation_bound_lease_and_revokes_it() -> None
     )
     assert saved is not None
     assert saved.status is InvocationStatus.SUCCEEDED
-    assert lease.issued[0]["invocation_id"] == invocation.invocation_id
+    assert lease.issued[0]["invocation_id"] == saved.autoskill_request_id
     assert lease.issued[0]["connection_ids"] == ("connection-a",)
-    assert lease.revoked == [f"lease-{invocation.invocation_id}"]
+    assert lease.prepared[0]["invocation_id"] == saved.autoskill_request_id
+    assert service.autoskill.request_ids == [saved.autoskill_request_id]
+    assert lease.revoked == [f"lease-{saved.autoskill_request_id}"]
 
 
 @pytest.mark.asyncio
@@ -584,7 +593,7 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
     assert autoskill.reconnects == 1
     assert lease.revoked == [
         "lease-before-restart",
-        f"lease-{invocation.invocation_id}",
+        f"lease-{invocation.autoskill_request_id}",
     ]
     assert len(lease.issued) == 1
 

@@ -1,5 +1,8 @@
 {
   "status": "PASS",
+  "scope": "browser_acceptance_only",
+  "external_blocker": "OFFICIAL_AUTOSKILL_FRESH_SESSION_TOOL_SELECTION_NONDETERMINISTIC",
+  "same_invocation_mcp_audit": false,
   "official_autoskill": true,
   "real_bff": true,
   "viewport": [
@@ -12,13 +15,13 @@
     "reconnect_last_event_id": "2"
   },
   "deduplication": {
-    "activities_before_reload": 7,
-    "activities_after_reload": 7,
-    "turns_before_reload": 1,
-    "turns_after_reload": 1
+    "activities_before_reload": 18,
+    "activities_after_reload": 18,
+    "turns_before_reload": 4,
+    "turns_after_reload": 4
   },
   "semantic_sse": {
-    "event_count": 15,
+    "event_count": 31,
     "event_types": [
       "run.started",
       "turn.started",
@@ -29,9 +32,9 @@
       "request.summary",
       "run.completed"
     ],
-    "upstream_turns": 2,
-    "activity_started": 5,
-    "activity_completed": 3,
+    "upstream_turns": 5,
+    "activity_started": 13,
+    "activity_completed": 8,
     "final_answers": 1
   },
   "durable_refresh_restore": true,

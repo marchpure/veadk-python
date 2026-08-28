@@ -114,9 +114,7 @@ class KnowledgeWorkspaceService:
                 "invocation": self.public_invocation(invocation),
                 "events": [
                     item["event"]
-                    for item in self.repository.events_after(
-                        invocation.invocation_id
-                    )
+                    for item in self.repository.events_after(invocation.invocation_id)
                 ],
             }
             for invocation in self.repository.invocations_for_draft(
@@ -617,7 +615,7 @@ class KnowledgeWorkspaceService:
                     tenant_id=actor.tenant_id,
                     workspace_id=actor.workspace_id,
                     principal_id=actor.principal_id,
-                    invocation_id=invocation.invocation_id,
+                    invocation_id=invocation.autoskill_request_id,
                     connection_ids=invocation.connection_ids,
                     allowed_actions=allowed_actions,
                     ttl_seconds=1800,
@@ -634,7 +632,7 @@ class KnowledgeWorkspaceService:
                         autoskill=self.autoskill,
                         agent_id=invocation.autoskill_agent_id,
                         session_id=invocation.autoskill_session_id,
-                        invocation_id=invocation.invocation_id,
+                        invocation_id=invocation.autoskill_request_id,
                     )
             if invocation.invocation_id in self._cancelled:
                 cancelled = current.model_copy(

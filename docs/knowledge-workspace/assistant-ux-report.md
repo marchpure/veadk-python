@@ -1,6 +1,8 @@
 # Knowledge Workspace Assistant UX verification
 
-Status: frozen after real official AutoSkill, MCP, BFF recovery, and browser acceptance.
+Status: frozen with an external AutoSkill blocker. The implementation and
+browser acceptance are complete; fresh-session MCP tool selection in the
+official AutoSkill service remains nondeterministic.
 
 ## Requirement matrix
 
@@ -15,6 +17,7 @@ Status: frozen after real official AutoSkill, MCP, BFF recovery, and browser acc
 | Real official AutoSkill lifecycle | `real-autoskill-mcp.json` | Pass: create, invoke, and update; Turns 1–22 |
 | Real MCP Action/Observation | matching Connection Service audit in `real-autoskill-mcp.json` | Pass: `hackernews.get_max_item_id`, `ok: true` |
 | Real browser Markdown, refresh, reconnect, and dedupe | `real-browser-e2e.json` | Pass |
+| Same invocation satisfies both rows above | External blocker | `OFFICIAL_AUTOSKILL_FRESH_SESSION_TOOL_SELECTION_NONDETERMINISTIC` |
 
 ## AutoSkill ChatPanel comparison
 
@@ -37,9 +40,9 @@ completed timelines, and stricter browser-safe redaction.
 ## Visual evidence
 
 - `evidence/assistant-ux/assistant-real-desktop-1440x900.png`
-  (`450e076584a929c809e46e38cb6639bc4dd6db9b3cf2ebb1fcc24dd782b8a44f`)
+  (`522eb7089a357cee65e0e101cb71d40df0ebe6200225c1184705c26421dec4d7`)
 - `evidence/assistant-ux/assistant-real-mobile-390x844.png`
-  (`35d53f953285691fc96a332685d6592e894240df69ccedee81bc9b2bcb6dd43a`)
+  (`7552732cb6b15bfd6c9da4373652a7f2d0fa0e73688b73bcab3699554a350d3c`)
 - `evidence/assistant-ux/assistant-desktop-1440x900.png`
   (`066102e6be045fd9125eda3326df0875c3386c6360ab027357381de0504371c7`)
 - `evidence/assistant-ux/assistant-mobile-390x844.png`
@@ -76,9 +79,18 @@ from the BFF without duplicates. No response, event, or result was synthesized.
 Raw identifiers, credentials, lease material, internal runtime URLs, and raw
 tool payloads are excluded from committed evidence.
 
+The two successful evidence files refer to different AutoSkill invocations and
+are not combined into a false same-invocation pass. A fresh official run
+confirmed that the BFF bound the Connection lease and MCP URL to the same
+AutoSkill request ID, but that official AutoSkill invocation did not expose the
+configured MCP tool and produced no matching Connection action audit. This is
+recorded as
+`OFFICIAL_AUTOSKILL_FRESH_SESSION_TOOL_SELECTION_NONDETERMINISTIC`; it is an
+external service blocker rather than a continuing blocker for this branch.
+
 ## Final verification
 
-- Backend: 118 tests passed.
+- Backend: 66 Knowledge Workspace tests passed.
 - Frontend: 862 tests passed.
 - TypeScript: `tsc --noEmit` passed.
 - Production bundles: Studio and website integration builds passed; only the
@@ -86,4 +98,4 @@ tool payloads are excluded from committed evidence.
 - Contract: `tools/validate_knowledge_workspace.py` passed.
 - Quality gates: Ruff check/format and Gitleaks passed.
 
-KNOWLEDGE_ASSISTANT_UX_FROZEN
+ASSISTANT_UX_FROZEN_WITH_EXTERNAL_AUTOSKILL_BLOCKER
