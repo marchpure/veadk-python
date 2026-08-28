@@ -99,3 +99,16 @@ test("similarly named non-deep-link fields are still forwarded", async () => {
   assert.equal(request.searchParams.get("sessionId"), "auth-session");
   assert.deepEqual(replacements, ["/#result"]);
 });
+
+test("keeps the Knowledge Workspace view on the address bar", async () => {
+  const local = new URLSearchParams({
+    view: "knowledge-workspace",
+    file: "welcome",
+  });
+  const { auth, replacements } = await loadAuth(`?token=secret&${local}`);
+
+  const request = new URL(auth.withAuth("/api/knowledge/v1/connector-definitions"), "https://studio.example.com");
+
+  assert.equal(request.searchParams.get("token"), "secret");
+  assert.deepEqual(replacements, [`/?${local}#result`]);
+});

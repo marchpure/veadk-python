@@ -16,6 +16,7 @@ const LOCAL_QUERY_KEYS = new Set([
   "versionId",
 ]);
 const KNOWLEDGE_WORKSPACE_QUERY_KEYS = new Set([
+  "view",
   "file",
   "draftId",
   "connectionId",
