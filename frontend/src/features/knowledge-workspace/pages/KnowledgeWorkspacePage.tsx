@@ -1339,6 +1339,16 @@ function WorkspaceResourceDetail({
       (tool): tool is JsonObject => Boolean(tool) && typeof tool === "object" && !Array.isArray(tool),
     )
     : [];
+  const oracleSchemas = resource.kind === "oracle_database"
+    && discoveryObject
+    && Array.isArray(discoveryObject.schemas)
+    ? discoveryObject.schemas.map(String)
+    : [];
+  const oracleTables = resource.kind === "oracle_database"
+    && discoveryObject
+    && Array.isArray(discoveryObject.tables)
+    ? discoveryObject.tables.map(String)
+    : [];
   const definitionId = typeof metadata.definition_id === "string" ? metadata.definition_id : "";
   return (
     <section className="kw-detail">
@@ -1358,6 +1368,13 @@ function WorkspaceResourceDetail({
           <div className="kw-resource-preview" data-testid="resource-preview">
             <strong>真实文件预览</strong>
             {preview ? <pre className="kw-safe-profile">{JSON.stringify(preview, null, 2)}</pre> : <span>正在读取预览…</span>}
+          </div>
+        ) : null}
+        {resource.kind === "oracle_database" ? (
+          <div className="kw-oracle-discovery" data-testid="oracle-resource-discovery">
+            <strong>真实 Oracle Schema / Table discovery</strong>
+            <div><span>Schemas</span><b>{oracleSchemas.length ? oracleSchemas.join("、") : "由服务返回为空"}</b></div>
+            <div><span>Tables</span><b>{oracleTables.length ? oracleTables.join("、") : "由服务返回为空"}</b></div>
           </div>
         ) : null}
         {resource.kind === "mcp" && tools.length ? (

@@ -44,6 +44,8 @@ test("specialized adapters use real capability routes and durable resources", ()
   assert.match(page, /tableDiscovery/);
   assert.match(page, /selectedSchema/);
   assert.match(page, /schemas|tables/);
+  assert.match(page, /oracle-resource-discovery/);
+  assert.match(page, /真实 Oracle Schema \/ Table discovery/);
   assert.match(page, /knowledgeApi\.listResources/);
   assert.match(page, /WorkspaceResourceDetail/);
   assert.match(page, /加入 Skill 上下文/);
