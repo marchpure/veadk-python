@@ -551,10 +551,10 @@
         "overlay_covers_center": false,
         "chat_width": 0,
         "modal_geometry": {
-          "left": 736,
-          "top": 346,
-          "width": 448,
-          "height": 389
+          "left": 1536,
+          "top": 0,
+          "width": 384,
+          "height": 1080
         },
         "evidence_key": "versions",
         "evidence": [
@@ -563,9 +563,9 @@
         ]
       },
       "pixels": 2073600,
-      "differing_pixels": 2037555,
-      "differing_ratio": 0.9826171875,
-      "mean_absolute_rgb_delta": 83.15059059927984
+      "differing_pixels": 2060247,
+      "differing_ratio": 0.993560474537037,
+      "mean_absolute_rgb_delta": 73.37728587962962
     },
     {
       "index": 17,
@@ -597,7 +597,7 @@
       "pixels": 2073600,
       "differing_pixels": 231013,
       "differing_ratio": 0.11140673225308642,
-      "mean_absolute_rgb_delta": 2.715029256687243
+      "mean_absolute_rgb_delta": 2.715027327674897
     },
     {
       "index": 18,

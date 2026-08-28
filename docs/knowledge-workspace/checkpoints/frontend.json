@@ -6,7 +6,7 @@
   "parent_bootstrap_sha": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
   "bootstrap_recorded_base_sha": "bae782f87dd046d03a3daa0773c6cc611f981697",
   "bootstrap_sha_note": "bootstrap.json records base_sha bae782f8; the actual STEP 1 contract commit checked out and used as this worktree parent is f8fffc64.",
-  "implementation_commit": "281855e2c32dad54745e57bf6c647bd023fcb3bf",
+  "implementation_commit": "2e06b107d7de3caa1d833f246136b37c63d3fc17",
   "remote": {
     "name": "marchpure",
     "url": "git@github.com:marchpure/veadk-python.git",
@@ -67,7 +67,7 @@
       "docs/knowledge-workspace/evidence/knowledge-workspace-desktop.png",
       "docs/knowledge-workspace/evidence/knowledge-workspace-narrow.png"
     ],
-    "visual_regression_note": "Fresh 22-state RGBA/RGB comparison and DOM render-gate completed against independently downloaded SHA-verified v2.20.8.3 Prototype references under a test-only BFF fixture with route-correct draftId injection; all 22 captures are 1920x1080 with no dimension mismatch, no 100% diff, and all state evidence true. The harness asserts welcome cards, draft center, 380px desktop chat rail, skill-new form/connection/upload structure, one visible dialog for every modal URL, centered 448px versions modal geometry, and draft-center-relative inset coverage for permission/connection-error overlays. Raw differing-pixel ratios remain a font-rasterization/reference risk signal. Latest ratios: welcome 32.816%, draft 11.136%, success 15.625%, permission 42.628%, published agent modal 95.228%, skill_new 12.130%. Published modal reference PNGs are shell-only; hosted-route verification is recorded in evidence/prototype-published-modal-route-check.json, while the exported source requires real modal surfaces. The implementation retains real interactive Agent, Share, Instructions, and centered Versions modal states. Final desktop/narrow E2E exercised all four published modal routes plus the real draft task-run path. Exact per-state metrics are recorded in capture-report.md and report.json.",
+    "visual_regression_note": "Fresh 22-state RGBA/RGB comparison and DOM render-gate completed after auditing the SHA-verified v2.20.8.3 Prototype source and restoring VersionHistoryModal to the source-defined right-docked 384px full-height Drawer. All 22 captures are 1920x1080 with no dimension mismatch, no 100% diff, and all state evidence true. The harness asserts welcome cards, draft center, 380px desktop chat rail, skill-new form/connection/upload structure, one visible dialog for every modal URL, right-docked 384px full-height versions Drawer geometry, and draft-center-relative inset coverage for permission/connection-error overlays. Raw differing-pixel ratios remain a font-rasterization/reference risk signal. Latest ratios: welcome 32.816%, draft 11.136%, success 15.625%, permission 42.628%, published agent modal 95.228%, skill_new 12.130%, versions 99.356%. Published modal reference PNGs are shell-only; hosted-route verification is recorded in evidence/prototype-published-modal-route-check.json, while the exported source requires real modal surfaces. The implementation retains real interactive Agent, Share, Instructions, and source-aligned Versions Drawer states. Final desktop/narrow E2E exercised all four published modal routes plus the real draft task-run path. Exact per-state metrics are recorded in capture-report.md and report.json.",
     "capture_harness": "frontend/tests/knowledgeWorkspaceCapture.mjs",
     "capture_output": "docs/knowledge-workspace/evidence/captures/report.json"
   },

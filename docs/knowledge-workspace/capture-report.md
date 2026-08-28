@@ -31,14 +31,15 @@ The differing-pixel ratio is retained as a risk signal only. It is sensitive
 to font rasterization and to the Prototype published-modal reference anomaly.
 The gate below is based on the required manual side-by-side review of page
 state, skeleton, hierarchy, component presence, geometry, overflow, and
-responsive behavior.
+responsive behavior. The report was regenerated after restoring the source
+aligned VersionHistory Drawer.
 
 Manual review and render-gate result: P0 = 0, P1 = 0. All 22 states render the intended page
 or modal rather than a URL-only placeholder. No state has an empty replacement
 page, main/right-pane overlap, clipping, or blocking overflow at the reviewed
 desktop and narrow layouts. The shared modal surfaces use the Prototype
-overlay, header/body/footer, double-column Agent layout, and centered 448px
-version modal geometry while retaining BFF-backed content.
+overlay, header/body/footer, double-column Agent layout, and right-docked
+384px full-height version Drawer geometry while retaining BFF-backed content.
 
 The harness additionally asserts welcome cards, draft center and chat rail,
 380px desktop chat geometry, skill-new form/connection/upload structure, one
@@ -73,10 +74,17 @@ surface. This conflicts with the Prototype component source and with the
 STEP 2A requirement that each URL state truly render its modal. The
 implementation therefore keeps real, interactive modal surfaces and the
 manual gate judges them against the source component structure and interaction
-requirement. `versions` is a centered `max-w-md` (448px) modal, matching the
-source `VersionHistoryModal`; it is not a right-docked drawer. Their pixel
+requirement. `versions` is a right-docked 384px full-height Drawer, matching the
+source `VersionHistoryModal`. Their pixel
 ratios are reported above and are not treated as evidence that the modal was
 omitted.
+
+The implementation geometry is source-aligned: the published Agent modal is
+896px wide, while the Versions surface is a right-docked 384px full-height
+Drawer. From the published page, the real Share Run, Instructions, and Version
+History surfaces can each be opened by their corresponding user action; direct
+URL states exercise the same mounted components. The four reference PNGs remain
+shell-only anomalies, not implementation targets.
 
 ## Per-state comparison and manual review
 
@@ -97,7 +105,7 @@ omitted.
 | 13 | `pub_dash_anta&modal=agent` | 95.228% | 70.618 | GREEN* — real 896px double-column Agent modal and BFF-backed empty state rendered |
 | 14 | `pub_dash_anta&modal=share_run` | 96.266% | 81.817 | GREEN* — real warning, snapshot action, and empty-link state rendered |
 | 15 | `pub_dash_anta&modal=instructions` | 92.350% | 75.405 | GREEN* — real BFF-backed information fields rendered |
-| 16 | `pub_dash_anta&modal=versions` | 98.262% | 73.377 | GREEN* — real centered 448px version modal, source block, and BFF-backed timeline rendered |
+| 16 | `pub_dash_anta&modal=versions` | 99.356% | 73.377 | GREEN* — real right-docked 384px full-height source-aligned Drawer, source block, and BFF-backed timeline rendered |
 | 17 | `draft_sop_bluetooth` | 11.141% | 2.715 | GREEN — draft shell and SOP state rendered |
 | 18 | `draft_sop_haidilao` | 11.072% | 2.658 | GREEN — draft shell and SOP state rendered |
 | 19 | `skill_new` | 12.130% | 3.986 | GREEN — form hierarchy, connection section, upload, and submit present |
@@ -117,6 +125,7 @@ omitted.
 | Cancel | BFF stop contract | PASS |
 | Refresh recovery | draft and revision reads after reload | PASS |
 | Versions and publish | immutable revision and publish contract | PASS |
+| Published Share Run / Instructions / Versions | real published-page click targets open the corresponding modal or Drawer | PASS |
 | Desktop E2E | 1440×900 Playwright contract fixture | PASS |
 | Narrow E2E | 390×844 Playwright contract fixture | PASS |
 
