@@ -1,0 +1,33 @@
+{
+  "prototype": "v2.20.8.3",
+  "checked_at": "2026-08-28T00:00:00Z",
+  "viewport": "1920x1080",
+  "host": "https://6a8ffe54865f07023fb84414-prototype.inspire.bytedance.net",
+  "states": [
+    {
+      "state_url": "/?file=pub_dash_anta&modal=agent",
+      "http_status": 200,
+      "visible_role_dialog_count": 0,
+      "body_prefix": "Knowledge Asset\n个人工作区\n我的 Skill\n我的连接\n团队工作区\n已发布 Skill\n团队连接与权限\n更多功能"
+    },
+    {
+      "state_url": "/?file=pub_dash_anta&modal=share_run",
+      "http_status": 200,
+      "visible_role_dialog_count": 0,
+      "body_prefix": "Knowledge Asset\n个人工作区\n我的 Skill\n我的连接\n团队工作区\n已发布 Skill\n团队连接与权限\n更多功能"
+    },
+    {
+      "state_url": "/?file=pub_dash_anta&modal=instructions",
+      "http_status": 200,
+      "visible_role_dialog_count": 0,
+      "body_prefix": "Knowledge Asset\n个人工作区\n我的 Skill\n我的连接\n团队工作区\n已发布 Skill\n团队连接与权限\n更多功能"
+    },
+    {
+      "state_url": "/?file=pub_dash_anta&modal=versions",
+      "http_status": 200,
+      "visible_role_dialog_count": 0,
+      "body_prefix": "Knowledge Asset\n个人工作区\n我的 Skill\n我的连接\n团队工作区\n已发布 Skill\n团队连接与权限\n更多功能"
+    }
+  ],
+  "interpretation": "The hosted route and the four SHA-verified capture PNGs are shell-only, while the exported Prototype source defines these modal surfaces. The implementation therefore keeps real interactive modal states."
+}

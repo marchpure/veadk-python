@@ -265,7 +265,39 @@ async function main() {
   await page.getByRole("button", { name: "返回工作台" }).waitFor();
   await page.getByRole("button", { name: "在 Agent 中使用" }).click();
   await page.getByText("暂无可绑定的 Agent").waitFor();
+  const agentModalBox = await page.locator('[data-state-modal="agent"]').boundingBox();
+  if (viewport.width >= 900) {
+    assert.ok(agentModalBox && agentModalBox.width >= 880 && agentModalBox.width <= 900, JSON.stringify(agentModalBox));
+  } else {
+    assert.ok(agentModalBox && agentModalBox.width <= viewport.width - 24, JSON.stringify(agentModalBox));
+  }
   await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
+  for (const modal of ["share_run", "instructions", "versions"]) {
+    await page.goto(`${baseURL}/?view=knowledge-workspace&file=pub_dash_anta&draftId=${draft.draft_id}&modal=${modal}`);
+    await page.locator(".kw-shell").waitFor({ state: "visible" });
+    const dialog = page.locator(`[data-state-modal="${modal}"]`);
+    await dialog.waitFor({ state: "visible" });
+    if (modal === "share_run") {
+      await page.getByText(/RunID:/).waitFor();
+      await page.getByText("暂无分享链接").waitFor();
+    } else if (modal === "instructions") {
+      await page.getByText("业务用途").waitFor();
+    } else {
+      await dialog.locator("h2").getByText("版本记录").waitFor();
+      const versionModalBox = await dialog.boundingBox();
+      if (viewport.width >= 900) {
+        assert.ok(versionModalBox && versionModalBox.width >= 440 && versionModalBox.width <= 456, JSON.stringify(versionModalBox));
+        assert.ok(
+          versionModalBox
+          && Math.abs(versionModalBox.x - (viewport.width - versionModalBox.width) / 2) <= 2,
+          JSON.stringify(versionModalBox),
+        );
+      } else {
+        assert.ok(versionModalBox && versionModalBox.width <= viewport.width - 24, JSON.stringify(versionModalBox));
+      }
+    }
+    await dialog.getByRole("button", { name: "关闭" }).click();
+  }
   await page.screenshot({ path: new URL(screenshotName, screenshotDir).pathname, fullPage: true });
   await page.getByRole("button", { name: "返回工作台" }).click();
   await page.getByRole("heading", { name: "我的 Skill" }).waitFor();

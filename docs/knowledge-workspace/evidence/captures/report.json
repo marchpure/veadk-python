@@ -22,6 +22,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": null,
         "evidence_key": "welcome",
         "evidence": [
           true
@@ -52,6 +53,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "draft",
         "evidence": [
           true,
@@ -83,6 +85,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "success",
         "evidence": [
           true,
@@ -116,6 +119,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": {
+          "left": 704,
+          "top": 289,
+          "width": 512,
+          "height": 502
+        },
         "evidence_key": "publish",
         "evidence": [
           true
@@ -146,6 +155,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "failed",
         "evidence": [
           true,
@@ -177,6 +187,7 @@
         "has_state_overlay": true,
         "overlay_covers_center": true,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "permission",
         "evidence": [
           true,
@@ -208,6 +219,7 @@
         "has_state_overlay": true,
         "overlay_covers_center": true,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "connection_error",
         "evidence": [
           true,
@@ -239,6 +251,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "upgrade",
         "evidence": [
           true,
@@ -272,6 +285,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": {
+          "left": 672,
+          "top": 369,
+          "width": 576,
+          "height": 342
+        },
         "evidence_key": "advanced",
         "evidence": [
           true,
@@ -305,6 +324,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": {
+          "left": 512,
+          "top": 420,
+          "width": 896,
+          "height": 241
+        },
         "evidence_key": "test_records",
         "evidence": [
           true
@@ -337,6 +362,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": {
+          "left": 624,
+          "top": 358,
+          "width": 672,
+          "height": 364
+        },
         "evidence_key": "tools",
         "evidence": [
           true,
@@ -368,6 +399,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": null,
         "evidence_key": "published",
         "evidence": [
           true,
@@ -401,6 +433,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": {
+          "left": 512,
+          "top": 269,
+          "width": 896,
+          "height": 542
+        },
         "evidence_key": "agent",
         "evidence": [
           true,
@@ -408,9 +446,9 @@
         ]
       },
       "pixels": 2073600,
-      "differing_pixels": 1968490,
-      "differing_ratio": 0.9493103780864197,
-      "mean_absolute_rgb_delta": 70.61844023276748
+      "differing_pixels": 1974642,
+      "differing_ratio": 0.952277199074074,
+      "mean_absolute_rgb_delta": 70.59405590920782
     },
     {
       "index": 14,
@@ -434,6 +472,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": {
+          "left": 704,
+          "top": 310,
+          "width": 512,
+          "height": 460
+        },
         "evidence_key": "share_run",
         "evidence": [
           true,
@@ -443,7 +487,7 @@
       "pixels": 2073600,
       "differing_pixels": 1996180,
       "differing_ratio": 0.9626639660493828,
-      "mean_absolute_rgb_delta": 81.81680925282922
+      "mean_absolute_rgb_delta": 81.84073768647119
     },
     {
       "index": 15,
@@ -467,6 +511,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": {
+          "left": 704,
+          "top": 180,
+          "width": 512,
+          "height": 720
+        },
         "evidence_key": "instructions",
         "evidence": [
           true,
@@ -500,6 +550,12 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": {
+          "left": 736,
+          "top": 346,
+          "width": 448,
+          "height": 389
+        },
         "evidence_key": "versions",
         "evidence": [
           true,
@@ -507,9 +563,9 @@
         ]
       },
       "pixels": 2073600,
-      "differing_pixels": 2060247,
-      "differing_ratio": 0.993560474537037,
-      "mean_absolute_rgb_delta": 73.37728587962962
+      "differing_pixels": 2037555,
+      "differing_ratio": 0.9826171875,
+      "mean_absolute_rgb_delta": 83.15059059927984
     },
     {
       "index": 17,
@@ -531,6 +587,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "sop_bluetooth",
         "evidence": [
           true,
@@ -540,7 +597,7 @@
       "pixels": 2073600,
       "differing_pixels": 231013,
       "differing_ratio": 0.11140673225308642,
-      "mean_absolute_rgb_delta": 2.715027327674897
+      "mean_absolute_rgb_delta": 2.715029256687243
     },
     {
       "index": 18,
@@ -562,6 +619,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 380,
+        "modal_geometry": null,
         "evidence_key": "sop_haidilao",
         "evidence": [
           true,
@@ -593,6 +651,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": null,
         "evidence_key": "skill_new",
         "evidence": [
           true,
@@ -624,6 +683,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": null,
         "evidence_key": "skill_new",
         "evidence": [
           true,
@@ -655,6 +715,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": null,
         "evidence_key": "skill_new",
         "evidence": [
           true,
@@ -686,6 +747,7 @@
         "has_state_overlay": false,
         "overlay_covers_center": false,
         "chat_width": 0,
+        "modal_geometry": null,
         "evidence_key": "skill_new",
         "evidence": [
           true,

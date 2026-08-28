@@ -49,7 +49,7 @@ const expectedModalState = {
   agent: { selector: '[data-state-modal="agent"]', text: "选择绑定目标 Agent" },
   share_run: { selector: '[data-state-modal="share_run"]', text: "分享本次结果" },
   instructions: { selector: '[data-state-modal="instructions"]', text: "调用说明" },
-  versions: { selector: '[data-state-modal="versions"]', text: "来源与版本历史" },
+  versions: { selector: '[data-state-modal="versions"]', text: "版本记录" },
 };
 
 const expectedStateEvidence = {
@@ -409,6 +409,10 @@ async function main() {
       const chatWidth = chat?.getBoundingClientRect().width || 0;
       const params = new URLSearchParams(stateUrl.split("?")[1] || "");
       const modal = params.get("modal");
+      const modalElement = modal
+        ? document.querySelector(expectedModalState[modal]?.selector || "")
+        : null;
+      const modalRect = modalElement?.getBoundingClientRect();
       const file = params.get("file") || "";
       const evidenceKey = modal
         || (file === "welcome" ? "welcome"
@@ -471,6 +475,14 @@ async function main() {
         has_state_overlay: Boolean(overlay),
         overlay_covers_center: overlayCoversCenter,
         chat_width: Math.round(chatWidth),
+        modal_geometry: modalRect
+          ? {
+            left: Math.round(modalRect.left),
+            top: Math.round(modalRect.top),
+            width: Math.round(modalRect.width),
+            height: Math.round(modalRect.height),
+          }
+          : null,
         evidence_key: evidenceKey,
         evidence: (expectedStateEvidence[evidenceKey] || []).map((selector) => {
           if (selector.startsWith("text=")) {
@@ -508,6 +520,11 @@ async function main() {
       assert.equal(renderCheck.dialog_count, 1, `${capture.stateUrl}: modal did not render`);
       assert.equal(renderCheck.modal_selector_visible, true, `${capture.stateUrl}: expected modal surface did not render`);
       assert.equal(renderCheck.modal_text_present, true, `${capture.stateUrl}: expected modal content did not render`);
+      if (capture.stateUrl.includes("modal=versions")) {
+        assert.ok(renderCheck.modal_geometry, `${capture.stateUrl}: version modal geometry missing`);
+        assert.ok(renderCheck.modal_geometry.width >= 400, `${capture.stateUrl}: version modal is not a centered modal`);
+        assert.ok(renderCheck.modal_geometry.left > 400, `${capture.stateUrl}: version modal is incorrectly docked`);
+      }
     }
     if (capture.route === "skill_new") assert.equal(renderCheck.skill_new, true, `${capture.stateUrl}: skill form did not render`);
     assert.ok(

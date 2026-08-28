@@ -8,8 +8,9 @@ the 22 Prototype state URLs. The capture harness
 `frontend/tests/knowledgeWorkspaceCapture.mjs` renders each state through the
 same-origin BFF contract fixture, waits for route content to settle, asserts
 the required DOM/page/modal geometry, captures at 1920×1080, and compares the
-implementation PNG with the SHA-verified Prototype reference using RGB
-per-pixel absolute delta.
+implementation PNG with the independently downloaded, SHA-verified Prototype
+reference using RGB per-pixel absolute delta. The reference directory is
+separate from the implementation output directory.
 
 The fixture is not shipped in production. Production code continues to read
 only `/api/knowledge/v1`; no Prototype business data or mock fallback is
@@ -35,9 +36,9 @@ responsive behavior.
 Manual review and render-gate result: P0 = 0, P1 = 0. All 22 states render the intended page
 or modal rather than a URL-only placeholder. No state has an empty replacement
 page, main/right-pane overlap, clipping, or blocking overflow at the reviewed
-desktop and narrow layouts. The shared modal surfaces now use the Prototype
-overlay, header/body/footer, double-column Agent layout, and 384px version
-Drawer geometry while retaining BFF-backed content.
+desktop and narrow layouts. The shared modal surfaces use the Prototype
+overlay, header/body/footer, double-column Agent layout, and centered 448px
+version modal geometry while retaining BFF-backed content.
 
 The harness additionally asserts welcome cards, draft center and chat rail,
 380px desktop chat geometry, skill-new form/connection/upload structure, one
@@ -52,14 +53,16 @@ for permission and connection-error overlays. These assertions passed for all
 | Permission / connection error / upgrade | 3 | 14.85–42.63% | 3.68–3.86 | GREEN |
 | Draft advanced / test records / tools | 3 | 46.06–48.65% | 2.08–3.03 | GREEN |
 | Draft publish gate | 1 | 49.41% | 4.54 | GREEN |
-| Published base | 1 | 9.08% | 1.55 | GREEN |
-| Published agent / share / instructions / versions | 4 | 92.35–99.36% | 70.62–81.82 | GREEN* |
+| Published base | 1 | 9.58% | 1.64 | GREEN |
+| Published agent / share / instructions / versions | 4 | 92.35–98.26% | 70.62–81.82 | GREEN* |
 | Skill-new and scenarios | 4 | 12.13% | 3.99 | GREEN |
 
 *The four published-modal reference PNGs are published-shell captures without
 their URL-requested modal surface. The implementation keeps the required real
-modal/Drawer, so these ratios are reference anomalies rather than a reason to
-remove the modal.
+modal surfaces, so these ratios are reference anomalies rather than a reason to
+remove the modal. The same behavior is reproducible against the hosted
+Prototype URLs: HTTP 200, but zero visible `role=dialog` elements for all four
+modal query states.
 
 ### Published modal reference note
 
@@ -68,10 +71,12 @@ The four Prototype PNGs for `modal=agent`, `modal=share_run`,
 published base shell and do not visibly contain the corresponding modal
 surface. This conflicts with the Prototype component source and with the
 STEP 2A requirement that each URL state truly render its modal. The
-implementation therefore keeps real, interactive modal/drawer surfaces and
-the manual gate judges them against the source component structure and
-interaction requirement. Their pixel ratios are reported above and are not
-treated as evidence that the modal was omitted.
+implementation therefore keeps real, interactive modal surfaces and the
+manual gate judges them against the source component structure and interaction
+requirement. `versions` is a centered `max-w-md` (448px) modal, matching the
+source `VersionHistoryModal`; it is not a right-docked drawer. Their pixel
+ratios are reported above and are not treated as evidence that the modal was
+omitted.
 
 ## Per-state comparison and manual review
 
@@ -88,11 +93,11 @@ treated as evidence that the modal was omitted.
 | 9 | `draft_dash_anta&modal=advanced` | 46.064% | 2.079 | GREEN — diagnostic modal rendered at source-aligned width |
 | 10 | `draft_dash_anta&modal=test_records` | 48.645% | 3.031 | GREEN — records table rendered, not a placeholder |
 | 11 | `draft_dash_anta&modal=tools` | 46.541% | 2.384 | GREEN — tools/connection rows and add-resource action present |
-| 12 | `pub_dash_anta` | 9.084% | 1.551 | GREEN — published header, badge, version, scope, actions present |
-| 13 | `pub_dash_anta&modal=agent` | 94.931% | 70.618 | GREEN* — real double-column Agent modal and BFF-backed empty state rendered |
+| 12 | `pub_dash_anta` | 9.581% | 1.639 | GREEN — published header, badge, version, scope, actions present |
+| 13 | `pub_dash_anta&modal=agent` | 95.228% | 70.618 | GREEN* — real 896px double-column Agent modal and BFF-backed empty state rendered |
 | 14 | `pub_dash_anta&modal=share_run` | 96.266% | 81.817 | GREEN* — real warning, snapshot action, and empty-link state rendered |
 | 15 | `pub_dash_anta&modal=instructions` | 92.350% | 75.405 | GREEN* — real BFF-backed information fields rendered |
-| 16 | `pub_dash_anta&modal=versions` | 99.356% | 73.377 | GREEN* — real 384px version Drawer, source block, and BFF-backed timeline rendered |
+| 16 | `pub_dash_anta&modal=versions` | 98.262% | 73.377 | GREEN* — real centered 448px version modal, source block, and BFF-backed timeline rendered |
 | 17 | `draft_sop_bluetooth` | 11.141% | 2.715 | GREEN — draft shell and SOP state rendered |
 | 18 | `draft_sop_haidilao` | 11.072% | 2.658 | GREEN — draft shell and SOP state rendered |
 | 19 | `skill_new` | 12.130% | 3.986 | GREEN — form hierarchy, connection section, upload, and submit present |
