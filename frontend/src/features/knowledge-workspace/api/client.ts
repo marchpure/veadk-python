@@ -66,8 +66,10 @@ export interface UploadResult {
 
 export interface JobResult {
   job_id: string;
-  status: "queued" | "running";
+  status: "queued" | "running" | "succeeded" | "failed";
   event_url?: string;
+  result?: JsonObject;
+  error?: JsonObject;
 }
 
 export interface FreezeRevisionInput {

@@ -12,7 +12,12 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from .sse import ParsedUpstreamEvent, SseParser, parse_upstream_frame, sanitize_event_payload
+from .sse import (
+    ParsedUpstreamEvent,
+    SseParser,
+    parse_upstream_frame,
+    sanitize_event_payload,
+)
 
 
 class AutoSkillProtocolError(RuntimeError):
@@ -38,24 +43,38 @@ class AutoSkillConfig:
         token = os.getenv("KNOWLEDGE_AUTOSKILL_TOKEN", "")
         if not base or not token:
             raise AutoSkillProtocolError("AutoSkill base URL/token are not configured")
-        return cls(base_url=base, token=token, state_mode=os.getenv("KNOWLEDGE_AUTOSKILL_STATE_MODE", "stateful"))
+        return cls(
+            base_url=base,
+            token=token,
+            state_mode=os.getenv("KNOWLEDGE_AUTOSKILL_STATE_MODE", "stateful"),
+        )
 
 
 class AutoSkillClient:
-    def __init__(self, config: AutoSkillConfig, *, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self, config: AutoSkillConfig, *, client: httpx.AsyncClient | None = None
+    ) -> None:
         parsed = urlsplit(config.base_url)
         hostname = (parsed.hostname or "").casefold()
         local_hosts = {"localhost", "127.0.0.1", "::1"}
         if (
-            parsed.scheme != "https"
-            and not (parsed.scheme == "http" and hostname in local_hosts)
-        ) or not hostname or parsed.query or parsed.fragment:
+            (
+                parsed.scheme != "https"
+                and not (parsed.scheme == "http" and hostname in local_hosts)
+            )
+            or not hostname
+            or parsed.query
+            or parsed.fragment
+        ):
             raise ValueError("AutoSkill base URL must be server-configured HTTPS")
         self.config = config
         self._client = client
 
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.config.token}", "Accept": "application/json"}
+        return {
+            "Authorization": f"Bearer {self.config.token}",
+            "Accept": "application/json",
+        }
 
     def _url(self, path: str) -> str:
         return f"{self.config.base_url}/openapi/autoskill/v1/{path.lstrip('/')}"
@@ -63,21 +82,33 @@ class AutoSkillClient:
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         owns = self._client is None
         client = self._client or httpx.AsyncClient(
-            timeout=httpx.Timeout(self.config.timeout_seconds, connect=self.config.connect_timeout_seconds)
+            timeout=httpx.Timeout(
+                self.config.timeout_seconds, connect=self.config.connect_timeout_seconds
+            )
         )
         try:
-            response = await client.request(method, self._url(path), headers=self._headers(), **kwargs)
+            response = await client.request(
+                method, self._url(path), headers=self._headers(), **kwargs
+            )
             if response.status_code >= 400:
-                raise AutoSkillProtocolError(f"AutoSkill {path} returned HTTP {response.status_code}")
+                raise AutoSkillProtocolError(
+                    f"AutoSkill {path} returned HTTP {response.status_code}"
+                )
             content_length = response.headers.get("content-length")
             if content_length:
                 try:
                     if int(content_length) > self.config.max_response_bytes:
-                        raise AutoSkillProtocolError(f"AutoSkill {path} response exceeds configured size limit")
+                        raise AutoSkillProtocolError(
+                            f"AutoSkill {path} response exceeds configured size limit"
+                        )
                 except ValueError as exc:
-                    raise AutoSkillProtocolError(f"AutoSkill {path} returned invalid content length") from exc
+                    raise AutoSkillProtocolError(
+                        f"AutoSkill {path} returned invalid content length"
+                    ) from exc
             if len(response.content) > self.config.max_response_bytes:
-                raise AutoSkillProtocolError(f"AutoSkill {path} response exceeds configured size limit")
+                raise AutoSkillProtocolError(
+                    f"AutoSkill {path} response exceeds configured size limit"
+                )
             return response
         finally:
             if owns:
@@ -117,15 +148,25 @@ class AutoSkillClient:
             ):
                 yield item
             return
-        data = {"agent_id": agent_id, "session_id": session_id, "request_id": request_id}
+        data = {
+            "agent_id": agent_id,
+            "session_id": session_id,
+            "request_id": request_id,
+        }
         if prompt is not None:
             data["prompt"] = prompt
         if model:
             data["model"] = model
-        params = {"agent_id": agent_id, "session_id": session_id, "request_id": request_id}
+        params = {
+            "agent_id": agent_id,
+            "session_id": session_id,
+            "request_id": request_id,
+        }
         if name:
             params["name"] = name
-        method = "GET" if command in {"find_skill", "list_skill", "view_skill"} else "POST"
+        method = (
+            "GET" if command in {"find_skill", "list_skill", "view_skill"} else "POST"
+        )
         if method == "GET":
             query = dict(params)
             if prompt:
@@ -147,13 +188,21 @@ class AutoSkillClient:
             "invoke",
             "POST",
             params={},
-            files={key: (None, str(value)) for key, value in kwargs.items() if value is not None and key != "state"},
+            files={
+                key: (None, str(value))
+                for key, value in kwargs.items()
+                if value is not None and key != "state"
+            },
         ):
             yield item
 
-    async def invoke_stateless(self, *, state: bytes | None = None, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def invoke_stateless(
+        self, *, state: bytes | None = None, **kwargs: Any
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
         files: dict[str, tuple[Any, ...]] = {
-            key: (None, str(value)) for key, value in kwargs.items() if value is not None
+            key: (None, str(value))
+            for key, value in kwargs.items()
+            if value is not None
         }
         if state is not None:
             files["state"] = ("state.zip", state, "application/zip")
@@ -180,11 +229,15 @@ class AutoSkillClient:
         async for item in self.command("view_skill", **kwargs):
             yield item
 
-    async def delete_skill_stream(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def delete_skill_stream(
+        self, **kwargs: Any
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
         async for item in self.stream_request(
             "delete_skill",
             "DELETE",
-            params={key: str(value) for key, value in kwargs.items() if value is not None},
+            params={
+                key: str(value) for key, value in kwargs.items() if value is not None
+            },
         ):
             yield item
 
@@ -204,22 +257,32 @@ class AutoSkillClient:
         response: httpx.Response | None = None
         owns = self._client is None
         client = self._client or httpx.AsyncClient(
-            timeout=httpx.Timeout(self.config.timeout_seconds, connect=self.config.connect_timeout_seconds)
+            timeout=httpx.Timeout(
+                self.config.timeout_seconds, connect=self.config.connect_timeout_seconds
+            )
         )
         try:
-            stream_context = client.stream(method, self._url(path), headers=headers, params=params, **kwargs)
+            stream_context = client.stream(
+                method, self._url(path), headers=headers, params=params, **kwargs
+            )
             response = await stream_context.__aenter__()
             if response.status_code >= 400:
-                raise AutoSkillProtocolError(f"AutoSkill {path} returned HTTP {response.status_code}")
+                raise AutoSkillProtocolError(
+                    f"AutoSkill {path} returned HTTP {response.status_code}"
+                )
             content_type = response.headers.get("content-type", "").casefold()
             if "application/json" in content_type:
                 raw_body = await response.aread()
                 if len(raw_body) > self.config.max_response_bytes:
-                    raise AutoSkillProtocolError(f"AutoSkill {path} response exceeds configured size limit")
+                    raise AutoSkillProtocolError(
+                        f"AutoSkill {path} response exceeds configured size limit"
+                    )
                 try:
                     payload = response.json()
                 except (ValueError, json.JSONDecodeError) as exc:
-                    raise AutoSkillProtocolError(f"AutoSkill {path} returned invalid JSON") from exc
+                    raise AutoSkillProtocolError(
+                        f"AutoSkill {path} returned invalid JSON"
+                    ) from exc
                 safe_payload = sanitize_event_payload(payload)
                 yield ParsedUpstreamEvent(
                     None,
@@ -251,7 +314,9 @@ class AutoSkillClient:
                         else self.config.idle_timeout_seconds
                     )
                     try:
-                        chunk = await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
+                        chunk = await asyncio.wait_for(
+                            iterator.__anext__(), timeout=timeout
+                        )
                     except StopAsyncIteration:
                         break
                     except asyncio.TimeoutError as exc:
@@ -275,7 +340,9 @@ class AutoSkillClient:
                         parsed = parse_upstream_frame(frame)
                         if parsed:
                             first_event_seen = True
-                            terminal_seen = parsed.event_type.casefold().replace("-", "_") == "done"
+                            terminal_seen = (
+                                parsed.event_type.casefold().replace("-", "_") == "done"
+                            )
                             yield parsed
                             if terminal_seen:
                                 break
@@ -284,7 +351,9 @@ class AutoSkillClient:
                 for frame in parser.finish():
                     parsed = parse_upstream_frame(frame)
                     if parsed:
-                        terminal_seen = parsed.event_type.casefold().replace("-", "_") == "done"
+                        terminal_seen = (
+                            parsed.event_type.casefold().replace("-", "_") == "done"
+                        )
                         yield parsed
                         if terminal_seen:
                             break
@@ -293,7 +362,9 @@ class AutoSkillClient:
         except TimeoutError as exc:
             raise AutoSkillProtocolError("AutoSkill SSE total timeout") from exc
         except (httpx.TimeoutException, httpx.TransportError) as exc:
-            raise AutoSkillProtocolError(f"AutoSkill stream transport failure: {type(exc).__name__}") from exc
+            raise AutoSkillProtocolError(
+                f"AutoSkill stream transport failure: {type(exc).__name__}"
+            ) from exc
         finally:
             if response is not None:
                 await response.aclose()
@@ -309,43 +380,101 @@ class AutoSkillClient:
         last_event_id: str | None,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
         async for item in self.stream_request(
-            "stream", "GET",
-            params={"agent_id": agent_id, "session_id": session_id, "request_id": request_id},
+            "stream",
+            "GET",
+            params={
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "request_id": request_id,
+            },
             last_event_id=last_event_id,
         ):
             yield item
 
-    async def stop(self, *, agent_id: str, session_id: str, request_id: str) -> Mapping[str, Any]:
+    async def stop(
+        self, *, agent_id: str, session_id: str, request_id: str
+    ) -> Mapping[str, Any]:
         response = await self._request(
-            "POST", "stop",
-            params={"agent_id": agent_id, "session_id": session_id, "request_id": request_id},
+            "POST",
+            "stop",
+            params={
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "request_id": request_id,
+            },
         )
         return response.json()
 
-    async def upload(self, *, agent_id: str, session_id: str, file_type: str, file_name: str, content: bytes) -> Mapping[str, Any]:
+    async def upload(
+        self,
+        *,
+        agent_id: str,
+        session_id: str,
+        file_type: str,
+        file_name: str,
+        content: bytes,
+    ) -> Mapping[str, Any]:
         response = await self._request(
-            "POST", "upload",
-            data={"agent_id": agent_id, "session_id": session_id, "type": file_type, "name": file_name},
+            "POST",
+            "upload",
+            data={
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "type": file_type,
+                "name": file_name,
+            },
             files={"file": (file_name, content)},
         )
         return response.json()
 
-    async def download(self, *, agent_id: str, session_id: str, file_type: str, name: str | None = None) -> bytes:
+    async def download(
+        self, *, agent_id: str, session_id: str, file_type: str, name: str | None = None
+    ) -> bytes:
         params = {"agent_id": agent_id, "session_id": session_id, "type": file_type}
         if name:
             params["name"] = name
         response = await self._request("GET", "download", params=params)
         return response.content
 
-    async def get_state(self, *, agent_id: str, session_id: str, request_id: str) -> Mapping[str, Any]:
-        response = await self._request("GET", "get_state", params={"agent_id": agent_id, "session_id": session_id, "request_id": request_id})
+    async def download_optional_state(
+        self, *, agent_id: str, session_id: str
+    ) -> bytes | None:
+        try:
+            return await self.download(
+                agent_id=agent_id,
+                session_id=session_id,
+                file_type="state",
+            )
+        except AutoSkillProtocolError as exc:
+            if "HTTP 404" in str(exc):
+                return None
+            raise
+
+    async def get_state(
+        self, *, agent_id: str, session_id: str, request_id: str
+    ) -> Mapping[str, Any]:
+        response = await self._request(
+            "GET",
+            "get_state",
+            params={
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "request_id": request_id,
+            },
+        )
         return response.json()
 
-    async def list_sessions(self, *, agent_id: str, session_id: str, request_id: str) -> Mapping[str, Any]:
+    async def list_sessions(
+        self, *, agent_id: str, session_id: str, request_id: str
+    ) -> Mapping[str, Any]:
         response = await self._request(
             "GET",
             "list_sessions",
-            params={"agent_id": agent_id, "session_id": session_id, "request_id": request_id},
+            params={
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "request_id": request_id,
+            },
         )
         return response.json()
 
@@ -364,17 +493,26 @@ class AutoSkillClient:
         )
         return response.json()
 
-    async def get_state_zip(self, *, agent_id: str, session_id: str, request_id: str) -> bytes:
-        value = await self.get_state(agent_id=agent_id, session_id=session_id, request_id=request_id)
+    async def get_state_zip(
+        self, *, agent_id: str, session_id: str, request_id: str
+    ) -> bytes:
+        value = await self.get_state(
+            agent_id=agent_id, session_id=session_id, request_id=request_id
+        )
         data = value.get("data", value)
         encoded = data.get("state_zip_b64") if isinstance(data, Mapping) else None
         if not isinstance(encoded, str):
-            raise AutoSkillProtocolError("AutoSkill get_state did not return state_zip_b64")
+            raise AutoSkillProtocolError(
+                "AutoSkill get_state did not return state_zip_b64"
+            )
         import base64
+
         try:
             return base64.b64decode(encoded, validate=True)
         except (ValueError, TypeError) as exc:
-            raise AutoSkillProtocolError("AutoSkill get_state returned invalid state_zip_b64") from exc
+            raise AutoSkillProtocolError(
+                "AutoSkill get_state returned invalid state_zip_b64"
+            ) from exc
 
 
 class UnavailableAutoSkillClient:
@@ -421,6 +559,10 @@ class UnavailableAutoSkillClient:
     async def download(self, **_: Any) -> bytes:
         await self._raise()
         return b""
+
+    async def download_optional_state(self, **_: Any) -> bytes | None:
+        await self._raise()
+        return None
 
     async def upload(self, **_: Any) -> Mapping[str, Any]:
         await self._raise()

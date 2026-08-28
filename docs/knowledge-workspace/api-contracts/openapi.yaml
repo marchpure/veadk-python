@@ -836,8 +836,10 @@ components:
           required: [job_id, status]
           properties:
             job_id: { type: string }
-            status: { type: string, enum: [queued, running] }
+            status: { type: string, enum: [queued, running, succeeded, failed] }
             event_url: { type: string }
+            result: { type: object, additionalProperties: true }
+            error: { type: object, additionalProperties: true }
           additionalProperties: false
         meta: { $ref: '#/components/schemas/Meta' }
     UploadResponse:

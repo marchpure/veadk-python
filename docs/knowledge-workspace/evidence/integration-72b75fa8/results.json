@@ -1,0 +1,65 @@
+{
+  "recorded_at": "2026-08-28T01:38:45Z",
+  "classification": "STEP3_BLOCKED_AUTOSKILL_CREDENTIAL",
+  "services": {
+    "connection_service": {
+      "source_sha": "69ad6f8028eaf3a34b706012c72dc3f099a348e2",
+      "health_url": "http://127.0.0.1:3417/v1/health",
+      "health_status": 200,
+      "health_body": {"ok": true}
+    },
+    "autoskill": {
+      "source_sha": "8dc9f14c1a0b0169ef865f3d87d4a6ea3e623533",
+      "health_url": "https://test-bytebrain.byted.org/openapi/autoskill/v1/health",
+      "health_status": 200,
+      "health_body": {"status": "ok", "state_mode": "stateful"},
+      "remote_credential": "absent",
+      "local_server_health": "passed",
+      "local_create_skill": "blocked: configured model credential was rejected by the real provider",
+      "mock_fallback_used": false
+    }
+  },
+  "integration": {
+    "same_origin_bff": "passed",
+    "connection_control_plane": "catalog, CRUD, validate/discover jobs, file intake, lease, runtime invocation, revoke",
+    "connection_upload": "tenant-scoped Connection Service intake precedes local AutoSkill input persistence; private service file id is not browser-visible",
+    "execution_audit": "runtime invocation fails closed unless Connection Service reports auditPersisted=true",
+    "autoskill_connection_bridge": "real MCP client initialize/list/call exchange passed; lease allowlist, expiry and cleanup enforced",
+    "connection_service_audit_read_api": "not exposed by exact service SHA; no unsupported BFF route invented"
+  },
+  "tests": {
+    "backend": "103 passed",
+    "frontend": "847 passed",
+    "typescript": "passed",
+    "boundary_contract": "9 passed",
+    "production_build": "passed",
+    "webui_assets": "85 files and 229 internal references verified",
+    "open_connector": "163 files passed, 1 skipped; 1467 tests passed, 4 skipped",
+    "pre_commit": "ruff check, ruff format, gitleaks passed",
+    "pyright": "not a configured dependency; isolated invocation was non-authoritative and lacked project optional dependencies"
+  },
+  "browser_contract_fixture": {
+    "acceptance_url": "http://127.0.0.1:5187/?view=knowledge-workspace&file=welcome",
+    "desktop": "desktop-contract-fixture.png",
+    "narrow": "narrow-contract-fixture.png",
+    "claim": "test fixture only; not real A-D or AutoSkill success evidence"
+  },
+  "visual": {
+    "inherited_frozen_checkpoint": "STEP2A_VISUAL_FROZEN",
+    "capture_count": 22,
+    "fresh_22_state_capture": false,
+    "reason": "prototype source PNG set was unavailable during STEP 3"
+  },
+  "real_journeys": {
+    "A_csv_xlsx_dashboard": "blocked before authenticated AutoSkill create/update/download",
+    "B_oracle_dashboard": "blocked before authenticated AutoSkill create/update/download",
+    "C_rest_mcp_sop": "blocked before authenticated AutoSkill create/update/download",
+    "D_web_discovery_sop": "blocked before authenticated AutoSkill create/update/download"
+  },
+  "non_claims": [
+    "No real AutoSkill ZIP or HTML artifact was produced.",
+    "No real STEP 3 revision or publication was created.",
+    "No real cross-session published invocation succeeded.",
+    "Contract fixtures and deterministic clients are not counted as real success."
+  ]
+}

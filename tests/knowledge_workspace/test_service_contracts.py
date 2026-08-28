@@ -19,7 +19,11 @@ from frontend.server.knowledge_workspace.models import (
     new_id,
 )
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
-from frontend.server.knowledge_workspace.service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
+from frontend.server.knowledge_workspace.service import (
+    Actor,
+    KnowledgeWorkspaceError,
+    KnowledgeWorkspaceService,
+)
 from frontend.server.knowledge_workspace.sse import ParsedUpstreamEvent
 
 
@@ -47,7 +51,9 @@ class FakeAutoSkill:
     async def download(self, **kwargs: object) -> bytes:
         return self.output if kwargs["file_type"] == "output" else self.skill_zip
 
-    async def command(self, *_args: object, **_kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def command(
+        self, *_args: object, **_kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
         for item in self.events:
             yield item
 
@@ -82,7 +88,9 @@ class FakeLeasePort:
             lease_id=f"lease-{kwargs['invocation_id']}",
             connection_ids=tuple(kwargs["connection_ids"]),
             allowed_actions=tuple(kwargs["allowed_actions"]),
-            expires_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+            expires_at=__import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ),
             runtime_ref="runtime://lease",
         )
 
@@ -98,7 +106,9 @@ class FakePublicationRegistry:
         self.calls.append(kwargs)
 
 
-def make_service(events: Sequence[ParsedUpstreamEvent]) -> tuple[KnowledgeWorkspaceService, Actor, FakeLeasePort]:
+def make_service(
+    events: Sequence[ParsedUpstreamEvent],
+) -> tuple[KnowledgeWorkspaceService, Actor, FakeLeasePort]:
     lease = FakeLeasePort()
     service = KnowledgeWorkspaceService(
         KnowledgeWorkspaceRepository(),
@@ -109,9 +119,18 @@ def make_service(events: Sequence[ParsedUpstreamEvent]) -> tuple[KnowledgeWorksp
 
 
 class FreezeAutoSkill(FakeAutoSkill):
-    async def command(self, command: str, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def command(
+        self, command: str, **kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
         if command == "list_skill":
-            answer = json.dumps({"data": {"command": "list-skill", "data": {"skills": [{"name": "demo"}]}}})
+            answer = json.dumps(
+                {
+                    "data": {
+                        "command": "list-skill",
+                        "data": {"skills": [{"name": "demo"}]},
+                    }
+                }
+            )
             for item in (event("final_answer", {"answer": answer}), event("done")):
                 yield item
             return
@@ -124,7 +143,9 @@ class FreezeAutoSkill(FakeAutoSkill):
 
 
 class QueryFailureAutoSkill(FreezeAutoSkill):
-    async def command(self, command: str, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def command(
+        self, command: str, **kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
         if command == "list_skill":
             yield event("error", {"code": "QUERY_FAILED", "message": "no list"})
             yield event("done")
@@ -167,19 +188,27 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
         connection_ids=("connection-a",),
     )
     await asyncio.sleep(0)
-    saved_run = service.repository.get_invocation(run.invocation_id, tenant_id="tenant", workspace_id="workspace")
+    saved_run = service.repository.get_invocation(
+        run.invocation_id, tenant_id="tenant", workspace_id="workspace"
+    )
     assert saved_run is not None
     assert saved_run.status is InvocationStatus.SUCCEEDED
-    artifacts = service.repository.artifacts_for_revision(revision.revision_id, tenant_id="tenant", workspace_id="workspace")
+    artifacts = service.repository.artifacts_for_revision(
+        revision.revision_id, tenant_id="tenant", workspace_id="workspace"
+    )
     assert len(artifacts) == 1
     assert artifacts[0].media_type == "text/html"
-    assert "autoskill_request_id" not in service.public_artifact(artifacts[0])["lineage"]
+    assert (
+        "autoskill_request_id" not in service.public_artifact(artifacts[0])["lineage"]
+    )
     publication = service.publish(actor, revision.revision_id, "personal")
     assert publication.revision_id == revision.revision_id
 
 
 @pytest.mark.asyncio
-async def test_publication_requires_invocation_lease_and_registers_fixed_revision() -> None:
+async def test_publication_requires_invocation_lease_and_registers_fixed_revision() -> (
+    None
+):
     actor = Actor("tenant", "workspace", "principal")
     registry = FakePublicationRegistry()
     lease = FakeLeasePort()
@@ -231,7 +260,7 @@ async def test_publication_consumer_gets_fresh_autoskill_identity() -> None:
     generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
     await asyncio.sleep(0)
     revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
-    run = service.start(
+    service.start(
         actor,
         draft.draft_id,
         InvocationKind.RUN,
@@ -240,7 +269,9 @@ async def test_publication_consumer_gets_fresh_autoskill_identity() -> None:
     )
     await asyncio.sleep(0)
     publication = service.publish(actor, revision.revision_id, "personal")
-    consumer = await service.invoke_publication(actor, publication.publication_id, "use it", ("connection-a",))
+    consumer = await service.invoke_publication(
+        actor, publication.publication_id, "use it", ("connection-a",)
+    )
     assert consumer.autoskill_agent_id != generation.autoskill_agent_id
     assert consumer.autoskill_session_id != generation.autoskill_session_id
     assert consumer.connection_ids == ("connection-a",)
@@ -356,7 +387,9 @@ async def test_invocation_forwards_workspace_uploads_to_autoskill() -> None:
             uri=service.repository.put_object(digest, content),
         )
     )
-    draft = service.create_draft(actor, "goal", ["connection-a"], upload_ids=[upload.upload_id])
+    draft = service.create_draft(
+        actor, "goal", ["connection-a"], upload_ids=[upload.upload_id]
+    )
     invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
     await asyncio.sleep(0)
     assert invocation.upload_ids == (upload.upload_id,)
@@ -409,10 +442,14 @@ async def test_unknown_event_is_not_a_success_path() -> None:
     draft = service.create_draft(actor, "goal", ["connection-a"])
     invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
     await asyncio.sleep(0)
-    saved = service.repository.get_invocation(invocation.invocation_id, tenant_id="tenant", workspace_id="workspace")
+    saved = service.repository.get_invocation(
+        invocation.invocation_id, tenant_id="tenant", workspace_id="workspace"
+    )
     assert saved is not None
     assert saved.status is InvocationStatus.FAILED
-    assert "secret" not in json.dumps(service.repository.raw_events(invocation.invocation_id))
+    assert "secret" not in json.dumps(
+        service.repository.raw_events(invocation.invocation_id)
+    )
 
 
 @pytest.mark.asyncio
@@ -443,22 +480,29 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
             self.commands = 0
             self.reconnects = 0
 
-        async def command(self, *_args: object, **_kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+        async def command(
+            self, *_args: object, **_kwargs: object
+        ) -> AsyncIterator[ParsedUpstreamEvent]:
             self.commands += 1
             if False:
                 yield event("done")
 
-        async def reconnect(self, **_kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+        async def reconnect(
+            self, **_kwargs: object
+        ) -> AsyncIterator[ParsedUpstreamEvent]:
             self.reconnects += 1
             for item in self.events:
                 yield item
 
     autoskill = Resumable()
     repository = KnowledgeWorkspaceRepository()
-    service = KnowledgeWorkspaceService(repository, autoskill, FakeLeasePort())
+    lease = FakeLeasePort()
+    service = KnowledgeWorkspaceService(repository, autoskill, lease)
     actor = Actor("tenant", "workspace", "principal")
     draft = service.create_draft(actor, "goal", ["connection-a"])
-    session = repository.get_session(draft.draft_id, tenant_id="tenant", workspace_id="workspace")
+    session = repository.get_session(
+        draft.draft_id, tenant_id="tenant", workspace_id="workspace"
+    )
     assert session is not None
     invocation = Invocation(
         tenant_id="tenant",
@@ -473,16 +517,25 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
         autoskill_request_id=new_id("request"),
         principal_id="principal",
         message="goal",
+        connection_ids=("connection-a",),
+        lease_id="lease-before-restart",
     )
     repository.save_invocation(invocation)
     repository.save_draft(draft.model_copy(update={"status": DraftStatus.GENERATING}))
     await service.resume_pending()
     await asyncio.sleep(0)
-    saved = repository.get_invocation(invocation.invocation_id, tenant_id="tenant", workspace_id="workspace")
+    saved = repository.get_invocation(
+        invocation.invocation_id, tenant_id="tenant", workspace_id="workspace"
+    )
     assert saved is not None
     assert saved.status is InvocationStatus.SUCCEEDED
     assert autoskill.commands == 0
     assert autoskill.reconnects == 1
+    assert lease.revoked == [
+        "lease-before-restart",
+        f"lease-{invocation.invocation_id}",
+    ]
+    assert len(lease.issued) == 1
 
 
 def test_sqlite_repository_reopens_durable_workspace_state(tmp_path: Path) -> None:
@@ -504,7 +557,9 @@ def test_sqlite_repository_reopens_durable_workspace_state(tmp_path: Path) -> No
 
 
 def test_object_storage_rejects_symlink_alias(tmp_path: Path) -> None:
-    repository = KnowledgeWorkspaceRepository(tmp_path / "db.sqlite3", tmp_path / "objects")
+    repository = KnowledgeWorkspaceRepository(
+        tmp_path / "db.sqlite3", tmp_path / "objects"
+    )
     content = b"immutable"
     digest = __import__("hashlib").sha256(content).hexdigest()
     repository.put_object(digest, content)

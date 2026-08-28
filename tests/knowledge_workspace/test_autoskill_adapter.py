@@ -19,7 +19,10 @@ from frontend.server.knowledge_workspace.sse import (
     parse_sse,
     parse_upstream_frame,
 )
-from frontend.server.knowledge_workspace.zip_validator import SkillZipError, validate_skill_zip
+from frontend.server.knowledge_workspace.zip_validator import (
+    SkillZipError,
+    validate_skill_zip,
+)
 from frontend.server.knowledge_workspace.autoskill import (
     AutoSkillClient,
     AutoSkillConfig,
@@ -29,8 +32,8 @@ from frontend.server.knowledge_workspace.autoskill import (
 
 def test_sse_parser_handles_split_frames_heartbeat_and_multiline_data() -> None:
     parser = SseParser()
-    assert parser.feed("id: 7\ndata: {\"type\":\"final_") == []
-    frames = parser.feed("answer\",\"data\":{\"answer\":\"ok\"}}\n\n: keepalive\n\n")
+    assert parser.feed('id: 7\ndata: {"type":"final_') == []
+    frames = parser.feed('answer","data":{"answer":"ok"}}\n\n: keepalive\n\n')
     assert frames[0].event_id == "7"
     assert json.loads(frames[0].data)["type"] == "final_answer"
     assert frames[1].heartbeat is True
@@ -38,7 +41,9 @@ def test_sse_parser_handles_split_frames_heartbeat_and_multiline_data() -> None:
 
 def test_unknown_and_malformed_events_are_archived_but_not_normalized() -> None:
     parser = SseParser()
-    unknown = parse_upstream_frame(parser.feed("id: u\ndata: {\"type\":\"future_event\",\"data\":{\"x\":1}}\n\n")[0])
+    unknown = parse_upstream_frame(
+        parser.feed('id: u\ndata: {"type":"future_event","data":{"x":1}}\n\n')[0]
+    )
     assert unknown is not None
     assert normalize_upstream_event(unknown, invocation_id="inv", cursor=1) is None
     malformed = parse_sse(["id: bad\ndata: {not-json}\n\n"])[0]
@@ -117,19 +122,25 @@ async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() ->
             AutoSkillConfig(base_url="http://localhost", token="test-token"),
             client=http,
         )
-        create = [item async for item in client.command(
-            "create_skill",
-            agent_id="agent",
-            session_id="session",
-            request_id="request",
-            prompt="make a skill",
-        )]
-        listed = [item async for item in client.command(
-            "list_skill",
-            agent_id="agent",
-            session_id="session",
-            request_id="request",
-        )]
+        create = [
+            item
+            async for item in client.command(
+                "create_skill",
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                prompt="make a skill",
+            )
+        ]
+        listed = [
+            item
+            async for item in client.command(
+                "list_skill",
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+            )
+        ]
     assert [item.event_type for item in create] == ["done"]
     assert [item.event_type for item in listed] == ["done"]
     assert len(requests) == 2
@@ -153,7 +164,8 @@ async def test_find_skill_uses_documented_query_form() -> None:
             client=http,
         )
         items = [
-            item async for item in client.find_skill(
+            item
+            async for item in client.find_skill(
                 agent_id="agent",
                 session_id="session",
                 request_id="request",
@@ -186,7 +198,8 @@ async def test_query_skill_command_accepts_documented_json_envelope() -> None:
             client=http,
         )
         items = [
-            item async for item in client.list_skill(
+            item
+            async for item in client.list_skill(
                 agent_id="agent",
                 session_id="session",
                 request_id="request",
@@ -197,7 +210,9 @@ async def test_query_skill_command_accepts_documented_json_envelope() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout() -> None:
+async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout() -> (
+    None
+):
     requests: list[httpx.Request] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -207,9 +222,11 @@ async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout()
             return httpx.Response(
                 200,
                 headers={"content-type": "text/event-stream"},
-                content=b"id: upstream-8\ndata: {\"type\":\"done\",\"data\":{}}\n\n",
+                content=b'id: upstream-8\ndata: {"type":"done","data":{}}\n\n',
             )
-        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=b"")
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, content=b""
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
         client = AutoSkillClient(
@@ -222,7 +239,8 @@ async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout()
             client=http,
         )
         items = [
-            item async for item in client.reconnect(
+            item
+            async for item in client.reconnect(
                 agent_id="agent",
                 session_id="session",
                 request_id="request",
@@ -238,7 +256,7 @@ async def test_stream_first_event_timeout_fails_closed() -> None:
     class SlowStream(httpx.AsyncByteStream):
         async def __aiter__(self):
             await asyncio.sleep(0.05)
-            yield b"data: {\"type\":\"done\",\"data\":{}}\n\n"
+            yield b'data: {"type":"done","data":{}}\n\n'
 
     async def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -257,12 +275,15 @@ async def test_stream_first_event_timeout_fails_closed() -> None:
             client=http,
         )
         with pytest.raises(AutoSkillProtocolError, match="first-event"):
-            _ = [item async for item in client.invoke(
-                agent_id="agent",
-                session_id="session",
-                request_id="request",
-                message="slow",
-            )]
+            _ = [
+                item
+                async for item in client.invoke(
+                    agent_id="agent",
+                    session_id="session",
+                    request_id="request",
+                    message="slow",
+                )
+            ]
 
 
 @pytest.mark.asyncio
@@ -280,12 +301,15 @@ async def test_stream_disconnect_before_done_fails_closed() -> None:
             client=http,
         )
         with pytest.raises(AutoSkillProtocolError, match="disconnected"):
-            _ = [item async for item in client.invoke(
-                agent_id="agent",
-                session_id="session",
-                request_id="request",
-                message="partial",
-            )]
+            _ = [
+                item
+                async for item in client.invoke(
+                    agent_id="agent",
+                    session_id="session",
+                    request_id="request",
+                    message="partial",
+                )
+            ]
 
 
 def test_normalization_bounds_invalid_duration_and_plan_status() -> None:
@@ -311,7 +335,9 @@ async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> No
     async def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         if request.url.path.endswith("/get_state"):
-            body = json.dumps({"data": {"state_zip_b64": base64.b64encode(state).decode()}})
+            body = json.dumps(
+                {"data": {"state_zip_b64": base64.b64encode(state).decode()}}
+            )
             return httpx.Response(200, json=json.loads(body))
         assert b'name="state"; filename="state.zip"' in request.content
         return httpx.Response(
@@ -322,11 +348,14 @@ async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> No
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
         client = AutoSkillClient(
-            AutoSkillConfig(base_url="http://localhost", token="test-token", state_mode="stateless"),
+            AutoSkillConfig(
+                base_url="http://localhost", token="test-token", state_mode="stateless"
+            ),
             client=http,
         )
         items = [
-            item async for item in client.invoke(
+            item
+            async for item in client.invoke(
                 agent_id="agent",
                 session_id="session",
                 request_id="request",
@@ -334,7 +363,9 @@ async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> No
                 state=state,
             )
         ]
-        decoded = await client.get_state_zip(agent_id="agent", session_id="session", request_id="request")
+        decoded = await client.get_state_zip(
+            agent_id="agent", session_id="session", request_id="request"
+        )
     assert [item.event_type for item in items] == ["done"]
     assert decoded == state
     assert requests[0].url.path.endswith("/invoke_stateless")

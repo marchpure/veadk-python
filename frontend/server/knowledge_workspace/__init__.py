@@ -6,7 +6,13 @@ from .autoskill import (
     AutoSkillProtocolError,
     UnavailableAutoSkillClient,
 )
-from .connection import ConnectionInvocationContextPort, EphemeralConnectionContext
+from .connection import (
+    ConnectionInvocationContextPort,
+    ConnectionServiceConfig,
+    ConnectionServiceError,
+    ConnectionServiceGateway,
+    EphemeralConnectionContext,
+)
 from .html_artifact import HtmlArtifactError, validate_output_archive
 from .models import (
     Artifact,
@@ -34,6 +40,9 @@ __all__ = [
     "AutoSkillConfig",
     "AutoSkillProtocolError",
     "ConnectionInvocationContextPort",
+    "ConnectionServiceConfig",
+    "ConnectionServiceError",
+    "ConnectionServiceGateway",
     "EphemeralConnectionContext",
     "UnavailableAutoSkillClient",
     "HtmlArtifactError",

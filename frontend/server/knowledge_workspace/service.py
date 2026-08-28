@@ -7,11 +7,14 @@ import hashlib
 import json
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from .autoskill import AutoSkillClient, AutoSkillProtocolError
-from .connection import ConnectionInvocationContextPort
-from .html_artifact import HtmlArtifactError, validate_html_artifact, validate_output_archive
+from .connection import ConnectionInvocationContextPort, ConnectionServiceError
+from .html_artifact import (
+    HtmlArtifactError,
+    validate_html_artifact,
+    validate_output_archive,
+)
 from .models import (
     Artifact,
     AuthoringSession,
@@ -179,14 +182,19 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError("INVALID_REQUEST", "goal is required", 400)
         unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
         if not unique:
-            raise KnowledgeWorkspaceError("CONNECTION_NOT_READY", "at least one connection is required", 409)
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY", "at least one connection is required", 409
+            )
         uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
         for upload_id in uploads:
-            if self.repository.get_upload(
-                upload_id,
-                tenant_id=actor.tenant_id,
-                workspace_id=actor.workspace_id,
-            ) is None:
+            if (
+                self.repository.get_upload(
+                    upload_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                is None
+            ):
                 raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
         draft_id = new_id("draft")
         if idempotency_key:
@@ -199,7 +207,11 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
             existing = self.repository.get_draft(
                 draft_id,
@@ -214,7 +226,9 @@ class KnowledgeWorkspaceService:
             draft_id=draft_id,
             created_by=actor.principal_id,
             goal=goal.strip(),
-            trial_task=trial_task.strip() if trial_task and trial_task.strip() else None,
+            trial_task=trial_task.strip()
+            if trial_task and trial_task.strip()
+            else None,
             connection_ids=unique,
             upload_ids=uploads,
             etag=new_id("etag"),
@@ -255,7 +269,11 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
             if replay_etag:
                 replay = self.repository.get_draft(
@@ -266,9 +284,13 @@ class KnowledgeWorkspaceService:
                 if replay is not None:
                     return replay
         if if_match and if_match.strip('"') != draft.etag:
-            raise KnowledgeWorkspaceError("ETAG_MISMATCH", "draft was modified by another request", 412)
+            raise KnowledgeWorkspaceError(
+                "ETAG_MISMATCH", "draft was modified by another request", 412
+            )
         if draft.status == DraftStatus.GENERATING:
-            raise KnowledgeWorkspaceError("INVOCATION_ACTIVE", "draft has an active invocation", 409)
+            raise KnowledgeWorkspaceError(
+                "INVOCATION_ACTIVE", "draft has an active invocation", 409
+            )
         updates: dict[str, object] = {
             "etag": new_id("etag"),
             "status": DraftStatus.EDITING,
@@ -276,23 +298,30 @@ class KnowledgeWorkspaceService:
         }
         if goal is not None:
             if not goal.strip():
-                raise KnowledgeWorkspaceError("INVALID_REQUEST", "goal is required", 400)
+                raise KnowledgeWorkspaceError(
+                    "INVALID_REQUEST", "goal is required", 400
+                )
             updates["goal"] = goal.strip()
         if connection_ids is not None:
             unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
             if not unique:
-                raise KnowledgeWorkspaceError("CONNECTION_NOT_READY", "at least one connection is required", 409)
+                raise KnowledgeWorkspaceError(
+                    "CONNECTION_NOT_READY", "at least one connection is required", 409
+                )
             updates["connection_ids"] = unique
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
         if upload_ids is not None:
             uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
             for upload_id in uploads:
-                if self.repository.get_upload(
-                    upload_id,
-                    tenant_id=actor.tenant_id,
-                    workspace_id=actor.workspace_id,
-                ) is None:
+                if (
+                    self.repository.get_upload(
+                        upload_id,
+                        tenant_id=actor.tenant_id,
+                        workspace_id=actor.workspace_id,
+                    )
+                    is None
+                ):
                     raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
             updates["upload_ids"] = uploads
         updated = draft.model_copy(update=updates)
@@ -307,27 +336,43 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
         return updated
 
     def list_drafts(self, actor: Actor) -> tuple[SkillDraft, ...]:
-        return self.repository.list_drafts(tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        return self.repository.list_drafts(
+            tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
 
     def get_draft(self, actor: Actor, draft_id: str) -> SkillDraft:
-        draft = self.repository.get_draft(draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        draft = self.repository.get_draft(
+            draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if draft is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "draft not found", 404)
         return draft
 
     def _session(self, actor: Actor, draft_id: str) -> AuthoringSession:
-        session = self.repository.get_session(draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        session = self.repository.get_session(
+            draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if session is None:
-            raise KnowledgeWorkspaceError("NOT_FOUND", "authoring session not found", 404)
+            raise KnowledgeWorkspaceError(
+                "NOT_FOUND", "authoring session not found", 404
+            )
         return session
 
     def _session_state(self, session: AuthoringSession) -> bytes | None:
-        return self.repository.read_object(session.state_uri) if session.state_uri else None
+        return (
+            self.repository.read_object(session.state_uri)
+            if session.state_uri
+            else None
+        )
 
     def start(
         self,
@@ -350,15 +395,20 @@ class KnowledgeWorkspaceService:
         draft = self.get_draft(actor, draft_id)
         session = self._session(actor, draft_id)
         if if_match and if_match.strip('"') != draft.etag:
-            raise KnowledgeWorkspaceError("ETAG_MISMATCH", "draft was modified by another request", 412)
+            raise KnowledgeWorkspaceError(
+                "ETAG_MISMATCH", "draft was modified by another request", 412
+            )
         effective_connection_ids = tuple(connection_ids) or draft.connection_ids
         effective_upload_ids = tuple(upload_ids) or draft.upload_ids
         for upload_id in effective_upload_ids:
-            if self.repository.get_upload(
-                upload_id,
-                tenant_id=actor.tenant_id,
-                workspace_id=actor.workspace_id,
-            ) is None:
+            if (
+                self.repository.get_upload(
+                    upload_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                is None
+            ):
                 raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
         invocation_id = new_id("inv")
         if idempotency_key:
@@ -371,7 +421,11 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
             existing = self.repository.get_invocation(
                 invocation_id,
@@ -381,7 +435,9 @@ class KnowledgeWorkspaceService:
             if existing is not None:
                 return existing
         if draft.status == DraftStatus.GENERATING:
-            raise KnowledgeWorkspaceError("INVOCATION_ACTIVE", "draft already has an active invocation", 409)
+            raise KnowledgeWorkspaceError(
+                "INVOCATION_ACTIVE", "draft already has an active invocation", 409
+            )
         invocation = Invocation(
             tenant_id=actor.tenant_id,
             workspace_id=actor.workspace_id,
@@ -405,12 +461,25 @@ class KnowledgeWorkspaceService:
             update={"autoskill_request_ids": (invocation.autoskill_request_id,)}
         )
         self.repository.save_invocation(invocation)
-        self.repository.save_draft(draft.model_copy(update={"status": DraftStatus.GENERATING, "updated_at": utc_now()}))
-        task = asyncio.create_task(self._execute(actor, invocation, draft, session, message or draft.goal, model))
+        self.repository.save_draft(
+            draft.model_copy(
+                update={"status": DraftStatus.GENERATING, "updated_at": utc_now()}
+            )
+        )
+        task = asyncio.create_task(
+            self._execute(
+                actor, invocation, draft, session, message or draft.goal, model
+            )
+        )
         self._tasks[invocation.invocation_id] = task
         return invocation
 
-    async def _append(self, invocation: Invocation, event: ParsedUpstreamEvent, normalized: dict | None) -> int:
+    async def _append(
+        self,
+        invocation: Invocation,
+        event: ParsedUpstreamEvent,
+        normalized: dict | None,
+    ) -> int:
         return self.repository.append_event(
             invocation.invocation_id,
             sanitize_event_payload(event.payload),
@@ -429,10 +498,27 @@ class KnowledgeWorkspaceService:
         *,
         resume: bool = False,
     ) -> None:
-        current = invocation.model_copy(update={"status": InvocationStatus.RUNNING, "started_at": utc_now()})
+        current = invocation.model_copy(
+            update={"status": InvocationStatus.RUNNING, "started_at": utc_now()}
+        )
         self.repository.save_invocation(current)
         if not resume:
-            self.repository.append_event(invocation.invocation_id, {"type": "run.started"}, {"id": f"{invocation.invocation_id}:0", "type": "run.started", "invocation_id": invocation.invocation_id, "occurred_at": utc_now().isoformat(), "data": {"kind": invocation.kind.value, "status": "running", "draft_id": draft.draft_id}}, None)
+            self.repository.append_event(
+                invocation.invocation_id,
+                {"type": "run.started"},
+                {
+                    "id": f"{invocation.invocation_id}:0",
+                    "type": "run.started",
+                    "invocation_id": invocation.invocation_id,
+                    "occurred_at": utc_now().isoformat(),
+                    "data": {
+                        "kind": invocation.kind.value,
+                        "status": "running",
+                        "draft_id": draft.draft_id,
+                    },
+                },
+                None,
+            )
         had_error = False
         summary: Mapping | None = None
         last_event_id: str | None = None
@@ -442,21 +528,31 @@ class KnowledgeWorkspaceService:
         try:
             prior_events = self.repository.raw_events(invocation.invocation_id)
             prior_raw = [item["raw"] for item in prior_events]
-            had_error = any(str(item.get("type", "")).casefold() == "error" for item in prior_raw)
+            had_error = any(
+                str(item.get("type", "")).casefold() == "error" for item in prior_raw
+            )
             current = current.model_copy(
                 update={
                     "error_observed": current.error_observed or had_error,
-                    "final_answer_observed": current.final_answer_observed or any(
-                        str(item.get("type", "")).casefold() == "final_answer" for item in prior_raw
+                    "final_answer_observed": current.final_answer_observed
+                    or any(
+                        str(item.get("type", "")).casefold() == "final_answer"
+                        for item in prior_raw
                     ),
-                    "request_summary_observed": current.request_summary_observed or any(
-                        str(item.get("type", "")).casefold() == "request_summary" for item in prior_raw
+                    "request_summary_observed": current.request_summary_observed
+                    or any(
+                        str(item.get("type", "")).casefold() == "request_summary"
+                        for item in prior_raw
                     ),
-                    "done_observed": current.done_observed or any(
-                        str(item.get("type", "")).casefold() == "done" for item in prior_raw
+                    "done_observed": current.done_observed
+                    or any(
+                        str(item.get("type", "")).casefold() == "done"
+                        for item in prior_raw
                     ),
-                    "state_update_observed": current.state_update_observed or any(
-                        str(item.get("type", "")).casefold() == "state_update" for item in prior_raw
+                    "state_update_observed": current.state_update_observed
+                    or any(
+                        str(item.get("type", "")).casefold() == "state_update"
+                        for item in prior_raw
                     ),
                 }
             )
@@ -481,7 +577,14 @@ class KnowledgeWorkspaceService:
                     "a server-side connection invocation context is required",
                     503,
                 )
-            if lease_id is None and self.connection_context is not None and invocation.connection_ids:
+            if resume and lease_id and self.connection_context is not None:
+                await self.connection_context.revoke(lease_id)
+                lease_id = None
+            if (
+                lease_id is None
+                and self.connection_context is not None
+                and invocation.connection_ids
+            ):
                 allowed_actions = (
                     ("connection.execute",)
                     if invocation.kind is InvocationKind.RUN
@@ -499,6 +602,17 @@ class KnowledgeWorkspaceService:
                 lease_id = lease.lease_id
                 current = current.model_copy(update={"lease_id": lease_id})
                 self.repository.save_invocation(current)
+                prepare_autoskill = getattr(
+                    self.connection_context, "prepare_autoskill", None
+                )
+                if prepare_autoskill is not None:
+                    await prepare_autoskill(
+                        context=lease,
+                        autoskill=self.autoskill,
+                        agent_id=invocation.autoskill_agent_id,
+                        session_id=invocation.autoskill_session_id,
+                        invocation_id=invocation.invocation_id,
+                    )
             if invocation.invocation_id in self._cancelled:
                 cancelled = current.model_copy(
                     update={
@@ -523,7 +637,9 @@ class KnowledgeWorkspaceService:
                     workspace_id=actor.workspace_id,
                 )
                 if revision is None:
-                    raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
+                    raise KnowledgeWorkspaceError(
+                        "NOT_FOUND", "revision not found", 404
+                    )
                 await self.autoskill.upload(
                     agent_id=invocation.autoskill_agent_id,
                     session_id=invocation.autoskill_session_id,
@@ -548,7 +664,11 @@ class KnowledgeWorkspaceService:
                 )
             if resume:
                 last = self.repository.raw_events(invocation.invocation_id)
-                cursor = str(last[-1]["upstream_id"]) if last and last[-1]["upstream_id"] else None
+                cursor = (
+                    str(last[-1]["upstream_id"])
+                    if last and last[-1]["upstream_id"]
+                    else None
+                )
                 stream = self.autoskill.reconnect(
                     agent_id=invocation.autoskill_agent_id,
                     session_id=invocation.autoskill_session_id,
@@ -556,12 +676,40 @@ class KnowledgeWorkspaceService:
                     last_event_id=cursor,
                 )
             elif invocation.kind is InvocationKind.GENERATE:
-                stream = self.autoskill.command("create_skill", agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id, prompt=message, model=model, state=self._session_state(session))
+                stream = self.autoskill.command(
+                    "create_skill",
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
+                    request_id=invocation.autoskill_request_id,
+                    prompt=message,
+                    model=model,
+                    state=self._session_state(session),
+                )
             elif invocation.kind is InvocationKind.UPDATE:
-                stream = self.autoskill.command("update_skill", agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id, prompt=message, model=model, state=self._session_state(session))
+                stream = self.autoskill.command(
+                    "update_skill",
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
+                    request_id=invocation.autoskill_request_id,
+                    prompt=message,
+                    model=model,
+                    state=self._session_state(session),
+                )
             else:
-                state = self._session_state(session) if getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless" else None
-                stream = self.autoskill.invoke(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id, message=message, model=model, state=state)
+                state = (
+                    self._session_state(session)
+                    if getattr(self.autoskill, "config", None) is not None
+                    and self.autoskill.config.state_mode.casefold() == "stateless"
+                    else None
+                )
+                stream = self.autoskill.invoke(
+                    agent_id=invocation.autoskill_agent_id,
+                    session_id=invocation.autoskill_session_id,
+                    request_id=invocation.autoskill_request_id,
+                    message=message,
+                    model=model,
+                    state=state,
+                )
             async for event in self._with_reconnect(stream, actor, current, session):
                 last_event_id = event.event_id or last_event_id
                 kind = event.event_type.casefold().replace("-", "_")
@@ -571,7 +719,9 @@ class KnowledgeWorkspaceService:
                 elif kind == "final_answer":
                     current = current.model_copy(update={"final_answer_observed": True})
                 elif kind == "request_summary":
-                    current = current.model_copy(update={"request_summary_observed": True})
+                    current = current.model_copy(
+                        update={"request_summary_observed": True}
+                    )
                 elif kind == "done":
                     current = current.model_copy(update={"done_observed": True})
                 elif kind == "state_update":
@@ -579,10 +729,21 @@ class KnowledgeWorkspaceService:
                 if kind == "request_summary":
                     value = event.payload.get("data")
                     summary = value if isinstance(value, Mapping) else {"value": value}
-                normalized = normalize_upstream_event(event, invocation_id=invocation.invocation_id, cursor=len(self.repository.raw_events(invocation.invocation_id)) + 1)
+                normalized = normalize_upstream_event(
+                    event,
+                    invocation_id=invocation.invocation_id,
+                    cursor=len(self.repository.raw_events(invocation.invocation_id))
+                    + 1,
+                )
                 if event.malformed or kind not in {
-                    "planning", "action", "observation", "final_answer",
-                    "request_summary", "state_update", "error", "done",
+                    "planning",
+                    "action",
+                    "observation",
+                    "final_answer",
+                    "request_summary",
+                    "state_update",
+                    "error",
+                    "done",
                 }:
                     invalid_event = event
                 if kind == "done":
@@ -592,9 +753,20 @@ class KnowledgeWorkspaceService:
             if terminal_event is not None:
                 await self._append(current, terminal_event, None)
             if invalid_event is not None:
-                raise KnowledgeWorkspaceError("AUTOSKILL_PROTOCOL_ERROR", "AutoSkill emitted an unknown or malformed event", 502)
+                raise KnowledgeWorkspaceError(
+                    "AUTOSKILL_PROTOCOL_ERROR",
+                    "AutoSkill emitted an unknown or malformed event",
+                    502,
+                )
             if invocation.invocation_id in self._cancelled:
-                self.repository.save_invocation(current.model_copy(update={"status": InvocationStatus.CANCELLED, "finished_at": utc_now()}))
+                self.repository.save_invocation(
+                    current.model_copy(
+                        update={
+                            "status": InvocationStatus.CANCELLED,
+                            "finished_at": utc_now(),
+                        }
+                    )
+                )
                 return
             if (
                 had_error
@@ -605,8 +777,16 @@ class KnowledgeWorkspaceService:
                 or not current.final_answer_observed
                 or not current.request_summary_observed
             ):
-                raise KnowledgeWorkspaceError("AUTOSKILL_PROTOCOL_ERROR", "AutoSkill did not provide a successful request_summary", 502)
-            if current.state_update_observed and getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless":
+                raise KnowledgeWorkspaceError(
+                    "AUTOSKILL_PROTOCOL_ERROR",
+                    "AutoSkill did not provide a successful request_summary",
+                    502,
+                )
+            if (
+                current.state_update_observed
+                and getattr(self.autoskill, "config", None) is not None
+                and self.autoskill.config.state_mode.casefold() == "stateless"
+            ):
                 try:
                     state_zip = await self.autoskill.get_state_zip(
                         agent_id=invocation.autoskill_agent_id,
@@ -614,16 +794,32 @@ class KnowledgeWorkspaceService:
                         request_id=invocation.autoskill_request_id,
                     )
                 except AutoSkillProtocolError as exc:
-                    raise KnowledgeWorkspaceError("AUTOSKILL_PROTOCOL_ERROR", str(exc), 502) from exc
+                    raise KnowledgeWorkspaceError(
+                        "AUTOSKILL_PROTOCOL_ERROR", str(exc), 502
+                    ) from exc
                 state_digest = hashlib.sha256(state_zip).hexdigest()
-                state_uri = self.repository.put_object(state_digest, state_zip, suffix=".state.zip")
-                self.repository.save_session(session.model_copy(update={"state_uri": state_uri}))
-            finished = current.model_copy(update={"status": InvocationStatus.SUCCEEDED, "request_summary": dict(summary), "finished_at": utc_now()})
+                state_uri = self.repository.put_object(
+                    state_digest, state_zip, suffix=".state.zip"
+                )
+                self.repository.save_session(
+                    session.model_copy(update={"state_uri": state_uri})
+                )
+            finished = current.model_copy(
+                update={
+                    "status": InvocationStatus.SUCCEEDED,
+                    "request_summary": dict(summary),
+                    "finished_at": utc_now(),
+                }
+            )
             if invocation.kind is InvocationKind.RUN and invocation.revision_id:
-                await self._capture_output(actor, finished, invocation.revision_id, session)
+                await self._capture_output(
+                    actor, finished, invocation.revision_id, session
+                )
             self.repository.save_invocation(finished)
             # Artifacts are persisted before terminal success is exposed.
-            completed_cursor = len(self.repository.raw_events(invocation.invocation_id)) + 1
+            completed_cursor = (
+                len(self.repository.raw_events(invocation.invocation_id)) + 1
+            )
             self.repository.append_event(
                 invocation.invocation_id,
                 {"type": "run.completed", "data": {"status": "succeeded"}},
@@ -634,7 +830,9 @@ class KnowledgeWorkspaceService:
                     "occurred_at": utc_now().isoformat(),
                     "data": {
                         "status": "succeeded",
-                        "finished_at": finished.finished_at.isoformat() if finished.finished_at else utc_now().isoformat(),
+                        "finished_at": finished.finished_at.isoformat()
+                        if finished.finished_at
+                        else utc_now().isoformat(),
                         "request_summary": self._public_value(dict(summary)),
                         "artifact_ids": [
                             item.artifact_id
@@ -643,32 +841,101 @@ class KnowledgeWorkspaceService:
                                 tenant_id=actor.tenant_id,
                                 workspace_id=actor.workspace_id,
                             )
-                        ] if invocation.revision_id else [],
+                        ]
+                        if invocation.revision_id
+                        else [],
                         "revision_id": invocation.revision_id,
                     },
                 },
                 None,
             )
-            self.repository.save_draft(draft.model_copy(update={"status": DraftStatus.GENERATED, "updated_at": utc_now()}))
+            self.repository.save_draft(
+                draft.model_copy(
+                    update={"status": DraftStatus.GENERATED, "updated_at": utc_now()}
+                )
+            )
         except asyncio.CancelledError:
             raise
-        except (KnowledgeWorkspaceError, SkillZipError, HtmlArtifactError, AutoSkillProtocolError) as exc:
+        except (
+            KnowledgeWorkspaceError,
+            SkillZipError,
+            HtmlArtifactError,
+            AutoSkillProtocolError,
+            ConnectionServiceError,
+        ) as exc:
             safe_message = str(sanitize_event_payload(str(exc)))
-            failed = current.model_copy(update={"status": InvocationStatus.CANCELLED if invocation.invocation_id in self._cancelled else InvocationStatus.FAILED, "error_code": getattr(exc, "code", "AUTOSKILL_PROTOCOL_ERROR"), "error_message": safe_message, "finished_at": utc_now()})
+            failed = current.model_copy(
+                update={
+                    "status": InvocationStatus.CANCELLED
+                    if invocation.invocation_id in self._cancelled
+                    else InvocationStatus.FAILED,
+                    "error_code": getattr(exc, "code", "AUTOSKILL_PROTOCOL_ERROR"),
+                    "error_message": safe_message,
+                    "finished_at": utc_now(),
+                }
+            )
             self.repository.save_invocation(failed)
-            self.repository.save_draft(draft.model_copy(update={"status": DraftStatus.CANCELLED if failed.status is InvocationStatus.CANCELLED else DraftStatus.FAILED, "updated_at": utc_now()}))
-            normalized = {"id": f"{invocation.invocation_id}:failure", "type": "run.cancelled" if failed.status is InvocationStatus.CANCELLED else "run.failed", "invocation_id": invocation.invocation_id, "occurred_at": utc_now().isoformat(), "data": {"status": failed.status.value, "error": {"code": failed.error_code, "message": failed.error_message, "retryable": False}}}
-            self.repository.append_event(invocation.invocation_id, {"type": "error", "data": {"code": failed.error_code, "message": safe_message}}, normalized, None)
+            self.repository.save_draft(
+                draft.model_copy(
+                    update={
+                        "status": DraftStatus.CANCELLED
+                        if failed.status is InvocationStatus.CANCELLED
+                        else DraftStatus.FAILED,
+                        "updated_at": utc_now(),
+                    }
+                )
+            )
+            normalized = {
+                "id": f"{invocation.invocation_id}:failure",
+                "type": "run.cancelled"
+                if failed.status is InvocationStatus.CANCELLED
+                else "run.failed",
+                "invocation_id": invocation.invocation_id,
+                "occurred_at": utc_now().isoformat(),
+                "data": {
+                    "status": failed.status.value,
+                    "error": {
+                        "code": failed.error_code,
+                        "message": failed.error_message,
+                        "retryable": False,
+                    },
+                },
+            }
+            self.repository.append_event(
+                invocation.invocation_id,
+                {
+                    "type": "error",
+                    "data": {"code": failed.error_code, "message": safe_message},
+                },
+                normalized,
+                None,
+            )
         except Exception as exc:
-            failed = current.model_copy(update={"status": InvocationStatus.FAILED, "error_code": "AUTOSKILL_PROTOCOL_ERROR", "error_message": type(exc).__name__, "finished_at": utc_now()})
+            failed = current.model_copy(
+                update={
+                    "status": InvocationStatus.FAILED,
+                    "error_code": "AUTOSKILL_PROTOCOL_ERROR",
+                    "error_message": type(exc).__name__,
+                    "finished_at": utc_now(),
+                }
+            )
             self.repository.save_invocation(failed)
-            self.repository.save_draft(draft.model_copy(update={"status": DraftStatus.FAILED, "updated_at": utc_now()}))
+            self.repository.save_draft(
+                draft.model_copy(
+                    update={"status": DraftStatus.FAILED, "updated_at": utc_now()}
+                )
+            )
         finally:
             if lease_id and self.connection_context is not None:
                 try:
                     await self.connection_context.revoke(lease_id)
                 except Exception:
                     pass
+                forget_invocation = getattr(
+                    self.connection_context, "forget_invocation", None
+                )
+                if forget_invocation is not None:
+                    forget_invocation(invocation.invocation_id)
             self._tasks.pop(invocation.invocation_id, None)
 
     async def _capture_output(
@@ -685,7 +952,9 @@ class KnowledgeWorkspaceService:
                 file_type="output",
             )
         except AutoSkillProtocolError as exc:
-            raise KnowledgeWorkspaceError("ARTIFACT_UNAVAILABLE", str(exc), 502) from exc
+            raise KnowledgeWorkspaceError(
+                "ARTIFACT_UNAVAILABLE", str(exc), 502
+            ) from exc
         media_type = "application/octet-stream"
         encoding = "binary"
         metadata: dict[str, object] = {
@@ -700,7 +969,11 @@ class KnowledgeWorkspaceService:
         name = "output.bin"
         try:
             if output.lstrip().lower().startswith((b"<html", b"<!doctype html")):
-                name, content, metadata = "output.html", output, validate_html_artifact(output)
+                name, content, metadata = (
+                    "output.html",
+                    output,
+                    validate_html_artifact(output),
+                )
             elif output[:2] == b"PK":
                 name, content, metadata = validate_output_archive(output)
         except HtmlArtifactError as exc:
@@ -725,7 +998,11 @@ class KnowledgeWorkspaceService:
                             "sandbox": "",
                         }
         digest = str(metadata["sha256"])
-        uri = self.repository.put_object(digest, content, suffix=".html" if metadata["media_type"] == "text/html" else ".bin")
+        uri = self.repository.put_object(
+            digest,
+            content,
+            suffix=".html" if metadata["media_type"] == "text/html" else ".bin",
+        )
         artifact = Artifact(
             tenant_id=actor.tenant_id,
             workspace_id=actor.workspace_id,
@@ -772,15 +1049,20 @@ class KnowledgeWorkspaceService:
     def _record_request_id(self, invocation: Invocation, request_id: str) -> Invocation:
         """Persist every provider request used by one invocation."""
 
-        persisted = self.repository.get_invocation(
-            invocation.invocation_id,
-            tenant_id=invocation.tenant_id,
-            workspace_id=invocation.workspace_id,
-        ) or invocation
+        persisted = (
+            self.repository.get_invocation(
+                invocation.invocation_id,
+                tenant_id=invocation.tenant_id,
+                workspace_id=invocation.workspace_id,
+            )
+            or invocation
+        )
         if request_id in persisted.autoskill_request_ids:
             return persisted
         updated = persisted.model_copy(
-            update={"autoskill_request_ids": (*persisted.autoskill_request_ids, request_id)}
+            update={
+                "autoskill_request_ids": (*persisted.autoskill_request_ids, request_id)
+            }
         )
         self.repository.save_invocation(updated)
         return updated
@@ -836,7 +1118,9 @@ class KnowledgeWorkspaceService:
                             invocation.invocation_id,
                             sanitize_event_payload(event.payload),
                             None,
-                            f"{request_id}:{event.event_id}" if event.event_id else None,
+                            f"{request_id}:{event.event_id}"
+                            if event.event_id
+                            else None,
                         )
                     if event.malformed or kind not in allowed:
                         raise KnowledgeWorkspaceError(
@@ -866,11 +1150,7 @@ class KnowledgeWorkspaceService:
                     raise
                 reconnects += 1
                 last_event_id = next(
-                    (
-                        item.event_id
-                        for item in reversed(result)
-                        if item.event_id
-                    ),
+                    (item.event_id for item in reversed(result) if item.event_id),
                     None,
                 )
                 stream = self.autoskill.reconnect(
@@ -887,7 +1167,13 @@ class KnowledgeWorkspaceService:
             )
         return result
 
-    async def _with_reconnect(self, stream: AsyncIterator[ParsedUpstreamEvent], actor: Actor, invocation: Invocation, session: AuthoringSession) -> AsyncIterator[ParsedUpstreamEvent]:
+    async def _with_reconnect(
+        self,
+        stream: AsyncIterator[ParsedUpstreamEvent],
+        actor: Actor,
+        invocation: Invocation,
+        session: AuthoringSession,
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
         current = stream
         reconnects = 0
         while True:
@@ -896,12 +1182,18 @@ class KnowledgeWorkspaceService:
                     yield event
                 return
             except AutoSkillProtocolError:
-                max_reconnects = getattr(getattr(self.autoskill, "config", None), "max_reconnects", 2)
+                max_reconnects = getattr(
+                    getattr(self.autoskill, "config", None), "max_reconnects", 2
+                )
                 if reconnects >= max_reconnects:
                     raise
                 reconnects += 1
                 last = self.repository.raw_events(invocation.invocation_id)
-                cursor = str(last[-1]["upstream_id"]) if last and last[-1]["upstream_id"] else None
+                cursor = (
+                    str(last[-1]["upstream_id"])
+                    if last and last[-1]["upstream_id"]
+                    else None
+                )
                 current = self.autoskill.reconnect(
                     agent_id=invocation.autoskill_agent_id,
                     session_id=invocation.autoskill_session_id,
@@ -917,7 +1209,9 @@ class KnowledgeWorkspaceService:
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> Invocation:
-        invocation = self.repository.get_invocation(invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        invocation = self.repository.get_invocation(
+            invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if invocation is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
         if idempotency_key:
@@ -930,18 +1224,36 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
-        if invocation.status in {InvocationStatus.SUCCEEDED, InvocationStatus.FAILED, InvocationStatus.CANCELLED}:
+        if invocation.status in {
+            InvocationStatus.SUCCEEDED,
+            InvocationStatus.FAILED,
+            InvocationStatus.CANCELLED,
+        }:
             return invocation
         self._cancelled.add(invocation_id)
         try:
-            await self.autoskill.stop(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, request_id=invocation.autoskill_request_id)
+            await self.autoskill.stop(
+                agent_id=invocation.autoskill_agent_id,
+                session_id=invocation.autoskill_session_id,
+                request_id=invocation.autoskill_request_id,
+            )
         except AutoSkillProtocolError:
             # Local cancellation is authoritative even if the upstream stop
             # request races a transport failure.
             pass
-        result = invocation.model_copy(update={"status": InvocationStatus.CANCELLED, "finished_at": utc_now(), "error_code": "CANCELLED"})
+        result = invocation.model_copy(
+            update={
+                "status": InvocationStatus.CANCELLED,
+                "finished_at": utc_now(),
+                "error_code": "CANCELLED",
+            }
+        )
         self.repository.save_invocation(result)
         cursor = len(self.repository.raw_events(invocation_id)) + 1
         self.repository.append_event(
@@ -952,14 +1264,21 @@ class KnowledgeWorkspaceService:
                 "type": "run.cancelled",
                 "invocation_id": invocation_id,
                 "occurred_at": utc_now().isoformat(),
-                "data": {"status": "cancelled", "finished_at": result.finished_at.isoformat()},
+                "data": {
+                    "status": "cancelled",
+                    "finished_at": result.finished_at.isoformat(),
+                },
             },
             None,
         )
         return result
 
-    async def events(self, actor: Actor, invocation_id: str, after: int = 0) -> AsyncIterator[dict]:
-        invocation = self.repository.get_invocation(invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+    async def events(
+        self, actor: Actor, invocation_id: str, after: int = 0
+    ) -> AsyncIterator[dict]:
+        invocation = self.repository.get_invocation(
+            invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if invocation is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
         cursor = after
@@ -970,8 +1289,16 @@ class KnowledgeWorkspaceService:
                     cursor = int(item["sequence"])
                     yield item["event"]
                 continue
-            current = self.repository.get_invocation(invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
-            if current is None or current.status in {InvocationStatus.SUCCEEDED, InvocationStatus.FAILED, InvocationStatus.CANCELLED}:
+            current = self.repository.get_invocation(
+                invocation_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+            if current is None or current.status in {
+                InvocationStatus.SUCCEEDED,
+                InvocationStatus.FAILED,
+                InvocationStatus.CANCELLED,
+            }:
                 return
             yield {"heartbeat": True}
             await asyncio.sleep(0.25)
@@ -997,7 +1324,11 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
             if existing_id:
                 replay = self.repository.get_revision(
@@ -1009,11 +1340,23 @@ class KnowledgeWorkspaceService:
                     return replay
         if if_match:
             if if_match.strip('"') != draft.etag:
-                raise KnowledgeWorkspaceError("ETAG_MISMATCH", "draft was modified by another request", 412)
-        invocation = self.repository.get_invocation(invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+                raise KnowledgeWorkspaceError(
+                    "ETAG_MISMATCH", "draft was modified by another request", 412
+                )
+        invocation = self.repository.get_invocation(
+            invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         session = self._session(actor, draft_id)
-        if invocation is None or invocation.draft_id != draft_id or invocation.status is not InvocationStatus.SUCCEEDED:
-            raise KnowledgeWorkspaceError("REVISION_CONFLICT", "invocation is not a successful draft invocation", 409)
+        if (
+            invocation is None
+            or invocation.draft_id != draft_id
+            or invocation.status is not InvocationStatus.SUCCEEDED
+        ):
+            raise KnowledgeWorkspaceError(
+                "REVISION_CONFLICT",
+                "invocation is not a successful draft invocation",
+                409,
+            )
         if (
             not invocation.request_summary
             or invocation.error_code
@@ -1022,10 +1365,17 @@ class KnowledgeWorkspaceService:
             or not invocation.done_observed
             or invocation.error_observed
         ):
-            raise KnowledgeWorkspaceError("REVISION_CONFLICT", "completion gates are not satisfied", 409)
+            raise KnowledgeWorkspaceError(
+                "REVISION_CONFLICT", "completion gates are not satisfied", 409
+            )
         try:
             # Query the actual service for the Skill list/view and download.
-            state = self._session_state(session) if getattr(self.autoskill, "config", None) is not None and self.autoskill.config.state_mode.casefold() == "stateless" else None
+            state = (
+                self._session_state(session)
+                if getattr(self.autoskill, "config", None) is not None
+                and self.autoskill.config.state_mode.casefold() == "stateless"
+                else None
+            )
             names = await self._skill_command(
                 "list_skill",
                 agent_id=invocation.autoskill_agent_id,
@@ -1041,7 +1391,11 @@ class KnowledgeWorkspaceService:
                     answer = data.get("answer") if isinstance(data, Mapping) else ""
                     try:
                         payload = json.loads(answer)
-                        payload_data = payload.get("data", {}) if isinstance(payload, Mapping) else {}
+                        payload_data = (
+                            payload.get("data", {})
+                            if isinstance(payload, Mapping)
+                            else {}
+                        )
                         if isinstance(payload_data, Mapping):
                             skill_data = payload_data.get("data", payload_data)
                             if isinstance(skill_data, Mapping):
@@ -1053,7 +1407,9 @@ class KnowledgeWorkspaceService:
                     except (TypeError, ValueError, IndexError, AttributeError):
                         pass
             if not skill_name:
-                raise KnowledgeWorkspaceError("SKILL_ZIP_INVALID", "AutoSkill did not return a Skill name", 502)
+                raise KnowledgeWorkspaceError(
+                    "SKILL_ZIP_INVALID", "AutoSkill did not return a Skill name", 502
+                )
             view_request = new_id("request")
             invocation = self._record_request_id(invocation, view_request)
             view_events = await self._skill_command(
@@ -1074,13 +1430,33 @@ class KnowledgeWorkspaceService:
                     answer = data.get("answer") if isinstance(data, Mapping) else ""
                     view_content = str(answer or "").strip()
             if not view_seen or not view_content:
-                raise KnowledgeWorkspaceError("SKILL_ZIP_INVALID", "view_skill did not return readable content", 502)
-            zip_bytes = await self.autoskill.download(agent_id=invocation.autoskill_agent_id, session_id=invocation.autoskill_session_id, file_type="skill", name=skill_name)
+                raise KnowledgeWorkspaceError(
+                    "SKILL_ZIP_INVALID",
+                    "view_skill did not return readable content",
+                    502,
+                )
+            zip_bytes = await self.autoskill.download(
+                agent_id=invocation.autoskill_agent_id,
+                session_id=invocation.autoskill_session_id,
+                file_type="skill",
+                name=skill_name,
+            )
             manifest = validate_skill_zip(zip_bytes)
-            uri = self.repository.put_object(manifest["sha256"], zip_bytes, suffix=".zip")
+            uri = self.repository.put_object(
+                manifest["sha256"], zip_bytes, suffix=".zip"
+            )
         except AutoSkillProtocolError as exc:
-            raise KnowledgeWorkspaceError("AUTOSKILL_PROTOCOL_ERROR", str(exc), 502) from exc
-        number = len(self.repository.revisions(draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)) + 1
+            raise KnowledgeWorkspaceError(
+                "AUTOSKILL_PROTOCOL_ERROR", str(exc), 502
+            ) from exc
+        number = (
+            len(
+                self.repository.revisions(
+                    draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+                )
+            )
+            + 1
+        )
         revision_id = new_id("rev")
         if idempotency_key:
             try:
@@ -1092,7 +1468,11 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
             replay = self.repository.get_revision(
                 revision_id,
@@ -1101,7 +1481,18 @@ class KnowledgeWorkspaceService:
             )
             if replay is not None:
                 return replay
-        revision = SkillRevision(tenant_id=actor.tenant_id, workspace_id=actor.workspace_id, revision_id=revision_id, draft_id=draft_id, number=number, skill_name=str(skill_name), zip_uri=uri, sha256=manifest["sha256"], manifest={k: v for k, v in manifest.items() if k != "skill_md"}, created_from_invocation=invocation_id)
+        revision = SkillRevision(
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            revision_id=revision_id,
+            draft_id=draft_id,
+            number=number,
+            skill_name=str(skill_name),
+            zip_uri=uri,
+            sha256=manifest["sha256"],
+            manifest={k: v for k, v in manifest.items() if k != "skill_md"},
+            created_from_invocation=invocation_id,
+        )
         frozen = self.repository.freeze_revision(revision)
         cursor = len(self.repository.raw_events(invocation_id)) + 1
         self.repository.append_event(
@@ -1140,7 +1531,9 @@ class KnowledgeWorkspaceService:
             )
             if draft is None or session is None:
                 continue
-            actor = Actor(invocation.tenant_id, invocation.workspace_id, invocation.principal_id)
+            actor = Actor(
+                invocation.tenant_id, invocation.workspace_id, invocation.principal_id
+            )
             self._tasks[invocation.invocation_id] = asyncio.create_task(
                 self._execute(
                     actor,
@@ -1164,11 +1557,15 @@ class KnowledgeWorkspaceService:
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> Invocation:
-        revision = self.repository.get_revision(revision_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        revision = self.repository.get_revision(
+            revision_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
         if not connection_ids:
-            raise KnowledgeWorkspaceError("CONNECTION_NOT_READY", "connection permission is required", 409)
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY", "connection permission is required", 409
+            )
         # Run uses a fresh request but the draft's isolated agent/session.
         invocation = self.start(
             actor,
@@ -1184,14 +1581,22 @@ class KnowledgeWorkspaceService:
         return invocation
 
     def get_artifact(self, actor: Actor, artifact_id: str) -> Artifact:
-        artifact = self.repository.get_artifact(artifact_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        artifact = self.repository.get_artifact(
+            artifact_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if artifact is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "artifact not found", 404)
         return artifact
 
-    def artifact_content(self, actor: Actor, artifact_id: str) -> tuple[bytes, str, str]:
+    def artifact_content(
+        self, actor: Actor, artifact_id: str
+    ) -> tuple[bytes, str, str]:
         artifact = self.get_artifact(actor, artifact_id)
-        return self.repository.read_object(artifact.uri), artifact.media_type, artifact.csp
+        return (
+            self.repository.read_object(artifact.uri),
+            artifact.media_type,
+            artifact.csp,
+        )
 
     def list_publications(self, actor: Actor) -> tuple[Publication, ...]:
         return self.repository.list_publications(
@@ -1208,15 +1613,22 @@ class KnowledgeWorkspaceService:
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> Publication:
-        revision = self.repository.get_revision(revision_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id)
+        revision = self.repository.get_revision(
+            revision_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
         if target_space not in {"personal", "team"}:
-            raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "invalid publication target", 422)
+            raise KnowledgeWorkspaceError(
+                "PUBLISH_GATE_FAILED", "invalid publication target", 422
+            )
         if target_space == "team" and not actor.principal_id:
-            raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "team publication requires ACL", 403)
+            raise KnowledgeWorkspaceError(
+                "PUBLISH_GATE_FAILED", "team publication requires ACL", 403
+            )
         successful_runs = [
-            item for item in self.repository.invocations_for_revision(
+            item
+            for item in self.repository.invocations_for_revision(
                 revision_id,
                 tenant_id=actor.tenant_id,
                 workspace_id=actor.workspace_id,
@@ -1236,19 +1648,31 @@ class KnowledgeWorkspaceService:
         if not successful_runs or not any(
             artifact.invocation_id in successful_run_ids for artifact in artifacts
         ):
-            raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "a successful real run and artifact are required", 409)
+            raise KnowledgeWorkspaceError(
+                "PUBLISH_GATE_FAILED",
+                "a successful real run and artifact are required",
+                409,
+            )
         try:
-            checked_zip = validate_skill_zip(self.repository.read_object(revision.zip_uri))
+            checked_zip = validate_skill_zip(
+                self.repository.read_object(revision.zip_uri)
+            )
             if checked_zip["sha256"] != revision.sha256:
-                raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "revision ZIP digest changed", 409)
+                raise KnowledgeWorkspaceError(
+                    "PUBLISH_GATE_FAILED", "revision ZIP digest changed", 409
+                )
             for artifact in artifacts:
                 content = self.repository.read_object(artifact.uri)
                 if hashlib.sha256(content).hexdigest() != artifact.sha256:
-                    raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "artifact digest changed", 409)
+                    raise KnowledgeWorkspaceError(
+                        "PUBLISH_GATE_FAILED", "artifact digest changed", 409
+                    )
                 if artifact.media_type == "text/html":
                     validate_html_artifact(content)
         except (SkillZipError, HtmlArtifactError, ValueError) as exc:
-            raise KnowledgeWorkspaceError("PUBLISH_GATE_FAILED", "immutable asset validation failed", 409) from exc
+            raise KnowledgeWorkspaceError(
+                "PUBLISH_GATE_FAILED", "immutable asset validation failed", 409
+            ) from exc
         publication_id = new_id("pub")
         if idempotency_key:
             try:
@@ -1260,7 +1684,11 @@ class KnowledgeWorkspaceService:
                 )
             except ValueError as exc:
                 if str(exc) == "IDEMPOTENCY_CONFLICT":
-                    raise KnowledgeWorkspaceError("IDEMPOTENCY_CONFLICT", "idempotency key was reused with different input", 409) from exc
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
                 raise
             existing = self.repository.get_publication(
                 publication_id,
@@ -1334,14 +1762,18 @@ class KnowledgeWorkspaceService:
         if publication is None or publication.status != "published":
             raise KnowledgeWorkspaceError("NOT_FOUND", "publication not found", 404)
         if not connection_ids:
-            raise KnowledgeWorkspaceError("CONNECTION_NOT_READY", "consumer authorization is required", 403)
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY", "consumer authorization is required", 403
+            )
         revision = self.repository.get_revision(
             publication.revision_id,
             tenant_id=actor.tenant_id,
             workspace_id=actor.workspace_id,
         )
         if revision is None:
-            raise KnowledgeWorkspaceError("NOT_FOUND", "published revision not found", 404)
+            raise KnowledgeWorkspaceError(
+                "NOT_FOUND", "published revision not found", 404
+            )
         consumer_agent_id = new_id("consumer-agent")
         consumer_session_id = new_id("consumer-session")
         # A consumer invocation gets a fresh request and must be authorized

@@ -64,13 +64,21 @@ async def test_same_origin_routes_scope_draft_by_server_actor() -> None:
         assert loaded.headers["etag"]
         updated = await client.patch(
             f"/api/knowledge/v1/skills/drafts/{draft_id}",
-            headers={**headers, "if-match": loaded.headers["etag"], "idempotency-key": "patch-key-a-123456"},
+            headers={
+                **headers,
+                "if-match": loaded.headers["etag"],
+                "idempotency-key": "patch-key-a-123456",
+            },
             json={"goal": "updated goal"},
         )
         assert updated.status_code == 200
         conflict = await client.patch(
             f"/api/knowledge/v1/skills/drafts/{draft_id}",
-            headers={**headers, "if-match": loaded.headers["etag"], "idempotency-key": "patch-key-b-123456"},
+            headers={
+                **headers,
+                "if-match": loaded.headers["etag"],
+                "idempotency-key": "patch-key-b-123456",
+            },
             json={"goal": "stale write"},
         )
         assert conflict.status_code == 412
@@ -93,8 +101,12 @@ async def test_create_draft_idempotency_replays_and_conflicts() -> None:
             "idempotency-key": "draft-key-123456",
         }
         payload = {"goal": "same", "connection_ids": ["conn-a"]}
-        first = await client.post("/api/knowledge/v1/skills/drafts", headers=headers, json=payload)
-        replay = await client.post("/api/knowledge/v1/skills/drafts", headers=headers, json=payload)
+        first = await client.post(
+            "/api/knowledge/v1/skills/drafts", headers=headers, json=payload
+        )
+        replay = await client.post(
+            "/api/knowledge/v1/skills/drafts", headers=headers, json=payload
+        )
         assert first.status_code == replay.status_code == 201
         assert first.json()["data"]["draft_id"] == replay.json()["data"]["draft_id"]
         conflict = await client.post(
@@ -123,7 +135,11 @@ async def test_unconfigured_autoskill_fails_closed_on_generate() -> None:
         )
         response = await client.post(
             f"/api/knowledge/v1/skills/drafts/{draft.json()['data']['draft_id']}/generate",
-            headers={**headers, "idempotency-key": "generate-key-123456", "if-match": draft.headers["etag"]},
+            headers={
+                **headers,
+                "idempotency-key": "generate-key-123456",
+                "if-match": draft.headers["etag"],
+            },
         )
         assert response.status_code == 202
         await asyncio.sleep(0)
@@ -147,7 +163,11 @@ async def test_browser_invocation_response_does_not_expose_upstream_ids() -> Non
         )
         response = await client.post(
             f"/api/knowledge/v1/skills/drafts/{draft.json()['data']['draft_id']}/generate",
-            headers={**headers, "idempotency-key": "generate-key-123456-browser", "if-match": draft.headers["etag"]},
+            headers={
+                **headers,
+                "idempotency-key": "generate-key-123456-browser",
+                "if-match": draft.headers["etag"],
+            },
         )
         payload = response.json()["data"]
         assert response.status_code == 202
@@ -195,8 +215,16 @@ async def test_upload_is_idempotent_and_workspace_scoped() -> None:
 
         hidden = await client.post(
             "/api/knowledge/v1/skills/drafts",
-            headers={**owner, "x-tenant-id": "tenant-b", "idempotency-key": "draft-key-123456-hidden"},
-            json={"goal": "goal", "connection_ids": ["connection"], "upload_ids": [upload_id]},
+            headers={
+                **owner,
+                "x-tenant-id": "tenant-b",
+                "idempotency-key": "draft-key-123456-hidden",
+            },
+            json={
+                "goal": "goal",
+                "connection_ids": ["connection"],
+                "upload_ids": [upload_id],
+            },
         )
         assert hidden.status_code == 404
 
@@ -210,7 +238,11 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
     )
     mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
-    headers = {"x-tenant-id": "tenant", "x-workspace-id": "workspace", "x-principal-id": "principal"}
+    headers = {
+        "x-tenant-id": "tenant",
+        "x-workspace-id": "workspace",
+        "x-principal-id": "principal",
+    }
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         draft = await client.post(
             "/api/knowledge/v1/skills/drafts",
@@ -218,25 +250,50 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
             json={"goal": "goal", "connection_ids": ["connection"]},
         )
         draft_id = draft.json()["data"]["draft_id"]
-        etag = (await client.get(f"/api/knowledge/v1/skills/drafts/{draft_id}", headers=headers)).headers["etag"]
+        etag = (
+            await client.get(
+                f"/api/knowledge/v1/skills/drafts/{draft_id}", headers=headers
+            )
+        ).headers["etag"]
         updated = await client.patch(
             f"/api/knowledge/v1/skills/drafts/{draft_id}",
-            headers={**headers, "if-match": etag, "idempotency-key": "patch-key-etag-123456"},
+            headers={
+                **headers,
+                "if-match": etag,
+                "idempotency-key": "patch-key-etag-123456",
+            },
             json={"goal": "new goal"},
         )
         assert updated.status_code == 200
         current_etag = updated.headers["etag"]
         invocation = await client.post(
             f"/api/knowledge/v1/skills/drafts/{draft_id}/generate",
-            headers={**headers, "if-match": current_etag, "idempotency-key": "generate-key-123456-etag"},
+            headers={
+                **headers,
+                "if-match": current_etag,
+                "idempotency-key": "generate-key-123456-etag",
+            },
         )
         assert invocation.status_code == 202
         payload = invocation.json()["data"]
-        assert payload["event_url"] == f"/api/knowledge/v1/invocations/{payload['invocation_id']}/events"
-        assert set(payload) == {"invocation_id", "kind", "status", "created_at", "event_url"}
+        assert (
+            payload["event_url"]
+            == f"/api/knowledge/v1/invocations/{payload['invocation_id']}/events"
+        )
+        assert set(payload) == {
+            "invocation_id",
+            "kind",
+            "status",
+            "created_at",
+            "event_url",
+        }
         stale = await client.post(
             f"/api/knowledge/v1/skills/drafts/{draft_id}/messages",
-            headers={**headers, "if-match": etag, "idempotency-key": "message-key-stale-1"},
+            headers={
+                **headers,
+                "if-match": etag,
+                "idempotency-key": "message-key-stale-1",
+            },
             json={"message": "stale", "intent": "update"},
         )
         assert stale.status_code == 412
@@ -260,7 +317,9 @@ async def test_routes_require_concurrency_headers_and_support_not_modified() -> 
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         missing = await client.post(
             "/api/knowledge/v1/skills/drafts",
-            headers={key: value for key, value in headers.items() if key != "idempotency-key"},
+            headers={
+                key: value for key, value in headers.items() if key != "idempotency-key"
+            },
             json={"goal": "goal", "connection_ids": ["connection"]},
         )
         assert missing.status_code == 422

@@ -2359,6 +2359,8 @@ def _run_frontend_server(
         AutoSkillClient,
         AutoSkillConfig,
         Actor,
+        ConnectionServiceConfig,
+        ConnectionServiceGateway,
         KnowledgeWorkspaceRepository,
         KnowledgeWorkspaceService,
         UnavailableAutoSkillClient,
@@ -2371,6 +2373,12 @@ def _run_frontend_server(
         autoskill_client = UnavailableAutoSkillClient(
             f"AutoSkill is not configured: {type(error).__name__}"
         )
+    try:
+        connection_gateway = ConnectionServiceGateway(
+            ConnectionServiceConfig.from_env()
+        )
+    except Exception:
+        connection_gateway = None
     knowledge_service = KnowledgeWorkspaceService(
         KnowledgeWorkspaceRepository(
             os.getenv(
@@ -2383,6 +2391,7 @@ def _run_frontend_server(
             ),
         ),
         autoskill_client,
+        connection_context=connection_gateway,
     )
 
     def _knowledge_workspace_actor(request: Request, resolver: Any) -> Actor:
@@ -2400,6 +2409,7 @@ def _run_frontend_server(
         actor_resolver=lambda request: _knowledge_workspace_actor(
             request, _knowledge_identity
         ),
+        connection_gateway=connection_gateway,
     )
 
     from frontend.server.video.routes import (

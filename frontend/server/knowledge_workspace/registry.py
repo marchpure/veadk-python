@@ -29,4 +29,3 @@ class PublicationRegistryPort(Protocol):
         Implementations must enforce their own Agent grants and idempotency.
         Consumers still reauthorize Connection access at invocation time.
         """
-

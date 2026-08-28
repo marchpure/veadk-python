@@ -1,0 +1,86 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/integration-checkpoint.schema.json",
+  "checkpoint": "STEP3_BLOCKED_AUTOSKILL_CREDENTIAL",
+  "step": "knowledge-asset-workspace-v1-step-3",
+  "created_at": "2026-08-28T01:38:45Z",
+  "branch": "feat/knowledge-v1-integration",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-v1-integration",
+  "inputs": {
+    "step1": "f8fffc64933f35fc962f52a3ffde2de306d7cdf4",
+    "step2a_final": "836033ae7b8d8d298009ee2720b04fc6cecc4084",
+    "step2a_implementation": "803d440240c9199ceba8b5f661aee223162b1fde",
+    "step2b_final": "c0f5f69075e8c639776e02d3be2caeb2f7f85e85",
+    "step2b_implementation": "ba3fd11c7ba746730d251133e028bdcb1ff6ea47",
+    "step2c_final": "78b3ad30128979bfccb8a32a1d15c07398d6eb8a",
+    "step2c_implementation": "1400d9ec62e68ab988cdb3b12c09cb12a4df9c0b",
+    "open_connector": "69ad6f8028eaf3a34b706012c72dc3f099a348e2",
+    "autoskill": "8dc9f14c1a0b0169ef865f3d87d4a6ea3e623533"
+  },
+  "integration_history": {
+    "step2c": "merged exact final SHA",
+    "step2a": "merged exact final SHA",
+    "step2b": "replayed the complete auditable bae782f8..c0f5f690 range because that line forked before STEP 1; implementation and checkpoint content retained",
+    "conflicts": "resolved by the documented ownership split; no directory-level ours/theirs replacement",
+    "frozen_worktrees": "verified clean and left unmodified"
+  },
+  "implemented": [
+    "production composition for Connection Service and AutoSkill",
+    "trusted tenant/workspace/principal propagation with signed server-to-server principal tokens",
+    "same-origin connection catalog, CRUD, validation, discovery and job lookup",
+    "tenant-scoped Connection Service file intake before AutoSkill upload persistence",
+    "least-privilege multi-connection leases with 900-second cap, rollback, restart-safe opaque references and revoke",
+    "lease-scoped public-HTTPS MCP bridge into AutoSkill state",
+    "executable and lease-granted action filtering, server-only lease tokens and required execution audit persistence",
+    "MCP bridge cleanup after upload failure, expiry and invocation completion",
+    "secret-safe browser DTOs and terminal job status rendering"
+  ],
+  "service_start": {
+    "connection_service": "exact SHA local process on 127.0.0.1:3417; /v1/health returned 200",
+    "autoskill_remote": "health returned 200 stateful",
+    "autoskill_local": "exact SHA health passed; real create_skill reached its configured model provider and was rejected for invalid credentials"
+  },
+  "acceptance_url": "http://127.0.0.1:5187/?view=knowledge-workspace&file=welcome",
+  "acceptance_url_scope": "unique local contract-fixture browser verification only; not real A-D evidence",
+  "evidence": "docs/knowledge-workspace/evidence/integration-72b75fa8/results.json",
+  "journeys": {
+    "A": "BLOCKED_AUTOSKILL_CREDENTIAL",
+    "B": "BLOCKED_AUTOSKILL_CREDENTIAL",
+    "C": "BLOCKED_AUTOSKILL_CREDENTIAL",
+    "D": "BLOCKED_AUTOSKILL_CREDENTIAL"
+  },
+  "tests": {
+    "backend": "103 passed",
+    "frontend": "847 passed",
+    "typescript": "passed",
+    "boundary_contract": "9 passed",
+    "production_build": "passed",
+    "webui_assets": "85 packaged files and 229 internal references verified",
+    "open_connector": "163 files passed, 1 skipped; 1467 tests passed, 4 skipped",
+    "pre_commit": "ruff check, ruff format and gitleaks passed",
+    "forbidden_pattern_scan": "passed for Knowledge Workspace production source"
+  },
+  "visual": {
+    "baseline": "STEP2A_VISUAL_FROZEN",
+    "inherited_capture_count": 22,
+    "fresh_step3_22_state_capture": false,
+    "contract_fixture_desktop_and_narrow": "passed"
+  },
+  "hard_blocker": {
+    "reason": "AUTOSKILL_CREDENTIAL",
+    "remote_token": "not configured",
+    "local_model_credential": "real provider rejected the configured credential",
+    "remaining_gate": "authenticated create_skill, update_skill and Skill ZIP download, followed by real HTML validation, immutable revision, publication and cross-session invocation for A-D",
+    "mock_fallback_used": false
+  },
+  "external_non_blocking": [
+    "Feishu real resource authorization",
+    "enterprise VPC Oracle",
+    "veFaaS production deployment"
+  ],
+  "non_claims": [
+    "A-D did not pass.",
+    "No fixture or deterministic client counts as a real AutoSkill success.",
+    "No real ZIP, HTML, revision, publication or cross-session success is claimed.",
+    "The exact Connection Service has no tenant control-plane audit-read endpoint; BFF runtime execution instead requires its auditPersisted=true acknowledgement."
+  ]
+}

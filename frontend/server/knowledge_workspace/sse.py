@@ -27,8 +27,17 @@ class ParsedUpstreamEvent:
 
 
 _SECRET_KEYS = {
-    "access_key", "access_key_id", "api_key", "authorization", "cookie",
-    "credential", "password", "secret", "secret_key", "session_token", "token",
+    "access_key",
+    "access_key_id",
+    "api_key",
+    "authorization",
+    "cookie",
+    "credential",
+    "password",
+    "secret",
+    "secret_key",
+    "session_token",
+    "token",
 }
 _SECRET_ASSIGNMENT = re.compile(
     r"""(?i)["']?(?:api[_-]?key|access[_-]?key|authorization|cookie|credential|password|secret|session[_-]?token|token)["']?\s*[:=]\s*(?:["']?bearer\s+)?["']?[^\s,;}"']+"""
@@ -40,7 +49,9 @@ def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
     """Bound and redact provider payloads before durable raw-event storage."""
 
     normalized = key.casefold().replace("-", "_")
-    if normalized in _SECRET_KEYS or normalized.endswith(("_token", "_secret", "_password")):
+    if normalized in _SECRET_KEYS or normalized.endswith(
+        ("_token", "_secret", "_password")
+    ):
         return "[REDACTED]"
     if depth >= 6:
         return "[TRUNCATED]"
@@ -52,7 +63,9 @@ def sanitize_event_payload(value: Any, *, key: str = "", depth: int = 0) -> Any:
         return _SECRET_BEARER.sub("[REDACTED]", bounded)
     if isinstance(value, Mapping):
         return {
-            str(item_key)[:160]: sanitize_event_payload(item, key=str(item_key), depth=depth + 1)
+            str(item_key)[:160]: sanitize_event_payload(
+                item, key=str(item_key), depth=depth + 1
+            )
             for item_key, item in list(value.items())[:64]
         }
     if isinstance(value, (list, tuple)):
@@ -71,14 +84,21 @@ class SseParser:
         self._max_buffer_bytes = max_buffer_bytes
 
     def feed(self, chunk: str | bytes) -> list[SseFrame]:
-        text = chunk.decode("utf-8", errors="replace") if isinstance(chunk, bytes) else chunk
+        text = (
+            chunk.decode("utf-8", errors="replace")
+            if isinstance(chunk, bytes)
+            else chunk
+        )
         frames: list[SseFrame] = []
         self._line_buffer += text
         if len(self._line_buffer.encode("utf-8")) > self._max_buffer_bytes:
             raise ValueError("SSE frame exceeds configured buffer limit")
         lines = self._line_buffer.replace("\r\n", "\n").replace("\r", "\n").split("\n")
         self._line_buffer = lines.pop() or ""
-        if sum(len(item.encode("utf-8")) for item in self._data) > self._max_buffer_bytes:
+        if (
+            sum(len(item.encode("utf-8")) for item in self._data)
+            > self._max_buffer_bytes
+        ):
             raise ValueError("SSE data exceeds configured buffer limit")
         for line in lines:
             if line == "":
@@ -104,7 +124,10 @@ class SseParser:
                 self._event_name = value
             elif field == "data":
                 self._data.append(value)
-                if sum(len(item.encode("utf-8")) for item in self._data) > self._max_buffer_bytes:
+                if (
+                    sum(len(item.encode("utf-8")) for item in self._data)
+                    > self._max_buffer_bytes
+                ):
                     raise ValueError("SSE data exceeds configured buffer limit")
         return frames
 
@@ -142,7 +165,9 @@ def parse_upstream_frame(frame: SseFrame) -> ParsedUpstreamEvent | None:
             frame.event_id, frame.event or "unknown", {"value": value}, frame.data, True
         )
     event_type = str(value.get("type") or frame.event or "unknown")
-    return ParsedUpstreamEvent(frame.event_id, event_type, sanitize_event_payload(value), frame.data)
+    return ParsedUpstreamEvent(
+        frame.event_id, event_type, sanitize_event_payload(value), frame.data
+    )
 
 
 def _data(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -159,13 +184,24 @@ def _plan_steps(value: Any) -> list[dict[str, str]]:
     for index, item in enumerate(values):
         if isinstance(item, Mapping):
             status = str(item.get("status") or "running").casefold()
-            result.append({
-                "id": str(item.get("id") or item.get("step_id") or f"step-{index + 1}"),
-                "label": str(item.get("label") or item.get("name") or item.get("description") or item),
-                "status": status if status in valid_statuses else "running",
-            })
+            result.append(
+                {
+                    "id": str(
+                        item.get("id") or item.get("step_id") or f"step-{index + 1}"
+                    ),
+                    "label": str(
+                        item.get("label")
+                        or item.get("name")
+                        or item.get("description")
+                        or item
+                    ),
+                    "status": status if status in valid_statuses else "running",
+                }
+            )
         else:
-            result.append({"id": f"step-{index + 1}", "label": str(item), "status": "running"})
+            result.append(
+                {"id": f"step-{index + 1}", "label": str(item), "status": "running"}
+            )
     return result
 
 
@@ -193,45 +229,116 @@ def normalize_upstream_event(
         "occurred_at": now,
     }
     if event.malformed or kind not in {
-        "planning", "action", "observation", "final_answer",
-        "request_summary", "state_update", "error", "done",
+        "planning",
+        "action",
+        "observation",
+        "final_answer",
+        "request_summary",
+        "state_update",
+        "error",
+        "done",
     }:
         return None
     if kind == "planning":
         steps = _plan_steps(data.get("steps") or data.get("plan") or [])
-        return {**base, "type": "plan.updated", "data": {"steps": steps, "summary": str(data.get("summary", ""))[:2000]}}
+        return {
+            **base,
+            "type": "plan.updated",
+            "data": {"steps": steps, "summary": str(data.get("summary", ""))[:2000]},
+        }
     if kind == "action":
-        action = str(data.get("status") or data.get("phase") or data.get("event") or "started").casefold()
-        tool = str(data.get("tool_name") or data.get("tool") or data.get("name") or "autoskill.action")
-        if action in {"completed", "complete", "end", "finished", "failed", "cancelled"}:
-            return {**base, "type": "tool.completed", "data": {
+        action = str(
+            data.get("status") or data.get("phase") or data.get("event") or "started"
+        ).casefold()
+        tool = str(
+            data.get("tool_name")
+            or data.get("tool")
+            or data.get("name")
+            or "autoskill.action"
+        )
+        if action in {
+            "completed",
+            "complete",
+            "end",
+            "finished",
+            "failed",
+            "cancelled",
+        }:
+            return {
+                **base,
+                "type": "tool.completed",
+                "data": {
+                    "tool_call_id": f"{invocation_id}:tool:{cursor}",
+                    "tool_name": tool,
+                    "status": "failed"
+                    if action == "failed"
+                    else action
+                    if action in {"cancelled", "succeeded"}
+                    else "succeeded",
+                    "duration_ms": _duration_ms(data.get("duration_ms")),
+                    "output_summary": str(
+                        data.get("output_summary") or data.get("output") or ""
+                    )[:2000],
+                },
+            }
+        return {
+            **base,
+            "type": "tool.started",
+            "data": {
                 "tool_call_id": f"{invocation_id}:tool:{cursor}",
-                "tool_name": tool, "status": "failed" if action == "failed" else action if action in {"cancelled", "succeeded"} else "succeeded",
-                "duration_ms": _duration_ms(data.get("duration_ms")),
-                "output_summary": str(data.get("output_summary") or data.get("output") or "")[:2000],
-            }}
-        return {**base, "type": "tool.started", "data": {
-            "tool_call_id": f"{invocation_id}:tool:{cursor}",
-            "tool_name": tool,
-            "input_summary": str(data.get("input_summary") or data.get("input") or "")[:2000],
-        }}
+                "tool_name": tool,
+                "input_summary": str(
+                    data.get("input_summary") or data.get("input") or ""
+                )[:2000],
+            },
+        }
     if kind == "observation":
-        return {**base, "type": "tool.completed", "data": {
-            "tool_call_id": f"{invocation_id}:tool:{cursor}",
-            "tool_name": str(data.get("tool_name") or "autoskill.observation"),
-            "status": "succeeded",
-            "duration_ms": _duration_ms(data.get("duration_ms")),
-            "output_summary": str(data.get("summary") or data.get("observation") or data.get("output") or "")[:2000],
-        }}
+        return {
+            **base,
+            "type": "tool.completed",
+            "data": {
+                "tool_call_id": f"{invocation_id}:tool:{cursor}",
+                "tool_name": str(data.get("tool_name") or "autoskill.observation"),
+                "status": "succeeded",
+                "duration_ms": _duration_ms(data.get("duration_ms")),
+                "output_summary": str(
+                    data.get("summary")
+                    or data.get("observation")
+                    or data.get("output")
+                    or ""
+                )[:2000],
+            },
+        }
     if kind == "final_answer":
         text = data.get("answer", data.get("text", data.get("content", "")))
-        return {**base, "type": "assistant.delta", "data": {"text": str(sanitize_event_payload(text)), "sequence": cursor, "final": True}}
+        return {
+            **base,
+            "type": "assistant.delta",
+            "data": {
+                "text": str(sanitize_event_payload(text)),
+                "sequence": cursor,
+                "final": True,
+            },
+        }
     if kind == "error":
-        return {**base, "type": "run.failed", "data": {"status": "failed", "error": {
-            "code": str(data.get("code") or "AUTOSKILL_ERROR"),
-            "message": str(sanitize_event_payload(data.get("message") or data.get("error") or "AutoSkill error"))[:2000],
-            "retryable": bool(data.get("retryable", False)),
-        }}}
+        return {
+            **base,
+            "type": "run.failed",
+            "data": {
+                "status": "failed",
+                "error": {
+                    "code": str(data.get("code") or "AUTOSKILL_ERROR"),
+                    "message": str(
+                        sanitize_event_payload(
+                            data.get("message")
+                            or data.get("error")
+                            or "AutoSkill error"
+                        )
+                    )[:2000],
+                    "retryable": bool(data.get("retryable", False)),
+                },
+            },
+        }
     if kind == "request_summary":
         # request_summary is retained in raw evidence and folded into the
         # gated run.completed event; it is not a browser event type in the
@@ -239,11 +346,22 @@ def normalize_upstream_event(
         return None
     if kind == "state_update":
         ready = bool(data.get("state_ready"))
-        return {**base, "type": "plan.updated", "data": {"steps": [{
-            "id": "state",
-            "label": "state snapshot ready" if ready else "state snapshot updating",
-            "status": "completed" if ready else "running",
-        }], "summary": "AutoSkill state snapshot updated"}}
+        return {
+            **base,
+            "type": "plan.updated",
+            "data": {
+                "steps": [
+                    {
+                        "id": "state",
+                        "label": "state snapshot ready"
+                        if ready
+                        else "state snapshot updating",
+                        "status": "completed" if ready else "running",
+                    }
+                ],
+                "summary": "AutoSkill state snapshot updated",
+            },
+        }
     return None
 
 

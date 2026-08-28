@@ -51,7 +51,9 @@ def main() -> int:
     for path in required_paths:
         assert f"  {path}:" in openapi, f"OpenAPI path missing: {path}"
     for header in ["Idempotency-Key", "If-Match", "ETag", "Last-Event-ID"]:
-        assert header in openapi, f"OpenAPI concurrency/reconnect contract missing: {header}"
+        assert header in openapi, (
+            f"OpenAPI concurrency/reconnect contract missing: {header}"
+        )
 
     event_types = [
         "run.started",
@@ -103,4 +105,3 @@ if __name__ == "__main__":
     except (AssertionError, json.JSONDecodeError) as exc:
         print(f"knowledge workspace contract validation: FAIL: {exc}", file=sys.stderr)
         raise SystemExit(1)
-

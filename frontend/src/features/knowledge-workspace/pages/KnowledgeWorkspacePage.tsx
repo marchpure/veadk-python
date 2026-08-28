@@ -1079,7 +1079,8 @@ function ConnectionDetailView({
         <p>状态由 Connection Service 返回，前端不会预设“已支持”或“验证成功”。</p>
         {job ? (
           <p className="kw-state-card" role="status">
-            {job.kind === "validate" ? "验证任务" : "能力发现任务"}已提交，当前状态：{job.status === "queued" ? "排队中" : "运行中"}。
+            {job.kind === "validate" ? "验证任务" : "能力发现任务"}状态：
+            {job.status === "queued" ? "排队中" : job.status === "running" ? "运行中" : job.status === "succeeded" ? "已完成" : "失败"}。
           </p>
         ) : null}
         <div className="kw-detail-actions">

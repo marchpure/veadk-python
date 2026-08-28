@@ -81,7 +81,7 @@ class Invocation(ImmutableModel):
     revision_id: str | None = Field(default=None, max_length=160)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
-    lease_id: str | None = Field(default=None, max_length=256)
+    lease_id: str | None = Field(default=None, max_length=4_096)
     authoring_session_id: str = Field(min_length=1, max_length=160)
     kind: InvocationKind
     status: InvocationStatus = InvocationStatus.QUEUED
@@ -158,4 +158,5 @@ class WorkspaceUpload(ImmutableModel):
     media_type: str = Field(min_length=1, max_length=256)
     purpose: str = Field(pattern=r"^(context|skill_input)$")
     uri: str = Field(min_length=1, max_length=2_048)
+    connection_file_id: str | None = Field(default=None, min_length=1, max_length=512)
     created_at: datetime = Field(default_factory=utc_now)
