@@ -132,6 +132,13 @@ function formatServerTimestamp(value?: string): string {
     : date.toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
 }
 
+function formatElapsed(milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes ? `${minutes}分${String(seconds).padStart(2, "0")}秒` : `${seconds}秒`;
+}
+
 function routeFromLocation(): WorkspaceRoute {
   const query = new URLSearchParams(window.location.search);
   const requestedFile = query.get("file") || "welcome";
@@ -194,7 +201,12 @@ export function KnowledgeWorkspacePage() {
   const [drafts, setDrafts] = useState<Draft[]>(
     () => readQuery<Draft[]>("drafts") || [],
   );
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(() => {
+    const initialRoute = routeFromLocation();
+    return initialRoute.draftId
+      ? readQuery<Draft>(`draft:${initialRoute.draftId}`) || null
+      : null;
+  });
   const [etag, setEtag] = useState("");
   const [draftLoadAttempt, setDraftLoadAttempt] = useState(0);
   const [draftResourceError, setDraftResourceError] = useState<{
@@ -239,6 +251,12 @@ export function KnowledgeWorkspacePage() {
     setConnections(writeQuery("connections", connectionResult.data));
     setConnectors(writeQuery("connector-definitions", connectorResult.data));
     setDrafts(writeQuery("drafts", draftResult.data));
+    connectionResult.data.forEach((connection) => {
+      writeQuery(`connection:${connection.connection_id}`, connection);
+    });
+    draftResult.data.forEach((item) => {
+      writeQuery(`draft:${item.draft_id}`, item);
+    });
   }, []);
 
   useEffect(() => {
@@ -268,6 +286,7 @@ export function KnowledgeWorkspacePage() {
           ...current.filter((item) => item.connection_id !== result.value.data.connection_id),
           result.value.data,
         ]);
+        writeQuery(`connection:${result.value.data.connection_id}`, result.value.data);
         setSelectedConnectionIds([result.value.data.connection_id]);
       })
       .catch((cause) => {
@@ -291,14 +310,20 @@ export function KnowledgeWorkspacePage() {
     const controller = new AbortController();
     setBusy("load-draft");
     setDraftResourceError(null);
+    const cachedDraft = readQuery<Draft>(`draft:${route.draftId}`);
+    if (cachedDraft) setDraft(cachedDraft);
+    const cachedRevisions = readQuery<Revision[]>(`revisions:${route.draftId}`);
+    if (cachedRevisions) setRevisions(cachedRevisions);
     void knowledgeApi.getDraft(route.draftId, controller.signal)
       .then(async (result) => {
         if (controller.signal.aborted) return;
         setDraft(result.value.data);
+        writeQuery(`draft:${route.draftId}`, result.value.data);
         setEtag(result.etag);
         setSelectedConnectionIds(result.value.data.connection_ids);
         const revisionResult = await knowledgeApi.listRevisions(route.draftId, controller.signal);
         setRevisions(revisionResult.data);
+        writeQuery(`revisions:${route.draftId}`, revisionResult.data);
       })
       .catch((cause) => {
         if (!controller.signal.aborted) {
@@ -348,6 +373,7 @@ export function KnowledgeWorkspacePage() {
         ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
       });
       setDraft(created.value.data);
+      writeQuery(`draft:${created.value.data.draft_id}`, created.value.data);
       setEtag(created.etag);
       setSelectedConnectionIds(connectionIds);
       setDrafts((current) => [
@@ -399,11 +425,17 @@ export function KnowledgeWorkspacePage() {
       setPlan(event.data.steps);
     } else if (event.type === "artifact.created") {
       void knowledgeApi.getArtifact(event.data.artifact_id)
-        .then((result) => setArtifact(result.value.data))
+        .then((result) => {
+          setArtifact(result.value.data);
+          writeQuery(`artifact:${event.data.artifact_id}`, result.value.data);
+        })
         .catch((cause) => setError(errorMessage(cause)));
     } else if (event.type === "revision.created" && draft) {
       void knowledgeApi.listRevisions(draft.draft_id)
-        .then((result) => setRevisions(result.data))
+        .then((result) => {
+          setRevisions(result.data);
+          writeQuery(`revisions:${draft.draft_id}`, result.data);
+        })
         .catch((cause) => setError(errorMessage(cause)));
     }
     if (
@@ -775,6 +807,7 @@ export function KnowledgeWorkspacePage() {
             plan={plan}
             streamState={streamState}
             activeInvocation={activeInvocation}
+            startedAt={startedAt}
             busy={busy}
             resourceError={draftResourceError}
             onSend={sendMessage}
@@ -1068,6 +1101,7 @@ function DraftWorkspace({
   plan,
   streamState,
   activeInvocation,
+  startedAt,
   busy,
   resourceError,
   onSend,
@@ -1086,6 +1120,7 @@ function DraftWorkspace({
   plan: PlanStep[];
   streamState: "idle" | "connected" | "disconnected" | "done";
   activeInvocation: Invocation | null;
+  startedAt: number | null;
   busy: string;
   resourceError: { code: string; message: string } | null;
   onSend: (message: string, intent: "update" | "run") => Promise<void>;
@@ -1097,8 +1132,16 @@ function DraftWorkspace({
 }) {
   const [message, setMessage] = useState("");
   const [task, setTask] = useState(draft?.trial_task || draft?.goal || "");
+  const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const timelineEnd = useRef<HTMLDivElement>(null);
   useEffect(() => timelineEnd.current?.scrollIntoView({ block: "nearest" }), [events, assistantText]);
+  useEffect(() => {
+    if (!startedAt) return undefined;
+    setElapsedNow(Date.now());
+    if (streamState === "done") return undefined;
+    const timer = window.setInterval(() => setElapsedNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt, streamState]);
   useEffect(() => {
     setTask(draft?.trial_task || draft?.goal || "");
   }, [draft?.draft_id, draft?.trial_task, draft?.goal]);
@@ -1123,6 +1166,9 @@ function DraftWorkspace({
       : resourceError?.code === "PUBLISH_GATE_FAILED"
         ? "upgrade"
         : "";
+  const elapsedLabel = startedAt
+    ? `· 已耗时 ${formatElapsed(elapsedNow - startedAt)}`
+    : "";
   return (
     <section className="kw-draft-layout">
       <div className="kw-draft-center">
@@ -1185,7 +1231,7 @@ function DraftWorkspace({
       </div>
       <aside className="kw-chat">
         <div className="kw-chat-heading">
-          <div className="kw-chat-title"><PanelRight size={16} /> 分析助手 <span>{activeInvocation ? "· 实时" : ""}</span></div>
+          <div className="kw-chat-title"><PanelRight size={16} /> 分析助手 <span>{activeInvocation ? `· 实时 ${elapsedLabel}` : ""}</span></div>
           {activeInvocation && streamState === "connected" ? <button type="button" onClick={() => void onCancel()}><Square size={13} /> 取消</button> : null}
           {activeInvocation && streamState === "disconnected" ? <button type="button" onClick={onReconnect}><RefreshCw size={13} /> 从 {events.at(-1)?.id || "起点"} 重连</button> : null}
         </div>

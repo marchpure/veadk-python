@@ -72,3 +72,12 @@ test("route states and server errors remain actionable without client outcomes",
   assert.match(page, /knowledgeApi\.validateConnection\(created\.data\.connection_id\)/);
   assert.match(page, /connectionId/);
 });
+
+test("SSE runtime and server resources remain observable through the UI cache", () => {
+  assert.match(page, /formatElapsed/);
+  assert.match(page, /已耗时/);
+  assert.match(page, /setInterval\(\(\) => setElapsedNow/);
+  assert.match(page, /writeQuery\(`draft:\$\{route\.draftId\}`/);
+  assert.match(page, /writeQuery\(`revisions:\$\{route\.draftId\}`/);
+  assert.match(page, /writeQuery\(`artifact:\$\{event\.data\.artifact_id\}`/);
+});
