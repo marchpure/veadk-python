@@ -35,6 +35,7 @@ from .models import (
 from .registry import PublicationRegistryPort
 from .repository import KnowledgeWorkspaceRepository
 from .sse import ParsedUpstreamEvent, normalize_upstream_event, sanitize_event_payload
+from .source_contracts import AsyncKnowledgeContextResolver, KnowledgeContextResolver
 from .zip_validator import SkillZipError, validate_skill_zip
 
 
@@ -59,21 +60,17 @@ class KnowledgeWorkspaceService:
         autoskill: AutoSkillClient,
         connection_context: ConnectionInvocationContextPort | None = None,
         publication_registry: PublicationRegistryPort | None = None,
-        openviking_context_resolver: Callable[
-            [Actor, Sequence[str], Sequence[str]], Mapping[str, object]
-        ]
-        | None = None,
-        openviking_content_resolver: Callable[
-            [Actor, Sequence[str], Sequence[str]], Awaitable[Mapping[str, object]]
-        ]
-        | None = None,
+        knowledge_context_resolver: KnowledgeContextResolver | None = None,
+        knowledge_content_resolver: AsyncKnowledgeContextResolver | None = None,
+        openviking_context_resolver: Callable[[Actor, Sequence[str], Sequence[str]], Mapping[str, object]] | None = None,
+        openviking_content_resolver: Callable[[Actor, Sequence[str], Sequence[str]], Awaitable[Mapping[str, object]]] | None = None,
     ) -> None:
         self.repository = repository
         self.autoskill = autoskill
         self.connection_context = connection_context
         self.publication_registry = publication_registry
-        self.openviking_context_resolver = openviking_context_resolver
-        self.openviking_content_resolver = openviking_content_resolver
+        self.knowledge_context_resolver = knowledge_context_resolver or openviking_context_resolver
+        self.knowledge_content_resolver = knowledge_content_resolver or openviking_content_resolver
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._cancelled: set[str] = set()
 
@@ -85,14 +82,14 @@ class KnowledgeWorkspaceService:
     ) -> Mapping[str, object] | None:
         if not profile_ids and not resource_refs:
             return None
-        if self.openviking_context_resolver is None:
+        if self.knowledge_context_resolver is None:
             raise KnowledgeWorkspaceError(
                 "OPENVIKING_CONTEXT_UNAVAILABLE",
                 "OpenViking knowledge context is not configured",
                 503,
             )
         try:
-            return self.openviking_context_resolver(actor, profile_ids, resource_refs)
+            return self.knowledge_context_resolver(actor, profile_ids, resource_refs)
         except KnowledgeWorkspaceError:
             raise
         except Exception as exc:
@@ -934,8 +931,8 @@ class KnowledgeWorkspaceService:
                 invocation.openviking_profile_ids,
                 invocation.openviking_resource_refs,
             )
-            if context and self.openviking_content_resolver is not None:
-                context = await self.openviking_content_resolver(
+            if context and self.knowledge_content_resolver is not None:
+                context = await self.knowledge_content_resolver(
                     actor,
                     invocation.openviking_profile_ids,
                     invocation.openviking_resource_refs,

@@ -2433,7 +2433,7 @@ def _run_frontend_server(
             ),
             OpenVikingConfig.from_env(),
         )
-        knowledge_service.openviking_context_resolver = (
+        knowledge_service.knowledge_context_resolver = (
             lambda actor,
             profile_ids,
             resource_refs: openviking_service.creator_context(
@@ -2443,7 +2443,7 @@ def _run_frontend_server(
                 resource_refs=tuple(resource_refs),
             )
         )
-        knowledge_service.openviking_content_resolver = (
+        knowledge_service.knowledge_content_resolver = (
             lambda actor,
             profile_ids,
             resource_refs: openviking_service.resolved_creator_context(
