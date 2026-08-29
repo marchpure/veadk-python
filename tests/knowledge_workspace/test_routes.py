@@ -208,6 +208,44 @@ async def test_create_draft_idempotency_replays_and_conflicts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_draft_accepts_unified_knowledge_source_refs() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+        knowledge_context_resolver=lambda actor, profiles, resources: {
+            "profiles": list(profiles),
+            "resources": list(resources),
+        },
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    headers = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+        "idempotency-key": "draft-unified-123456",
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers=headers,
+            json={
+                "goal": "unified refs",
+                "connection_ids": [],
+                "knowledge_source_refs": [
+                    {"provider": "openviking", "profile_ref": "profile-a"},
+                    {"provider": "openviking", "resource_ref": "resource-a"},
+                ],
+            },
+        )
+    assert response.status_code == 201
+    assert response.json()["data"]["openviking_profile_ids"] == ["profile-a"]
+    assert response.json()["data"]["openviking_resource_refs"] == ["resource-a"]
+
+
+@pytest.mark.asyncio
 async def test_unconfigured_autoskill_fails_closed_on_generate() -> None:
     app = FastAPI()
     service = KnowledgeWorkspaceService(
