@@ -101,6 +101,7 @@ class Invocation(ImmutableModel):
     principal_id: str = Field(default="legacy", min_length=1, max_length=160)
     message: str = Field(default="", max_length=20_000)
     model: str | None = Field(default=None, max_length=256)
+    invocation_policy: Mapping[str, Any] | None = None
     request_summary: Mapping[str, Any] | None = None
     final_answer_observed: bool = False
     request_summary_observed: bool = False

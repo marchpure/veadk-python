@@ -37,11 +37,20 @@ def event(event_type: str, data: object = None) -> ParsedUpstreamEvent:
 
 
 class FakeAutoSkill:
-    def __init__(self, events: Sequence[ParsedUpstreamEvent]) -> None:
+    def __init__(
+        self,
+        events: Sequence[ParsedUpstreamEvent],
+        *,
+        invoke_events: Sequence[ParsedUpstreamEvent] | None = None,
+    ) -> None:
         self.events = tuple(events)
+        self.invoke_events = tuple(invoke_events) if invoke_events is not None else None
         self.stops: list[str] = []
         self.uploads: list[dict[str, object]] = []
         self.request_ids: list[str] = []
+        self.policies: list[dict[str, object] | None] = []
+        self.commands: list[str] = []
+        self.downloads: list[dict[str, object]] = []
         self.output = b"<!doctype html><html><body>real output</body></html>"
         self.skill_zip = make_skill_zip("demo", "# Demo\n")
 
@@ -50,18 +59,23 @@ class FakeAutoSkill:
         return {"status": "ok"}
 
     async def download(self, **kwargs: object) -> bytes:
+        self.downloads.append(kwargs)
         return self.output if kwargs["file_type"] == "output" else self.skill_zip
 
     async def command(
-        self, *_args: object, **kwargs: object
+        self, *args: object, **kwargs: object
     ) -> AsyncIterator[ParsedUpstreamEvent]:
+        if args:
+            self.commands.append(str(args[0]))
         self.request_ids.append(str(kwargs["request_id"]))
+        self.policies.append(kwargs.get("invocation_policy"))
         for item in self.events:
             yield item
 
     async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
         self.request_ids.append(str(kwargs["request_id"]))
-        for item in self.events:
+        self.policies.append(kwargs.get("invocation_policy"))
+        for item in self.invoke_events or self.events:
             yield item
 
     async def reconnect(self, **_kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
@@ -80,6 +94,35 @@ def make_skill_zip(name: str, content: str) -> bytes:
     return buffer.getvalue()
 
 
+def policy_summary(
+    *,
+    status: str = "success",
+    target_skill: str = "demo",
+    skills_field: str = "skills_created",
+    satisfied: bool = True,
+    matched_action_id: str = "fixture.read",
+    matched_tool: str = "mcp__knowledge-connection-1__execute_action",
+) -> dict[str, object]:
+    return {
+        "status": status,
+        skills_field: [target_skill],
+        "target_skill": target_skill,
+        "target_skill_version": "1.0.0",
+        "policy_evaluation": {
+            "satisfied": satisfied,
+            "matched_calls": [
+                {
+                    "index": 0,
+                    "server": "knowledge-connection-1",
+                    "tool": matched_tool,
+                    "actionId": matched_action_id,
+                }
+            ],
+            "unmet_requirements": [] if satisfied else ["missing call"],
+        },
+    }
+
+
 class FakeLeasePort:
     def __init__(self) -> None:
         self.issued: list[dict[str, object]] = []
@@ -91,11 +134,21 @@ class FakeLeasePort:
         return EphemeralConnectionContext(
             lease_id=f"lease-{kwargs['invocation_id']}",
             connection_ids=tuple(kwargs["connection_ids"]),
-            allowed_actions=tuple(kwargs["allowed_actions"]),
+            allowed_actions=("fixture.read",),
             expires_at=__import__("datetime").datetime.now(
                 __import__("datetime").timezone.utc
             ),
-            runtime_ref="runtime://lease",
+            runtime_ref=json.dumps(
+                {
+                    "leases": [
+                        {
+                            "connection_id": connection_id,
+                            "allowed_actions": ["fixture.read"],
+                        }
+                        for connection_id in kwargs["connection_ids"]
+                    ]
+                }
+            ),
         )
 
     async def revoke(self, lease_id: str) -> None:
@@ -178,8 +231,8 @@ class QueryFailureAutoSkill(FreezeAutoSkill):
     async def command(
         self, command: str, **kwargs: object
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        if command == "list_skill":
-            yield event("error", {"code": "QUERY_FAILED", "message": "no list"})
+        if command == "view_skill":
+            yield event("error", {"code": "QUERY_FAILED", "message": "no view"})
             yield event("done")
             return
         async for item in super().command(command, **kwargs):
@@ -190,7 +243,7 @@ class QueryUnknownAutoSkill(FreezeAutoSkill):
     async def command(
         self, command: str, **kwargs: object
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        if command in {"list_skill", "view_skill"}:
+        if command == "view_skill":
             yield event("future_provider_progress", {"message": "compatible"})
         async for item in super().command(command, **kwargs):
             yield item
@@ -204,9 +257,14 @@ def make_freeze_service() -> tuple[KnowledgeWorkspaceService, Actor]:
         FreezeAutoSkill(
             [
                 event("final_answer", {"answer": "created"}),
-                event("request_summary", {"status": "success"}),
+                event("request_summary", policy_summary()),
                 event("done"),
-            ]
+            ],
+            invoke_events=[
+                event("final_answer", {"answer": "ran"}),
+                event("request_summary", policy_summary(skills_field="skills_used")),
+                event("done"),
+            ],
         ),
         lease,
     )
@@ -264,7 +322,7 @@ async def test_freeze_binds_created_skill_when_list_is_not_creation_ordered() ->
                     )
                 },
             ),
-            event("request_summary", {"status": "success"}),
+            event("request_summary", policy_summary()),
             event("done"),
         ]
     )
@@ -283,11 +341,7 @@ async def test_freeze_binds_created_skill_when_list_is_not_creation_ordered() ->
     service.repository.save_invocation(
         saved.model_copy(
             update={
-                "request_summary": {
-                    "status": "succeeded",
-                    "skills_created": ["demo"],
-                    "target_skill": "demo",
-                }
+                "request_summary": policy_summary(),
             }
         )
     )
@@ -309,9 +363,14 @@ async def test_publication_requires_invocation_lease_and_registers_fixed_revisio
         FreezeAutoSkill(
             [
                 event("final_answer", {"answer": "created"}),
-                event("request_summary", {"status": "success"}),
+                event("request_summary", policy_summary()),
                 event("done"),
-            ]
+            ],
+            invoke_events=[
+                event("final_answer", {"answer": "ran"}),
+                event("request_summary", policy_summary(skills_field="skills_used")),
+                event("done"),
+            ],
         ),
         lease,
         registry,
@@ -401,7 +460,7 @@ async def test_freeze_fails_closed_when_skill_query_emits_error() -> None:
         QueryFailureAutoSkill(
             [
                 event("final_answer", {"answer": "created"}),
-                event("request_summary", {"status": "success"}),
+                event("request_summary", policy_summary()),
                 event("done"),
             ]
         ),
@@ -422,7 +481,7 @@ async def test_freeze_archives_unknown_query_progress_without_killing_success() 
         QueryUnknownAutoSkill(
             [
                 event("final_answer", {"answer": "created"}),
-                event("request_summary", {"status": "success"}),
+                event("request_summary", policy_summary()),
                 event("done"),
             ]
         ),
@@ -437,7 +496,7 @@ async def test_freeze_archives_unknown_query_progress_without_killing_success() 
     assert revision.skill_name == "demo"
     raw = service.repository.raw_events(invocation.invocation_id)
     assert (
-        sum(item["raw"].get("type") == "future_provider_progress" for item in raw) == 2
+        sum(item["raw"].get("type") == "future_provider_progress" for item in raw) == 1
     )
 
 
@@ -454,7 +513,7 @@ async def test_freeze_persists_distinct_query_request_ids() -> None:
         workspace_id=actor.workspace_id,
     )
     assert saved is not None
-    assert len(saved.autoskill_request_ids) >= 3
+    assert len(saved.autoskill_request_ids) == 2
     assert len(saved.autoskill_request_ids) == len(set(saved.autoskill_request_ids))
 
 
@@ -463,7 +522,7 @@ async def test_invocation_uses_autoskill_request_id_for_connection_runtime() -> 
     service, actor, lease = make_service(
         [
             event("final_answer", {"answer": "created"}),
-            event("request_summary", {"status": "success"}),
+            event("request_summary", policy_summary()),
             event("done"),
         ]
     )
@@ -489,7 +548,7 @@ async def test_invocation_forwards_workspace_uploads_to_autoskill() -> None:
     service, actor, _ = make_service(
         [
             event("final_answer", {"answer": "created"}),
-            event("request_summary", {"status": "success"}),
+            event("request_summary", policy_summary()),
             event("done"),
         ]
     )
@@ -525,11 +584,11 @@ async def test_invocation_forwards_workspace_uploads_to_autoskill() -> None:
     "events",
     [
         [event("final_answer", {"answer": "answer"}), event("done")],
-        [event("request_summary", {"status": "success"}), event("done")],
+        [event("request_summary", policy_summary()), event("done")],
         [
             event("error", {"code": "UPSTREAM", "message": "failed"}),
             event("final_answer", {"answer": "answer"}),
-            event("request_summary", {"status": "success"}),
+            event("request_summary", policy_summary()),
             event("done"),
         ],
     ],
@@ -558,7 +617,7 @@ async def test_unknown_nonterminal_event_is_archived_without_killing_success() -
             event(
                 "request_summary",
                 {
-                    "status": "success",
+                    **policy_summary(),
                     "lease_id": "lease-secret",
                     "credential": "credential-secret",
                     "internal_url": "http://127.0.0.1:3417/private",
@@ -608,7 +667,7 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
             super().__init__(
                 [
                     event("final_answer", {"answer": "resumed"}),
-                    event("request_summary", {"status": "success"}),
+                    event("request_summary", policy_summary()),
                     event("done"),
                 ]
             )
@@ -724,3 +783,477 @@ def test_object_storage_rejects_symlink_alias(tmp_path: Path) -> None:
     alias.symlink_to(tmp_path / "objects" / digest)
     with pytest.raises(ValueError, match="outside"):
         repository.read_object(str(alias))
+
+
+@pytest.mark.asyncio
+async def test_connection_backed_generate_builds_policy_from_lease_actions() -> None:
+    autoskill = FakeAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    lease = FakeLeasePort()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        lease,
+    )
+    actor = Actor("tenant", "workspace", "principal")
+
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    saved = service.repository.get_invocation(
+        invocation.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None
+    assert saved.status is InvocationStatus.SUCCEEDED
+    assert saved.invocation_policy == autoskill.policies[0]
+    assert autoskill.policies[0] == {
+        "version": 1,
+        "allowed_mcp_servers": ["knowledge-connection-1"],
+        "allowed_mcp_tools": ["mcp__knowledge-connection-1__execute_action"],
+        "allowed_action_ids": ["fixture.read"],
+        "required_successful_calls": [{"arguments": {}, "min_successes": 1}],
+        "fail_if_unsatisfied": True,
+        "match": "at_least_one_required_successful_call",
+    }
+
+
+@pytest.mark.asyncio
+async def test_policy_builder_falls_back_to_lease_actions_when_runtime_ref_is_opaque() -> (
+    None
+):
+    class OpaqueRuntimeLeasePort(FakeLeasePort):
+        async def issue(self, **kwargs: object) -> EphemeralConnectionContext:
+            lease = await super().issue(**kwargs)
+            return lease.model_copy(update={"runtime_ref": "runtime://opaque"})
+
+    autoskill = FakeAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        OpaqueRuntimeLeasePort(),
+    )
+    actor = Actor("tenant", "workspace", "principal")
+
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    saved = service.repository.get_invocation(
+        invocation.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None
+    assert saved.status is InvocationStatus.SUCCEEDED
+    assert saved.invocation_policy is not None
+    assert saved.invocation_policy["allowed_action_ids"] == ["fixture.read"]
+
+
+@pytest.mark.asyncio
+async def test_connection_backed_invocation_requires_satisfied_policy_and_execute_action() -> (
+    None
+):
+    for summary in (
+        policy_summary(satisfied=False),
+        policy_summary(matched_action_id="fixture.other"),
+        {
+            **policy_summary(),
+            "policy_evaluation": {"satisfied": True, "matched_calls": []},
+        },
+    ):
+        service, actor, _lease = make_service(
+            [
+                event("final_answer", {"answer": "created"}),
+                event("request_summary", summary),
+                event("done"),
+            ]
+        )
+        draft = service.create_draft(actor, "goal", ["connection-a"])
+        invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+        await asyncio.sleep(0)
+        saved = service.repository.get_invocation(
+            invocation.invocation_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        )
+        assert saved is not None
+        assert saved.status is InvocationStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_run_requires_request_summary_skills_used_target_skill() -> None:
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    fake.invoke_events = (
+        event("final_answer", {"answer": "ran"}),
+        event(
+            "request_summary",
+            policy_summary(
+                skills_field="skills_used",
+                target_skill="other",
+            ),
+        ),
+        event("done"),
+    )
+    run = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+
+    saved = service.repository.get_invocation(
+        run.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None
+    assert saved.status is InvocationStatus.FAILED
+    assert saved.error_code == "SKILL_IDENTITY_UNRESOLVED"
+
+
+@pytest.mark.asyncio
+async def test_run_and_publication_reject_connections_outside_revision_manifest() -> (
+    None
+):
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    with pytest.raises(KnowledgeWorkspaceError, match="not allowed"):
+        await service.run_revision(
+            actor,
+            revision.revision_id,
+            "use it",
+            ("connection-b",),
+        )
+
+    service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    publication = service.publish(actor, revision.revision_id, "personal")
+
+    with pytest.raises(KnowledgeWorkspaceError, match="not allowed"):
+        await service.invoke_publication(
+            actor,
+            publication.publication_id,
+            "consumer run",
+            ("connection-b",),
+        )
+
+
+@pytest.mark.asyncio
+async def test_freeze_requires_request_summary_target_skill_not_list_fallback() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    autoskill = UnorderedFreezeAutoSkill(
+        [
+            event("final_answer", {"answer": "created skill `demo`"}),
+            event("request_summary", policy_summary(target_skill="other")),
+            event("done"),
+        ]
+    )
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        FakeLeasePort(),
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    with pytest.raises(KnowledgeWorkspaceError, match="target_skill"):
+        await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+
+    assert "list_skill" not in autoskill.commands
+
+
+@pytest.mark.asyncio
+async def test_freeze_downloads_exact_target_zip_and_persists_minimal_manifest() -> (
+    None
+):
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    revision = await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+    saved_zip = service.repository.read_object(revision.zip_uri)
+
+    assert revision.skill_name == "demo"
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    assert fake.downloads[-1] == {
+        "agent_id": invocation.autoskill_agent_id,
+        "session_id": invocation.autoskill_session_id,
+        "file_type": "skill",
+        "name": "demo",
+    }
+    with zipfile.ZipFile(io.BytesIO(saved_zip)) as archive:
+        names = set(archive.namelist())
+        manifest = json.loads(archive.read("skillhub/demo/manifest.json"))
+    assert "skillhub/demo/SKILL.md" in names
+    assert "skillhub/demo/manifest.json" in names
+    assert not any("BuildPlan" in name for name in names)
+    assert manifest == {
+        "kind": "general",
+        "skill": {"name": "demo", "version": "1.0.0"},
+        "connections": [{"connection_ref": "connection-a"}],
+        "allowed_action_ids": ["fixture.read"],
+        "entrypoint": "SKILL.md",
+        "provenance": {
+            "source": "autoskill",
+            "target_skill": "demo",
+            "contract_version": "autoskill-creator-v1",
+        },
+    }
+    assert "token" not in json.dumps(revision.manifest).casefold()
+    assert "lease" not in json.dumps(revision.manifest).casefold()
+    assert "autoskill_request_ids" in revision.manifest["provenance"]
+    assert (
+        "autoskill_request_ids"
+        not in service.public_revision(revision)["manifest"]["provenance"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_freeze_is_content_addressed_and_update_with_changed_zip_makes_new_revision() -> (
+    None
+):
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    first_invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    first = await service.freeze(actor, draft.draft_id, first_invocation.invocation_id)
+    same = await service.freeze(actor, draft.draft_id, first_invocation.invocation_id)
+    assert same.revision_id == first.revision_id
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    fake.skill_zip = make_skill_zip("demo", "# Demo\nupdated\n")
+    fake.events = (
+        event("final_answer", {"answer": "updated"}),
+        event("request_summary", policy_summary(skills_field="skills_updated")),
+        event("done"),
+    )
+    update = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.UPDATE,
+        message="update",
+    )
+    await asyncio.sleep(0)
+    second = await service.freeze(actor, draft.draft_id, update.invocation_id)
+
+    assert second.revision_id != first.revision_id
+    assert second.sha256 != first.sha256
+    assert second.number == first.number + 1
+
+
+@pytest.mark.asyncio
+async def test_publish_snapshot_and_consumer_invocation_use_fixed_policy_and_fresh_identity() -> (
+    None
+):
+    registry = FakePublicationRegistry()
+    actor = Actor("tenant", "workspace", "principal")
+    lease = FakeLeasePort()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        FreezeAutoSkill(
+            [
+                event("final_answer", {"answer": "created"}),
+                event("request_summary", policy_summary()),
+                event("done"),
+            ],
+            invoke_events=[
+                event("final_answer", {"answer": "ran"}),
+                event("request_summary", policy_summary(skills_field="skills_used")),
+                event("done"),
+            ],
+        ),
+        lease,
+        registry,
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+    run = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    saved_run = service.repository.get_invocation(
+        run.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_run is not None
+
+    publication = service.publish(actor, revision.revision_id, "personal")
+    assert publication.policy_snapshot["revision_id"] == revision.revision_id
+    assert publication.policy_snapshot["revision_sha256"] == revision.sha256
+    assert (
+        publication.policy_snapshot["invocation_policy"] == saved_run.invocation_policy
+    )
+    assert (
+        publication.policy_snapshot["policy_evaluation"]
+        == (saved_run.request_summary or {})["policy_evaluation"]
+    )
+    assert registry.calls[0]["policy_snapshot"] == publication.policy_snapshot
+
+    consumer = await service.invoke_publication(
+        actor, publication.publication_id, "use it", ("connection-a",)
+    )
+    assert consumer.autoskill_agent_id != generation.autoskill_agent_id
+    assert consumer.autoskill_session_id != generation.autoskill_session_id
+    assert consumer.lease_id is None
+    await asyncio.sleep(0)
+    saved_consumer = service.repository.get_invocation(
+        consumer.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_consumer is not None
+    assert saved_consumer.lease_id == f"lease-{saved_consumer.autoskill_request_id}"
+
+
+@pytest.mark.asyncio
+async def test_publish_requires_run_policy_snapshot_for_connection_backed_revision() -> (
+    None
+):
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+    run = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    saved_run = service.repository.get_invocation(
+        run.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_run is not None
+    service.repository.save_invocation(
+        saved_run.model_copy(update={"invocation_policy": None})
+    )
+
+    with pytest.raises(KnowledgeWorkspaceError, match="successful real run"):
+        service.publish(actor, revision.revision_id, "personal")
+
+
+@pytest.mark.asyncio
+async def test_publication_consumer_stateless_run_does_not_inherit_authoring_state() -> (
+    None
+):
+    class StatelessAutoSkill(FreezeAutoSkill):
+        class Config:
+            state_mode = "stateless"
+
+        config = Config()
+
+        def __init__(self) -> None:
+            super().__init__(
+                [
+                    event("final_answer", {"answer": "created"}),
+                    event("request_summary", policy_summary()),
+                    event("done"),
+                ],
+                invoke_events=[
+                    event("final_answer", {"answer": "ran"}),
+                    event(
+                        "request_summary", policy_summary(skills_field="skills_used")
+                    ),
+                    event("done"),
+                ],
+            )
+            self.invoke_states: list[bytes | None] = []
+
+        async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+            self.invoke_states.append(kwargs.get("state"))
+            async for item in super().invoke(**kwargs):
+                yield item
+
+    autoskill = StatelessAutoSkill()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        FakeLeasePort(),
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    session = service.repository.get_session(
+        draft.draft_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert session is not None
+    state_content = b"PK\x03\x04author-state"
+    state_digest = __import__("hashlib").sha256(state_content).hexdigest()
+    state_uri = service.repository.put_object(
+        state_digest,
+        state_content,
+        suffix=".state.zip",
+    )
+    service.repository.save_session(session.model_copy(update={"state_uri": state_uri}))
+
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+    service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    publication = service.publish(actor, revision.revision_id, "personal")
+    await service.invoke_publication(
+        actor,
+        publication.publication_id,
+        "consumer run",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+
+    assert autoskill.invoke_states[0] == state_content
+    assert autoskill.invoke_states[1] is None

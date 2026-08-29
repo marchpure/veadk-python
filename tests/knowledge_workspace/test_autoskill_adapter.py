@@ -76,10 +76,7 @@ def test_production_autoskill_accepts_an_explicit_endpoint(
         "https://autoskill.production.example/",
     )
 
-    assert (
-        AutoSkillConfig.from_env().base_url
-        == "https://autoskill.production.example"
-    )
+    assert AutoSkillConfig.from_env().base_url == "https://autoskill.production.example"
 
 
 @pytest.mark.asyncio
@@ -129,7 +126,9 @@ def test_unknown_and_malformed_events_are_archived_but_not_normalized() -> None:
     assert normalize_upstream_event(malformed, invocation_id="inv", cursor=2) is None
 
 
-def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationships() -> None:
+def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationships() -> (
+    None
+):
     parsed = parse_sse(
         [
             'id: evt-turn\ndata: {"type":"Turn 1","id":1,"data":{"title":"Investigate"}}\n\n',
@@ -169,7 +168,9 @@ def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationship
     assert normalized[4]["data"]["content"] == "# Result"
 
 
-def test_normalizes_official_autoskill_event_shape_without_transport_id_breaking_tree() -> None:
+def test_normalizes_official_autoskill_event_shape_without_transport_id_breaking_tree() -> (
+    None
+):
     parsed = parse_sse(
         [
             'id: 0\ndata: {"type":"Turn 1","id":1,"parent_id":null,"data":{"title":"mcp_lookup"}}\n\n',
@@ -200,7 +201,9 @@ def test_normalizes_official_autoskill_event_shape_without_transport_id_breaking
     assert "duration_ms" not in normalized[3]["data"]
 
 
-def test_planning_drops_unlabelled_structured_items_instead_of_stringifying_payloads() -> None:
+def test_planning_drops_unlabelled_structured_items_instead_of_stringifying_payloads() -> (
+    None
+):
     event = parse_sse(
         [
             'id: 0\ndata: {"type":"Planning","parent_id":1,"data":{"tools":[{"arguments":{"password":"secret"}},{"name":"safe_tool","arguments":{"query":"private"}}]}}\n\n',
@@ -262,7 +265,7 @@ def test_skill_zip_requires_single_skillhub_root_and_rejects_slip_and_symlink() 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
-        archive.writestr("skillhub/demo/main.py", "print('ok')\n")
+        archive.writestr("skillhub/demo/scripts/main.py", "print('ok')\n")
     result = validate_skill_zip(buffer.getvalue())
     assert result["skill_name"] == "demo"
     assert len(result["sha256"]) == 64
@@ -274,6 +277,14 @@ def test_skill_zip_requires_single_skillhub_root_and_rejects_slip_and_symlink() 
     with pytest.raises(SkillZipError) as error:
         validate_skill_zip(slip.getvalue())
     assert error.value.code == "SKILL_ZIP_UNSAFE_PATH"
+
+    legacy = io.BytesIO()
+    with zipfile.ZipFile(legacy, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/BuildPlan.json", "{}")
+    with pytest.raises(SkillZipError) as error:
+        validate_skill_zip(legacy.getvalue())
+    assert error.value.code == "SKILL_ZIP_UNSUPPORTED_ENTRY"
 
 
 def test_html_policy_allows_real_static_html_and_rejects_active_content() -> None:
@@ -389,6 +400,70 @@ async def test_find_skill_uses_documented_multipart_post_form() -> None:
             )
         ]
     assert [item.event_type for item in items] == ["done"]
+
+
+@pytest.mark.asyncio
+async def test_create_update_and_invoke_send_invocation_policy_as_json_form_field() -> (
+    None
+):
+    requests: list[httpx.Request] = []
+    policy = {
+        "version": 1,
+        "allowed_mcp_servers": ["knowledge-connection-1"],
+        "allowed_mcp_tools": ["mcp__knowledge-connection-1__execute_action"],
+        "allowed_action_ids": ["fixture.read"],
+        "required_successful_calls": [{"arguments": {}, "min_successes": 1}],
+        "fail_if_unsatisfied": True,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        body = request.content
+        assert b'name="invocation_policy"' in body
+        assert b'"allowed_action_ids":["fixture.read"]' in body
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=b'data: {"type":"done","data":{}}\n\n',
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="http://localhost", token="test-token"),
+            client=http,
+        )
+        for call in (
+            client.command(
+                "create_skill",
+                agent_id="agent",
+                session_id="session",
+                request_id="request-create",
+                prompt="make a skill",
+                invocation_policy=policy,
+            ),
+            client.command(
+                "update_skill",
+                agent_id="agent",
+                session_id="session",
+                request_id="request-update",
+                prompt="update a skill",
+                invocation_policy=policy,
+            ),
+            client.invoke(
+                agent_id="agent",
+                session_id="session",
+                request_id="request-run",
+                message="run the skill",
+                invocation_policy=policy,
+            ),
+        ):
+            assert [item.event_type async for item in call] == ["done"]
+
+    assert [request.url.path.rsplit("/", 1)[-1] for request in requests] == [
+        "create_skill",
+        "update_skill",
+        "invoke",
+    ]
 
 
 @pytest.mark.asyncio

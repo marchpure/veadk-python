@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import json
-import re
+import zipfile
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -76,6 +77,7 @@ class KnowledgeWorkspaceService:
                 "autoskill_agent_id",
                 "autoskill_session_id",
                 "autoskill_request_id",
+                "autoskill_request_ids",
                 "tenant_id",
                 "workspace_id",
                 "token",
@@ -98,53 +100,242 @@ class KnowledgeWorkspaceService:
         """Recover Skill names reported by the durable create result.
 
         list_skill is not creation-ordered, so its first item may be an
-        unrelated pre-existing Skill. Prefer the provider's structured
-        request_summary identity and retain a textual fallback for older
-        provider responses.
+        unrelated pre-existing Skill. W2 therefore binds revision identity only
+        to the creating/updating/using request_summary and never falls back to
+        list_skill ordering.
         """
 
         names: list[str] = []
         summary = invocation.request_summary
         if isinstance(summary, Mapping):
-            created = summary.get("skills_created")
+            field = {
+                InvocationKind.GENERATE: "skills_created",
+                InvocationKind.UPDATE: "skills_updated",
+                InvocationKind.RUN: "skills_used",
+            }[invocation.kind]
+            created = summary.get(field)
             if isinstance(created, (list, tuple)):
-                names.extend(
-                    item for item in created if isinstance(item, str) and item
+                names.extend(item for item in created if isinstance(item, str) and item)
+        return tuple(names)
+
+    @staticmethod
+    def _connection_ref(connection_id: str) -> dict[str, str]:
+        return {"connection_ref": connection_id}
+
+    @staticmethod
+    def _mcp_server_name(index: int) -> str:
+        return f"knowledge-connection-{index + 1}"
+
+    @staticmethod
+    def _mcp_tool_name(server_name: str) -> str:
+        return f"mcp__{server_name}__execute_action"
+
+    @classmethod
+    def _invocation_policy_from_actions(
+        cls,
+        *,
+        connection_ids: Sequence[str],
+        allowed_action_ids: Sequence[str],
+        actions_by_connection: Mapping[str, Sequence[str]] | None = None,
+    ) -> dict[str, object] | None:
+        actions_from_runtime = (
+            tuple(
+                dict.fromkeys(
+                    str(action)
+                    for actions_for_connection in actions_by_connection.values()
+                    for action in actions_for_connection
+                    if str(action)
                 )
-            target = summary.get("target_skill")
-            if isinstance(target, str) and target and target not in names:
-                names.append(target)
-        pattern = re.compile(
-            r"(?:skill|技能)\s+[`'\"“「]([^`'\"”」\s]+)[`'\"”」]",
-            re.IGNORECASE,
+            )
+            if actions_by_connection
+            else ()
         )
-        for item in self.repository.raw_events(invocation.invocation_id):
-            raw = item.get("raw")
-            if not isinstance(raw, Mapping):
-                continue
-            if str(raw.get("type", "")).casefold().replace("-", "_") != "final_answer":
-                continue
-            data = raw.get("data")
-            answer = data.get("answer") if isinstance(data, Mapping) else None
-            if not isinstance(answer, str) or not answer.strip():
-                continue
-            candidates: list[str] = []
-            try:
-                decoded = json.loads(answer)
-            except (TypeError, ValueError):
-                decoded = None
-            if isinstance(decoded, Mapping):
-                candidates.extend(
-                    match.group(1)
-                    for match in pattern.finditer(
-                        json.dumps(decoded, ensure_ascii=False)
+        actions = actions_from_runtime or tuple(
+            dict.fromkeys(str(item) for item in allowed_action_ids if str(item))
+        )
+        if not connection_ids or not actions:
+            return None
+        servers = tuple(
+            cls._mcp_server_name(index) for index, _ in enumerate(connection_ids)
+        )
+        tools = tuple(cls._mcp_tool_name(server) for server in servers)
+        return {
+            "version": 1,
+            "allowed_mcp_servers": list(servers),
+            "allowed_mcp_tools": list(tools),
+            "allowed_action_ids": list(actions),
+            "required_successful_calls": [
+                {
+                    "arguments": {},
+                    "min_successes": 1,
+                }
+            ],
+            "fail_if_unsatisfied": True,
+            "match": "at_least_one_required_successful_call",
+        }
+
+    @staticmethod
+    def _actions_by_connection_from_lease(
+        connection_ids: Sequence[str],
+        runtime_ref: str,
+    ) -> dict[str, tuple[str, ...]]:
+        try:
+            runtime = json.loads(runtime_ref)
+        except (TypeError, ValueError):
+            runtime = {}
+        leases = runtime.get("leases") if isinstance(runtime, Mapping) else None
+        result: dict[str, tuple[str, ...]] = {}
+        if isinstance(leases, list):
+            for item in leases:
+                if not isinstance(item, Mapping):
+                    continue
+                connection_id = str(item.get("connection_id") or "")
+                actions = tuple(
+                    dict.fromkeys(
+                        str(action)
+                        for action in item.get("allowed_actions", [])
+                        if str(action)
                     )
                 )
-            candidates.extend(match.group(1) for match in pattern.finditer(answer))
-            for name in candidates:
-                if name not in names:
-                    names.append(name)
-        return tuple(names)
+                if connection_id and actions:
+                    result[connection_id] = actions
+        return {
+            str(connection_id): result.get(str(connection_id), ())
+            for connection_id in connection_ids
+        }
+
+    @staticmethod
+    def _summary_policy_satisfied(summary: Mapping[str, object] | None) -> bool:
+        if not isinstance(summary, Mapping):
+            return False
+        evaluation = summary.get("policy_evaluation")
+        return isinstance(evaluation, Mapping) and evaluation.get("satisfied") is True
+
+    @staticmethod
+    def _summary_has_matching_successful_execute_action(
+        summary: Mapping[str, object] | None,
+        policy: Mapping[str, object] | None,
+    ) -> bool:
+        if not isinstance(summary, Mapping) or not isinstance(policy, Mapping):
+            return False
+        evaluation = summary.get("policy_evaluation")
+        if not isinstance(evaluation, Mapping):
+            return False
+        allowed_tools = {
+            str(item) for item in policy.get("allowed_mcp_tools", []) if str(item)
+        }
+        allowed_actions = {
+            str(item) for item in policy.get("allowed_action_ids", []) if str(item)
+        }
+        matched = evaluation.get("matched_calls")
+        if not isinstance(matched, (list, tuple)):
+            return False
+        for item in matched:
+            if not isinstance(item, Mapping):
+                continue
+            tool = str(item.get("tool") or "")
+            action_id = str(item.get("actionId") or item.get("action_id") or "")
+            if tool in allowed_tools and action_id in allowed_actions:
+                return True
+        return False
+
+    def _summary_target_skill(self, invocation: Invocation) -> str:
+        names = self._created_skill_names(invocation)
+        target = (
+            str(invocation.request_summary.get("target_skill") or "")
+            if isinstance(invocation.request_summary, Mapping)
+            else ""
+        )
+        if not target or target not in names:
+            raise KnowledgeWorkspaceError(
+                "SKILL_IDENTITY_UNRESOLVED",
+                "AutoSkill request_summary did not bind target_skill to this invocation",
+                502,
+            )
+        return target
+
+    @staticmethod
+    def _summary_skill_version(summary: Mapping[str, object] | None) -> str:
+        if isinstance(summary, Mapping):
+            for key in ("target_skill_version", "skill_version", "version"):
+                value = summary.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        return "0.1.0"
+
+    @staticmethod
+    def _skill_manifest_path(skill_name: str) -> str:
+        return f"skillhub/{skill_name}/manifest.json"
+
+    @classmethod
+    def _minimal_skill_manifest(
+        cls,
+        *,
+        skill_name: str,
+        version: str,
+        invocation: Invocation,
+        policy: Mapping[str, object] | None,
+    ) -> dict[str, object]:
+        return {
+            "kind": "general",
+            "skill": {
+                "name": skill_name,
+                "version": version,
+            },
+            "connections": [
+                cls._connection_ref(connection_id)
+                for connection_id in invocation.connection_ids
+            ],
+            "allowed_action_ids": list(policy.get("allowed_action_ids", []))
+            if isinstance(policy, Mapping)
+            else [],
+            "entrypoint": "SKILL.md",
+            "provenance": {
+                "source": "autoskill",
+                "target_skill": skill_name,
+                "contract_version": "autoskill-creator-v1",
+            },
+        }
+
+    @classmethod
+    def _skill_zip_with_manifest(
+        cls,
+        content: bytes,
+        *,
+        skill_name: str,
+        manifest: Mapping[str, object],
+    ) -> bytes:
+        manifest_path = cls._skill_manifest_path(skill_name)
+        source = zipfile.ZipFile(io.BytesIO(content))
+        output = io.BytesIO()
+        with source, zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+            for info in source.infolist():
+                if info.is_dir() or info.filename == manifest_path:
+                    continue
+                archive.writestr(info, source.read(info.filename))
+            archive.writestr(
+                manifest_path,
+                json.dumps(
+                    manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                )
+                + "\n",
+            )
+        return output.getvalue()
+
+    def _existing_revision_by_digest(
+        self,
+        *,
+        draft_id: str,
+        tenant_id: str,
+        workspace_id: str,
+        sha256: str,
+    ) -> SkillRevision | None:
+        for revision in self.repository.revisions(
+            draft_id, tenant_id=tenant_id, workspace_id=workspace_id
+        ):
+            if revision.sha256 == sha256:
+                return revision
+        return None
 
     @staticmethod
     def public_invocation(invocation: Invocation) -> dict[str, object]:
@@ -274,7 +465,9 @@ class KnowledgeWorkspaceService:
         resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
         if not unique and not resources:
             raise KnowledgeWorkspaceError(
-                "CONNECTION_NOT_READY", "at least one connection or resource is required", 409
+                "CONNECTION_NOT_READY",
+                "at least one connection or resource is required",
+                409,
             )
         uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
         for upload_id in uploads:
@@ -419,7 +612,9 @@ class KnowledgeWorkspaceService:
                     )
                     is None
                 ):
-                    raise KnowledgeWorkspaceError("NOT_FOUND", "resource not found", 404)
+                    raise KnowledgeWorkspaceError(
+                        "NOT_FOUND", "resource not found", 404
+                    )
             updates["resource_ids"] = resources
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
@@ -491,6 +686,16 @@ class KnowledgeWorkspaceService:
             if session.state_uri
             else None
         )
+
+    def _state_for_invocation(
+        self, session: AuthoringSession, invocation: Invocation
+    ) -> bytes | None:
+        if (
+            invocation.autoskill_agent_id != session.autoskill_agent_id
+            or invocation.autoskill_session_id != session.autoskill_session_id
+        ):
+            return None
+        return self._session_state(session)
 
     def start(
         self,
@@ -654,6 +859,7 @@ class KnowledgeWorkspaceService:
         summary: Mapping | None = None
         last_event_id: str | None = None
         lease_id = invocation.lease_id
+        invocation_policy: Mapping[str, object] | None = invocation.invocation_policy
         terminal_event: ParsedUpstreamEvent | None = None
         malformed_event: ParsedUpstreamEvent | None = None
         try:
@@ -702,7 +908,9 @@ class KnowledgeWorkspaceService:
                 )
                 self.repository.save_invocation(cancelled)
                 return
-            if (invocation.connection_ids or invocation.resource_ids) and self.connection_context is None:
+            if (
+                invocation.connection_ids or invocation.resource_ids
+            ) and self.connection_context is None:
                 raise KnowledgeWorkspaceError(
                     "CONNECTION_CONTEXT_UNAVAILABLE",
                     "a server-side connection invocation context is required",
@@ -736,14 +944,28 @@ class KnowledgeWorkspaceService:
                                 tenant_id=actor.tenant_id,
                                 workspace_id=actor.workspace_id,
                             )
-                        ) is not None
+                        )
+                        is not None
                         and resource.adapter_resource_id
                     ),
                     allowed_actions=allowed_actions,
                     ttl_seconds=1800,
                 )
                 lease_id = lease.lease_id
-                current = current.model_copy(update={"lease_id": lease_id})
+                invocation_policy = self._invocation_policy_from_actions(
+                    connection_ids=invocation.connection_ids,
+                    allowed_action_ids=lease.allowed_actions,
+                    actions_by_connection=self._actions_by_connection_from_lease(
+                        invocation.connection_ids,
+                        lease.runtime_ref,
+                    ),
+                )
+                current = current.model_copy(
+                    update={
+                        "lease_id": lease_id,
+                        "invocation_policy": invocation_policy,
+                    }
+                )
                 self.repository.save_invocation(current)
                 prepare_autoskill = getattr(
                     self.connection_context, "prepare_autoskill", None
@@ -826,7 +1048,8 @@ class KnowledgeWorkspaceService:
                     request_id=invocation.autoskill_request_id,
                     prompt=message,
                     model=model,
-                    state=self._session_state(session),
+                    state=self._state_for_invocation(session, invocation),
+                    invocation_policy=invocation_policy,
                 )
             elif invocation.kind is InvocationKind.UPDATE:
                 stream = self.autoskill.command(
@@ -836,11 +1059,12 @@ class KnowledgeWorkspaceService:
                     request_id=invocation.autoskill_request_id,
                     prompt=message,
                     model=model,
-                    state=self._session_state(session),
+                    state=self._state_for_invocation(session, invocation),
+                    invocation_policy=invocation_policy,
                 )
             else:
                 state = (
-                    self._session_state(session)
+                    self._state_for_invocation(session, invocation)
                     if getattr(self.autoskill, "config", None) is not None
                     and self.autoskill.config.state_mode.casefold() == "stateless"
                     else None
@@ -852,6 +1076,7 @@ class KnowledgeWorkspaceService:
                     message=message,
                     model=model,
                     state=state,
+                    invocation_policy=invocation_policy,
                 )
             async for event in self._with_reconnect(stream, actor, current, session):
                 last_event_id = event.event_id or last_event_id
@@ -916,6 +1141,42 @@ class KnowledgeWorkspaceService:
                     "AutoSkill did not provide a successful request_summary",
                     502,
                 )
+            if invocation_policy is not None:
+                if not self._summary_policy_satisfied(summary):
+                    raise KnowledgeWorkspaceError(
+                        "AUTOSKILL_POLICY_UNSATISFIED",
+                        "AutoSkill policy_evaluation was not satisfied",
+                        502,
+                    )
+                if not self._summary_has_matching_successful_execute_action(
+                    summary, invocation_policy
+                ):
+                    raise KnowledgeWorkspaceError(
+                        "CONNECTION_ACTION_NOT_OBSERVED",
+                        "AutoSkill did not perform a matching successful connection execute_action",
+                        502,
+                    )
+            if invocation.kind is InvocationKind.RUN and invocation.revision_id:
+                revision = self.repository.get_revision(
+                    invocation.revision_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if revision is None:
+                    raise KnowledgeWorkspaceError(
+                        "NOT_FOUND", "revision not found", 404
+                    )
+                if (
+                    self._summary_target_skill(
+                        current.model_copy(update={"request_summary": dict(summary)})
+                    )
+                    != revision.skill_name
+                ):
+                    raise KnowledgeWorkspaceError(
+                        "SKILL_IDENTITY_UNRESOLVED",
+                        "AutoSkill request_summary did not bind skills_used to the fixed revision",
+                        502,
+                    )
             if (
                 current.state_update_observed
                 and getattr(self.autoskill, "config", None) is not None
@@ -1500,59 +1761,16 @@ class KnowledgeWorkspaceService:
                 "REVISION_CONFLICT", "completion gates are not satisfied", 409
             )
         try:
-            # Query the actual service for the Skill list/view and download.
+            # Query the actual service only for the specific Skill identity
+            # bound by this invocation's request_summary. list_skill ordering is
+            # not a safe source of truth for create/update ownership.
             state = (
                 self._session_state(session)
                 if getattr(self.autoskill, "config", None) is not None
                 and self.autoskill.config.state_mode.casefold() == "stateless"
                 else None
             )
-            names = await self._skill_command(
-                "list_skill",
-                agent_id=invocation.autoskill_agent_id,
-                session_id=invocation.autoskill_session_id,
-                request_id=new_id("request"),
-                state=state,
-                invocation=invocation,
-            )
-            listed_names: list[str] = []
-            for event in names:
-                if event.event_type == "final_answer":
-                    data = event.payload.get("data", {})
-                    answer = data.get("answer") if isinstance(data, Mapping) else ""
-                    try:
-                        payload = json.loads(answer)
-                        payload_data = (
-                            payload.get("data", {})
-                            if isinstance(payload, Mapping)
-                            else {}
-                        )
-                        if isinstance(payload_data, Mapping):
-                            skill_data = payload_data.get("data", payload_data)
-                            if isinstance(skill_data, Mapping):
-                                skills = skill_data.get("skills", [])
-                                if isinstance(skills, list):
-                                    for item in skills:
-                                        if not isinstance(item, Mapping):
-                                            continue
-                                        name = item.get("name")
-                                        if (
-                                            isinstance(name, str)
-                                            and name
-                                            and name not in listed_names
-                                        ):
-                                            listed_names.append(name)
-                    except (TypeError, ValueError, IndexError, AttributeError):
-                        pass
-            created_names = self._created_skill_names(invocation)
-            skill_name = next(
-                (name for name in created_names if name in listed_names),
-                listed_names[0] if listed_names else None,
-            )
-            if not skill_name:
-                raise KnowledgeWorkspaceError(
-                    "SKILL_ZIP_INVALID", "AutoSkill did not return a Skill name", 502
-                )
+            skill_name = self._summary_target_skill(invocation)
             view_request = new_id("request")
             invocation = self._record_request_id(invocation, view_request)
             view_events = await self._skill_command(
@@ -1584,6 +1802,24 @@ class KnowledgeWorkspaceService:
                 file_type="skill",
                 name=skill_name,
             )
+            checked = validate_skill_zip(zip_bytes)
+            if checked["skill_name"] != skill_name:
+                raise KnowledgeWorkspaceError(
+                    "SKILL_ZIP_INVALID",
+                    "downloaded Skill ZIP does not match target_skill",
+                    502,
+                )
+            bundle_manifest = self._minimal_skill_manifest(
+                skill_name=skill_name,
+                version=self._summary_skill_version(invocation.request_summary),
+                invocation=invocation,
+                policy=invocation.invocation_policy,
+            )
+            zip_bytes = self._skill_zip_with_manifest(
+                zip_bytes,
+                skill_name=skill_name,
+                manifest=bundle_manifest,
+            )
             manifest = validate_skill_zip(zip_bytes)
             uri = self.repository.put_object(
                 manifest["sha256"], zip_bytes, suffix=".zip"
@@ -1592,6 +1828,30 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError(
                 "AUTOSKILL_PROTOCOL_ERROR", str(exc), 502
             ) from exc
+        existing_by_digest = self._existing_revision_by_digest(
+            draft_id=draft_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            sha256=manifest["sha256"],
+        )
+        if existing_by_digest is not None:
+            if idempotency_key:
+                try:
+                    self.repository.idempotent(
+                        idempotency_scope,
+                        idempotency_key,
+                        request_digest,
+                        existing_by_digest.revision_id,
+                    )
+                except ValueError as exc:
+                    if str(exc) == "IDEMPOTENCY_CONFLICT":
+                        raise KnowledgeWorkspaceError(
+                            "IDEMPOTENCY_CONFLICT",
+                            "idempotency key was reused with different input",
+                            409,
+                        ) from exc
+                    raise
+            return existing_by_digest
         number = (
             len(
                 self.repository.revisions(
@@ -1633,7 +1893,39 @@ class KnowledgeWorkspaceService:
             skill_name=str(skill_name),
             zip_uri=uri,
             sha256=manifest["sha256"],
-            manifest={k: v for k, v in manifest.items() if k != "skill_md"},
+            manifest={
+                "kind": "general",
+                "skill": {
+                    "name": str(skill_name),
+                    "version": self._summary_skill_version(invocation.request_summary),
+                },
+                "connection_refs": list(invocation.connection_ids),
+                "allowed_action_ids": list(
+                    (invocation.invocation_policy or {}).get("allowed_action_ids", [])
+                ),
+                "entrypoint": "SKILL.md",
+                "provenance": {
+                    "source": "autoskill",
+                    "invocation_id": invocation.invocation_id,
+                    "autoskill_request_ids": list(invocation.autoskill_request_ids),
+                    "target_skill": str(skill_name),
+                    "zip_sha256": manifest["sha256"],
+                },
+                "zip": {
+                    key: value
+                    for key, value in manifest.items()
+                    if key
+                    in {
+                        "compressed_bytes",
+                        "expanded_bytes",
+                        "file_count",
+                        "root",
+                        "skill_name",
+                        "skill_md_bytes",
+                        "paths",
+                    }
+                },
+            },
             created_from_invocation=invocation_id,
         )
         frozen = self.repository.freeze_revision(revision)
@@ -1710,6 +2002,18 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "connection permission is required", 409
             )
+        requested_connection_ids = tuple(str(item) for item in connection_ids)
+        allowed_connection_ids = set(
+            str(item) for item in revision.manifest.get("connection_refs", [])
+        )
+        if requested_connection_ids and not set(requested_connection_ids).issubset(
+            allowed_connection_ids
+        ):
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY",
+                "selected connections are not allowed by this revision",
+                403,
+            )
         # Run uses a fresh request but the draft's isolated agent/session.
         invocation = self.start(
             actor,
@@ -1717,7 +2021,7 @@ class KnowledgeWorkspaceService:
             InvocationKind.RUN,
             message=message,
             revision_id=revision_id,
-            connection_ids=connection_ids,
+            connection_ids=requested_connection_ids,
             resource_ids=resource_ids,
             upload_ids=upload_ids,
             idempotency_key=idempotency_key,
@@ -1782,6 +2086,11 @@ class KnowledgeWorkspaceService:
                 item.kind is InvocationKind.RUN
                 and item.status is InvocationStatus.SUCCEEDED
                 and item.lease_id
+                and item.invocation_policy is not None
+                and self._summary_policy_satisfied(item.request_summary)
+                and self._summary_has_matching_successful_execute_action(
+                    item.request_summary, item.invocation_policy
+                )
             )
         ]
         artifacts = self.repository.artifacts_for_revision(
@@ -1845,6 +2154,15 @@ class KnowledgeWorkspaceService:
         policy_snapshot = {
             "target_space": target_space,
             "revision_sha256": revision.sha256,
+            "revision_id": revision.revision_id,
+            "skill_name": revision.skill_name,
+            "skill_manifest": revision.manifest,
+            "invocation_policy": successful_runs[-1].invocation_policy,
+            "policy_evaluation": (successful_runs[-1].request_summary or {}).get(
+                "policy_evaluation"
+            )
+            if isinstance(successful_runs[-1].request_summary, Mapping)
+            else None,
             "successful_run_invocation_id": successful_runs[-1].invocation_id,
             "artifact_sha256": [
                 item.sha256
@@ -1920,6 +2238,18 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError(
                 "NOT_FOUND", "published revision not found", 404
             )
+        requested_connection_ids = tuple(str(item) for item in connection_ids)
+        allowed_connection_ids = set(
+            str(item) for item in revision.manifest.get("connection_refs", [])
+        )
+        if requested_connection_ids and not set(requested_connection_ids).issubset(
+            allowed_connection_ids
+        ):
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY",
+                "selected connections are not allowed by this publication",
+                403,
+            )
         consumer_agent_id = new_id("consumer-agent")
         consumer_session_id = new_id("consumer-session")
         # A consumer invocation gets a fresh request and must be authorized
@@ -1930,7 +2260,7 @@ class KnowledgeWorkspaceService:
             InvocationKind.RUN,
             message=message,
             revision_id=revision.revision_id,
-            connection_ids=connection_ids,
+            connection_ids=requested_connection_ids,
             resource_ids=resource_ids,
             upload_ids=upload_ids,
             idempotency_key=idempotency_key,

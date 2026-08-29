@@ -125,6 +125,16 @@ def validate_skill_zip(
             raise SkillZipError(
                 "SKILL_ZIP_ROOT", "Skill ZIP root must be skillhub/<name>/"
             )
+        root_prefix = "/".join(root)
+        allowed_top_level = {"SKILL.md", "manifest.json", "scripts", "tests"}
+        for path in paths:
+            relative = path.removeprefix(root_prefix + "/")
+            first = PurePosixPath(relative).parts[0] if relative else ""
+            if first not in allowed_top_level:
+                raise SkillZipError(
+                    "SKILL_ZIP_UNSUPPORTED_ENTRY",
+                    "Skill ZIP must contain only SKILL.md, scripts, tests, and optional manifest.json",
+                )
         skill_path = f"{root[0]}/{root[1]}/SKILL.md"
         if skill_path not in paths:
             raise SkillZipError(

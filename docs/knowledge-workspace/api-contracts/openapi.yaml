@@ -397,6 +397,12 @@ paths:
       tags: [drafts, invocations]
       operationId: generateDraft
       summary: Start real AutoSkill create_skill generation
+      description: |
+        The BFF obtains a fresh Connection lease for the selected connections,
+        builds AutoSkill invocation_policy version 1 from the lease
+        allowedActions, and passes it to AutoSkill as a server-only multipart
+        form field. Browser responses do not expose the policy, lease, runtime
+        URL, upstream IDs, or credentials.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatch'
@@ -427,6 +433,11 @@ paths:
       tags: [drafts, invocations]
       operationId: sendDraftMessage
       summary: Update or run a draft through AutoSkill
+      description: |
+        For connection-backed update or trial run requests, success requires a
+        successful AutoSkill request_summary with policy_evaluation.satisfied
+        true and at least one matched successful execute_action whose actionId
+        is in the lease-derived allowed_action_ids.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatch'
@@ -540,7 +551,13 @@ paths:
       tags: [revisions]
       operationId: freezeRevision
       summary: Freeze a validated AutoSkill Skill ZIP as an immutable revision
-      description: This does not publish. It requires successful generation and ZIP validation.
+      description: |
+        This does not publish. It requires successful generation/update,
+        satisfied policy evaluation, exact request_summary target_skill binding
+        (skills_created for create_skill, skills_updated for update_skill), and
+        ZIP validation. The BFF downloads the exact target Skill ZIP and stores
+        it content-addressed. Re-freezing identical ZIP content is idempotent and
+        returns the existing revision instead of fabricating a new version.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
         - $ref: '#/components/parameters/IfMatch'
@@ -571,6 +588,11 @@ paths:
       tags: [revisions, invocations]
       operationId: runRevision
       summary: Run one fixed revision with authorized connections
+      description: |
+        Runs upload the fixed revision ZIP to AutoSkill and require fresh
+        Connection authorization. Success is gated by request_summary status,
+        policy_evaluation.satisfied=true, skills_used/target_skill binding, and
+        at least one matching successful execute_action.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -622,7 +644,10 @@ paths:
       tags: [publications]
       operationId: publishRevision
       summary: Publish an immutable revision to personal or team space
-      description: Re-runs publication gates; it never mutates the revision.
+      description: |
+        Re-runs publication gates and never mutates the revision. Publication
+        binds the fixed revision digest plus the successful run's policy snapshot
+        and policy_evaluation.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -650,6 +675,11 @@ paths:
       tags: [publications, invocations]
       operationId: invokePublication
       summary: Invoke a published revision for an authorized consumer
+      description: |
+        Starts a new AutoSkill agent_id/session_id, requires the consumer to
+        reauthorize connection refs, obtains a new lease, uploads the fixed
+        published Skill ZIP, and does not inherit the authoring session state or
+        lease.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1091,9 +1121,47 @@ components:
         number: { type: integer, minimum: 1 }
         skill_name: { type: string }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
-        manifest: { type: object, additionalProperties: true }
+        manifest:
+          $ref: '#/components/schemas/RevisionManifest'
         created_from_invocation: { type: string }
         created_at: { type: string, format: date-time }
+      additionalProperties: false
+    RevisionManifest:
+      type: object
+      required: [kind, skill, connection_refs, allowed_action_ids, entrypoint, provenance, zip]
+      properties:
+        kind: { type: string, const: general }
+        skill:
+          type: object
+          required: [name, version]
+          properties:
+            name: { type: string }
+            version: { type: string }
+          additionalProperties: false
+        connection_refs:
+          type: array
+          items: { type: string }
+          description: Server-safe connection references only; no credentials, lease, or internal URL.
+        allowed_action_ids:
+          type: array
+          items: { type: string }
+          description: Lease-derived action IDs allowed by the fixed revision.
+        entrypoint: { type: string, const: SKILL.md }
+        provenance:
+          type: object
+          description: |
+            BFF revision provenance. The manifest injected into the Skill ZIP is
+            smaller and contains only source, target_skill, and contract_version.
+          required: [source, invocation_id, target_skill, zip_sha256]
+          properties:
+            source: { type: string, const: autoskill }
+            invocation_id: { type: string }
+            target_skill: { type: string }
+            zip_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+          additionalProperties: false
+        zip:
+          type: object
+          additionalProperties: true
       additionalProperties: false
     RevisionList:
       type: object

@@ -43,9 +43,11 @@ class AutoSkillConfig:
     @classmethod
     def from_env(cls) -> "AutoSkillConfig":
         configured_base = os.getenv("KNOWLEDGE_AUTOSKILL_BASE_URL", "").strip()
-        environment = os.getenv(
-            "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
-        ).strip().casefold()
+        environment = (
+            os.getenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development")
+            .strip()
+            .casefold()
+        )
         if environment in {"production", "prod"} and not configured_base:
             raise AutoSkillProtocolError(
                 "production AutoSkill base URL is not configured"
@@ -89,6 +91,12 @@ class AutoSkillClient:
 
     def _url(self, path: str) -> str:
         return f"{self.config.base_url}/openapi/autoskill/v1/{path.lstrip('/')}"
+
+    @staticmethod
+    def _form_value(value: Any) -> str:
+        if isinstance(value, (Mapping, list, tuple)):
+            return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        return str(value)
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         owns = self._client is None
@@ -144,6 +152,7 @@ class AutoSkillClient:
         name: str | None = None,
         model: str | None = None,
         state: bytes | None = None,
+        invocation_policy: Mapping[str, Any] | None = None,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
         if self.config.state_mode.casefold() == "stateless":
             message = prompt or f"/{command.replace('_', '-')}"
@@ -156,6 +165,7 @@ class AutoSkillClient:
                 message=message,
                 model=model,
                 state=state,
+                invocation_policy=invocation_policy,
             ):
                 yield item
             return
@@ -168,6 +178,8 @@ class AutoSkillClient:
             data["prompt"] = prompt
         if model:
             data["model"] = model
+        if invocation_policy is not None:
+            data["invocation_policy"] = invocation_policy
         params = {
             "agent_id": agent_id,
             "session_id": session_id,
@@ -183,7 +195,9 @@ class AutoSkillClient:
             kwargs = {"params": query}
         else:
             kwargs = {
-                "files": {key: (None, str(value)) for key, value in data.items()},
+                "files": {
+                    key: (None, self._form_value(value)) for key, value in data.items()
+                },
             }
         async for item in self.stream_request(command, method, **kwargs):
             yield item
@@ -198,7 +212,7 @@ class AutoSkillClient:
             "POST",
             params={},
             files={
-                key: (None, str(value))
+                key: (None, self._form_value(value))
                 for key, value in kwargs.items()
                 if value is not None and key != "state"
             },
@@ -209,7 +223,7 @@ class AutoSkillClient:
         self, *, state: bytes | None = None, **kwargs: Any
     ) -> AsyncIterator[ParsedUpstreamEvent]:
         files: dict[str, tuple[Any, ...]] = {
-            key: (None, str(value))
+            key: (None, self._form_value(value))
             for key, value in kwargs.items()
             if value is not None
         }

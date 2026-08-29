@@ -1,0 +1,122 @@
+{
+  "$schema": "knowledge-workspace/autoskill-creator-w2-checkpoint.schema.json",
+  "checkpoint": "AUTOSKILL_CREATOR_W2_FROZEN",
+  "step": "autoskill-creator-v1-w2-knowledge-workspace-backend-lifecycle",
+  "created_at": "2026-08-29T00:00:00+08:00",
+  "base_sha": "232eabbf949235c645ac00988d2a2413b7d7d58b",
+  "branch": "feat/knowledge-autoskill-creator-backend",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-autoskill-creator-w2",
+  "baseline": {
+    "contract_version": "autoskill-creator-v1",
+    "manifest": "/Users/bytedance/.codex/worktrees/connection-autoskill-creator-baseline/docs/connection-expansion/autoskill-creator-baseline.json",
+    "workspace_sha": "232eabbf949235c645ac00988d2a2413b7d7d58b",
+    "connection_expansion_sha": "2bb18cd6c2851216f70b663645b134fd04d63c24",
+    "autoskill_sha": "8dc9f14c1a0b0169ef865f3d87d4a6ea3e623533",
+    "autoskill_baseline_sha": "10ac824de56619df973a8311a5cdef5d17a9ea2c",
+    "autoskill_multipart_field": "invocation_policy",
+    "autoskill_policy_version": 1,
+    "request_summary_policy_evaluation_fields": [
+      "satisfied",
+      "matched_calls",
+      "unmet_requirements"
+    ]
+  },
+  "modified_scope": {
+    "allowed": [
+      "frontend/server/knowledge_workspace/**",
+      "tests/knowledge_workspace/**",
+      "docs/knowledge-workspace/api-contracts/**",
+      "docs/knowledge-workspace/checkpoints/autoskill-creator-w2.json"
+    ],
+    "modified_files": [
+      "docs/knowledge-workspace/api-contracts/openapi.yaml",
+      "docs/knowledge-workspace/checkpoints/autoskill-creator-w2.json",
+      "frontend/server/knowledge_workspace/autoskill.py",
+      "frontend/server/knowledge_workspace/models.py",
+      "frontend/server/knowledge_workspace/service.py",
+      "frontend/server/knowledge_workspace/zip_validator.py",
+      "tests/knowledge_workspace/test_autoskill_adapter.py",
+      "tests/knowledge_workspace/test_service_contracts.py"
+    ],
+    "not_modified": [
+      "frontend/src/**",
+      "frontend/tests/**",
+      "veadk/webui/**",
+      "Connection Service source",
+      "AutoSkill source"
+    ]
+  },
+  "implemented": [
+    "BFF builds AutoSkill invocation_policy v1 from fresh Connection lease allowed_actions and sends it as the documented JSON multipart form field for create_skill, update_skill, invoke, and stateless invoke.",
+    "Connection-backed invocation success requires a success-like request_summary status, policy_evaluation.satisfied=true, and at least one matched successful execute_action for the lease-derived allowed_action_ids/tool allowlist.",
+    "Skill identity is bound only to the operation-specific request_summary list plus target_skill: skills_created for generation, skills_updated for updates, and skills_used for fixed revision runs; list_skill/text fallback is removed.",
+    "Freeze downloads the exact target Skill ZIP, validates one skillhub/<name>/ root, rejects unsupported top-level entries such as BuildPlan.json, injects a minimal AutoSkill Creator manifest, and stores content-addressed immutable revisions.",
+    "Repeated freeze of identical ZIP content returns the existing revision; a changed update ZIP creates a new revision with a new digest and incremented revision number.",
+    "Publication requires a successful authorized run with a policy snapshot, matching policy_evaluation, artifact digest validation, and consumer_reauthorization_required=true.",
+    "Published invocation starts a fresh AutoSkill agent/session, obtains a fresh consumer lease, uploads the fixed revision ZIP, and does not inherit authoring session state in stateless mode.",
+    "Run and publication invocation reject requested connection IDs outside the frozen revision manifest connection_refs.",
+    "Public DTOs continue to omit secrets, provider runtime IDs, leases, and AutoSkill request IDs; server-side revision metadata retains request lineage only behind the BFF boundary."
+  ],
+  "api_contracts": [
+    "OpenAPI documents server-only invocation_policy behavior on generation/update/run flows.",
+    "OpenAPI documents exact request_summary target_skill binding for freeze and skills_used/target_skill binding for fixed revision runs.",
+    "OpenAPI documents immutable content-addressed freeze semantics and fresh consumer authorization for publication invocation.",
+    "RevisionManifest schema exposes only browser-safe BFF provenance, connection_refs, allowed_action_ids, and ZIP metadata; the injected ZIP manifest remains smaller and contains no invocation/request IDs."
+  ],
+  "security_evidence": [
+    "Invocation policies are server-built from issued lease action IDs, not browser-provided scopes.",
+    "Connection Service remains final authority for credentials, lease enforcement, SSRF controls, and runtime execution; AutoSkill policy evaluation is treated as post-run evidence, not a security boundary.",
+    "ZIP validation rejects traversal, absolute paths, duplicate paths, symlinks/devices, compression bombs, wrong roots, missing/empty/non-UTF8 SKILL.md, and unsupported SkillHub entries outside SKILL.md/scripts/tests/manifest.json.",
+    "The Skill ZIP manifest stores connection_ref and allowed_action_ids only, with no credentials, lease tokens, runtime URLs, invocation IDs, or request IDs.",
+    "Browser-facing revision/publication/invocation DTOs are sanitized through public DTO helpers and tests cover upstream ID redaction."
+  ],
+  "tests": [
+    {
+      "command": "python -m pytest -q tests/knowledge_workspace",
+      "status": "passed",
+      "summary": "83 passed in 1.50s",
+      "scope": "Knowledge Workspace backend unit/contract tests with fake AutoSkill and fake Connection ports where appropriate"
+    },
+    {
+      "command": "python -m compileall -q frontend/server/knowledge_workspace tests/knowledge_workspace",
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "uvx --from ruff==0.11.12 ruff check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
+      "status": "passed",
+      "summary": "All checks passed for W2-modified Python files"
+    },
+    {
+      "command": "uvx --from ruff==0.11.12 ruff format --check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
+      "status": "passed",
+      "summary": "6 files already formatted after targeted formatting"
+    },
+    {
+      "command": "pre-commit run --files docs/knowledge-workspace/api-contracts/openapi.yaml docs/knowledge-workspace/checkpoints/autoskill-creator-w2.json frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
+      "status": "passed",
+      "summary": "ruff check, ruff format, and gitleaks passed for scoped W2 files"
+    },
+    {
+      "command": "python -m ruff check frontend/server/knowledge_workspace tests/knowledge_workspace docs/knowledge-workspace/api-contracts && python -m ruff format --check frontend/server/knowledge_workspace tests/knowledge_workspace",
+      "status": "blocked",
+      "summary": "Active Python lacks the ruff module: No module named ruff"
+    },
+    {
+      "command": "uvx --from ruff==0.11.12 ruff check frontend/server/knowledge_workspace tests/knowledge_workspace",
+      "status": "blocked_by_unrelated_existing_tests",
+      "summary": "Fails on pre-existing unused imports/local variable in tests/knowledge_workspace/test_specialized_adapters.py, which is outside the W2 modified files."
+    }
+  ],
+  "fake_vs_real_caveat": "The W2 tests use fake AutoSkill and fake Connection ports to exercise BFF lifecycle gates deterministically. This checkpoint does not claim authenticated real AutoSkill/Connection end-to-end evidence.",
+  "non_claims": [
+    "No frontend UI changes were made.",
+    "No Connection Service source changes were made.",
+    "No AutoSkill source changes were made.",
+    "No real Feishu/OAuth/user-authorized E2E was executed in this worktree."
+  ],
+  "status": "AUTOSKILL_CREATOR_W2_FROZEN"
+}
