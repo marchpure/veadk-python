@@ -2416,55 +2416,15 @@ def _run_frontend_server(
     # OpenViking is a separate knowledge runtime profile. Its upstream origin
     # and API key remain server-managed and are never part of Connection IDs.
     try:
-        from frontend.server.extensions.openviking import (
-            OpenVikingConfig,
-            OpenVikingProfileRepository,
-            OpenVikingService,
-            mount_openviking_routes,
-            resolve_connection_resource,
-        )
+        from frontend.server.extensions.openviking import register_openviking
 
-        openviking_service = OpenVikingService(
-            OpenVikingProfileRepository(
-                os.getenv(
-                    "OPENVIKING_PROFILE_DATABASE",
-                    ".veadk/openviking-profiles.sqlite3",
-                )
-            ),
-            OpenVikingConfig.from_env(),
-        )
-        knowledge_service.knowledge_context_resolver = (
-            lambda actor,
-            profile_ids,
-            resource_refs: openviking_service.creator_context(
-                tenant_id=actor.tenant_id,
-                workspace_id=actor.workspace_id,
-                profile_ids=tuple(profile_ids),
-                resource_refs=tuple(resource_refs),
-            )
-        )
-        knowledge_service.knowledge_content_resolver = (
-            lambda actor,
-            profile_ids,
-            resource_refs: openviking_service.resolved_creator_context(
-                tenant_id=actor.tenant_id,
-                workspace_id=actor.workspace_id,
-                profile_ids=tuple(profile_ids),
-                resource_refs=tuple(resource_refs),
-            )
-        )
-
-        mount_openviking_routes(
+        register_openviking(
             app,
-            openviking_service,
+            knowledge_service=knowledge_service,
             actor_resolver=lambda request: _knowledge_workspace_actor(
                 request, _knowledge_identity
             ),
-            connection_resource_resolver=partial(
-                resolve_connection_resource,
-                knowledge_service=knowledge_service,
-                connection_gateway=connection_gateway,
-            ),
+            connection_gateway=connection_gateway,
         )
     except Exception as error:
         logger.warning(
