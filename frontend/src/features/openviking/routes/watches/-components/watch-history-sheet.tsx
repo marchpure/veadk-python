@@ -20,11 +20,11 @@ import {
   SheetTitle,
 } from '#/components/ui/sheet'
 import {
-  getTaskDate,
   isActiveTaskStatus,
   normalizeTaskStatus,
-} from '#/routes/tasks/task-model'
-import type { TaskRecord } from '#/routes/tasks/task-model'
+} from '#/routes/tasks/-lib/task-record'
+import type { TaskRecord } from '#/routes/tasks/-lib/task-record'
+import { getTaskDate } from '#/routes/tasks/-lib/task-time'
 
 import { fetchWatchProcessingHistory } from '../-lib/api'
 import type { WatchTask } from '../-lib/api'

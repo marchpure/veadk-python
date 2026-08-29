@@ -1,6 +1,6 @@
 import type { WatchTask } from './api'
-import { isActiveTaskStatus } from '#/routes/tasks/task-model'
-import type { TaskRecord } from '#/routes/tasks/task-model'
+import { isActiveTaskStatus } from '#/routes/tasks/-lib/task-record'
+import type { TaskRecord } from '#/routes/tasks/-lib/task-record'
 
 export const WATCH_DISCOVERY_INTERVAL_MS = 1_000
 

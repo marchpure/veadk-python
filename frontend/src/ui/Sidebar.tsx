@@ -74,10 +74,16 @@ export interface SidebarContextNavigationItem {
   onSelect: () => void;
 }
 
+export interface SidebarContextNavigationGroup {
+  id: string;
+  label: string;
+  items: SidebarContextNavigationItem[];
+}
+
 export interface SidebarContextNavigation {
   activeId: string;
   ariaLabel?: string;
-  items: SidebarContextNavigationItem[];
+  groups: SidebarContextNavigationGroup[];
   onBrandClick?: () => void;
   footer?: ReactNode;
 }
@@ -365,30 +371,36 @@ function ContextSidebar({
             )}
           </button>
         </div>
-        <div className="openviking-sidebar-label">Workspace</div>
         <nav
-          className="sidebar-nav"
+          className="sidebar-nav openviking-sidebar-nav"
           aria-label={contextNavigation.ariaLabel ?? "OpenViking workspace"}
         >
-          {contextNavigation.items.map(({ id, icon: Icon, label, onSelect }) => {
-            const active = contextNavigation.activeId === id;
-            return (
-              <button
-                type="button"
-                className={`new-chat openviking-sidebar-item${
-                  active ? " is-active" : ""
-                }`}
-                key={id}
-                onClick={onSelect}
-                aria-current={active ? "page" : undefined}
-                aria-label={label}
-                title={label}
-              >
-                <Icon className="icon" />
-                <span className="sidebar-nav-label">{label}</span>
-              </button>
-            );
-          })}
+          {contextNavigation.groups.map((group) => (
+            <div className="openviking-sidebar-group" key={group.id}>
+              <div className="openviking-sidebar-label">{group.label}</div>
+              <div className="openviking-sidebar-group-items">
+                {group.items.map(({ id, icon: Icon, label, onSelect }) => {
+                  const active = contextNavigation.activeId === id;
+                  return (
+                    <button
+                      type="button"
+                      className={`new-chat openviking-sidebar-item${
+                        active ? " is-active" : ""
+                      }`}
+                      key={id}
+                      onClick={onSelect}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={label}
+                      title={label}
+                    >
+                      <Icon className="icon" />
+                      <span className="sidebar-nav-label">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </div>
       {contextNavigation.footer ? (

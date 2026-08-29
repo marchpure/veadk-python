@@ -51,20 +51,12 @@ describe('task list requests', () => {
     })
   })
 
-  it('keeps effective status filtering on the client', async () => {
-    clientMocks.getTasks.mockResolvedValue(
-      Array.from({ length: 9 }, (_, index) => ({
-        created_at: index + 1,
-        status: 'running',
-        task_id: `task-${index + 1}`,
-      })),
-    )
+  it('passes status filters through the generated client contract', async () => {
+    clientMocks.getTasks.mockResolvedValue([])
 
-    await expect(fetchTasks('all', 'pending')).resolves.toEqual([
-      expect.objectContaining({ task_id: 'task-9' }),
-    ])
+    await expect(fetchTasks('all', 'pending')).resolves.toEqual([])
     expect(clientMocks.getTasks).toHaveBeenCalledWith({
-      query: { limit: MAX_TASKS },
+      query: { limit: MAX_TASKS, status: 'pending' },
     })
   })
 

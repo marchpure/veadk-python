@@ -345,10 +345,10 @@ export function AddResourceForm({
     <div className="flex flex-col gap-6">
       <div className="space-y-5">
         {!watchRequired ? (
-          <div className="flex gap-1 rounded-lg bg-muted p-1">
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:grid-cols-4">
             <button
               type="button"
-              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors sm:px-3 ${
                 activeMode === 'upload'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -360,7 +360,7 @@ export function AddResourceForm({
             </button>
             <button
               type="button"
-              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors sm:px-3 ${
                 activeMode === 'remote'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -372,7 +372,7 @@ export function AddResourceForm({
             </button>
             <button
               type="button"
-              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors sm:px-3 ${
                 activeMode === 'text'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -384,7 +384,7 @@ export function AddResourceForm({
             </button>
             <button
               type="button"
-              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors sm:px-3 ${
                 activeMode === 'connection'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'

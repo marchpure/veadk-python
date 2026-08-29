@@ -1,21 +1,4 @@
 const workspace = {
-  monitoringPage: {
-    queue: {
-      title: '任务队列',
-      noData: '暂无队列数据',
-      queueName: '队列',
-      processing: '处理中',
-      pending: '等待中',
-      completed: '已完成',
-      errors: '错误',
-      totalRow: '合计',
-      embedding: 'Embedding',
-      semanticNodes: '语义节点',
-      semantic: '语义处理',
-      externalParse: '外部解析',
-      sessionCommit: '会话提交',
-    },
-  },
   tasksPage: {
     title: '任务中心',
     description: '集中查看资源处理、会话提交和重建索引等后台任务。',
@@ -26,6 +9,7 @@ const workspace = {
     emptyFiltered: '没有匹配的任务',
     emptyFilteredDescription: '可以调整或清除筛选条件后重新查看。',
     loadFailed: '任务加载失败',
+    summary: '{{count}} 条任务',
     detail: {
       title: '任务详情',
       loading: '正在加载任务详情...',
@@ -36,6 +20,7 @@ const workspace = {
         status: '任务状态',
         type: '任务类型',
         stage: '当前阶段',
+        duration: '执行时长',
         resource: '关联资源',
         createdAt: '创建时间',
         updatedAt: '更新时间',
@@ -50,6 +35,8 @@ const workspace = {
       allTypes: '全部类型',
       allStatuses: '全部状态',
       clear: '清除筛选',
+      latestPerResource: '每个资源仅看最新',
+      individualTasks: '查看全部任务',
     },
     pagination: {
       next: '下一页',
@@ -65,6 +52,12 @@ const workspace = {
       resource: '关联资源',
       createdAt: '创建时间',
       status: '状态',
+      duration: '耗时',
+    },
+    retry: {
+      action: '重试任务',
+      missingResource: '任务缺少关联资源 ID，无法重试。',
+      submitted: '任务已重新提交。',
     },
     status: {
       cancelled: '已取消',

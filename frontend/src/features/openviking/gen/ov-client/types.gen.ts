@@ -5,67 +5,31 @@ export type ClientOptions = {
 };
 
 /**
- * ActivatePrivacyConfigVersionRequest
+ * Body_temp_upload_api_v1_resources_temp_upload_post
  */
-export type ActivatePrivacyConfigVersionRequest = {
+export type BodyTempUploadApiV1ResourcesTempUploadPost = {
     /**
-     * Version
+     * File
      */
-    version: number;
-};
-
-/**
- * AddMessageRequest
- *
- * Request model for adding a message.
- *
- * Supports two modes:
- * 1. Simple mode: provide `content` string (backward compatible)
- * 2. Parts mode: provide `parts` array for full Part support
- *
- * If both are provided, `parts` takes precedence.
- */
-export type AddMessageRequest = {
-    /**
-     * Role
-     */
-    role: string;
-    /**
-     * Peer Id
-     */
-    peer_id?: string | null;
-    /**
-     * Content
-     */
-    content?: string | null;
-    /**
-     * Parts
-     */
-    parts?: Array<{
-        [key: string]: unknown;
-    }> | null;
-    /**
-     * Created At
-     */
-    created_at?: string | null;
-    /**
-     * Turn Id
-     */
-    turn_id?: string | null;
-    /**
-     * Message Kind
-     */
-    message_kind?: 'user_query' | 'assistant_step' | 'tool_transport' | 'checkpoint' | null;
-    /**
-     * Source Message Ids
-     */
-    source_message_ids?: Array<string> | null;
+    file: Blob | File;
     /**
      * Telemetry
      */
-    telemetry?: boolean | {
-        [key: string]: boolean;
-    };
+    telemetry?: boolean;
+    /**
+     * Upload Mode
+     */
+    upload_mode?: string;
+};
+
+/**
+ * HTTPValidationError
+ */
+export type HttpValidationError = {
+    /**
+     * Detail
+     */
+    detail?: Array<ValidationError>;
 };
 
 /**
@@ -96,6 +60,9 @@ export type AddMessageRequest = {
  * exclude: Glob pattern for files to exclude during parsing.
  * directly_upload_media: Whether to directly upload media files. Default is True.
  * preserve_structure: Whether to preserve directory structure when adding directories.
+ * args: Parser-specific import options. For Feishu one-time user-token imports,
+ * pass {"feishu_access_token": "..."}. For Feishu user-token watches,
+ * pass {"feishu_access_token": "...", "feishu_refresh_token": "..."}.
  * watch_interval: Watch interval in minutes for automatic resource monitoring.
  * - watch_interval > 0: Creates or updates a watch task. The resource will be
  * automatically re-processed at the specified interval.
@@ -174,6 +141,12 @@ export type AddResourceRequest = {
      */
     preserve_structure?: boolean | null;
     /**
+     * Args
+     */
+    args?: {
+        [key: string]: unknown;
+    };
+    /**
      * Telemetry
      */
     telemetry?: boolean | {
@@ -183,583 +156,6 @@ export type AddResourceRequest = {
      * Watch Interval
      */
     watch_interval?: number;
-};
-
-/**
- * AddSkillRequest
- *
- * Request model for add_skill.
- *
- * Attributes:
- * data: Inline skill content or structured skill data. HTTP requests do not treat
- * string values as host filesystem paths.
- * temp_file_id: Temporary upload id returned by /api/v1/resources/temp_upload.
- * wait: Whether to wait for skill processing to complete.
- * timeout: Timeout in seconds when wait=True.
- */
-export type AddSkillRequest = {
-    /**
-     * Data
-     */
-    data?: unknown;
-    /**
-     * Temp File Id
-     */
-    temp_file_id?: string | null;
-    /**
-     * Wait
-     */
-    wait?: boolean;
-    /**
-     * Timeout
-     */
-    timeout?: number | null;
-    /**
-     * Telemetry
-     */
-    telemetry?: boolean | {
-        [key: string]: boolean;
-    };
-};
-
-/**
- * BackupRequest
- *
- * Request model for backup export.
- */
-export type BackupRequest = {
-    /**
-     * Include Vectors
-     */
-    include_vectors?: boolean;
-};
-
-/**
- * Body_temp_upload_api_v1_resources_temp_upload_post
- */
-export type BodyTempUploadApiV1ResourcesTempUploadPost = {
-    /**
-     * File
-     */
-    file: Blob | File;
-    /**
-     * Telemetry
-     */
-    telemetry?: boolean;
-    /**
-     * Upload Mode
-     */
-    upload_mode?: string;
-};
-
-/**
- * CommitRequest
- *
- * Commit request body.
- *
- * WM v2: ``keep_recent_count`` allows the plugin to retain a tail of recent
- * messages in the live session after commit so the next turn still has
- * immediate context. Default 0 preserves the pre-v2 "archive everything"
- * behavior.
- */
-export type CommitRequest = {
-    /**
-     * Keep Recent Count
-     *
-     * Number of most-recent messages to keep live after commit. Plugin's afterTurn path typically passes its configured value (default 10); compact path passes 0 to archive everything.
-     */
-    keep_recent_count?: number;
-    /**
-     * Retention Mode
-     *
-     * Opt in to logical Turn retention. Omit to preserve keep_recent_count semantics.
-     */
-    retention_mode?: 'turn_budget' | null;
-    /**
-     * Keep Recent Turn Count
-     *
-     * Maximum number of newest logical user Turns to retain.
-     */
-    keep_recent_turn_count?: number | null;
-    /**
-     * Retained Message Token Budget
-     *
-     * Token budget for retained raw messages and checkpoint.
-     */
-    retained_message_token_budget?: number | null;
-    /**
-     * Min Raw Tail Steps
-     *
-     * Minimum number of latest atomic assistant Steps kept raw.
-     */
-    min_raw_tail_steps?: number | null;
-    /**
-     * Telemetry
-     */
-    telemetry?: boolean | {
-        [key: string]: boolean;
-    };
-};
-
-/**
- * ConsistencyRequest
- *
- * Request model for filesystem/vector-index consistency checks.
- */
-export type ConsistencyRequest = {
-    /**
-     * Uri
-     */
-    uri: string;
-};
-
-/**
- * CreateAccountRequest
- */
-export type CreateAccountRequest = {
-    /**
-     * Account Id
-     */
-    account_id: string;
-    /**
-     * Admin User Id
-     */
-    admin_user_id: string;
-};
-
-/**
- * CreateSessionRequest
- *
- * Request model for creating a session.
- */
-export type CreateSessionRequest = {
-    /**
-     * Session Id
-     */
-    session_id?: string | null;
-    /**
-     * Telemetry
-     */
-    telemetry?: boolean | {
-        [key: string]: boolean;
-    };
-};
-
-/**
- * ExportRequest
- *
- * Request model for export.
- */
-export type ExportRequest = {
-    /**
-     * Uri
-     */
-    uri: string;
-    /**
-     * Include Vectors
-     */
-    include_vectors?: boolean;
-};
-
-/**
- * FindRequest
- *
- * Request model for find.
- */
-export type FindRequest = {
-    /**
-     * Query
-     */
-    query: string;
-    /**
-     * Target Uri
-     */
-    target_uri?: string | Array<string>;
-    /**
-     * Peer Id
-     */
-    peer_id?: string | null;
-    /**
-     * Limit
-     */
-    limit?: number;
-    /**
-     * Node Limit
-     */
-    node_limit?: number | null;
-    /**
-     * Score Threshold
-     */
-    score_threshold?: number | null;
-    /**
-     * Filter
-     */
-    filter?: {
-        [key: string]: unknown;
-    } | null;
-    /**
-     * Include Provenance
-     */
-    include_provenance?: boolean;
-    /**
-     * Since
-     */
-    since?: string | null;
-    /**
-     * Until
-     */
-    until?: string | null;
-    /**
-     * Time Field
-     */
-    time_field?: 'updated_at' | 'created_at' | null;
-    /**
-     * Level
-     */
-    level?: number | string | Array<number> | null;
-    /**
-     * Telemetry
-     */
-    telemetry?: boolean | {
-        [key: string]: boolean;
-    };
-};
-
-/**
- * GlobRequest
- *
- * Request model for glob.
- */
-export type GlobRequest = {
-    /**
-     * Pattern
-     */
-    pattern: string;
-    /**
-     * Uri
-     */
-    uri?: string;
-    /**
-     * Node Limit
-     */
-    node_limit?: number | null;
-};
-
-/**
- * GrepRequest
- *
- * Request model for grep.
- */
-export type GrepRequest = {
-    /**
-     * Uri
-     */
-    uri: string;
-    /**
-     * Exclude Uri
-     */
-    exclude_uri?: string | null;
-    /**
-     * Pattern
-     */
-    pattern: string;
-    /**
-     * Case Insensitive
-     */
-    case_insensitive?: boolean;
-    /**
-     * Node Limit
-     */
-    node_limit?: number | null;
-    /**
-     * Level Limit
-     */
-    level_limit?: number;
-};
-
-/**
- * HTTPValidationError
- */
-export type HttpValidationError = {
-    /**
-     * Detail
-     */
-    detail?: Array<ValidationError>;
-};
-
-/**
- * ImportRequest
- *
- * Request model for import.
- *
- * Attributes:
- * temp_file_id: Temporary upload id returned by /api/v1/resources/temp_upload.
- * parent: Parent URI under which the imported pack will be placed.
- * on_conflict: Conflict policy: fail, overwrite, or skip.
- */
-export type ImportRequest = {
-    /**
-     * Temp File Id
-     */
-    temp_file_id: string;
-    /**
-     * Parent
-     */
-    parent: string;
-    /**
-     * On Conflict
-     */
-    on_conflict?: 'fail' | 'overwrite' | 'skip' | null;
-    /**
-     * Vector Mode
-     */
-    vector_mode?: 'auto' | 'recompute' | 'require' | null;
-};
-
-/**
- * MkdirRequest
- *
- * Request model for mkdir.
- */
-export type MkdirRequest = {
-    /**
-     * Uri
-     */
-    uri: string;
-    /**
-     * Description
-     */
-    description?: string | null;
-};
-
-/**
- * MvRequest
- *
- * Request model for mv.
- */
-export type MvRequest = {
-    /**
-     * From Uri
-     */
-    from_uri: string;
-    /**
-     * To Uri
-     */
-    to_uri: string;
-};
-
-/**
- * RegisterUserRequest
- */
-export type RegisterUserRequest = {
-    /**
-     * User Id
-     */
-    user_id: string;
-    /**
-     * Role
-     */
-    role?: string;
-};
-
-/**
- * ReindexRequest
- */
-export type ReindexRequest = {
-    /**
-     * Uri
-     */
-    uri: string;
-    /**
-     * Mode
-     */
-    mode?: string;
-    /**
-     * Wait
-     */
-    wait?: boolean;
-    /**
-     * Dry Run
-     */
-    dry_run?: boolean;
-};
-
-/**
- * RestoreRequest
- *
- * Request model for backup restore.
- */
-export type RestoreRequest = {
-    /**
-     * Temp File Id
-     */
-    temp_file_id: string;
-    /**
-     * On Conflict
-     */
-    on_conflict?: 'fail' | 'overwrite' | 'skip' | null;
-    /**
-     * Vector Mode
-     */
-    vector_mode?: 'auto' | 'recompute' | 'require' | null;
-};
-
-/**
- * SearchRequest
- *
- * Request model for search with session.
- */
-export type SearchRequest = {
-    /**
-     * Query
-     */
-    query: string;
-    /**
-     * Target Uri
-     */
-    target_uri?: string | Array<string>;
-    /**
-     * Peer Id
-     */
-    peer_id?: string | null;
-    /**
-     * Session Id
-     */
-    session_id?: string | null;
-    /**
-     * Limit
-     */
-    limit?: number;
-    /**
-     * Node Limit
-     */
-    node_limit?: number | null;
-    /**
-     * Score Threshold
-     */
-    score_threshold?: number | null;
-    /**
-     * Filter
-     */
-    filter?: {
-        [key: string]: unknown;
-    } | null;
-    /**
-     * Include Provenance
-     */
-    include_provenance?: boolean;
-    /**
-     * Since
-     */
-    since?: string | null;
-    /**
-     * Until
-     */
-    until?: string | null;
-    /**
-     * Time Field
-     */
-    time_field?: 'updated_at' | 'created_at' | null;
-    /**
-     * Level
-     */
-    level?: number | string | Array<number> | null;
-    /**
-     * Telemetry
-     */
-    telemetry?: boolean | {
-        [key: string]: boolean;
-    };
-};
-
-/**
- * SetRoleRequest
- */
-export type SetRoleRequest = {
-    /**
-     * Role
-     */
-    role: string;
-};
-
-/**
- * UpsertPrivacyConfigRequest
- */
-export type UpsertPrivacyConfigRequest = {
-    /**
-     * Values
-     */
-    values: {
-        [key: string]: unknown;
-    };
-    /**
-     * Change Reason
-     */
-    change_reason?: string;
-    /**
-     * Labels
-     */
-    labels?: {
-        [key: string]: unknown;
-    } | null;
-};
-
-/**
- * UsedRequest
- *
- * Request model for recording usage.
- */
-export type UsedRequest = {
-    /**
-     * Contexts
-     */
-    contexts?: Array<string> | null;
-    /**
-     * Skill
-     */
-    skill?: {
-        [key: string]: unknown;
-    } | null;
-};
-
-/**
- * ValidationError
- */
-export type ValidationError = {
-    /**
-     * Location
-     */
-    loc: Array<string | number>;
-    /**
-     * Message
-     */
-    msg: string;
-    /**
-     * Error Type
-     */
-    type: string;
-    /**
-     * Input
-     */
-    input?: unknown;
-    /**
-     * Context
-     */
-    ctx?: {
-        [key: string]: unknown;
-    };
-};
-
-/**
- * WaitRequest
- *
- * Request model for wait.
- */
-export type WaitRequest = {
-    /**
-     * Timeout
-     */
-    timeout?: number | null;
 };
 
 /**
@@ -796,556 +192,323 @@ export type WriteContentRequest = {
     };
 };
 
-export type GetHealthData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/health';
-};
-
-export type GetHealthResponses = {
+/**
+ * ReindexRequest
+ */
+export type ReindexRequest = {
     /**
-     * Successful Response
+     * Uri
      */
-    200: unknown;
-};
-
-export type GetReadyData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/ready';
-};
-
-export type GetReadyResponses = {
+    uri: string;
     /**
-     * Successful Response
+     * Mode
      */
-    200: unknown;
+    mode?: string;
+    /**
+     * Wait
+     */
+    wait?: boolean;
+    /**
+     * Dry Run
+     */
+    dry_run?: boolean;
 };
 
-export type GetSystemStatusData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
+/**
+ * FindRequest
+ *
+ * Request model for find.
+ */
+export type FindRequest = {
+    /**
+     * Query
+     */
+    query?: string;
+    /**
+     * Image Url
+     */
+    image_url?: string | null;
+    /**
+     * Target Uri
+     */
+    target_uri?: string | Array<string>;
+    /**
+     * Context Type
+     */
+    context_type?: string | Array<string> | null;
+    /**
+     * Agent Id
+     */
+    agent_id?: string | null;
+    /**
+     * Agent Uri
+     */
+    agent_uri?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Node Limit
+     */
+    node_limit?: number | null;
+    /**
+     * Score Threshold
+     */
+    score_threshold?: number | null;
+    /**
+     * Filter
+     */
+    filter?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Include Provenance
+     */
+    include_provenance?: boolean;
+    /**
+     * Tags
+     */
+    tags?: Array<string> | null;
+    /**
+     * Since
+     */
+    since?: string | null;
+    /**
+     * Until
+     */
+    until?: string | null;
+    /**
+     * Time Field
+     */
+    time_field?: 'updated_at' | 'created_at' | null;
+    /**
+     * Level
+     */
+    level?: number | string | Array<number> | null;
+    /**
+     * Telemetry
+     */
+    telemetry?: boolean | {
+        [key: string]: boolean;
     };
-    path?: never;
-    query?: never;
-    url: '/api/v1/system/status';
 };
 
-export type GetSystemStatusErrors = {
+/**
+ * SearchRequest
+ *
+ * Request model for search with session.
+ */
+export type SearchRequest = {
     /**
-     * Validation Error
+     * Query
      */
-    422: HttpValidationError;
-};
-
-export type GetSystemStatusError = GetSystemStatusErrors[keyof GetSystemStatusErrors];
-
-export type GetSystemStatusResponses = {
+    query?: string;
     /**
-     * Successful Response
+     * Image Url
      */
-    200: unknown;
-};
-
-export type PostSystemWaitData = {
-    body: WaitRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
+    image_url?: string | null;
+    /**
+     * Target Uri
+     */
+    target_uri?: string | Array<string>;
+    /**
+     * Context Type
+     */
+    context_type?: string | Array<string> | null;
+    /**
+     * Agent Id
+     */
+    agent_id?: string | null;
+    /**
+     * Agent Uri
+     */
+    agent_uri?: string | null;
+    /**
+     * Session Id
+     */
+    session_id?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Node Limit
+     */
+    node_limit?: number | null;
+    /**
+     * Score Threshold
+     */
+    score_threshold?: number | null;
+    /**
+     * Filter
+     */
+    filter?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Include Provenance
+     */
+    include_provenance?: boolean;
+    /**
+     * Tags
+     */
+    tags?: Array<string> | null;
+    /**
+     * Since
+     */
+    since?: string | null;
+    /**
+     * Until
+     */
+    until?: string | null;
+    /**
+     * Time Field
+     */
+    time_field?: 'updated_at' | 'created_at' | null;
+    /**
+     * Level
+     */
+    level?: number | string | Array<number> | null;
+    /**
+     * Telemetry
+     */
+    telemetry?: boolean | {
+        [key: string]: boolean;
     };
-    path?: never;
-    query?: never;
-    url: '/api/v1/system/wait';
 };
 
-export type PostSystemWaitErrors = {
+/**
+ * GrepRequest
+ *
+ * Request model for grep.
+ */
+export type GrepRequest = {
     /**
-     * Validation Error
+     * Uri
      */
-    422: HttpValidationError;
-};
-
-export type PostSystemWaitError = PostSystemWaitErrors[keyof PostSystemWaitErrors];
-
-export type PostSystemWaitResponses = {
+    uri: string;
     /**
-     * Successful Response
+     * Exclude Uri
      */
-    200: unknown;
+    exclude_uri?: string | null;
+    /**
+     * Pattern
+     */
+    pattern: string;
+    /**
+     * Case Insensitive
+     */
+    case_insensitive?: boolean;
+    /**
+     * Node Limit
+     */
+    node_limit?: number | null;
+    /**
+     * Level Limit
+     */
+    level_limit?: number;
 };
 
-export type PostSystemConsistencyData = {
-    body: ConsistencyRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
+/**
+ * GlobRequest
+ *
+ * Request model for glob.
+ */
+export type GlobRequest = {
+    /**
+     * Pattern
+     */
+    pattern: string;
+    /**
+     * Uri
+     */
+    uri?: string;
+    /**
+     * Node Limit
+     */
+    node_limit?: number | null;
+};
+
+/**
+ * UpdateWatchRequest
+ *
+ * Partial-update body for PATCH /watches.
+ *
+ * Any field left unset is preserved on the underlying task. ``is_active``
+ * and ``watch_interval`` are orthogonal: flip ``is_active`` to pause/resume
+ * without losing the configured cadence.
+ */
+export type UpdateWatchRequest = {
+    /**
+     * Watch Interval
+     */
+    watch_interval?: number | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+    /**
+     * Reason
+     */
+    reason?: string | null;
+    /**
+     * Instruction
+     */
+    instruction?: string | null;
+};
+
+/**
+ * CommitRequest
+ *
+ * Commit request body.
+ *
+ * WM v2: ``keep_recent_count`` allows the plugin to retain a tail of recent
+ * messages in the live session after commit so the next turn still has
+ * immediate context. Default 0 preserves the pre-v2 "archive everything"
+ * behavior.
+ */
+export type OpenvikingServerRoutersSessionsCommitRequest = {
+    /**
+     * Keep Recent Count
+     *
+     * Number of most-recent messages to keep live after commit. Plugin's afterTurn path typically passes its configured value (default 10); compact path passes 0 to archive everything.
+     */
+    keep_recent_count?: number;
+    /**
+     * Telemetry
+     */
+    telemetry?: boolean | {
+        [key: string]: boolean;
     };
-    path?: never;
-    query?: never;
-    url: '/api/v1/system/consistency';
 };
 
-export type PostSystemConsistencyErrors = {
+/**
+ * ValidationError
+ */
+export type ValidationError = {
     /**
-     * Validation Error
+     * Location
      */
-    422: HttpValidationError;
-};
-
-export type PostSystemConsistencyError = PostSystemConsistencyErrors[keyof PostSystemConsistencyErrors];
-
-export type PostSystemConsistencyResponses = {
+    loc: Array<string | number>;
     /**
-     * Successful Response
+     * Message
      */
-    200: unknown;
-};
-
-export type GetAdminAccountsData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
+    msg: string;
+    /**
+     * Error Type
+     */
+    type: string;
+    /**
+     * Input
+     */
+    input?: unknown;
+    /**
+     * Context
+     */
+    ctx?: {
+        [key: string]: unknown;
     };
-    path?: never;
-    query?: never;
-    url: '/api/v1/admin/accounts';
-};
-
-export type GetAdminAccountsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetAdminAccountsError = GetAdminAccountsErrors[keyof GetAdminAccountsErrors];
-
-export type GetAdminAccountsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostAdminAccountsData = {
-    body: CreateAccountRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/admin/accounts';
-};
-
-export type PostAdminAccountsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostAdminAccountsError = PostAdminAccountsErrors[keyof PostAdminAccountsErrors];
-
-export type PostAdminAccountsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type DeleteAdminAccountByAccountIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Account Id
-         *
-         * Account ID
-         */
-        account_id: string;
-    };
-    query?: never;
-    url: '/api/v1/admin/accounts/{account_id}';
-};
-
-export type DeleteAdminAccountByAccountIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DeleteAdminAccountByAccountIdError = DeleteAdminAccountByAccountIdErrors[keyof DeleteAdminAccountByAccountIdErrors];
-
-export type DeleteAdminAccountByAccountIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetAdminAccountIdUsersData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Account Id
-         *
-         * Account ID
-         */
-        account_id: string;
-    };
-    query?: {
-        /**
-         * Limit
-         */
-        limit?: number;
-        /**
-         * Name
-         */
-        name?: string | null;
-        /**
-         * Role
-         */
-        role?: string | null;
-    };
-    url: '/api/v1/admin/accounts/{account_id}/users';
-};
-
-export type GetAdminAccountIdUsersErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetAdminAccountIdUsersError = GetAdminAccountIdUsersErrors[keyof GetAdminAccountIdUsersErrors];
-
-export type GetAdminAccountIdUsersResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostAdminAccountIdUsersData = {
-    body: RegisterUserRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Account Id
-         *
-         * Account ID
-         */
-        account_id: string;
-    };
-    query?: never;
-    url: '/api/v1/admin/accounts/{account_id}/users';
-};
-
-export type PostAdminAccountIdUsersErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostAdminAccountIdUsersError = PostAdminAccountIdUsersErrors[keyof PostAdminAccountIdUsersErrors];
-
-export type PostAdminAccountIdUsersResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type DeleteAdminAccountIdUserByUserIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Account Id
-         *
-         * Account ID
-         */
-        account_id: string;
-        /**
-         * User Id
-         *
-         * User ID
-         */
-        user_id: string;
-    };
-    query?: never;
-    url: '/api/v1/admin/accounts/{account_id}/users/{user_id}';
-};
-
-export type DeleteAdminAccountIdUserByUserIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DeleteAdminAccountIdUserByUserIdError = DeleteAdminAccountIdUserByUserIdErrors[keyof DeleteAdminAccountIdUserByUserIdErrors];
-
-export type DeleteAdminAccountIdUserByUserIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PutAdminAccountIdUserIdRoleData = {
-    body: SetRoleRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Account Id
-         *
-         * Account ID
-         */
-        account_id: string;
-        /**
-         * User Id
-         *
-         * User ID
-         */
-        user_id: string;
-    };
-    query?: never;
-    url: '/api/v1/admin/accounts/{account_id}/users/{user_id}/role';
-};
-
-export type PutAdminAccountIdUserIdRoleErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PutAdminAccountIdUserIdRoleError = PutAdminAccountIdUserIdRoleErrors[keyof PutAdminAccountIdUserIdRoleErrors];
-
-export type PutAdminAccountIdUserIdRoleResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostAdminAccountIdUserIdKeyData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Account Id
-         *
-         * Account ID
-         */
-        account_id: string;
-        /**
-         * User Id
-         *
-         * User ID
-         */
-        user_id: string;
-    };
-    query?: never;
-    url: '/api/v1/admin/accounts/{account_id}/users/{user_id}/key';
-};
-
-export type PostAdminAccountIdUserIdKeyErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostAdminAccountIdUserIdKeyError = PostAdminAccountIdUserIdKeyErrors[keyof PostAdminAccountIdUserIdKeyErrors];
-
-export type PostAdminAccountIdUserIdKeyResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
 };
 
 export type PostResourcesTempUploadData = {
@@ -1367,9 +530,22 @@ export type PostResourcesTempUploadData = {
          * X-Openviking-User
          */
         'X-OpenViking-User'?: string | null;
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
     };
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Token
+         */
+        token?: string | null;
+    };
     url: '/api/v1/resources/temp_upload';
 };
 
@@ -1392,6 +568,14 @@ export type PostResourcesTempUploadResponses = {
 export type PostResourcesData = {
     body: AddResourceRequest;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -1430,50 +614,17 @@ export type PostResourcesResponses = {
     200: unknown;
 };
 
-export type PostSkillsData = {
-    body: AddSkillRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/skills';
-};
-
-export type PostSkillsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostSkillsError = PostSkillsErrors[keyof PostSkillsErrors];
-
-export type PostSkillsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type GetFsLsData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -1577,6 +728,14 @@ export type GetFsTreeData = {
     body?: never;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -1661,6 +820,14 @@ export type GetFsStatData = {
     body?: never;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -1705,145 +872,17 @@ export type GetFsStatResponses = {
     200: unknown;
 };
 
-export type PostFsMkdirData = {
-    body: MkdirRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/fs/mkdir';
-};
-
-export type PostFsMkdirErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostFsMkdirError = PostFsMkdirErrors[keyof PostFsMkdirErrors];
-
-export type PostFsMkdirResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type DeleteFsData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query: {
-        /**
-         * Uri
-         *
-         * Viking URI
-         */
-        uri: string;
-        /**
-         * Recursive
-         *
-         * Remove recursively
-         */
-        recursive?: boolean;
-    };
-    url: '/api/v1/fs';
-};
-
-export type DeleteFsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DeleteFsError = DeleteFsErrors[keyof DeleteFsErrors];
-
-export type DeleteFsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostFsMvData = {
-    body: MvRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/fs/mv';
-};
-
-export type PostFsMvErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostFsMvError = PostFsMvErrors[keyof PostFsMvErrors];
-
-export type PostFsMvResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type GetContentReadData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -1881,6 +920,12 @@ export type GetContentReadData = {
          * Number of lines to read, -1 means read to end
          */
         limit?: number;
+        /**
+         * Raw
+         *
+         * Return raw stored content without memory-field cleanup
+         */
+        raw?: boolean;
     };
     url: '/api/v1/content/read';
 };
@@ -1904,6 +949,14 @@ export type GetContentReadResponses = {
 export type GetContentAbstractData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -1953,6 +1006,14 @@ export type GetContentOverviewData = {
     body?: never;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -2000,6 +1061,14 @@ export type GetContentOverviewResponses = {
 export type GetContentDownloadData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -2049,6 +1118,14 @@ export type PostContentWriteData = {
     body: WriteContentRequest;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -2090,6 +1167,14 @@ export type PostContentReindexData = {
     body: ReindexRequest;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -2127,247 +1212,17 @@ export type PostContentReindexResponses = {
     200: unknown;
 };
 
-export type GetConsoleDashboardSummaryData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * Timezone
-         *
-         * IANA viewer timezone (e.g. Asia/Shanghai). Defaults to server tz.
-         */
-        timezone?: string | null;
-    };
-    url: '/api/v1/console/dashboard/summary';
-};
-
-export type GetConsoleDashboardSummaryErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetConsoleDashboardSummaryError = GetConsoleDashboardSummaryErrors[keyof GetConsoleDashboardSummaryErrors];
-
-export type GetConsoleDashboardSummaryResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetConsoleTokensData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query: {
-        /**
-         * Start Date
-         *
-         * Start date (viewer-local) in YYYY-MM-DD
-         */
-        start_date: string;
-        /**
-         * End Date
-         *
-         * End date (viewer-local) in YYYY-MM-DD
-         */
-        end_date: string;
-        /**
-         * Bucket
-         */
-        bucket?: string;
-        /**
-         * Timezone
-         *
-         * IANA viewer timezone (e.g. Asia/Shanghai). Defaults to server tz.
-         */
-        timezone?: string | null;
-    };
-    url: '/api/v1/console/tokens';
-};
-
-export type GetConsoleTokensErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetConsoleTokensError = GetConsoleTokensErrors[keyof GetConsoleTokensErrors];
-
-export type GetConsoleTokensResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetConsoleContextCommitsData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query: {
-        /**
-         * Start Date
-         *
-         * Start date (viewer-local) in YYYY-MM-DD
-         */
-        start_date: string;
-        /**
-         * End Date
-         *
-         * End date (viewer-local) in YYYY-MM-DD
-         */
-        end_date: string;
-        /**
-         * Bucket
-         */
-        bucket?: string;
-        /**
-         * Timezone
-         *
-         * IANA viewer timezone (e.g. Asia/Shanghai). Defaults to server tz.
-         */
-        timezone?: string | null;
-    };
-    url: '/api/v1/console/context-commits';
-};
-
-export type GetConsoleContextCommitsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetConsoleContextCommitsError = GetConsoleContextCommitsErrors[keyof GetConsoleContextCommitsErrors];
-
-export type GetConsoleContextCommitsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetConsoleAuditData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * Page
-         */
-        page?: number;
-        /**
-         * Page Size
-         */
-        page_size?: number;
-        /**
-         * Request Id
-         */
-        request_id?: string | null;
-        /**
-         * Status
-         */
-        status?: Array<string> | null;
-        /**
-         * Api Type
-         */
-        api_type?: Array<string> | null;
-    };
-    url: '/api/v1/console/audit';
-};
-
-export type GetConsoleAuditErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetConsoleAuditError = GetConsoleAuditErrors[keyof GetConsoleAuditErrors];
-
-export type GetConsoleAuditResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type PostSearchFindData = {
     body: FindRequest;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -2410,6 +1265,14 @@ export type PostSearchSearchData = {
     body: SearchRequest;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -2450,6 +1313,14 @@ export type PostSearchSearchResponses = {
 export type PostSearchGrepData = {
     body: GrepRequest;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -2492,6 +1363,14 @@ export type PostSearchGlobData = {
     body: GlobRequest;
     headers?: {
         /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
          * X-Api-Key
          */
         'x-api-key'?: string | null;
@@ -2529,1615 +1408,17 @@ export type PostSearchGlobResponses = {
     200: unknown;
 };
 
-export type GetPrivacyConfigsData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/privacy-configs';
-};
-
-export type GetPrivacyConfigsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetPrivacyConfigsError = GetPrivacyConfigsErrors[keyof GetPrivacyConfigsErrors];
-
-export type GetPrivacyConfigsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetPrivacyConfigsByCategoryData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Category
-         *
-         * Privacy config category
-         */
-        category: string;
-    };
-    query?: never;
-    url: '/api/v1/privacy-configs/{category}';
-};
-
-export type GetPrivacyConfigsByCategoryErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetPrivacyConfigsByCategoryError = GetPrivacyConfigsByCategoryErrors[keyof GetPrivacyConfigsByCategoryErrors];
-
-export type GetPrivacyConfigsByCategoryResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetPrivacyConfigsByCategoryAndTargetKeyData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Category
-         *
-         * Privacy config category
-         */
-        category: string;
-        /**
-         * Target Key
-         *
-         * Privacy config target key
-         */
-        target_key: string;
-    };
-    query?: never;
-    url: '/api/v1/privacy-configs/{category}/{target_key}';
-};
-
-export type GetPrivacyConfigsByCategoryAndTargetKeyErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetPrivacyConfigsByCategoryAndTargetKeyError = GetPrivacyConfigsByCategoryAndTargetKeyErrors[keyof GetPrivacyConfigsByCategoryAndTargetKeyErrors];
-
-export type GetPrivacyConfigsByCategoryAndTargetKeyResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostPrivacyConfigsByCategoryAndTargetKeyData = {
-    body: UpsertPrivacyConfigRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Category
-         *
-         * Privacy config category
-         */
-        category: string;
-        /**
-         * Target Key
-         *
-         * Privacy config target key
-         */
-        target_key: string;
-    };
-    query?: never;
-    url: '/api/v1/privacy-configs/{category}/{target_key}';
-};
-
-export type PostPrivacyConfigsByCategoryAndTargetKeyErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostPrivacyConfigsByCategoryAndTargetKeyError = PostPrivacyConfigsByCategoryAndTargetKeyErrors[keyof PostPrivacyConfigsByCategoryAndTargetKeyErrors];
-
-export type PostPrivacyConfigsByCategoryAndTargetKeyResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetPrivacyConfigsVersionsByCategoryAndTargetKeyData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Category
-         *
-         * Privacy config category
-         */
-        category: string;
-        /**
-         * Target Key
-         *
-         * Privacy config target key
-         */
-        target_key: string;
-    };
-    query?: never;
-    url: '/api/v1/privacy-configs/{category}/{target_key}/versions';
-};
-
-export type GetPrivacyConfigsVersionsByCategoryAndTargetKeyErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetPrivacyConfigsVersionsByCategoryAndTargetKeyError = GetPrivacyConfigsVersionsByCategoryAndTargetKeyErrors[keyof GetPrivacyConfigsVersionsByCategoryAndTargetKeyErrors];
-
-export type GetPrivacyConfigsVersionsByCategoryAndTargetKeyResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetPrivacyConfigsVersionByCategoryAndTargetKeyAndVersionData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Category
-         *
-         * Privacy config category
-         */
-        category: string;
-        /**
-         * Target Key
-         *
-         * Privacy config target key
-         */
-        target_key: string;
-        /**
-         * Version
-         *
-         * Privacy config version
-         */
-        version: number;
-    };
-    query?: never;
-    url: '/api/v1/privacy-configs/{category}/{target_key}/versions/{version}';
-};
-
-export type GetPrivacyConfigsVersionByCategoryAndTargetKeyAndVersionErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetPrivacyConfigsVersionByCategoryAndTargetKeyAndVersionError = GetPrivacyConfigsVersionByCategoryAndTargetKeyAndVersionErrors[keyof GetPrivacyConfigsVersionByCategoryAndTargetKeyAndVersionErrors];
-
-export type GetPrivacyConfigsVersionByCategoryAndTargetKeyAndVersionResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostPrivacyConfigsActivateByCategoryAndTargetKeyData = {
-    body: ActivatePrivacyConfigVersionRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Category
-         *
-         * Privacy config category
-         */
-        category: string;
-        /**
-         * Target Key
-         *
-         * Privacy config target key
-         */
-        target_key: string;
-    };
-    query?: never;
-    url: '/api/v1/privacy-configs/{category}/{target_key}/activate';
-};
-
-export type PostPrivacyConfigsActivateByCategoryAndTargetKeyErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostPrivacyConfigsActivateByCategoryAndTargetKeyError = PostPrivacyConfigsActivateByCategoryAndTargetKeyErrors[keyof PostPrivacyConfigsActivateByCategoryAndTargetKeyErrors];
-
-export type PostPrivacyConfigsActivateByCategoryAndTargetKeyResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetSessionsData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/sessions';
-};
-
-export type GetSessionsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetSessionsError = GetSessionsErrors[keyof GetSessionsErrors];
-
-export type GetSessionsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostSessionsData = {
-    body?: CreateSessionRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/sessions';
-};
-
-export type PostSessionsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostSessionsError = PostSessionsErrors[keyof PostSessionsErrors];
-
-export type PostSessionsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type DeleteSessionBySessionIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{session_id}';
-};
-
-export type DeleteSessionBySessionIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type DeleteSessionBySessionIdError = DeleteSessionBySessionIdErrors[keyof DeleteSessionBySessionIdErrors];
-
-export type DeleteSessionBySessionIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetSessionBySessionIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: {
-        /**
-         * Auto Create
-         *
-         * Create the session if it does not exist
-         */
-        auto_create?: boolean;
-    };
-    url: '/api/v1/sessions/{session_id}';
-};
-
-export type GetSessionBySessionIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetSessionBySessionIdError = GetSessionBySessionIdErrors[keyof GetSessionBySessionIdErrors];
-
-export type GetSessionBySessionIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetSessionIdContextData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: {
-        /**
-         * Token Budget
-         *
-         * Token budget for session context
-         */
-        token_budget?: number;
-    };
-    url: '/api/v1/sessions/{session_id}/context';
-};
-
-export type GetSessionIdContextErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetSessionIdContextError = GetSessionIdContextErrors[keyof GetSessionIdContextErrors];
-
-export type GetSessionIdContextResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetSessionIdArchiveByArchiveIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-        /**
-         * Archive Id
-         *
-         * Archive ID
-         */
-        archive_id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{session_id}/archives/{archive_id}';
-};
-
-export type GetSessionIdArchiveByArchiveIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetSessionIdArchiveByArchiveIdError = GetSessionIdArchiveByArchiveIdErrors[keyof GetSessionIdArchiveByArchiveIdErrors];
-
-export type GetSessionIdArchiveByArchiveIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostSessionIdCommitData = {
-    body?: CommitRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{session_id}/commit';
-};
-
-export type PostSessionIdCommitErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostSessionIdCommitError = PostSessionIdCommitErrors[keyof PostSessionIdCommitErrors];
-
-export type PostSessionIdCommitResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostSessionIdExtractData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{session_id}/extract';
-};
-
-export type PostSessionIdExtractErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostSessionIdExtractError = PostSessionIdExtractErrors[keyof PostSessionIdExtractErrors];
-
-export type PostSessionIdExtractResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostSessionIdMessagesData = {
-    body: AddMessageRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{session_id}/messages';
-};
-
-export type PostSessionIdMessagesErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostSessionIdMessagesError = PostSessionIdMessagesErrors[keyof PostSessionIdMessagesErrors];
-
-export type PostSessionIdMessagesResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostSessionIdUsedData = {
-    body: UsedRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: never;
-    url: '/api/v1/sessions/{session_id}/used';
-};
-
-export type PostSessionIdUsedErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostSessionIdUsedError = PostSessionIdUsedErrors[keyof PostSessionIdUsedErrors];
-
-export type PostSessionIdUsedResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetStatsMemoriesData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * Category
-         *
-         * Filter by memory category (e.g. cases, patterns, tools)
-         */
-        category?: string | null;
-    };
-    url: '/api/v1/stats/memories';
-};
-
-export type GetStatsMemoriesErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetStatsMemoriesError = GetStatsMemoriesErrors[keyof GetStatsMemoriesErrors];
-
-export type GetStatsMemoriesResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetStatsSessionBySessionIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Session Id
-         *
-         * Session ID
-         */
-        session_id: string;
-    };
-    query?: never;
-    url: '/api/v1/stats/sessions/{session_id}';
-};
-
-export type GetStatsSessionBySessionIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetStatsSessionBySessionIdError = GetStatsSessionBySessionIdErrors[keyof GetStatsSessionBySessionIdErrors];
-
-export type GetStatsSessionBySessionIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostPackExportData = {
-    body: ExportRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/pack/export';
-};
-
-export type PostPackExportErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostPackExportError = PostPackExportErrors[keyof PostPackExportErrors];
-
-export type PostPackExportResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostPackBackupData = {
-    /**
-     * Body
-     */
-    body?: BackupRequest | null;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/pack/backup';
-};
-
-export type PostPackBackupErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostPackBackupError = PostPackBackupErrors[keyof PostPackBackupErrors];
-
-export type PostPackBackupResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostPackImportData = {
-    body: ImportRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/pack/import';
-};
-
-export type PostPackImportErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostPackImportError = PostPackImportErrors[keyof PostPackImportErrors];
-
-export type PostPackImportResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostPackRestoreData = {
-    body: RestoreRequest;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/pack/restore';
-};
-
-export type PostPackRestoreErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostPackRestoreError = PostPackRestoreErrors[keyof PostPackRestoreErrors];
-
-export type PostPackRestoreResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetDebugHealthData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/debug/health';
-};
-
-export type GetDebugHealthErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDebugHealthError = GetDebugHealthErrors[keyof GetDebugHealthErrors];
-
-export type GetDebugHealthResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetDebugVectorScrollData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * Limit
-         */
-        limit?: number;
-        /**
-         * Cursor
-         */
-        cursor?: string | null;
-        /**
-         * Uri
-         */
-        uri?: string | null;
-    };
-    url: '/api/v1/debug/vector/scroll';
-};
-
-export type GetDebugVectorScrollErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDebugVectorScrollError = GetDebugVectorScrollErrors[keyof GetDebugVectorScrollErrors];
-
-export type GetDebugVectorScrollResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetDebugVectorCountData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: {
-        /**
-         * Filter
-         */
-        filter?: string | null;
-        /**
-         * Uri
-         */
-        uri?: string | null;
-    };
-    url: '/api/v1/debug/vector/count';
-};
-
-export type GetDebugVectorCountErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetDebugVectorCountError = GetDebugVectorCountErrors[keyof GetDebugVectorCountErrors];
-
-export type GetDebugVectorCountResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverQueueData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/queue';
-};
-
-export type GetObserverQueueErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverQueueError = GetObserverQueueErrors[keyof GetObserverQueueErrors];
-
-export type GetObserverQueueResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverVikingdbData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/vikingdb';
-};
-
-export type GetObserverVikingdbErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverVikingdbError = GetObserverVikingdbErrors[keyof GetObserverVikingdbErrors];
-
-export type GetObserverVikingdbResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverModelsData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/models';
-};
-
-export type GetObserverModelsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverModelsError = GetObserverModelsErrors[keyof GetObserverModelsErrors];
-
-export type GetObserverModelsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverLockData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/lock';
-};
-
-export type GetObserverLockErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverLockError = GetObserverLockErrors[keyof GetObserverLockErrors];
-
-export type GetObserverLockResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverRetrievalData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/retrieval';
-};
-
-export type GetObserverRetrievalErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverRetrievalError = GetObserverRetrievalErrors[keyof GetObserverRetrievalErrors];
-
-export type GetObserverRetrievalResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverFilesystemData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/filesystem';
-};
-
-export type GetObserverFilesystemErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverFilesystemError = GetObserverFilesystemErrors[keyof GetObserverFilesystemErrors];
-
-export type GetObserverFilesystemResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetObserverSystemData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/observer/system';
-};
-
-export type GetObserverSystemErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetObserverSystemError = GetObserverSystemErrors[keyof GetObserverSystemErrors];
-
-export type GetObserverSystemResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetMetricsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/metrics';
-};
-
-export type GetMetricsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetTaskByTaskIdData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Task Id
-         */
-        task_id: string;
-    };
-    query?: never;
-    url: '/api/v1/tasks/{task_id}';
-};
-
-export type GetTaskByTaskIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetTaskByTaskIdError = GetTaskByTaskIdErrors[keyof GetTaskByTaskIdErrors];
-
-export type GetTaskByTaskIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type GetTasksData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4201,9 +1482,17 @@ export type GetTasksResponses = {
     200: unknown;
 };
 
-export type DeleteWebdavResourceByResourcePathData = {
+export type GetTaskByTaskIdData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4223,33 +1512,41 @@ export type DeleteWebdavResourceByResourcePathData = {
     };
     path: {
         /**
-         * Resource Path
+         * Task Id
          */
-        resource_path: string;
+        task_id: string;
     };
     query?: never;
-    url: '/webdav/resources/{resource_path}';
+    url: '/api/v1/tasks/{task_id}';
 };
 
-export type DeleteWebdavResourceByResourcePathErrors = {
+export type GetTaskByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type DeleteWebdavResourceByResourcePathError = DeleteWebdavResourceByResourcePathErrors[keyof DeleteWebdavResourceByResourcePathErrors];
+export type GetTaskByTaskIdError = GetTaskByTaskIdErrors[keyof GetTaskByTaskIdErrors];
 
-export type DeleteWebdavResourceByResourcePathResponses = {
+export type GetTaskByTaskIdResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type GetWebdavResourceByResourcePathData = {
+export type DeleteWatchesData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4267,155 +1564,45 @@ export type GetWebdavResourceByResourcePathData = {
          */
         'X-OpenViking-User'?: string | null;
     };
-    path: {
+    path?: never;
+    query: {
         /**
-         * Resource Path
+         * To Uri
+         *
+         * Target URI of the watch task
          */
-        resource_path: string;
+        to_uri: string;
     };
-    query?: never;
-    url: '/webdav/resources/{resource_path}';
+    url: '/api/v1/watches';
 };
 
-export type GetWebdavResourceByResourcePathErrors = {
+export type DeleteWatchesErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetWebdavResourceByResourcePathError = GetWebdavResourceByResourcePathErrors[keyof GetWebdavResourceByResourcePathErrors];
+export type DeleteWatchesError = DeleteWatchesErrors[keyof DeleteWatchesErrors];
 
-export type GetWebdavResourceByResourcePathResponses = {
+export type DeleteWatchesResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type HeadWebdavResourceByResourcePathData = {
+export type GetWatchesData = {
     body?: never;
     headers?: {
         /**
-         * X-Api-Key
+         * X-Openviking-Actor-Peer
          */
-        'x-api-key'?: string | null;
+        'X-OpenViking-Actor-Peer'?: string | null;
         /**
-         * Authorization
+         * X-Openviking-Agent
          */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Resource Path
-         */
-        resource_path: string;
-    };
-    query?: never;
-    url: '/webdav/resources/{resource_path}';
-};
-
-export type HeadWebdavResourceByResourcePathErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type HeadWebdavResourceByResourcePathError = HeadWebdavResourceByResourcePathErrors[keyof HeadWebdavResourceByResourcePathErrors];
-
-export type HeadWebdavResourceByResourcePathResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type OptionsWebdavResourceByResourcePathData = {
-    body?: never;
-    path: {
-        /**
-         * Resource Path
-         */
-        resource_path: string;
-    };
-    query?: never;
-    url: '/webdav/resources/{resource_path}';
-};
-
-export type OptionsWebdavResourceByResourcePathErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type OptionsWebdavResourceByResourcePathError = OptionsWebdavResourceByResourcePathErrors[keyof OptionsWebdavResourceByResourcePathErrors];
-
-export type OptionsWebdavResourceByResourcePathResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PutWebdavResourceByResourcePathData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path: {
-        /**
-         * Resource Path
-         */
-        resource_path: string;
-    };
-    query?: never;
-    url: '/webdav/resources/{resource_path}';
-};
-
-export type PutWebdavResourceByResourcePathErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PutWebdavResourceByResourcePathError = PutWebdavResourceByResourcePathErrors[keyof PutWebdavResourceByResourcePathErrors];
-
-export type PutWebdavResourceByResourcePathResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type DeleteWebdavResourcesData = {
-    body?: never;
-    headers?: {
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4436,32 +1623,48 @@ export type DeleteWebdavResourcesData = {
     path?: never;
     query?: {
         /**
-         * Resource Path
+         * Active Only
+         *
+         * Only return tasks with is_active=true
          */
-        resource_path?: string;
+        active_only?: boolean;
+        /**
+         * To Uri
+         *
+         * If set, return the single task with this URI
+         */
+        to_uri?: string | null;
     };
-    url: '/webdav/resources';
+    url: '/api/v1/watches';
 };
 
-export type DeleteWebdavResourcesErrors = {
+export type GetWatchesErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type DeleteWebdavResourcesError = DeleteWebdavResourcesErrors[keyof DeleteWebdavResourcesErrors];
+export type GetWatchesError = GetWatchesErrors[keyof GetWatchesErrors];
 
-export type DeleteWebdavResourcesResponses = {
+export type GetWatchesResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type GetWebdavResourcesData = {
-    body?: never;
+export type PatchWatchesData = {
+    body: UpdateWatchRequest;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4480,34 +1683,107 @@ export type GetWebdavResourcesData = {
         'X-OpenViking-User'?: string | null;
     };
     path?: never;
+    query: {
+        /**
+         * To Uri
+         *
+         * Target URI of the watch task
+         */
+        to_uri: string;
+    };
+    url: '/api/v1/watches';
+};
+
+export type PatchWatchesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchWatchesError = PatchWatchesErrors[keyof PatchWatchesErrors];
+
+export type PatchWatchesResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type DeleteWatchesByTaskIdData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+    };
+    path: {
+        /**
+         * Task Id
+         *
+         * Watch task ID
+         */
+        task_id: string;
+    };
     query?: {
         /**
-         * Resource Path
+         * To Uri
+         *
+         * Optional cross-key sanity check. If supplied, must equal the task's current `to_uri`; otherwise the request is rejected with 400. Useful when the caller has both pieces of information and wants to guard against acting on a stale task_id — but a wrong value here will block DELETE/PATCH/trigger on an otherwise valid task, so omit it unless the cross-check is desired.
          */
-        resource_path?: string;
+        to_uri?: string | null;
     };
-    url: '/webdav/resources';
+    url: '/api/v1/watches/{task_id}';
 };
 
-export type GetWebdavResourcesErrors = {
+export type DeleteWatchesByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetWebdavResourcesError = GetWebdavResourcesErrors[keyof GetWebdavResourcesErrors];
+export type DeleteWatchesByTaskIdError = DeleteWatchesByTaskIdErrors[keyof DeleteWatchesByTaskIdErrors];
 
-export type GetWebdavResourcesResponses = {
+export type DeleteWatchesByTaskIdResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type HeadWebdavResourcesData = {
+export type GetWatchesByTaskIdData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4525,63 +1801,115 @@ export type HeadWebdavResourcesData = {
          */
         'X-OpenViking-User'?: string | null;
     };
-    path?: never;
+    path: {
+        /**
+         * Task Id
+         *
+         * Watch task ID
+         */
+        task_id: string;
+    };
     query?: {
         /**
-         * Resource Path
+         * To Uri
+         *
+         * Optional cross-key sanity check. If supplied, must equal the task's current `to_uri`; otherwise the request is rejected with 400. Useful when the caller has both pieces of information and wants to guard against acting on a stale task_id.
          */
-        resource_path?: string;
+        to_uri?: string | null;
     };
-    url: '/webdav/resources';
+    url: '/api/v1/watches/{task_id}';
 };
 
-export type HeadWebdavResourcesErrors = {
+export type GetWatchesByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type HeadWebdavResourcesError = HeadWebdavResourcesErrors[keyof HeadWebdavResourcesErrors];
+export type GetWatchesByTaskIdError = GetWatchesByTaskIdErrors[keyof GetWatchesByTaskIdErrors];
 
-export type HeadWebdavResourcesResponses = {
+export type GetWatchesByTaskIdResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type OptionsWebdavResourcesData = {
-    body?: never;
-    path?: never;
+export type PatchWatchesByTaskIdData = {
+    body: UpdateWatchRequest;
+    headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
+        /**
+         * X-Api-Key
+         */
+        'x-api-key'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+        /**
+         * X-Openviking-Account
+         */
+        'X-OpenViking-Account'?: string | null;
+        /**
+         * X-Openviking-User
+         */
+        'X-OpenViking-User'?: string | null;
+    };
+    path: {
+        /**
+         * Task Id
+         *
+         * Watch task ID
+         */
+        task_id: string;
+    };
     query?: {
         /**
-         * Resource Path
+         * To Uri
+         *
+         * Optional cross-key sanity check. If supplied, must equal the task's current `to_uri`; otherwise the request is rejected with 400. Useful when the caller has both pieces of information and wants to guard against acting on a stale task_id — but a wrong value here will block DELETE/PATCH/trigger on an otherwise valid task, so omit it unless the cross-check is desired.
          */
-        resource_path?: string;
+        to_uri?: string | null;
     };
-    url: '/webdav/resources';
+    url: '/api/v1/watches/{task_id}';
 };
 
-export type OptionsWebdavResourcesErrors = {
+export type PatchWatchesByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type OptionsWebdavResourcesError = OptionsWebdavResourcesErrors[keyof OptionsWebdavResourcesErrors];
+export type PatchWatchesByTaskIdError = PatchWatchesByTaskIdErrors[keyof PatchWatchesByTaskIdErrors];
 
-export type OptionsWebdavResourcesResponses = {
+export type PatchWatchesByTaskIdResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type PutWebdavResourcesData = {
+export type PostWatchesTriggerByTaskIdData = {
     body?: never;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4599,49 +1927,52 @@ export type PutWebdavResourcesData = {
          */
         'X-OpenViking-User'?: string | null;
     };
-    path?: never;
+    path: {
+        /**
+         * Task Id
+         *
+         * Watch task ID
+         */
+        task_id: string;
+    };
     query?: {
         /**
-         * Resource Path
+         * To Uri
+         *
+         * Optional cross-key sanity check. If supplied, must equal the task's current `to_uri`; otherwise the request is rejected with 400. Useful when the caller has both pieces of information and wants to guard against acting on a stale task_id — but a wrong value here will block DELETE/PATCH/trigger on an otherwise valid task, so omit it unless the cross-check is desired.
          */
-        resource_path?: string;
+        to_uri?: string | null;
     };
-    url: '/webdav/resources';
+    url: '/api/v1/watches/{task_id}/trigger';
 };
 
-export type PutWebdavResourcesErrors = {
+export type PostWatchesTriggerByTaskIdErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type PutWebdavResourcesError = PutWebdavResourcesErrors[keyof PutWebdavResourcesErrors];
+export type PostWatchesTriggerByTaskIdError = PostWatchesTriggerByTaskIdErrors[keyof PostWatchesTriggerByTaskIdErrors];
 
-export type PutWebdavResourcesResponses = {
+export type PostWatchesTriggerByTaskIdResponses = {
     /**
      * Successful Response
      */
     200: unknown;
 };
 
-export type GetBotV1HealthData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/bot/v1/health';
-};
-
-export type GetBotV1HealthResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostBotV1ChatData = {
-    body?: never;
+export type PostSessionIdCommitData = {
+    body?: OpenvikingServerRoutersSessionsCommitRequest;
     headers?: {
+        /**
+         * X-Openviking-Actor-Peer
+         */
+        'X-OpenViking-Actor-Peer'?: string | null;
+        /**
+         * X-Openviking-Agent
+         */
+        'X-OpenViking-Agent'?: string | null;
         /**
          * X-Api-Key
          */
@@ -4659,103 +1990,28 @@ export type PostBotV1ChatData = {
          */
         'X-OpenViking-User'?: string | null;
     };
-    path?: never;
-    query?: never;
-    url: '/bot/v1/chat';
-};
-
-export type PostBotV1ChatErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostBotV1ChatError = PostBotV1ChatErrors[keyof PostBotV1ChatErrors];
-
-export type PostBotV1ChatResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostBotV1FeedbackData = {
-    body?: never;
-    headers?: {
+    path: {
         /**
-         * X-Api-Key
+         * Session Id
+         *
+         * Session ID
          */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
+        session_id: string;
     };
-    path?: never;
     query?: never;
-    url: '/bot/v1/feedback';
+    url: '/api/v1/sessions/{session_id}/commit';
 };
 
-export type PostBotV1FeedbackErrors = {
+export type PostSessionIdCommitErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type PostBotV1FeedbackError = PostBotV1FeedbackErrors[keyof PostBotV1FeedbackErrors];
+export type PostSessionIdCommitError = PostSessionIdCommitErrors[keyof PostSessionIdCommitErrors];
 
-export type PostBotV1FeedbackResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type PostBotV1ChatStreamData = {
-    body?: never;
-    headers?: {
-        /**
-         * X-Api-Key
-         */
-        'x-api-key'?: string | null;
-        /**
-         * Authorization
-         */
-        authorization?: string | null;
-        /**
-         * X-Openviking-Account
-         */
-        'X-OpenViking-Account'?: string | null;
-        /**
-         * X-Openviking-User
-         */
-        'X-OpenViking-User'?: string | null;
-    };
-    path?: never;
-    query?: never;
-    url: '/bot/v1/chat/stream';
-};
-
-export type PostBotV1ChatStreamErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PostBotV1ChatStreamError = PostBotV1ChatStreamErrors[keyof PostBotV1ChatStreamErrors];
-
-export type PostBotV1ChatStreamResponses = {
+export type PostSessionIdCommitResponses = {
     /**
      * Successful Response
      */

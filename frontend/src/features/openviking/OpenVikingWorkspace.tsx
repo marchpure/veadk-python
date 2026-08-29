@@ -256,7 +256,6 @@ function ConnectionPage({
   return (
     <div className="ov-connection-page">
       <header className="ov-page-heading">
-        <p className="ov-eyebrow">Settings</p>
         <h1>Connection</h1>
       </header>
       {activeProfile ? (
@@ -469,12 +468,30 @@ export function OpenVikingWorkspace() {
               contextNavigation={{
                 activeId: page,
                 onBrandClick: () => setPage('resources'),
-                items: [
-                  { id: 'resources', label: 'Resources', icon: ResourcesIcon, onSelect: () => setPage('resources') },
-                  { id: 'retrieval', label: 'Retrieval', icon: RetrievalIcon, onSelect: () => setPage('retrieval') },
-                  { id: 'tasks', label: 'Tasks', icon: TasksIcon, onSelect: () => setPage('tasks') },
-                  { id: 'watches', label: 'Watches', icon: WatchesIcon, onSelect: () => setPage('watches') },
-                  { id: 'connection', label: 'Connection', icon: ConnectionIcon, onSelect: () => setPage('connection') },
+                groups: [
+                  {
+                    id: 'workspace',
+                    label: 'Workspace',
+                    items: [
+                      { id: 'resources', label: 'Resources', icon: ResourcesIcon, onSelect: () => setPage('resources') },
+                      { id: 'retrieval', label: 'Retrieval', icon: RetrievalIcon, onSelect: () => setPage('retrieval') },
+                    ],
+                  },
+                  {
+                    id: 'operations',
+                    label: 'Operations',
+                    items: [
+                      { id: 'tasks', label: 'Tasks', icon: TasksIcon, onSelect: () => setPage('tasks') },
+                      { id: 'watches', label: 'Watches', icon: WatchesIcon, onSelect: () => setPage('watches') },
+                    ],
+                  },
+                  {
+                    id: 'settings',
+                    label: 'Settings',
+                    items: [
+                      { id: 'connection', label: 'Connection', icon: ConnectionIcon, onSelect: () => setPage('connection') },
+                    ],
+                  },
                 ],
                 footer: activeProfile ? (
                   <button className="ov-sidebar-connection" type="button" onClick={() => setPage('connection')} title={activeProfile.display_name}>

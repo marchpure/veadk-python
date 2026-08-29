@@ -1,21 +1,4 @@
 const workspace = {
-  monitoringPage: {
-    queue: {
-      title: 'Task queue',
-      noData: 'No queue data',
-      queueName: 'Queue',
-      processing: 'Active',
-      pending: 'Pending',
-      completed: 'Completed',
-      errors: 'Errors',
-      totalRow: 'Total',
-      embedding: 'Embedding',
-      semanticNodes: 'Semantic nodes',
-      semantic: 'Semantic processing',
-      externalParse: 'External parsing',
-      sessionCommit: 'Session commit',
-    },
-  },
   tasksPage: {
     title: 'Task Center',
     description:
@@ -28,6 +11,7 @@ const workspace = {
     emptyFiltered: 'No matching tasks',
     emptyFilteredDescription: 'Adjust or clear the filters to see other tasks.',
     loadFailed: 'Could not load tasks',
+    summary: '{{count}} tasks',
     detail: {
       title: 'Task details',
       loading: 'Loading task details...',
@@ -38,6 +22,7 @@ const workspace = {
         status: 'Task status',
         type: 'Task type',
         stage: 'Current stage',
+        duration: 'Duration',
         resource: 'Resource',
         createdAt: 'Created',
         updatedAt: 'Updated',
@@ -52,6 +37,8 @@ const workspace = {
       allTypes: 'All types',
       allStatuses: 'All statuses',
       clear: 'Clear filters',
+      latestPerResource: 'Latest per resource',
+      individualTasks: 'Individual tasks',
     },
     pagination: {
       next: 'Next',
@@ -68,6 +55,12 @@ const workspace = {
       resource: 'Resource',
       createdAt: 'Created',
       status: 'Status',
+      duration: 'Duration',
+    },
+    retry: {
+      action: 'Retry task',
+      missingResource: 'This task has no resource ID and cannot be retried.',
+      submitted: 'The task was submitted again.',
     },
     status: {
       cancelled: 'Cancelled',

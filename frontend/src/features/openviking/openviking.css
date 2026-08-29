@@ -3,20 +3,46 @@
   color: hsl(var(--foreground));
 }
 
+:where(
+  .openviking-studio,
+  .openviking-studio *,
+  .openviking-studio ::before,
+  .openviking-studio ::after
+) {
+  border-color: hsl(var(--border));
+}
+
 .openviking-context-sidebar .sidebar-top {
   flex: 1;
   min-height: 0;
 }
 
 .openviking-context-sidebar .sidebar-brand-row {
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.openviking-sidebar-nav {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.openviking-sidebar-group {
+  display: grid;
+  gap: 3px;
+  padding-top: 10px;
+}
+
+.openviking-sidebar-group-items {
+  display: grid;
+  gap: 2px;
 }
 
 .openviking-sidebar-label {
-  padding: 0 10px 7px;
+  padding: 0 10px 3px;
   color: hsl(var(--muted-foreground));
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 16px;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -62,8 +88,8 @@
   height: 7px;
   flex: 0 0 7px;
   border-radius: 50%;
-  background: #12836f;
-  box-shadow: 0 0 0 3px rgb(18 131 111 / 0.12);
+  background: hsl(var(--success));
+  box-shadow: 0 0 0 3px hsl(var(--success) / 0.12);
 }
 
 .ov-sidebar-profile {
@@ -102,6 +128,10 @@
 .openviking-main > .navbar {
   border-bottom: 1px solid hsl(var(--border));
   background: hsl(var(--panel));
+}
+
+.openviking-main {
+  background: hsl(var(--background));
 }
 
 .ov-navbar-profile {
@@ -214,8 +244,8 @@
   flex: 0 0 28px;
   place-items: center;
   border-radius: 7px;
-  background: rgb(18 131 111 / 0.1);
-  color: #087267;
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--foreground) / 0.72);
 }
 
 .ov-context-glyph svg {
@@ -356,7 +386,7 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 24px;
+  padding: 22px 24px 32px;
 }
 
 .ov-page-content,
@@ -367,7 +397,7 @@
 
 .ov-connection-page {
   display: grid;
-  gap: 28px;
+  gap: 24px;
 }
 
 .ov-page-heading {
@@ -386,16 +416,8 @@
 }
 
 .ov-page-heading h1 {
-  margin-top: 5px;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1.25;
-}
-
-.ov-eyebrow {
-  color: hsl(var(--muted-foreground));
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
 .ov-active-connection {
@@ -423,7 +445,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #087267;
+  color: hsl(var(--success));
   font-size: 11px;
   font-weight: 650;
 }
@@ -432,7 +454,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #12836f;
+  background: hsl(var(--success));
 }
 
 .ov-danger-button {
@@ -472,8 +494,8 @@
   flex: 0 0 32px;
   place-items: center;
   border-radius: 7px;
-  background: rgb(18 131 111 / 0.1);
-  color: #087267;
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--foreground) / 0.72);
 }
 
 .ov-profile-heading-icon svg {
@@ -521,8 +543,8 @@
 }
 
 .ov-profile-form input:focus {
-  border-color: #12836f;
-  box-shadow: 0 0 0 2px rgb(18 131 111 / 0.12);
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.12);
 }
 
 .ov-form-error {
@@ -539,13 +561,13 @@
 .ov-primary-button {
   min-width: 94px;
   padding: 0 14px;
-  border-color: #0d7569;
-  background: #0d7569;
-  color: white;
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
 }
 
 .ov-primary-button:hover {
-  background: #09675d;
+  background: hsl(var(--primary) / 0.84);
 }
 
 .ov-primary-button:disabled {
@@ -578,6 +600,10 @@
 
   .ov-navbar-profile select {
     width: 96px;
+  }
+
+  .openviking-context-sidebar:not(.is-collapsed) {
+    width: 216px;
   }
 
   .ov-active-connection {
