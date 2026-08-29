@@ -42,6 +42,13 @@ class DraftStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class TemplateKey(StrEnum):
+    GENERIC = "generic"
+    SEMANTIC = "semantic"
+    DASHBOARD = "dashboard"
+    SOP = "sop"
+
+
 class WorkspaceResourceKind(StrEnum):
     ORACLE = "oracle_database"
     REST_OPENAPI = "rest_openapi"
@@ -60,6 +67,8 @@ class SkillDraft(ImmutableModel):
     created_by: str = Field(min_length=1, max_length=160)
     goal: str = Field(min_length=1, max_length=8_000)
     trial_task: str | None = Field(default=None, max_length=20_000)
+    template_key: TemplateKey = TemplateKey.GENERIC
+    template_config: Mapping[str, Any] = Field(default_factory=dict)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
@@ -122,6 +131,8 @@ class SkillRevision(ImmutableModel):
     draft_id: str = Field(min_length=1, max_length=160)
     number: int = Field(ge=1)
     skill_name: str = Field(min_length=1, max_length=256)
+    template_key: TemplateKey = TemplateKey.GENERIC
+    template_config: Mapping[str, Any] = Field(default_factory=dict)
     zip_uri: str = Field(min_length=1, max_length=2_048)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     manifest: Mapping[str, Any]

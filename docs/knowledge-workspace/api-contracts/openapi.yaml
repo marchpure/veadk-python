@@ -999,14 +999,22 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     Draft:
       type: object
-      required: [draft_id, goal, connection_ids, lifecycle, created_at, updated_at]
+      required: [draft_id, goal, template_key, connection_ids, resource_ids, lifecycle, created_at, updated_at]
       properties:
         draft_id: { type: string }
         goal: { type: string }
         trial_task: { type: string }
+        template_key:
+          $ref: '#/components/schemas/TemplateKey'
+        template_config:
+          type: object
+          additionalProperties: true
+          description: Redacted, non-secret template hints passed to one AutoSkill Creator.
         connection_ids:
           type: array
-          minItems: 1
+          items: { type: string }
+        resource_ids:
+          type: array
           items: { type: string }
         upload_ids:
           type: array
@@ -1033,10 +1041,17 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     CreateDraftRequest:
       type: object
-      required: [goal, connection_ids]
+      required: [goal]
       properties:
         goal: { type: string, minLength: 1, maxLength: 20000 }
-        connection_ids: { type: array, minItems: 1, items: { type: string } }
+        template_key:
+          $ref: '#/components/schemas/TemplateKey'
+        template_config:
+          type: object
+          additionalProperties: true
+          description: Browser-provided template hints; server redacts secrets before persistence and AutoSkill prompts.
+        connection_ids: { type: array, items: { type: string } }
+        resource_ids: { type: array, items: { type: string } }
         trial_task: { type: string, maxLength: 20000 }
         upload_ids: { type: array, items: { type: string } }
       additionalProperties: false
@@ -1045,7 +1060,13 @@ components:
       minProperties: 1
       properties:
         goal: { type: string, minLength: 1, maxLength: 20000 }
-        connection_ids: { type: array, minItems: 1, items: { type: string } }
+        template_key:
+          $ref: '#/components/schemas/TemplateKey'
+        template_config:
+          type: object
+          additionalProperties: true
+        connection_ids: { type: array, items: { type: string } }
+        resource_ids: { type: array, items: { type: string } }
         trial_task: { type: string, maxLength: 20000 }
         upload_ids: { type: array, items: { type: string } }
       additionalProperties: false
@@ -1114,12 +1135,17 @@ components:
         meta: { $ref: '#/components/schemas/Meta' }
     Revision:
       type: object
-      required: [revision_id, draft_id, number, skill_name, sha256, created_at]
+      required: [revision_id, draft_id, number, skill_name, template_key, sha256, created_at]
       properties:
         revision_id: { type: string }
         draft_id: { type: string }
         number: { type: integer, minimum: 1 }
         skill_name: { type: string }
+        template_key:
+          $ref: '#/components/schemas/TemplateKey'
+        template_config:
+          type: object
+          additionalProperties: true
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         manifest:
           $ref: '#/components/schemas/RevisionManifest'
@@ -1128,9 +1154,14 @@ components:
       additionalProperties: false
     RevisionManifest:
       type: object
-      required: [kind, skill, connection_refs, allowed_action_ids, entrypoint, provenance, zip]
+      required: [kind, skill, connection_refs, resource_refs, allowed_action_ids, entrypoint, provenance, zip]
       properties:
         kind: { type: string, const: general }
+        template_key:
+          $ref: '#/components/schemas/TemplateKey'
+        template_config:
+          type: object
+          additionalProperties: true
         skill:
           type: object
           required: [name, version]
@@ -1142,6 +1173,10 @@ components:
           type: array
           items: { type: string }
           description: Server-safe connection references only; no credentials, lease, or internal URL.
+        resource_refs:
+          type: array
+          items: { type: string }
+          description: Server-safe MCP/OpenViking/resource references bound to this immutable revision.
         allowed_action_ids:
           type: array
           items: { type: string }
@@ -1157,12 +1192,30 @@ components:
             source: { type: string, const: autoskill }
             invocation_id: { type: string }
             target_skill: { type: string }
+            template_key:
+              $ref: '#/components/schemas/TemplateKey'
             zip_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+          additionalProperties: false
+        presentation_artifact:
+          type: object
+          required: [media_type, created_by, immutable, lineage]
+          properties:
+            media_type: { type: string, const: text/html }
+            created_by: { type: string, const: skill_run }
+            immutable: { type: boolean, const: true }
+            lineage:
+              type: array
+              items:
+                type: string
+                enum: [revision_id, invocation_id, source_refs, sha256]
           additionalProperties: false
         zip:
           type: object
           additionalProperties: true
       additionalProperties: false
+    TemplateKey:
+      type: string
+      enum: [generic, semantic, dashboard, sop]
     RevisionList:
       type: object
       required: [data, meta]
@@ -1183,9 +1236,10 @@ components:
       additionalProperties: false
     RunRevisionRequest:
       type: object
-      required: [connection_ids, message]
+      required: [message]
       properties:
-        connection_ids: { type: array, minItems: 1, items: { type: string } }
+        connection_ids: { type: array, items: { type: string } }
+        resource_ids: { type: array, items: { type: string } }
         message: { type: string, minLength: 1, maxLength: 20000 }
         upload_ids: { type: array, items: { type: string } }
       additionalProperties: false
@@ -1245,5 +1299,6 @@ components:
       properties:
         message: { type: string, minLength: 1, maxLength: 20000 }
         connection_ids: { type: array, items: { type: string } }
+        resource_ids: { type: array, items: { type: string } }
         upload_ids: { type: array, items: { type: string } }
       additionalProperties: false

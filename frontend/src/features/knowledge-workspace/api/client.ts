@@ -18,6 +18,7 @@ import type {
   Meta,
   Publication,
   Revision,
+  TemplateKey,
 } from "../domain/types";
 
 const API_ROOT = "/api/knowledge/v1";
@@ -50,6 +51,8 @@ export interface CreateConnectionInput {
 
 export interface CreateDraftInput {
   goal: string;
+  template_key?: TemplateKey;
+  template_config?: JsonObject;
   connection_ids: string[];
   resource_ids?: string[];
   trial_task?: string;
@@ -58,9 +61,12 @@ export interface CreateDraftInput {
 
 export interface UpdateDraftInput {
   goal?: string;
+  template_key?: TemplateKey;
+  template_config?: JsonObject;
   connection_ids?: string[];
   resource_ids?: string[];
   trial_task?: string;
+  upload_ids?: string[];
 }
 
 export interface UploadResult {

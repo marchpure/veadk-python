@@ -39,6 +39,7 @@ from .models import (
     Publication,
     SkillDraft,
     SkillRevision,
+    TemplateKey,
     WorkspaceUpload,
     WorkspaceResource,
     WorkspaceResourceKind,
@@ -51,6 +52,8 @@ from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
 class CreateDraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str = Field(min_length=1, max_length=8_000)
+    template_key: TemplateKey = TemplateKey.GENERIC
+    template_config: dict[str, Any] = Field(default_factory=dict)
     connection_ids: list[str] = Field(default_factory=list, max_length=64)
     resource_ids: list[str] = Field(default_factory=list, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
@@ -60,6 +63,8 @@ class CreateDraftBody(BaseModel):
 class UpdateDraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str | None = Field(default=None, min_length=1, max_length=8_000)
+    template_key: TemplateKey | None = None
+    template_config: dict[str, Any] | None = None
     connection_ids: list[str] | None = Field(default=None, max_length=64)
     resource_ids: list[str] | None = Field(default=None, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
@@ -1077,6 +1082,8 @@ def mount_knowledge_workspace_routes(
                 body.connection_ids,
                 resource_ids=body.resource_ids,
                 trial_task=body.trial_task,
+                template_key=body.template_key,
+                template_config=body.template_config,
                 upload_ids=body.upload_ids,
                 idempotency_key=idempotency_key,
                 request_digest=request_digest(body.model_dump(mode="json")),
@@ -1121,6 +1128,8 @@ def mount_knowledge_workspace_routes(
                 resource_ids=body.resource_ids,
                 if_match=if_match,
                 trial_task=body.trial_task,
+                template_key=body.template_key,
+                template_config=body.template_config,
                 upload_ids=body.upload_ids,
                 idempotency_key=idempotency_key,
                 request_digest=request_digest(body.model_dump(mode="json")),

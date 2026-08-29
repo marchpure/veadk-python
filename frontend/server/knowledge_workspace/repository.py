@@ -11,6 +11,7 @@ from typing import Any
 from .models import (
     Artifact,
     AuthoringSession,
+    DraftStatus,
     Invocation,
     Publication,
     SkillDraft,
@@ -360,7 +361,7 @@ class KnowledgeWorkspaceRepository:
                 updated = draft.model_copy(
                     update={
                         "current_revision_id": revision.revision_id,
-                        "status": "ready_to_publish",
+                        "status": DraftStatus.READY_TO_PUBLISH,
                         "etag": revision.revision_id,
                         "updated_at": revision.created_at,
                     }

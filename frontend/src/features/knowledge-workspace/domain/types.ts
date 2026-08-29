@@ -22,6 +22,7 @@ export type InvocationStatus =
   | "succeeded"
   | "failed"
   | "cancelled";
+export type TemplateKey = "generic" | "semantic" | "dashboard" | "sop";
 
 export interface Meta {
   request_id: string;
@@ -77,6 +78,8 @@ export interface Draft {
   draft_id: string;
   goal: string;
   trial_task?: string;
+  template_key: TemplateKey;
+  template_config?: JsonObject;
   connection_ids: string[];
   resource_ids: string[];
   lifecycle: DraftLifecycle;
@@ -103,6 +106,8 @@ export interface Revision {
   draft_id: string;
   number: number;
   skill_name: string;
+  template_key?: TemplateKey;
+  template_config?: JsonObject;
   sha256: string;
   manifest?: JsonObject;
   created_from_invocation?: string;
@@ -118,6 +123,8 @@ export interface Artifact {
   sha256: string;
   title?: string;
   lineage?: JsonObject;
+  csp?: string;
+  sandbox?: string;
   created_at: string;
 }
 
