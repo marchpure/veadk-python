@@ -1,5 +1,3 @@
-export type FsOutputFormat = 'agent' | 'original' | (string & {})
-
 export type FileStat = {
   abstract?: string
   contentLength?: number

@@ -50,7 +50,7 @@ function parentRef(uri: string): string {
   return ref
 }
 
-export type CreateOpenVikingProfile = {
+type CreateOpenVikingProfile = {
   api_key: string
   base_url: string
   display_name: string

@@ -8,6 +8,6 @@ export const resources = {
   'zh-CN': zhCN,
 } as const
 
-export type SupportedLanguage = keyof typeof resources
+type SupportedLanguage = keyof typeof resources
 
 export const supportedLanguages = Object.keys(resources) as SupportedLanguage[]

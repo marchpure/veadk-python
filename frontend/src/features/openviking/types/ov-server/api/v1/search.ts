@@ -33,5 +33,3 @@ export type SearchResult = {
   skills?: SearchHit[]
   total?: number
 }
-
-export type FindResult = SearchResult
