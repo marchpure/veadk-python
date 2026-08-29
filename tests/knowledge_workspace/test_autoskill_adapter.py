@@ -387,6 +387,16 @@ def test_skill_zip_accepts_any_root_level_presentation_html_name() -> None:
     assert "skillhub/demo/semantic_browser.html" in checked["paths"]
 
 
+def test_skill_zip_accepts_root_level_glossary_json() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/glossary.json", "{}")
+
+    checked = validate_skill_zip(source.getvalue())
+    assert "skillhub/demo/glossary.json" in checked["paths"]
+
+
 @pytest.mark.parametrize(
     ("entry", "code"),
     [
