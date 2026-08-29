@@ -11,8 +11,8 @@
     "web-studio/src/i18n"
   ],
   "source_files_total": 136,
-  "copied": 122,
-  "adapted": 14,
+  "copied": 120,
+  "adapted": 16,
   "excluded": 0,
   "unclassified": 0,
   "files": [
@@ -455,7 +455,7 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "883edc5bbd2bbf35f96585ed5f3fdbff0552a59d7d992231866dcc46df165f70",
-      "target_sha256": "e054c50838578af28460511597e6bdacc51788511ac1cf7341cf6085b9e3ffd9",
+      "target_sha256": "1bfc41d34e28b149da577b6896ba88dd607d0358a0f21b85b4e424158361d20e",
       "key_differences": [
         "Routes allowlisted Studio operations to the same-origin AgentKit BFF.",
         "Removes browser API-key/account-header persistence and injection.",
@@ -472,34 +472,41 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "0fd4ea2eafc14b6e17d06b8a316c08ab1662b8432fc17cee43b0c42404743941",
-      "target_sha256": "87c8f51b8677705fc7b325d38041322d7d1008fccbb9655cd1c8a2f1992bc270",
+      "target_sha256": "e2e0a2e42bab493cd74a7d8074194fa8ca9bb22f48d653cd75187ea306d8a5a7",
       "key_differences": [
-        "Normalizes AgentKit BFF HTTP detail envelopes in addition to upstream OpenViking error envelopes."
+        "Normalizes AgentKit BFF HTTP detail envelopes in addition to upstream OpenViking error envelopes.",
+        "Removes the upstream prompt that instructed browsers to configure an API key."
       ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/index.ts",
       "target_path": "frontend/src/features/openviking/lib/ov-client/index.ts",
-      "classification": "copied",
-      "reason": "Direct source migration with no content changes",
+      "classification": "adapted",
+      "reason": "AgentKit same-origin BFF security adaptation",
       "tests": [
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "519a2a537a68a389f9edf73ecde36911b6a35e907534c5c0bec37455dc3d156f",
-      "target_sha256": "519a2a537a68a389f9edf73ecde36911b6a35e907534c5c0bec37455dc3d156f"
+      "target_sha256": "3d8ddd06416341976529f42868167239c6d61b73ba7a6c8c068e16009bb1ce77",
+      "key_differences": [
+        "Does not export upstream browser credential state or API-key storage symbols."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/types.ts",
       "target_path": "frontend/src/features/openviking/lib/ov-client/types.ts",
-      "classification": "copied",
-      "reason": "Direct source migration with no content changes",
+      "classification": "adapted",
+      "reason": "AgentKit same-origin BFF security adaptation",
       "tests": [
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "8892f1d79981403ebb76df647088bc317843a3d14ad4da643bba5317ed8ce793",
-      "target_sha256": "8892f1d79981403ebb76df647088bc317843a3d14ad4da643bba5317ed8ce793"
+      "target_sha256": "6b6b489007efe9cce9506adb42d2ccbda41258c55882b83f606edbf603c2359c",
+      "key_differences": [
+        "Removes API-key, account, identity-header, session-storage, and configurable internal-URL fields from browser DTOs."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",

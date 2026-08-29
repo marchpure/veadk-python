@@ -5,12 +5,10 @@ import { createClient } from '#/gen/ov-client/client'
 import { client as sdkClient } from '#/gen/ov-client/client.gen'
 
 import { normalizeOvClientError, OvClientError } from './errors'
-import { DEFAULT_API_KEY_STORAGE_KEY } from './types'
 import { getActiveOpenVikingProfileId } from '#/hooks/use-app-connection'
 import type {
   OvClientAdapter,
   OvClientOptions,
-  OvConnectionState,
   OvErrorEnvelope,
 } from './types'
 
@@ -146,42 +144,8 @@ function opaquePayload(value: unknown): unknown {
   return result
 }
 
-const ENV_BASE_URL =
-  typeof import.meta.env.VITE_OV_BASE_URL === 'string'
-    ? import.meta.env.VITE_OV_BASE_URL.trim()
-    : ''
-
-function normalizeBaseUrl(baseUrl?: string): string {
-  const fallback = isBrowser() ? window.location.origin : ''
-  return (baseUrl || ENV_BASE_URL || fallback).trim().replace(/\/+$/, '')
-}
-
-function readSessionStorage(key: string): string {
-  if (!key || !isBrowser()) {
-    return ''
-  }
-
-  try {
-    return window.sessionStorage.getItem(key) || ''
-  } catch {
-    return ''
-  }
-}
-
-function writeSessionStorage(key: string, value: string): void {
-  if (!key || !isBrowser()) {
-    return
-  }
-
-  try {
-    if (value) {
-      window.sessionStorage.setItem(key, value)
-      return
-    }
-    window.sessionStorage.removeItem(key)
-  } catch {
-    // Ignore storage failures in restricted browser environments.
-  }
+function sameOriginBaseUrl(): string {
+  return isBrowser() ? window.location.origin.replace(/\/+$/, '') : ''
 }
 
 function resolvePathname(rawUrl?: string): string {
@@ -251,20 +215,9 @@ function isEnvelopeError(value: unknown): value is OvErrorEnvelope & {
 
 export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
   const bindSdkClient = options.bindSdkClient ?? false
-  let runtimeOptions = {
-    apiKeyStorageKey: options.apiKeyStorageKey ?? DEFAULT_API_KEY_STORAGE_KEY,
-    baseUrl: normalizeBaseUrl(options.baseUrl),
+  const runtimeOptions = {
+    baseUrl: sameOriginBaseUrl(),
     defaultTelemetry: options.defaultTelemetry ?? true,
-  }
-
-  let connection: OvConnectionState = {
-    adminApiKey: options.connection?.adminApiKey ?? '',
-    apiKey:
-      options.connection?.apiKey ??
-      readSessionStorage(runtimeOptions.apiKeyStorageKey),
-    accountId: options.connection?.accountId ?? '',
-    identityHeaders: options.connection?.identityHeaders ?? false,
-    userId: options.connection?.userId ?? '',
   }
 
   const instance = options.axios ?? axios.create()
@@ -361,8 +314,6 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
     },
   )
 
-  function persistApiKey(): void {}
-
   function syncClientConfig(): void {
     client.setConfig({
       baseURL: runtimeOptions.baseUrl,
@@ -381,75 +332,20 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
     })
   }
 
-  function getConnection(): Readonly<OvConnectionState> {
-    return { ...connection }
-  }
-
-  function setConnection(next: Partial<OvConnectionState>): OvConnectionState {
-    connection = {
-      ...connection,
-      ...next,
-    }
-    persistApiKey()
-    return { ...connection }
-  }
-
-  function clearConnection(): OvConnectionState {
-    connection = {
-      adminApiKey: '',
-      apiKey: '',
-      accountId: '',
-      identityHeaders: false,
-      userId: '',
-    }
-    persistApiKey()
-    return { ...connection }
-  }
-
   function getOptions(): Readonly<typeof runtimeOptions> {
     return { ...runtimeOptions }
   }
 
-  function setOptions(
-    next: Partial<typeof runtimeOptions>,
-  ): Readonly<typeof runtimeOptions> {
-    const previousStorageKey = runtimeOptions.apiKeyStorageKey
-    runtimeOptions = {
-      apiKeyStorageKey:
-        next.apiKeyStorageKey ?? runtimeOptions.apiKeyStorageKey,
-      baseUrl:
-        next.baseUrl !== undefined
-          ? normalizeBaseUrl(next.baseUrl)
-          : runtimeOptions.baseUrl,
-      defaultTelemetry:
-        next.defaultTelemetry ?? runtimeOptions.defaultTelemetry,
-    }
-
-    if (previousStorageKey !== runtimeOptions.apiKeyStorageKey) {
-      writeSessionStorage(previousStorageKey, '')
-    }
-    persistApiKey()
-    syncClientConfig()
-    return { ...runtimeOptions }
-  }
-
-  persistApiKey()
   syncClientConfig()
 
   return {
-    clearConnection,
     client,
-    getConnection,
     getOptions,
     instance,
-    setConnection,
-    setOptions,
   }
 }
 
 export const ovClient = createOvClient({
-  apiKeyStorageKey: '',
-  baseUrl: '',
   bindSdkClient: true,
 })
 

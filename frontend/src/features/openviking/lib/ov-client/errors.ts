@@ -2,7 +2,6 @@ import axios, { AxiosError } from 'axios'
 
 import type { OvClientErrorOptions, OvErrorEnvelope, OvResponse } from './types'
 
-const MISSING_API_KEY_HINT = ' Please go to Settings and set X-API-Key.'
 const MAX_ERROR_TEXT_LENGTH = 2000
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -18,16 +17,6 @@ function truncateText(
     return text
   }
   return `${text.slice(0, maxLength)}\n... (truncated, ${text.length} chars total)`
-}
-
-function withMissingApiKeyHint(code: string, message: string): string {
-  if (
-    code === 'UNAUTHENTICATED' &&
-    message.toLowerCase().includes('missing api key')
-  ) {
-    return `${message}${MISSING_API_KEY_HINT}`
-  }
-  return message
 }
 
 function getEnvelope(value: unknown): OvErrorEnvelope | undefined {
@@ -64,7 +53,7 @@ export class OvClientError extends Error {
   statusCode?: number
 
   constructor(options: OvClientErrorOptions, cause?: unknown) {
-    super(withMissingApiKeyHint(options.code, options.message))
+    super(options.message)
     if (cause !== undefined) this.cause = cause
     this.name = 'OvClientError'
     this.code = options.code
