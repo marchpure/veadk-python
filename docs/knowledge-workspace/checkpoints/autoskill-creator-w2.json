@@ -36,7 +36,8 @@
       "frontend/server/knowledge_workspace/service.py",
       "frontend/server/knowledge_workspace/zip_validator.py",
       "tests/knowledge_workspace/test_autoskill_adapter.py",
-      "tests/knowledge_workspace/test_service_contracts.py"
+      "tests/knowledge_workspace/test_service_contracts.py",
+      "tests/knowledge_workspace/test_connection_gateway.py"
     ],
     "not_modified": [
       "frontend/src/**",
@@ -55,7 +56,8 @@
     "Publication requires a successful authorized run with a policy snapshot, matching policy_evaluation, artifact digest validation, and consumer_reauthorization_required=true.",
     "Published invocation starts a fresh AutoSkill agent/session, obtains a fresh consumer lease, uploads the fixed revision ZIP, and does not inherit authoring session state in stateless mode.",
     "Run and publication invocation reject requested connection IDs outside the frozen revision manifest connection_refs.",
-    "Public DTOs continue to omit secrets, provider runtime IDs, leases, and AutoSkill request IDs; server-side revision metadata retains request lineage only behind the BFF boundary."
+    "Public DTOs continue to omit secrets, provider runtime IDs, leases, and AutoSkill request IDs; server-side revision metadata retains request lineage only behind the BFF boundary.",
+    "Freeze revalidates persisted invocation policy_evaluation before creating a revision, so stale/corrupt successful invocation records cannot bypass policy gates."
   ],
   "api_contracts": [
     "OpenAPI documents server-only invocation_policy behavior on generation/update/run flows.",
@@ -74,8 +76,19 @@
     {
       "command": "python -m pytest -q tests/knowledge_workspace",
       "status": "passed",
-      "summary": "83 passed in 1.50s",
+      "summary": "87 passed in 1.15s",
       "scope": "Knowledge Workspace backend unit/contract tests with fake AutoSkill and fake Connection ports where appropriate"
+    },
+    {
+      "command": "python -m pytest -q tests/knowledge_workspace/test_service_contracts.py -k 'full_autoskill_creator_lifecycle or freeze_rechecks_persisted_policy_evaluation or repository_reopen_restores'",
+      "status": "passed",
+      "summary": "3 passed, 30 deselected",
+      "scope": "Focused full lifecycle, freeze policy recheck, and durable reopen recovery regressions"
+    },
+    {
+      "command": "tests/knowledge_workspace/test_connection_gateway.py::test_gateway_rejects_tampered_cross_scope_lease_reference",
+      "status": "passed as part of python -m pytest -q tests/knowledge_workspace",
+      "scope": "Tampered cross-tenant/cross-workspace lease reference rejection; revoke/TTL cap/restart covered by test_gateway_lease_uses_real_actions_caps_ttl_and_survives_restart"
     },
     {
       "command": "python -m compileall -q frontend/server/knowledge_workspace tests/knowledge_workspace",
@@ -88,12 +101,12 @@
     {
       "command": "uvx --from ruff==0.11.12 ruff check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
       "status": "passed",
-      "summary": "All checks passed for W2-modified Python files"
+      "summary": "All checks passed for W2-modified Python files after follow-up regressions"
     },
     {
       "command": "uvx --from ruff==0.11.12 ruff format --check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
       "status": "passed",
-      "summary": "6 files already formatted after targeted formatting"
+      "summary": "7 files already formatted after targeted formatting"
     },
     {
       "command": "pre-commit run --files docs/knowledge-workspace/api-contracts/openapi.yaml docs/knowledge-workspace/checkpoints/autoskill-creator-w2.json frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",

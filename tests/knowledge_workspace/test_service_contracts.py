@@ -1079,6 +1079,196 @@ async def test_freeze_is_content_addressed_and_update_with_changed_zip_makes_new
 
 
 @pytest.mark.asyncio
+async def test_full_autoskill_creator_lifecycle_freezes_updates_and_invokes_published_revision() -> (
+    None
+):
+    registry = FakePublicationRegistry()
+    actor = Actor("tenant", "workspace", "principal")
+    autoskill = FreezeAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ],
+        invoke_events=[
+            event("final_answer", {"answer": "ran"}),
+            event("request_summary", policy_summary(skills_field="skills_used")),
+            event("done"),
+        ],
+    )
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        FakeLeasePort(),
+        registry,
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    first_revision = await service.freeze(
+        actor, draft.draft_id, generation.invocation_id
+    )
+    first_run = await service.run_revision(
+        actor,
+        first_revision.revision_id,
+        "trial run",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+    assert (
+        service.repository.get_invocation(
+            first_run.invocation_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        ).status
+        is InvocationStatus.SUCCEEDED
+    )
+
+    autoskill.skill_zip = make_skill_zip("demo", "# Demo\nupdated\n")
+    autoskill.events = (
+        event("final_answer", {"answer": "updated"}),
+        event("request_summary", policy_summary(skills_field="skills_updated")),
+        event("done"),
+    )
+    update = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.UPDATE,
+        message="update with trial feedback",
+    )
+    await asyncio.sleep(0)
+    second_revision = await service.freeze(actor, draft.draft_id, update.invocation_id)
+    second_run = await service.run_revision(
+        actor,
+        second_revision.revision_id,
+        "trial run updated revision",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+    saved_second_run = service.repository.get_invocation(
+        second_run.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_second_run is not None
+    assert saved_second_run.status is InvocationStatus.SUCCEEDED
+    publication = service.publish(actor, second_revision.revision_id, "personal")
+    consumer = await service.invoke_publication(
+        actor,
+        publication.publication_id,
+        "consumer invocation",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+    saved_consumer = service.repository.get_invocation(
+        consumer.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+
+    assert first_revision.sha256 != second_revision.sha256
+    assert second_revision.number == first_revision.number + 1
+    assert publication.revision_id == second_revision.revision_id
+    assert registry.calls[-1]["revision_sha256"] == second_revision.sha256
+    assert consumer.autoskill_agent_id != generation.autoskill_agent_id
+    assert consumer.autoskill_session_id != generation.autoskill_session_id
+    assert saved_consumer is not None
+    assert saved_consumer.status is InvocationStatus.SUCCEEDED
+    assert saved_consumer.lease_id == f"lease-{saved_consumer.autoskill_request_id}"
+
+
+@pytest.mark.asyncio
+async def test_freeze_rechecks_persisted_policy_evaluation_before_revision() -> None:
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    saved = service.repository.get_invocation(
+        invocation.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None
+    service.repository.save_invocation(
+        saved.model_copy(update={"request_summary": policy_summary(satisfied=False)})
+    )
+
+    with pytest.raises(KnowledgeWorkspaceError, match="policy_evaluation"):
+        await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+
+
+@pytest.mark.asyncio
+async def test_repository_reopen_restores_revision_conversation_and_publication(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "workspace.sqlite3"
+    objects = tmp_path / "objects"
+    actor = Actor("tenant", "workspace", "principal")
+    autoskill = FreezeAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ],
+        invoke_events=[
+            event("final_answer", {"answer": "ran"}),
+            event("request_summary", policy_summary(skills_field="skills_used")),
+            event("done"),
+        ],
+    )
+    first = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(database, objects),
+        autoskill,
+        FakeLeasePort(),
+    )
+    draft = first.create_draft(actor, "goal", ["connection-a"])
+    generation = first.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await first.freeze(actor, draft.draft_id, generation.invocation_id)
+    run = await first.run_revision(
+        actor,
+        revision.revision_id,
+        "trial run",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+    publication = first.publish(actor, revision.revision_id, "personal")
+
+    reopened = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(database, objects),
+        autoskill,
+        FakeLeasePort(),
+    )
+
+    assert reopened.get_draft(actor, draft.draft_id).current_revision_id == (
+        revision.revision_id
+    )
+    restored_revision = reopened.repository.get_revision(
+        revision.revision_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert restored_revision is not None
+    assert restored_revision.sha256 == revision.sha256
+    assert json.loads(json.dumps(restored_revision.manifest)) == json.loads(
+        json.dumps(revision.manifest)
+    )
+    assert [
+        turn["invocation"]["invocation_id"]
+        for turn in reopened.conversation(actor, draft.draft_id)
+    ] == [generation.invocation_id, run.invocation_id]
+    restored_publication = reopened.repository.get_publication(
+        publication.publication_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert restored_publication is not None
+    assert restored_publication.revision_id == revision.revision_id
+    assert restored_publication.policy_snapshot == publication.policy_snapshot
+
+
+@pytest.mark.asyncio
 async def test_publish_snapshot_and_consumer_invocation_use_fixed_policy_and_fresh_identity() -> (
     None
 ):

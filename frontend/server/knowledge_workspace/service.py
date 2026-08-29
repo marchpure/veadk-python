@@ -1760,6 +1760,21 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError(
                 "REVISION_CONFLICT", "completion gates are not satisfied", 409
             )
+        if invocation.invocation_policy is not None:
+            if not self._summary_policy_satisfied(invocation.request_summary):
+                raise KnowledgeWorkspaceError(
+                    "REVISION_CONFLICT",
+                    "policy_evaluation was not satisfied",
+                    409,
+                )
+            if not self._summary_has_matching_successful_execute_action(
+                invocation.request_summary, invocation.invocation_policy
+            ):
+                raise KnowledgeWorkspaceError(
+                    "REVISION_CONFLICT",
+                    "no matching successful connection execute_action was observed",
+                    409,
+                )
         try:
             # Query the actual service only for the specific Skill identity
             # bound by this invocation's request_summary. list_skill ordering is

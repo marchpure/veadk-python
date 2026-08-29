@@ -36,7 +36,9 @@ def decode_principal(request: httpx.Request) -> dict[str, object]:
     return json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
 
 
-def gateway(handler: Callable[[httpx.Request], httpx.Response]) -> ConnectionServiceGateway:
+def gateway(
+    handler: Callable[[httpx.Request], httpx.Response],
+) -> ConnectionServiceGateway:
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     return ConnectionServiceGateway(
         ConnectionServiceConfig("https://connections.test", "test-secret"),
@@ -45,7 +47,9 @@ def gateway(handler: Callable[[httpx.Request], httpx.Response]) -> ConnectionSer
 
 
 class RecordingAutoSkill:
-    def __init__(self, state: bytes | None = None, *, fail_upload: bool = False) -> None:
+    def __init__(
+        self, state: bytes | None = None, *, fail_upload: bool = False
+    ) -> None:
         self.state = state
         self.fail_upload = fail_upload
         self.uploaded: bytes | None = None
@@ -286,7 +290,9 @@ async def test_oauth_gateway_starts_and_polls_without_returning_client_secret() 
                 "clientId": "cli_test",
                 "clientSecret": "app-secret",
             }
-            return httpx.Response(200, json={"config": {"service": "feishu", "configured": True}})
+            return httpx.Response(
+                200, json={"config": {"service": "feishu", "configured": True}}
+            )
         if request.url.path == "/v1/oauth/authorizations":
             assert json.loads(request.content) == {
                 "service": "feishu",
@@ -303,7 +309,11 @@ async def test_oauth_gateway_starts_and_polls_without_returning_client_secret() 
             assert request.url.params["state"] == "opaque"
             return httpx.Response(
                 200,
-                json={"service": "feishu", "connectionName": "my-feishu", "status": "connected"},
+                json={
+                    "service": "feishu",
+                    "connectionName": "my-feishu",
+                    "status": "connected",
+                },
             )
         raise AssertionError(request.url.path)
 
@@ -314,7 +324,9 @@ async def test_oauth_gateway_starts_and_polls_without_returning_client_secret() 
         client_secret="app-secret",
         **ACTOR,
     )
-    started = await target.start_oauth(service="feishu", connection_name="My Feishu", **ACTOR)
+    started = await target.start_oauth(
+        service="feishu", connection_name="My Feishu", **ACTOR
+    )
     status = await target.oauth_status(state=started["state"], **ACTOR)
 
     assert authorization == {"service": "feishu", "configured": True}
@@ -477,6 +489,34 @@ async def test_gateway_lease_uses_real_actions_caps_ttl_and_survives_restart() -
 
 
 @pytest.mark.asyncio
+async def test_gateway_rejects_tampered_cross_scope_lease_reference() -> None:
+    target = gateway(lambda request: httpx.Response(500))
+    lease_id = target._lease_reference(
+        "tenant-a",
+        "workspace-a",
+        "user-a",
+        ["lease-jti"],
+    )
+    prefix, payload, signature = lease_id.split(".")
+    tampered_payload = target._b64url(
+        json.dumps(
+            {
+                "tenant_id": "tenant-b",
+                "workspace_id": "workspace-b",
+                "principal_id": "user-a",
+                "lease_ids": ["lease-jti"],
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+
+    with pytest.raises(ConnectionServiceError) as captured:
+        await target.revoke(f"{prefix}.{tampered_payload}.{signature}")
+
+    assert captured.value.code == "INVALID_LEASE_REFERENCE"
+
+
+@pytest.mark.asyncio
 async def test_gateway_uploads_direct_lease_scoped_connection_service_runtime() -> None:
     existing = io.BytesIO()
     with zipfile.ZipFile(existing, "w") as archive:
@@ -532,6 +572,7 @@ async def test_gateway_requires_public_https_for_connection_service_runtime() ->
             invocation_id="invocation-bridge",
         )
 
+
 @pytest.mark.asyncio
 async def test_gateway_maps_upstream_errors_without_echoing_authorization() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
@@ -548,7 +589,9 @@ async def test_gateway_maps_upstream_errors_without_echoing_authorization() -> N
 
 
 @pytest.mark.asyncio
-async def test_gateway_uploads_to_tenant_file_intake_and_returns_only_opaque_id() -> None:
+async def test_gateway_uploads_to_tenant_file_intake_and_returns_only_opaque_id() -> (
+    None
+):
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v1/files"
         assert request.method == "POST"
@@ -726,9 +769,7 @@ async def test_connection_routes_replay_idempotently_and_use_error_contract() ->
         "config": {},
         "credential": {"secret": "hidden"},
     }
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         first = await client.post(
             "/api/knowledge/v1/connections", headers=headers, json=payload
         )
@@ -755,13 +796,9 @@ async def test_unconfigured_connection_route_uses_same_origin_error_envelope() -
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    mount_knowledge_workspace_routes(
-        app, service, allow_insecure_test_headers=True
-    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/api/knowledge/v1/connections")
         invalid = await client.post(
             "/api/knowledge/v1/connections",
