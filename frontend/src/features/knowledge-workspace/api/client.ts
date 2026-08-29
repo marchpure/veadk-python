@@ -56,6 +56,7 @@ export interface CreateDraftInput {
   openviking_resource_refs?: string[];
   trial_task?: string;
   upload_ids?: string[];
+  knowledge_source_refs?: Array<Record<string, string>>;
 }
 
 export interface UpdateDraftInput {
@@ -65,6 +66,7 @@ export interface UpdateDraftInput {
   openviking_profile_ids?: string[];
   openviking_resource_refs?: string[];
   trial_task?: string;
+  knowledge_source_refs?: Array<Record<string, string>>;
 }
 
 export interface UploadResult {

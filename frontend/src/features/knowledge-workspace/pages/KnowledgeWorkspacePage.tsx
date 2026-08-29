@@ -611,8 +611,12 @@ export function KnowledgeWorkspacePage() {
         goal,
         connection_ids: connectionIds,
         ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
-        ...(openVikingProfileIds.length ? { openviking_profile_ids: openVikingProfileIds } : {}),
-        ...(openVikingResourceRefs.length ? { openviking_resource_refs: openVikingResourceRefs } : {}),
+        ...((openVikingProfileIds.length || openVikingResourceRefs.length)
+          ? { knowledge_source_refs: [
+              ...openVikingProfileIds.map((profile_ref) => ({ provider: "openviking", profile_ref })),
+              ...openVikingResourceRefs.map((resource_ref) => ({ provider: "openviking", resource_ref })),
+            ] }
+          : {}),
         ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
         ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
       });

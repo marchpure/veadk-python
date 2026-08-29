@@ -46,6 +46,7 @@ from .models import (
     utc_now,
 )
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
+from frontend.server.extensions.openviking.compat import split_knowledge_source_refs
 
 
 class CreateDraftBody(BaseModel):
@@ -57,6 +58,7 @@ class CreateDraftBody(BaseModel):
     openviking_resource_refs: list[str] = Field(default_factory=list, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
+    knowledge_source_refs: list[dict[str, str]] = Field(default_factory=list, max_length=64)
 
 
 class UpdateDraftBody(BaseModel):
@@ -68,6 +70,7 @@ class UpdateDraftBody(BaseModel):
     openviking_resource_refs: list[str] | None = Field(default=None, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] | None = Field(default=None, max_length=64)
+    knowledge_source_refs: list[dict[str, str]] | None = Field(default=None, max_length=64)
 
 
 class GenerateBody(BaseModel):
@@ -1074,14 +1077,15 @@ def mount_knowledge_workspace_routes(
             ..., alias="Idempotency-Key", min_length=16, max_length=256
         ),
     ) -> dict[str, Any]:
+        source_profiles, source_resources = split_knowledge_source_refs(body.knowledge_source_refs)
         result = invoke(
             lambda: service.create_draft(
                 actor(request),
                 body.goal,
                 body.connection_ids,
                 resource_ids=body.resource_ids,
-                openviking_profile_ids=body.openviking_profile_ids,
-                openviking_resource_refs=body.openviking_resource_refs,
+                openviking_profile_ids=source_profiles or body.openviking_profile_ids,
+                openviking_resource_refs=source_resources or body.openviking_resource_refs,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,
                 idempotency_key=idempotency_key,
@@ -1118,6 +1122,7 @@ def mount_knowledge_workspace_routes(
             ..., alias="Idempotency-Key", min_length=16, max_length=256
         ),
     ) -> dict[str, Any]:
+        source_profiles, source_resources = split_knowledge_source_refs(body.knowledge_source_refs)
         result = invoke(
             lambda: service.update_draft(
                 actor(request),
@@ -1125,8 +1130,8 @@ def mount_knowledge_workspace_routes(
                 goal=body.goal,
                 connection_ids=body.connection_ids,
                 resource_ids=body.resource_ids,
-                openviking_profile_ids=body.openviking_profile_ids,
-                openviking_resource_refs=body.openviking_resource_refs,
+                openviking_profile_ids=source_profiles if body.knowledge_source_refs is not None else body.openviking_profile_ids,
+                openviking_resource_refs=source_resources if body.knowledge_source_refs is not None else body.openviking_resource_refs,
                 if_match=if_match,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,
