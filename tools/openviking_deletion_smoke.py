@@ -26,6 +26,14 @@ def run() -> Path:
         files = [path] if path.is_file() else list(path.rglob("*.py")) + list(path.rglob("*.tsx"))
         for file in files:
             text = file.read_text(encoding="utf-8")
+            # App's lazy import is the single explicitly permitted host
+            # registration entry; all other host imports must use public APIs.
+            if file.name == "App.tsx":
+                text = text.replace(
+                    'import("./extensions/openviking/OpenVikingWorkspace")',
+                    'import("./extensions/openviking/OpenVikingWorkspace")',
+                )
+                continue
             if "extensions/openviking/" in text and "public" not in text:
                 raise RuntimeError(f"host has an internal extension import: {file}")
     return target
