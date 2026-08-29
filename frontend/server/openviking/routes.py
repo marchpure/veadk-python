@@ -161,8 +161,11 @@ def mount_openviking_routes(
         body: OperationBody,
     ) -> dict[str, Any]:
         value = await invoke(
-            lambda: service.request(
-                profile(request, profile_id), operation_name, payload=body.payload
+            lambda: service.request_idempotent(
+                profile(request, profile_id),
+                operation_name,
+                payload=body.payload,
+                idempotency_key=request.headers.get("idempotency-key"),
             )
         )
         return envelope(value, request)
@@ -230,11 +233,12 @@ def mount_openviking_routes(
         body: OperationBody,
     ) -> dict[str, Any]:
         value = await invoke(
-            lambda: service.request(
+            lambda: service.request_idempotent(
                 profile(request, profile_id),
                 operation_name,
                 payload=body.payload,
                 item_id=item_id,
+                idempotency_key=request.headers.get("idempotency-key"),
             )
         )
         return envelope(value, request)

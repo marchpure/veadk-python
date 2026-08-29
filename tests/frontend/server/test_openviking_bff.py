@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -184,6 +185,112 @@ async def test_operation_injects_secret_server_side_and_sanitizes_response() -> 
     )
     assert "resource_ref" in serialized
     assert "viking://workspace/guide.md" in serialized
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_task_metadata_never_exposes_upstream_identity_or_paths() -> None:
+    def upstream(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"result": [{
+                "task_id": "task-1",
+                "account_id": "internal-account",
+                "user_id": "internal-user",
+                "meta": {"source_path": "/private/tmp/parser/input.md"},
+                "processor_kwargs": {
+                    "resource_lock": {
+                        "owner_id": "internal-owner",
+                        "lock_paths": ["/private/data/workspace"],
+                    }
+                },
+            }]},
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    serialized = json.dumps(await service.request(value, "tasks"))
+
+    assert "internal-account" not in serialized
+    assert "internal-user" not in serialized
+    assert "internal-owner" not in serialized
+    assert "/private/" not in serialized
+    assert "resource_lock" not in serialized
+    assert "input.md" in serialized
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_resource_import_is_idempotent_across_service_restart(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200,
+            json={"result": {"task_id": f"task-{calls}", "status": "queued"}},
+        )
+
+    database = tmp_path / "profiles.sqlite3"
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    first_service = OpenVikingService(
+        OpenVikingProfileRepository(database), config(), client=client
+    )
+    value = profile(first_service)
+    payload = {"path": "https://example.com/guide.md", "to": "guide"}
+
+    first = await first_service.request_idempotent(
+        value, "resource_import", payload=payload, idempotency_key="import-guide"
+    )
+    restarted_service = OpenVikingService(
+        OpenVikingProfileRepository(database), config(), client=client
+    )
+    stored = restarted_service.repository.get(
+        value.profile_id, tenant_id=value.tenant_id, workspace_id=value.workspace_id
+    )
+    assert stored is not None
+    repeated = await restarted_service.request_idempotent(
+        stored, "resource_import", payload=payload, idempotency_key="import-guide"
+    )
+
+    assert repeated == first
+    assert calls == 1
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_is_bound_to_request_body() -> None:
+    calls = 0
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"result": {"task_id": f"task-{calls}"}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    first = await service.request_idempotent(
+        value,
+        "resource_import",
+        payload={"path": "https://example.com/first.md"},
+        idempotency_key="import",
+    )
+    second = await service.request_idempotent(
+        value,
+        "resource_import",
+        payload={"path": "https://example.com/second.md"},
+        idempotency_key="import",
+    )
+
+    assert first != second
+    assert calls == 2
     await client.aclose()
 
 
@@ -419,3 +526,40 @@ async def test_profile_routes_reject_extra_fields_and_cross_tenant_access() -> N
     assert hidden.status_code == 404
     assert ssrf.status_code == 422
     assert ssrf.json()["detail"]["code"] == "SSRF_BLOCKED"
+
+
+@pytest.mark.asyncio
+async def test_operation_route_forwards_idempotency_key() -> None:
+    calls = 0
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"result": {"task_id": f"task-{calls}"}})
+
+    app = FastAPI()
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+    service.repository.save(value.__class__(**{**value.__dict__, "status": "ready"}))
+
+    def actor(_request):
+        return Actor("tenant-a", "workspace-a", "user-a")
+
+    mount_openviking_routes(app, service, actor_resolver=actor)
+    transport = httpx.ASGITransport(app=app)
+    path = (
+        f"/api/knowledge/v1/openviking/profiles/{value.profile_id}"
+        "/operations/resource_import"
+    )
+    body = {"payload": {"path": "https://example.com/guide.md"}}
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as bff:
+        first = await bff.post(path, json=body, headers={"Idempotency-Key": "upload"})
+        repeated = await bff.post(
+            path, json=body, headers={"Idempotency-Key": "upload"}
+        )
+
+    assert first.status_code == 200
+    assert repeated.json() == first.json()
+    assert calls == 1
+    await client.aclose()

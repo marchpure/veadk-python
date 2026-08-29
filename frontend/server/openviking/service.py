@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -24,6 +25,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 MAX_JSON_BYTES = 1_048_576
 MAX_UPLOAD_BYTES = 50 * 1_048_576
+IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60
 ALLOWED_UPLOAD_EXTENSIONS = {
     ".csv",
     ".json",
@@ -117,6 +119,13 @@ class OpenVikingProfileRepository:
             "CREATE INDEX IF NOT EXISTS openviking_profile_scope "
             "ON openviking_profiles(tenant_id, workspace_id)"
         )
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS openviking_idempotency (
+              scope_key TEXT PRIMARY KEY,
+              response_json TEXT NOT NULL,
+              created_at TEXT NOT NULL
+            )
+            """)
         self._db.commit()
 
     @staticmethod
@@ -173,6 +182,39 @@ class OpenVikingProfileRepository:
             self._db.commit()
         return cursor.rowcount > 0
 
+    def get_idempotent_response(self, scope_key: str) -> Any | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT response_json, created_at FROM openviking_idempotency "
+                "WHERE scope_key=?",
+                (scope_key,),
+            ).fetchone()
+            if row and (
+                datetime.now(timezone.utc)
+                - datetime.fromisoformat(row["created_at"])
+            ).total_seconds() > IDEMPOTENCY_TTL_SECONDS:
+                self._db.execute(
+                    "DELETE FROM openviking_idempotency WHERE scope_key=?",
+                    (scope_key,),
+                )
+                self._db.commit()
+                row = None
+        return json.loads(row["response_json"]) if row else None
+
+    def save_idempotent_response(self, scope_key: str, response: Any) -> None:
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO openviking_idempotency VALUES(?,?,?) "
+                "ON CONFLICT(scope_key) DO UPDATE SET "
+                "response_json=excluded.response_json, created_at=excluded.created_at",
+                (
+                    scope_key,
+                    json.dumps(response, ensure_ascii=False, separators=(",", ":")),
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            self._db.commit()
+
 
 @dataclass(frozen=True)
 class Operation:
@@ -220,6 +262,7 @@ class OpenVikingService:
         self.config = config
         self._client = client
         self._cipher = AESGCM(config.encryption_key)
+        self._idempotency_lock = asyncio.Lock()
 
     def _encrypt(self, value: str, scope: str) -> bytes:
         nonce = secrets.token_bytes(12)
@@ -749,6 +792,48 @@ class OpenVikingService:
         finally:
             if owns_client:
                 await client.aclose()
+
+    async def request_idempotent(
+        self,
+        profile: OpenVikingProfile,
+        operation_name: str,
+        *,
+        payload: Mapping[str, Any] | None = None,
+        item_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> Any:
+        body = dict(payload or {})
+        if not idempotency_key and operation_name not in {
+            "content_write",
+            "resource_import",
+        }:
+            return await self.request(
+                profile, operation_name, payload=body, item_id=item_id
+            )
+        body_hash = hashlib.sha256(
+            json.dumps(body, separators=(",", ":")).encode()
+        ).hexdigest()
+        request_key = idempotency_key or body_hash
+        if len(request_key) > 256:
+            raise OpenVikingError(
+                "INVALID_IDEMPOTENCY_KEY", "Idempotency key is too long", 422
+            )
+        scope_key = hashlib.sha256(
+            (
+                f"{profile.tenant_id}\0{profile.workspace_id}\0"
+                f"{profile.profile_id}\0{operation_name}\0{item_id or ''}\0"
+                f"{request_key}\0{body_hash}"
+            ).encode()
+        ).hexdigest()
+        async with self._idempotency_lock:
+            cached = self.repository.get_idempotent_response(scope_key)
+            if cached is not None:
+                return cached
+            result = await self.request(
+                profile, operation_name, payload=body, item_id=item_id
+            )
+            self.repository.save_idempotent_response(scope_key, result)
+            return result
 
     async def write_text(
         self,
