@@ -70,7 +70,7 @@ function activityFromEvent(event: KnowledgeInvocationEvent): AssistantActivity |
   return {
     id: event.data.activity_id,
     kind: event.data.activity_kind,
-    title: event.data.title || event.data.tool_name || "执行步骤",
+    title: event.data.title || event.data.tool_name || "执行活动",
     status: completed ? event.data.status : "running",
     startedAt: event.occurred_at,
     ...(completed ? { completedAt: event.occurred_at } : {}),
@@ -103,7 +103,7 @@ function mergeActivity(
     ...current,
     ...incoming,
     startedAt: current.startedAt,
-    title: incoming.title === "执行步骤" ? current.title : incoming.title,
+    title: incoming.title === "执行活动" ? current.title : incoming.title,
     inputSummary: current.inputSummary || incoming.inputSummary,
     durationMs: derivedDuration,
   };

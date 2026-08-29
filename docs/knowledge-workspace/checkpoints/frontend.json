@@ -67,7 +67,7 @@
   },
   "capture_report": {
     "report": "docs/knowledge-workspace/capture-report.md",
-    "prototype_capture_fixture": "frontend/src/features/knowledge-workspace/test-fixtures/captures.ts — 22 route/state URLs",
+    "prototype_capture_fixture": "frontend/tests/fixtures/knowledgeWorkspaceCaptures.ts — 22 route/state URLs",
     "screenshots": [
       "docs/knowledge-workspace/evidence/knowledge-workspace-final-desktop.png",
       "docs/knowledge-workspace/evidence/knowledge-workspace-final-narrow.png"

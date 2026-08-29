@@ -5,7 +5,9 @@ import {
   useReducer,
   useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import {
   AlertCircle,
@@ -160,6 +162,139 @@ function formatElapsed(startedAt?: string, now = Date.now()): string {
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
+function readableConnectorCategory(value?: string): string {
+  const normalized = (value || "").toLowerCase();
+  if (["db", "database", "databases"].includes(normalized)) return "数据库";
+  if (["office", "collaboration", "document", "docs"].includes(normalized)) return "办公协作";
+  if (["file", "files", "spreadsheet"].includes(normalized)) return "文件";
+  if (["api", "http", "webhook", "adapter"].includes(normalized)) return "API / MCP";
+  if (["cloud", "storage", "object_storage"].includes(normalized)) return "对象存储";
+  if (normalized === "custom") return "自定义";
+  return value || "其它";
+}
+
+function connectorSearchText(connector: ConnectorDefinition): string {
+  return [
+    connector.connector_key,
+    connector.display_name,
+    connector.category,
+    connector.status,
+    ...connector.capabilities,
+    ...schemaProperties(connector.config_schema).map(([name, schema]) => `${name} ${String(schema.title || "")}`),
+    ...schemaProperties(connector.auth_schema).map(([name, schema]) => `${name} ${String(schema.title || "")}`),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function connectorSchemaSummary(connector: ConnectorDefinition): string {
+  const configFields = schemaProperties(connector.config_schema).map(([, schema]) => String(schema.title || ""));
+  const authFields = schemaProperties(connector.auth_schema).map(([, schema]) => String(schema.title || ""));
+  const fields = [...configFields, ...authFields].filter(Boolean);
+  if (!fields.length) return "无需额外配置";
+  return fields.slice(0, 4).join(" / ");
+}
+
+interface SkillFilePreview {
+  path: string;
+  kind: "markdown" | "script" | "test" | "file";
+  content?: string;
+}
+
+const MISSING_SKILL_SOURCE = "当前 Revision 尚未返回文件清单/源文件内容";
+
+function skillFileKind(path: string): SkillFilePreview["kind"] {
+  return path.endsWith("SKILL.md")
+    ? "markdown"
+    : path.includes("/tests/") || path.includes("tests/") || path.includes("test_")
+      ? "test"
+      : path.includes("/scripts/") || path.includes("scripts/") || path.endsWith(".py") || path.endsWith(".sh")
+        ? "script"
+        : "file";
+}
+
+function manifestStringList(manifest: JsonObject | undefined, keys: string[]): string[] {
+  if (!manifest) return [];
+  for (const key of keys) {
+    const value = manifest[key];
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  }
+  return [];
+}
+
+function manifestFileFromRecord(value: JsonValue): SkillFilePreview | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const pathValue = value.path ?? value.name ?? value.filename;
+  if (typeof pathValue !== "string" || !pathValue.trim()) return null;
+  const contentValue = value.content ?? value.text ?? value.source;
+  return {
+    path: pathValue,
+    kind: skillFileKind(pathValue),
+    ...(typeof contentValue === "string" && contentValue.trim() ? { content: contentValue } : {}),
+  };
+}
+
+function collectBundlePaths(manifest: JsonObject | undefined): SkillFilePreview[] {
+  const zip = manifest?.zip;
+  if (!zip || typeof zip !== "object" || Array.isArray(zip)) return [];
+  return manifestStringList(zip, ["paths", "file_paths"])
+    .map((path) => ({ path, kind: skillFileKind(path) }));
+}
+
+function collectManifestFiles(value: JsonValue | undefined): SkillFilePreview[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      if (typeof entry === "string" && entry.trim()) {
+        return [{ path: entry, kind: skillFileKind(entry) }];
+      }
+      const file = manifestFileFromRecord(entry);
+      return file ? [file] : [];
+    });
+  }
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([pathValue, fileValue]) => {
+    if (!pathValue.includes("/") && !pathValue.includes(".") && pathValue !== "SKILL.md") return [];
+    if (typeof fileValue === "string") {
+      return [{ path: pathValue, kind: skillFileKind(pathValue), content: fileValue }];
+    }
+    const file = manifestFileFromRecord({ path: pathValue, ...(fileValue && typeof fileValue === "object" && !Array.isArray(fileValue) ? fileValue : {}) });
+    return file ? [file] : [];
+  });
+}
+
+function previewSkillFiles(revision: Revision | null): SkillFilePreview[] {
+  const manifest = revision?.manifest;
+  const files: SkillFilePreview[] = [
+    ...manifestStringList(manifest, ["paths", "file_paths"]).map((path) => ({ path, kind: skillFileKind(path) })),
+    ...collectBundlePaths(manifest),
+    ...collectManifestFiles(manifest?.files),
+    ...collectManifestFiles(manifest?.source_files),
+    ...collectManifestFiles(manifest?.bundle_files),
+  ];
+  const byPath = new Map<string, SkillFilePreview>();
+  for (const file of files) {
+    const existing = byPath.get(file.path);
+    byPath.set(file.path, existing?.content && !file.content ? existing : file);
+  }
+  return [...byPath.values()];
+}
+
+function manifestSkillMarkdown(revision: Revision | null): string | null {
+  const manifest = revision?.manifest;
+  const value = manifest?.skill_md;
+  if (typeof value === "string" && value.trim()) return value;
+  const skillFile = previewSkillFiles(revision).find(
+    (file) => file.path.split("/").at(-1) === "SKILL.md" && file.content,
+  );
+  return skillFile?.content || null;
+}
+
+function manifestBundleRoot(revision: Revision | null): string | null {
+  const manifest = revision?.manifest;
+  if (typeof manifest?.root === "string" && manifest.root.trim()) return manifest.root;
+  const zip = manifest?.zip;
+  if (!zip || typeof zip !== "object" || Array.isArray(zip)) return null;
+  return typeof zip.root === "string" && zip.root.trim() ? zip.root : null;
+}
+
 function routeFromLocation(): WorkspaceRoute {
   const query = new URLSearchParams(window.location.search);
   const requestedFile = query.get("file") || "welcome";
@@ -252,6 +387,7 @@ export function KnowledgeWorkspacePage() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [connectionFormScope, setConnectionFormScope] = useState<"personal" | "team">("personal");
   const [showVersions, setShowVersions] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [welcomeGoal, setWelcomeGoal] = useState("");
@@ -435,6 +571,18 @@ export function KnowledgeWorkspacePage() {
   const openDraft = useCallback((nextDraft: Draft) => {
     setRoute("draft", nextDraft.draft_id);
   }, []);
+
+  const openConnectionSelector = useCallback((scope: "personal" | "team" = "personal") => {
+    setConnectionFormScope(scope);
+    setShowConnectionForm(true);
+  }, []);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    if (route.draftId || (route.file !== "draft" && route.file !== "published")) return;
+    const target = drafts[0];
+    if (target) setRoute(route.file, target.draft_id);
+  }, [authStatus, drafts, route.draftId, route.file]);
 
   const createAndGenerate = useCallback(async (
     goal: string,
@@ -630,6 +778,60 @@ export function KnowledgeWorkspacePage() {
     }
   }, [draft, etag]);
 
+  const runSkill = useCallback(async (message: string) => {
+    if (!draft || !message.trim()) return;
+    const revision = draft.current_revision_id
+      ? revisions.find((item) => item.revision_id === draft.current_revision_id)
+      : revisions.reduce<Revision | null>(
+        (current, item) => !current || item.number > current.number ? item : current,
+        null,
+      );
+    if (!revision) {
+      await sendMessage(message, "run");
+      return;
+    }
+    const optimisticId = `pending-${globalThis.crypto?.randomUUID?.() || Date.now()}`;
+    const optimistic: Invocation = {
+      invocation_id: optimisticId,
+      kind: "run",
+      status: "queued",
+      message: message.trim(),
+      event_url: "",
+      created_at: new Date().toISOString(),
+    };
+    dispatchAssistant({ type: "invocation.started", invocation: optimistic });
+    setBusy("message");
+    setError("");
+    try {
+      const result = await knowledgeApi.runRevision(
+        revision.revision_id,
+        draft.connection_ids,
+        message.trim(),
+        undefined,
+        draft.resource_ids,
+      );
+      setActiveInvocation(result.data);
+      dispatchAssistant({
+        type: "invocation.confirmed",
+        optimisticId,
+        invocation: result.data,
+      });
+    } catch (cause) {
+      dispatchAssistant({
+        type: "invocation.rejected",
+        invocationId: optimisticId,
+        error: {
+          code: cause instanceof KnowledgeApiError ? cause.code : "SUBMIT_FAILED",
+          message: errorMessage(cause),
+          retryable: cause instanceof KnowledgeApiError ? cause.retryable : true,
+        },
+      });
+      setError(errorMessage(cause));
+    } finally {
+      setBusy("");
+    }
+  }, [draft, revisions, sendMessage]);
+
   const retryInvocation = useCallback(async (turn?: ConversationTurnModel) => {
     if (!draft) return;
     const source = turn?.invocation || activeInvocation;
@@ -744,6 +946,16 @@ export function KnowledgeWorkspacePage() {
       </div>
     );
   }
+  const handleAssistantSend = route.file === "published"
+    ? async (message: string, intent: "update" | "run") => {
+      if (intent === "run") {
+        await runSkill(message);
+        return;
+      }
+      await sendMessage(message, intent);
+    }
+    : sendMessage;
+
   return (
     <div className={`kw-shell${selectedDraft ? " has-draft" : ""}${route.file === "draft" ? " is-draft-route" : ""}`}>
       <header className="kw-studio-nav">
@@ -769,7 +981,10 @@ export function KnowledgeWorkspacePage() {
           <button className="kw-new-resource" type="button" aria-label="新建 Skill" onClick={() => setRoute("skill_new")}>
             <CirclePlus size={16} /> 新建 Skill
           </button>
-          <div className="kw-tree-label">个人工作区</div>
+          <div className="kw-tree-label kw-tree-label-row">
+            <span>个人工作区</span>
+            <button type="button" aria-label="添加个人连接" onClick={() => openConnectionSelector("personal")}><CirclePlus size={13} /></button>
+          </div>
           <button
             className={`kw-tree-item${route.file === "welcome" ? " is-selected" : ""}`}
             type="button"
@@ -794,7 +1009,7 @@ export function KnowledgeWorkspacePage() {
               <span className={`kw-status-dot is-${connection.status}`} title={idempotentLabel(connection.status)} />
             </button>
           ))}
-          <button className="kw-tree-item kw-tree-add" type="button" onClick={() => setShowConnectionForm(true)}>
+          <button className="kw-tree-item kw-tree-add" type="button" onClick={() => openConnectionSelector("personal")}>
             <CirclePlus size={15} /> 添加连接
           </button>
           <div className="kw-tree-label">我的资源</div>
@@ -826,7 +1041,10 @@ export function KnowledgeWorkspacePage() {
               <span className="kw-truncate">{(item as Draft & { display_name?: string }).display_name || item.goal}</span>
             </button>
           ))}
-          <div className="kw-tree-label">团队工作区</div>
+          <div className="kw-tree-label kw-tree-label-row">
+            <span>团队工作区</span>
+            <button type="button" aria-label="添加团队连接" onClick={() => openConnectionSelector("team")}><CirclePlus size={13} /></button>
+          </div>
           {teamConnections.length ? teamConnections.map((connection) => (
             <button
               className={`kw-tree-item${selectedConnectionIds.includes(connection.connection_id) ? " is-selected" : ""}`}
@@ -899,9 +1117,12 @@ export function KnowledgeWorkspacePage() {
         ) : null}
         {route.file === "welcome" && !selectedDraft ? (
           <WelcomeEntryView
+            connections={availableConnections}
+            resources={resources}
             drafts={drafts}
             onOpen={openDraft}
             onCreate={(goal) => { setWelcomeGoal(goal); setRoute("skill_new"); }}
+            onAddConnection={() => openConnectionSelector("personal")}
           />
         ) : route.file === "skill_new" ? (
           <section className="kw-create-layout is-skill-new">
@@ -913,7 +1134,7 @@ export function KnowledgeWorkspacePage() {
             onSelectedIdsChange={setSelectedConnectionIds}
             onCreate={createAndGenerate}
               onUpload={uploadSkillInput}
-              onAddConnection={() => setShowConnectionForm(true)}
+              onAddConnection={() => openConnectionSelector("personal")}
               busy={busy === "generate"}
               initialGoal={welcomeGoal}
               onBack={() => setRoute("welcome")}
@@ -966,18 +1187,41 @@ export function KnowledgeWorkspacePage() {
             }}
           />
         ) : route.file === "published" ? (
-          <PublishedWorkspace
-            draft={selectedDraft}
-            revision={selectedRevision}
-            onBack={() => setRoute("welcome")}
-            onOpenAgent={() => openRouteModal("agent")}
-            onOpenModal={openRouteModal}
-          />
+          <section className="kw-selected-skill-layout">
+            <PublishedWorkspace
+              draft={selectedDraft}
+              revision={selectedRevision}
+              connections={availableConnections}
+              resources={resources}
+              onBack={() => setRoute("welcome")}
+              onOpenAgent={() => openRouteModal("agent")}
+              onOpenModal={openRouteModal}
+              onRun={runSkill}
+            />
+            {selectedDraft ? (
+              <AssistantPanel
+                turns={assistantState.turns}
+                busy={busy === "message" || busy === "retry" || busy === "cancel"}
+                onSend={handleAssistantSend}
+                onCancel={cancel}
+                onReconnect={(turn) => {
+                  if (activeInvocation?.invocation_id === turn.invocation.invocation_id) {
+                    void stream(activeInvocation);
+                  } else {
+                    setActiveInvocation(turn.invocation);
+                  }
+                }}
+                onRetry={(turn) => void retryInvocation(turn)}
+              />
+            ) : null}
+          </section>
         ) : (
           <DraftWorkspace
             draft={selectedDraft}
             revisions={revisions}
             artifact={artifact}
+            connections={availableConnections}
+            resources={resources}
             turns={assistantState.turns}
             busy={busy}
             resourceError={draftResourceError}
@@ -991,7 +1235,7 @@ export function KnowledgeWorkspacePage() {
               }
             }}
             onRetry={(turn) => void retryInvocation(turn)}
-            onRun={(message) => sendMessage(message, "run")}
+            onRun={runSkill}
             onRetryLoad={() => {
               setError("");
               setDraftLoadAttempt((current) => current + 1);
@@ -1004,6 +1248,7 @@ export function KnowledgeWorkspacePage() {
       {showConnectionForm ? (
         <ConnectionForm
           connectors={connectors}
+          initialScope={connectionFormScope}
           onClose={() => setShowConnectionForm(false)}
           onUpload={(file) => knowledgeApi.uploadFile(file, "context").then((value) => value.data)}
           onCreated={async (created) => {
@@ -1104,7 +1349,7 @@ function SkillNewView({
       void onCreate(goal, selectedIds, resourceIds, trialTask, uploads.map((upload) => upload.upload_id));
     }
   };
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -1213,17 +1458,66 @@ function SkillNewView({
 }
 
 function WelcomeEntryView({
+  connections,
+  resources,
   drafts,
   onOpen,
   onCreate,
+  onAddConnection,
 }: {
+  connections: ConnectionProfile[];
+  resources: WorkspaceResource[];
   drafts: Draft[];
   onOpen: (draft: Draft) => void;
   onCreate: (goal: string) => void;
+  onAddConnection: () => void;
 }) {
+  const [prompt, setPrompt] = useState("");
+  const readyConnections = connections.filter((connection) => connection.status === "ready");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    onCreate(prompt.trim());
+  };
   return (
     <section className="kw-welcome-entry">
       <div className="kw-welcome-dashboard">
+        <form className="kw-home-composer" onSubmit={submit}>
+          <div className="kw-home-composer-copy">
+            <span className="kw-section-kicker">AUTOSKILL CREATOR</span>
+            <h1>连接数据，创建可复用 Skill</h1>
+            <p>从一个真实业务任务开始，选择已授权连接或文件上下文，生成后直接试跑并沉淀为可发布 Revision。</p>
+          </div>
+          <textarea
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            aria-label="描述要创建的 Skill"
+            placeholder="例如：让区域经理查询门店毛利异常，并解释退货率上升的原因"
+            rows={3}
+          />
+          <div className="kw-home-composer-footer">
+            <div className="kw-home-context">
+              <span><Database size={13} /> 可用连接 {readyConnections.length}</span>
+              <span><FileText size={13} /> 文件上下文 {resources.length}</span>
+            </div>
+            <div className="kw-home-actions">
+              <button type="button" onClick={onAddConnection}><CirclePlus size={14} /> 添加连接</button>
+              <button type="submit" className="kw-primary-small"><Play size={14} /> 开始创建</button>
+            </div>
+          </div>
+        </form>
+        <div className="kw-output-types" aria-label="未来 Skill 输出类型">
+          {[
+            ["Dashboard", "把运行结果沉淀为可发布看板"],
+            ["SOP", "把排查方法沉淀为操作流程"],
+            ["Semantic", "把口径和指标沉淀为语义能力"],
+          ].map(([name, description]) => (
+            <div className="kw-output-type" aria-disabled="true" key={name}>
+              <strong>{name}</strong>
+              <span>{description}</span>
+              <small>即将开放</small>
+            </div>
+          ))}
+        </div>
         <div className="kw-welcome-dashboard-heading">
           <h1>我的 Skill</h1>
           <button type="button" className="kw-primary-small" onClick={() => onCreate("")}><CirclePlus size={15} /> 新建 Skill</button>
@@ -1430,6 +1724,8 @@ function DraftWorkspace({
   draft,
   revisions,
   artifact,
+  connections,
+  resources,
   turns,
   busy,
   resourceError,
@@ -1443,6 +1739,8 @@ function DraftWorkspace({
   draft: Draft | null;
   revisions: Revision[];
   artifact: Artifact | null;
+  connections: ConnectionProfile[];
+  resources: WorkspaceResource[];
   turns: ConversationTurnModel[];
   busy: string;
   resourceError: { code: string; message: string } | null;
@@ -1486,6 +1784,11 @@ function DraftWorkspace({
       : resourceError?.code === "PUBLISH_GATE_FAILED"
         ? "upgrade"
         : "";
+  const currentRevision = draft.current_revision_id
+    ? revisions.find((item) => item.revision_id === draft.current_revision_id) || null
+    : revisions.at(-1) || null;
+  const boundConnections = connections.filter((connection) => draft.connection_ids.includes(connection.connection_id));
+  const boundResources = resources.filter((resource) => draft.resource_ids.includes(resource.resource_id));
   return (
     <section className="kw-draft-layout">
       <div className="kw-draft-center">
@@ -1506,7 +1809,7 @@ function DraftWorkspace({
           <div className="kw-upgrade-banner" role="status">
             <div className="kw-upgrade-copy">
               <AlertCircle size={19} />
-              <div><strong>发现基础模型或版本更新</strong><span>这可能导致当前排查步骤或口径发生变化。</span></div>
+              <div><strong>发现基础模型或版本更新</strong><span>这可能导致当前排查方法或口径发生变化。</span></div>
             </div>
             <div className="kw-upgrade-actions"><button type="button" onClick={onRetryLoad}>继续使用原版本</button><button type="button" className="is-warning" onClick={onRetryLoad}>重新生成</button></div>
           </div>
@@ -1538,6 +1841,13 @@ function DraftWorkspace({
             <div className="kw-draft-waiting"><FileText size={22} /><span>等待运行</span></div>
           ) : null}
         </div>
+        <SkillPackagePanel
+          draft={draft}
+          revision={currentRevision}
+          connections={boundConnections}
+          resources={boundResources}
+          onRun={() => void onRun(task)}
+        />
         {artifact ? <ArtifactViewer artifact={artifact} /> : null}
         {errorState && errorState !== "upgrade" ? (
           <div className="kw-state-overlay" role="alert">
@@ -1565,17 +1875,25 @@ function DraftWorkspace({
 function PublishedWorkspace({
   draft,
   revision,
+  connections,
+  resources,
   onBack,
   onOpenAgent,
   onOpenModal,
+  onRun,
 }: {
   draft: Draft | null;
   revision: Revision | null;
+  connections: ConnectionProfile[];
+  resources: WorkspaceResource[];
   onBack: () => void;
   onOpenAgent: () => void;
   onOpenModal: (kind: string) => void;
+  onRun: (message: string) => Promise<void>;
 }) {
   if (!draft || !revision) return <div className="kw-empty-page">正在从 BFF 恢复已发布版本…</div>;
+  const boundConnections = connections.filter((connection) => draft.connection_ids.includes(connection.connection_id));
+  const boundResources = resources.filter((resource) => draft.resource_ids.includes(resource.resource_id));
   return (
     <section className="kw-published">
       <div className="kw-published-header">
@@ -1586,12 +1904,96 @@ function PublishedWorkspace({
         <div className="kw-published-card"><span className="kw-card-label">当前版本</span><strong>v{revision.number}</strong><code>sha256:{revision.sha256.slice(0, 18)}…</code></div>
         <div className="kw-published-card"><span className="kw-card-label">调用范围</span><strong>由 BFF 返回</strong><span>发布状态和可见范围由 BFF 返回。</span></div>
       </div>
+      <SkillPackagePanel
+        draft={draft}
+        revision={revision}
+        connections={boundConnections}
+        resources={boundResources}
+        onRun={() => void onRun(draft.trial_task || draft.goal)}
+        compact
+      />
       <div className="kw-published-actions">
         <button type="button" onClick={onBack}>返回工作台</button>
         <button type="button" onClick={() => onOpenModal("share_run")}><Share2 size={14} /> 分享本次结果</button>
         <button type="button" onClick={() => onOpenModal("instructions")}><FileText size={14} /> 调用说明</button>
         <button type="button" onClick={() => onOpenModal("versions")}><History size={14} /> 版本记录</button>
         <button type="button" className="kw-primary-small" onClick={onOpenAgent}><ToyBrick size={14} /> 在 Agent 中使用</button>
+      </div>
+    </section>
+  );
+}
+
+function SkillPackagePanel({
+  draft,
+  revision,
+  connections,
+  resources,
+  onRun,
+  compact = false,
+}: {
+  draft: Draft;
+  revision: Revision | null;
+  connections: ConnectionProfile[];
+  resources: WorkspaceResource[];
+  onRun: () => void;
+  compact?: boolean;
+}) {
+  const files = previewSkillFiles(revision);
+  const skillMd = manifestSkillMarkdown(revision);
+  const root = manifestBundleRoot(revision) || MISSING_SKILL_SOURCE;
+  return (
+    <section className={`kw-skill-package${compact ? " is-compact" : ""}`} data-testid="skill-package">
+      <div className="kw-skill-package-header">
+        <div>
+          <span className="kw-section-kicker">GENERATED SKILL</span>
+          <h2>{revision?.skill_name || "等待生成 Skill"}</h2>
+          <p>{draft.goal}</p>
+        </div>
+        <div className="kw-skill-revision">
+          <span>Revision</span>
+          <strong>{revision ? `v${revision.number}` : "未生成"}</strong>
+        </div>
+      </div>
+      <div className="kw-skill-package-grid">
+        <div className="kw-skill-card">
+          <div className="kw-skill-card-title"><FileText size={15} /> SKILL.md</div>
+          {skillMd
+            ? <pre>{skillMd}</pre>
+            : <div className="kw-skill-empty">{MISSING_SKILL_SOURCE}</div>}
+        </div>
+        <div className="kw-skill-card">
+          <div className="kw-skill-card-title"><ToyBrick size={15} /> scripts / tests</div>
+          {files.length ? (
+            <div className="kw-skill-file-list">
+              {files.map((file) => (
+                <span className={`is-${file.kind}`} key={file.path}>{file.path}</span>
+              ))}
+            </div>
+          ) : <div className="kw-skill-empty">{MISSING_SKILL_SOURCE}</div>}
+        </div>
+        <div className="kw-skill-card">
+          <div className="kw-skill-card-title"><Database size={15} /> 绑定 Connection</div>
+          <div className="kw-skill-binding-list">
+            {connections.length ? connections.map((connection) => (
+              <span key={connection.connection_id}>{connection.display_name} · {idempotentLabel(connection.status)}</span>
+            )) : <span>未绑定连接</span>}
+            {resources.map((resource) => (
+              <span key={resource.resource_id}>{resource.display_name} · {resource.kind}</span>
+            ))}
+          </div>
+        </div>
+        <div className="kw-skill-card">
+          <div className="kw-skill-card-title"><ShieldCheck size={15} /> 当前包</div>
+          <dl className="kw-skill-meta">
+            <div><dt>Root</dt><dd>{root}</dd></div>
+            <div><dt>sha256</dt><dd>{revision?.sha256.slice(0, 18) || "等待生成"}{revision ? "…" : ""}</dd></div>
+            <div><dt>验收问题</dt><dd>{draft.trial_task || "未填写"}</dd></div>
+          </dl>
+        </div>
+      </div>
+      <div className="kw-skill-package-actions">
+        <button type="button" onClick={onRun} disabled={!revision}><Play size={14} /> 试跑</button>
+        <span>右侧 Assistant 可继续修改并生成新 Revision。</span>
       </div>
     </section>
   );
@@ -1621,7 +2023,7 @@ function WorkspaceStateModal({
   const shareRunId = draft?.active_invocation_id
     || new URLSearchParams(window.location.search).get("share_run_id")
     || "未绑定";
-  const wrap = (children: React.ReactNode, className = "") => (
+  const wrap = (children: ReactNode, className = "") => (
     <div className={`kw-state-modal-overlay${kind === "share_run" || kind === "instructions" ? " is-published" : ""}`} data-state-overlay={kind} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className={`kw-state-modal ${className}`} data-state-modal={kind} role="dialog" aria-modal="true" aria-label={skillName} onMouseDown={(event) => event.stopPropagation()}>
         {children}
@@ -1705,12 +2107,14 @@ function PublishGateModal({
 
 function ConnectionForm({
   connectors,
+  initialScope,
   onClose,
   onCreated,
   onResourceCreated,
   onUpload,
 }: {
   connectors: ConnectorDefinition[];
+  initialScope: "personal" | "team";
   onClose: () => void;
   onCreated: (connection: ConnectionProfile) => Promise<void>;
   onResourceCreated: (resource: WorkspaceResource) => Promise<void>;
@@ -1718,7 +2122,9 @@ function ConnectionForm({
 }) {
   const [connectorKey, setConnectorKey] = useState(connectors[0]?.connector_key || "");
   const [displayName, setDisplayName] = useState("");
-  const [scope, setScope] = useState<"personal" | "team">("personal");
+  const [scope, setScope] = useState<"personal" | "team">(initialScope);
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [values, setValues] = useState<JsonObject>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1728,6 +2134,38 @@ function ConnectionForm({
   >("idle");
   const [fileResult, setFileResult] = useState<UploadResult | null>(null);
   const oauthPopupRef = useRef<Window | null>(null);
+  useEffect(() => {
+    setScope(initialScope);
+  }, [initialScope]);
+  const categoryOptions = useMemo(() => {
+    const values = new Set(connectors.map((item) => readableConnectorCategory(item.category)).filter(Boolean));
+    return ["all", ...values];
+  }, [connectors]);
+  const filteredConnectors = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return connectors.filter((item) => {
+      const matchesQuery = !normalizedQuery || connectorSearchText(item).includes(normalizedQuery);
+      const matchesCategory = categoryFilter === "all"
+        || readableConnectorCategory(item.category) === categoryFilter;
+      return matchesQuery && matchesCategory;
+    });
+  }, [categoryFilter, connectors, query]);
+  useEffect(() => {
+    if (!connectors.length) return;
+    if (!connectors.some((item) => item.connector_key === connectorKey)) {
+      setConnectorKey(connectors[0]?.connector_key || "");
+    }
+  }, [connectorKey, connectors]);
+  useEffect(() => {
+    if (!filteredConnectors.length) {
+      if (query || categoryFilter !== "all") setConnectorKey("");
+      return;
+    }
+    if (connectorKey && filteredConnectors.some((item) => item.connector_key === connectorKey)) return;
+    setConnectorKey(filteredConnectors[0].connector_key);
+    setValues({});
+    setResult(null);
+  }, [categoryFilter, connectorKey, filteredConnectors, query]);
   const connector = connectors.find((item) => item.connector_key === connectorKey);
   const isAdapter = connector?.category === "adapter";
   const authOptions = authSchemaOptions(connector?.auth_schema);
@@ -1951,8 +2389,31 @@ function ConnectionForm({
   return (
     <Modal title="添加连接或资源" onClose={onClose}>
       <form className="kw-connection-form" onSubmit={submit}>
+        <div className="kw-connector-filter">
+          <label>
+            <span>搜索 Connection</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="按名称、能力、配置字段搜索"
+              aria-label="搜索 Connection"
+            />
+          </label>
+          <label>
+            <span>分类</span>
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              aria-label="Connection 分类"
+            >
+              {categoryOptions.map((option) => (
+                <option value={option} key={option}>{option === "all" ? "全部" : option}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="kw-connector-cards" role="list" aria-label="连接类型">
-          {connectorGroups(connectors).map(([group, items]) => (
+          {connectorGroups(filteredConnectors).map(([group, items]) => (
             <section key={group} className="kw-connector-group">
               <h3>{group}</h3>
               <div className="kw-connector-grid">
@@ -1964,14 +2425,21 @@ function ConnectionForm({
                     className={`kw-connector-card${item.connector_key === connectorKey ? " is-selected" : ""}`}
                     onClick={() => { setConnectorKey(item.connector_key); setValues({}); setResult(null); }}
                   >
-                    <strong>{item.display_name}</strong>
-                    <small>{item.status} · {item.category === "adapter" ? "专用适配器" : "provider"} · {item.capabilities.join(" / ")}</small>
+                    <span className="kw-connector-card-top">
+                      <strong>{item.display_name}</strong>
+                      <span className={`kw-connector-status is-${item.status}`}>{item.status}</span>
+                    </span>
+                    <small>{item.category === "adapter" ? "专用适配器" : readableConnectorCategory(item.category)} · {item.capabilities.join(" / ") || "能力由 catalog 返回"}</small>
                     <span>{connectorCredentialLabel(item)}</span>
+                    <em>{connectorSchemaSummary(item)}</em>
                   </button>
                 ))}
               </div>
             </section>
           ))}
+          {!filteredConnectors.length ? (
+            <div className="kw-inline-empty">当前 catalog 没有匹配的 Connection。</div>
+          ) : null}
         </div>
         <label>显示名称<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
         <label>归属<select value={scope} onChange={(event) => setScope(event.target.value as "personal" | "team")}><option value="personal">个人</option><option value="team">团队</option></select></label>
@@ -2151,15 +2619,10 @@ function connectorCredentialLabel(connector: ConnectorDefinition): string {
 function connectorGroups(
   connectors: ConnectorDefinition[],
 ): Array<[string, ConnectorDefinition[]]> {
-  const labels: Array<[string, string[]]> = [
-    ["数据库", ["oracle_database", "postgresql", "mysql", "sql_server", "clickhouse", "doris", "starrocks"]],
-    ["对象存储", ["volcengine_tos", "aliyun_oss", "aws_s3"]],
-    ["办公协作", ["feishu", "dingtalk", "wecom"]],
-    ["API / MCP", ["rest_openapi", "mcp", "hackernews"]],
-    ["文件", ["files"]],
-  ];
-  return labels.flatMap(([group, keys]) => {
-    const items = keys.flatMap((key) => connectors.filter((item) => item.connector_key === key));
-    return items.length ? [[group, items] as [string, ConnectorDefinition[]]] : [];
-  });
+  const groups = new Map<string, ConnectorDefinition[]>();
+  for (const connector of connectors) {
+    const label = readableConnectorCategory(connector.category);
+    groups.set(label, [...(groups.get(label) || []), connector]);
+  }
+  return [...groups.entries()].sort(([left], [right]) => left.localeCompare(right, "zh-CN"));
 }

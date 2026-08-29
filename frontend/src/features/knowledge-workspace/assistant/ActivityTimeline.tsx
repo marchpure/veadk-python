@@ -10,13 +10,13 @@ export function ActivityTimeline({
 }) {
   if (!activities.length) {
     return status === "queued" || status === "running"
-      ? <div className="kw-activity-empty">正在等待执行事件…</div>
+      ? <div className="kw-activity-empty">正在等待 AutoSkill 执行事件…</div>
       : null;
   }
   const toolCount = new Set(
     activities.filter((item) => item.kind === "tool").map((item) => item.callId || item.id),
   ).size;
-  const summary = `已${status === "running" || status === "queued" ? "进行" : "完成"} ${activities.length} 个步骤、调用 ${toolCount} 个能力`;
+  const summary = `已${status === "running" || status === "queued" ? "进行" : "完成"} ${activities.length} 个活动、调用 ${toolCount} 个能力`;
   return (
     <details
       className="kw-activity-timeline"
