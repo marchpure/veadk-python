@@ -236,12 +236,32 @@ def _identifier(value: Any) -> str | None:
     return text[:256] if text else None
 
 
+def event_kind(value: str) -> str:
+    return value.casefold().replace("-", "_").replace(".", "_")
+
+
 def _safe_summary(value: Any, *, limit: int = 2_000) -> str:
     """Return display-safe summary text without exposing structured payloads."""
 
     if not isinstance(value, str):
         return ""
     return str(sanitize_event_payload(value))[:limit]
+
+
+def _safe_structured_summary(value: Any, *, limit: int = 2_000) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return _safe_summary(value, limit=limit)
+    try:
+        return json.dumps(
+            sanitize_event_payload(value),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )[:limit]
+    except (TypeError, ValueError):
+        return ""
 
 
 def _non_negative_int(value: Any) -> int:
@@ -261,7 +281,7 @@ def normalize_upstream_event(
 
     now = datetime.now(timezone.utc).isoformat()
     data = _data(event.payload)
-    kind = event.event_type.casefold().replace("-", "_")
+    kind = event_kind(event.event_type)
     turn_match = re.fullmatch(r"turn[ _]+(\d+)", kind)
     semantic_id = _identifier(event.payload.get("id"))
     base = {
@@ -274,6 +294,12 @@ def normalize_upstream_event(
     parent_id = _identifier(event.payload.get("parent_id"))
     if parent_id is not None:
         base["parent_id"] = parent_id
+    assistant_delta_kinds = {
+        "assistant_delta",
+        "assistant_message_delta",
+        "message_delta",
+        "delta",
+    }
     if event.malformed or (turn_match is None and kind not in {
         "planning",
         "action",
@@ -283,6 +309,7 @@ def normalize_upstream_event(
         "state_update",
         "error",
         "done",
+        *assistant_delta_kinds,
     }):
         return None
     if turn_match is not None:
@@ -369,7 +396,9 @@ def normalize_upstream_event(
                 "call_id": call_id,
                 "tool_name": tool,
                 "status": "running",
-                "input_summary": _safe_summary(data.get("input_summary")),
+                "input_summary": _safe_summary(data.get("input_summary"))
+                or _safe_structured_summary(data.get("arguments"))
+                or _safe_structured_summary(data.get("input")),
             },
         }
     if kind == "observation":
@@ -410,6 +439,25 @@ def normalize_upstream_event(
             "type": "assistant.final",
             "data": {
                 "content": str(sanitize_event_payload(text)),
+            },
+        }
+    if kind in assistant_delta_kinds:
+        text = (
+            data.get("delta")
+            or data.get("text")
+            or data.get("content")
+            or data.get("answer")
+            or ""
+        )
+        return {
+            **base,
+            "type": "assistant.delta",
+            "data": {
+                "text": str(sanitize_event_payload(text)),
+                "sequence": _non_negative_int(
+                    data.get("sequence") or data.get("index") or cursor
+                ),
+                "final": bool(data.get("final", False)),
             },
         }
     if kind == "error":

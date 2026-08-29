@@ -18,9 +18,13 @@ class HtmlArtifactError(ValueError):
 
 
 _BLOCKED = re.compile(
-    r"<\s*(script|iframe|object|embed|form|link)\b|"
+    r"<\s*(iframe|object|embed|form|link)\b|"
     r"<\s*meta\b[^>]+\bhttp-equiv\s*=\s*['\"]?\s*refresh\b|"
     r"\b(on[a-z]+\s*=|javascript\s*:|data\s*:\s*text/html)",
+    re.IGNORECASE,
+)
+_BLOCKED_SCRIPT_CAPABILITY = re.compile(
+    r"""\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|navigator\.sendBeacon|document\.cookie|localStorage|sessionStorage|indexedDB|importScripts|Worker|SharedWorker|serviceWorker)\b|\beval\s*\(|\bnew\s+Function\b""",
     re.IGNORECASE,
 )
 _EXTERNAL = re.compile(
@@ -52,6 +56,11 @@ def validate_html_artifact(
         raise HtmlArtifactError(
             "ARTIFACT_UNSAFE", "HTML artifact contains executable or active content"
         )
+    if _BLOCKED_SCRIPT_CAPABILITY.search(text):
+        raise HtmlArtifactError(
+            "ARTIFACT_UNSAFE",
+            "HTML artifact contains disallowed browser capability access",
+        )
     if not allow_external and (_EXTERNAL.search(text) or _EXTERNAL_CSS.search(text)):
         raise HtmlArtifactError(
             "ARTIFACT_EXTERNAL_LINK", "external HTML resources are not allowed"
@@ -63,8 +72,8 @@ def validate_html_artifact(
         "media_type": "text/html",
         "encoding": "utf-8",
         "size_bytes": len(content),
-        "csp": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
-        "sandbox": "",
+        "csp": "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'",
+        "sandbox": "allow-scripts",
     }
 
 

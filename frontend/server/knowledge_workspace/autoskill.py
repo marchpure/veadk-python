@@ -15,6 +15,7 @@ import httpx
 from .sse import (
     ParsedUpstreamEvent,
     SseParser,
+    event_kind,
     parse_upstream_frame,
     sanitize_event_payload,
 )
@@ -363,9 +364,7 @@ class AutoSkillClient:
                         parsed = parse_upstream_frame(frame)
                         if parsed:
                             first_event_seen = True
-                            terminal_seen = (
-                                parsed.event_type.casefold().replace("-", "_") == "done"
-                            )
+                            terminal_seen = event_kind(parsed.event_type) == "done"
                             yield parsed
                             if terminal_seen:
                                 break
@@ -374,9 +373,7 @@ class AutoSkillClient:
                 for frame in parser.finish():
                     parsed = parse_upstream_frame(frame)
                     if parsed:
-                        terminal_seen = (
-                            parsed.event_type.casefold().replace("-", "_") == "done"
-                        )
+                        terminal_seen = event_kind(parsed.event_type) == "done"
                         yield parsed
                         if terminal_seen:
                             break

@@ -866,7 +866,7 @@ class ConnectionServiceGateway:
                 409,
             )
         servers: dict[str, dict[str, Any]] = {}
-        for index, item in enumerate(leases):
+        for index, item in enumerate(leases or []):
             if not isinstance(item, Mapping):
                 raise ConnectionServiceError(
                     "CONNECTION_RUNTIME_INVALID",
