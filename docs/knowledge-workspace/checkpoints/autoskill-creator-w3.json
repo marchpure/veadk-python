@@ -1,0 +1,74 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/autoskill-creator-w3-checkpoint.schema.json",
+  "checkpoint": "AUTOSKILL_CREATOR_W3_FROZEN",
+  "step": "autoskill-creator-v1-w3-knowledge-workspace-creator-frontend",
+  "created_at": "2026-08-29T12:30:00+08:00",
+  "base_sha": "232eabbf949235c645ac00988d2a2413b7d7d58b",
+  "branch": "feat/knowledge-autoskill-creator-ui",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-autoskill-creator-w3",
+  "scope": {
+    "production_feature_root": "frontend/src/features/knowledge-workspace",
+    "test_fixture_root": "frontend/tests",
+    "forbidden_paths": [
+      "frontend/server/**",
+      "tests/knowledge_workspace/**",
+      "veadk/webui/**"
+    ]
+  },
+  "implemented": [
+    "Default route opens a central creator composer for connecting data and creating a reusable Skill.",
+    "Personal and team workspace headers keep add-connection actions visible.",
+    "Connection selector is driven by the BFF connector catalog, with search, category filtering, status, capabilities, and JSON Schema fields.",
+    "Create flow collects business task, bound connections, file resources, and optional trial task before calling the real Knowledge BFF generate API.",
+    "Assistant timeline shows user messages, execution activities, tool calls, final answers, retry, cancel, and revision updates without BuildPlan or multi-stage plan UI.",
+    "Generated and published Skill views show name, description, SKILL.md, returned file list, bound connections/resources, revision metadata, trial run, edit, new revision, and publish flows.",
+    "Published Skill keeps the Assistant visible beside the selected Skill on desktop and stacks cleanly on narrow screens.",
+    "Dashboard, SOP, and Semantic appear only as disabled future Skill output types."
+  ],
+  "production_no_fallback_boundary": {
+    "skill_file_sources": [
+      "revision.manifest.paths",
+      "revision.manifest.file_paths",
+      "revision.manifest.zip.paths",
+      "revision.manifest.zip.file_paths",
+      "revision.manifest.files",
+      "revision.manifest.source_files",
+      "revision.manifest.bundle_files"
+    ],
+    "skill_markdown_sources": [
+      "revision.manifest.skill_md",
+      "content of a returned SKILL.md file entry"
+    ],
+    "empty_state": "当前 Revision 尚未返回文件清单/源文件内容",
+    "forbidden_synthesis": [
+      "No generated SKILL.md body from goal or trial_task.",
+      "No fallback SKILL.md path.",
+      "No fallback scripts/run.py path.",
+      "No fallback tests/test_skill.py path.",
+      "No files derived from manifest.scripts or manifest.tests metadata."
+    ],
+    "fixture_rule": "W3 fixture file paths and contents exist only in frontend/tests and are used only by Node/Playwright tests."
+  },
+  "acceptance_routes": [
+    "/?view=knowledge-workspace&file=welcome",
+    "/?view=knowledge-workspace&file=skill_new",
+    "/?view=knowledge-workspace&file=draft&draft_id=draft-w3",
+    "/?view=knowledge-workspace&file=published&draft_id=draft-w3"
+  ],
+  "screenshots": [
+    "docs/knowledge-workspace/evidence/w3/autoskill-creator-w3-desktop.png",
+    "docs/knowledge-workspace/evidence/w3/autoskill-creator-w3-narrow.png"
+  ],
+  "tests": {
+    "typecheck": "frontend/npm run typecheck — PASS",
+    "frontend_suite": "frontend/npm test — 875 passed, 0 failed, 1 skipped",
+    "production_build": "frontend/npm run build — PASS; generated veadk/webui artifacts restored and not committed",
+    "w3_playwright_desktop_1440x900": "KW_RUN_W3_PLAYWRIGHT=1 node --test tests/knowledgeCreatorW3Journey.test.mjs — PASS, skipped 0, revision_runs 2, draft_messages 1, published true",
+    "w3_playwright_narrow_390x844": "KW_RUN_W3_PLAYWRIGHT=1 node --test tests/knowledgeCreatorW3Journey.test.mjs — PASS, skipped 0, revision_runs 2, draft_messages 1, published true"
+  },
+  "non_claims": [
+    "The W3 Playwright journey uses explicit same-origin BFF contract fixtures and is not real authenticated service evidence.",
+    "No Connection Service, AutoSkill server, frontend/server, tests/knowledge_workspace, or veadk/webui implementation changes are included.",
+    "No production fallback fixture, mock Skill file, or simulated Skill source is shipped."
+  ]
+}

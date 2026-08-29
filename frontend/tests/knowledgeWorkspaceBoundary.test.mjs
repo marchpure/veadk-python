@@ -10,7 +10,7 @@ const page = await readFile(path.join(featureRoot, "pages/KnowledgeWorkspacePage
 const client = await readFile(path.join(featureRoot, "api/client.ts"), "utf8");
 const connectionSchema = await readFile(path.join(featureRoot, "domain/connectionSchema.ts"), "utf8");
 const artifact = await readFile(path.join(featureRoot, "artifact/ArtifactViewer.tsx"), "utf8");
-const captures = await readFile(path.join(featureRoot, "test-fixtures/captures.ts"), "utf8");
+const captures = await readFile(path.join(root, "tests/fixtures/knowledgeWorkspaceCaptures.ts"), "utf8");
 
 test("production feature is bound to the same-origin knowledge BFF", () => {
   assert.match(client, /const API_ROOT = "\/api\/knowledge\/v1"/);

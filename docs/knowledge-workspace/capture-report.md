@@ -3,7 +3,7 @@
 ## Evidence and method
 
 The test-only capture fixture
-`frontend/src/features/knowledge-workspace/test-fixtures/captures.ts` records
+`frontend/tests/fixtures/knowledgeWorkspaceCaptures.ts` records
 the 22 Prototype state URLs. The capture harness
 `frontend/tests/knowledgeWorkspaceCapture.mjs` renders each state through the
 same-origin BFF contract fixture, waits for route content to settle, asserts

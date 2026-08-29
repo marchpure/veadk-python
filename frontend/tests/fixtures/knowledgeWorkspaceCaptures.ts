@@ -1,7 +1,6 @@
 /**
- * Visual regression input only. This module is never imported by production
- * pages; it records the prototype's 22 state URLs and the production route
- * state they exercise.
+ * Visual regression input only. This module records the prototype's 22 state
+ * URLs and the production route state they exercise.
  */
 export const KNOWLEDGE_CAPTURE_STATES = [
   { stateUrl: "/?file=welcome", route: "welcome" },
