@@ -108,14 +108,19 @@ class KnowledgeWorkspaceService:
         names: list[str] = []
         summary = invocation.request_summary
         if isinstance(summary, Mapping):
-            field = {
-                InvocationKind.GENERATE: "skills_created",
-                InvocationKind.UPDATE: "skills_updated",
-                InvocationKind.RUN: "skills_used",
+            fields = {
+                # A retried generate can legitimately update the skill created
+                # by an earlier cancelled attempt in the same authoring session.
+                InvocationKind.GENERATE: ("skills_created", "skills_updated"),
+                InvocationKind.UPDATE: ("skills_updated",),
+                InvocationKind.RUN: ("skills_used",),
             }[invocation.kind]
-            created = summary.get(field)
-            if isinstance(created, (list, tuple)):
-                names.extend(item for item in created if isinstance(item, str) and item)
+            for field in fields:
+                created = summary.get(field)
+                if isinstance(created, (list, tuple)):
+                    names.extend(
+                        item for item in created if isinstance(item, str) and item
+                    )
         return tuple(names)
 
     @staticmethod
@@ -165,11 +170,9 @@ class KnowledgeWorkspaceService:
             "allowed_mcp_tools": list(tools),
             "allowed_action_ids": list(actions),
             "required_successful_calls": [
-                {
-                    "arguments": {},
-                    "min_successes": 1,
-                }
+                {"tool": tool, "arguments": {}} for tool in tools
             ],
+            "min_successes": 1,
             "fail_if_unsatisfied": True,
             "match": "at_least_one_required_successful_call",
         }
@@ -1069,11 +1072,26 @@ class KnowledgeWorkspaceService:
                     and self.autoskill.config.state_mode.casefold() == "stateless"
                     else None
                 )
+                revision = (
+                    self.repository.get_revision(
+                        invocation.revision_id,
+                        tenant_id=actor.tenant_id,
+                        workspace_id=actor.workspace_id,
+                    )
+                    if invocation.revision_id
+                    else None
+                )
+                run_message = message
+                if revision is not None:
+                    run_message = (
+                        f"First call read_skill(name={revision.skill_name!r}) and follow "
+                        f"that fixed revision's instructions. Then complete this task: {message}"
+                    )
                 stream = self.autoskill.invoke(
                     agent_id=invocation.autoskill_agent_id,
                     session_id=invocation.autoskill_session_id,
                     request_id=invocation.autoskill_request_id,
-                    message=message,
+                    message=run_message,
                     model=model,
                     state=state,
                     invocation_policy=invocation_policy,
@@ -1647,6 +1665,20 @@ class KnowledgeWorkspaceService:
             }
         )
         self.repository.save_invocation(result)
+        draft = self.repository.get_draft(
+            invocation.draft_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        )
+        if draft is not None and draft.status is DraftStatus.GENERATING:
+            self.repository.save_draft(
+                draft.model_copy(
+                    update={
+                        "status": DraftStatus.CANCELLED,
+                        "updated_at": utc_now(),
+                    }
+                )
+            )
         cursor = len(self.repository.raw_events(invocation_id)) + 1
         self.repository.append_event(
             invocation_id,

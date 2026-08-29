@@ -1,0 +1,20 @@
+{
+  "contract": "autoskill-creator-v1",
+  "feishu_real_oauth": {
+    "status": "DEFERRED_NON_BLOCKING",
+    "reason": "Requires an external Feishu account and OAuth callback allowlist."
+  },
+  "feishu_document_read": {
+    "status": "DEFERRED_NON_BLOCKING",
+    "reason": "Requires an externally authorized Feishu document resource."
+  },
+  "automated_regression": {
+    "oauth_callback_state": "PASS",
+    "oauth_replay_rejection": "PASS",
+    "oauth_expiry_rejection": "PASS",
+    "oauth_cross_tenant_rejection": "PASS",
+    "encrypted_storage": "PASS",
+    "redaction": "PASS",
+    "state_persistence": "PASS"
+  }
+}

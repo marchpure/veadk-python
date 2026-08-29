@@ -51,6 +51,7 @@ class FakeAutoSkill:
         self.policies: list[dict[str, object] | None] = []
         self.commands: list[str] = []
         self.downloads: list[dict[str, object]] = []
+        self.invocations: list[dict[str, object]] = []
         self.output = b"<!doctype html><html><body>real output</body></html>"
         self.skill_zip = make_skill_zip("demo", "# Demo\n")
 
@@ -73,6 +74,7 @@ class FakeAutoSkill:
             yield item
 
     async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+        self.invocations.append(kwargs)
         self.request_ids.append(str(kwargs["request_id"]))
         self.policies.append(kwargs.get("invocation_policy"))
         for item in self.invoke_events or self.events:
@@ -309,6 +311,36 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
     )
     publication = service.publish(actor, revision.revision_id, "personal")
     assert publication.revision_id == revision.revision_id
+
+
+@pytest.mark.asyncio
+async def test_run_explicitly_loads_the_fixed_revision_skill() -> None:
+    service, actor = make_freeze_service()
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generated = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generated.invocation_id)
+
+    run = await service.run_revision(
+        actor,
+        revision.revision_id,
+        "produce the report",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    invocation_call = next(
+        call
+        for call in fake.invocations
+        if call["request_id"] == run.autoskill_request_id
+    )
+    assert (
+        invocation_call["message"]
+        == "First call read_skill(name='demo') and follow that fixed revision's "
+        "instructions. Then complete this task: produce the report"
+    )
 
 
 @pytest.mark.asyncio
@@ -660,6 +692,7 @@ async def test_cancel_is_idempotent_and_archives_cancelled_event() -> None:
     first = await service.cancel(actor, invocation.invocation_id)
     second = await service.cancel(actor, invocation.invocation_id)
     assert first.status is second.status is InvocationStatus.CANCELLED
+    assert service.get_draft(actor, draft.draft_id).status is DraftStatus.CANCELLED
     assert any(
         item["event"].get("type") == "run.cancelled"
         for item in service.repository.events_after(invocation.invocation_id)
@@ -825,7 +858,13 @@ async def test_connection_backed_generate_builds_policy_from_lease_actions() -> 
         "allowed_mcp_servers": ["knowledge-connection-1"],
         "allowed_mcp_tools": ["mcp__knowledge-connection-1__execute_action"],
         "allowed_action_ids": ["fixture.read"],
-        "required_successful_calls": [{"arguments": {}, "min_successes": 1}],
+        "required_successful_calls": [
+            {
+                "tool": "mcp__knowledge-connection-1__execute_action",
+                "arguments": {},
+            }
+        ],
+        "min_successes": 1,
         "fail_if_unsatisfied": True,
         "match": "at_least_one_required_successful_call",
     }
@@ -1039,6 +1078,32 @@ async def test_freeze_requires_request_summary_target_skill_not_list_fallback() 
         await service.freeze(actor, draft.draft_id, invocation.invocation_id)
 
     assert "list_skill" not in autoskill.commands
+
+
+@pytest.mark.asyncio
+async def test_generate_retry_can_freeze_an_updated_target_skill() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        FreezeAutoSkill(
+            [
+                event("final_answer", {"answer": "updated"}),
+                event(
+                    "request_summary",
+                    policy_summary(skills_field="skills_updated"),
+                ),
+                event("done"),
+            ]
+        ),
+        FakeLeasePort(),
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    revision = await service.freeze(actor, draft.draft_id, invocation.invocation_id)
+
+    assert revision.skill_name == "demo"
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,57 @@
+{
+  "contract": "autoskill-creator-v1",
+  "status": "PASS",
+  "accepted_connection": {
+    "id": "c7b434e3-e7c2-4d72-9658-cd739243494d",
+    "kind": "Hacker News",
+    "action": "hackernews.get_max_item_id",
+    "read_only": true
+  },
+  "draft": {
+    "id": "draft_aa5fe53d8a9f43e9a19860a2cf30cdf1",
+    "skill_name": "hackernews-live-max-item"
+  },
+  "revisions": [
+    {
+      "id": "rev_bf7b8807bcf141ce8c294e2c279a2041",
+      "digest": "6e4a06eba689cc650841dd421d417d73a30e235b8b55efc1577c3fce4b583735",
+      "run_invocation_id": "inv_aedb4d46a74041e9a46fd508cb2231c1",
+      "connection_audit_id": "ddb2ee72-1466-41d5-a4d2-3b43f281a7f0"
+    },
+    {
+      "id": "rev_bc7e8a0ecec1429b89add8d3ffd584d2",
+      "digest": "0c5bd64178754801762046264e94ddaa3600d9847d39cd23dcb5f5e4122effb4",
+      "manifest_kind": "general",
+      "run_invocation_id": "inv_fae7b46293b6466eaf87f53aefdca459",
+      "connection_audit_id": "bc896e8f-a292-475e-bba7-1e141c7c955e"
+    }
+  ],
+  "publication": {
+    "id": "pub_9cdb7d622fb348f98b7b5fe7db264e24",
+    "fresh_agent_invocation_id": "inv_a5a5fa8bfe9b420aa819e9259a10e216",
+    "autoskill_request_id": "request_83eaa2d6b05d48de9438a590fe04822a",
+    "connection_audit_id": "0f4efd9a-ef8e-4962-9e42-0c445eb0fd78",
+    "lease_revoked_after_use": true
+  },
+  "artifact": {
+    "id": "artifact_a303401fa29f4f41a313370b761a4d8e",
+    "sha256": "88d320a696ad4fe357931bbc99b8156679a4f6513ff0635c90fc981d901181e3",
+    "content_type": "text/html",
+    "validated": true
+  },
+  "recovery_and_security": {
+    "refresh_restore": "PASS",
+    "three_service_restart_restore": "PASS",
+    "sse_reconnect_and_deduplication": "PASS",
+    "cancel_and_retry": "PASS",
+    "lease_expiry_and_revocation": "PASS",
+    "cross_tenant_and_workspace_denial": "PASS",
+    "zip_traversal_symlink_and_secret_scan": "PASS",
+    "browser_console_and_page_errors": "PASS"
+  },
+  "screenshots": [
+    "published-desktop-1440x900.png",
+    "published-mobile-390x844.png"
+  ],
+  "secrets_or_raw_tokens_included": false
+}
