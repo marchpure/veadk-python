@@ -998,13 +998,24 @@ export default function App() {
   if (query.get("view") === "knowledge-workspace") {
     return <KnowledgeWorkspacePage />;
   }
-  if (query.get("view") === "openviking") {
-    return <OpenVikingWorkspace />;
-  }
-  return <StudioApp />;
+  const initialWorkspace = query.get("view") === "openviking"
+    ? "openviking"
+    : "agent-studio";
+  return <StudioApp initialWorkspace={initialWorkspace} />;
 }
 
-function StudioApp() {
+function StudioApp({
+  initialWorkspace,
+}: {
+  initialWorkspace: "agent-studio" | "openviking";
+}) {
+  if (initialWorkspace === "openviking") {
+    return <OpenVikingWorkspace />;
+  }
+  return <AgentStudioApp />;
+}
+
+function AgentStudioApp() {
   const [apps, setApps] = useState<string[]>([]);
   const [appName, setAppName] = useState("");
   const [sessions, setSessions] = useState<AdkSession[]>([]);

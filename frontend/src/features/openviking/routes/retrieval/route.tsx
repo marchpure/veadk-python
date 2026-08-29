@@ -67,6 +67,21 @@ function currentSearch(): RetrievalSearch {
   return validateRetrievalSearch(raw)
 }
 
+function replaceLocationSearch(search: RetrievalSearch): void {
+  const nextQuery = new URLSearchParams(
+    Object.entries(search).flatMap(([key, value]) =>
+      value === undefined ? [] : [[key, String(value)]],
+    ),
+  )
+  const view = new URLSearchParams(window.location.search).get('view')
+  if (view) nextQuery.set('view', view)
+  window.history.replaceState(
+    null,
+    '',
+    `${window.location.pathname}?${nextQuery}`,
+  )
+}
+
 export function RetrievalPage() {
   const { t } = useTranslation('retrieval')
   const search = currentSearch()
@@ -123,16 +138,7 @@ export function RetrievalPage() {
       setSubmittedOptions(options)
       setSubmittedQuery(submission.query)
       writeLastRetrievalSearch(submission.search)
-      const nextQuery = new URLSearchParams(
-        Object.entries(submission.search).flatMap(([key, value]) =>
-          value === undefined ? [] : [[key, String(value)]],
-        ),
-      )
-      window.history.replaceState(
-        null,
-        '',
-        `${window.location.pathname}?${nextQuery}`,
-      )
+      replaceLocationSearch(submission.search)
     },
     [options, query],
   )
@@ -179,16 +185,7 @@ export function RetrievalPage() {
     writeLastRetrievalSearch(nextSearch)
 
     if (!hasUrlSearch) {
-      const nextQuery = new URLSearchParams(
-        Object.entries(nextSearch).flatMap(([key, value]) =>
-          value === undefined ? [] : [[key, String(value)]],
-        ),
-      )
-      window.history.replaceState(
-        null,
-        '',
-        `${window.location.pathname}?${nextQuery}`,
-      )
+      replaceLocationSearch(nextSearch)
     }
   }, [activeSearch, hasUrlSearch])
 

@@ -1,4 +1,22 @@
-export * from '#/gen/ov-client'
+export {
+  getContentAbstract,
+  getContentDownload,
+  getContentOverview,
+  getContentRead,
+  getFsLs,
+  getFsStat,
+  getFsTree,
+  getTaskByTaskId,
+  getTasks,
+  postContentWrite,
+  postResources,
+  postResourcesTempUpload,
+  postSearchFind,
+  postSearchGlob,
+  postSearchGrep,
+  postSearchSearch,
+  postSessionIdCommit,
+} from '#/gen/ov-client/sdk.gen'
 
 export { createOvClient, ovClient } from './client'
 export {

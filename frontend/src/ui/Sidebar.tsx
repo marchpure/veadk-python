@@ -1,5 +1,7 @@
 import {
+  type ComponentType,
   type CSSProperties,
+  type ReactNode,
   type SVGProps,
   useEffect,
   useRef,
@@ -65,6 +67,21 @@ export interface SidebarSandboxHistory {
   onDelete: (thread: SandboxThreadSummary) => void;
 }
 
+export interface SidebarContextNavigationItem {
+  id: string;
+  label: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  onSelect: () => void;
+}
+
+export interface SidebarContextNavigation {
+  activeId: string;
+  ariaLabel?: string;
+  items: SidebarContextNavigationItem[];
+  onBrandClick?: () => void;
+  footer?: ReactNode;
+}
+
 function ApplicationsIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -86,6 +103,7 @@ function ApplicationsIcon(props: SVGProps<SVGSVGElement>) {
 export interface SidebarProps {
   branding: SiteBranding;
   cloudProvider: "volcengine" | "byteplus";
+  contextNavigation?: SidebarContextNavigation;
   sessions: AdkSession[];
   currentSessionId: string;
   activePage: SidebarPage;
@@ -114,6 +132,13 @@ export interface SidebarProps {
   userInfo?: Record<string, unknown>;
   onLogout: () => void;
 }
+
+type ContextSidebarProps = Pick<
+  SidebarProps,
+  "branding" | "cloudProvider"
+> & {
+  contextNavigation: SidebarContextNavigation;
+};
 
 /** Stable per-user blue/cyan smoke palette so avatars feel individual without flicker. */
 function smokeAvatarStyle(seed: string): CSSProperties {
@@ -269,7 +294,120 @@ function SidebarUser({
   );
 }
 
-export function Sidebar({
+function ContextSidebar({
+  branding,
+  cloudProvider,
+  contextNavigation,
+}: ContextSidebarProps) {
+  const autoCollapsedRef = useRef(
+    typeof window !== "undefined" &&
+      window.matchMedia(SIDEBAR_AUTO_COLLAPSE_QUERY).matches,
+  );
+  const [collapsed, setCollapsed] = useState(autoCollapsedRef.current);
+
+  useEffect(() => {
+    const query = window.matchMedia(SIDEBAR_AUTO_COLLAPSE_QUERY);
+    const handleViewportChange = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        setCollapsed(true);
+        autoCollapsedRef.current = true;
+      } else if (autoCollapsedRef.current) {
+        setCollapsed(false);
+        autoCollapsedRef.current = false;
+      }
+    };
+    query.addEventListener("change", handleViewportChange);
+    return () => query.removeEventListener("change", handleViewportChange);
+  }, []);
+
+  const fallbackLogo = cloudProvider === "byteplus" ? byteplusLogo : defaultSiteLogo;
+  const toggleCollapsed = () => {
+    autoCollapsedRef.current = false;
+    setCollapsed((value) => !value);
+  };
+
+  return (
+    <aside
+      className={`sidebar openviking-context-sidebar${
+        collapsed ? " is-collapsed" : ""
+      }`}
+    >
+      <div className="sidebar-top">
+        <div className="sidebar-brand-row">
+          <button
+            type="button"
+            className="brand"
+            onClick={contextNavigation.onBrandClick}
+            aria-label={branding.title}
+            title={branding.title}
+          >
+            <img
+              className="brand-logo"
+              src={branding.logoUrl || fallbackLogo}
+              width={20}
+              height={20}
+              alt=""
+              aria-hidden
+            />
+            <span className="brand-title">{branding.title}</span>
+          </button>
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? (
+              <SidebarExpandIcon className="icon" />
+            ) : (
+              <SidebarCollapseIcon className="icon" />
+            )}
+          </button>
+        </div>
+        <div className="openviking-sidebar-label">Workspace</div>
+        <nav
+          className="sidebar-nav"
+          aria-label={contextNavigation.ariaLabel ?? "OpenViking workspace"}
+        >
+          {contextNavigation.items.map(({ id, icon: Icon, label, onSelect }) => {
+            const active = contextNavigation.activeId === id;
+            return (
+              <button
+                type="button"
+                className={`new-chat openviking-sidebar-item${
+                  active ? " is-active" : ""
+                }`}
+                key={id}
+                onClick={onSelect}
+                aria-current={active ? "page" : undefined}
+                aria-label={label}
+                title={label}
+              >
+                <Icon className="icon" />
+                <span className="sidebar-nav-label">{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+      {contextNavigation.footer ? (
+        <div className="sidebar-footer openviking-sidebar-footer">
+          {contextNavigation.footer}
+        </div>
+      ) : null}
+    </aside>
+  );
+}
+
+export function Sidebar(props: SidebarProps | ContextSidebarProps) {
+  if (props.contextNavigation) {
+    return <ContextSidebar {...props} contextNavigation={props.contextNavigation} />;
+  }
+  return <AgentSidebar {...(props as SidebarProps)} />;
+}
+
+function AgentSidebar({
   branding,
   cloudProvider,
   sessions,
