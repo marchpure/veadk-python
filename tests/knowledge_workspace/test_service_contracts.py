@@ -379,6 +379,7 @@ async def test_stateless_run_state_contains_fixed_revision_skill() -> None:
     assert autoskill.invoke_states[-1] is not None
     with zipfile.ZipFile(io.BytesIO(autoskill.invoke_states[-1])) as archive:
         assert "skillhub/demo/SKILL.md" in archive.namelist()
+    assert not autoskill.uploads
     async def download(self, **_kwargs: object) -> bytes:
         raise AutoSkillProtocolError("AutoSkill download returned HTTP 404")
 

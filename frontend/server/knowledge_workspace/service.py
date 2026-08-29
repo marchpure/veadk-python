@@ -1589,17 +1589,19 @@ class KnowledgeWorkspaceService:
                     raise KnowledgeWorkspaceError(
                         "NOT_FOUND", "revision not found", 404
                     )
-                await self.autoskill.upload(
-                    agent_id=invocation.autoskill_agent_id,
-                    session_id=invocation.autoskill_session_id,
-                    file_type="skill",
-                    file_name=revision.skill_name,
-                    content=self.repository.read_object(revision.zip_uri),
-                )
-                if (
+                is_stateless = (
                     getattr(self.autoskill, "config", None) is not None
                     and self.autoskill.config.state_mode.casefold() == "stateless"
-                ):
+                )
+                if not is_stateless:
+                    await self.autoskill.upload(
+                        agent_id=invocation.autoskill_agent_id,
+                        session_id=invocation.autoskill_session_id,
+                        file_type="skill",
+                        file_name=revision.skill_name,
+                        content=self.repository.read_object(revision.zip_uri),
+                    )
+                if is_stateless:
                     session_state = self._session_state(session)
                     combined_state = self._state_with_skill(
                         prepared_autoskill_state
