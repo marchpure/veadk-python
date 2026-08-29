@@ -94,6 +94,49 @@ def test_operation_allowlist_matches_frozen_watch_api() -> None:
     assert "watch_create" not in OPERATIONS
 
 
+@pytest.mark.asyncio
+async def test_session_commit_retry_uses_fixed_scoped_upstream_path() -> None:
+    observed: dict[str, object] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed.update(
+            method=request.method,
+            url=str(request.url),
+            key=request.headers.get("X-API-Key"),
+            body=json.loads(request.content),
+        )
+        return httpx.Response(200, json={"result": {"reason": "committed"}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    result = await service.request(
+        value,
+        "session_commit",
+        item_id="session_123",
+        payload={"keep_recent_count": 3},
+    )
+
+    assert result == {"result": {"reason": "committed"}}
+    assert observed == {
+        "method": "POST",
+        "url": "http://localhost:38110/api/v1/sessions/session_123/commit",
+        "key": "secret-api-key",
+        "body": {"keep_recent_count": 3},
+    }
+    with pytest.raises(OpenVikingError) as rejected:
+        await service.request(
+            value,
+            "session_commit",
+            item_id="session_123",
+            payload={"owner_id": "browser-owner"},
+        )
+    assert rejected.value.code == "INVALID_ARGUMENT"
+    assert observed["body"] == {"keep_recent_count": 3}
+    await client.aclose()
+
+
 def test_resource_refs_are_signed_profile_scoped_and_workspace_scoped() -> None:
     service = OpenVikingService(OpenVikingProfileRepository(), config())
     first = profile(service)
@@ -626,15 +669,27 @@ async def test_upload_rejects_type_and_oversize_before_upstream() -> None:
 
 @pytest.mark.asyncio
 async def test_manual_text_composes_target_from_opaque_parent_ref() -> None:
-    observed: dict[str, object] = {}
+    observed: list[dict[str, object]] = []
 
     def upstream(request: httpx.Request) -> httpx.Response:
-        observed.update(json.loads(request.content))
+        if request.url.path == "/api/v1/resources/temp_upload":
+            observed.append(
+                {
+                    "path": request.url.path,
+                    "has_filename": b'filename="notes.md"' in request.content,
+                    "has_content": b"# Verified knowledge" in request.content,
+                }
+            )
+            return httpx.Response(
+                200, json={"status": "ok", "result": {"temp_file_id": "upload-1.md"}}
+            )
+        body = json.loads(request.content)
+        observed.append({"path": request.url.path, "body": body})
         return httpx.Response(
             200,
             json={
                 "result": {
-                    "uri": observed["uri"],
+                    "uri": "viking://resources/workspace-a/notes",
                     "root_uri": "viking://resources/workspace-a",
                 }
             },
@@ -652,13 +707,23 @@ async def test_manual_text_composes_target_from_opaque_parent_ref() -> None:
         content="# Verified knowledge",
     )
 
-    assert observed == {
-        "uri": "viking://resources/workspace-a/notes.md",
-        "content": "# Verified knowledge",
-        "mode": "replace",
-        "wait": False,
-    }
-    assert result["result"]["uri"] == "viking://workspace/notes.md"
+    assert observed == [
+        {
+            "path": "/api/v1/resources/temp_upload",
+            "has_filename": True,
+            "has_content": True,
+        },
+        {
+            "path": "/api/v1/resources",
+            "body": {
+                "temp_file_id": "upload-1.md",
+                "parent": "viking://resources/workspace-a/",
+                "wait": True,
+                "timeout": 30.0,
+            },
+        },
+    ]
+    assert result["result"]["uri"] == "viking://workspace/notes"
     assert result["result"]["resource_ref"].startswith("ovr_")
     assert result["result"]["root_uri"] == "viking://workspace/"
     assert result["result"]["display_path"] == ""
@@ -667,7 +732,15 @@ async def test_manual_text_composes_target_from_opaque_parent_ref() -> None:
 
 @pytest.mark.asyncio
 async def test_manual_text_rejects_unsafe_name_and_raw_parent() -> None:
-    service = OpenVikingService(OpenVikingProfileRepository(), config())
+    upstream_called = False
+
+    def upstream(_request: httpx.Request) -> httpx.Response:
+        nonlocal upstream_called
+        upstream_called = True
+        return httpx.Response(200, json={"status": "ok"})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
     value = profile(service)
     with pytest.raises(OpenVikingError, match="filename"):
         await service.write_text(
@@ -676,13 +749,16 @@ async def test_manual_text_rejects_unsafe_name_and_raw_parent() -> None:
             filename="../secret.md",
             content="secret",
         )
-    with pytest.raises(OpenVikingError, match="invalid"):
+    with pytest.raises(OpenVikingError) as raw_parent:
         await service.write_text(
             value,
             parent_ref=value.workspace_uri,
             filename="safe.md",
             content="content",
         )
+    assert raw_parent.value.code == "OPAQUE_RESOURCE_REF_REQUIRED"
+    assert not upstream_called
+    await client.aclose()
 
 
 @pytest.mark.asyncio
@@ -907,11 +983,34 @@ async def test_connection_resource_import_reauthorizes_and_strips_secrets() -> N
     )
     gateway = RecordingGateway()
     actor = Actor("tenant-a", "workspace-a", "user-a")
-    observed: dict[str, object] = {}
+    observed: list[dict[str, object]] = []
 
     def upstream(request: httpx.Request) -> httpx.Response:
-        observed.update(json.loads(request.content))
-        return httpx.Response(200, json={"result": {"uri": observed["uri"]}})
+        if request.url.path == "/api/v1/resources/temp_upload":
+            observed.append(
+                {
+                    "path": request.url.path,
+                    "has_filename": b'filename="orders.json"' in request.content,
+                    "has_schema": b"order_id" in request.content,
+                    "has_secret": b"top-secret" in request.content
+                    or b"also-hidden" in request.content
+                    or b"nested-hidden" in request.content,
+                    "has_adapter_id": b"adapter-private-a" in request.content,
+                }
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "status": "ok",
+                    "result": {"temp_file_id": "upload-orders.json"},
+                },
+            )
+        body = json.loads(request.content)
+        observed.append({"path": request.url.path, "body": body})
+        return httpx.Response(
+            200,
+            json={"result": {"uri": "viking://resources/workspace-a/orders"}},
+        )
 
     upstream_client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
     openviking = OpenVikingService(
@@ -947,23 +1046,31 @@ async def test_connection_resource_import_reauthorizes_and_strips_secrets() -> N
             path,
             json={
                 "parent_ref": parent_ref,
-                "filename": "orders.json.md",
+                "filename": "orders.json",
                 "resource_id": "resource-a",
             },
         )
 
-    expected_document = {
-        "kind": "rest_openapi",
-        "display_name": "Orders API",
-        "description": {
-            "summary": "Order schema",
-            "nested": {"columns": ["order_id", "status"]},
+    assert observed == [
+        {
+            "path": "/api/v1/resources/temp_upload",
+            "has_filename": True,
+            "has_schema": True,
+            "has_secret": False,
+            "has_adapter_id": False,
         },
-    }
+        {
+            "path": "/api/v1/resources",
+            "body": {
+                "temp_file_id": "upload-orders.json",
+                "parent": "viking://resources/workspace-a/",
+                "wait": True,
+                "timeout": 30.0,
+            },
+        },
+    ]
     assert imported.status_code == 200
     assert gateway.calls == [("adapter-private-a", "tenant-a", "workspace-a", "user-a")]
-    assert json.loads(str(observed["content"])) == expected_document
-    assert observed["uri"] == "viking://resources/workspace-a/orders.json.md"
     serialized = json.dumps(observed)
     assert "top-secret" not in serialized
     assert "also-hidden" not in serialized
@@ -991,6 +1098,28 @@ async def test_connection_resource_import_reauthorizes_and_strips_secrets() -> N
     assert getattr(absent.value, "status_code", None) == 404
     assert len(gateway.calls) == 1
     await upstream_client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_text_import_rejects_upload_without_temporary_file_id() -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(200, json={"status": "ok", "result": {}})
+        )
+    )
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    with pytest.raises(OpenVikingError) as rejected:
+        await service.write_text(
+            value,
+            parent_ref=service.resource_ref(value, value.workspace_uri),
+            filename="notes.md",
+            content="verified",
+        )
+
+    assert rejected.value.code == "OPENVIKING_INVALID_RESPONSE"
+    await client.aclose()
 
 
 @pytest.mark.asyncio

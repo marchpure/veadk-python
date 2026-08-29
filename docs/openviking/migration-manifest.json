@@ -350,7 +350,10 @@
         "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "792990fc88dd3bcd5b88b91da1296849502cbce349fab36710dfe0369cd0fbbc",
-      "target_sha256": "4e70e2dd099e17ec3c76e3334c4c7dfd09cb44b2fca6a5a41cb48b8e82be45e4"
+      "target_sha256": "4e70e2dd099e17ec3c76e3334c4c7dfd09cb44b2fca6a5a41cb48b8e82be45e4",
+      "key_differences": [
+        "Adds English labels and validation copy for manual-text and authorized Connection import modes."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -398,7 +401,10 @@
         "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "f2bd664750c2b459e6c446dffe45d766be2681ea701cc7698b73d54615c37a31",
-      "target_sha256": "9051c59d57e299a044f1eea3ccceadc7d7913e19b929920fe28c749612f9e979"
+      "target_sha256": "9051c59d57e299a044f1eea3ccceadc7d7913e19b929920fe28c749612f9e979",
+      "key_differences": [
+        "Adds Chinese labels and validation copy for manual-text and authorized Connection import modes."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -434,7 +440,10 @@
         "frontend/src/features/openviking/lib/ov-client/client.test.ts"
       ],
       "source_sha256": "14ce0b6f6c19840410ab1aaa889d49bbf2f867390d50eae0b87ec28dd6923076",
-      "target_sha256": "d699b3dde98e1ff2aa808e88a7665bf49f543ba9587fcacef3171d4782d76ae6"
+      "target_sha256": "9ce6f9e2e4d18b6783f1f540549f4d55f17c2393d5ac9c708282b51099e93c34",
+      "key_differences": [
+        "Replaces direct credential-injection assertions with same-origin BFF rewrite, opaque resource-ref, operation allowlist, and session-commit retry assertions."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -446,7 +455,12 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "883edc5bbd2bbf35f96585ed5f3fdbff0552a59d7d992231866dcc46df165f70",
-      "target_sha256": "4faad4849438926c1a84cfa5dd5c5a09469a33d8a281442e5c56993f53388b0b"
+      "target_sha256": "e054c50838578af28460511597e6bdacc51788511ac1cf7341cf6085b9e3ffd9",
+      "key_differences": [
+        "Routes allowlisted Studio operations to the same-origin AgentKit BFF.",
+        "Removes browser API-key/account-header persistence and injection.",
+        "Translates viking:// URIs to profile-scoped opaque resource refs, including fixed-path session commit retry."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -458,7 +472,10 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "0fd4ea2eafc14b6e17d06b8a316c08ab1662b8432fc17cee43b0c42404743941",
-      "target_sha256": "87c8f51b8677705fc7b325d38041322d7d1008fccbb9655cd1c8a2f1992bc270"
+      "target_sha256": "87c8f51b8677705fc7b325d38041322d7d1008fccbb9655cd1c8a2f1992bc270",
+      "key_differences": [
+        "Normalizes AgentKit BFF HTTP detail envelopes in addition to upstream OpenViking error envelopes."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -494,7 +511,10 @@
         "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "72a51f959067cffd47a7734392f6e5ff741ce04469afdbd0a67df07e4f42e1e2",
-      "target_sha256": "67bcb6533434d5ef2d83b9820c736342a945cdd748cb4dbfa107a8ea9854abe4"
+      "target_sha256": "67bcb6533434d5ef2d83b9820c736342a945cdd748cb4dbfa107a8ea9854abe4",
+      "key_differences": [
+        "Adds coverage for AgentKit manual-text and authorized Connection import modes."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -507,7 +527,11 @@
         "tests/frontend/server/test_openviking_bff.py"
       ],
       "source_sha256": "82a33cd09aec304d08e323d7441a203bbb15589cd1c122a3da29a21a9c08fa80",
-      "target_sha256": "5c5748f8767b6a326c1209407f8819024f4a9230642b8be99966021e127ec1e4"
+      "target_sha256": "5c5748f8767b6a326c1209407f8819024f4a9230642b8be99966021e127ec1e4",
+      "key_differences": [
+        "Adds manual-text and authorized Connection resource import modes through scoped same-origin BFF commands.",
+        "Retains upstream upload and remote URL flows while adapting completion handling to the AgentKit shell."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -747,7 +771,10 @@
         "frontend/src/features/openviking/routes/resources/-components/upload-resource-fields.test.tsx"
       ],
       "source_sha256": "dddd060842e1a663d8facd62005217204ca36dedc5c53e4f467c6b6e7ff79bf8",
-      "target_sha256": "9df4bc99f61f8c1829478a0394a18cc53fa3db7d47a827301d251a037371e6c7"
+      "target_sha256": "9df4bc99f61f8c1829478a0394a18cc53fa3db7d47a827301d251a037371e6c7",
+      "key_differences": [
+        "Adds an explicit translator-function type adaptation required by AgentKit TypeScript settings; behavior is unchanged."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -879,7 +906,10 @@
         "frontend/src/features/openviking/routes/resources/-lib/api.test.ts"
       ],
       "source_sha256": "33653943a6ee55de1405653a2d2bcdd1cc8ed262cdda919e5df4b38fb83f8b83",
-      "target_sha256": "e63459550ccf757b0fbc81ad75f52451ef6c55d78f99ce31f6a19a9b75d4c2fa"
+      "target_sha256": "e63459550ccf757b0fbc81ad75f52451ef6c55d78f99ce31f6a19a9b75d4c2fa",
+      "key_differences": [
+        "Adds an explicit generic type to the partial ov-client mock required by AgentKit TypeScript settings; behavior is unchanged."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -1107,7 +1137,10 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "fdad776cff291a862e1873a93a1d880ad1a29fdc6e4b20c4de2b3b2e049998fc",
-      "target_sha256": "a95c60aa6d22511676d5ab8c75c1d27df92f000218153381f3a297d6f2d6d748"
+      "target_sha256": "a95c60aa6d22511676d5ab8c75c1d27df92f000218153381f3a297d6f2d6d748",
+      "key_differences": [
+        "Handles an undefined URL extension under AgentKit strict TypeScript settings; classification behavior is unchanged."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -1383,7 +1416,10 @@
         "frontend/src/features/openviking/routes/retrieval/-lib/search-state.test.ts"
       ],
       "source_sha256": "0f94445e2567aecfa28c5156e35404c7ad77a6998ea4d4063cb8922d6a4cac8d",
-      "target_sha256": "d455a26815334978337e89c5f5b580264352716f99c4400496bc062a1cd72d64"
+      "target_sha256": "d455a26815334978337e89c5f5b580264352716f99c4400496bc062a1cd72d64",
+      "key_differences": [
+        "Adapts search-state assertions to AgentKit route embedding and query serialization."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -1419,7 +1455,11 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "26cb3dcad9c48781677e8351e0d685363f9f5c50d86be34617292b8fd76cbc59",
-      "target_sha256": "555da66f7fd777fcde1cb9a97658d7d62852e791c8313853ae9751f97e40370d"
+      "target_sha256": "555da66f7fd777fcde1cb9a97658d7d62852e791c8313853ae9751f97e40370d",
+      "key_differences": [
+        "Removes the standalone TanStack route wrapper.",
+        "Uses browser history and an AgentKit shell event for embedded navigation while retaining upstream retrieval state and controls."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -1527,7 +1567,11 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "fe7fb51538acfed05406476da5f8ee99b3c91effc0fe92b4f4154540f1e3e829",
-      "target_sha256": "ae903cf2c2edf521bad816ee80a4ae4c49475c9485d4c048045f41ddf6cd7593"
+      "target_sha256": "ae903cf2c2edf521bad816ee80a4ae4c49475c9485d4c048045f41ddf6cd7593",
+      "key_differences": [
+        "Removes the standalone TanStack route wrapper and exports the page for AgentKit embedding.",
+        "Removes redundant local task-step/status variables while retaining upstream task actions, including BFF-routed retry."
+      ]
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -1647,7 +1691,10 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "172552982b5c7af04b930d0366b1ff27dc0364dfd602ea4124f3ab3440bf518a",
-      "target_sha256": "56932d5567860a07da25830a39a8d1bfa44ab30161783b7b1c8af50fb24506f9"
+      "target_sha256": "56932d5567860a07da25830a39a8d1bfa44ab30161783b7b1c8af50fb24506f9",
+      "key_differences": [
+        "Removes the standalone TanStack route wrapper and exports the page for AgentKit embedding; watch behavior is unchanged."
+      ]
     }
   ],
   "direct_component_dependencies": [

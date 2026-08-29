@@ -310,6 +310,7 @@ OPERATIONS: Mapping[str, Operation] = {
 }
 
 ITEM_OPERATIONS: Mapping[str, Operation] = {
+    "session_commit": Operation("POST", "/api/v1/sessions", body_limit=1024),
     "task_get": Operation("GET", "/api/v1/tasks"),
     "watch_get": Operation("GET", "/api/v1/watches"),
     "watch_update": Operation("PATCH", "/api/v1/watches"),
@@ -465,6 +466,7 @@ OPERATION_FIELDS: Mapping[str, frozenset[str]] = {
     ),
     "watches": frozenset({"active_only", "to_ref"}),
     "task_get": frozenset(),
+    "session_commit": frozenset({"keep_recent_count"}),
     "watch_get": frozenset({"to_ref"}),
     "watch_update": frozenset(
         {"watch_interval", "is_active", "reason", "instruction", "to_ref"}
@@ -502,6 +504,7 @@ INTEGER_FIELDS = frozenset(
         "max_tokens",
         "node_limit",
         "offset",
+        "keep_recent_count",
         "rewrite_max_bullets",
     }
 )
@@ -1362,6 +1365,8 @@ class OpenVikingService:
             ):
                 raise OpenVikingError("INVALID_ARGUMENT", "Item id is invalid", 422)
             path += f"/{item_id}"
+            if operation_name == "session_commit":
+                path += "/commit"
             if operation_name == "watch_trigger":
                 path += "/trigger"
         base_url, api_key = self._credentials(profile)
@@ -1475,16 +1480,14 @@ class OpenVikingService:
             raise OpenVikingError("INVALID_ARGUMENT", "Text content is required", 422)
         if len(content.encode("utf-8")) > MAX_JSON_BYTES:
             raise OpenVikingError("PAYLOAD_TOO_LARGE", "Text content is too large", 413)
-        parent = self.resolve_ref(profile, parent_ref).rstrip("/") + "/"
-        return await self.request(
+        return await self._import_text_file(
             profile,
-            "content_write",
-            payload={
-                "resource_ref": self.resource_ref(profile, parent + name),
-                "content": content,
-                "mode": "replace",
-                "wait": False,
-            },
+            parent_ref=parent_ref,
+            filename=name,
+            content=content,
+            content_type="text/markdown"
+            if name.casefold().endswith(".md")
+            else "text/plain",
         )
 
     async def import_connection_resource(
@@ -1496,11 +1499,66 @@ class OpenVikingService:
         document: Mapping[str, Any],
     ) -> Any:
         content = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True)
-        return await self.write_text(
+        name = filename.strip()
+        if (
+            not SAFE_RESOURCE_NAME.fullmatch(name)
+            or name in {".", ".."}
+            or not name.casefold().endswith(".json")
+        ):
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                "Connection resource filename must use .json",
+                422,
+            )
+        return await self._import_text_file(
             profile,
             parent_ref=parent_ref,
-            filename=filename,
+            filename=name,
             content=content,
+            content_type="application/json",
+        )
+
+    async def _import_text_file(
+        self,
+        profile: OpenVikingProfile,
+        *,
+        parent_ref: str,
+        filename: str,
+        content: str,
+        content_type: str,
+    ) -> Any:
+        if parent_ref.startswith("viking://"):
+            raise OpenVikingError(
+                "OPAQUE_RESOURCE_REF_REQUIRED",
+                "OpenViking resources must use an opaque resource reference",
+                422,
+            )
+        self.resolve_ref(profile, parent_ref)
+        uploaded = await self.upload(
+            profile,
+            filename=filename,
+            content_type=content_type,
+            content=content.encode("utf-8"),
+        )
+        result = uploaded.get("result") if isinstance(uploaded, Mapping) else None
+        temp_file_id = (
+            result.get("temp_file_id") if isinstance(result, Mapping) else None
+        )
+        if not isinstance(temp_file_id, str) or not temp_file_id:
+            raise OpenVikingError(
+                "OPENVIKING_INVALID_RESPONSE",
+                "OpenViking upload did not return a temporary file id",
+                502,
+            )
+        return await self.request(
+            profile,
+            "resource_import",
+            payload={
+                "temp_file_id": temp_file_id,
+                "parent_ref": parent_ref,
+                "wait": True,
+                "timeout": self.config.timeout_seconds,
+            },
         )
 
     def _validate_import_url(self, value: str) -> None:
