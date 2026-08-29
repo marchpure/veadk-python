@@ -9,10 +9,7 @@ const STATUS_LABEL: Record<AssistantActivity["status"], string> = {
 };
 
 export function ToolActivity({ activity }: { activity: AssistantActivity }) {
-  const detail = activity.outputSummary
-    || activity.errorSummary
-    || activity.inputSummary
-    || activity.summary;
+  const detail = activity.summary;
   return (
     <div className={`kw-activity is-${activity.status}`}>
       <div className="kw-activity-heading">
@@ -25,8 +22,26 @@ export function ToolActivity({ activity }: { activity: AssistantActivity }) {
       </div>
       {detail ? (
         <details className="kw-activity-detail">
-          <summary>查看安全摘要</summary>
+          <summary>查看计划</summary>
           <p>{detail}</p>
+        </details>
+      ) : null}
+      {activity.inputSummary ? (
+        <details className="kw-activity-detail">
+          <summary>查看输入</summary>
+          <pre>{activity.inputSummary}</pre>
+        </details>
+      ) : null}
+      {activity.outputSummary ? (
+        <details className="kw-activity-detail">
+          <summary>查看结果</summary>
+          <pre>{activity.outputSummary}</pre>
+        </details>
+      ) : null}
+      {activity.errorSummary ? (
+        <details className="kw-activity-detail is-error">
+          <summary>查看错误</summary>
+          <pre>{activity.errorSummary}</pre>
         </details>
       ) : null}
     </div>

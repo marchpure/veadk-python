@@ -44,7 +44,7 @@ export function ArtifactViewer({ artifact }: ArtifactViewerProps) {
       <iframe
         title={artifact.title || "HTML Artifact"}
         src={uri}
-        sandbox="allow-scripts"
+        sandbox={artifact.sandbox || ""}
         referrerPolicy="no-referrer"
         onLoad={() => setState("loaded")}
         onError={() => setState("error")}

@@ -71,6 +71,7 @@ import type {
   JsonValue,
   KnowledgeInvocationEvent,
   Revision,
+  TemplateKey,
   WorkspaceResource,
 } from "../domain/types";
 import {
@@ -115,6 +116,47 @@ const DRAFT_LIFECYCLE_LABELS: Record<Draft["lifecycle"], string> = {
   failed: "运行失败",
   cancelled: "已取消",
 };
+
+const TEMPLATE_DEFINITIONS: Array<{
+  key: TemplateKey;
+  label: string;
+  description: string;
+  config: JsonObject;
+}> = [
+  {
+    key: "semantic",
+    label: "Semantic",
+    description: "沉淀 schema、指标口径、只读 SQL 和样例问题",
+    config: { mode: "semantic_validation" },
+  },
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    description: "基于真实 schema/data 生成可筛选、可刷新的 HTML 看板",
+    config: { mode: "interactive_dashboard" },
+  },
+  {
+    key: "sop",
+    label: "SOP",
+    description: "从文档、OpenViking 和 action 证据生成可执行流程",
+    config: { mode: "evidence_sop" },
+  },
+];
+
+const TEMPLATE_LABELS: Record<TemplateKey, string> = {
+  generic: "Generic",
+  semantic: "Semantic",
+  dashboard: "Dashboard",
+  sop: "SOP",
+};
+
+function templateLabel(value?: TemplateKey): string {
+  return TEMPLATE_LABELS[value || "generic"] || TEMPLATE_LABELS.generic;
+}
+
+function templateDefinition(value?: TemplateKey) {
+  return TEMPLATE_DEFINITIONS.find((item) => item.key === value);
+}
 
 const ERROR_LABELS: Record<string, string> = {
   AUTH_REQUIRED: "登录状态已失效，请重新登录后重试。",
@@ -391,6 +433,7 @@ export function KnowledgeWorkspacePage() {
   const [showVersions, setShowVersions] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [welcomeGoal, setWelcomeGoal] = useState("");
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<TemplateKey>("semantic");
   const [connectionJob, setConnectionJob] = useState<{
     kind: "validate" | "discover";
     status: JobResult["status"];
@@ -586,6 +629,8 @@ export function KnowledgeWorkspacePage() {
 
   const createAndGenerate = useCallback(async (
     goal: string,
+    templateKey: TemplateKey,
+    templateConfig: JsonObject,
     connectionIds: string[],
     resourceIds: string[],
     trialTask: string,
@@ -596,6 +641,8 @@ export function KnowledgeWorkspacePage() {
     try {
       const created = await knowledgeApi.createDraft({
         goal,
+        template_key: templateKey,
+        template_config: templateConfig,
         connection_ids: connectionIds,
         ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
         ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
@@ -1071,6 +1118,7 @@ export function KnowledgeWorkspacePage() {
                 <ArrowLeft size={18} />
               </button>
               <h1>{selectedRevision?.skill_name || selectedDraft.goal}</h1>
+              <span className="kw-template-badge">{templateLabel(selectedDraft.template_key)}</span>
               <span className="kw-draft-status">草稿</span>
               <span className="kw-draft-autosave">已自动保存</span>
             </div>
@@ -1121,7 +1169,11 @@ export function KnowledgeWorkspacePage() {
             resources={resources}
             drafts={drafts}
             onOpen={openDraft}
-            onCreate={(goal) => { setWelcomeGoal(goal); setRoute("skill_new"); }}
+            onCreate={(goal, templateKey) => {
+              setWelcomeGoal(goal);
+              setSelectedTemplateKey(templateKey);
+              setRoute("skill_new");
+            }}
             onAddConnection={() => openConnectionSelector("personal")}
           />
         ) : route.file === "skill_new" ? (
@@ -1132,6 +1184,8 @@ export function KnowledgeWorkspacePage() {
             selectedIds={selectedConnectionIds}
             selectedResourceIds={selectedResourceIds}
             onSelectedIdsChange={setSelectedConnectionIds}
+            templateKey={selectedTemplateKey}
+            onTemplateKeyChange={setSelectedTemplateKey}
             onCreate={createAndGenerate}
               onUpload={uploadSkillInput}
               onAddConnection={() => openConnectionSelector("personal")}
@@ -1269,7 +1323,7 @@ export function KnowledgeWorkspacePage() {
         <Modal title="版本历史" onClose={() => setShowVersions(false)}>
           {revisions.length ? revisions.map((revision) => (
             <div className="kw-version-row" key={revision.revision_id}>
-              <span>v{revision.number} · {revision.skill_name}</span>
+              <span>v{revision.number} · {templateLabel(revision.template_key)} · {revision.skill_name}</span>
               <code>{revision.sha256.slice(0, 16)}…</code>
             </div>
           )) : <p className="kw-muted">暂无已固化版本。</p>}
@@ -1314,6 +1368,8 @@ function SkillNewView({
   selectedIds,
   selectedResourceIds,
   onSelectedIdsChange,
+  templateKey,
+  onTemplateKeyChange,
   onCreate,
   onUpload,
   onAddConnection,
@@ -1326,7 +1382,9 @@ function SkillNewView({
   selectedIds: string[];
   selectedResourceIds: string[];
   onSelectedIdsChange: (ids: string[]) => void;
-  onCreate: (goal: string, connectionIds: string[], resourceIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
+  templateKey: TemplateKey;
+  onTemplateKeyChange: (templateKey: TemplateKey) => void;
+  onCreate: (goal: string, templateKey: TemplateKey, templateConfig: JsonObject, connectionIds: string[], resourceIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
   onUpload: (file: File, onProgress: (percent: number) => void) => Promise<UploadResult>;
   onAddConnection: () => void;
   busy: boolean;
@@ -1340,13 +1398,22 @@ function SkillNewView({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [resourceIds, setResourceIds] = useState<string[]>(selectedResourceIds);
+  const activeTemplate = templateDefinition(templateKey);
   useEffect(() => {
     setResourceIds(selectedResourceIds);
   }, [selectedResourceIds]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (goal.trim() && (selectedIds.length || resourceIds.length)) {
-      void onCreate(goal, selectedIds, resourceIds, trialTask, uploads.map((upload) => upload.upload_id));
+      void onCreate(
+        goal,
+        templateKey,
+        activeTemplate?.config || {},
+        selectedIds,
+        resourceIds,
+        trialTask,
+        uploads.map((upload) => upload.upload_id),
+      );
     }
   };
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1377,8 +1444,35 @@ function SkillNewView({
         </div>
       </div>
       <form className="kw-create-form" onSubmit={submit}>
+        <div className="kw-form-section">
+          <div className="kw-form-section-title">
+            <span>1. 选择模板</span>
+            <span className="kw-muted">最终产物仍是一个 Skill</span>
+          </div>
+          <div className="kw-template-selector" role="radiogroup" aria-label="Skill 模板">
+            {TEMPLATE_DEFINITIONS.map((item) => (
+              <label
+                className={`kw-template-choice${templateKey === item.key ? " is-selected" : ""}`}
+                key={item.key}
+              >
+                <input
+                  type="radio"
+                  name="template_key"
+                  value={item.key}
+                  checked={templateKey === item.key}
+                  onChange={() => onTemplateKeyChange(item.key)}
+                />
+                <span>
+                  <strong>{item.label}</strong>
+                  <small>{item.description}</small>
+                </span>
+                {templateKey === item.key ? <Check size={16} /> : null}
+              </label>
+            ))}
+          </div>
+        </div>
         <label>
-          <span className="kw-form-step-label">1. 谁会使用，希望解决什么问题</span>
+          <span className="kw-form-step-label">2. 谁会使用，希望解决什么问题</span>
           <textarea
             value={goal}
             onChange={(event) => setGoal(event.target.value)}
@@ -1390,7 +1484,7 @@ function SkillNewView({
         </label>
         <div className="kw-form-section">
           <div className="kw-form-section-title">
-            <span>2. 接入数据与工具</span>
+            <span>3. 接入数据与工具</span>
             <button type="button" className="kw-link-button" onClick={onAddConnection}><CirclePlus size={14} /> 添加连接</button>
           </div>
           {connections.length ? connections.map((connection) => (
@@ -1434,7 +1528,7 @@ function SkillNewView({
           ))}
         </div>
         <label>
-          <span className="kw-form-step-label">3. 先试一句任务（可选）</span>
+          <span className="kw-form-step-label">4. 先试一句任务（可选）</span>
           <textarea value={trialTask} onChange={(event) => setTrialTask(event.target.value)} placeholder="生成后直接用什么输入试跑？" aria-label="可选：先试一句真实任务" rows={3} />
         </label>
         <div className="kw-form-section">
@@ -1469,14 +1563,15 @@ function WelcomeEntryView({
   resources: WorkspaceResource[];
   drafts: Draft[];
   onOpen: (draft: Draft) => void;
-  onCreate: (goal: string) => void;
+  onCreate: (goal: string, templateKey: TemplateKey) => void;
   onAddConnection: () => void;
 }) {
   const [prompt, setPrompt] = useState("");
+  const [templateKey, setTemplateKey] = useState<TemplateKey>("semantic");
   const readyConnections = connections.filter((connection) => connection.status === "ready");
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    onCreate(prompt.trim());
+    onCreate(prompt.trim(), templateKey);
   };
   return (
     <section className="kw-welcome-entry">
@@ -1505,22 +1600,24 @@ function WelcomeEntryView({
             </div>
           </div>
         </form>
-        <div className="kw-output-types" aria-label="未来 Skill 输出类型">
-          {[
-            ["Dashboard", "把运行结果沉淀为可发布看板"],
-            ["SOP", "把排查方法沉淀为操作流程"],
-            ["Semantic", "把口径和指标沉淀为语义能力"],
-          ].map(([name, description]) => (
-            <div className="kw-output-type" aria-disabled="true" key={name}>
-              <strong>{name}</strong>
-              <span>{description}</span>
-              <small>即将开放</small>
-            </div>
+        <div className="kw-output-types" role="radiogroup" aria-label="Skill 模板">
+          {TEMPLATE_DEFINITIONS.map((item) => (
+            <button
+              type="button"
+              className={`kw-output-type${templateKey === item.key ? " is-selected" : ""}`}
+              aria-pressed={templateKey === item.key}
+              key={item.key}
+              onClick={() => setTemplateKey(item.key)}
+            >
+              <strong>{item.label}</strong>
+              <span>{item.description}</span>
+              <small>{templateKey === item.key ? "已选择" : "选择模板"}</small>
+            </button>
           ))}
         </div>
         <div className="kw-welcome-dashboard-heading">
           <h1>我的 Skill</h1>
-          <button type="button" className="kw-primary-small" onClick={() => onCreate("")}><CirclePlus size={15} /> 新建 Skill</button>
+          <button type="button" className="kw-primary-small" onClick={() => onCreate("", templateKey)}><CirclePlus size={15} /> 新建 Skill</button>
         </div>
         <div className="kw-welcome-grid">
           {drafts.map((draft) => (
@@ -1531,6 +1628,7 @@ function WelcomeEntryView({
                   <strong>{(draft as Draft & { display_name?: string }).display_name || draft.goal}</strong>
                   <span>{draft.goal}</span>
                 </div>
+                <span className="kw-template-badge">{templateLabel(draft.template_key)}</span>
                 <span className={`kw-welcome-status is-${draft.lifecycle}`}>{draft.lifecycle === "published" ? "已发布" : "草稿"}</span>
               </div>
               <div className="kw-welcome-card-meta">
@@ -1844,6 +1942,7 @@ function DraftWorkspace({
         <SkillPackagePanel
           draft={draft}
           revision={currentRevision}
+          artifact={artifact}
           connections={boundConnections}
           resources={boundResources}
           onRun={() => void onRun(task)}
@@ -1907,6 +2006,7 @@ function PublishedWorkspace({
       <SkillPackagePanel
         draft={draft}
         revision={revision}
+        artifact={null}
         connections={boundConnections}
         resources={boundResources}
         onRun={() => void onRun(draft.trial_task || draft.goal)}
@@ -1926,6 +2026,7 @@ function PublishedWorkspace({
 function SkillPackagePanel({
   draft,
   revision,
+  artifact,
   connections,
   resources,
   onRun,
@@ -1933,6 +2034,7 @@ function SkillPackagePanel({
 }: {
   draft: Draft;
   revision: Revision | null;
+  artifact: Artifact | null;
   connections: ConnectionProfile[];
   resources: WorkspaceResource[];
   onRun: () => void;
@@ -1941,13 +2043,21 @@ function SkillPackagePanel({
   const files = previewSkillFiles(revision);
   const skillMd = manifestSkillMarkdown(revision);
   const root = manifestBundleRoot(revision) || MISSING_SKILL_SOURCE;
+  const artifactLineage = artifact?.lineage;
+  const sourceRefs = artifactLineage?.source_refs;
+  const artifactConnectionCount = sourceRefs
+    && typeof sourceRefs === "object"
+    && !Array.isArray(sourceRefs)
+    && Array.isArray(sourceRefs.connection_ids)
+      ? sourceRefs.connection_ids.length
+      : draft.connection_ids.length;
   return (
     <section className={`kw-skill-package${compact ? " is-compact" : ""}`} data-testid="skill-package">
       <div className="kw-skill-package-header">
         <div>
           <span className="kw-section-kicker">GENERATED SKILL</span>
           <h2>{revision?.skill_name || "等待生成 Skill"}</h2>
-          <p>{draft.goal}</p>
+          <p>{templateLabel(revision?.template_key || draft.template_key)} · {draft.goal}</p>
         </div>
         <div className="kw-skill-revision">
           <span>Revision</span>
@@ -1985,8 +2095,11 @@ function SkillPackagePanel({
         <div className="kw-skill-card">
           <div className="kw-skill-card-title"><ShieldCheck size={15} /> 当前包</div>
           <dl className="kw-skill-meta">
+            <div><dt>Template</dt><dd>{templateLabel(revision?.template_key || draft.template_key)}</dd></div>
             <div><dt>Root</dt><dd>{root}</dd></div>
             <div><dt>sha256</dt><dd>{revision?.sha256.slice(0, 18) || "等待生成"}{revision ? "…" : ""}</dd></div>
+            <div><dt>HTML Artifact</dt><dd>{artifact ? `${artifact.media_type} · ${artifact.sha256.slice(0, 18)}…` : "运行后生成，不覆盖历史"}</dd></div>
+            <div><dt>Lineage</dt><dd>{artifact ? `revision ${artifact.revision_id.slice(0, 12)}… / invocation ${artifact.invocation_id.slice(0, 12)}… / sources ${artifactConnectionCount}` : "等待真实运行"}</dd></div>
             <div><dt>验收问题</dt><dd>{draft.trial_task || "未填写"}</dd></div>
           </dl>
         </div>
