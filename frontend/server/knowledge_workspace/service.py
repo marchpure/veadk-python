@@ -36,6 +36,22 @@ from .registry import PublicationRegistryPort
 from .repository import KnowledgeWorkspaceRepository
 from .sse import ParsedUpstreamEvent, normalize_upstream_event, sanitize_event_payload
 from .source_contracts import AsyncKnowledgeContextResolver, KnowledgeContextResolver
+
+
+def _provider_refs(refs: Sequence[object], provider: str = "openviking") -> tuple[tuple[str, ...], tuple[str, ...]]:
+    profiles: list[str] = []
+    resources: list[str] = []
+    for ref in refs:
+        item = ref if isinstance(ref, Mapping) else getattr(ref, "model_dump", lambda **_: {})()
+        if not isinstance(item, Mapping) or item.get("provider") != provider:
+            continue
+        profile = item.get("profile_ref")
+        resource = item.get("resource_ref")
+        if isinstance(profile, str) and profile and profile not in profiles:
+            profiles.append(profile)
+        if isinstance(resource, str) and resource and resource not in resources:
+            resources.append(resource)
+    return tuple(profiles), tuple(resources)
 from .zip_validator import SkillZipError, validate_skill_zip
 
 
@@ -101,6 +117,10 @@ class KnowledgeWorkspaceService:
             status_code = int(getattr(exc, "status_code", 403))
             code = str(getattr(exc, "code", "OPENVIKING_CONTEXT_FORBIDDEN"))
             raise KnowledgeWorkspaceError(code, str(exc), status_code) from exc
+
+    def _source_context(self, actor: Actor, refs: Sequence[object]) -> Mapping[str, object] | None:
+        profiles, resources = _provider_refs(refs)
+        return self._openviking_context(actor, profiles, resources)
 
     @staticmethod
     def _with_openviking_context(
@@ -524,6 +544,16 @@ class KnowledgeWorkspaceService:
         resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
         ov_profiles = tuple(dict.fromkeys(str(item) for item in openviking_profile_ids))
         ov_refs = tuple(dict.fromkeys(str(item) for item in openviking_resource_refs))
+        source_refs = tuple(
+            [
+                {"provider": "openviking", "profile_ref": item}
+                for item in ov_profiles
+            ]
+            + [
+                {"provider": "openviking", "resource_ref": item}
+                for item in ov_refs
+            ]
+        )
         if not unique and not resources and not ov_refs:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY",
@@ -587,6 +617,7 @@ class KnowledgeWorkspaceService:
             else None,
             connection_ids=unique,
             resource_ids=resources,
+            knowledge_source_refs=source_refs,
             openviking_profile_ids=ov_profiles,
             openviking_resource_refs=ov_refs,
             upload_ids=uploads,
@@ -869,6 +900,7 @@ class KnowledgeWorkspaceService:
             revision_id=revision_id,
             connection_ids=effective_connection_ids,
             resource_ids=effective_resource_ids,
+            knowledge_source_refs=draft.knowledge_source_refs,
             openviking_profile_ids=draft.openviking_profile_ids,
             openviking_resource_refs=draft.openviking_resource_refs,
             upload_ids=effective_upload_ids,
