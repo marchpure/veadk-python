@@ -19,11 +19,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body) headers.set('Content-Type', 'application/json')
   const response = await fetch(withAuth(`${ROOT}${path}`), { ...init, headers })
   if (!response.ok) {
-    const payload = await response.json().catch(() => null)
+    const contentType = response.headers.get('content-type') || ''
+    const payload = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : null
+    const fallback = payload
+      ? null
+      : response.status === 405
+        ? 'OpenViking BFF is unavailable on this server. Restart Studio with secure profile keys configured.'
+        : `OpenViking request failed (${response.status})`
     throw new Error(
       payload?.error?.message ??
         payload?.detail?.message ??
-        `OpenViking request failed (${response.status})`,
+        fallback,
     )
   }
   if (response.status === 204) return undefined as T
