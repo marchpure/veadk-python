@@ -5,9 +5,11 @@ import {
   Globe,
   Info,
   Loader2Icon,
+  FileText,
+  Database,
   Upload,
 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '#/components/ui/button'
@@ -47,8 +49,10 @@ import { UploadResourceFields } from './upload-resource-fields'
 import type { SelectedUploadFile } from './upload-resource-fields'
 import { WebResourceOptions } from './web-resource-options'
 import type { WebResourceOptionsValue } from './web-resource-options'
+import { openVikingApi } from '../../../api'
+import type { ConnectionResource } from '../../../api'
 
-type Mode = 'upload' | 'remote'
+type Mode = 'upload' | 'remote' | 'text' | 'connection'
 
 const DEFAULT_WEB_OPTIONS: WebResourceOptionsValue = {
   allowExternalLinks: false,
@@ -107,6 +111,13 @@ export function AddResourceForm({
 
   const [mode, setMode] = useState<Mode>(watchRequired ? 'remote' : initialMode)
   const [remoteUrl, setRemoteUrl] = useState('')
+  const [manualFilename, setManualFilename] = useState('note.md')
+  const [manualText, setManualText] = useState('')
+  const [textPending, setTextPending] = useState(false)
+  const [connectionResources, setConnectionResources] = useState<
+    ConnectionResource[]
+  >([])
+  const [connectionResourceId, setConnectionResourceId] = useState('')
   const [remoteResourceType, setRemoteResourceType] =
     useState<RemoteResourceTypeSelection>('auto')
   const [selectedFiles, setSelectedFiles] = useState<SelectedUploadFile[]>([])
@@ -134,6 +145,14 @@ export function AddResourceForm({
     : 'https://docs.openviking.ai/en/guides/01-configuration#feishu'
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [dirPickerOpen, setDirPickerOpen] = useState(false)
+
+  useEffect(() => {
+    if (mode !== 'connection') return
+    void openVikingApi
+      .listConnectionResources()
+      .then(setConnectionResources)
+      .catch(() => setConnectionResources([]))
+  }, [mode])
 
   const remotePhase = remoteState.phase
   const activeMode = mode
@@ -214,7 +233,7 @@ export function AddResourceForm({
       ignoreDirs,
       include,
       instruction,
-      mode,
+      mode: mode === 'remote' ? 'remote' : 'upload',
       reason,
       remoteResourceKind,
       sourceOptionState,
@@ -224,7 +243,7 @@ export function AddResourceForm({
       watchInterval,
     })
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (mode === 'upload') {
       if (selectedFiles.length === 0) return
       enqueueUploads({
@@ -233,6 +252,47 @@ export function AddResourceForm({
       })
       setSelectedFiles([])
       onSubmitted?.()
+      return
+    }
+
+    if (mode === 'text') {
+      if (!manualFilename.trim() || !manualText.trim()) return
+      setTextPending(true)
+      try {
+        await openVikingApi.importText({
+          parent_uri: targetUri,
+          filename: manualFilename.trim(),
+          content: manualText,
+        })
+        setManualText('')
+        onCompleted?.()
+        onSubmitted?.()
+      } finally {
+        setTextPending(false)
+      }
+      return
+    }
+
+    if (mode === 'connection') {
+      const selected = connectionResources.find(
+        (item) => item.resource_id === connectionResourceId,
+      )
+      if (!selected) return
+      setTextPending(true)
+      try {
+        const safeName =
+          selected.display_name.replace(/[^A-Za-z0-9._ -]/g, '_').slice(0, 100) ||
+          'connection-resource'
+        await openVikingApi.importConnectionResource({
+          parent_uri: targetUri,
+          filename: `${safeName}.json`,
+          resource_id: selected.resource_id,
+        })
+        onCompleted?.()
+        onSubmitted?.()
+      } finally {
+        setTextPending(false)
+      }
       return
     }
 
@@ -275,7 +335,11 @@ export function AddResourceForm({
     watchRequirementMet &&
     (activeMode === 'upload'
       ? selectedFiles.length > 0
-      : !!remoteUrl.trim() && hasWatchInterval)
+      : activeMode === 'text'
+        ? !!manualFilename.trim() && !!manualText.trim()
+        : activeMode === 'connection'
+          ? !!connectionResourceId
+        : !!remoteUrl.trim() && hasWatchInterval)
 
   return (
     <div className="flex flex-col gap-6">
@@ -306,6 +370,30 @@ export function AddResourceForm({
               <Globe className="size-4" />
               {t('mode.remote')}
             </button>
+            <button
+              type="button"
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                activeMode === 'text'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setMode('text')}
+            >
+              <FileText className="size-4" />
+              {t('mode.text')}
+            </button>
+            <button
+              type="button"
+              className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                activeMode === 'connection'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={() => setMode('connection')}
+            >
+              <Database className="size-4" />
+              {t('mode.connection')}
+            </button>
           </div>
         ) : null}
 
@@ -315,6 +403,43 @@ export function AddResourceForm({
             onFilesChange={setSelectedFiles}
             t={t}
           />
+        ) : activeMode === 'text' ? (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="add-resource-text-filename">{t('text.filename')}</Label>
+              <Input
+                id="add-resource-text-filename"
+                value={manualFilename}
+                onChange={(event) => setManualFilename(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-resource-text-content">{t('text.content')}</Label>
+              <Textarea
+                id="add-resource-text-content"
+                rows={10}
+                value={manualText}
+                onChange={(event) => setManualText(event.target.value)}
+              />
+            </div>
+          </div>
+        ) : activeMode === 'connection' ? (
+          <div className="space-y-2">
+            <Label htmlFor="add-resource-connection">{t('connection.resource')}</Label>
+            <select
+              id="add-resource-connection"
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={connectionResourceId}
+              onChange={(event) => setConnectionResourceId(event.target.value)}
+            >
+              <option value="">{t('connection.placeholder')}</option>
+              {connectionResources.map((resource) => (
+                <option key={resource.resource_id} value={resource.resource_id}>
+                  {resource.display_name} ({resource.kind})
+                </option>
+              ))}
+            </select>
+          </div>
         ) : (
           <RemoteResourceFields
             disabled={remotePhase === 'processing'}
@@ -563,11 +688,14 @@ export function AddResourceForm({
           onClick={handleSubmit}
           disabled={
             !canSubmit ||
+            textPending ||
             (activeMode === 'remote' && remotePhase === 'processing')
           }
         >
           {activeMode === 'remote' && remotePhase === 'processing'
             ? t('uploading')
+            : textPending
+              ? t('uploading')
             : t('startProcessing')}
         </Button>
       </div>

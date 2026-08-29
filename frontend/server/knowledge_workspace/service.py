@@ -7,7 +7,7 @@ import hashlib
 import io
 import json
 import zipfile
-from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from .autoskill import AutoSkillClient, AutoSkillProtocolError
@@ -63,12 +63,17 @@ class KnowledgeWorkspaceService:
             [Actor, Sequence[str], Sequence[str]], Mapping[str, object]
         ]
         | None = None,
+        openviking_content_resolver: Callable[
+            [Actor, Sequence[str], Sequence[str]], Awaitable[Mapping[str, object]]
+        ]
+        | None = None,
     ) -> None:
         self.repository = repository
         self.autoskill = autoskill
         self.connection_context = connection_context
         self.publication_registry = publication_registry
         self.openviking_context_resolver = openviking_context_resolver
+        self.openviking_content_resolver = openviking_content_resolver
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._cancelled: set[str] = set()
 
@@ -922,14 +927,38 @@ class KnowledgeWorkspaceService:
         *,
         resume: bool = False,
     ) -> None:
-        message = self._with_openviking_context(
-            message,
-            self._openviking_context(
+        context: Mapping[str, object] | None = None
+        try:
+            context = self._openviking_context(
                 actor,
                 invocation.openviking_profile_ids,
                 invocation.openviking_resource_refs,
-            ),
-        )
+            )
+            if context and self.openviking_content_resolver is not None:
+                context = await self.openviking_content_resolver(
+                    actor,
+                    invocation.openviking_profile_ids,
+                    invocation.openviking_resource_refs,
+                )
+        except Exception as exc:
+            code = str(getattr(exc, "code", "OPENVIKING_CONTEXT_UNAVAILABLE"))
+            failed = invocation.model_copy(
+                update={
+                    "status": InvocationStatus.FAILED,
+                    "error_code": code,
+                    "error_message": str(sanitize_event_payload(str(exc))),
+                    "finished_at": utc_now(),
+                }
+            )
+            self.repository.save_invocation(failed)
+            self.repository.save_draft(
+                draft.model_copy(
+                    update={"status": DraftStatus.FAILED, "updated_at": utc_now()}
+                )
+            )
+            self._tasks.pop(invocation.invocation_id, None)
+            return
+        message = self._with_openviking_context(message, context)
         current = invocation.model_copy(
             update={"status": InvocationStatus.RUNNING, "started_at": utc_now()}
         )
@@ -1452,9 +1481,22 @@ class KnowledgeWorkspaceService:
                 file_type="output",
             )
         except AutoSkillProtocolError as exc:
-            raise KnowledgeWorkspaceError(
-                "ARTIFACT_UNAVAILABLE", str(exc), 502
-            ) from exc
+            if "HTTP 404" not in str(exc):
+                raise KnowledgeWorkspaceError(
+                    "ARTIFACT_UNAVAILABLE", str(exc), 502
+                ) from exc
+            final_content = ""
+            for item in self.repository.events_after(invocation.invocation_id):
+                event = item.get("event", {})
+                if event.get("type") == "assistant.final":
+                    data = event.get("data", {})
+                    if isinstance(data, Mapping):
+                        final_content = str(data.get("content") or "").strip()
+            if not final_content:
+                raise KnowledgeWorkspaceError(
+                    "ARTIFACT_UNAVAILABLE", str(exc), 502
+                ) from exc
+            output = final_content.encode("utf-8")
         media_type = "application/octet-stream"
         encoding = "binary"
         metadata: dict[str, object] = {
@@ -1476,6 +1518,18 @@ class KnowledgeWorkspaceService:
                 )
             elif output[:2] == b"PK":
                 name, content, metadata = validate_output_archive(output)
+            else:
+                text = output.decode("utf-8")
+                if text.strip():
+                    name = "output.txt"
+                    metadata = {
+                        "sha256": hashlib.sha256(output).hexdigest(),
+                        "size_bytes": len(output),
+                        "media_type": "text/plain",
+                        "encoding": "utf-8",
+                        "csp": "default-src 'none'",
+                        "sandbox": "",
+                    }
         except HtmlArtifactError as exc:
             # A real non-HTML result is still an artifact; only HTML receives
             # the HTML viewer policy. Never synthesize a dashboard fallback.
@@ -2040,6 +2094,8 @@ class KnowledgeWorkspaceService:
                     "version": self._summary_skill_version(invocation.request_summary),
                 },
                 "connection_refs": list(invocation.connection_ids),
+                "openviking_profile_ids": list(invocation.openviking_profile_ids),
+                "openviking_resource_refs": list(invocation.openviking_resource_refs),
                 "allowed_action_ids": list(
                     (invocation.invocation_policy or {}).get("allowed_action_ids", [])
                 ),
@@ -2138,7 +2194,10 @@ class KnowledgeWorkspaceService:
         )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
-        if not connection_ids and not resource_ids:
+        has_openviking_context = bool(
+            revision.manifest.get("openviking_resource_refs")
+        )
+        if not connection_ids and not resource_ids and not has_openviking_context:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "connection permission is required", 409
             )
@@ -2365,10 +2424,6 @@ class KnowledgeWorkspaceService:
         )
         if publication is None or publication.status != "published":
             raise KnowledgeWorkspaceError("NOT_FOUND", "publication not found", 404)
-        if not connection_ids and not resource_ids:
-            raise KnowledgeWorkspaceError(
-                "CONNECTION_NOT_READY", "consumer authorization is required", 403
-            )
         revision = self.repository.get_revision(
             publication.revision_id,
             tenant_id=actor.tenant_id,
@@ -2377,6 +2432,13 @@ class KnowledgeWorkspaceService:
         if revision is None:
             raise KnowledgeWorkspaceError(
                 "NOT_FOUND", "published revision not found", 404
+            )
+        has_openviking_context = bool(
+            revision.manifest.get("openviking_resource_refs")
+        )
+        if not connection_ids and not resource_ids and not has_openviking_context:
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY", "consumer authorization is required", 403
             )
         requested_connection_ids = tuple(str(item) for item in connection_ids)
         allowed_connection_ids = set(

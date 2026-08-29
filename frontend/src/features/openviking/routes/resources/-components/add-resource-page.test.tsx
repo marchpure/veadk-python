@@ -17,6 +17,15 @@ const uploadMocks = vi.hoisted(() => ({
   resetRemote: vi.fn(),
   startRemote: vi.fn(),
 }))
+const apiMocks = vi.hoisted(() => ({
+  importText: vi.fn().mockResolvedValue({}),
+  importConnectionResource: vi.fn().mockResolvedValue({}),
+  listConnectionResources: vi.fn().mockResolvedValue([]),
+}))
+
+vi.mock('../../../api', () => ({
+  openVikingApi: apiMocks,
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -44,6 +53,34 @@ afterEach(() => {
 })
 
 describe('AddResourceForm watch options', () => {
+  it('submits manual text through the opaque BFF command', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AddResourceForm />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'mode.text' }))
+    fireEvent.change(screen.getByLabelText('text.filename'), {
+      target: { value: 'runbook.md' },
+    })
+    fireEvent.change(screen.getByLabelText('text.content'), {
+      target: { value: '# Recovery runbook' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'startProcessing' }))
+
+    await waitFor(() =>
+      expect(apiMocks.importText).toHaveBeenCalledWith({
+        parent_uri: 'viking://resources/',
+        filename: 'runbook.md',
+        content: '# Recovery runbook',
+      }),
+    )
+  })
+
   it('shows supported resource types and switches their parameter forms', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

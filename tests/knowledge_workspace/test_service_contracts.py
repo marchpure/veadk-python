@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from frontend.server.knowledge_workspace.connection import EphemeralConnectionContext
+from frontend.server.knowledge_workspace.autoskill import AutoSkillProtocolError
 from frontend.server.knowledge_workspace.models import (
     DraftStatus,
     Invocation,
@@ -89,6 +90,13 @@ class FakeAutoSkill:
     async def stop(self, **kwargs: object) -> dict[str, str]:
         self.stops.append(str(kwargs["request_id"]))
         return {"message": "stopped"}
+
+
+class TextOnlyAutoSkill(FakeAutoSkill):
+    async def download(self, **kwargs: object) -> bytes:
+        if kwargs["file_type"] == "output":
+            raise AutoSkillProtocolError("AutoSkill download returned HTTP 404")
+        return await super().download(**kwargs)
 
 
 def make_skill_zip(name: str, content: str) -> bytes:
@@ -226,6 +234,156 @@ async def test_openviking_context_is_distinct_and_sent_to_autoskill() -> None:
     assert '"openviking_context"' in str(fake.command_calls[0]["prompt"])
     assert invocation.openviking_profile_ids == ("ovp_a",)
     assert invocation.openviking_resource_refs == ("ovr_a",)
+
+
+@pytest.mark.asyncio
+async def test_openviking_resolved_content_is_sent_server_side_to_autoskill() -> None:
+    async def resolve_content(
+        actor: Actor, profile_ids: Sequence[str], refs: Sequence[str]
+    ) -> dict[str, object]:
+        return {
+            "profile_ids": list(profile_ids),
+            "resource_refs": list(refs),
+            "resolved_resources": [
+                {"resource_ref": refs[0], "content": "verified phrase"}
+            ],
+        }
+
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        FakeAutoSkill((event("done"),)),
+        openviking_context_resolver=lambda _actor, profiles, refs: {
+            "profile_ids": list(profiles),
+            "resource_refs": list(refs),
+        },
+        openviking_content_resolver=resolve_content,
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(
+        actor,
+        "build with knowledge",
+        (),
+        openviking_profile_ids=("ovp_a",),
+        openviking_resource_refs=("ovr_a",),
+    )
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await service._tasks[invocation.invocation_id]
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    assert "verified phrase" in str(fake.command_calls[0]["prompt"])
+
+
+@pytest.mark.asyncio
+async def test_openviking_resolver_failure_finishes_invocation_and_draft() -> None:
+    async def fail_resolution(
+        _actor: Actor, _profile_ids: Sequence[str], _refs: Sequence[str]
+    ) -> dict[str, object]:
+        raise KnowledgeWorkspaceError(
+            "OPENVIKING_UNAVAILABLE", "OpenViking is unavailable", 503
+        )
+
+    repository = KnowledgeWorkspaceRepository()
+    autoskill = FakeAutoSkill((event("done"),))
+    service = KnowledgeWorkspaceService(
+        repository,
+        autoskill,
+        openviking_context_resolver=lambda _actor, profiles, refs: {
+            "profile_ids": list(profiles),
+            "resource_refs": list(refs),
+        },
+        openviking_content_resolver=fail_resolution,
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(
+        actor,
+        "build with knowledge",
+        (),
+        openviking_profile_ids=("ovp_a",),
+        openviking_resource_refs=("ovr_a",),
+    )
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await service._tasks[invocation.invocation_id]
+
+    saved_invocation = repository.get_invocation(
+        invocation.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    saved_draft = repository.get_draft(
+        draft.draft_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_invocation is not None
+    assert saved_invocation.status is InvocationStatus.FAILED
+    assert saved_invocation.error_code == "OPENVIKING_UNAVAILABLE"
+    assert saved_invocation.finished_at is not None
+    assert saved_draft is not None
+    assert saved_draft.status is DraftStatus.FAILED
+    assert autoskill.command_calls == []
+
+
+@pytest.mark.asyncio
+async def test_openviking_only_revision_can_run_without_connection() -> None:
+    service, actor = make_freeze_service()
+    service.openviking_context_resolver = lambda *_: {
+        "profile_ids": ["ovp_a"],
+        "resource_refs": ["ovr_a"],
+    }
+    draft = service.create_draft(
+        actor,
+        "answer from OpenViking",
+        (),
+        openviking_profile_ids=("ovp_a",),
+        openviking_resource_refs=("ovr_a",),
+    )
+    generated = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generated.invocation_id)
+
+    assert revision.manifest["openviking_profile_ids"] == ["ovp_a"]
+    assert revision.manifest["openviking_resource_refs"] == ["ovr_a"]
+    run = await service.run_revision(actor, revision.revision_id, "use it", ())
+    await asyncio.sleep(0)
+    saved = service.repository.get_invocation(
+        run.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved is not None
+    assert saved.status is InvocationStatus.SUCCEEDED
+
+
+@pytest.mark.asyncio
+async def test_text_only_run_persists_real_final_answer_as_artifact() -> None:
+    service, actor = make_freeze_service()
+    original = service.autoskill
+    assert isinstance(original, FakeAutoSkill)
+    service.autoskill = TextOnlyAutoSkill(
+        original.events,
+        invoke_events=(
+            event("final_answer", {"answer": "real text result"}),
+            event("request_summary", policy_summary(skills_field="skills_used")),
+            event("done"),
+        ),
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generated = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generated.invocation_id)
+    run = await service.run_revision(
+        actor, revision.revision_id, "run", ("connection-a",)
+    )
+    await asyncio.sleep(0)
+
+    artifact = service.repository.artifacts_for_revision(
+        revision.revision_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )[-1]
+    assert artifact.media_type == "text/plain"
+    assert service.repository.read_object(artifact.uri) == b"real text result"
 
 
 class FreezeAutoSkill(FakeAutoSkill):

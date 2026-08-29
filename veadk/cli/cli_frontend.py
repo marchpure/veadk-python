@@ -2439,12 +2439,81 @@ def _run_frontend_server(
                 resource_refs=tuple(resource_refs),
             )
         )
+        knowledge_service.openviking_content_resolver = (
+            lambda actor, profile_ids, resource_refs:
+                openviking_service.resolved_creator_context(
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                    profile_ids=tuple(profile_ids),
+                    resource_refs=tuple(resource_refs),
+                )
+        )
+
+        async def _openviking_connection_resource(
+            actor: Actor, resource_id: str
+        ) -> dict[str, Any]:
+            resource = knowledge_service.repository.get_resource(
+                resource_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+            if resource is None or not resource.adapter_resource_id:
+                raise HTTPException(status_code=404, detail={
+                    "code": "NOT_FOUND",
+                    "message": "Connection resource not found",
+                })
+            if connection_gateway is None:
+                raise HTTPException(status_code=503, detail={
+                    "code": "CONNECTION_SERVICE_UNAVAILABLE",
+                    "message": "Connection Service is not configured",
+                })
+            # Re-authorize the internal adapter projection for this actor. Only
+            # the BFF-owned, secret-filtered description is written to Viking.
+            await connection_gateway.get_adapter_resource(
+                resource.adapter_resource_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+                principal_id=actor.principal_id,
+            )
+
+            def safe_metadata(value: Any) -> Any:
+                if isinstance(value, dict):
+                    hidden = {
+                        "api_key",
+                        "authorization",
+                        "base_url",
+                        "credential",
+                        "credentials",
+                        "download_url",
+                        "password",
+                        "private_key",
+                        "secret",
+                        "token",
+                    }
+                    return {
+                        str(key): safe_metadata(item)
+                        for key, item in value.items()
+                        if str(key).casefold() not in hidden
+                    }
+                if isinstance(value, (list, tuple)):
+                    return [safe_metadata(item) for item in value]
+                return value
+
+            return {
+                "kind": str(resource.kind),
+                "display_name": resource.display_name,
+                "description": safe_metadata(
+                    knowledge_service._public_value(resource.metadata)
+                ),
+            }
+
         mount_openviking_routes(
             app,
             openviking_service,
             actor_resolver=lambda request: _knowledge_workspace_actor(
                 request, _knowledge_identity
             ),
+            connection_resource_resolver=_openviking_connection_resource,
         )
     except Exception as error:
         logger.warning(

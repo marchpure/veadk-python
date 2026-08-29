@@ -8,6 +8,7 @@ import hmac
 import ipaddress
 import json
 import os
+import re
 import secrets
 import socket
 import sqlite3
@@ -31,6 +32,7 @@ ALLOWED_UPLOAD_EXTENSIONS = {
     ".txt",
     ".xlsx",
 }
+SAFE_RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$")
 
 
 class OpenVikingError(RuntimeError):
@@ -386,6 +388,8 @@ class OpenVikingService:
         )
 
     def resource_ref(self, profile: OpenVikingProfile, uri: str) -> str:
+        if uri.rstrip("/") == profile.workspace_uri.rstrip("/"):
+            uri = profile.workspace_uri
         if not uri.startswith(profile.workspace_uri):
             raise OpenVikingError(
                 "RESOURCE_OUT_OF_SCOPE", "Resource is outside workspace", 403
@@ -478,6 +482,64 @@ class OpenVikingService:
             "resource_refs": list(dict.fromkeys(resource_refs)),
         }
 
+    async def resolved_creator_context(
+        self,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        profile_ids: list[str] | tuple[str, ...],
+        resource_refs: list[str] | tuple[str, ...],
+    ) -> dict[str, object]:
+        context = self.creator_context(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            profile_ids=profile_ids,
+            resource_refs=resource_refs,
+        )
+        resources: list[dict[str, object]] = []
+        remaining = 128 * 1024
+        profiles = {
+            item.profile_id: item
+            for item in self.repository.list(
+                tenant_id=tenant_id, workspace_id=workspace_id
+            )
+            if item.profile_id in profile_ids
+        }
+        for resource_ref in dict.fromkeys(resource_refs):
+            selected = next(
+                (
+                    item
+                    for item in profiles.values()
+                    if self._ref_matches_profile(item, resource_ref)
+                ),
+                None,
+            )
+            if selected is None:
+                raise OpenVikingError(
+                    "OPENVIKING_CONTEXT_FORBIDDEN",
+                    "OpenViking resource is not available through the selected profiles",
+                    403,
+                )
+            result = await self.request(
+                selected,
+                "content_read",
+                payload={"resource_ref": resource_ref, "offset": 0, "limit": remaining},
+            )
+            encoded = json.dumps(result, ensure_ascii=False)
+            bounded = encoded.encode("utf-8")[:remaining].decode(
+                "utf-8", errors="ignore"
+            )
+            resources.append(
+                {
+                    "resource_ref": resource_ref,
+                    "content": bounded,
+                }
+            )
+            remaining -= len(bounded.encode("utf-8"))
+            if remaining <= 0:
+                break
+        return {**context, "resolved_resources": resources}
+
     def _ref_matches_profile(
         self, profile: OpenVikingProfile, resource_ref: str
     ) -> bool:
@@ -566,8 +628,15 @@ class OpenVikingService:
                     and isinstance(item, str)
                     and item.startswith("viking://")
                 ):
-                    relative = item.removeprefix(profile.workspace_uri)
-                    result[ref_fields[key]] = self.resource_ref(profile, item)
+                    normalized_uri = (
+                        profile.workspace_uri
+                        if item.rstrip("/") == profile.workspace_uri.rstrip("/")
+                        else item
+                    )
+                    relative = normalized_uri.removeprefix(profile.workspace_uri)
+                    result[ref_fields[key]] = self.resource_ref(
+                        profile, normalized_uri
+                    )
                     result[key] = f"viking://workspace/{relative}"
                     result["display_path"] = relative
                 elif isinstance(item, str) and item.startswith("viking://"):
@@ -680,6 +749,55 @@ class OpenVikingService:
         finally:
             if owns_client:
                 await client.aclose()
+
+    async def write_text(
+        self,
+        profile: OpenVikingProfile,
+        *,
+        parent_ref: str,
+        filename: str,
+        content: str,
+    ) -> Any:
+        name = filename.strip()
+        if not SAFE_RESOURCE_NAME.fullmatch(name) or name in {".", ".."}:
+            raise OpenVikingError(
+                "INVALID_ARGUMENT", "Resource filename is invalid", 422
+            )
+        if not name.casefold().endswith((".md", ".txt")):
+            raise OpenVikingError(
+                "UNSUPPORTED_FILE_TYPE", "Manual text must use .md or .txt", 415
+            )
+        if not content.strip():
+            raise OpenVikingError("INVALID_ARGUMENT", "Text content is required", 422)
+        if len(content.encode("utf-8")) > MAX_JSON_BYTES:
+            raise OpenVikingError("PAYLOAD_TOO_LARGE", "Text content is too large", 413)
+        parent = self.resolve_ref(profile, parent_ref).rstrip("/") + "/"
+        return await self.request(
+            profile,
+            "content_write",
+            payload={
+                "resource_ref": self.resource_ref(profile, parent + name),
+                "content": content,
+                "mode": "replace",
+                "wait": False,
+            },
+        )
+
+    async def import_connection_resource(
+        self,
+        profile: OpenVikingProfile,
+        *,
+        parent_ref: str,
+        filename: str,
+        document: Mapping[str, Any],
+    ) -> Any:
+        content = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True)
+        return await self.write_text(
+            profile,
+            parent_ref=parent_ref,
+            filename=filename,
+            content=content,
+        )
 
     def _validate_import_url(self, value: str) -> None:
         parsed = urlsplit(value)

@@ -11,8 +11,8 @@
     "web-studio/src/i18n"
   ],
   "source_files_total": 112,
-  "copied": 101,
-  "adapted": 11,
+  "copied": 98,
+  "adapted": 14,
   "excluded": 0,
   "unclassified": 0,
   "files": [
@@ -56,13 +56,13 @@
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/en/resources.ts",
       "target_path": "frontend/src/features/openviking/i18n/locales/en/resources.ts",
-      "classification": "copied",
-      "reason": "Direct source migration with no content changes",
+      "classification": "adapted",
+      "reason": "AgentKit adds labels for manual text and authorized Connection resource import modes",
       "tests": [
-        "frontend migrated Vitest suite"
+        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "792990fc88dd3bcd5b88b91da1296849502cbce349fab36710dfe0369cd0fbbc",
-      "target_sha256": "792990fc88dd3bcd5b88b91da1296849502cbce349fab36710dfe0369cd0fbbc"
+      "target_sha256": "4e70e2dd099e17ec3c76e3334c4c7dfd09cb44b2fca6a5a41cb48b8e82be45e4"
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -104,13 +104,13 @@
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/zh-CN/resources.ts",
       "target_path": "frontend/src/features/openviking/i18n/locales/zh-CN/resources.ts",
-      "classification": "copied",
-      "reason": "Direct source migration with no content changes",
+      "classification": "adapted",
+      "reason": "AgentKit adds labels for manual text and authorized Connection resource import modes",
       "tests": [
-        "frontend migrated Vitest suite"
+        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "f2bd664750c2b459e6c446dffe45d766be2681ea701cc7698b73d54615c37a31",
-      "target_sha256": "f2bd664750c2b459e6c446dffe45d766be2681ea701cc7698b73d54615c37a31"
+      "target_sha256": "9051c59d57e299a044f1eea3ccceadc7d7913e19b929920fe28c749612f9e979"
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -146,7 +146,7 @@
         "frontend/src/features/openviking/lib/ov-client/client.test.ts"
       ],
       "source_sha256": "14ce0b6f6c19840410ab1aaa889d49bbf2f867390d50eae0b87ec28dd6923076",
-      "target_sha256": "b048ba0b5889e362d456bc7fe5c8cc4e0eb9e68fac34ba09b5bdc4312f2e90b9"
+      "target_sha256": "d699b3dde98e1ff2aa808e88a7665bf49f543ba9587fcacef3171d4782d76ae6"
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -158,7 +158,7 @@
         "frontend migrated Vitest suite"
       ],
       "source_sha256": "883edc5bbd2bbf35f96585ed5f3fdbff0552a59d7d992231866dcc46df165f70",
-      "target_sha256": "45b3f13fb49637cdabd79fa35249d2b7b4b1b1d0d47e11101f1da8c6fcdc07fa"
+      "target_sha256": "4faad4849438926c1a84cfa5dd5c5a09469a33d8a281442e5c56993f53388b0b"
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
@@ -206,19 +206,20 @@
         "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "72a51f959067cffd47a7734392f6e5ff741ce04469afdbd0a67df07e4f42e1e2",
-      "target_sha256": "71b7e9a1590cf684432402899e3232bc38a30cd8c170dc3a49370c9ee3032070"
+      "target_sha256": "67bcb6533434d5ef2d83b9820c736342a945cdd748cb4dbfa107a8ea9854abe4"
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/add-resource-page.tsx",
       "target_path": "frontend/src/features/openviking/routes/resources/-components/add-resource-page.tsx",
-      "classification": "copied",
-      "reason": "Direct source migration with no content changes",
+      "classification": "adapted",
+      "reason": "AgentKit adds manual text and authorized Connection resource import modes through scoped same-origin BFF commands",
       "tests": [
-        "frontend migrated Vitest suite"
+        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx",
+        "tests/frontend/server/test_openviking_bff.py"
       ],
       "source_sha256": "82a33cd09aec304d08e323d7441a203bbb15589cd1c122a3da29a21a9c08fa80",
-      "target_sha256": "82a33cd09aec304d08e323d7441a203bbb15589cd1c122a3da29a21a9c08fa80"
+      "target_sha256": "5c5748f8767b6a326c1209407f8819024f4a9230642b8be99966021e127ec1e4"
     },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",

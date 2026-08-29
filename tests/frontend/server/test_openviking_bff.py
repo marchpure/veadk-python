@@ -88,6 +88,9 @@ def test_resource_refs_are_signed_profile_scoped_and_workspace_scoped() -> None:
     ref = service.resource_ref(first, "viking://resources/workspace-a/guide.md")
 
     assert service.resolve_ref(first, ref).endswith("/guide.md")
+    assert service.resolve_ref(
+        first, service.resource_ref(first, "viking://resources/workspace-a")
+    ) == "viking://resources/workspace-a/"
     with pytest.raises(OpenVikingError, match="invalid"):
         service.resolve_ref(second, ref)
     with pytest.raises(OpenVikingError, match="outside workspace"):
@@ -261,6 +264,97 @@ async def test_upload_rejects_type_and_oversize_before_upstream() -> None:
             content_type="application/pdf",
             content=b"x" * (50 * 1_048_576 + 1),
         )
+
+@pytest.mark.asyncio
+async def test_manual_text_composes_target_from_opaque_parent_ref() -> None:
+    observed: dict[str, object] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "result": {
+                    "uri": observed["uri"],
+                    "root_uri": "viking://resources/workspace-a",
+                }
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+    parent_ref = service.resource_ref(value, value.workspace_uri)
+
+    result = await service.write_text(
+        value,
+        parent_ref=parent_ref,
+        filename="notes.md",
+        content="# Verified knowledge",
+    )
+
+    assert observed == {
+        "uri": "viking://resources/workspace-a/notes.md",
+        "content": "# Verified knowledge",
+        "mode": "replace",
+        "wait": False,
+    }
+    assert result["result"]["uri"] == "viking://workspace/notes.md"
+    assert result["result"]["resource_ref"].startswith("ovr_")
+    assert result["result"]["root_uri"] == "viking://workspace/"
+    assert result["result"]["display_path"] == ""
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_manual_text_rejects_unsafe_name_and_raw_parent() -> None:
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+    value = profile(service)
+    with pytest.raises(OpenVikingError, match="filename"):
+        await service.write_text(
+            value,
+            parent_ref=service.resource_ref(value, value.workspace_uri),
+            filename="../secret.md",
+            content="secret",
+        )
+    with pytest.raises(OpenVikingError, match="invalid"):
+        await service.write_text(
+            value,
+            parent_ref=value.workspace_uri,
+            filename="safe.md",
+            content="content",
+        )
+
+
+@pytest.mark.asyncio
+async def test_creator_context_resolves_bounded_content_server_side() -> None:
+    def upstream(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "result": {
+                    "uri": "viking://resources/workspace-a/guide.md",
+                    "content": "server-resolved knowledge",
+                }
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+    service.repository.save(value.__class__(**{**value.__dict__, "status": "ready"}))
+    ref = service.resource_ref(value, f"{value.workspace_uri}guide.md")
+
+    context = await service.resolved_creator_context(
+        tenant_id=value.tenant_id,
+        workspace_id=value.workspace_id,
+        profile_ids=(value.profile_id,),
+        resource_refs=(ref,),
+    )
+
+    assert context["resource_refs"] == [ref]
+    assert "server-resolved knowledge" in str(context["resolved_resources"])
+    await client.aclose()
 
 
 def test_invalid_encryption_config_fails_closed(

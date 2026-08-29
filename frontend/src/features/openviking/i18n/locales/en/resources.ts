@@ -143,6 +143,16 @@ const resources = {
     mode: {
       upload: 'Upload File',
       remote: 'Remote URL',
+      text: 'Manual Text',
+      connection: 'Connection',
+    },
+    text: {
+      filename: 'File name',
+      content: 'Text content',
+    },
+    connection: {
+      resource: 'Authorized resource',
+      placeholder: 'Select a Connection resource',
     },
     remoteUrl: 'Remote URL',
     'remoteUrl.placeholder': 'Paste a remote resource address',

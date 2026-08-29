@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
@@ -33,12 +33,29 @@ class ProfileUpdateBody(BaseModel):
     api_key: str | None = Field(default=None, min_length=1, max_length=4096)
     workspace_uri: str | None = Field(default=None, max_length=2048)
 
+class TextImportBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    parent_ref: str = Field(min_length=1, max_length=4096)
+    filename: str = Field(min_length=1, max_length=128)
+    content: str = Field(min_length=1, max_length=1_048_576)
+
+
+class ConnectionImportBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    parent_ref: str = Field(min_length=1, max_length=4096)
+    filename: str = Field(min_length=1, max_length=128)
+    resource_id: str = Field(min_length=1, max_length=160)
+
 
 def mount_openviking_routes(
     app: FastAPI,
     service: OpenVikingService,
     *,
     actor_resolver: Callable[[Request], Actor],
+    connection_resource_resolver: Callable[
+        [Actor, str], Awaitable[dict[str, Any]]
+    ]
+    | None = None,
     prefix: str = "/api/knowledge/v1/openviking",
 ) -> None:
     def actor(request: Request) -> Actor:
@@ -163,6 +180,41 @@ def mount_openviking_routes(
                 filename=file.filename or "upload",
                 content_type=file.content_type or "application/octet-stream",
                 content=content,
+            )
+        )
+        return envelope(value, request)
+
+    @app.post(f"{prefix}/profiles/{{profile_id}}/text")
+    async def import_text(
+        request: Request, profile_id: str, body: TextImportBody
+    ) -> dict[str, Any]:
+        value = await invoke(
+            lambda: service.write_text(
+                profile(request, profile_id), **body.model_dump()
+            )
+        )
+        return envelope(value, request)
+
+    @app.post(f"{prefix}/profiles/{{profile_id}}/connection-resource")
+    async def import_connection_resource(
+        request: Request, profile_id: str, body: ConnectionImportBody
+    ) -> dict[str, Any]:
+        if connection_resource_resolver is None:
+            raise HTTPException(
+                503,
+                {
+                    "code": "CONNECTION_SERVICE_UNAVAILABLE",
+                    "message": "Connection resources are not configured",
+                },
+            )
+        principal = actor(request)
+        document = await connection_resource_resolver(principal, body.resource_id)
+        value = await invoke(
+            lambda: service.import_connection_resource(
+                profile(request, profile_id),
+                parent_ref=body.parent_ref,
+                filename=body.filename,
+                document=document,
             )
         )
         return envelope(value, request)

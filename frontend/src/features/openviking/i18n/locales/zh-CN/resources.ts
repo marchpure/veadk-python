@@ -136,6 +136,16 @@ const resources = {
     mode: {
       upload: '上传文件',
       remote: '远程资源',
+      text: '手动文本',
+      connection: '已授权连接',
+    },
+    text: {
+      filename: '文件名',
+      content: '文本内容',
+    },
+    connection: {
+      resource: '已授权资源',
+      placeholder: '选择 Connection 资源',
     },
     remoteUrl: '远程资源地址',
     'remoteUrl.placeholder': '粘贴远程资源地址',
