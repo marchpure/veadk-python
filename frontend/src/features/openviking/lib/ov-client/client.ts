@@ -23,7 +23,11 @@ const resourceRefs = new Map<string, string>()
 const preserveTypedQueryParams = () => ''
 
 export function getOpenVikingResourceRef(uri: string): string | undefined {
-  return resourceRefs.get(uri)
+  const value = uri.trim()
+  return (
+    resourceRefs.get(value) ??
+    resourceRefs.get(value.endsWith('/') ? value.slice(0, -1) : `${value}/`)
+  )
 }
 const OPERATION_PATHS = new Map<string, string>([
   ['/api/v1/fs/ls', 'fs_list'],
@@ -96,7 +100,14 @@ function rememberResourceRefs(value: unknown): void {
   for (const [uriKey, refKey] of pairs) {
     const uri = typeof value[uriKey] === 'string' ? value[uriKey] : undefined
     const ref = typeof value[refKey] === 'string' ? value[refKey] : undefined
-    if (uri && ref) resourceRefs.set(uri, ref)
+    if (uri && ref) {
+      resourceRefs.set(uri, ref)
+      if (uri.startsWith('viking://') && uri !== 'viking://') {
+        const withoutSlash = uri.endsWith('/') ? uri.slice(0, -1) : uri
+        resourceRefs.set(withoutSlash, ref)
+        resourceRefs.set(`${withoutSlash}/`, ref)
+      }
+    }
   }
   Object.values(value).forEach(rememberResourceRefs)
 }
@@ -386,4 +397,9 @@ export const ovClient = createOvClient({
 
 export function registerOpenVikingRoot(uri: string, ref: string): void {
   resourceRefs.set(uri, ref)
+  if (uri.startsWith('viking://') && uri !== 'viking://') {
+    const withoutSlash = uri.endsWith('/') ? uri.slice(0, -1) : uri
+    resourceRefs.set(withoutSlash, ref)
+    resourceRefs.set(`${withoutSlash}/`, ref)
+  }
 }
