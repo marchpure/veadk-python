@@ -10,12 +10,300 @@
     "web-studio/src/lib/ov-client",
     "web-studio/src/i18n"
   ],
-  "source_files_total": 112,
-  "copied": 98,
+  "source_files_total": 136,
+  "copied": 122,
   "adapted": 14,
   "excluded": 0,
   "unclassified": 0,
   "files": [
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/alert-dialog.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/alert-dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e94fdb62ec480767e344dcabdf51f34cb51a8ce8420191135a49ea1957c02b4e",
+      "target_sha256": "e94fdb62ec480767e344dcabdf51f34cb51a8ce8420191135a49ea1957c02b4e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/badge.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/badge.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "5a5756fdb19fa733c5deb90d01c3d459b135e3b1f784b48a43c9651a193ee8b6",
+      "target_sha256": "5a5756fdb19fa733c5deb90d01c3d459b135e3b1f784b48a43c9651a193ee8b6"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/button-group.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/button-group.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1275ec7787e646aabed7adc1bb9054349f51561a67ce5c64669743b7cb7a4946",
+      "target_sha256": "1275ec7787e646aabed7adc1bb9054349f51561a67ce5c64669743b7cb7a4946"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/button.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/button.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "10d5c01626d4424e34ea962b12bc5c05fb82293ff4ae1853ccbe3f33ebe97f1c",
+      "target_sha256": "10d5c01626d4424e34ea962b12bc5c05fb82293ff4ae1853ccbe3f33ebe97f1c"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/card.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/card.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "94e1e012fd86aa746f251543ee7c1ce87c1e04928cf5900a8915d070251da4c4",
+      "target_sha256": "94e1e012fd86aa746f251543ee7c1ce87c1e04928cf5900a8915d070251da4c4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/checkbox.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/checkbox.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "d6a22f3fc22241b2f80820730698b883d3f498fe2d434dd3f5edd58cbd2b80f0",
+      "target_sha256": "d6a22f3fc22241b2f80820730698b883d3f498fe2d434dd3f5edd58cbd2b80f0"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/collapsible.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/collapsible.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "3de60b605e64c835588cecc189fbcf907eb602b0158f970d614b067e868b491e",
+      "target_sha256": "3de60b605e64c835588cecc189fbcf907eb602b0158f970d614b067e868b491e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/dialog.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "f9e337cf82ae97b3f87df24095bb4ebe609aa292ff4c13dfb826f016b861f020",
+      "target_sha256": "f9e337cf82ae97b3f87df24095bb4ebe609aa292ff4c13dfb826f016b861f020"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/dropdown-menu.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/dropdown-menu.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "4e8539bc06fbcbd58d1bf1dad2697558a17497a5c3a47cc6c837fa98e7e9888d",
+      "target_sha256": "4e8539bc06fbcbd58d1bf1dad2697558a17497a5c3a47cc6c837fa98e7e9888d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/field.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/field.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e35189fb75b75f546b650de353ac53a70c6bb014f63dd6232e4c4e19314e0d93",
+      "target_sha256": "e35189fb75b75f546b650de353ac53a70c6bb014f63dd6232e4c4e19314e0d93"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/input.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/input.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "aeffe56e3a0a37ed13e8237f7f5b8e07a36b3e068fd725f86e192a2c048cf78e",
+      "target_sha256": "aeffe56e3a0a37ed13e8237f7f5b8e07a36b3e068fd725f86e192a2c048cf78e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/label.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/label.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "dad928d3ada088c3a1e140f93d62208f72ecfcc6b253ec15bd472c8990d2205f",
+      "target_sha256": "dad928d3ada088c3a1e140f93d62208f72ecfcc6b253ec15bd472c8990d2205f"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/pagination.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/pagination.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "007833f0bc64cf3d3d068a19655f98ffdde1d6443c6ac9fa3c1acb1a40469b7a",
+      "target_sha256": "007833f0bc64cf3d3d068a19655f98ffdde1d6443c6ac9fa3c1acb1a40469b7a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/popover.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/popover.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "27202112ea022bfc105bdbe3141e4163f15316954e7536948e0e41db4e12848a",
+      "target_sha256": "27202112ea022bfc105bdbe3141e4163f15316954e7536948e0e41db4e12848a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/radio-group.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/radio-group.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "9081548e456ec9f9686f3f22e2db1e43487bbc0401a3224d45d3f4d940c21c02",
+      "target_sha256": "9081548e456ec9f9686f3f22e2db1e43487bbc0401a3224d45d3f4d940c21c02"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/scroll-area.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/scroll-area.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "2390831e3de53e190a52b5197dc6e2765ca5024d937dcddc52db77d82f30816f",
+      "target_sha256": "2390831e3de53e190a52b5197dc6e2765ca5024d937dcddc52db77d82f30816f"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/select.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/select.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "d596047728b15d6964bfd65e4244f8d4c18f5edb0cfabdc58881107c288638e4",
+      "target_sha256": "d596047728b15d6964bfd65e4244f8d4c18f5edb0cfabdc58881107c288638e4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/separator.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/separator.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1bba86d2e304b6b87c9ef80c324dc8c4c10f2fb5af99b8eaafba1fb64ef84309",
+      "target_sha256": "1bba86d2e304b6b87c9ef80c324dc8c4c10f2fb5af99b8eaafba1fb64ef84309"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/sheet.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/sheet.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "05d1e1bcef676f6a468f4bab83a20b54c273bcfbb75ab19871efa40dfddbd7cd",
+      "target_sha256": "05d1e1bcef676f6a468f4bab83a20b54c273bcfbb75ab19871efa40dfddbd7cd"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/spinner.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/spinner.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0cf9f7baad0a2039339593ec00256c1cedd56501b0722c4003239179938d9454",
+      "target_sha256": "0cf9f7baad0a2039339593ec00256c1cedd56501b0722c4003239179938d9454"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/switch.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/switch.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "ada044189e0acea340a4e11acbd7fd945770b3b0fc6a3743916d4a93de0b802d",
+      "target_sha256": "ada044189e0acea340a4e11acbd7fd945770b3b0fc6a3743916d4a93de0b802d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/table.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/table.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "be29b70b20ea3e05792fc7a45dd85fda03c292765195b9b8fcd0911c26f2bbec",
+      "target_sha256": "be29b70b20ea3e05792fc7a45dd85fda03c292765195b9b8fcd0911c26f2bbec"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/textarea.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/textarea.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "94db1bb9afea727d4bec254012921a411d22b7d56873ffd5bfc7128df6478316",
+      "target_sha256": "94db1bb9afea727d4bec254012921a411d22b7d56873ffd5bfc7128df6478316"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/tooltip.tsx",
+      "target_path": "frontend/src/features/openviking/components/ui/tooltip.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "54bbd22d3924f7d06a5ac74d0b3111f45e91ea00c6446a49ba791446cbd58070",
+      "target_sha256": "54bbd22d3924f7d06a5ac74d0b3111f45e91ea00c6446a49ba791446cbd58070"
+    },
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/index.ts",
@@ -1361,5 +1649,31 @@
       "source_sha256": "172552982b5c7af04b930d0366b1ff27dc0364dfd602ea4124f3ab3440bf518a",
       "target_sha256": "56932d5567860a07da25830a39a8d1bfa44ab30161783b7b1c8af50fb24506f9"
     }
+  ],
+  "direct_component_dependencies": [
+    "web-studio/src/components/ui/alert-dialog.tsx",
+    "web-studio/src/components/ui/badge.tsx",
+    "web-studio/src/components/ui/button.tsx",
+    "web-studio/src/components/ui/button-group.tsx",
+    "web-studio/src/components/ui/card.tsx",
+    "web-studio/src/components/ui/checkbox.tsx",
+    "web-studio/src/components/ui/collapsible.tsx",
+    "web-studio/src/components/ui/dialog.tsx",
+    "web-studio/src/components/ui/dropdown-menu.tsx",
+    "web-studio/src/components/ui/field.tsx",
+    "web-studio/src/components/ui/input.tsx",
+    "web-studio/src/components/ui/label.tsx",
+    "web-studio/src/components/ui/pagination.tsx",
+    "web-studio/src/components/ui/popover.tsx",
+    "web-studio/src/components/ui/radio-group.tsx",
+    "web-studio/src/components/ui/scroll-area.tsx",
+    "web-studio/src/components/ui/select.tsx",
+    "web-studio/src/components/ui/separator.tsx",
+    "web-studio/src/components/ui/sheet.tsx",
+    "web-studio/src/components/ui/spinner.tsx",
+    "web-studio/src/components/ui/switch.tsx",
+    "web-studio/src/components/ui/table.tsx",
+    "web-studio/src/components/ui/textarea.tsx",
+    "web-studio/src/components/ui/tooltip.tsx"
   ]
 }
