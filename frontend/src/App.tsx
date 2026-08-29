@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -245,7 +247,11 @@ import {
   IssueFeedbackIcon,
 } from "./ui/icons/FeedbackIcons";
 import { KnowledgeWorkspacePage } from "./features/knowledge-workspace/pages/KnowledgeWorkspacePage";
-import { OpenVikingWorkspace } from "./features/openviking/OpenVikingWorkspace";
+const OpenVikingWorkspace = lazy(() =>
+  import("./extensions/openviking/OpenVikingWorkspace").then((module) => ({
+    default: module.OpenVikingWorkspace,
+  })),
+);
 
 interface IssueFeedbackTarget {
   turn: Turn;
@@ -1010,7 +1016,11 @@ function StudioApp({
   initialWorkspace: "agent-studio" | "openviking";
 }) {
   if (initialWorkspace === "openviking") {
-    return <OpenVikingWorkspace />;
+    return (
+      <Suspense fallback={<div role="status">Loading OpenViking…</div>}>
+        <OpenVikingWorkspace />
+      </Suspense>
+    );
   }
   return <AgentStudioApp />;
 }

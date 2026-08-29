@@ -2416,7 +2416,7 @@ def _run_frontend_server(
     # OpenViking is a separate knowledge runtime profile. Its upstream origin
     # and API key remain server-managed and are never part of Connection IDs.
     try:
-        from frontend.server.openviking import (
+        from frontend.server.extensions.openviking import (
             OpenVikingConfig,
             OpenVikingProfileRepository,
             OpenVikingService,

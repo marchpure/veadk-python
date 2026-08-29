@@ -59,8 +59,7 @@ import {
   type UploadResult,
 } from "../api/client";
 import { OAuthFlowPollError, waitForOAuthConnection } from "../api/oauthFlow";
-import { openVikingApi } from "../../openviking/api";
-import type { OpenVikingProfile } from "../../openviking/hooks/use-app-connection";
+import { openVikingApi, type OpenVikingProfile } from "../../../extensions/openviking/public";
 import { Modal } from "../components/Modal";
 import { readQuery, writeQuery } from "../application/cache";
 import type {

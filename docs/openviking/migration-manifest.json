@@ -19,7 +19,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/alert-dialog.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/alert-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/alert-dialog.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -31,7 +31,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/badge.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/badge.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/badge.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -43,7 +43,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/button-group.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/button-group.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/button-group.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -55,7 +55,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/button.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/button.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/button.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -67,7 +67,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/card.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/card.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/card.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -79,7 +79,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/checkbox.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/checkbox.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/checkbox.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -91,7 +91,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/collapsible.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/collapsible.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/collapsible.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -103,7 +103,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/dialog.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/dialog.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -115,7 +115,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/dropdown-menu.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/dropdown-menu.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/dropdown-menu.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -127,7 +127,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/field.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/field.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/field.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -139,7 +139,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/input.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/input.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/input.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -151,7 +151,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/label.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/label.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/label.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -163,7 +163,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/pagination.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/pagination.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/pagination.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -175,7 +175,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/popover.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/popover.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/popover.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -187,7 +187,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/radio-group.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/radio-group.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/radio-group.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -199,7 +199,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/scroll-area.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/scroll-area.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/scroll-area.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -211,7 +211,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/select.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/select.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/select.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -223,7 +223,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/separator.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/separator.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/separator.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -235,7 +235,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/sheet.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/sheet.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -247,7 +247,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/spinner.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/spinner.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/spinner.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -259,7 +259,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/switch.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/switch.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/switch.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -271,7 +271,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/table.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/table.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/table.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -283,7 +283,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/textarea.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/textarea.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/textarea.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -295,7 +295,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/components/ui/tooltip.tsx",
-      "target_path": "frontend/src/features/openviking/components/ui/tooltip.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/tooltip.tsx",
       "classification": "copied",
       "reason": "Direct component dependency migrated with no content changes",
       "tests": [
@@ -307,7 +307,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/index.ts",
-      "target_path": "frontend/src/features/openviking/i18n/index.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/index.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -319,7 +319,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/en.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/en.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -331,7 +331,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/en/activity.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/en/activity.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en/activity.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -343,11 +343,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/en/resources.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/en/resources.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en/resources.ts",
       "classification": "adapted",
       "reason": "AgentKit adds labels for manual text and authorized Connection resource import modes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "792990fc88dd3bcd5b88b91da1296849502cbce349fab36710dfe0369cd0fbbc",
       "target_sha256": "4e70e2dd099e17ec3c76e3334c4c7dfd09cb44b2fca6a5a41cb48b8e82be45e4",
@@ -358,7 +358,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/en/workspace.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/en/workspace.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en/workspace.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -370,7 +370,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/zh-CN.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/zh-CN.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -382,7 +382,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/zh-CN/activity.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/zh-CN/activity.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN/activity.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -394,11 +394,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/zh-CN/resources.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/zh-CN/resources.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN/resources.ts",
       "classification": "adapted",
       "reason": "AgentKit adds labels for manual text and authorized Connection resource import modes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "f2bd664750c2b459e6c446dffe45d766be2681ea701cc7698b73d54615c37a31",
       "target_sha256": "9051c59d57e299a044f1eea3ccceadc7d7913e19b929920fe28c749612f9e979",
@@ -409,7 +409,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/locales/zh-CN/workspace.ts",
-      "target_path": "frontend/src/features/openviking/i18n/locales/zh-CN/workspace.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN/workspace.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -421,7 +421,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/i18n/resources.ts",
-      "target_path": "frontend/src/features/openviking/i18n/resources.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/resources.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -433,11 +433,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/client.test.ts",
-      "target_path": "frontend/src/features/openviking/lib/ov-client/client.test.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/client.test.ts",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
-        "frontend/src/features/openviking/lib/ov-client/client.test.ts"
+        "frontend/src/extensions/openviking/lib/ov-client/client.test.ts"
       ],
       "source_sha256": "14ce0b6f6c19840410ab1aaa889d49bbf2f867390d50eae0b87ec28dd6923076",
       "target_sha256": "9ce6f9e2e4d18b6783f1f540549f4d55f17c2393d5ac9c708282b51099e93c34",
@@ -448,7 +448,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/client.ts",
-      "target_path": "frontend/src/features/openviking/lib/ov-client/client.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/client.ts",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
@@ -465,7 +465,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/errors.ts",
-      "target_path": "frontend/src/features/openviking/lib/ov-client/errors.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/errors.ts",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
@@ -481,7 +481,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/index.ts",
-      "target_path": "frontend/src/features/openviking/lib/ov-client/index.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/index.ts",
       "classification": "adapted",
       "reason": "AgentKit same-origin BFF security adaptation",
       "tests": [
@@ -496,7 +496,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/lib/ov-client/types.ts",
-      "target_path": "frontend/src/features/openviking/lib/ov-client/types.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/types.ts",
       "classification": "adapted",
       "reason": "AgentKit same-origin BFF security adaptation",
       "tests": [
@@ -511,11 +511,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/add-resource-page.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx"
       ],
       "source_sha256": "72a51f959067cffd47a7734392f6e5ff741ce04469afdbd0a67df07e4f42e1e2",
       "target_sha256": "67bcb6533434d5ef2d83b9820c736342a945cdd748cb4dbfa107a8ea9854abe4",
@@ -526,11 +526,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/add-resource-page.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/add-resource-page.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.tsx",
       "classification": "adapted",
       "reason": "AgentKit adds manual text and authorized Connection resource import modes through scoped same-origin BFF commands",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/add-resource-page.test.tsx",
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx",
         "tests/frontend/server/test_openviking_bff.py"
       ],
       "source_sha256": "82a33cd09aec304d08e323d7441a203bbb15589cd1c122a3da29a21a9c08fa80",
@@ -543,7 +543,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/additional-resource-options.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/additional-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/additional-resource-options.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -555,7 +555,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/code-editor.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/code-editor.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/code-editor.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -567,7 +567,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/dir-browser.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/dir-browser.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/dir-browser.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -579,7 +579,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/directory-picker-dialog.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/directory-picker-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/directory-picker-dialog.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -591,7 +591,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/feishu-resource-options.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/feishu-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/feishu-resource-options.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -603,11 +603,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/file-preview-html.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/file-preview-html.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/file-preview-html.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/file-preview-html.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-components/file-preview-html.test.tsx"
       ],
       "source_sha256": "1a5e8a779dc892972c20908394ed2945d4e103af3768b6c29bba0c6f7cfb4873",
       "target_sha256": "1a5e8a779dc892972c20908394ed2945d4e103af3768b6c29bba0c6f7cfb4873"
@@ -615,11 +615,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/file-preview.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/file-preview.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/file-preview.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/file-preview.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-components/file-preview.test.tsx"
       ],
       "source_sha256": "f811dd6fda83e059388185f476ce379090c519ca232c58afa0f8fc522f09bc3e",
       "target_sha256": "f811dd6fda83e059388185f476ce379090c519ca232c58afa0f8fc522f09bc3e"
@@ -627,7 +627,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/file-preview.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/file-preview.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/file-preview.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -639,7 +639,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/find-palette.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/find-palette.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/find-palette.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -651,7 +651,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/git-resource-options.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/git-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/git-resource-options.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -663,7 +663,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/item-column.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/item-column.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/item-column.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -675,7 +675,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/lazy-file-preview.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/lazy-file-preview.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/lazy-file-preview.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -687,7 +687,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/remote-resource-descriptors.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/remote-resource-descriptors.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/remote-resource-descriptors.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -699,7 +699,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/remote-resource-fields.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/remote-resource-fields.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/remote-resource-fields.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -711,7 +711,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/remote-resource-type-picker.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/remote-resource-type-picker.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/remote-resource-type-picker.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -723,7 +723,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/resource-configuration-guide.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/resource-configuration-guide.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/resource-configuration-guide.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -735,7 +735,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/resource-destination-fields.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/resource-destination-fields.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/resource-destination-fields.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -747,7 +747,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/resource-option-radio-card.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/resource-option-radio-card.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/resource-option-radio-card.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -759,7 +759,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/tos-resource-options.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/tos-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/tos-resource-options.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -771,11 +771,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/upload-resource-fields.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/upload-resource-fields.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/upload-resource-fields.test.tsx",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-components/upload-resource-fields.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-components/upload-resource-fields.test.tsx"
       ],
       "source_sha256": "dddd060842e1a663d8facd62005217204ca36dedc5c53e4f467c6b6e7ff79bf8",
       "target_sha256": "9df4bc99f61f8c1829478a0394a18cc53fa3db7d47a827301d251a037371e6c7",
@@ -786,7 +786,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/upload-resource-fields.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/upload-resource-fields.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/upload-resource-fields.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -798,7 +798,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/upload-task-dialog.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/upload-task-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/upload-task-dialog.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -810,7 +810,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-components/web-resource-options.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-components/web-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/web-resource-options.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -822,7 +822,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-constants/.gitkeep",
-      "target_path": "frontend/src/features/openviking/routes/resources/-constants/.gitkeep",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-constants/.gitkeep",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -834,7 +834,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-hooks/use-json-format.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-hooks/use-json-format.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-json-format.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -846,7 +846,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-hooks/use-list-navigation.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-hooks/use-list-navigation.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-list-navigation.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -858,11 +858,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-hooks/use-resource-upload.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-hooks/use-resource-upload.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-resource-upload.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-hooks/use-resource-upload.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-hooks/use-resource-upload.test.tsx"
       ],
       "source_sha256": "c944baec7ab2ed9909fa4398380d53d4b4c43770c8db1c7483df9cd56fd8afd3",
       "target_sha256": "c944baec7ab2ed9909fa4398380d53d4b4c43770c8db1c7483df9cd56fd8afd3"
@@ -870,7 +870,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-hooks/use-resource-upload.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-hooks/use-resource-upload.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-resource-upload.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -882,11 +882,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-hooks/viking-fm.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/resources/-hooks/viking-fm.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/viking-fm.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-hooks/viking-fm.test.tsx"
+        "frontend/src/extensions/openviking/routes/resources/-hooks/viking-fm.test.tsx"
       ],
       "source_sha256": "880975f1b10a4cdec85ebba2b660be3fbfb838db2f82978d4498956e12edf525",
       "target_sha256": "880975f1b10a4cdec85ebba2b660be3fbfb838db2f82978d4498956e12edf525"
@@ -894,7 +894,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-hooks/viking-fm.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-hooks/viking-fm.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/viking-fm.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -906,11 +906,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/api.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/api.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/api.test.ts",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/api.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/api.test.ts"
       ],
       "source_sha256": "33653943a6ee55de1405653a2d2bcdd1cc8ed262cdda919e5df4b38fb83f8b83",
       "target_sha256": "e63459550ccf757b0fbc81ad75f52451ef6c55d78f99ce31f6a19a9b75d4c2fa",
@@ -921,7 +921,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/api.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/api.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/api.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -933,11 +933,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/find-search.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/find-search.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/find-search.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/find-search.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/find-search.test.ts"
       ],
       "source_sha256": "e0758f6ac694412b54fa60866332677af20e380484836b38607eeea889c23516",
       "target_sha256": "e0758f6ac694412b54fa60866332677af20e380484836b38607eeea889c23516"
@@ -945,7 +945,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/find-search.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/find-search.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/find-search.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -957,11 +957,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/json-format.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/json-format.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/json-format.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/json-format.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/json-format.test.ts"
       ],
       "source_sha256": "c42b49384d0204561bcd41c645cdfb75a384275552e83d92a6f4074f874051aa",
       "target_sha256": "c42b49384d0204561bcd41c645cdfb75a384275552e83d92a6f4074f874051aa"
@@ -969,7 +969,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/json-format.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/json-format.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/json-format.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -981,7 +981,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/json-format.worker.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/json-format.worker.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/json-format.worker.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -993,11 +993,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/normalize.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/normalize.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/normalize.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/normalize.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/normalize.test.ts"
       ],
       "source_sha256": "b1035b3b8b4b23b420260e2a7fb66dbb06d80dc5cccc7ea537188e16437bc066",
       "target_sha256": "b1035b3b8b4b23b420260e2a7fb66dbb06d80dc5cccc7ea537188e16437bc066"
@@ -1005,7 +1005,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/normalize.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/normalize.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/normalize.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1017,7 +1017,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/palette-mode.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/palette-mode.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/palette-mode.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1029,7 +1029,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-import-api.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-import-api.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-api.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1041,11 +1041,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-import-request.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-import-request.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-request.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/resource-import-request.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-request.test.ts"
       ],
       "source_sha256": "7d32138c78b1a12afe594125f92065367311c6f439f9a3a15115a3906f3dce8c",
       "target_sha256": "7d32138c78b1a12afe594125f92065367311c6f439f9a3a15115a3906f3dce8c"
@@ -1053,7 +1053,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-import-request.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-import-request.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-request.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1065,7 +1065,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-import-types.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-import-types.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-types.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1077,11 +1077,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-option-values.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-option-values.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-option-values.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/resource-option-values.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-option-values.test.ts"
       ],
       "source_sha256": "e392e679b0495b16e96cbbac22bd8abdbf9d4231a62f5b98b048592b568659c0",
       "target_sha256": "e392e679b0495b16e96cbbac22bd8abdbf9d4231a62f5b98b048592b568659c0"
@@ -1089,7 +1089,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-option-values.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-option-values.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-option-values.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1101,11 +1101,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-source-strategy.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-source-strategy.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source-strategy.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/resource-source-strategy.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-source-strategy.test.ts"
       ],
       "source_sha256": "dc21d9b180fd80c105acd030b0b39cfa0a4c858be8c6ad3c618c5515509c88f0",
       "target_sha256": "dc21d9b180fd80c105acd030b0b39cfa0a4c858be8c6ad3c618c5515509c88f0"
@@ -1113,7 +1113,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-source-strategy.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-source-strategy.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source-strategy.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1125,11 +1125,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-source.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-source.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/resource-source.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-source.test.ts"
       ],
       "source_sha256": "1e505030201f7780a4a8269d694f45734dc96a56590102dcc0f92b6780078ad4",
       "target_sha256": "1e505030201f7780a4a8269d694f45734dc96a56590102dcc0f92b6780078ad4"
@@ -1137,7 +1137,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-source.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-source.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source.ts",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
@@ -1152,11 +1152,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-upload-tasks.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-upload-tasks.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-upload-tasks.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/resources/-lib/resource-upload-tasks.test.ts"
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-upload-tasks.test.ts"
       ],
       "source_sha256": "c18dd2b5a9074172c7ba42d49ae6bae396ee7517dd6ad8677d6373cb730f2a28",
       "target_sha256": "c18dd2b5a9074172c7ba42d49ae6bae396ee7517dd6ad8677d6373cb730f2a28"
@@ -1164,7 +1164,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/resource-upload-tasks.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/resource-upload-tasks.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-upload-tasks.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1176,7 +1176,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-lib/upload.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-lib/upload.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/upload.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1188,7 +1188,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-schemas/.gitkeep",
-      "target_path": "frontend/src/features/openviking/routes/resources/-schemas/.gitkeep",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-schemas/.gitkeep",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1200,7 +1200,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/-types/viking-fm.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/-types/viking-fm.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-types/viking-fm.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1212,7 +1212,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/resources/resource-upload.ts",
-      "target_path": "frontend/src/features/openviking/routes/resources/resource-upload.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/resource-upload.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1224,11 +1224,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/date-range-picker.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/date-range-picker.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/date-range-picker.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/retrieval/-components/date-range-picker.test.tsx"
+        "frontend/src/extensions/openviking/routes/retrieval/-components/date-range-picker.test.tsx"
       ],
       "source_sha256": "89b0421ba3de04d81325cca20c1b75650434dad020dccb14eedb46099bdaed18",
       "target_sha256": "89b0421ba3de04d81325cca20c1b75650434dad020dccb14eedb46099bdaed18"
@@ -1236,7 +1236,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/date-range-picker.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/date-range-picker.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/date-range-picker.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1248,7 +1248,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/loading-hint.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/loading-hint.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/loading-hint.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1260,7 +1260,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/retrieval-controls.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/retrieval-controls.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-controls.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1272,11 +1272,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/retrieval-detail-sheet.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/retrieval-detail-sheet.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-detail-sheet.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/retrieval/-components/retrieval-detail-sheet.test.tsx"
+        "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-detail-sheet.test.tsx"
       ],
       "source_sha256": "2f80df271a2c2f77f4748ca96f0f2b765922e8d36ec9d37d7d27ebab393b73f6",
       "target_sha256": "2f80df271a2c2f77f4748ca96f0f2b765922e8d36ec9d37d7d27ebab393b73f6"
@@ -1284,7 +1284,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/retrieval-detail-sheet.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/retrieval-detail-sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-detail-sheet.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1296,11 +1296,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/retrieval-results.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/retrieval-results.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-results.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/retrieval/-components/retrieval-results.test.tsx"
+        "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-results.test.tsx"
       ],
       "source_sha256": "3b7513e1c4b89f4d7315c3cc0e26e0ffc0623a18d8917352fc7ae6c05164d6d1",
       "target_sha256": "3b7513e1c4b89f4d7315c3cc0e26e0ffc0623a18d8917352fc7ae6c05164d6d1"
@@ -1308,7 +1308,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/retrieval-results.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/retrieval-results.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-results.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1320,7 +1320,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/search-bar.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/search-bar.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/search-bar.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1332,11 +1332,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/tag-filter-input.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/tag-filter-input.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/tag-filter-input.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/retrieval/-components/tag-filter-input.test.tsx"
+        "frontend/src/extensions/openviking/routes/retrieval/-components/tag-filter-input.test.tsx"
       ],
       "source_sha256": "3bb305d681b0c221cad51262f13cbadf73f45392570e9ea74a77ed5a49962fce",
       "target_sha256": "3bb305d681b0c221cad51262f13cbadf73f45392570e9ea74a77ed5a49962fce"
@@ -1344,7 +1344,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-components/tag-filter-input.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-components/tag-filter-input.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/tag-filter-input.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1356,7 +1356,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-constants/retrieval.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-constants/retrieval.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-constants/retrieval.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1368,7 +1368,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-hooks/use-resource-context-probe.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-hooks/use-resource-context-probe.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-hooks/use-resource-context-probe.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1380,7 +1380,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-hooks/use-retrieval-query.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-hooks/use-retrieval-query.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-hooks/use-retrieval-query.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1392,7 +1392,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-lib/results.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-lib/results.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/results.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1404,7 +1404,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-lib/scope.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-lib/scope.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/scope.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1416,11 +1416,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-lib/search-state.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-lib/search-state.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/search-state.test.ts",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
-        "frontend/src/features/openviking/routes/retrieval/-lib/search-state.test.ts"
+        "frontend/src/extensions/openviking/routes/retrieval/-lib/search-state.test.ts"
       ],
       "source_sha256": "0f94445e2567aecfa28c5156e35404c7ad77a6998ea4d4063cb8922d6a4cac8d",
       "target_sha256": "d455a26815334978337e89c5f5b580264352716f99c4400496bc062a1cd72d64",
@@ -1431,7 +1431,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-lib/search-state.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-lib/search-state.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/search-state.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1443,7 +1443,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/-types/retrieval.ts",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/-types/retrieval.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-types/retrieval.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1455,7 +1455,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/retrieval/route.tsx",
-      "target_path": "frontend/src/features/openviking/routes/retrieval/route.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/route.tsx",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
@@ -1471,7 +1471,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-components/task-detail-sheet.tsx",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-components/task-detail-sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-components/task-detail-sheet.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1483,11 +1483,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-list.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-list.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-list.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/tasks/-lib/task-list.test.ts"
+        "frontend/src/extensions/openviking/routes/tasks/-lib/task-list.test.ts"
       ],
       "source_sha256": "19bd62016aa2738f5390c29647119a5af3cf92116c4967980e1520c9f3649588",
       "target_sha256": "19bd62016aa2738f5390c29647119a5af3cf92116c4967980e1520c9f3649588"
@@ -1495,7 +1495,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-list.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-list.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-list.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1507,7 +1507,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-pipeline.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-pipeline.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-pipeline.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1519,11 +1519,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-record.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-record.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-record.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/tasks/-lib/task-record.test.ts"
+        "frontend/src/extensions/openviking/routes/tasks/-lib/task-record.test.ts"
       ],
       "source_sha256": "24f327b58d6031336a0392e2df7d23078947a1d19a46212a4a4cb42e9cb94eff",
       "target_sha256": "24f327b58d6031336a0392e2df7d23078947a1d19a46212a4a4cb42e9cb94eff"
@@ -1531,7 +1531,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-record.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-record.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-record.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1543,11 +1543,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-time.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-time.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-time.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/tasks/-lib/task-time.test.ts"
+        "frontend/src/extensions/openviking/routes/tasks/-lib/task-time.test.ts"
       ],
       "source_sha256": "77ffd046bc7eb40c4cc00178466f1df1de1aaf03aec8692e50e6a39726277cc1",
       "target_sha256": "77ffd046bc7eb40c4cc00178466f1df1de1aaf03aec8692e50e6a39726277cc1"
@@ -1555,7 +1555,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/-lib/task-time.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/-lib/task-time.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-time.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1567,7 +1567,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/route.tsx",
-      "target_path": "frontend/src/features/openviking/routes/tasks/route.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/route.tsx",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [
@@ -1583,7 +1583,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/tasks/task-model.ts",
-      "target_path": "frontend/src/features/openviking/routes/tasks/task-model.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/task-model.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1595,11 +1595,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-components/edit-watch-dialog.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/watches/-components/edit-watch-dialog.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-components/edit-watch-dialog.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/watches/-components/edit-watch-dialog.test.tsx"
+        "frontend/src/extensions/openviking/routes/watches/-components/edit-watch-dialog.test.tsx"
       ],
       "source_sha256": "50a0be97981062eec30244a6ccf29275fcd5c397b9bcf190cd864e86d7bd2851",
       "target_sha256": "50a0be97981062eec30244a6ccf29275fcd5c397b9bcf190cd864e86d7bd2851"
@@ -1607,7 +1607,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-components/edit-watch-dialog.tsx",
-      "target_path": "frontend/src/features/openviking/routes/watches/-components/edit-watch-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-components/edit-watch-dialog.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1619,7 +1619,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-components/watch-history-sheet.tsx",
-      "target_path": "frontend/src/features/openviking/routes/watches/-components/watch-history-sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-components/watch-history-sheet.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1631,11 +1631,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-lib/api.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/watches/-lib/api.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/api.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/watches/-lib/api.test.ts"
+        "frontend/src/extensions/openviking/routes/watches/-lib/api.test.ts"
       ],
       "source_sha256": "53323e7c549085ec142be289b31907f7397d43413100ea3413462c91f636207f",
       "target_sha256": "53323e7c549085ec142be289b31907f7397d43413100ea3413462c91f636207f"
@@ -1643,7 +1643,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-lib/api.ts",
-      "target_path": "frontend/src/features/openviking/routes/watches/-lib/api.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/api.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1655,11 +1655,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-lib/watch-discovery.test.ts",
-      "target_path": "frontend/src/features/openviking/routes/watches/-lib/watch-discovery.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/watch-discovery.test.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/watches/-lib/watch-discovery.test.ts"
+        "frontend/src/extensions/openviking/routes/watches/-lib/watch-discovery.test.ts"
       ],
       "source_sha256": "69c4b5da9b5218652904bbe674d7926d9a107c483f1f0a4480e08d5467a4cd0d",
       "target_sha256": "69c4b5da9b5218652904bbe674d7926d9a107c483f1f0a4480e08d5467a4cd0d"
@@ -1667,7 +1667,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/-lib/watch-discovery.ts",
-      "target_path": "frontend/src/features/openviking/routes/watches/-lib/watch-discovery.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/watch-discovery.ts",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
@@ -1679,11 +1679,11 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/route.test.tsx",
-      "target_path": "frontend/src/features/openviking/routes/watches/route.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/route.test.tsx",
       "classification": "copied",
       "reason": "Direct source migration with no content changes",
       "tests": [
-        "frontend/src/features/openviking/routes/watches/route.test.tsx"
+        "frontend/src/extensions/openviking/routes/watches/route.test.tsx"
       ],
       "source_sha256": "2b5ec9d427dd1e7b894e6f421f84cfbdc90c5e0ef7ad30e38fe5d1e332335a2c",
       "target_sha256": "2b5ec9d427dd1e7b894e6f421f84cfbdc90c5e0ef7ad30e38fe5d1e332335a2c"
@@ -1691,7 +1691,7 @@
     {
       "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
       "source_path": "web-studio/src/routes/watches/route.tsx",
-      "target_path": "frontend/src/features/openviking/routes/watches/route.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/route.tsx",
       "classification": "adapted",
       "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
       "tests": [

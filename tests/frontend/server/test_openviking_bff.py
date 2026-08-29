@@ -18,16 +18,16 @@ from frontend.server.knowledge_workspace.models import (
     WorkspaceResource,
     WorkspaceResourceKind,
 )
-from frontend.server.openviking.connection_resource import (
+from frontend.server.extensions.openviking.connection_resource import (
     resolve_connection_resource,
 )
-from frontend.server.openviking.service import (
+from frontend.server.extensions.openviking.service import (
     OpenVikingConfig,
     OpenVikingError,
     OpenVikingProfileRepository,
     OpenVikingService,
 )
-from frontend.server.openviking.routes import mount_openviking_routes
+from frontend.server.extensions.openviking.routes import mount_openviking_routes
 from frontend.server.knowledge_workspace.service import Actor
 
 
@@ -311,7 +311,7 @@ def test_profile_lookup_enforces_tenant_and_workspace() -> None:
 
 
 def test_operation_allowlist_matches_frozen_watch_api() -> None:
-    from frontend.server.openviking.service import OPERATIONS
+    from frontend.server.extensions.openviking.service import OPERATIONS
 
     assert "watches" in OPERATIONS
     assert "watch_create" not in OPERATIONS

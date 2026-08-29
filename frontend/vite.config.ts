@@ -52,15 +52,15 @@ function chunkDirectory(moduleIds: readonly string[]): string {
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
-    setupFiles: ["./src/features/openviking/test-setup.ts"],
+    setupFiles: ["./src/extensions/openviking/test-setup.ts"],
   },
   resolve: {
     alias: {
       "#": fileURLToPath(
-        new URL("./src/features/openviking", import.meta.url),
+        new URL("./src/extensions/openviking", import.meta.url),
       ),
       "@ov-server": fileURLToPath(
-        new URL("./src/features/openviking/types/ov-server", import.meta.url),
+        new URL("./src/extensions/openviking/types/ov-server", import.meta.url),
       ),
     },
   },

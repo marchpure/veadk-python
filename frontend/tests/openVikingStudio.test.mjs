@@ -8,7 +8,7 @@ const appSource = readFileSync(
 );
 const workspaceSource = readFileSync(
   new URL(
-    "../src/features/openviking/OpenVikingWorkspace.tsx",
+    "../src/extensions/openviking/OpenVikingWorkspace.tsx",
     import.meta.url,
   ),
   "utf8",

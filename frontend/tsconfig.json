@@ -8,8 +8,8 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "#/*": ["src/features/openviking/*"],
-      "@ov-server/*": ["src/features/openviking/types/ov-server/*"]
+      "#/*": ["src/extensions/openviking/*"],
+      "@ov-server/*": ["src/extensions/openviking/types/ov-server/*"]
     },
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
