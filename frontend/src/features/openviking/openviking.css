@@ -375,6 +375,21 @@
 
 .ov-tree-state-error {
   color: hsl(var(--destructive));
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.ov-tree-retry {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .ov-resource-preview {

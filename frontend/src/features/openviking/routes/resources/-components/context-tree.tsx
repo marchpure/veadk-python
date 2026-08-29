@@ -87,7 +87,27 @@ function TreeLevel({
     return <div className="ov-tree-state">Loading...</div>
   }
   if (listQuery.isError) {
-    return <div className="ov-tree-state ov-tree-state-error">Unable to load this directory</div>
+    const error = listQuery.error as {
+      code?: string
+      message?: string
+      statusCode?: number
+    }
+    const message = error?.message || 'Unable to load this directory'
+    const detail = error?.statusCode
+      ? `${message} (${error.statusCode})`
+      : message
+    return (
+      <div className="ov-tree-state ov-tree-state-error" role="alert">
+        <span>{detail}</span>
+        <button
+          type="button"
+          className="ov-tree-retry"
+          onClick={() => void listQuery.refetch()}
+        >
+          Retry
+        </button>
+      </div>
+    )
   }
   if (entries.length === 0) {
     return <div className="ov-tree-state">Empty directory</div>
