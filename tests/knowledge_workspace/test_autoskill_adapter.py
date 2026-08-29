@@ -363,6 +363,20 @@ def test_state_zip_extracts_only_requested_skill_subtree() -> None:
     )
 
 
+def test_skill_zip_accepts_declared_presentation_and_semantic_data_files() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/presentation.html", "<!doctype html>")
+        archive.writestr("skillhub/demo/schema_glossary.json", "{}")
+        archive.writestr("skillhub/demo/query_results.csv", "id\n1\n")
+
+    checked = validate_skill_zip(source.getvalue())
+    assert "skillhub/demo/presentation.html" in checked["paths"]
+    assert "skillhub/demo/schema_glossary.json" in checked["paths"]
+    assert "skillhub/demo/query_results.csv" in checked["paths"]
+
+
 @pytest.mark.parametrize(
     ("entry", "code"),
     [

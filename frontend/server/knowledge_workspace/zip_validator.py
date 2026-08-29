@@ -201,12 +201,15 @@ def normalize_skill_zip(
                 "manifest.json",
                 "package-lock.json",
                 "package.json",
+                "presentation.html",
                 "pyproject.toml",
                 "README.md",
                 "requirements.txt",
                 "resources",
+                "schema_glossary.json",
                 "scripts",
                 "tests",
+                "query_results.csv",
             }:
                 raise SkillZipError(
                     "SKILL_ZIP_UNSUPPORTED_ENTRY",
@@ -259,12 +262,15 @@ def validate_skill_zip(
             "manifest.json",
             "package-lock.json",
             "package.json",
+            "presentation.html",
             "pyproject.toml",
             "README.md",
             "requirements.txt",
             "resources",
+            "schema_glossary.json",
             "scripts",
             "tests",
+            "query_results.csv",
         }
         for path in paths:
             relative = path.removeprefix(root_prefix + "/")
