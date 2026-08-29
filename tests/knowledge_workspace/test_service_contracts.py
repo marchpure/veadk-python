@@ -328,6 +328,57 @@ class StatelessDownloadFallbackAutoSkill(FreezeAutoSkill):
 
     config = Config()
 
+
+@pytest.mark.asyncio
+async def test_stateless_run_state_contains_fixed_revision_skill() -> None:
+    class StatelessRunAutoSkill(FreezeAutoSkill):
+        class Config:
+            state_mode = "stateless"
+
+        config = Config()
+
+        def __init__(self) -> None:
+            super().__init__(
+                [
+                    event("final_answer", {"answer": "created"}),
+                    event("request_summary", policy_summary()),
+                    event("done"),
+                ],
+                invoke_events=[
+                    event("final_answer", {"answer": "ran"}),
+                    event(
+                        "request_summary",
+                        policy_summary(skills_field="skills_used"),
+                    ),
+                    event("done"),
+                ],
+            )
+            self.invoke_states: list[bytes | None] = []
+
+        async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+            self.invoke_states.append(kwargs.get("state"))
+            async for item in super().invoke(**kwargs):
+                yield item
+
+    autoskill = StatelessRunAutoSkill()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(), autoskill, FakeLeasePort()
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    run = await service.run_revision(
+        actor, revision.revision_id, "run the fixed skill", ("connection-a",)
+    )
+    await asyncio.sleep(0)
+
+    assert autoskill.invoke_states
+    assert autoskill.invoke_states[-1] is not None
+    with zipfile.ZipFile(io.BytesIO(autoskill.invoke_states[-1])) as archive:
+        assert "skillhub/demo/SKILL.md" in archive.namelist()
     async def download(self, **_kwargs: object) -> bytes:
         raise AutoSkillProtocolError("AutoSkill download returned HTTP 404")
 
@@ -1867,7 +1918,10 @@ async def test_publication_consumer_stateless_run_does_not_inherit_authoring_sta
         workspace_id=actor.workspace_id,
     )
     assert session is not None
-    state_content = b"PK\x03\x04author-state"
+    state_buffer = io.BytesIO()
+    with zipfile.ZipFile(state_buffer, "w") as archive:
+        archive.writestr("memory/short_term/context.md", "author state")
+    state_content = state_buffer.getvalue()
     state_digest = __import__("hashlib").sha256(state_content).hexdigest()
     state_uri = service.repository.put_object(
         state_digest,
@@ -1896,5 +1950,12 @@ async def test_publication_consumer_stateless_run_does_not_inherit_authoring_sta
     )
     await asyncio.sleep(0)
 
-    assert autoskill.invoke_states[0] == state_content
-    assert autoskill.invoke_states[1] is None
+    assert len(autoskill.invoke_states) == 2
+    assert autoskill.invoke_states[0] is not None
+    with zipfile.ZipFile(io.BytesIO(autoskill.invoke_states[0])) as archive:
+        assert "skillhub/demo/SKILL.md" in archive.namelist()
+        assert "memory/short_term/context.md" in archive.namelist()
+    assert autoskill.invoke_states[1] is not None
+    with zipfile.ZipFile(io.BytesIO(autoskill.invoke_states[1])) as archive:
+        assert "skillhub/demo/SKILL.md" in archive.namelist()
+        assert "memory/short_term/context.md" not in archive.namelist()
