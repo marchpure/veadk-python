@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import socket
 from pathlib import Path
 
 import httpx
@@ -48,6 +49,228 @@ def profile(service: OpenVikingService, *, tenant: str = "tenant-a"):
         api_key="secret-api-key",
         workspace_uri="viking://resources/workspace-a/",
     )
+
+
+def cloud_profile(service: OpenVikingService, base_url: str):
+    return service.create_profile(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        principal_id="user-a",
+        display_name="VikingDB OpenViking",
+        base_url=base_url,
+        api_key="secret-api-key",
+        workspace_uri="viking://resources/",
+    )
+
+
+def stub_openviking_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    def resolved_address(host: str, port: int, *, type: int):
+        assert host in {"api.vikingdb.cn-beijing.volces.com", "localhost"}
+        address = "127.0.0.1" if host == "localhost" else "8.8.8.8"
+        return [(socket.AF_INET, type, 6, "", (address, port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolved_address)
+
+
+@pytest.mark.asyncio
+async def test_cloud_base_path_is_preserved_for_fs_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    observed: dict[str, str] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed["path"] = request.url.path
+        return httpx.Response(200, json={"status": "ok", "result": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = cloud_profile(
+        service, "https://api.vikingdb.cn-beijing.volces.com/openviking"
+    )
+
+    await service.request(value, "fs_list", payload={})
+
+    assert observed["path"] == "/openviking/api/v1/fs/ls"
+    await client.aclose()
+
+
+@pytest.mark.parametrize("path", ["/openviking/../admin", "/openviking/./api"])
+def test_base_url_rejects_path_traversal(
+    path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+
+    with pytest.raises(OpenVikingError) as raised:
+        cloud_profile(service, f"https://api.vikingdb.cn-beijing.volces.com{path}")
+
+    assert raised.value.code == "INVALID_BASE_URL"
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://api.vikingdb.cn-beijing.volces.com/openviking\\admin",
+        "https://api.vikingdb.cn-beijing.volces.com/open\nviking",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking\x00",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking\x7f",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking\x85",
+    ],
+)
+def test_base_url_rejects_backslashes_and_control_characters(
+    base_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+
+    with pytest.raises(OpenVikingError) as raised:
+        cloud_profile(service, base_url)
+
+    assert raised.value.code == "INVALID_BASE_URL"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/openviking/%2e%2e/admin",
+        "/openviking/%252e%252e/admin",
+        "/openviking%2fadmin",
+        "/openviking%5cadmin",
+        "/openviking%00",
+        "/openviking%3fadmin",
+        "/openviking%23admin",
+        "/openviking%2",
+    ],
+)
+def test_base_url_rejects_encoded_path_bypasses(
+    path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+
+    with pytest.raises(OpenVikingError) as raised:
+        cloud_profile(service, f"https://api.vikingdb.cn-beijing.volces.com{path}")
+
+    assert raised.value.code == "INVALID_BASE_URL"
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://user@api.vikingdb.cn-beijing.volces.com/openviking",
+        "https://user:password@api.vikingdb.cn-beijing.volces.com/openviking",
+        "https://@api.vikingdb.cn-beijing.volces.com/openviking",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking?region=beijing",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking?",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking#section",
+        "https://api.vikingdb.cn-beijing.volces.com/openviking#",
+    ],
+)
+def test_base_url_rejects_userinfo_query_and_fragment(
+    base_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+
+    with pytest.raises(OpenVikingError) as raised:
+        cloud_profile(service, base_url)
+
+    assert raised.value.code == "INVALID_BASE_URL"
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://[::1/openviking",
+        "https://api.vikingdb.cn-beijing.volces.com:not-a-port/openviking",
+        "https://api.vikingdb.cn-beijing.volces.com:70000/openviking",
+    ],
+)
+def test_base_url_rejects_malformed_authority(base_url: str) -> None:
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+
+    with pytest.raises(OpenVikingError) as raised:
+        cloud_profile(service, base_url)
+
+    assert raised.value.code == "INVALID_BASE_URL"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("base_url", "expected_path"),
+    [
+        (
+            "https://api.vikingdb.cn-beijing.volces.com",
+            "/api/v1/fs/ls",
+        ),
+        ("http://localhost:38110/", "/api/v1/fs/ls"),
+        (
+            "https://api.vikingdb.cn-beijing.volces.com/%6fpenviking/",
+            "/openviking/api/v1/fs/ls",
+        ),
+    ],
+)
+async def test_base_url_keeps_origin_and_localhost_compatibility(
+    base_url: str, expected_path: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    observed: dict[str, str] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed["path"] = request.url.path
+        return httpx.Response(200, json={"status": "ok", "result": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = cloud_profile(service, base_url)
+
+    await service.request(value, "fs_list", payload={})
+
+    assert observed["path"] == expected_path
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_base_path_is_preserved_for_upload_and_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_openviking_dns(monkeypatch)
+    observed: list[str] = []
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed.append(request.url.path)
+        if request.url.path.endswith("/resources/temp_upload"):
+            return httpx.Response(
+                200,
+                json={"status": "ok", "result": {"temp_file_id": "upload-1.md"}},
+            )
+        return httpx.Response(200, json={"status": "ok", "result": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = cloud_profile(
+        service, "https://api.vikingdb.cn-beijing.volces.com/openviking/"
+    )
+
+    await service.upload(
+        value,
+        filename="guide.md",
+        content_type="text/markdown",
+        content=b"# Guide",
+    )
+    await service.validate(value)
+
+    assert observed == [
+        "/openviking/api/v1/resources/temp_upload",
+        "/openviking/api/v1/fs/ls",
+    ]
+    refreshed = service.repository.get(
+        value.profile_id, tenant_id=value.tenant_id, workspace_id=value.workspace_id
+    )
+    assert refreshed is not None
+    assert refreshed.status == "ready"
+    await client.aclose()
 
 
 def test_profile_is_encrypted_and_public_contract_has_no_secret_or_origin() -> None:

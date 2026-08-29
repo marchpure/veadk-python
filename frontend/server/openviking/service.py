@@ -14,6 +14,7 @@ import secrets
 import socket
 import sqlite3
 import threading
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +36,11 @@ ALLOWED_UPLOAD_EXTENSIONS = {
     ".xlsx",
 }
 SAFE_RESOURCE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$")
+PERCENT_ESCAPE = re.compile(r"%([0-9A-Fa-f]{2})")
+SAFE_BASE_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._~-]+$")
+URL_UNRESERVED_CHARACTERS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
+)
 
 
 class OpenVikingError(RuntimeError):
@@ -617,27 +623,82 @@ class OpenVikingService:
     def _scope(tenant_id: str, workspace_id: str, profile_id: str) -> str:
         return f"{tenant_id}:{workspace_id}:{profile_id}"
 
-    def _validate_base_url(self, value: str) -> str:
-        parsed = urlsplit(value.strip())
-        if (
-            parsed.scheme not in {"https", "http"}
-            or not parsed.hostname
-            or parsed.username
-            or parsed.password
-            or parsed.query
-            or parsed.fragment
-            or (parsed.path not in {"", "/"})
+    @staticmethod
+    def _normalize_base_path(path: str) -> str:
+        if path in {"", "/"}:
+            return ""
+        if not path.startswith("/") or re.search(r"%(?![0-9A-Fa-f]{2})", path):
+            raise OpenVikingError(
+                "INVALID_BASE_URL", "Base URL must have a safe path", 422
+            )
+
+        def decode_unreserved(match: re.Match[str]) -> str:
+            character = chr(int(match.group(1), 16))
+            if character not in URL_UNRESERVED_CHARACTERS:
+                raise OpenVikingError(
+                    "INVALID_BASE_URL", "Base URL must have a safe path", 422
+                )
+            return character
+
+        normalized = PERCENT_ESCAPE.sub(decode_unreserved, path).rstrip("/")
+        segments = normalized[1:].split("/")
+        if any(
+            not segment
+            or segment in {".", ".."}
+            or SAFE_BASE_PATH_SEGMENT.fullmatch(segment) is None
+            for segment in segments
         ):
             raise OpenVikingError(
-                "INVALID_BASE_URL", "Base URL must be an HTTPS origin", 422
+                "INVALID_BASE_URL", "Base URL must have a safe path", 422
             )
-        host = parsed.hostname.casefold()
+        return normalized
+
+    @staticmethod
+    def _join_upstream_url(base_url: str, api_path: str) -> str:
+        return f"{base_url.rstrip('/')}/{api_path.lstrip('/')}"
+
+    def _validate_base_url(self, value: str) -> str:
+        if (
+            "\\" in value
+            or "?" in value
+            or "#" in value
+            or any(unicodedata.category(character) == "Cc" for character in value)
+        ):
+            raise OpenVikingError(
+                "INVALID_BASE_URL", "Base URL must be a safe HTTPS URL", 422
+            )
+        try:
+            parsed = urlsplit(value.strip())
+            hostname = parsed.hostname
+            port_number = parsed.port
+            username = parsed.username
+            password = parsed.password
+        except ValueError as exc:
+            raise OpenVikingError(
+                "INVALID_BASE_URL", "Base URL is malformed", 422
+            ) from exc
+        if (
+            parsed.scheme not in {"https", "http"}
+            or not hostname
+            or port_number == 0
+            or username is not None
+            or password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise OpenVikingError(
+                "INVALID_BASE_URL",
+                "Base URL must be a valid origin with an optional safe path",
+                422,
+            )
+        path = self._normalize_base_path(parsed.path)
+        host = hostname.casefold()
         loopback_name = host == "localhost"
         try:
             addresses = {
                 item[4][0]
                 for item in socket.getaddrinfo(
-                    host, parsed.port or 443, type=socket.SOCK_STREAM
+                    host, port_number or 443, type=socket.SOCK_STREAM
                 )
             }
         except socket.gaierror as exc:
@@ -661,8 +722,9 @@ class OpenVikingService:
             raise OpenVikingError(
                 "SSRF_BLOCKED", "Base URL resolves to a restricted network", 422
             )
-        port = f":{parsed.port}" if parsed.port else ""
-        return f"{parsed.scheme}://{parsed.hostname}{port}"
+        serialized_host = f"[{hostname}]" if ":" in hostname else hostname
+        port = f":{port_number}" if port_number is not None else ""
+        return f"{parsed.scheme}://{serialized_host}{port}{path}"
 
     def public_profile(self, profile: OpenVikingProfile) -> dict[str, Any]:
         return {
@@ -1383,7 +1445,9 @@ class OpenVikingService:
                 kwargs["params"] = body
             elif operation.method != "DELETE":
                 kwargs["json"] = body
-            response = await client.request(operation.method, base_url + path, **kwargs)
+            response = await client.request(
+                operation.method, self._join_upstream_url(base_url, path), **kwargs
+            )
             if response.status_code >= 400:
                 code = (
                     "OPENVIKING_AUTH_FAILED"
@@ -1619,7 +1683,7 @@ class OpenVikingService:
         owns_client = self._client is None
         try:
             response = await client.post(
-                base_url + "/api/v1/resources/temp_upload",
+                self._join_upstream_url(base_url, "/api/v1/resources/temp_upload"),
                 headers={"X-API-Key": api_key, "Accept": "application/json"},
                 files={"file": (Path(filename).name, content, content_type)},
                 data={"telemetry": "true"},
