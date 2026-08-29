@@ -41,7 +41,11 @@ from .sse import (
     normalize_upstream_event,
     sanitize_event_payload,
 )
-from .zip_validator import SkillZipError, validate_skill_zip
+from .zip_validator import (
+    SkillZipError,
+    normalize_skill_zip,
+    validate_skill_zip,
+)
 
 
 @dataclass(frozen=True)
@@ -2239,6 +2243,7 @@ class KnowledgeWorkspaceService:
                 file_type="skill",
                 name=skill_name,
             )
+            zip_bytes = normalize_skill_zip(zip_bytes)
             checked = validate_skill_zip(zip_bytes)
             if checked["skill_name"] != skill_name:
                 raise KnowledgeWorkspaceError(

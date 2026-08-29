@@ -16,6 +16,215 @@ class SkillZipError(ValueError):
         self.code = code
 
 
+def _safe_entry_path(value: str) -> str:
+    """Keep provider-controlled paths useful in errors without log injection."""
+
+    sanitized = "".join(
+        char if char.isprintable() and char not in "\r\n\t" else "?"
+        for char in value
+    )
+    return sanitized[:240] or "[empty]"
+
+
+def _runtime_residue(relative: PurePosixPath, root: tuple[str, ...]) -> bool:
+    """Identify only the producer's observed test/runtime residue.
+
+    These names are never accepted as Skill content. They are removed by the
+    consumer normalization boundary after the archive has passed all generic
+    ZIP safety checks. Other unsupported paths remain hard failures.
+    """
+
+    parts = relative.parts
+    if parts == ("pytest.ini",):
+        return True
+    if parts and parts[0] in {".pytest_cache", "__pycache__"}:
+        return True
+    return len(parts) > 1 and parts[-1].endswith(".pyc") and "__pycache__" in parts
+
+
+def _inspect_skill_zip(
+    content: bytes,
+    *,
+    max_archive_bytes: int,
+    max_expanded_bytes: int,
+    max_files: int,
+    max_depth: int,
+    max_compression_ratio: int,
+) -> tuple[zipfile.ZipFile, list[zipfile.ZipInfo], list[str], tuple[str, ...], int]:
+    if not content:
+        raise SkillZipError("SKILL_ZIP_EMPTY", "Skill ZIP is empty")
+    if len(content) > max_archive_bytes:
+        raise SkillZipError(
+            "SKILL_ZIP_TOO_LARGE", "Skill ZIP exceeds compressed size limit"
+        )
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise SkillZipError(
+            "SKILL_ZIP_INVALID", "Skill ZIP is not a valid ZIP archive"
+        ) from exc
+
+    infos = archive.infolist()
+    paths: list[str] = []
+    folded: set[str] = set()
+    expanded = 0
+    files = 0
+    for info in infos:
+        raw = info.filename
+        path = PurePosixPath(raw)
+        normalized = path.as_posix()
+        if raw.endswith("/"):
+            normalized += "/"
+        if (
+            not raw
+            or "\x00" in raw
+            or path.is_absolute()
+            or "\\" in raw
+            or ".." in path.parts
+            or normalized != raw
+            or len(path.parts) > max_depth
+        ):
+            raise SkillZipError(
+                "SKILL_ZIP_UNSAFE_PATH",
+                f"unsafe ZIP path: {_safe_entry_path(raw)}",
+            )
+        if normalized.casefold() in folded:
+            raise SkillZipError(
+                "SKILL_ZIP_DUPLICATE_PATH",
+                f"duplicate ZIP path: {_safe_entry_path(raw)}",
+            )
+        folded.add(normalized.casefold())
+        mode = (info.external_attr >> 16) & 0xFFFF
+        file_type = stat.S_IFMT(mode)
+        if file_type in {
+            stat.S_IFLNK,
+            stat.S_IFCHR,
+            stat.S_IFBLK,
+            stat.S_IFIFO,
+            stat.S_IFSOCK,
+        }:
+            raise SkillZipError(
+                "SKILL_ZIP_SPECIAL_FILE",
+                f"special ZIP entry: {_safe_entry_path(raw)}",
+            )
+        if info.is_dir() or raw.endswith("/"):
+            continue
+        files += 1
+        if files > max_files:
+            raise SkillZipError(
+                "SKILL_ZIP_FILE_COUNT", "Skill ZIP contains too many files"
+            )
+        expanded += info.file_size
+        if expanded > max_expanded_bytes:
+            raise SkillZipError(
+                "SKILL_ZIP_EXPANDED_TOO_LARGE", "expanded Skill ZIP is too large"
+            )
+        if (info.compress_size == 0 and info.file_size > 0) or (
+            info.compress_size
+            and info.file_size > info.compress_size * max_compression_ratio
+        ):
+            raise SkillZipError(
+                "SKILL_ZIP_COMPRESSION_BOMB",
+                f"suspicious compression ratio: {_safe_entry_path(raw)}",
+            )
+        paths.append(normalized)
+
+    if not paths:
+        archive.close()
+        raise SkillZipError("SKILL_ZIP_EMPTY", "Skill ZIP contains no files")
+    entries_for_root = [
+        PurePosixPath(path.rstrip("/")).parts
+        for path in paths
+    ]
+    roots = {parts[:2] for parts in entries_for_root}
+    if len(roots) != 1:
+        archive.close()
+        raise SkillZipError(
+            "SKILL_ZIP_ROOT", "Skill ZIP must have one skillhub/<name>/ root"
+        )
+    root = next(iter(roots))
+    if root[0] != "skillhub" or len(root) != 2 or not root[1]:
+        archive.close()
+        raise SkillZipError(
+            "SKILL_ZIP_ROOT", "Skill ZIP root must be skillhub/<name>/"
+        )
+    return archive, infos, paths, root, expanded
+
+
+def normalize_skill_zip(
+    content: bytes,
+    *,
+    max_archive_bytes: int = 20 * 1024 * 1024,
+    max_expanded_bytes: int = 100 * 1024 * 1024,
+    max_files: int = 256,
+    max_depth: int = 16,
+    max_compression_ratio: int = 200,
+) -> bytes:
+    """Remove only the observed AutoSkill test/runtime residue.
+
+    The source archive is fully inspected first, including traversal,
+    duplicate, special-file, compression, size, and single-root checks.
+    """
+
+    archive, infos, paths, root, _ = _inspect_skill_zip(
+        content,
+        max_archive_bytes=max_archive_bytes,
+        max_expanded_bytes=max_expanded_bytes,
+        max_files=max_files,
+        max_depth=max_depth,
+        max_compression_ratio=max_compression_ratio,
+    )
+    root_prefix = "/".join(root)
+    retained: list[str] = []
+    removed: list[str] = []
+    try:
+        for path in paths:
+            relative = PurePosixPath(path.removeprefix(root_prefix + "/"))
+            if _runtime_residue(relative, root):
+                removed.append(path)
+            else:
+                retained.append(path)
+        for path in retained:
+            relative = PurePosixPath(path.removeprefix(root_prefix + "/"))
+            first = relative.parts[0] if relative.parts else ""
+            if "BuildPlan" in relative.name:
+                raise SkillZipError(
+                    "SKILL_ZIP_UNSUPPORTED_ENTRY",
+                    f"Skill ZIP must not contain BuildPlan artifact: "
+                    f"{_safe_entry_path(path)}",
+                )
+            if first not in {
+                "SKILL.md",
+                "assets",
+                "data",
+                "docs",
+                "manifest.json",
+                "package-lock.json",
+                "package.json",
+                "pyproject.toml",
+                "README.md",
+                "requirements.txt",
+                "resources",
+                "scripts",
+                "tests",
+            }:
+                raise SkillZipError(
+                    "SKILL_ZIP_UNSUPPORTED_ENTRY",
+                    f"Skill ZIP contains unsupported entry: {_safe_entry_path(path)}",
+                )
+        if not removed:
+            return content
+        output = io.BytesIO()
+        retained_set = set(retained)
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as normalized:
+            for info in infos:
+                if info.filename in retained_set:
+                    normalized.writestr(info, archive.read(info.filename))
+        return output.getvalue()
+    finally:
+        archive.close()
+
+
 def validate_skill_zip(
     content: bytes,
     *,
@@ -32,99 +241,15 @@ def validate_skill_zip(
     downloaded bytes and must be used as the immutable object key.
     """
 
-    if not content:
-        raise SkillZipError("SKILL_ZIP_EMPTY", "Skill ZIP is empty")
-    if len(content) > max_archive_bytes:
-        raise SkillZipError(
-            "SKILL_ZIP_TOO_LARGE", "Skill ZIP exceeds compressed size limit"
-        )
-    try:
-        archive = zipfile.ZipFile(io.BytesIO(content))
-    except zipfile.BadZipFile as exc:
-        raise SkillZipError(
-            "SKILL_ZIP_INVALID", "Skill ZIP is not a valid ZIP archive"
-        ) from exc
-
+    archive, _, paths, root, expanded = _inspect_skill_zip(
+        content,
+        max_archive_bytes=max_archive_bytes,
+        max_expanded_bytes=max_expanded_bytes,
+        max_files=max_files,
+        max_depth=max_depth,
+        max_compression_ratio=max_compression_ratio,
+    )
     with archive:
-        infos = archive.infolist()
-        paths: list[str] = []
-        folded: set[str] = set()
-        expanded = 0
-        files = 0
-        for info in infos:
-            raw = info.filename
-            path = PurePosixPath(raw)
-            normalized = path.as_posix()
-            if raw.endswith("/"):
-                normalized += "/"
-            if (
-                not raw
-                or "\x00" in raw
-                or path.is_absolute()
-                or "\\" in raw
-                or ".." in path.parts
-                or normalized != raw
-                or len(path.parts) > max_depth
-            ):
-                raise SkillZipError("SKILL_ZIP_UNSAFE_PATH", f"unsafe ZIP path: {raw}")
-            if normalized.casefold() in folded:
-                raise SkillZipError(
-                    "SKILL_ZIP_DUPLICATE_PATH", f"duplicate ZIP path: {raw}"
-                )
-            folded.add(normalized.casefold())
-            mode = (info.external_attr >> 16) & 0xFFFF
-            file_type = stat.S_IFMT(mode)
-            if file_type in {
-                stat.S_IFLNK,
-                stat.S_IFCHR,
-                stat.S_IFBLK,
-                stat.S_IFIFO,
-                stat.S_IFSOCK,
-            }:
-                raise SkillZipError(
-                    "SKILL_ZIP_SPECIAL_FILE", f"special ZIP entry: {raw}"
-                )
-            if info.is_dir() or raw.endswith("/"):
-                continue
-            files += 1
-            if files > max_files:
-                raise SkillZipError(
-                    "SKILL_ZIP_FILE_COUNT", "Skill ZIP contains too many files"
-                )
-            expanded += info.file_size
-            if expanded > max_expanded_bytes:
-                raise SkillZipError(
-                    "SKILL_ZIP_EXPANDED_TOO_LARGE", "expanded Skill ZIP is too large"
-                )
-            if (info.compress_size == 0 and info.file_size > 0) or (
-                info.compress_size
-                and info.file_size > info.compress_size * max_compression_ratio
-            ):
-                raise SkillZipError(
-                    "SKILL_ZIP_COMPRESSION_BOMB", f"suspicious compression ratio: {raw}"
-                )
-            paths.append(normalized)
-
-        if not paths:
-            raise SkillZipError("SKILL_ZIP_EMPTY", "Skill ZIP contains no files")
-        entries_for_root = [
-            PurePosixPath(path.rstrip("/")).parts
-            for path in (
-                item.filename
-                for item in infos
-                if item.filename and not item.filename.endswith("/")
-            )
-        ]
-        roots = {parts[:2] for parts in entries_for_root}
-        if len(roots) != 1:
-            raise SkillZipError(
-                "SKILL_ZIP_ROOT", "Skill ZIP must have one skillhub/<name>/ root"
-            )
-        root = next(iter(roots))
-        if root[0] != "skillhub" or len(root) != 2 or not root[1]:
-            raise SkillZipError(
-                "SKILL_ZIP_ROOT", "Skill ZIP root must be skillhub/<name>/"
-            )
         root_prefix = "/".join(root)
         allowed_top_level = {
             "SKILL.md",
@@ -147,12 +272,13 @@ def validate_skill_zip(
             if "BuildPlan" in PurePosixPath(relative).name:
                 raise SkillZipError(
                     "SKILL_ZIP_UNSUPPORTED_ENTRY",
-                    "Skill ZIP must not contain BuildPlan artifacts",
+                    f"Skill ZIP must not contain BuildPlan artifact: "
+                    f"{_safe_entry_path(path)}",
                 )
             if first not in allowed_top_level:
                 raise SkillZipError(
                     "SKILL_ZIP_UNSUPPORTED_ENTRY",
-                    "Skill ZIP contains an unsupported top-level entry",
+                    f"Skill ZIP contains unsupported entry: {_safe_entry_path(path)}",
                 )
         skill_path = f"{root[0]}/{root[1]}/SKILL.md"
         if skill_path not in paths:
@@ -170,7 +296,7 @@ def validate_skill_zip(
             "sha256": hashlib.sha256(content).hexdigest(),
             "compressed_bytes": len(content),
             "expanded_bytes": expanded,
-            "file_count": files,
+                "file_count": len(paths),
             "root": "/".join(root) + "/",
             "skill_name": root[1],
             "skill_md_bytes": len(skill_md),

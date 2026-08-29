@@ -26,6 +26,7 @@ from frontend.server.knowledge_workspace.sse import (
 )
 from frontend.server.knowledge_workspace.zip_validator import (
     SkillZipError,
+    normalize_skill_zip,
     validate_skill_zip,
 )
 
@@ -307,6 +308,41 @@ def test_skill_zip_requires_single_skillhub_root_and_rejects_slip_and_symlink() 
     with pytest.raises(SkillZipError) as error:
         validate_skill_zip(legacy.getvalue())
     assert error.value.code == "SKILL_ZIP_UNSUPPORTED_ENTRY"
+    assert "BuildPlan.json" in str(error.value)
+
+
+def test_skill_zip_normalizes_observed_autoskill_runtime_residue() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/.pytest_cache/README.md", "cache")
+        archive.writestr("skillhub/demo/__pycache__/runner.pyc", b"bytecode")
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/pytest.ini", "[pytest]\n")
+        archive.writestr("skillhub/demo/scripts/run.py", "print('ok')\n")
+
+    with pytest.raises(SkillZipError) as error:
+        validate_skill_zip(source.getvalue())
+    assert error.value.code == "SKILL_ZIP_UNSUPPORTED_ENTRY"
+    assert ".pytest_cache/README.md" in str(error.value)
+
+    normalized = normalize_skill_zip(source.getvalue())
+    checked = validate_skill_zip(normalized)
+    assert checked["paths"] == (
+        "skillhub/demo/SKILL.md",
+        "skillhub/demo/scripts/run.py",
+    )
+
+
+def test_skill_zip_normalization_does_not_hide_unknown_runtime_entries() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/output_files/report.html", "<p>bad</p>")
+
+    with pytest.raises(SkillZipError) as error:
+        normalize_skill_zip(source.getvalue())
+    assert error.value.code == "SKILL_ZIP_UNSUPPORTED_ENTRY"
+    assert "output_files/report.html" in str(error.value)
 
 
 def test_html_policy_allows_real_static_html_and_rejects_active_content() -> None:
