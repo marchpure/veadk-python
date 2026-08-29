@@ -18,6 +18,21 @@ def hydrate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
                         seen.add((key, value))
                         refs.append({"provider": "openviking", key: value})
         result["knowledge_source_refs"] = refs
-    result.pop("openviking_profile_ids", None)
-    result.pop("openviking_resource_refs", None)
+    # Populate read-only compatibility views for existing service code. The
+    # repository serializer removes these keys on every new write.
+    source_refs = result.get("knowledge_source_refs", ())
+    if "openviking_profile_ids" not in result:
+        result["openviking_profile_ids"] = [
+            item.get("profile_ref") for item in source_refs
+            if isinstance(item, Mapping)
+            and item.get("provider") == "openviking"
+            and isinstance(item.get("profile_ref"), str)
+        ]
+    if "openviking_resource_refs" not in result:
+        result["openviking_resource_refs"] = [
+            item.get("resource_ref") for item in source_refs
+            if isinstance(item, Mapping)
+            and item.get("provider") == "openviking"
+            and isinstance(item.get("resource_ref"), str)
+        ]
     return result

@@ -59,6 +59,13 @@ class KnowledgeWorkspaceRepository:
     def _json(value: Any) -> str:
         payload = value.model_dump(mode="json") if hasattr(value, "model_dump") else value
         if isinstance(payload, dict) and "knowledge_source_refs" in payload:
+            if not payload.get("knowledge_source_refs"):
+                refs = []
+                for key, field in (("profile_ref", "openviking_profile_ids"), ("resource_ref", "openviking_resource_refs")):
+                    for item in payload.get(field, ()) or ():
+                        if isinstance(item, str) and item:
+                            refs.append({"provider": "openviking", key: item})
+                payload["knowledge_source_refs"] = refs
             # New writes use only the vendor-neutral field. Legacy keys are
             # accepted on hydration but never emitted by the repository.
             payload.pop("openviking_profile_ids", None)

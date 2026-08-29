@@ -71,6 +71,10 @@ class KnowledgeWorkspaceService:
         self.publication_registry = publication_registry
         self.knowledge_context_resolver = knowledge_context_resolver or openviking_context_resolver
         self.knowledge_content_resolver = knowledge_content_resolver or openviking_content_resolver
+        # Legacy aliases remain writable for older integrations/tests; new
+        # composition roots use the vendor-neutral attributes above.
+        self.openviking_context_resolver = openviking_context_resolver
+        self.openviking_content_resolver = openviking_content_resolver
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._cancelled: set[str] = set()
 
@@ -82,14 +86,15 @@ class KnowledgeWorkspaceService:
     ) -> Mapping[str, object] | None:
         if not profile_ids and not resource_refs:
             return None
-        if self.knowledge_context_resolver is None:
+        resolver = self.knowledge_context_resolver or self.openviking_context_resolver
+        if resolver is None:
             raise KnowledgeWorkspaceError(
                 "OPENVIKING_CONTEXT_UNAVAILABLE",
                 "OpenViking knowledge context is not configured",
                 503,
             )
         try:
-            return self.knowledge_context_resolver(actor, profile_ids, resource_refs)
+            return resolver(actor, profile_ids, resource_refs)
         except KnowledgeWorkspaceError:
             raise
         except Exception as exc:
@@ -931,8 +936,9 @@ class KnowledgeWorkspaceService:
                 invocation.openviking_profile_ids,
                 invocation.openviking_resource_refs,
             )
-            if context and self.knowledge_content_resolver is not None:
-                context = await self.knowledge_content_resolver(
+            content_resolver = self.knowledge_content_resolver or self.openviking_content_resolver
+            if context and content_resolver is not None:
+                context = await content_resolver(
                     actor,
                     invocation.openviking_profile_ids,
                     invocation.openviking_resource_refs,
