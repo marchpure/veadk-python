@@ -126,6 +126,21 @@ class OpenVikingProfileRepository:
               created_at TEXT NOT NULL
             )
             """)
+        self._db.execute("""
+            CREATE TABLE IF NOT EXISTS openviking_task_history (
+              tenant_id TEXT NOT NULL,
+              workspace_id TEXT NOT NULL,
+              profile_id TEXT NOT NULL,
+              task_id TEXT NOT NULL,
+              task_json TEXT NOT NULL,
+              observed_at TEXT NOT NULL,
+              PRIMARY KEY (tenant_id, workspace_id, profile_id, task_id)
+            )
+            """)
+        self._db.execute(
+            "CREATE INDEX IF NOT EXISTS openviking_task_history_scope "
+            "ON openviking_task_history(tenant_id, workspace_id, profile_id, observed_at)"
+        )
         self._db.commit()
 
     @staticmethod
@@ -179,8 +194,57 @@ class OpenVikingProfileRepository:
                 "WHERE profile_id=? AND tenant_id=? AND workspace_id=?",
                 (profile_id, tenant_id, workspace_id),
             )
+            self._db.execute(
+                "DELETE FROM openviking_task_history "
+                "WHERE profile_id=? AND tenant_id=? AND workspace_id=?",
+                (profile_id, tenant_id, workspace_id),
+            )
             self._db.commit()
         return cursor.rowcount > 0
+
+    def save_task_history(
+        self, profile: OpenVikingProfile, tasks: list[Mapping[str, Any]]
+    ) -> None:
+        observed_at = datetime.now(timezone.utc).isoformat()
+        rows = []
+        for task in tasks:
+            task_id = task.get("task_id")
+            if not isinstance(task_id, str) or not task_id:
+                continue
+            rows.append(
+                (
+                    profile.tenant_id,
+                    profile.workspace_id,
+                    profile.profile_id,
+                    task_id,
+                    json.dumps(task, ensure_ascii=False, separators=(",", ":")),
+                    observed_at,
+                )
+            )
+        if not rows:
+            return
+        with self._lock:
+            self._db.executemany(
+                """
+                INSERT INTO openviking_task_history VALUES(?,?,?,?,?,?)
+                ON CONFLICT(tenant_id, workspace_id, profile_id, task_id)
+                DO UPDATE SET
+                  task_json=excluded.task_json,
+                  observed_at=excluded.observed_at
+                """,
+                rows,
+            )
+            self._db.commit()
+
+    def list_task_history(self, profile: OpenVikingProfile) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT task_json FROM openviking_task_history "
+                "WHERE tenant_id=? AND workspace_id=? AND profile_id=? "
+                "ORDER BY observed_at DESC",
+                (profile.tenant_id, profile.workspace_id, profile.profile_id),
+            ).fetchall()
+        return [json.loads(row["task_json"]) for row in rows]
 
     def get_idempotent_response(self, scope_key: str) -> Any | None:
         with self._lock:
@@ -189,10 +253,14 @@ class OpenVikingProfileRepository:
                 "WHERE scope_key=?",
                 (scope_key,),
             ).fetchone()
-            if row and (
-                datetime.now(timezone.utc)
-                - datetime.fromisoformat(row["created_at"])
-            ).total_seconds() > IDEMPOTENCY_TTL_SECONDS:
+            if (
+                row
+                and (
+                    datetime.now(timezone.utc)
+                    - datetime.fromisoformat(row["created_at"])
+                ).total_seconds()
+                > IDEMPOTENCY_TTL_SECONDS
+            ):
                 self._db.execute(
                     "DELETE FROM openviking_idempotency WHERE scope_key=?",
                     (scope_key,),
@@ -248,6 +316,270 @@ ITEM_OPERATIONS: Mapping[str, Operation] = {
     "watch_delete": Operation("DELETE", "/api/v1/watches"),
     "watch_trigger": Operation("POST", "/api/v1/watches", body_limit=1024),
 }
+
+OPERATION_FIELDS: Mapping[str, frozenset[str]] = {
+    "fs_list": frozenset(
+        {
+            "resource_ref",
+            "simple",
+            "recursive",
+            "output",
+            "abs_limit",
+            "show_all_hidden",
+            "node_limit",
+            "limit",
+            "sort_by",
+            "sort_order",
+        }
+    ),
+    "fs_tree": frozenset(
+        {
+            "resource_ref",
+            "output",
+            "abs_limit",
+            "show_all_hidden",
+            "node_limit",
+            "limit",
+            "level_limit",
+        }
+    ),
+    "fs_stat": frozenset({"resource_ref"}),
+    "content_read": frozenset({"resource_ref", "offset", "limit", "raw"}),
+    "content_abstract": frozenset({"resource_ref"}),
+    "content_overview": frozenset({"resource_ref"}),
+    "content_write": frozenset(
+        {
+            "resource_ref",
+            "content",
+            "mode",
+            "wait",
+            "timeout",
+            "telemetry",
+            "processing_mode",
+        }
+    ),
+    "content_reindex": frozenset(
+        {
+            "resource_ref",
+            "mode",
+            "wait",
+            "dry_run",
+            "recursive",
+            "tags",
+            "tag_mode",
+        }
+    ),
+    "resource_import": frozenset(
+        {
+            "path",
+            "temp_file_id",
+            "add_type",
+            "destination_ref",
+            "parent_ref",
+            "create_parent",
+            "reason",
+            "instruction",
+            "wait",
+            "timeout",
+            "strict",
+            "source_name",
+            "ignore_dirs",
+            "include",
+            "exclude",
+            "directly_upload_media",
+            "preserve_structure",
+            "args",
+            "telemetry",
+            "watch_interval",
+            "processing_mode",
+            "tags",
+            "tag_mode",
+        }
+    ),
+    "find": frozenset(
+        {
+            "query",
+            "image_url",
+            "target_ref",
+            "context_type",
+            "limit",
+            "node_limit",
+            "score_threshold",
+            "filter",
+            "include_provenance",
+            "tags",
+            "since",
+            "until",
+            "time_field",
+            "level",
+            "read_content",
+            "telemetry",
+        }
+    ),
+    "search": frozenset(
+        {
+            "query",
+            "image_url",
+            "target_ref",
+            "context_type",
+            "session_id",
+            "limit",
+            "node_limit",
+            "score_threshold",
+            "filter",
+            "include_provenance",
+            "tags",
+            "since",
+            "until",
+            "time_field",
+            "level",
+            "read_content",
+            "telemetry",
+            "mode",
+            "query_expansion",
+            "max_tokens",
+            "quotas",
+            "purpose",
+            "detail",
+            "dedup_turns",
+            "exclude_uris",
+            "peer_scope",
+            "other_peer_penalty",
+            "rewrite",
+            "rewrite_max_bullets",
+        }
+    ),
+    "grep": frozenset(
+        {
+            "resource_ref",
+            "exclude_uri",
+            "pattern",
+            "case_insensitive",
+            "node_limit",
+            "level_limit",
+        }
+    ),
+    "glob": frozenset({"pattern", "resource_ref", "node_limit"}),
+    "tasks": frozenset(
+        {"task_type", "status", "resource_id_ref", "include_internal", "limit"}
+    ),
+    "watches": frozenset({"active_only", "to_ref"}),
+    "task_get": frozenset(),
+    "watch_get": frozenset({"to_ref"}),
+    "watch_update": frozenset(
+        {"watch_interval", "is_active", "reason", "instruction", "to_ref"}
+    ),
+    "watch_delete": frozenset({"to_ref"}),
+    "watch_trigger": frozenset({"to_ref"}),
+}
+
+BOOLEAN_FIELDS = frozenset(
+    {
+        "active_only",
+        "case_insensitive",
+        "create_parent",
+        "directly_upload_media",
+        "dry_run",
+        "include_internal",
+        "include_provenance",
+        "is_active",
+        "preserve_structure",
+        "raw",
+        "read_content",
+        "recursive",
+        "show_all_hidden",
+        "simple",
+        "strict",
+        "wait",
+    }
+)
+INTEGER_FIELDS = frozenset(
+    {
+        "abs_limit",
+        "dedup_turns",
+        "level_limit",
+        "limit",
+        "max_tokens",
+        "node_limit",
+        "offset",
+        "rewrite_max_bullets",
+    }
+)
+NUMBER_FIELDS = frozenset({"score_threshold", "timeout", "watch_interval"})
+STRING_FIELDS = frozenset(
+    {
+        "add_type",
+        "destination_ref",
+        "exclude",
+        "exclude_uri",
+        "image_url",
+        "include",
+        "instruction",
+        "mode",
+        "output",
+        "parent_ref",
+        "path",
+        "pattern",
+        "peer_scope",
+        "processing_mode",
+        "purpose",
+        "query",
+        "query_expansion",
+        "reason",
+        "resource_id_ref",
+        "resource_ref",
+        "session_id",
+        "sort_by",
+        "sort_order",
+        "source_name",
+        "status",
+        "tag_mode",
+        "task_type",
+        "temp_file_id",
+        "time_field",
+        "to_ref",
+        "until",
+        "since",
+    }
+)
+LIST_FIELDS = frozenset({"exclude_uris", "tags"})
+OBJECT_FIELDS = frozenset({"args", "detail", "filter", "quotas"})
+SAFE_IMPORT_ARG_FIELDS = frozenset(
+    {
+        "allow_external_links",
+        "branch",
+        "commit",
+        "depth",
+        "exclude_paths",
+        "include_paths",
+        "max_pages",
+        "parse_mode",
+        "site",
+        "skip_download_links",
+    }
+)
+FORBIDDEN_BROWSER_FIELDS = frozenset(
+    {
+        "account",
+        "account_id",
+        "api_key",
+        "auth_config",
+        "authorization",
+        "credential",
+        "credentials",
+        "feishu_access_token",
+        "feishu_app_secret",
+        "feishu_refresh_token",
+        "owner",
+        "owner_id",
+        "password",
+        "principal_id",
+        "secret",
+        "token",
+        "user",
+        "user_id",
+    }
+)
 
 
 class OpenVikingService:
@@ -592,6 +924,226 @@ class OpenVikingService:
         except OpenVikingError:
             return False
 
+    @staticmethod
+    def _reject_private_payload_fields(value: Any) -> None:
+        if isinstance(value, Mapping):
+            for key, item in value.items():
+                normalized = str(key).casefold().replace("-", "_")
+                if (
+                    normalized in FORBIDDEN_BROWSER_FIELDS
+                    or any(
+                        marker in normalized
+                        for marker in ("password", "secret", "credential")
+                    )
+                    or (
+                        normalized != "max_tokens"
+                        and normalized.endswith(("_token", "_tokens"))
+                    )
+                ):
+                    raise OpenVikingError(
+                        "INVALID_ARGUMENT",
+                        f"Browser payload field '{key}' is not allowed",
+                        422,
+                    )
+                if (
+                    isinstance(item, str)
+                    and item.startswith("viking://")
+                    and normalized
+                    in {
+                        "parent",
+                        "resource_id",
+                        "root_uri",
+                        "target_uri",
+                        "to",
+                        "to_uri",
+                        "uri",
+                    }
+                ):
+                    raise OpenVikingError(
+                        "OPAQUE_RESOURCE_REF_REQUIRED",
+                        "OpenViking resources must use an opaque resource reference",
+                        422,
+                    )
+                OpenVikingService._reject_private_payload_fields(item)
+        elif isinstance(value, list):
+            for item in value:
+                OpenVikingService._reject_private_payload_fields(item)
+        elif isinstance(value, str) and value.startswith("viking://"):
+            raise OpenVikingError(
+                "OPAQUE_RESOURCE_REF_REQUIRED",
+                "OpenViking resources must use an opaque resource reference",
+                422,
+            )
+
+    @staticmethod
+    def _contains_internal_uri(value: Any) -> bool:
+        if isinstance(value, Mapping):
+            return any(
+                OpenVikingService._contains_internal_uri(item)
+                for item in value.values()
+            )
+        if isinstance(value, list):
+            return any(OpenVikingService._contains_internal_uri(item) for item in value)
+        return isinstance(value, str) and value.startswith("viking://")
+
+    @staticmethod
+    def _validate_operation_payload(
+        operation_name: str, payload: Mapping[str, Any]
+    ) -> None:
+        allowed = OPERATION_FIELDS[operation_name]
+        unknown = sorted(set(payload) - allowed)
+        if unknown:
+            if set(unknown) & {
+                "parent",
+                "resource_id",
+                "root_uri",
+                "target_uri",
+                "to",
+                "to_uri",
+                "uri",
+            }:
+                raise OpenVikingError(
+                    "OPAQUE_RESOURCE_REF_REQUIRED",
+                    "OpenViking resources must use an opaque resource reference",
+                    422,
+                )
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                f"Unsupported fields for {operation_name}: {', '.join(unknown)}",
+                422,
+            )
+        OpenVikingService._reject_private_payload_fields(payload)
+
+        for key, value in payload.items():
+            if value is None:
+                continue
+            if key in BOOLEAN_FIELDS and type(value) is not bool:
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' must be a boolean", 422
+                )
+            if key in INTEGER_FIELDS and (
+                not isinstance(value, int) or isinstance(value, bool)
+            ):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' must be an integer", 422
+                )
+            if key in NUMBER_FIELDS and (
+                not isinstance(value, (int, float)) or isinstance(value, bool)
+            ):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' must be a number", 422
+                )
+            if key in STRING_FIELDS and not isinstance(value, str):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' must be a string", 422
+                )
+            if key in LIST_FIELDS and not isinstance(value, list):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' must be a list", 422
+                )
+            if key in OBJECT_FIELDS and not isinstance(value, Mapping):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' must be an object", 422
+                )
+        context_type = payload.get("context_type")
+        if context_type is not None and not (
+            isinstance(context_type, str)
+            or (
+                isinstance(context_type, list)
+                and all(isinstance(item, str) for item in context_type)
+            )
+        ):
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                "Field 'context_type' must be a string or string list",
+                422,
+            )
+        rewrite = payload.get("rewrite")
+        if rewrite is not None and not (type(rewrite) is bool or rewrite == "auto"):
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                "Field 'rewrite' must be a boolean or 'auto'",
+                422,
+            )
+        other_peer_penalty = payload.get("other_peer_penalty")
+        if isinstance(other_peer_penalty, Mapping):
+            if not all(
+                isinstance(item, (int, float)) and not isinstance(item, bool)
+                for item in other_peer_penalty.values()
+            ):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT",
+                    "Field 'other_peer_penalty' values must be numbers",
+                    422,
+                )
+        elif other_peer_penalty is not None and (
+            not isinstance(other_peer_penalty, (int, float))
+            or isinstance(other_peer_penalty, bool)
+        ):
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                "Field 'other_peer_penalty' must be a number or number map",
+                422,
+            )
+        exclude_uris = payload.get("exclude_uris")
+        if isinstance(exclude_uris, list) and exclude_uris:
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                "Field 'exclude_uris' is unavailable through the browser adapter",
+                422,
+            )
+
+        for key in INTEGER_FIELDS:
+            value = payload.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                minimum = -1 if key == "limit" else 0
+                maximum = (
+                    1_000_000
+                    if key == "offset"
+                    or (key == "limit" and operation_name == "content_read")
+                    else 32_000
+                )
+                if value < minimum or value > maximum:
+                    raise OpenVikingError(
+                        "INVALID_ARGUMENT", f"Field '{key}' is out of range", 422
+                    )
+        for key in ("timeout", "watch_interval"):
+            value = payload.get(key)
+            if isinstance(value, (int, float)) and (
+                isinstance(value, bool) or value < 0 or value > 604_800
+            ):
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT", f"Field '{key}' is out of range", 422
+                )
+        args = payload.get("args")
+        if isinstance(args, Mapping):
+            unknown_args = sorted(set(args) - SAFE_IMPORT_ARG_FIELDS)
+            if unknown_args:
+                raise OpenVikingError(
+                    "INVALID_ARGUMENT",
+                    f"Unsupported resource import args: {', '.join(unknown_args)}",
+                    422,
+                )
+            if OpenVikingService._contains_internal_uri(args):
+                raise OpenVikingError(
+                    "OPAQUE_RESOURCE_REF_REQUIRED",
+                    "OpenViking resources must use an opaque resource reference",
+                    422,
+                )
+        telemetry = payload.get("telemetry")
+        if telemetry is not None and not (
+            type(telemetry) is bool
+            or (
+                isinstance(telemetry, Mapping)
+                and all(type(item) is bool for item in telemetry.values())
+            )
+        ):
+            raise OpenVikingError(
+                "INVALID_ARGUMENT",
+                "Field 'telemetry' must be a boolean or boolean map",
+                422,
+            )
+
     def _replace_refs(self, profile: OpenVikingProfile, value: Any) -> Any:
         ref_fields = {
             "resource_ref": "uri",
@@ -677,9 +1229,7 @@ class OpenVikingService:
                         else item
                     )
                     relative = normalized_uri.removeprefix(profile.workspace_uri)
-                    result[ref_fields[key]] = self.resource_ref(
-                        profile, normalized_uri
-                    )
+                    result[ref_fields[key]] = self.resource_ref(profile, normalized_uri)
                     result[key] = f"viking://workspace/{relative}"
                     result["display_path"] = relative
                 elif isinstance(item, str) and item.startswith("viking://"):
@@ -702,6 +1252,64 @@ class OpenVikingService:
             return value.replace(profile.workspace_uri, "viking://workspace/")
         return value
 
+    def _persist_and_merge_task_history(
+        self,
+        profile: OpenVikingProfile,
+        operation_name: str,
+        result: Any,
+        payload: Mapping[str, Any],
+    ) -> Any:
+        if not isinstance(result, dict) or not isinstance(
+            result.get("result"), (dict, list)
+        ):
+            return result
+        if operation_name == "task_get":
+            task = result["result"]
+            if isinstance(task, dict):
+                self.repository.save_task_history(profile, [task])
+            return result
+        if operation_name != "tasks":
+            return result
+
+        current = [item for item in result["result"] if isinstance(item, dict)]
+        self.repository.save_task_history(profile, current)
+        by_id = {
+            item["task_id"]: item
+            for item in self.repository.list_task_history(profile)
+            if isinstance(item.get("task_id"), str)
+        }
+        by_id.update(
+            {
+                item["task_id"]: item
+                for item in current
+                if isinstance(item.get("task_id"), str)
+            }
+        )
+        tasks = list(by_id.values())
+        task_type = payload.get("task_type")
+        status = payload.get("status")
+        resource_id = payload.get("resource_id")
+        if isinstance(task_type, str):
+            tasks = [item for item in tasks if item.get("task_type") == task_type]
+        if isinstance(status, str):
+            tasks = [item for item in tasks if item.get("status") == status]
+        if isinstance(resource_id, str):
+            public_resource = self._sanitize(profile, {"resource_id": resource_id})
+            tasks = [
+                item
+                for item in tasks
+                if item.get("resource_id") == public_resource.get("resource_id")
+            ]
+        tasks.sort(
+            key=lambda item: float(item.get("created_at") or 0),
+            reverse=True,
+        )
+        limit = payload.get("limit", 50)
+        if not isinstance(limit, int) or isinstance(limit, bool):
+            limit = 50
+        result["result"] = tasks[: max(0, min(limit, 200))]
+        return result
+
     async def request(
         self,
         profile: OpenVikingProfile,
@@ -719,7 +1327,9 @@ class OpenVikingService:
             raise OpenVikingError(
                 "OPERATION_NOT_ALLOWED", "Operation is not allowed", 404
             )
-        body = self._replace_refs(profile, dict(payload or {}))
+        browser_payload = dict(payload or {})
+        self._validate_operation_payload(operation_name, browser_payload)
+        body = self._replace_refs(profile, browser_payload)
         if operation_name in {"fs_list", "fs_tree"} and not any(
             key in body for key in {"uri", "resource_ref"}
         ):
@@ -730,6 +1340,12 @@ class OpenVikingService:
                 remote_url.startswith("http://") or remote_url.startswith("https://")
             ):
                 self._validate_import_url(remote_url)
+        if operation_name in {"find", "search"}:
+            image_url = body.get("image_url")
+            if isinstance(image_url, str) and (
+                image_url.startswith("http://") or image_url.startswith("https://")
+            ):
+                self._validate_import_url(image_url)
         encoded = json.dumps(body, separators=(",", ":")).encode()
         if len(encoded) > operation.body_limit:
             raise OpenVikingError("PAYLOAD_TOO_LARGE", "Request body is too large", 413)
@@ -780,7 +1396,10 @@ class OpenVikingService:
                     "OpenViking returned invalid JSON",
                     502,
                 ) from exc
-            return self._sanitize(profile, result)
+            sanitized = self._sanitize(profile, result)
+            return self._persist_and_merge_task_history(
+                profile, operation_name, sanitized, body
+            )
         except httpx.TimeoutException as exc:
             raise OpenVikingError(
                 "OPENVIKING_TIMEOUT", "OpenViking request timed out", 504

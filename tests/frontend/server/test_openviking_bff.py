@@ -89,9 +89,12 @@ def test_resource_refs_are_signed_profile_scoped_and_workspace_scoped() -> None:
     ref = service.resource_ref(first, "viking://resources/workspace-a/guide.md")
 
     assert service.resolve_ref(first, ref).endswith("/guide.md")
-    assert service.resolve_ref(
-        first, service.resource_ref(first, "viking://resources/workspace-a")
-    ) == "viking://resources/workspace-a/"
+    assert (
+        service.resolve_ref(
+            first, service.resource_ref(first, "viking://resources/workspace-a")
+        )
+        == "viking://resources/workspace-a/"
+    )
     with pytest.raises(OpenVikingError, match="invalid"):
         service.resolve_ref(second, ref)
     with pytest.raises(OpenVikingError, match="outside workspace"):
@@ -152,8 +155,7 @@ async def test_operation_injects_secret_server_side_and_sanitizes_response() -> 
                         }
                     },
                     "overview": (
-                        "Read "
-                        "[guide](viking://resources/workspace-a/guide.md)"
+                        "Read [guide](viking://resources/workspace-a/guide.md)"
                     ),
                 },
             },
@@ -179,10 +181,7 @@ async def test_operation_injects_secret_server_side_and_sanitizes_response() -> 
     assert "upstream-account" not in serialized
     assert result["result"]["source_path"] == "guide.md"
     assert result["result"]["processor_kwargs"] == {}
-    assert (
-        result["result"]["overview"]
-        == "Read [guide](viking://workspace/guide.md)"
-    )
+    assert result["result"]["overview"] == "Read [guide](viking://workspace/guide.md)"
     assert "resource_ref" in serialized
     assert "viking://workspace/guide.md" in serialized
     await client.aclose()
@@ -193,18 +192,22 @@ async def test_task_metadata_never_exposes_upstream_identity_or_paths() -> None:
     def upstream(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
-            json={"result": [{
-                "task_id": "task-1",
-                "account_id": "internal-account",
-                "user_id": "internal-user",
-                "meta": {"source_path": "/private/tmp/parser/input.md"},
-                "processor_kwargs": {
-                    "resource_lock": {
-                        "owner_id": "internal-owner",
-                        "lock_paths": ["/private/data/workspace"],
+            json={
+                "result": [
+                    {
+                        "task_id": "task-1",
+                        "account_id": "internal-account",
+                        "user_id": "internal-user",
+                        "meta": {"source_path": "/private/tmp/parser/input.md"},
+                        "processor_kwargs": {
+                            "resource_lock": {
+                                "owner_id": "internal-owner",
+                                "lock_paths": ["/private/data/workspace"],
+                            }
+                        },
                     }
-                },
-            }]},
+                ]
+            },
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
@@ -219,6 +222,114 @@ async def test_task_metadata_never_exposes_upstream_identity_or_paths() -> None:
     assert "/private/" not in serialized
     assert "resource_lock" not in serialized
     assert "input.md" in serialized
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_task_history_survives_bff_restart(tmp_path: Path) -> None:
+    responses = [
+        {
+            "result": [
+                {
+                    "task_id": "task-completed",
+                    "task_type": "add_resource",
+                    "status": "completed",
+                    "created_at": 100.0,
+                    "account_id": "internal-account",
+                    "meta": {"source_path": "/private/tmp/parser/input.md"},
+                }
+            ]
+        },
+        {"result": []},
+    ]
+
+    def upstream(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=responses.pop(0))
+
+    database = tmp_path / "profiles.sqlite3"
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    first_service = OpenVikingService(
+        OpenVikingProfileRepository(database), config(), client=client
+    )
+    value = profile(first_service)
+    first = await first_service.request(value, "tasks")
+
+    restarted_service = OpenVikingService(
+        OpenVikingProfileRepository(database), config(), client=client
+    )
+    stored = restarted_service.repository.get(
+        value.profile_id, tenant_id=value.tenant_id, workspace_id=value.workspace_id
+    )
+    assert stored is not None
+    recovered = await restarted_service.request(stored, "tasks")
+
+    assert recovered == first
+    serialized = json.dumps(recovered)
+    assert "internal-account" not in serialized
+    assert "/private/" not in serialized
+    assert "input.md" in serialized
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_task_history_is_profile_scoped_filtered_and_revoked(
+    tmp_path: Path,
+) -> None:
+    responses = [
+        {
+            "result": [
+                {
+                    "task_id": "task-old",
+                    "task_type": "add_resource",
+                    "status": "completed",
+                    "created_at": 100.0,
+                    "resource_id": "viking://resources/workspace-a/old.md",
+                },
+                {
+                    "task_id": "task-new",
+                    "task_type": "session_commit",
+                    "status": "failed",
+                    "created_at": 200.0,
+                },
+            ]
+        },
+        {"result": []},
+        {"result": []},
+    ]
+
+    def upstream(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=responses.pop(0))
+
+    database = tmp_path / "profiles.sqlite3"
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(
+        OpenVikingProfileRepository(database), config(), client=client
+    )
+    value = profile(service)
+    other = profile(service, tenant="tenant-b")
+    await service.request(value, "tasks")
+
+    filtered = await service.request(
+        value,
+        "tasks",
+        payload={
+            "status": "completed",
+            "resource_id_ref": service.resource_ref(
+                value, "viking://resources/workspace-a/old.md"
+            ),
+            "limit": 1,
+        },
+    )
+    isolated = await service.request(other, "tasks")
+
+    assert [item["task_id"] for item in filtered["result"]] == ["task-old"]
+    assert isolated["result"] == []
+    assert service.repository.delete(
+        value.profile_id,
+        tenant_id=value.tenant_id,
+        workspace_id=value.workspace_id,
+    )
+    assert service.repository.list_task_history(value) == []
     await client.aclose()
 
 
@@ -242,7 +353,7 @@ async def test_resource_import_is_idempotent_across_service_restart(
         OpenVikingProfileRepository(database), config(), client=client
     )
     value = profile(first_service)
-    payload = {"path": "https://example.com/guide.md", "to": "guide"}
+    payload = {"path": "https://example.com/guide.md"}
 
     first = await first_service.request_idempotent(
         value, "resource_import", payload=payload, idempotency_key="import-guide"
@@ -334,6 +445,134 @@ async def test_unknown_operation_is_not_a_general_proxy() -> None:
 
 
 @pytest.mark.asyncio
+async def test_operation_schema_rejects_unknown_owner_and_invalid_types() -> None:
+    calls = 0
+
+    def upstream(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"result": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    for payload in (
+        {"owner_id": "attacker"},
+        {"limit": "200"},
+    ):
+        with pytest.raises(OpenVikingError) as raised:
+            await service.request(value, "tasks", payload=payload)
+        assert raised.value.code == "INVALID_ARGUMENT"
+    with pytest.raises(OpenVikingError) as raised:
+        await service.request(
+            value, "tasks", payload={"uri": "viking://resources/workspace-a/"}
+        )
+    assert raised.value.code == "OPAQUE_RESOURCE_REF_REQUIRED"
+    assert calls == 0
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_resource_import_rejects_browser_credentials_before_upstream() -> None:
+    calls = 0
+
+    def upstream(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"result": {}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    credential_args = (
+        {"auth_config": {"username": "oauth2", "token": "secret"}},
+        {"feishu_access_token": "secret"},
+        {"nested": {"password": "secret"}},
+    )
+    for args in credential_args:
+        with pytest.raises(OpenVikingError) as raised:
+            await service.request(
+                value,
+                "resource_import",
+                payload={"path": "https://example.com/guide.md", "args": args},
+            )
+        assert raised.value.code == "INVALID_ARGUMENT"
+    with pytest.raises(OpenVikingError) as raised:
+        await service.request(
+            value,
+            "resource_import",
+            payload={
+                "path": "https://example.com/guide.md",
+                "args": {"include_paths": ["viking://resources/workspace-a/private"]},
+            },
+        )
+    assert raised.value.code == "OPAQUE_RESOURCE_REF_REQUIRED"
+    assert calls == 0
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_operation_schema_allows_safe_advanced_payloads() -> None:
+    observed: list[dict[str, object]] = []
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed.append(json.loads(request.content))
+        return httpx.Response(200, json={"result": {}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    await service.request(
+        value,
+        "search",
+        payload={
+            "query": "deployment",
+            "mode": "context",
+            "query_expansion": "auto",
+            "max_tokens": 4096,
+            "quotas": {"resources": 3},
+            "purpose": "coding",
+            "detail": {"resources": "full"},
+            "dedup_turns": 2,
+            "exclude_uris": [],
+            "peer_scope": "all",
+            "other_peer_penalty": 0.25,
+            "rewrite": True,
+            "rewrite_max_bullets": 4,
+        },
+    )
+    await service.request(
+        value,
+        "resource_import",
+        payload={
+            "path": "https://example.com/docs",
+            "args": {
+                "depth": 2,
+                "max_pages": 10,
+                "include_paths": ["/guide"],
+                "skip_download_links": True,
+            },
+            "processing_mode": "vectors_only",
+            "tags": ["env=test"],
+            "tag_mode": "append",
+        },
+    )
+
+    assert observed[0]["mode"] == "context"
+    assert observed[0]["max_tokens"] == 4096
+    assert observed[1]["args"] == {
+        "depth": 2,
+        "max_pages": 10,
+        "include_paths": ["/guide"],
+        "skip_download_links": True,
+    }
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_remote_import_rejects_http_and_private_hosts() -> None:
     service = OpenVikingService(OpenVikingProfileRepository(), config())
     value = profile(service)
@@ -371,6 +610,7 @@ async def test_upload_rejects_type_and_oversize_before_upstream() -> None:
             content_type="application/pdf",
             content=b"x" * (50 * 1_048_576 + 1),
         )
+
 
 @pytest.mark.asyncio
 async def test_manual_text_composes_target_from_opaque_parent_ref() -> None:
@@ -554,11 +794,17 @@ async def test_operation_route_forwards_idempotency_key() -> None:
     )
     body = {"payload": {"path": "https://example.com/guide.md"}}
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as bff:
+        rejected = await bff.post(
+            path,
+            json={"payload": {"path": "https://example.com/guide.md", "owner_id": "x"}},
+        )
         first = await bff.post(path, json=body, headers={"Idempotency-Key": "upload"})
         repeated = await bff.post(
             path, json=body, headers={"Idempotency-Key": "upload"}
         )
 
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"]["code"] == "INVALID_ARGUMENT"
     assert first.status_code == 200
     assert repeated.json() == first.json()
     assert calls == 1
