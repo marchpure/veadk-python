@@ -62,6 +62,8 @@ class SkillDraft(ImmutableModel):
     trial_task: str | None = Field(default=None, max_length=20_000)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    openviking_profile_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+    openviking_resource_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     status: DraftStatus = DraftStatus.EDITING
     current_revision_id: str | None = None
@@ -89,6 +91,8 @@ class Invocation(ImmutableModel):
     revision_id: str | None = Field(default=None, max_length=160)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    openviking_profile_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
+    openviking_resource_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     lease_id: str | None = Field(default=None, max_length=4_096)
     authoring_session_id: str = Field(min_length=1, max_length=160)

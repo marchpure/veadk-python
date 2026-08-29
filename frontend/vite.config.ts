@@ -1,6 +1,7 @@
 import { defineConfig, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath, URL } from "node:url";
 
 // In dev, proxy the ADK API server routes to the backend started with
 // `veadk frontend --dev` (default port 8000), so the app uses relative URLs
@@ -50,6 +51,19 @@ function chunkDirectory(moduleIds: readonly string[]): string {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  test: {
+    setupFiles: ["./src/features/openviking/test-setup.ts"],
+  },
+  resolve: {
+    alias: {
+      "#": fileURLToPath(
+        new URL("./src/features/openviking", import.meta.url),
+      ),
+      "@ov-server": fileURLToPath(
+        new URL("./src/features/openviking/types/ov-server", import.meta.url),
+      ),
+    },
+  },
   server: {
     port: 5173,
     proxy: {

@@ -245,6 +245,7 @@ import {
   IssueFeedbackIcon,
 } from "./ui/icons/FeedbackIcons";
 import { KnowledgeWorkspacePage } from "./features/knowledge-workspace/pages/KnowledgeWorkspacePage";
+import { OpenVikingWorkspace } from "./features/openviking/OpenVikingWorkspace";
 
 interface IssueFeedbackTarget {
   turn: Turn;
@@ -996,6 +997,9 @@ export default function App() {
   const query = new URLSearchParams(window.location.search);
   if (query.get("view") === "knowledge-workspace") {
     return <KnowledgeWorkspacePage />;
+  }
+  if (query.get("view") === "openviking") {
+    return <OpenVikingWorkspace />;
   }
   return <StudioApp />;
 }

@@ -2412,6 +2412,47 @@ def _run_frontend_server(
         connection_gateway=connection_gateway,
     )
 
+    # OpenViking is a separate knowledge runtime profile. Its upstream origin
+    # and API key remain server-managed and are never part of Connection IDs.
+    try:
+        from frontend.server.openviking import (
+            OpenVikingConfig,
+            OpenVikingProfileRepository,
+            OpenVikingService,
+            mount_openviking_routes,
+        )
+
+        openviking_service = OpenVikingService(
+            OpenVikingProfileRepository(
+                os.getenv(
+                    "OPENVIKING_PROFILE_DATABASE",
+                    ".veadk/openviking-profiles.sqlite3",
+                )
+            ),
+            OpenVikingConfig.from_env(),
+        )
+        knowledge_service.openviking_context_resolver = (
+            lambda actor, profile_ids, resource_refs: openviking_service.creator_context(
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+                profile_ids=tuple(profile_ids),
+                resource_refs=tuple(resource_refs),
+            )
+        )
+        mount_openviking_routes(
+            app,
+            openviking_service,
+            actor_resolver=lambda request: _knowledge_workspace_actor(
+                request, _knowledge_identity
+            ),
+        )
+    except Exception as error:
+        logger.warning(
+            "OpenViking BFF is disabled because secure profile storage "
+            "is not configured: %s",
+            type(error).__name__,
+        )
+
     from frontend.server.video.routes import (
         build_video_service,
         mount_video_routes,

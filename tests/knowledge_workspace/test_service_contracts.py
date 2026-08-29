@@ -50,6 +50,7 @@ class FakeAutoSkill:
         self.request_ids: list[str] = []
         self.policies: list[dict[str, object] | None] = []
         self.commands: list[str] = []
+        self.command_calls: list[dict[str, object]] = []
         self.downloads: list[dict[str, object]] = []
         self.invocations: list[dict[str, object]] = []
         self.output = b"<!doctype html><html><body>real output</body></html>"
@@ -68,6 +69,7 @@ class FakeAutoSkill:
     ) -> AsyncIterator[ParsedUpstreamEvent]:
         if args:
             self.commands.append(str(args[0]))
+        self.command_calls.append(kwargs)
         self.request_ids.append(str(kwargs["request_id"]))
         self.policies.append(kwargs.get("invocation_policy"))
         for item in self.events:
@@ -184,6 +186,46 @@ def make_service(
         lease,
     )
     return service, Actor("tenant", "workspace", "principal"), lease
+
+
+@pytest.mark.asyncio
+async def test_openviking_context_is_distinct_and_sent_to_autoskill() -> None:
+    captured: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+
+    def resolve(
+        actor: Actor, profile_ids: Sequence[str], refs: Sequence[str]
+    ) -> dict[str, object]:
+        assert actor.tenant_id == "tenant"
+        captured.append((tuple(profile_ids), tuple(refs)))
+        return {"profile_ids": list(profile_ids), "resource_refs": list(refs)}
+
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        FakeAutoSkill((event("done"),)),
+        openviking_context_resolver=resolve,
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(
+        actor,
+        "build with knowledge",
+        (),
+        openviking_profile_ids=("ovp_a",),
+        openviking_resource_refs=("ovr_a",),
+    )
+    invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await service._tasks[invocation.invocation_id]
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    assert captured == [
+        (("ovp_a",), ("ovr_a",)),
+        (("ovp_a",), ("ovr_a",)),
+        (("ovp_a",), ("ovr_a",)),
+    ]
+    assert fake.commands == ["create_skill"]
+    assert '"openviking_context"' in str(fake.command_calls[0]["prompt"])
+    assert invocation.openviking_profile_ids == ("ovp_a",)
+    assert invocation.openviking_resource_refs == ("ovr_a",)
 
 
 class FreezeAutoSkill(FakeAutoSkill):

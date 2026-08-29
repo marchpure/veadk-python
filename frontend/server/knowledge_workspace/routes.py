@@ -53,6 +53,8 @@ class CreateDraftBody(BaseModel):
     goal: str = Field(min_length=1, max_length=8_000)
     connection_ids: list[str] = Field(default_factory=list, max_length=64)
     resource_ids: list[str] = Field(default_factory=list, max_length=64)
+    openviking_profile_ids: list[str] = Field(default_factory=list, max_length=16)
+    openviking_resource_refs: list[str] = Field(default_factory=list, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
 
@@ -62,6 +64,8 @@ class UpdateDraftBody(BaseModel):
     goal: str | None = Field(default=None, min_length=1, max_length=8_000)
     connection_ids: list[str] | None = Field(default=None, max_length=64)
     resource_ids: list[str] | None = Field(default=None, max_length=64)
+    openviking_profile_ids: list[str] | None = Field(default=None, max_length=16)
+    openviking_resource_refs: list[str] | None = Field(default=None, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] | None = Field(default=None, max_length=64)
 
@@ -1076,6 +1080,8 @@ def mount_knowledge_workspace_routes(
                 body.goal,
                 body.connection_ids,
                 resource_ids=body.resource_ids,
+                openviking_profile_ids=body.openviking_profile_ids,
+                openviking_resource_refs=body.openviking_resource_refs,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,
                 idempotency_key=idempotency_key,
@@ -1119,6 +1125,8 @@ def mount_knowledge_workspace_routes(
                 goal=body.goal,
                 connection_ids=body.connection_ids,
                 resource_ids=body.resource_ids,
+                openviking_profile_ids=body.openviking_profile_ids,
+                openviking_resource_refs=body.openviking_resource_refs,
                 if_match=if_match,
                 trial_task=body.trial_task,
                 upload_ids=body.upload_ids,

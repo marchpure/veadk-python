@@ -59,6 +59,8 @@ import {
   type UploadResult,
 } from "../api/client";
 import { OAuthFlowPollError, waitForOAuthConnection } from "../api/oauthFlow";
+import { openVikingApi } from "../../openviking/api";
+import type { OpenVikingProfile } from "../../openviking/hooks/use-app-connection";
 import { Modal } from "../components/Modal";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
@@ -383,6 +385,7 @@ export function KnowledgeWorkspacePage() {
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
+  const [openVikingProfiles, setOpenVikingProfiles] = useState<OpenVikingProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -419,6 +422,15 @@ export function KnowledgeWorkspacePage() {
       })
       .catch(() => setAuthStatus("unauthenticated"));
   }, []);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    const controller = new AbortController();
+    void openVikingApi.listProfiles(controller.signal)
+      .then((profiles) => setOpenVikingProfiles(profiles.filter((item) => item.status === "ready")))
+      .catch(() => setOpenVikingProfiles([]));
+    return () => controller.abort();
+  }, [authStatus]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -588,6 +600,8 @@ export function KnowledgeWorkspacePage() {
     goal: string,
     connectionIds: string[],
     resourceIds: string[],
+    openVikingProfileIds: string[],
+    openVikingResourceRefs: string[],
     trialTask: string,
     uploadIds: string[],
   ) => {
@@ -598,6 +612,8 @@ export function KnowledgeWorkspacePage() {
         goal,
         connection_ids: connectionIds,
         ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
+        ...(openVikingProfileIds.length ? { openviking_profile_ids: openVikingProfileIds } : {}),
+        ...(openVikingResourceRefs.length ? { openviking_resource_refs: openVikingResourceRefs } : {}),
         ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
         ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
       });
@@ -1131,6 +1147,7 @@ export function KnowledgeWorkspacePage() {
             resources={resources}
             selectedIds={selectedConnectionIds}
             selectedResourceIds={selectedResourceIds}
+            openVikingProfiles={openVikingProfiles}
             onSelectedIdsChange={setSelectedConnectionIds}
             onCreate={createAndGenerate}
               onUpload={uploadSkillInput}
@@ -1313,6 +1330,7 @@ function SkillNewView({
   resources,
   selectedIds,
   selectedResourceIds,
+  openVikingProfiles,
   onSelectedIdsChange,
   onCreate,
   onUpload,
@@ -1325,8 +1343,9 @@ function SkillNewView({
   resources: WorkspaceResource[];
   selectedIds: string[];
   selectedResourceIds: string[];
+  openVikingProfiles: OpenVikingProfile[];
   onSelectedIdsChange: (ids: string[]) => void;
-  onCreate: (goal: string, connectionIds: string[], resourceIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
+  onCreate: (goal: string, connectionIds: string[], resourceIds: string[], openVikingProfileIds: string[], openVikingResourceRefs: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
   onUpload: (file: File, onProgress: (percent: number) => void) => Promise<UploadResult>;
   onAddConnection: () => void;
   busy: boolean;
@@ -1340,13 +1359,23 @@ function SkillNewView({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [resourceIds, setResourceIds] = useState<string[]>(selectedResourceIds);
+  const [openVikingProfileIds, setOpenVikingProfileIds] = useState<string[]>([]);
   useEffect(() => {
     setResourceIds(selectedResourceIds);
   }, [selectedResourceIds]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (goal.trim() && (selectedIds.length || resourceIds.length)) {
-      void onCreate(goal, selectedIds, resourceIds, trialTask, uploads.map((upload) => upload.upload_id));
+    if (goal.trim() && (selectedIds.length || resourceIds.length || openVikingProfileIds.length)) {
+      const profiles = openVikingProfiles.filter((profile) => openVikingProfileIds.includes(profile.profile_id));
+      void onCreate(
+        goal,
+        selectedIds,
+        resourceIds,
+        profiles.map((profile) => profile.profile_id),
+        profiles.map((profile) => profile.root_resource_ref),
+        trialTask,
+        uploads.map((upload) => upload.upload_id),
+      );
     }
   };
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1432,6 +1461,24 @@ function SkillNewView({
               <Check size={16} />
             </label>
           ))}
+          {openVikingProfiles.map((profile) => (
+            <label className={`kw-connection-choice${openVikingProfileIds.includes(profile.profile_id) ? " is-selected" : ""}`} key={profile.profile_id}>
+              <input
+                type="checkbox"
+                checked={openVikingProfileIds.includes(profile.profile_id)}
+                onChange={(event) => setOpenVikingProfileIds((current) => (
+                  event.target.checked
+                    ? [...current, profile.profile_id]
+                    : current.filter((id) => id !== profile.profile_id)
+                ))}
+              />
+              <span className="kw-choice-copy">
+                <strong>{profile.display_name}</strong>
+                <small>OpenViking knowledge · 已验证</small>
+              </span>
+              <Check size={16} />
+            </label>
+          ))}
         </div>
         <label>
           <span className="kw-form-step-label">3. 先试一句任务（可选）</span>
@@ -1448,7 +1495,7 @@ function SkillNewView({
           {uploads.map((upload) => <div className="kw-uploaded-file" key={upload.upload_id}>{upload.filename} · sha256:{upload.sha256.slice(0, 12)}…</div>)}
           {uploadError ? <div className="kw-form-error" role="alert">{uploadError}</div> : null}
         </div>
-        <button className="kw-primary" type="submit" disabled={busy || !goal.trim() || (!selectedIds.length && !resourceIds.length)}>
+        <button className="kw-primary" type="submit" disabled={busy || !goal.trim() || (!selectedIds.length && !resourceIds.length && !openVikingProfileIds.length)}>
           {busy ? <Loader2 className="kw-spin" size={16} /> : <Play size={16} />}
           生成并试用 Skill
         </button>

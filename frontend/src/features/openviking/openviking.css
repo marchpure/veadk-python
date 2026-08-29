@@ -1,0 +1,223 @@
+.ov-workspace {
+  display: grid;
+  grid-template-rows: 54px 42px minmax(0, 1fr);
+  height: 100vh;
+  min-width: 0;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.ov-header,
+.ov-tabs,
+.ov-resource-toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.ov-header {
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.ov-header h1 {
+  display: inline;
+  margin: 0 10px 0 0;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.ov-header span {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.ov-profile-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ov-profile-actions select,
+.ov-profile-actions button,
+.ov-tabs button,
+.ov-resource-toolbar button,
+.ov-primary-button,
+.ov-modal header button {
+  min-height: 34px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--panel));
+  color: inherit;
+}
+
+.ov-profile-actions button {
+  display: inline-grid;
+  width: 34px;
+  place-items: center;
+}
+
+.ov-profile-actions svg,
+.ov-tabs svg,
+.ov-resource-toolbar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ov-tabs {
+  gap: 4px;
+  padding: 4px 20px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.ov-tabs button,
+.ov-resource-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+}
+
+.ov-tabs button.active {
+  border-color: hsl(var(--foreground) / 0.2);
+  background: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.ov-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px 24px;
+}
+
+.ov-resource-toolbar {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ov-resource-stage {
+  min-height: min(720px, calc(100vh - 150px));
+}
+
+.ov-connect-page,
+.ov-empty {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: hsl(var(--canvas));
+}
+
+.ov-profile-form {
+  display: grid;
+  width: min(440px, calc(100vw - 32px));
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--panel));
+}
+
+.ov-profile-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ov-profile-heading svg {
+  width: 22px;
+}
+
+.ov-profile-heading h2,
+.ov-profile-heading p {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.ov-profile-heading p {
+  margin-top: 4px;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+.ov-profile-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ov-profile-form input {
+  height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--background));
+  color: inherit;
+}
+
+.ov-primary-button {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+}
+
+.ov-form-error {
+  margin: 0;
+  color: hsl(var(--destructive));
+  font-size: 13px;
+}
+
+.ov-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.35);
+}
+
+.ov-modal {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 12px;
+  background: hsl(var(--panel));
+}
+
+.ov-modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.ov-modal header h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: 0;
+}
+
+@media (max-width: 720px) {
+  .ov-header,
+  .ov-tabs,
+  .ov-content {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .ov-header span {
+    display: none;
+  }
+
+  .ov-tabs {
+    overflow-x: auto;
+  }
+
+  .ov-tabs button {
+    flex: 0 0 auto;
+  }
+}

@@ -79,6 +79,8 @@ export interface Draft {
   trial_task?: string;
   connection_ids: string[];
   resource_ids: string[];
+  openviking_profile_ids: string[];
+  openviking_resource_refs: string[];
   lifecycle: DraftLifecycle;
   current_revision_id?: string;
   active_invocation_id?: string;
