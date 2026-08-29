@@ -1,0 +1,103 @@
+{
+  "worker": "W4",
+  "status": "PARTIAL",
+  "baseline_sha": "187d9ed49047e51116ef0c9494d995d04c732caf",
+  "branch": "feat/kp-rerun-20260829-w4-skill-templates",
+  "generated_at": "2026-08-29T13:37:01Z",
+  "scope": {
+    "implemented": [
+      "single AutoSkill Creator flow with template_key generic|semantic|dashboard|sop",
+      "template_config propagation through draft, revision, prompts, API, and UI",
+      "immutable revision ZIP validation and immutable HTML presentation artifact lineage",
+      "real streamed planning, tool/action, observation, assistant delta/final, and done events in the assistant panel",
+      "connection/resource/upload bindings with tenant, revoke, lease, policy, CSP, and secret-redaction gates",
+      "desktop and narrow prototype-aligned workspace states"
+    ],
+    "not_implemented": [
+      "W5 evaluation suite or batch repair system",
+      "separate Creator backends or static standalone HTML domain objects"
+    ]
+  },
+  "template_results": {
+    "semantic": {
+      "fixture_status": "passed",
+      "real_context": "sqlite fixture representing PostgreSQL/MySQL schema, read-only SQL, rows, and evidence",
+      "draft_id": "draft_e7200dc6338242c09f2671a6cbfe81c5",
+      "revision_ids": [
+        "rev_58b32f04ac8245b284919828887745dd",
+        "rev_75f8e15b1db94c77bbf8f7759390c0e5"
+      ],
+      "artifact_ids": [
+        "artifact_bc455a944757413f89a253a4e7fa95f7",
+        "artifact_5732c30811e34a07a6fb2aae5825c069"
+      ],
+      "publication_id": "pub_45bbd35bbbb64ea4b622d375c0fa4505"
+    },
+    "dashboard": {
+      "fixture_status": "passed",
+      "real_context": "sqlite fixture with schema/data-driven dashboard output, filters, refresh, empty/error/no-permission states",
+      "draft_id": "draft_1365d13e3e7d4e6792db4f7beecfe42c",
+      "revision_ids": [
+        "rev_e152ca75bc0e49e9bfddeb094a694164",
+        "rev_c579d92e824b4a6998bb516d70b1a4a0"
+      ],
+      "artifact_ids": [
+        "artifact_5ab66b00f4284601ae645789776daf87",
+        "artifact_c6907a5042b7444da9a2bbcdbdc15d8a",
+        "artifact_60a284749f3c43bc9a10bfc8bb1b7e4f"
+      ],
+      "publication_id": "pub_92d7c6bba2cc4cafa70bc64e2972aaec"
+    },
+    "sop": {
+      "fixture_status": "passed",
+      "real_context": "sqlite fixture with OpenViking/document evidence and action result lineage",
+      "draft_id": "draft_6dc4ab09fb984047b095a1fe1ea309a1",
+      "revision_ids": [
+        "rev_43bcbc344cf849d287af72dd2435ccd1",
+        "rev_dda30f0a5ed5417686e1acfe25113420"
+      ],
+      "artifact_ids": [
+        "artifact_1d8bbc32136940949bfa90300539afb5",
+        "artifact_7c9818f42bf44e0f903b1799b02a4b25"
+      ],
+      "publication_id": "pub_fbb234e8607f48c89ced1b52fc06f16f"
+    }
+  },
+  "verification": {
+    "python_pytest": "98 passed",
+    "node_tests": "11 passed",
+    "frontend_typecheck": "passed",
+    "frontend_build": "passed with existing chunk-size warnings",
+    "contract_validation": "PASS",
+    "w4_acceptance": "CONTRACT_FIXTURE_PASS",
+    "prototype_capture": {
+      "states": 22,
+      "report": "/tmp/kp-rerun-20260829/w4/evidence/captures/report.json"
+    },
+    "browser_evidence": [
+      "/tmp/kp-rerun-20260829/w4/evidence/browser/w4-desktop-1440x900.png",
+      "/tmp/kp-rerun-20260829/w4/evidence/browser/w4-mobile-390x844.png",
+      "/tmp/kp-rerun-20260829/w4/evidence/browser/w4-assistant-desktop-1440x900.png"
+    ]
+  },
+  "security_results": {
+    "cross_tenant_denied": true,
+    "revoked_connection_denied": true,
+    "expired_lease_status": "failed",
+    "expired_lease_error": "LEASE_EXPIRED",
+    "html_csp_secret_scan": true,
+    "html_cookie_blocked": "ARTIFACT_UNSAFE",
+    "html_fetch_blocked": "ARTIFACT_UNSAFE",
+    "html_external_url_blocked": "ARTIFACT_EXTERNAL_LINK"
+  },
+  "live_integration_status": {
+    "result": "blocked",
+    "autoskill_smoke": "A real AutoSkill stream emitted planning/action/observation/final/done events once, then a subsequent stream failed with ConnectTimeout.",
+    "connection_service_smoke": "Connection Service is not configured.",
+    "required_retest": [
+      "rerun semantic/dashboard/sop against configured live AutoSkill endpoint",
+      "rerun authorized Connection/MCP/OpenViking actions with non-fixture services",
+      "verify publish gate after live validate_skill, run, artifact, and lineage creation"
+    ]
+  }
+}

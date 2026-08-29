@@ -15,8 +15,11 @@ from frontend.server.knowledge_workspace.models import (
     Invocation,
     InvocationKind,
     InvocationStatus,
+    WorkspaceResource,
+    WorkspaceResourceKind,
     WorkspaceUpload,
     new_id,
+    utc_now,
 )
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
 from frontend.server.knowledge_workspace.service import (
@@ -96,6 +99,15 @@ def make_skill_zip(name: str, content: str) -> bytes:
     return buffer.getvalue()
 
 
+def make_template_skill_zip(name: str, content: str) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(f"skillhub/{name}/SKILL.md", content)
+        archive.writestr(f"skillhub/{name}/scripts/run.py", "def main():\n    return {}\n")
+        archive.writestr(f"skillhub/{name}/tests/test_skill.py", "def test_contract():\n    assert True\n")
+    return buffer.getvalue()
+
+
 def policy_summary(
     *,
     status: str = "success",
@@ -104,7 +116,17 @@ def policy_summary(
     satisfied: bool = True,
     matched_action_id: str = "fixture.read",
     matched_tool: str = "mcp__knowledge-connection-1__execute_action",
+    matched_resource_ref: str | None = None,
 ) -> dict[str, object]:
+    matched_call = {
+        "index": 0,
+        "actionId": matched_action_id,
+    }
+    if matched_tool:
+        matched_call["server"] = "knowledge-connection-1"
+        matched_call["tool"] = matched_tool
+    if matched_resource_ref:
+        matched_call["resource_ref"] = matched_resource_ref
     return {
         "status": status,
         skills_field: [target_skill],
@@ -112,14 +134,7 @@ def policy_summary(
         "target_skill_version": "1.0.0",
         "policy_evaluation": {
             "satisfied": satisfied,
-            "matched_calls": [
-                {
-                    "index": 0,
-                    "server": "knowledge-connection-1",
-                    "tool": matched_tool,
-                    "actionId": matched_action_id,
-                }
-            ],
+            "matched_calls": [matched_call],
             "unmet_requirements": [] if satisfied else ["missing call"],
         },
     }
@@ -204,6 +219,14 @@ class FreezeAutoSkill(FakeAutoSkill):
             return
         if command == "view_skill":
             for item in (event("final_answer", {"answer": "# Demo"}), event("done")):
+                yield item
+            return
+        if command == "validate_skill":
+            for item in (
+                event("final_answer", {"answer": "valid"}),
+                event("request_summary", {"status": "succeeded"}),
+                event("done"),
+            ):
                 yield item
             return
         async for item in super().command(command, **kwargs):
@@ -551,7 +574,7 @@ async def test_freeze_persists_distinct_query_request_ids() -> None:
         workspace_id=actor.workspace_id,
     )
     assert saved is not None
-    assert len(saved.autoskill_request_ids) == 2
+    assert len(saved.autoskill_request_ids) == 3
     assert len(saved.autoskill_request_ids) == len(set(saved.autoskill_request_ids))
 
 
@@ -858,6 +881,8 @@ async def test_connection_backed_generate_builds_policy_from_lease_actions() -> 
         "allowed_mcp_servers": ["knowledge-connection-1"],
         "allowed_mcp_tools": ["mcp__knowledge-connection-1__execute_action"],
         "allowed_action_ids": ["fixture.read"],
+        "connection_refs": ["connection-a"],
+        "resource_refs": [],
         "required_successful_calls": [
             {
                 "tool": "mcp__knowledge-connection-1__execute_action",
@@ -866,7 +891,7 @@ async def test_connection_backed_generate_builds_policy_from_lease_actions() -> 
         ],
         "min_successes": 1,
         "fail_if_unsatisfied": True,
-        "match": "at_least_one_required_successful_call",
+        "match": "at_least_one_required_successful_context_call",
     }
 
 
@@ -1053,6 +1078,106 @@ async def test_run_and_publication_reject_connections_outside_revision_manifest(
             "consumer run",
             ("connection-b",),
         )
+
+
+@pytest.mark.asyncio
+async def test_resource_only_revision_keeps_policy_and_authorized_resource_refs() -> None:
+    actor = Actor("tenant", "workspace", "principal")
+    resource = WorkspaceResource(
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+        resource_id="resource-openviking",
+        kind=WorkspaceResourceKind.MCP,
+        display_name="OpenViking Runbook",
+        scope="team",
+        status="verified",
+        source_id="openviking-source",
+        adapter_resource_id="adapter-openviking",
+        metadata={"source": "openviking"},
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    autoskill = FreezeAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event(
+                "request_summary",
+                policy_summary(
+                    matched_tool="",
+                    matched_action_id="fixture.read",
+                    matched_resource_ref=resource.resource_id,
+                ),
+            ),
+            event("done"),
+        ],
+        invoke_events=[
+            event("final_answer", {"answer": "ran"}),
+            event(
+                "request_summary",
+                policy_summary(
+                    skills_field="skills_used",
+                    matched_tool="",
+                    matched_action_id="fixture.read",
+                    matched_resource_ref=resource.resource_id,
+                ),
+            ),
+            event("done"),
+        ],
+    )
+    autoskill.skill_zip = make_template_skill_zip("demo", "# Demo\n")
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        FakeLeasePort(),
+    )
+    service.repository.save_resource(resource)
+    draft = service.create_draft(
+        actor,
+        "build an evidence-backed SOP",
+        [],
+        resource_ids=[resource.resource_id],
+        template_key="sop",
+    )
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    saved_generation = service.repository.get_invocation(
+        generation.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_generation is not None
+    assert saved_generation.invocation_policy is not None
+    assert saved_generation.invocation_policy["allowed_mcp_servers"] == []
+    assert saved_generation.invocation_policy["allowed_mcp_tools"] == []
+    assert saved_generation.invocation_policy["required_successful_calls"] == [
+        {"resource_ref": resource.resource_id, "arguments": {}}
+    ]
+    assert saved_generation.invocation_policy["resource_refs"] == [resource.resource_id]
+
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+    assert revision.manifest["resource_refs"] == [resource.resource_id]
+
+    with pytest.raises(KnowledgeWorkspaceError, match="not allowed"):
+        await service.run_revision(
+            actor,
+            revision.revision_id,
+            "use it",
+            (),
+            resource_ids=("resource-other",),
+        )
+
+    run = await service.run_revision(
+        actor,
+        revision.revision_id,
+        "use it",
+        (),
+        resource_ids=(resource.resource_id,),
+    )
+    await asyncio.sleep(0)
+    assert service.get_draft(actor, draft.draft_id).status is DraftStatus.READY_TO_PUBLISH
+    assert service.publish(actor, revision.revision_id, "personal").revision_id == (
+        revision.revision_id
+    )
 
 
 @pytest.mark.asyncio
@@ -1293,7 +1418,7 @@ async def test_full_autoskill_creator_lifecycle_freezes_updates_and_invokes_publ
     "summary,match",
     [
         (policy_summary(satisfied=False), "policy_evaluation"),
-        (policy_summary(matched_action_id="fixture.other"), "execute_action"),
+        (policy_summary(matched_action_id="fixture.other"), "context action"),
     ],
 )
 async def test_freeze_rechecks_persisted_policy_evaluation_before_revision(

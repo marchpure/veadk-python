@@ -168,6 +168,28 @@ def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationship
     assert normalized[4]["data"]["content"] == "# Result"
 
 
+def test_normalizes_assistant_delta_events_for_streaming_ui() -> None:
+    parsed = parse_sse(
+        [
+            'id: d1\ndata: {"type":"assistant_delta","data":{"delta":"hello ","sequence":1}}\n\n',
+            'id: d2\ndata: {"type":"assistant.delta","data":{"text":"world","index":2,"token":"secret"}}\n\n',
+        ]
+    )
+
+    normalized = [
+        normalize_upstream_event(item, invocation_id="inv", cursor=index + 1)
+        for index, item in enumerate(parsed)
+    ]
+
+    assert [item["type"] for item in normalized] == [
+        "assistant.delta",
+        "assistant.delta",
+    ]
+    assert normalized[0]["data"] == {"text": "hello ", "sequence": 1, "final": False}
+    assert normalized[1]["data"] == {"text": "world", "sequence": 2, "final": False}
+    assert "secret" not in json.dumps(normalized)
+
+
 def test_normalizes_official_autoskill_event_shape_without_transport_id_breaking_tree() -> (
     None
 ):
@@ -292,13 +314,35 @@ def test_html_policy_allows_real_static_html_and_rejects_active_content() -> Non
     metadata = validate_html_artifact(safe)
     assert metadata["media_type"] == "text/html"
     assert metadata["encoding"] == "utf-8"
+    assert metadata["sandbox"] == "allow-scripts"
 
     with pytest.raises(HtmlArtifactError) as error:
-        validate_html_artifact(b"<html><script>alert(1)</script></html>")
+        validate_html_artifact(b"<html><body onclick='alert(1)'>bad</body></html>")
     assert error.value.code == "ARTIFACT_UNSAFE"
     with pytest.raises(HtmlArtifactError) as error:
         validate_html_artifact(b'<html><img srcset="//example.com/a 1x"></html>')
     assert error.value.code == "ARTIFACT_EXTERNAL_LINK"
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_html_artifact(b"<html><script>fetch('/secret')</script></html>")
+    assert error.value.code == "ARTIFACT_UNSAFE"
+
+
+def test_html_policy_allows_isolated_inline_interactions() -> None:
+    safe = b"""<!doctype html><html><body>
+    <button id="refresh">Refresh</button>
+    <div id="status">ready</div>
+    <script>
+    const rows = [{name: "north", value: 12}];
+    document.getElementById("refresh").addEventListener("click", () => {
+      document.getElementById("status").textContent = String(rows.length);
+    });
+    </script>
+    </body></html>"""
+
+    metadata = validate_html_artifact(safe)
+
+    assert metadata["media_type"] == "text/html"
+    assert "connect-src 'none'" in metadata["csp"]
 
 
 def test_output_zip_returns_real_html_without_constructing_content() -> None:

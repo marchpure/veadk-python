@@ -54,6 +54,15 @@ def main() -> int:
         assert header in openapi, (
             f"OpenAPI concurrency/reconnect contract missing: {header}"
         )
+    for field in [
+        "TemplateKey",
+        "template_key",
+        "template_config",
+        "resource_ids",
+        "resource_refs",
+        "presentation_artifact",
+    ]:
+        assert field in openapi, f"OpenAPI W4 template contract missing: {field}"
 
     event_types = [
         "run.started",

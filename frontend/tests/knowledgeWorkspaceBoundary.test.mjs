@@ -48,7 +48,7 @@ test("all prototype captures have explicit route/state fixture entries", () => {
 });
 
 test("artifact viewer is isolated and digest-visible", () => {
-  assert.match(artifact, /sandbox="allow-scripts"/);
+  assert.match(artifact, /sandbox=\{artifact\.sandbox \|\| ""\}/);
   assert.match(artifact, /referrerPolicy="no-referrer"/);
   assert.match(artifact, /artifact\.sha256/);
   assert.match(artifact, /startsWith\("\/api\/knowledge\/v1\/artifacts\/"\)/);

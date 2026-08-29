@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import playwright from "/Users/bytedance/node_modules/playwright/index.js";
 
 const { chromium } = playwright;
@@ -9,16 +10,18 @@ const viewport = {
   height: Number(process.env.KW_VIEWPORT_HEIGHT || 900),
 };
 const screenshotName = process.env.KW_SCREENSHOT || "assistant-desktop-1440x900.png";
-const screenshotDir = new URL(
-  "../../docs/knowledge-workspace/evidence/assistant-ux/",
-  import.meta.url,
-);
+const screenshotDir = process.env.KW_SCREENSHOT_DIR
+  ? path.resolve(process.env.KW_SCREENSHOT_DIR)
+  : new URL("../../docs/knowledge-workspace/evidence/assistant-ux/", import.meta.url).pathname;
 
 const draft = {
   draft_id: "draft-assistant-evidence",
   goal: "分析告警并生成安全的处置建议",
   trial_task: "检查最近的支付告警",
+  template_key: "sop",
+  template_config: { mode: "evidence_sop" },
   connection_ids: ["conn-evidence"],
+  resource_ids: [],
   lifecycle: "generated",
   current_revision_id: "revision-evidence",
   created_at: "2026-08-28T00:00:00Z",
@@ -39,6 +42,8 @@ const revision = {
   draft_id: draft.draft_id,
   number: 1,
   skill_name: "incident-analysis",
+  template_key: draft.template_key,
+  template_config: draft.template_config,
   sha256: "a".repeat(64),
   created_at: "2026-08-28T00:02:00Z",
 };
@@ -276,13 +281,13 @@ async function main() {
   );
 
   await page.screenshot({
-    path: new URL(screenshotName, screenshotDir).pathname,
+    path: path.join(screenshotDir, screenshotName),
     fullPage: false,
   });
   console.log(JSON.stringify({
     contract_fixture: true,
     viewport: `${viewport.width}x${viewport.height}`,
-    screenshot: `docs/knowledge-workspace/evidence/assistant-ux/${screenshotName}`,
+    screenshot: path.join(screenshotDir, screenshotName),
     turns: 2,
     merged_tool_activities: 2,
     markdown: ["heading", "table", "code", "artifact-link", "long-url"],

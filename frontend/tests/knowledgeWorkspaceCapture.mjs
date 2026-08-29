@@ -14,8 +14,10 @@ import playwright from "/Users/bytedance/node_modules/playwright/index.js";
 
 const { chromium } = playwright;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const baseURL = process.env.KW_PREVIEW_URL || "http://127.0.0.1:5174";
 const prototypeDir = process.env.KW_PROTOTYPE_CAPTURE_DIR;
 const outputDir = process.env.KW_CAPTURE_OUTPUT_DIR || path.join(root, "docs/knowledge-workspace/evidence/captures");
+const referenceCacheDir = process.env.KW_CAPTURE_REFERENCE_CACHE_DIR || path.join(outputDir, "_prototype");
 const captureStates = [
   ["/?file=welcome", "welcome"],
   ["/?file=draft_dash_anta", "draft"],
@@ -77,6 +79,48 @@ const expectedStateEvidence = {
 function requiredDir() {
   assert.ok(prototypeDir, "KW_PROTOTYPE_CAPTURE_DIR must point at downloaded prototype PNGs");
   return path.resolve(prototypeDir);
+}
+
+async function readPrototypeCaptureManifest(references) {
+  const candidates = [
+    path.join(references, "captures.json"),
+    `${references}.json`,
+    path.join(path.dirname(references), "captures.json"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(await readFile(candidate, "utf8"));
+      if (Array.isArray(parsed?.captures)) return parsed.captures;
+    } catch (cause) {
+      if (cause?.code !== "ENOENT") throw cause;
+    }
+  }
+  return [];
+}
+
+async function readReferenceCapture(references, index, stateUrl) {
+  const filename = `${String(index + 1).padStart(2, "0")}.png`;
+  const directPath = path.join(references, filename);
+  try {
+    return await readFile(directPath);
+  } catch (cause) {
+    if (cause?.code !== "ENOENT") throw cause;
+  }
+  const cachedPath = path.join(referenceCacheDir, filename);
+  try {
+    return await readFile(cachedPath);
+  } catch (cause) {
+    if (cause?.code !== "ENOENT") throw cause;
+  }
+  const captures = await readPrototypeCaptureManifest(references);
+  const reference = captures.find((item) => item?.stateUrl === stateUrl) || captures[index];
+  assert.ok(reference?.tosUrl, `prototype reference ${filename} is missing and captures.json has no tosUrl`);
+  const response = await fetch(reference.tosUrl);
+  assert.ok(response.ok, `failed to download prototype reference ${filename}: HTTP ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await mkdir(referenceCacheDir, { recursive: true });
+  await writeFile(cachedPath, buffer);
+  return buffer;
 }
 
 function decodePng(buffer) {
@@ -204,7 +248,10 @@ async function main() {
     draft_id: "draft-contract",
     goal: "区域经理使用，希望定位门店毛利异常与退货情况。",
     trial_task: "分析华东区本周退货率最高的 5 家门店，并列出其核心导致毛利下降的产品。",
+    template_key: "dashboard",
+    template_config: { mode: "interactive_dashboard" },
     connection_ids: [connection.connection_id],
+    resource_ids: [],
     lifecycle: "generated",
     current_revision_id: "revision-contract",
     created_at: "2026-08-27T00:00:00Z",
@@ -215,7 +262,20 @@ async function main() {
     draft_id: draft.draft_id,
     number: 1,
     skill_name: "区域异常经营分析",
+    template_key: draft.template_key,
+    template_config: draft.template_config,
     sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    manifest: {
+      template_key: draft.template_key,
+      template_config: draft.template_config,
+      zip: {
+        paths: [
+          "skillhub/regional-dashboard/SKILL.md",
+          "skillhub/regional-dashboard/scripts/run.py",
+          "skillhub/regional-dashboard/tests/test_dashboard.py",
+        ],
+      },
+    },
     created_at: "2026-08-27T00:00:00Z",
   };
   const welcomeDrafts = [
@@ -291,6 +351,67 @@ async function main() {
     error: { code, message, retryable },
     meta: { request_id: "capture" },
   });
+  const event = (invocationId, id, cursor, type, data, parentId) => ({
+    id,
+    cursor: String(cursor),
+    type,
+    invocation_id: invocationId,
+    occurred_at: `2026-08-27T00:00:${String(cursor).padStart(2, "0")}Z`,
+    ...(parentId ? { parent_id: parentId } : {}),
+    data,
+  });
+  const conversation = [{
+    invocation: {
+      invocation_id: "invocation-capture",
+      kind: "generate",
+      status: "succeeded",
+      message: "生成区域异常经营分析 Skill",
+      model: "autoskill-creator",
+      event_url: "/api/knowledge/v1/invocations/invocation-capture/events",
+      started_at: "2026-08-27T00:00:00Z",
+      finished_at: "2026-08-27T00:00:07Z",
+      created_at: "2026-08-27T00:00:00Z",
+    },
+    events: [
+      event("invocation-capture", "turn-1", 1, "turn.started", {
+        turn_number: 1,
+        title: "生成 Dashboard Skill",
+        status: "running",
+      }),
+      event("invocation-capture", "plan-1", 2, "activity.started", {
+        activity_id: "plan-1",
+        activity_kind: "planning",
+        title: "读取 schema 并选择指标",
+        status: "running",
+      }, "turn-1"),
+      event("invocation-capture", "tool-1", 3, "activity.started", {
+        activity_id: "call-1",
+        activity_kind: "tool",
+        call_id: "call-1",
+        tool_name: "create_skill",
+        status: "running",
+        input_summary: "绑定 Oracle ERP 销售数据集",
+      }, "turn-1"),
+      event("invocation-capture", "tool-2", 4, "activity.completed", {
+        activity_id: "call-1",
+        activity_kind: "tool",
+        call_id: "call-1",
+        tool_name: "create_skill",
+        status: "succeeded",
+        output_summary: "写入 SKILL.md、scripts/run.py、tests/test_dashboard.py",
+        duration_ms: 642,
+      }, "call-1"),
+      event("invocation-capture", "final-1", 5, "assistant.final", {
+        content: "Dashboard Skill 已生成，使用授权连接查询真实数据并输出 HTML presentation artifact。",
+      }),
+      event("invocation-capture", "done-1", 6, "run.completed", {
+        status: "succeeded",
+        finished_at: "2026-08-27T00:00:07Z",
+        artifact_ids: ["artifact-capture"],
+        revision_id: revision.revision_id,
+      }),
+    ],
+  }];
   await page.route("**/api/knowledge/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -298,21 +419,23 @@ async function main() {
     const runState = state.get("run_state") || "";
     const resourceState = state.get("state") || "";
     const file = state.get("file") || "";
-    const stateDraft = {
-      ...draft,
-      ...(file.includes("bluetooth") ? {
+      const stateDraft = {
+        ...draft,
+        ...(file.includes("bluetooth") ? {
         goal: "售后专家诊断蓝牙故障，分析硬件衰减与固件问题。",
         trial_task: "排查 VIN LS68892019 的蓝牙反复断连问题，对比历史记录判断是否为天线硬件衰减。",
       } : file.includes("haidilao") ? {
         goal: "门店经理使用，希望查询卫生巡检得分并下发整改通报。",
         trial_task: "获取 SH-0021 门店今日巡检的扣分明细，并下发整改通知。",
       } : {}),
-      lifecycle: runState === "failed"
-        ? "failed"
-        : runState === "success"
-          ? "ready_to_publish"
-          : "generated",
-    };
+        lifecycle: runState === "failed"
+          ? "failed"
+          : runState === "success"
+            ? "ready_to_publish"
+            : file.startsWith("pub_")
+              ? "published"
+              : "generated",
+      };
     if (url.pathname === "/api/knowledge/v1/connector-definitions") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([{
         connector_key: "oracle",
@@ -325,6 +448,8 @@ async function main() {
       }]) });
     } else if (url.pathname === "/api/knowledge/v1/connections") {
       await route.fulfill({ status: request.method() === "POST" ? 201 : 200, headers: { ETag: "capture-v1" }, contentType: "application/json", body: envelope(request.method() === "POST" ? connection : [connection]) });
+    } else if (url.pathname === "/api/knowledge/v1/resources") {
+      await route.fulfill({ status: 200, headers: { ETag: "capture-v1" }, contentType: "application/json", body: envelope([]) });
     } else if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "GET") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope(welcomeDrafts) });
     } else if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`) {
@@ -351,6 +476,8 @@ async function main() {
       }
     } else if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/revisions`) {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([revision]) });
+    } else if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/conversation`) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: envelope(conversation) });
     } else {
       await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "NOT_FOUND", message: "capture route missing", retryable: false }, meta: { request_id: "capture" } }) });
     }
@@ -371,7 +498,7 @@ async function main() {
     } else {
       query.delete("draftId");
     }
-    const url = `http://127.0.0.1:5174/?${query}`;
+    const url = `${baseURL}/?${query}`;
     await page.goto(url);
     await page.locator(".kw-shell").waitFor({ state: "visible" });
     if (capture.route === "welcome") {
@@ -536,7 +663,7 @@ async function main() {
     const actualPath = path.join(outputDir, `${String(index + 1).padStart(2, "0")}.png`);
     await page.screenshot({ path: actualPath, fullPage: true });
     const actual = decodePng(await readFile(actualPath));
-    const reference = decodePng(await readFile(path.join(references, `${String(index + 1).padStart(2, "0")}.png`)));
+    const reference = decodePng(await readReferenceCapture(references, index, capture.stateUrl));
     results.push({
       index: index + 1,
       state_url: capture.stateUrl,

@@ -50,6 +50,8 @@ const draft = {
   draft_id: "draft-w3",
   goal: "让区域经理查询门店毛利异常并解释退货率上升原因",
   trial_task: "查询本周毛利异常门店",
+  template_key: "dashboard",
+  template_config: { mode: "interactive_dashboard" },
   connection_ids: [personalConnection.connection_id],
   resource_ids: [fileResource.resource_id],
   lifecycle: "ready_to_publish",
@@ -62,6 +64,8 @@ const revision = {
   draft_id: draft.draft_id,
   number: 1,
   skill_name: "store-margin-sentinel",
+  template_key: draft.template_key,
+  template_config: draft.template_config,
   sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   manifest: {
     root: "skillhub/store-margin-sentinel/",

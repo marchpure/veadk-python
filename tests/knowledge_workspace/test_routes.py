@@ -208,6 +208,50 @@ async def test_create_draft_idempotency_replays_and_conflicts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_draft_routes_accept_and_return_w4_template_metadata() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = {"x-tenant-id": "t", "x-workspace-id": "w", "x-principal-id": "p"}
+        created = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers={**headers, "idempotency-key": "draft-key-123456-template"},
+            json={
+                "goal": "create a dashboard",
+                "connection_ids": ["c"],
+                "template_key": "dashboard",
+                "template_config": {"refresh": True, "api_key": "secret"},
+            },
+        )
+
+        assert created.status_code == 201
+        assert created.json()["data"]["template_key"] == "dashboard"
+        assert created.json()["data"]["template_config"] == {"refresh": True}
+
+        patched = await client.patch(
+            f"/api/knowledge/v1/skills/drafts/{created.json()['data']['draft_id']}",
+            headers={
+                **headers,
+                "if-match": created.headers["etag"],
+                "idempotency-key": "patch-key-123456-template",
+            },
+            json={
+                "template_key": "sop",
+                "template_config": {"source": "openviking", "token": "secret"},
+            },
+        )
+
+        assert patched.status_code == 200
+        assert patched.json()["data"]["template_key"] == "sop"
+        assert patched.json()["data"]["template_config"] == {"source": "openviking"}
+
+
+@pytest.mark.asyncio
 async def test_unconfigured_autoskill_fails_closed_on_generate() -> None:
     app = FastAPI()
     service = KnowledgeWorkspaceService(

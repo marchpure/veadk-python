@@ -552,6 +552,50 @@ async def test_gateway_uploads_direct_lease_scoped_connection_service_runtime() 
 
 
 @pytest.mark.asyncio
+async def test_gateway_uploads_resource_only_autoskill_context() -> None:
+    requests: list[httpx.Request] = []
+    target = bridge_gateway(requests)
+    autoskill = RecordingAutoSkill()
+    context = bridge_context(target).model_copy(
+        update={
+            "connection_ids": (),
+            "allowed_actions": ("adapter.mcp.read",),
+            "runtime_ref": json.dumps(
+                {
+                    "audience": "knowledge-runtime",
+                    "resources": [
+                        {
+                            "resource_id": "adapter-openviking",
+                            "kind": "mcp",
+                            "metadata": {
+                                "title": "OpenViking",
+                                "token": "redacted-by-upstream",
+                            },
+                        }
+                    ],
+                }
+            ),
+        }
+    )
+
+    await target.prepare_autoskill(
+        context=context,
+        autoskill=autoskill,
+        agent_id="agent-1",
+        session_id="session-1",
+        invocation_id="invocation-resource",
+    )
+
+    assert autoskill.uploaded is not None
+    with zipfile.ZipFile(io.BytesIO(autoskill.uploaded)) as archive:
+        state_text = archive.read("mcp_config.yaml").decode()
+    assert "servers: {}" in state_text
+    assert "knowledge_adapter_resources:" in state_text
+    assert "resource_id: adapter-openviking" in state_text
+    assert requests == []
+
+
+@pytest.mark.asyncio
 async def test_gateway_requires_public_https_for_connection_service_runtime() -> None:
     requests: list[httpx.Request] = []
     target = bridge_gateway(requests)

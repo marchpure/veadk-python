@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import playwright from "/Users/bytedance/node_modules/playwright/index.js";
 const { chromium } = playwright;
 
@@ -15,7 +16,9 @@ const viewport = {
   height: Number(process.env.KW_VIEWPORT_HEIGHT || 900),
 };
 const screenshotName = process.env.KW_SCREENSHOT || "knowledge-workspace-desktop.png";
-const screenshotDir = new URL("../../docs/knowledge-workspace/evidence/", import.meta.url);
+const screenshotDir = process.env.KW_SCREENSHOT_DIR
+  ? path.resolve(process.env.KW_SCREENSHOT_DIR)
+  : new URL("../../docs/knowledge-workspace/evidence/", import.meta.url).pathname;
 
 const connection = {
   connection_id: "conn-contract",
@@ -32,7 +35,10 @@ const draft = {
   draft_id: "draft-contract",
   goal: "让支持工程师排查线上告警并给出处理建议",
   trial_task: "查询最近一条告警",
+  template_key: "sop",
+  template_config: { mode: "evidence_sop" },
   connection_ids: [connection.connection_id],
+  resource_ids: [],
   lifecycle: "generated",
   current_revision_id: "revision-contract",
   created_at: "2026-08-27T00:00:00Z",
@@ -43,7 +49,20 @@ const revision = {
   draft_id: draft.draft_id,
   number: 1,
   skill_name: "support-skill",
+  template_key: draft.template_key,
+  template_config: draft.template_config,
   sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  manifest: {
+    template_key: draft.template_key,
+    template_config: draft.template_config,
+    zip: {
+      paths: [
+        "skillhub/support-skill/SKILL.md",
+        "skillhub/support-skill/scripts/run.py",
+        "skillhub/support-skill/tests/test_skill.py",
+      ],
+    },
+  },
   created_at: "2026-08-27T00:00:00Z",
 };
 const artifact = {
@@ -54,6 +73,14 @@ const artifact = {
   uri: `${baseURL}/api/knowledge/v1/artifacts/artifact-contract/content`,
   sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   title: "Contract run",
+  lineage: {
+    template_key: draft.template_key,
+    revision_id: revision.revision_id,
+    invocation_id: "invocation-contract",
+    source_refs: { connection_ids: draft.connection_ids, resource_ids: [], upload_ids: [] },
+  },
+  csp: "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'",
+  sandbox: "allow-scripts",
   created_at: "2026-08-27T00:00:00Z",
 };
 
@@ -73,6 +100,8 @@ async function main() {
   let validationCalls = 0;
   let currentInvocationId = "invocation-contract-0";
   let conversationCalls = 0;
+  let nextRunShouldFail = false;
+  const failedInvocationIds = new Set();
 
   await page.route("**/*", async (route) => {
     const request = route.request();
@@ -226,10 +255,26 @@ async function main() {
       }) });
       return;
     }
+    if (url.pathname.endsWith("/run")) {
+      invocationCount += 1;
+      currentInvocationId = `invocation-contract-${invocationCount}`;
+      if (nextRunShouldFail) {
+        failedInvocationIds.add(currentInvocationId);
+        nextRunShouldFail = false;
+      }
+      await route.fulfill({ status: 202, contentType: "application/json", body: envelope({
+        invocation_id: currentInvocationId,
+        kind: "run",
+        status: "running",
+        event_url: `/api/knowledge/v1/invocations/${currentInvocationId}/events`,
+        created_at: "2026-08-27T00:00:00Z",
+      }) });
+      return;
+    }
     if (url.pathname.endsWith("/events")) {
       eventStreamCalls += 1;
       const reconnectOnlyFrames = eventStreamCalls === 1;
-      const failedFrames = eventStreamCalls === 3;
+      const failedFrames = failedInvocationIds.has(currentInvocationId);
       const frames = [
         `id: 1\nevent: run.started\ndata: ${JSON.stringify({ id: "run-1", cursor: "1", type: "run.started", invocation_id: currentInvocationId, occurred_at: "2026-08-27T00:00:00Z", data: { kind: "generate", status: "running" } })}\n\n`,
         `id: 2\nevent: activity.started\ndata: ${JSON.stringify({ id: "plan-1", cursor: "2", type: "activity.started", invocation_id: currentInvocationId, occurred_at: "2026-08-27T00:00:00Z", data: { activity_id: "plan-1", activity_kind: "planning", title: "规划", status: "running", steps: [{ id: "step-1", label: "读取真实连接", status: "completed" }] } })}\n\n`,
@@ -266,7 +311,12 @@ async function main() {
   });
 
   await page.goto(`${baseURL}/?view=knowledge-workspace&file=welcome`);
-  await page.getByRole("complementary").getByRole("button", { name: "添加连接" }).click();
+  if (viewport.width >= 720) {
+    await page.getByRole("button", { name: "创建", exact: true }).click();
+  } else {
+    await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
+  }
+  await page.getByRole("button", { name: /添加连接/ }).first().click();
   assert.equal(await page.getByRole("combobox", { name: "连接类型" }).count(), 0);
   await page.locator(".kw-connector-card").first().click();
   await page.getByLabel("显示名称").fill("Contract API");
@@ -275,7 +325,11 @@ async function main() {
   await page.getByRole("button", { name: "保存并验证" }).click();
   await page.getByRole("button", { name: "取消" }).click();
   await page.getByRole("heading", { name: "Contract API" }).waitFor();
-  await page.getByRole("complementary").getByRole("button", { name: "新建 Skill" }).click();
+  if (viewport.width >= 720) {
+    await page.getByRole("complementary").getByRole("button", { name: "新建 Skill" }).click();
+  } else {
+    await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
+  }
   await page.getByRole("checkbox", { name: /Contract API/ }).check();
   await page.getByLabel("谁使用，解决什么问题？").fill("让支持工程师排查线上告警并给出处理建议");
   await page.getByLabel("可选：先试一句真实任务").fill("查询最近一条告警");
@@ -290,6 +344,7 @@ async function main() {
   assert.equal(eventStreamCalls, 1);
   await page.getByRole("button", { name: "继续接收" }).click();
   await page.getByText("已完成真实连接试跑。").first().waitFor();
+  nextRunShouldFail = true;
   await page.getByRole("button", { name: "开始" }).click();
   await page.getByRole("button", { name: "重试本次运行" }).waitFor();
   await page.getByRole("button", { name: "重试本次运行" }).click();
@@ -298,7 +353,7 @@ async function main() {
   await page.getByRole("button", { name: "发送" }).click();
   await page.getByText("已完成真实连接试跑。").first().waitFor();
   await page.getByRole("button", { name: "版本" }).click();
-  await page.getByText("v1 · support-skill").waitFor();
+  await page.getByText("v1 · SOP · support-skill").waitFor();
   await page.getByRole("button", { name: "关闭" }).click();
   await page.getByRole("button", { name: "发布" }).click();
   await page.getByRole("button", { name: "发布到个人" }).click();
@@ -343,7 +398,7 @@ async function main() {
     }
     await dialog.getByRole("button", { name: "关闭" }).click();
   }
-  await page.screenshot({ path: new URL(screenshotName, screenshotDir).pathname, fullPage: true });
+  await page.screenshot({ path: path.join(screenshotDir, screenshotName), fullPage: true });
   await page.getByRole("button", { name: "返回工作台" }).click();
   await page.getByRole("heading", { name: "我的 Skill" }).waitFor();
   assert.match(new URL(page.url()).search, /file=welcome/);
@@ -358,7 +413,7 @@ async function main() {
     contract_fixture: true,
     viewport: `${viewport.width}x${viewport.height}`,
     clicked: ["添加连接", "多选连接", "生成", "主区试跑", "SSE 对话", "失败重连", "版本", "发布", "Agent 弹窗", "刷新恢复", "右栏布局"],
-    screenshot: `docs/knowledge-workspace/evidence/${screenshotName}`,
+    screenshot: path.join(screenshotDir, screenshotName),
     invocation_count: invocationCount,
     published,
   }));
