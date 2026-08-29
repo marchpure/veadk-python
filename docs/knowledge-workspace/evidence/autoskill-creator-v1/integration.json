@@ -1,6 +1,65 @@
 {
   "contract": "autoskill-creator-v1",
   "status": "PASS",
+  "worker_gates": {
+    "AUTOSKILL_CREATOR_W1_FROZEN": {
+      "sha": "bbbe5329861a1403cf73f4efc6b8e1dee8975caa",
+      "remote_ref": "origin/feat/autoskill-creator-invocation-policy",
+      "local_remote_match": true,
+      "worktree_clean": true,
+      "evidence": "AutoSkill docs/autoskill-creator-w1-evidence.json"
+    },
+    "AUTOSKILL_CREATOR_W2_FROZEN": {
+      "sha": "ebbd6c5fcb45b50c4a9c34be973470a28becbc10",
+      "remote_ref": "marchpure/feat/knowledge-autoskill-creator-backend",
+      "local_remote_match": true,
+      "worktree_clean": true,
+      "evidence": "../../checkpoints/autoskill-creator-w2.json"
+    },
+    "AUTOSKILL_CREATOR_W3_FROZEN": {
+      "sha": "29e58c7bca51a59ae3d7c7211ae39b391e076a16",
+      "remote_ref": "marchpure/feat/knowledge-autoskill-creator-ui",
+      "local_remote_match": true,
+      "worktree_clean": true,
+      "evidence": "../../checkpoints/autoskill-creator-w3.json"
+    },
+    "AUTOSKILL_CREATOR_W4_FROZEN": {
+      "sha": "e598def249c79fd3466583970131c654069bd70d",
+      "remote_ref": "fork/feat/connection-autoskill-runtime-mcp",
+      "local_remote_match": true,
+      "worktree_clean": true,
+      "evidence": "Connection docs/connection-expansion/autoskill-runtime-mcp-w4.json"
+    }
+  },
+  "services": {
+    "autoskill": {
+      "url": "http://localhost:37861",
+      "pid": 80658,
+      "health": {
+        "status": "ok",
+        "state_mode": "stateful"
+      },
+      "command_sanitized": "env -u OPENAI_API_KEY AUTOSKILL_OPENAI_API_KEY=<inherited> AGENT_CONFIG=/tmp/autoskill-creator-v1-config.yaml AUTOSKILL_STATE_MODE=stateful PORT=37861 PYTHONPATH=<runtime-shims>:<autoskill-backend>:<autoskill-root> backend/.venv/bin/python server.py"
+    },
+    "connection": {
+      "url": "http://127.0.0.1:37862",
+      "pid": 83116,
+      "health": {
+        "ok": true,
+        "service": "connection-service",
+        "version": "1.0.0"
+      },
+      "command_sanitized": "PORT=37862 CONNECTION_DATA_DIR=/tmp/autoskill-creator-v1/connection-data CONNECTION_AUTH_SECRET=<redacted> CONNECTION_ENCRYPTION_KEY=<redacted> node src/control-plane/index.ts"
+    },
+    "workspace": {
+      "url": "http://127.0.0.1:37863",
+      "pid": 83151,
+      "health": {
+        "status": "ok"
+      },
+      "command_sanitized": "KNOWLEDGE_WORKSPACE_DB=/tmp/autoskill-creator-v1/workspace.sqlite3 KNOWLEDGE_WORKSPACE_OBJECT_ROOT=/tmp/autoskill-creator-v1/workspace-objects python -m veadk.cli.cli studio --agents-dir examples/basic-app/agents --frontend-dir veadk/webui --host 127.0.0.1 --port 37863 --dev --no-open"
+    }
+  },
   "accepted_connection": {
     "id": "c7b434e3-e7c2-4d72-9658-cd739243494d",
     "kind": "Hacker News",
@@ -9,21 +68,30 @@
   },
   "draft": {
     "id": "draft_aa5fe53d8a9f43e9a19860a2cf30cdf1",
-    "skill_name": "hackernews-live-max-item"
+    "skill_name": "hackernews-live-max-item",
+    "business_requirement_and_trial_task_submitted": true,
+    "create_skill_succeeded": true,
+    "request_summary_target_skill_exact": true,
+    "live_connection_mcp_call_succeeded": true
   },
   "revisions": [
     {
       "id": "rev_bf7b8807bcf141ce8c294e2c279a2041",
       "digest": "6e4a06eba689cc650841dd421d417d73a30e235b8b55efc1577c3fce4b583735",
       "run_invocation_id": "inv_aedb4d46a74041e9a46fd508cb2231c1",
-      "connection_audit_id": "ddb2ee72-1466-41d5-a4d2-3b43f281a7f0"
+      "connection_audit_id": "ddb2ee72-1466-41d5-a4d2-3b43f281a7f0",
+      "skill_zip_downloaded_and_validated": true,
+      "real_trial_run_succeeded": true
     },
     {
       "id": "rev_bc7e8a0ecec1429b89add8d3ffd584d2",
       "digest": "0c5bd64178754801762046264e94ddaa3600d9847d39cd23dcb5f5e4122effb4",
       "manifest_kind": "general",
       "run_invocation_id": "inv_fae7b46293b6466eaf87f53aefdca459",
-      "connection_audit_id": "bc896e8f-a292-475e-bba7-1e141c7c955e"
+      "connection_audit_id": "bc896e8f-a292-475e-bba7-1e141c7c955e",
+      "created_by_conversational_update": true,
+      "digest_differs_from_revision_1": true,
+      "real_trial_run_succeeded": true
     }
   ],
   "publication": {
@@ -31,13 +99,21 @@
     "fresh_agent_invocation_id": "inv_a5a5fa8bfe9b420aa819e9259a10e216",
     "autoskill_request_id": "request_83eaa2d6b05d48de9438a590fe04822a",
     "connection_audit_id": "0f4efd9a-ef8e-4962-9e42-0c445eb0fd78",
+    "audit_invocation_id_exact_match": true,
+    "fresh_agent_and_session": true,
+    "fresh_lease_issued": true,
+    "published_skill_invocation_succeeded": true,
     "lease_revoked_after_use": true
   },
   "artifact": {
     "id": "artifact_a303401fa29f4f41a313370b761a4d8e",
     "sha256": "88d320a696ad4fe357931bbc99b8156679a4f6513ff0635c90fc981d901181e3",
     "content_type": "text/html",
-    "validated": true
+    "bytes": 897,
+    "validated": true,
+    "source_label_present": true,
+    "generated_utc_present": true,
+    "script_tag_present": false
   },
   "recovery_and_security": {
     "refresh_restore": "PASS",
@@ -48,6 +124,22 @@
     "cross_tenant_and_workspace_denial": "PASS",
     "zip_traversal_symlink_and_secret_scan": "PASS",
     "browser_console_and_page_errors": "PASS"
+  },
+  "engineering_gates": {
+    "autoskill_focused": "299 passed, 1 warning",
+    "autoskill_full_configured_with_external_import_shim": "601 passed, 1 warning",
+    "workspace_backend": "91 passed",
+    "workspace_frontend": "875 passed, 1 skipped",
+    "workspace_typecheck": "PASS",
+    "workspace_build": "PASS",
+    "workspace_packaged_assets": "85 files and 229 internal references verified",
+    "connection_full": "1649 passed, 4 skipped",
+    "connection_fix_check": "PASS"
+  },
+  "sse_reconnect": {
+    "first_replayed_event_id": 6,
+    "event_ids_observed": 32,
+    "duplicate_event_ids": 0
   },
   "screenshots": [
     "published-desktop-1440x900.png",
