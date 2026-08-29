@@ -187,13 +187,17 @@ def normalize_skill_zip(
         for path in retained:
             relative = PurePosixPath(path.removeprefix(root_prefix + "/"))
             first = relative.parts[0] if relative.parts else ""
+            root_level_html = len(relative.parts) == 1 and relative.suffix.casefold() in {
+                ".html",
+                ".htm",
+            }
             if "BuildPlan" in relative.name:
                 raise SkillZipError(
                     "SKILL_ZIP_UNSUPPORTED_ENTRY",
                     f"Skill ZIP must not contain BuildPlan artifact: "
                     f"{_safe_entry_path(path)}",
                 )
-            if first not in {
+            if not root_level_html and first not in {
                 "SKILL.md",
                 "assets",
                 "data",
@@ -275,13 +279,17 @@ def validate_skill_zip(
         for path in paths:
             relative = path.removeprefix(root_prefix + "/")
             first = PurePosixPath(relative).parts[0] if relative else ""
+            root_level_html = (
+                len(PurePosixPath(relative).parts) == 1
+                and PurePosixPath(relative).suffix.casefold() in {".html", ".htm"}
+            )
             if "BuildPlan" in PurePosixPath(relative).name:
                 raise SkillZipError(
                     "SKILL_ZIP_UNSUPPORTED_ENTRY",
                     f"Skill ZIP must not contain BuildPlan artifact: "
                     f"{_safe_entry_path(path)}",
                 )
-            if first not in allowed_top_level:
+            if not root_level_html and first not in allowed_top_level:
                 raise SkillZipError(
                     "SKILL_ZIP_UNSUPPORTED_ENTRY",
                     f"Skill ZIP contains unsupported entry: {_safe_entry_path(path)}",

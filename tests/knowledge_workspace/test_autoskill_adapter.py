@@ -377,6 +377,16 @@ def test_skill_zip_accepts_declared_presentation_and_semantic_data_files() -> No
     assert "skillhub/demo/query_results.csv" in checked["paths"]
 
 
+def test_skill_zip_accepts_any_root_level_presentation_html_name() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/semantic_browser.html", "<!doctype html>")
+
+    checked = validate_skill_zip(source.getvalue())
+    assert "skillhub/demo/semantic_browser.html" in checked["paths"]
+
+
 @pytest.mark.parametrize(
     ("entry", "code"),
     [
