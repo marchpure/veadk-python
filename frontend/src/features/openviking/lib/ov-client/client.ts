@@ -20,6 +20,7 @@ const DEFAULT_TELEMETRY_PATHS = new Set([
 const SESSION_COMMIT_PATH = /^\/api\/v1\/sessions\/[^/]+\/commit$/
 const BFF_ROOT = '/api/knowledge/v1/openviking'
 const resourceRefs = new Map<string, string>()
+const preserveTypedQueryParams = () => ''
 
 export function getOpenVikingResourceRef(uri: string): string | undefined {
   return resourceRefs.get(uri)
@@ -257,6 +258,7 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
     axios: instance,
     baseURL: runtimeOptions.baseUrl,
     headers: defaultHeaders,
+    paramsSerializer: preserveTypedQueryParams,
     throwOnError: true,
   })
 
@@ -360,6 +362,7 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
       axios: instance,
       baseURL: runtimeOptions.baseUrl,
       headers: defaultHeaders,
+      paramsSerializer: preserveTypedQueryParams,
       throwOnError: true,
     })
   }

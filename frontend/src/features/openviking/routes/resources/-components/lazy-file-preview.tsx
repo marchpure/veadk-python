@@ -1,13 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { Loader2 } from 'lucide-react'
-
 import type { VikingFsEntry } from '../-types/viking-fm'
-
-const FilePreview = lazy(() =>
-  import('./file-preview').then((module) => ({
-    default: module.FilePreview,
-  })),
-)
+import { FilePreview } from './file-preview'
 
 export function LazyFilePreview({
   file,
@@ -23,20 +15,12 @@ export function LazyFilePreview({
   showCloseButton?: boolean
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
-      <FilePreview
-        file={file}
-        hideDirectoryHeader={hideDirectoryHeader}
-        onClose={onClose}
-        onNavigate={onNavigate}
-        showCloseButton={showCloseButton}
-      />
-    </Suspense>
+    <FilePreview
+      file={file}
+      hideDirectoryHeader={hideDirectoryHeader}
+      onClose={onClose}
+      onNavigate={onNavigate}
+      showCloseButton={showCloseButton}
+    />
   )
 }

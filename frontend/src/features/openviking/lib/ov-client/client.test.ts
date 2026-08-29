@@ -2,7 +2,7 @@ import axios, { AxiosHeaders } from 'axios'
 import type { AxiosRequestConfig } from 'axios'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { getContentRead, getFsStat } from '#/gen/ov-client'
+import { getContentRead, getFsLs, getFsStat } from '#/gen/ov-client'
 import { setActiveOpenVikingProfileId } from '#/hooks/use-app-connection'
 import { createOvClient, registerOpenVikingRoot } from './client'
 
@@ -110,6 +110,31 @@ describe('createOvClient AgentKit BFF boundary', () => {
       expect(request.params).toBeUndefined()
       expect(request.data).not.toContain('viking://')
     }
+  })
+
+  it('preserves generated SDK query booleans and integers for the BFF', async () => {
+    setActiveOpenVikingProfileId('ovp_profile')
+    registerOpenVikingRoot('viking://workspace/', 'ovr_typed-root')
+    const { client, requests } = createRecordingClient()
+
+    await getFsLs({
+      client: client.client,
+      query: {
+        limit: 50,
+        show_all_hidden: true,
+        uri: 'viking://workspace/',
+      },
+    })
+
+    expect(requests[0].data).toBe(
+      JSON.stringify({
+        payload: {
+          limit: 50,
+          show_all_hidden: true,
+          resource_ref: 'ovr_typed-root',
+        },
+      }),
+    )
   })
 
   it('rejects paths that are not on the operation allowlist', async () => {
