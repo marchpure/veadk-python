@@ -2,6 +2,7 @@ import axios, { AxiosHeaders } from 'axios'
 import type { AxiosRequestConfig } from 'axios'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { getContentRead, getFsStat } from '#/gen/ov-client'
 import { setActiveOpenVikingProfileId } from '#/hooks/use-app-connection'
 import { createOvClient, registerOpenVikingRoot } from './client'
 
@@ -55,6 +56,60 @@ describe('createOvClient AgentKit BFF boundary', () => {
     expect(request.data).toBe(
       JSON.stringify({ payload: { resource_ref: 'ovr_signed-root' } }),
     )
+  })
+
+  it('converts generated SDK URL queries into opaque BFF resource refs', async () => {
+    setActiveOpenVikingProfileId('ovp_profile')
+    registerOpenVikingRoot(
+      'viking://workspace/stat.md',
+      'ovr_preview-stat-resource',
+    )
+    registerOpenVikingRoot(
+      'viking://workspace/read.md',
+      'ovr_preview-read-resource',
+    )
+    const { client, requests } = createRecordingClient()
+
+    await getFsStat({
+      client: client.client,
+      query: { uri: 'viking://workspace/stat.md' },
+    })
+    await getContentRead({
+      client: client.client,
+      query: {
+        limit: 50,
+        offset: 10,
+        raw: true,
+        uri: 'viking://workspace/read.md',
+      } as Parameters<typeof getContentRead>[0]['query'] & { raw: boolean },
+    })
+
+    expect(requests[0].url).toBe(
+      '/api/knowledge/v1/openviking/profiles/ovp_profile/operations/fs_stat',
+    )
+    expect(requests[0].data).toBe(
+      JSON.stringify({
+        payload: { resource_ref: 'ovr_preview-stat-resource' },
+      }),
+    )
+    expect(requests[1].url).toBe(
+      '/api/knowledge/v1/openviking/profiles/ovp_profile/operations/content_read',
+    )
+    expect(requests[1].data).toBe(
+      JSON.stringify({
+        payload: {
+          limit: 50,
+          offset: 10,
+          raw: true,
+          resource_ref: 'ovr_preview-read-resource',
+        },
+      }),
+    )
+    for (const request of requests) {
+      expect(request.url).not.toContain('?')
+      expect(request.params).toBeUndefined()
+      expect(request.data).not.toContain('viking://')
+    }
   })
 
   it('rejects paths that are not on the operation allowlist', async () => {

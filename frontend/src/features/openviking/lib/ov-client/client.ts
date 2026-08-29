@@ -160,6 +160,37 @@ function resolvePathname(rawUrl?: string): string {
   }
 }
 
+function parseQueryValue(key: string, value: string): unknown {
+  if (key === 'raw' && /^(true|false)$/i.test(value)) {
+    return value.toLowerCase() === 'true'
+  }
+  if ((key === 'offset' || key === 'limit') && /^-?\d+$/.test(value)) {
+    return Number.parseInt(value, 10)
+  }
+  return value
+}
+
+function readUrlQuery(rawUrl?: string): Record<string, unknown> {
+  if (!rawUrl) return {}
+
+  try {
+    const result: Record<string, unknown> = {}
+    const searchParams = new URL(rawUrl, 'http://openviking.local').searchParams
+    for (const [key, value] of searchParams) {
+      const parsed = parseQueryValue(key, value)
+      const previous = result[key]
+      result[key] = previous !== undefined
+        ? Array.isArray(previous)
+          ? [...previous, parsed]
+          : [previous, parsed]
+        : parsed
+    }
+    return result
+  } catch {
+    return {}
+  }
+}
+
 function readHeader(headers: unknown, name: string): string | undefined {
   if (headers instanceof AxiosHeaders) {
     const value = headers.get(name)
@@ -251,6 +282,7 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
       })
     }
     const payload = opaquePayload({
+      ...readUrlQuery(config.url),
       ...(isRecord(config.params) ? config.params : {}),
       ...(isRecord(config.data) ? config.data : {}),
     })
