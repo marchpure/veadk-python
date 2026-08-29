@@ -88,6 +88,13 @@ export default defineConfig({
       },
     },
   },
+  worker: {
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/chunks/[name]-[hash].js",
+      },
+    },
+  },
   build: {
     // Build straight into the Python package so `veadk frontend` ships the UI
     // with the wheel and works for pip-installed users.
