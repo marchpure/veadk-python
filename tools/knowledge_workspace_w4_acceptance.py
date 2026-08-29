@@ -314,6 +314,25 @@ class W4AutoSkillFixture:
             event_id=f"{request_id}:observation",
         )
         yield event(
+            "action",
+            {
+                "name": "validate_skill",
+                "call_id": f"{request_id}:validate",
+                "arguments": {"name": self.skill_name},
+            },
+            event_id=f"{request_id}:validate-action",
+        )
+        yield event(
+            "observation",
+            {
+                "name": "validate_skill",
+                "call_id": f"{request_id}:validate",
+                "ok": True,
+                "output": "validation passed",
+            },
+            event_id=f"{request_id}:validate-observation",
+        )
+        yield event(
             "assistant_delta",
             {"delta": f"{self.template_key} ", "sequence": 1},
             event_id=f"{request_id}:delta-1",

@@ -280,6 +280,7 @@ class KnowledgeWorkspaceService:
         draft: SkillDraft,
         invocation: Invocation,
         message: str,
+        invocation_policy: Mapping[str, object] | None = None,
     ) -> str:
         action = "create_skill" if invocation.kind is InvocationKind.GENERATE else "update_skill"
         payload = {
@@ -298,12 +299,41 @@ class KnowledgeWorkspaceService:
                 "artifact": "immutable, bound to revision, invocation, source refs, and digest",
             },
         }
+        connection_gate = ""
+        if invocation.connection_ids and isinstance(invocation_policy, Mapping):
+            allowed_actions = [
+                str(item)
+                for item in invocation_policy.get("allowed_action_ids", [])
+                if str(item)
+            ]
+            if allowed_actions:
+                connection_gate = (
+                    "Connection action gate (mandatory and first): before any "
+                    "sandbox, terminal, create_skill, update_skill, or file "
+                    "generation, call exactly "
+                    "`mcp__knowledge-connection-1__execute_action` with "
+                    "`actionId` set to one of the following lease-allowed "
+                    f"read-only actions: {json.dumps(allowed_actions)}. Use "
+                    "the returned live schema/data/evidence in this request "
+                    "and in the generated Skill. A successful call must be "
+                    "present in the final policy_evaluation.\n\n"
+                )
         return (
             "AutoSkill Creator W4 request.\n"
             f"Command: {action}\n"
             f"template_key={draft.template_key.value}\n"
             "Requirements:\n"
             f"{self._template_requirements(draft.template_key)}\n\n"
+            f"{connection_gate}"
+            "Live context gate (mandatory, before finalizing): use the "
+            "provided Connection/OpenViking MCP context at least once. For a "
+            "Connection, call an allowed read-only action and use its returned "
+            "schema/data/evidence in the Skill; for an OpenViking resource, "
+            "read the resource and cite the returned content. Do not claim "
+            "live context or policy evidence from sandbox fixtures. The final "
+            "request summary must include the successful context call in "
+            "policy_evaluation. If context access fails, report the failure "
+            "and do not fabricate a successful result.\n\n"
             "Structured context JSON follows. Treat it as authoritative and "
             "redacted; never reveal secrets or internal provider identifiers.\n"
             f"{json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2)}"
@@ -417,10 +447,6 @@ class KnowledgeWorkspaceService:
         required_context_calls: list[dict[str, object]] = [
             {"tool": tool, "arguments": {}} for tool in tools
         ]
-        required_context_calls.extend(
-            {"resource_ref": resource_ref, "arguments": {}}
-            for resource_ref in resources
-        )
         return {
             "version": 1,
             "allowed_mcp_servers": list(servers),
@@ -429,7 +455,10 @@ class KnowledgeWorkspaceService:
             "connection_refs": list(connections),
             "resource_refs": list(resources),
             "required_successful_calls": required_context_calls,
-            "min_successes": 1,
+            # AutoSkill v1 accepts only tool/server requirements here. Resource
+            # refs remain lineage/context metadata and are checked by W4 after
+            # the run; they must not be serialized as unsupported requirements.
+            "min_successes": 1 if required_context_calls else 0,
             "fail_if_unsatisfied": True,
             "match": "at_least_one_required_successful_context_call",
         }
@@ -631,6 +660,43 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError(
                 "SKILL_ZIP_INVALID",
                 "template Skill ZIP must include tests",
+                502,
+            )
+
+    def _require_successful_validate_skill(self, invocation: Invocation) -> None:
+        """Require the provider's real validate_skill tool result.
+
+        AutoSkill exposes validate_skill as an in-agent tool, not as a separate
+        command endpoint. The tool call and its observation are archived with
+        the create/update SSE, so freeze must verify that pair directly.
+        """
+
+        actions: set[str] = set()
+        successful_calls: set[str] = set()
+        for item in self.repository.raw_events(invocation.invocation_id):
+            payload = item["raw"]
+            if not isinstance(payload, Mapping):
+                continue
+            event_type = str(payload.get("type", "")).casefold()
+            data = payload.get("data")
+            if not isinstance(data, Mapping):
+                continue
+            if event_type == "action":
+                name = str(data.get("name") or data.get("title") or "")
+                call_id = str(data.get("call_id") or "")
+                if name == "validate_skill" and call_id:
+                    actions.add(call_id)
+            elif event_type == "observation":
+                call_id = str(data.get("call_id") or "")
+                if call_id not in actions:
+                    continue
+                error = str(data.get("error") or "").strip()
+                if data.get("ok") is True and not error:
+                    successful_calls.add(call_id)
+        if not actions.intersection(successful_calls):
+            raise KnowledgeWorkspaceError(
+                "SKILL_ZIP_INVALID",
+                "AutoSkill create/update did not produce a successful validate_skill tool result",
                 502,
             )
 
@@ -1032,6 +1098,73 @@ class KnowledgeWorkspaceService:
             return None
         return self._session_state(session)
 
+    @staticmethod
+    def _state_subtree(
+        state: bytes,
+        *,
+        prefix: str,
+    ) -> bytes | None:
+        """Extract one provider state subtree without unpacking it to disk."""
+
+        try:
+            source = zipfile.ZipFile(io.BytesIO(state))
+        except zipfile.BadZipFile as exc:
+            raise KnowledgeWorkspaceError(
+                "AUTOSKILL_PROTOCOL_ERROR",
+                "AutoSkill state is not a valid ZIP",
+                502,
+            ) from exc
+        entries: list[tuple[str, bytes]] = []
+        with source:
+            for info in source.infolist():
+                if info.is_dir() or not info.filename.startswith(prefix):
+                    continue
+                entries.append((info.filename, source.read(info.filename)))
+        if not entries:
+            return None
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+            for name, content in entries:
+                archive.writestr(name, content)
+        return output.getvalue()
+
+    async def _download_provider_subtree(
+        self,
+        *,
+        invocation: Invocation,
+        session: AuthoringSession,
+        file_type: str,
+        name: str | None = None,
+    ) -> bytes:
+        """Download stateful files or extract stateless files from state."""
+
+        try:
+            return await self.autoskill.download(
+                agent_id=invocation.autoskill_agent_id,
+                session_id=invocation.autoskill_session_id,
+                file_type=file_type,
+                name=name,
+            )
+        except AutoSkillProtocolError as exc:
+            if (
+                getattr(self.autoskill, "config", None) is None
+                or self.autoskill.config.state_mode.casefold() != "stateless"
+                or "HTTP 404" not in str(exc)
+            ):
+                raise
+            state = self._state_for_invocation(session, invocation)
+            if state is None:
+                raise
+            prefix = (
+                f"skillhub/{name}/"
+                if file_type == "skill" and name
+                else "output_files/"
+            )
+            extracted = self._state_subtree(state, prefix=prefix)
+            if extracted is None:
+                raise
+            return extracted
+
     def start(
         self,
         actor: Actor,
@@ -1308,13 +1441,24 @@ class KnowledgeWorkspaceService:
                     self.connection_context, "prepare_autoskill", None
                 )
                 if prepare_autoskill is not None:
-                    await prepare_autoskill(
+                    prepared_state = await prepare_autoskill(
                         context=lease,
                         autoskill=self.autoskill,
                         agent_id=invocation.autoskill_agent_id,
                         session_id=invocation.autoskill_session_id,
                         invocation_id=invocation.autoskill_request_id,
                     )
+                    if (
+                        isinstance(prepared_state, bytes)
+                        and getattr(self.autoskill, "config", None) is not None
+                        and self.autoskill.config.state_mode.casefold() == "stateless"
+                    ):
+                        state_digest = hashlib.sha256(prepared_state).hexdigest()
+                        state_uri = self.repository.put_object(
+                            state_digest, prepared_state, suffix=".state.zip"
+                        )
+                        session = session.model_copy(update={"state_uri": state_uri})
+                        self.repository.save_session(session)
             if invocation.invocation_id in self._cancelled:
                 cancelled = current.model_copy(
                     update={
@@ -1387,6 +1531,7 @@ class KnowledgeWorkspaceService:
                         draft=draft,
                         invocation=invocation,
                         message=message,
+                        invocation_policy=invocation_policy,
                     ),
                     model=model,
                     state=self._state_for_invocation(session, invocation),
@@ -1402,6 +1547,7 @@ class KnowledgeWorkspaceService:
                         draft=draft,
                         invocation=invocation,
                         message=message,
+                        invocation_policy=invocation_policy,
                     ),
                     model=model,
                     state=self._state_for_invocation(session, invocation),
@@ -1516,6 +1662,15 @@ class KnowledgeWorkspaceService:
                         "AutoSkill did not perform a matching successful context action",
                         502,
                     )
+            if invocation.kind in {
+                InvocationKind.GENERATE,
+                InvocationKind.UPDATE,
+            }:
+                generated = current.model_copy(
+                    update={"request_summary": dict(summary)}
+                )
+                self._summary_target_skill(generated)
+                self._require_successful_validate_skill(generated)
             if invocation.kind is InvocationKind.RUN and invocation.revision_id:
                 revision = self.repository.get_revision(
                     invocation.revision_id,
@@ -1711,9 +1866,9 @@ class KnowledgeWorkspaceService:
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
         try:
-            output = await self.autoskill.download(
-                agent_id=invocation.autoskill_agent_id,
-                session_id=invocation.autoskill_session_id,
+            output = await self._download_provider_subtree(
+                invocation=invocation,
+                session=session,
                 file_type="output",
             )
         except AutoSkillProtocolError as exc:
@@ -2209,37 +2364,10 @@ class KnowledgeWorkspaceService:
                     "view_skill did not return readable content",
                     502,
                 )
-            validate_request = new_id("request")
-            invocation = self._record_request_id(invocation, validate_request)
-            validate_events = await self._skill_command(
-                "validate_skill",
-                agent_id=invocation.autoskill_agent_id,
-                session_id=invocation.autoskill_session_id,
-                request_id=validate_request,
-                name=skill_name,
-                state=state,
+            self._require_successful_validate_skill(invocation)
+            zip_bytes = await self._download_provider_subtree(
                 invocation=invocation,
-            )
-            validate_summary: Mapping[str, object] | None = None
-            validate_final_seen = False
-            for event in validate_events:
-                kind = event_kind(event.event_type)
-                if kind == "request_summary":
-                    data = event.payload.get("data")
-                    validate_summary = data if isinstance(data, Mapping) else None
-                elif kind == "final_answer":
-                    validate_final_seen = True
-            if not validate_final_seen or not self._summary_status_succeeded(
-                validate_summary
-            ):
-                raise KnowledgeWorkspaceError(
-                    "SKILL_ZIP_INVALID",
-                    "validate_skill did not complete successfully",
-                    502,
-                )
-            zip_bytes = await self.autoskill.download(
-                agent_id=invocation.autoskill_agent_id,
-                session_id=invocation.autoskill_session_id,
+                session=session,
                 file_type="skill",
                 name=skill_name,
             )

@@ -156,9 +156,13 @@ class AutoSkillClient:
         invocation_policy: Mapping[str, Any] | None = None,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
         if self.config.state_mode.casefold() == "stateless":
-            message = prompt or f"/{command.replace('_', '-')}"
-            if name:
-                message = f"{message} {name}"
+            command_head = f"/{command.replace('_', '-')}"
+            tail_parts = [
+                value.strip()
+                for value in (name, prompt)
+                if isinstance(value, str) and value.strip()
+            ]
+            message = " ".join([command_head, *tail_parts])
             async for item in self.invoke_stateless(
                 agent_id=agent_id,
                 session_id=session_id,

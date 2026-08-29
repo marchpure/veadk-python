@@ -64,7 +64,7 @@ class ConnectionInvocationContextPort(Protocol):
         agent_id: str,
         session_id: str,
         invocation_id: str,
-    ) -> None:
+    ) -> bytes:
         """Attach the lease-scoped runtime tools before invoking AutoSkill."""
 
 
@@ -899,13 +899,20 @@ class ConnectionServiceGateway:
             agent_id=agent_id, session_id=session_id
         )
         configured = self._state_with_mcp(state, servers, resources or [])
-        await autoskill.upload(
-            agent_id=agent_id,
-            session_id=session_id,
-            file_type="state",
-            file_name="state.zip",
-            content=configured,
-        )
+        autoskill_config = getattr(autoskill, "config", None)
+        if (
+            autoskill_config is None
+            or str(getattr(autoskill_config, "state_mode", "stateful")).casefold()
+            != "stateless"
+        ):
+            await autoskill.upload(
+                agent_id=agent_id,
+                session_id=session_id,
+                file_type="state",
+                file_name="state.zip",
+                content=configured,
+            )
+        return configured
 
     @staticmethod
     def _state_with_mcp(

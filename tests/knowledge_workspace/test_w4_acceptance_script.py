@@ -30,7 +30,7 @@ async def test_w4_acceptance_script_writes_template_lifecycle_evidence(tmp_path)
         assert detail["security"]["cross_tenant_denied"] is True
         assert detail["security"]["revoked_connection_denied"] is True
         assert detail["security"]["expired_lease_error"] == "LEASE_EXPIRED"
-        assert "validate_skill" in detail["autoskill_commands"]
+        assert "validate_skill" not in detail["autoskill_commands"]
         assert {"run.started", "activity.started", "activity.completed", "assistant.delta", "assistant.final", "request.summary", "run.completed"}.issubset(
             detail["events"]["generate"]
         )

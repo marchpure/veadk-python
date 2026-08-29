@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from frontend.server.knowledge_workspace.connection import EphemeralConnectionContext
+from frontend.server.knowledge_workspace.autoskill import AutoSkillProtocolError
 from frontend.server.knowledge_workspace.models import (
     DraftStatus,
     Invocation,
@@ -35,6 +36,27 @@ def event(event_type: str, data: object = None) -> ParsedUpstreamEvent:
         event_id=event_type,
         event_type=event_type,
         payload={"type": event_type, "data": data if data is not None else {}},
+        raw="",
+    )
+
+
+def tool_event(
+    event_type: str,
+    *,
+    call_id: str,
+    name: str,
+    ok: bool | None = None,
+    error: str = "",
+) -> ParsedUpstreamEvent:
+    data: dict[str, object] = {"call_id": call_id, "name": name}
+    if ok is not None:
+        data["ok"] = ok
+    if error:
+        data["error"] = error
+    return ParsedUpstreamEvent(
+        event_id=call_id if event_type == "action" else None,
+        event_type=event_type,
+        payload={"type": event_type, "data": data},
         raw="",
     )
 
@@ -74,6 +96,27 @@ class FakeAutoSkill:
         self.request_ids.append(str(kwargs["request_id"]))
         self.policies.append(kwargs.get("invocation_policy"))
         for item in self.events:
+            if (
+                item.event_type == "done"
+                and str(args[0] if args else "") in {"create_skill", "update_skill"}
+                and not any(
+                    event_item.event_type == "action"
+                    and event_item.payload.get("data", {}).get("name")
+                    == "validate_skill"
+                    for event_item in self.events
+                )
+            ):
+                yield tool_event(
+                    "action",
+                    call_id="validate-skill-call",
+                    name="validate_skill",
+                )
+                yield tool_event(
+                    "observation",
+                    call_id="validate-skill-call",
+                    name="validate_skill",
+                    ok=True,
+                )
             yield item
 
     async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
@@ -221,15 +264,24 @@ class FreezeAutoSkill(FakeAutoSkill):
             for item in (event("final_answer", {"answer": "# Demo"}), event("done")):
                 yield item
             return
-        if command == "validate_skill":
-            for item in (
-                event("final_answer", {"answer": "valid"}),
-                event("request_summary", {"status": "succeeded"}),
-                event("done"),
-            ):
-                yield item
-            return
-        async for item in super().command(command, **kwargs):
+        has_validation = any(
+            item.event_type == "action"
+            and item.payload.get("data", {}).get("name") == "validate_skill"
+            for item in self.events
+        )
+        for item in self.events:
+            if item.event_type == "done" and not has_validation:
+                yield tool_event(
+                    "action",
+                    call_id="validate-skill-call",
+                    name="validate_skill",
+                )
+                yield tool_event(
+                    "observation",
+                    call_id="validate-skill-call",
+                    name="validate_skill",
+                    ok=True,
+                )
             yield item
 
 
@@ -256,6 +308,28 @@ class UnorderedFreezeAutoSkill(FreezeAutoSkill):
             return
         async for item in super().command(command, **kwargs):
             yield item
+
+
+class NoValidationFreezeAutoSkill(FreezeAutoSkill):
+    async def command(
+        self, command: str, **kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
+        if command in {"list_skill", "view_skill"}:
+            async for item in super().command(command, **kwargs):
+                yield item
+            return
+        for item in self.events:
+            yield item
+
+
+class StatelessDownloadFallbackAutoSkill(FreezeAutoSkill):
+    class Config:
+        state_mode = "stateless"
+
+    config = Config()
+
+    async def download(self, **_kwargs: object) -> bytes:
+        raise AutoSkillProtocolError("AutoSkill download returned HTTP 404")
 
 
 class QueryFailureAutoSkill(FreezeAutoSkill):
@@ -300,6 +374,72 @@ def make_freeze_service() -> tuple[KnowledgeWorkspaceService, Actor]:
         lease,
     )
     return service, actor
+
+
+@pytest.mark.asyncio
+async def test_stateless_download_fallback_extracts_skill_from_state() -> None:
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        StatelessDownloadFallbackAutoSkill(
+            [
+                event("final_answer", {"answer": "created"}),
+                event("request_summary", policy_summary()),
+                event("done"),
+            ]
+        ),
+        FakeLeasePort(),
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    session = service.repository.get_session(
+        draft.draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+    )
+    assert session is not None
+    state = io.BytesIO()
+    with zipfile.ZipFile(state, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+    digest = __import__("hashlib").sha256(state.getvalue()).hexdigest()
+    service.repository.save_session(
+        session.model_copy(
+            update={
+                "state_uri": service.repository.put_object(
+                    digest, state.getvalue(), suffix=".state.zip"
+                )
+            }
+        )
+    )
+    invocation = Invocation(
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+        invocation_id=new_id("inv"),
+        draft_id=draft.draft_id,
+        authoring_session_id=session.authoring_session_id,
+        kind=InvocationKind.GENERATE,
+        status=InvocationStatus.SUCCEEDED,
+        autoskill_agent_id=session.autoskill_agent_id,
+        autoskill_session_id=session.autoskill_session_id,
+        autoskill_request_id=new_id("request"),
+        principal_id=actor.principal_id,
+        message="goal",
+        connection_ids=("connection-a",),
+        request_summary=policy_summary(),
+    )
+    result = await service._download_provider_subtree(
+        invocation=invocation,
+        session=session.model_copy(
+            update={
+                "state_uri": service.repository.get_session(
+                    draft.draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                ).state_uri
+            }
+        ),
+        file_type="skill",
+        name="demo",
+    )
+    with zipfile.ZipFile(io.BytesIO(result)) as archive:
+        assert archive.read("skillhub/demo/SKILL.md") == b"# Demo\n"
 
 
 @pytest.mark.asyncio
@@ -574,7 +714,7 @@ async def test_freeze_persists_distinct_query_request_ids() -> None:
         workspace_id=actor.workspace_id,
     )
     assert saved is not None
-    assert len(saved.autoskill_request_ids) == 3
+    assert len(saved.autoskill_request_ids) == 2
     assert len(saved.autoskill_request_ids) == len(set(saved.autoskill_request_ids))
 
 
@@ -748,6 +888,18 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
         ) -> AsyncIterator[ParsedUpstreamEvent]:
             self.reconnects += 1
             for item in self.events:
+                if item.event_type == "done":
+                    yield tool_event(
+                        "action",
+                        call_id="validate-skill-call",
+                        name="validate_skill",
+                    )
+                    yield tool_event(
+                        "observation",
+                        call_id="validate-skill-call",
+                        name="validate_skill",
+                        ok=True,
+                    )
                 yield item
 
     autoskill = Resumable()
@@ -893,6 +1045,52 @@ async def test_connection_backed_generate_builds_policy_from_lease_actions() -> 
         "fail_if_unsatisfied": True,
         "match": "at_least_one_required_successful_context_call",
     }
+
+
+def test_autoskill_prompt_requires_live_context_evidence() -> None:
+    service = KnowledgeWorkspaceService(KnowledgeWorkspaceRepository(), FakeAutoSkill([]))
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(
+        actor,
+        "Build a live semantic browser",
+        ["connection-a"],
+        template_key="semantic",
+        template_config={"source": "live"},
+    )
+    invocation = Invocation(
+        invocation_id="invocation",
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+        kind=InvocationKind.GENERATE,
+        draft_id=draft.draft_id,
+        connection_ids=("connection-a",),
+        authoring_session_id="authoring-session",
+        autoskill_agent_id="agent",
+        autoskill_session_id="session",
+        autoskill_request_id="request",
+    )
+
+    prompt = service._build_autoskill_prompt(
+        draft=draft,
+        invocation=invocation,
+        message="Use the live schema",
+    )
+
+    assert "Live context gate (mandatory" in prompt
+    assert "call an allowed read-only action" in prompt
+    assert "policy_evaluation" in prompt
+
+    gated_prompt = service._build_autoskill_prompt(
+        draft=draft,
+        invocation=invocation,
+        message="Use the live schema",
+        invocation_policy={
+            "allowed_action_ids": ["postgresql.execute_read_query"],
+        },
+    )
+    assert "Connection action gate (mandatory and first)" in gated_prompt
+    assert "mcp__knowledge-connection-1__execute_action" in gated_prompt
+    assert "postgresql.execute_read_query" in gated_prompt
 
 
 @pytest.mark.asyncio
@@ -1149,9 +1347,9 @@ async def test_resource_only_revision_keeps_policy_and_authorized_resource_refs(
     assert saved_generation.invocation_policy is not None
     assert saved_generation.invocation_policy["allowed_mcp_servers"] == []
     assert saved_generation.invocation_policy["allowed_mcp_tools"] == []
-    assert saved_generation.invocation_policy["required_successful_calls"] == [
-        {"resource_ref": resource.resource_id, "arguments": {}}
-    ]
+    # Resource-only context has no MCP server requirement. The resource remains
+    # in lineage and is matched from the AutoSkill summary.
+    assert saved_generation.invocation_policy["required_successful_calls"] == []
     assert saved_generation.invocation_policy["resource_refs"] == [resource.resource_id]
 
     revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)

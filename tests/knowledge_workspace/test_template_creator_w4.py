@@ -23,6 +23,7 @@ from tests.knowledge_workspace.test_service_contracts import (
     make_skill_zip,
     event,
     policy_summary,
+    tool_event,
 )
 
 
@@ -70,6 +71,17 @@ async def test_w4_template_metadata_flows_to_prompt_revision_and_artifact() -> N
                 },
             ),
             event("observation", {"summary": "schema and sample rows observed"}),
+            tool_event(
+                "action",
+                call_id="validate-skill-call",
+                name="validate_skill",
+            ),
+            tool_event(
+                "observation",
+                call_id="validate-skill-call",
+                name="validate_skill",
+                ok=True,
+            ),
             event("final_answer", {"answer": "created"}),
             event("request_summary", policy_summary(target_skill="demo")),
             event("done"),
@@ -124,7 +136,7 @@ async def test_w4_template_metadata_flows_to_prompt_revision_and_artifact() -> N
     revision = await service.freeze(actor, draft.draft_id, invocation.invocation_id)
     assert [call["command"] for call in autoskill.command_calls].count(
         "validate_skill"
-    ) == 1
+    ) == 0
     assert revision.manifest["template_key"] == "semantic"
     assert revision.manifest["template_config"] == {
         "dialect": "postgresql",

@@ -742,6 +742,69 @@ async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> No
     assert requests[0].url.path.endswith("/invoke_stateless")
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("command", "prompt", "name", "expected"),
+    [
+        ("create_skill", "create prompt", None, "/create-skill create prompt"),
+        ("update_skill", "update prompt", None, "/update-skill update prompt"),
+        ("find_skill", "find prompt", None, "/find-skill find prompt"),
+        ("view_skill", None, "demo", "/view-skill demo"),
+        ("list_skill", None, None, "/list-skill"),
+    ],
+)
+async def test_stateless_named_commands_preserve_slash_message_and_fields(
+    command: str,
+    prompt: str | None,
+    name: str | None,
+    expected: str,
+) -> None:
+    requests: list[httpx.Request] = []
+    state = b"PK\x03\x04state"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        body = await request.aread()
+        assert b'name="state"; filename="state.zip"' in body
+        assert b'name="model"' in body
+        assert b'name="invocation_policy"' in body
+        assert b'name="agent_id"' in body
+        assert b'name="session_id"' in body
+        assert b'name="request_id"' in body
+        assert f'name="message"\r\n\r\n{expected}'.encode() in body
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=b'data: {"type":"done","data":{}}\n\n',
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(
+                base_url="http://localhost",
+                state_mode="stateless",
+            ),
+            client=http,
+        )
+        items = [
+            item
+            async for item in client.command(
+                command,
+                agent_id="agent",
+                session_id="session",
+                request_id="request",
+                prompt=prompt,
+                name=name,
+                model="model-id",
+                state=state,
+                invocation_policy={"allowed_action_ids": ["read"]},
+            )
+        ]
+
+    assert [item.event_type for item in items] == ["done"]
+    assert len(requests) == 1
+
+
 def test_sse_payload_redacts_inline_bearer_and_secret_assignments() -> None:
     parsed = parse_sse(
         [

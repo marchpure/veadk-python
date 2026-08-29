@@ -1,36 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Start an isolated W4 Connection Service from the frozen W0 data snapshot.
+# Start an isolated W4 Connection Service from the frozen W0 implementation.
 # Secrets are read into the child process environment and never written here.
-readonly repo="/Users/bytedance/agentkit-connectors-poc/open-connector"
-readonly evidence_root="/tmp/kp-rerun-20260829/w4-live-corrective"
-readonly runtime_dir="${evidence_root}/connection-service-runtime"
-readonly frozen_dir="/tmp/kp-rerun-20260829/w0-corrective-runtime/connection-service"
-readonly frozen_env="/tmp/kp-rerun-20260829/w0-corrective-runtime/connection.env"
+readonly repo="${W4_CONNECTION_SERVICE_REPO:-/Users/bytedance/.codex/worktrees/kp-rerun-20260829-w0-connection}"
+readonly expected_sha="b51379c0e1c515fb6811a3be7b0a79d0cc506a80"
+readonly evidence_root="${W4_EVIDENCE_ROOT:-/tmp/kp-rerun-20260829/w4-live-final}"
+readonly runtime_dir="${W4_CONNECTION_SERVICE_RUNTIME_DIR:-${evidence_root}/connection-service-runtime}"
+readonly frozen_dir="${W4_FROZEN_CONNECTION_DIR:-/tmp/kp-rerun-20260829/w0-corrective-runtime/connection-service}"
+readonly frozen_env="${W4_FROZEN_CONNECTION_ENV:-/tmp/kp-rerun-20260829/w0-corrective-runtime/connection.env}"
 readonly port="${W4_CONNECTION_SERVICE_PORT:-38142}"
+readonly egress_allowlist="${CONNECTION_DATABASE_EGRESS_ALLOWLIST:-${W4_POSTGRES_HOST:?W4_POSTGRES_HOST is required}}"
 
 cd "${repo}"
+actual_sha="$(git rev-parse HEAD)"
+if [[ "${actual_sha}" != "${expected_sha}" ]]; then
+  printf 'W4_CONNECTION_SERVICE_SHA_MISMATCH expected=%s actual=%s\n' \
+    "${expected_sha}" "${actual_sha}" >&2
+  exit 1
+fi
 mkdir -p "${runtime_dir}"
 if [[ ! -f "${runtime_dir}/control.sqlite" ]]; then
   cp "${frozen_dir}/control.sqlite" "${runtime_dir}/control.sqlite"
 fi
-
-readonly egress_allowlist="${CONNECTION_DATABASE_EGRESS_ALLOWLIST:-$(python - <<'PY'
-import json
-import sqlite3
-
-database = "/tmp/kp-rerun-20260829/w4-live-corrective/connection-service-runtime/control.sqlite"
-with sqlite3.connect(database) as connection:
-    row = connection.execute(
-        "select profile_json from tenant_connections where service = 'postgresql' limit 1"
-    ).fetchone()
-profile = json.loads(row[0]) if row else {}
-account_id = str(profile.get("accountId") or "")
-parts = account_id.split(":")
-print(parts[1] if len(parts) > 1 and parts[1] else "")
-PY
-)}"
 
 set -a
 source "${frozen_env}"
