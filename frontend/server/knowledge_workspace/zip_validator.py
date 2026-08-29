@@ -296,10 +296,134 @@ def validate_skill_zip(
             "sha256": hashlib.sha256(content).hexdigest(),
             "compressed_bytes": len(content),
             "expanded_bytes": expanded,
-                "file_count": len(paths),
+            "file_count": len(paths),
             "root": "/".join(root) + "/",
             "skill_name": root[1],
             "skill_md_bytes": len(skill_md),
             "skill_md": text,
             "paths": tuple(paths),
         }
+
+
+def extract_skill_from_state_zip(
+    content: bytes,
+    skill_name: str,
+    *,
+    max_archive_bytes: int = 20 * 1024 * 1024,
+    max_expanded_bytes: int = 100 * 1024 * 1024,
+    max_files: int = 4_096,
+    max_depth: int = 32,
+    max_compression_ratio: int = 200,
+) -> bytes:
+    """Safely reduce an AutoSkill state archive to one Skill workspace.
+
+    ``state.zip`` also contains provider/runtime state and built-in Skills, so
+    it is intentionally not accepted by ``validate_skill_zip`` as a Skill
+    archive.  Scan the complete state archive with separate limits first,
+    then extract only the requested ``skillhub/<name>/`` subtree for the
+    strict Skill ZIP contract.
+    """
+
+    if not skill_name or "/" in skill_name or "\\" in skill_name:
+        raise SkillZipError(
+            "SKILL_STATE_TARGET_INVALID",
+            f"invalid state Skill target: {_safe_entry_path(skill_name)}",
+        )
+    if not content:
+        raise SkillZipError("SKILL_STATE_EMPTY", "state.zip is empty")
+    if len(content) > max_archive_bytes:
+        raise SkillZipError(
+            "SKILL_STATE_TOO_LARGE", "state.zip exceeds compressed size limit"
+        )
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile as exc:
+        raise SkillZipError(
+            "SKILL_STATE_INVALID", "state.zip is not a valid ZIP archive"
+        ) from exc
+
+    paths: list[str] = []
+    folded: set[str] = set()
+    expanded = 0
+    files = 0
+    target_prefix = f"skillhub/{skill_name}/"
+    try:
+        for info in archive.infolist():
+            raw = info.filename
+            path = PurePosixPath(raw)
+            normalized = path.as_posix()
+            if raw.endswith("/"):
+                normalized += "/"
+            if (
+                not raw
+                or "\x00" in raw
+                or path.is_absolute()
+                or "\\" in raw
+                or ".." in path.parts
+                or normalized != raw
+                or len(path.parts) > max_depth
+            ):
+                raise SkillZipError(
+                    "SKILL_STATE_UNSAFE_PATH",
+                    f"unsafe state ZIP path: {_safe_entry_path(raw)}",
+                )
+            if normalized.casefold() in folded:
+                raise SkillZipError(
+                    "SKILL_STATE_DUPLICATE_PATH",
+                    f"duplicate state ZIP path: {_safe_entry_path(raw)}",
+                )
+            folded.add(normalized.casefold())
+            mode = (info.external_attr >> 16) & 0xFFFF
+            file_type = stat.S_IFMT(mode)
+            if file_type in {
+                stat.S_IFLNK,
+                stat.S_IFCHR,
+                stat.S_IFBLK,
+                stat.S_IFIFO,
+                stat.S_IFSOCK,
+            }:
+                raise SkillZipError(
+                    "SKILL_STATE_SPECIAL_FILE",
+                    f"special state ZIP entry: {_safe_entry_path(raw)}",
+                )
+            if info.is_dir() or raw.endswith("/"):
+                continue
+            files += 1
+            if files > max_files:
+                raise SkillZipError(
+                    "SKILL_STATE_FILE_COUNT",
+                    "state.zip contains too many files",
+                )
+            expanded += info.file_size
+            if expanded > max_expanded_bytes:
+                raise SkillZipError(
+                    "SKILL_STATE_EXPANDED_TOO_LARGE",
+                    "expanded state.zip is too large",
+                )
+            if (info.compress_size == 0 and info.file_size > 0) or (
+                info.compress_size
+                and info.file_size > info.compress_size * max_compression_ratio
+            ):
+                raise SkillZipError(
+                    "SKILL_STATE_COMPRESSION_BOMB",
+                    f"suspicious state ZIP compression ratio: "
+                    f"{_safe_entry_path(raw)}",
+                )
+            paths.append(normalized)
+
+        selected = [path for path in paths if path.startswith(target_prefix)]
+        if not selected:
+            raise SkillZipError(
+                "SKILL_STATE_TARGET_MISSING",
+                f"state.zip has no target Skill subtree: "
+                f"{_safe_entry_path(target_prefix)}",
+            )
+        selected_set = set(selected)
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as reduced:
+            for info in archive.infolist():
+                if info.filename in selected_set:
+                    reduced.writestr(info, archive.read(info.filename))
+        return output.getvalue()
+    finally:
+        archive.close()

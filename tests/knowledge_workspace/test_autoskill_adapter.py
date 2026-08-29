@@ -26,6 +26,7 @@ from frontend.server.knowledge_workspace.sse import (
 )
 from frontend.server.knowledge_workspace.zip_validator import (
     SkillZipError,
+    extract_skill_from_state_zip,
     normalize_skill_zip,
     validate_skill_zip,
 )
@@ -343,6 +344,79 @@ def test_skill_zip_normalization_does_not_hide_unknown_runtime_entries() -> None
         normalize_skill_zip(source.getvalue())
     assert error.value.code == "SKILL_ZIP_UNSUPPORTED_ENTRY"
     assert "output_files/report.html" in str(error.value)
+
+
+def test_state_zip_extracts_only_requested_skill_subtree() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/other/SKILL.md", "# Other\n")
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/scripts/run.py", "print('ok')\n")
+        archive.writestr("provider/runtime.json", "{}")
+
+    extracted = extract_skill_from_state_zip(source.getvalue(), "demo")
+    checked = validate_skill_zip(extracted)
+    assert checked["skill_name"] == "demo"
+    assert checked["paths"] == (
+        "skillhub/demo/SKILL.md",
+        "skillhub/demo/scripts/run.py",
+    )
+
+
+@pytest.mark.parametrize(
+    ("entry", "code"),
+    [
+        ("skillhub/demo/../escape", "SKILL_STATE_UNSAFE_PATH"),
+        ("skillhub/demo/../../escape", "SKILL_STATE_UNSAFE_PATH"),
+    ],
+)
+def test_state_zip_rejects_unsafe_paths(entry: str, code: str) -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr(entry, "bad")
+
+    with pytest.raises(SkillZipError) as error:
+        extract_skill_from_state_zip(source.getvalue(), "demo")
+    assert error.value.code == code
+    assert "skillhub/demo" in str(error.value)
+
+
+def test_state_zip_rejects_duplicate_paths_case_insensitively() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/skill.md", "collision")
+
+    with pytest.raises(SkillZipError) as error:
+        extract_skill_from_state_zip(source.getvalue(), "demo")
+    assert error.value.code == "SKILL_STATE_DUPLICATE_PATH"
+    assert "skill.md" in str(error.value)
+
+
+def test_state_zip_rejects_symlinks() -> None:
+    source = io.BytesIO()
+    info = zipfile.ZipInfo("skillhub/demo/link")
+    info.external_attr = (0o120777 << 16) | 0xA000
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr(info, "target")
+
+    with pytest.raises(SkillZipError) as error:
+        extract_skill_from_state_zip(source.getvalue(), "demo")
+    assert error.value.code == "SKILL_STATE_SPECIAL_FILE"
+    assert "skillhub/demo/link" in str(error.value)
+
+
+def test_state_zip_requires_requested_target() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/other/SKILL.md", "# Other\n")
+
+    with pytest.raises(SkillZipError) as error:
+        extract_skill_from_state_zip(source.getvalue(), "demo")
+    assert error.value.code == "SKILL_STATE_TARGET_MISSING"
+    assert "skillhub/demo/" in str(error.value)
 
 
 def test_html_policy_allows_real_static_html_and_rejects_active_content() -> None:

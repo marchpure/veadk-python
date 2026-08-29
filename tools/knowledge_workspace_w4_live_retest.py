@@ -48,6 +48,7 @@ from frontend.server.knowledge_workspace.service import (
     KnowledgeWorkspaceError,
 )
 from frontend.server.knowledge_workspace.zip_validator import (
+    extract_skill_from_state_zip,
     normalize_skill_zip,
     validate_skill_zip,
 )
@@ -197,14 +198,14 @@ def raw_tool_evidence(
 
 def state_skill_evidence(
     repository: KnowledgeWorkspaceRepository,
-    session_id: str,
+    draft_id: str,
     *,
     tenant_id: str,
     workspace_id: str,
     target_skill: str,
 ) -> dict[str, Any]:
     session = repository.get_session(
-        session_id, tenant_id=tenant_id, workspace_id=workspace_id
+        draft_id, tenant_id=tenant_id, workspace_id=workspace_id
     )
     if session is None or not session.state_uri:
         raise RuntimeError("semantic probe did not persist state.zip")
@@ -212,7 +213,8 @@ def state_skill_evidence(
     original_sha256 = hashlib.sha256(state_zip).hexdigest()
     with zipfile.ZipFile(io.BytesIO(state_zip)) as archive:
         paths = tuple(sorted(archive.namelist()))
-    normalized = normalize_skill_zip(state_zip)
+    skill_zip = extract_skill_from_state_zip(state_zip, target_skill)
+    normalized = normalize_skill_zip(skill_zip)
     manifest = validate_skill_zip(normalized)
     prefix = f"skillhub/{target_skill}/"
     skill_paths = tuple(path for path in manifest["paths"] if path.startswith(prefix))
@@ -656,7 +658,7 @@ async def main() -> int:
             policy = summary.get("policy_evaluation")
             state = state_skill_evidence(
                 service.repository,
-                persisted.authoring_session_id,
+                persisted.draft_id,
                 tenant_id=ACTOR.tenant_id,
                 workspace_id=ACTOR.workspace_id,
                 target_skill=target_skill,
