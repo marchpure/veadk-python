@@ -6,8 +6,20 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
+from frontend.server.knowledge_workspace import (
+    KnowledgeWorkspaceRepository,
+    KnowledgeWorkspaceService,
+    UnavailableAutoSkillClient,
+)
+from frontend.server.knowledge_workspace.models import (
+    WorkspaceResource,
+    WorkspaceResourceKind,
+)
+from frontend.server.openviking.connection_resource import (
+    resolve_connection_resource,
+)
 from frontend.server.openviking.service import (
     OpenVikingConfig,
     OpenVikingError,
@@ -766,6 +778,219 @@ async def test_profile_routes_reject_extra_fields_and_cross_tenant_access() -> N
     assert hidden.status_code == 404
     assert ssrf.status_code == 422
     assert ssrf.json()["detail"]["code"] == "SSRF_BLOCKED"
+
+
+@pytest.mark.asyncio
+async def test_profile_update_replaces_encrypted_credentials_and_revoke_is_scoped() -> (
+    None
+):
+    app = FastAPI()
+    service = OpenVikingService(OpenVikingProfileRepository(), config())
+
+    def actor(request):
+        return Actor(
+            request.headers["x-tenant-id"],
+            request.headers["x-workspace-id"],
+            request.headers["x-principal-id"],
+        )
+
+    mount_openviking_routes(app, service, actor_resolver=actor)
+    headers = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+    }
+    other = headers | {"x-tenant-id": "tenant-b"}
+    body = {
+        "display_name": "Viking",
+        "base_url": "http://localhost:38110",
+        "api_key": "old-secret",
+        "workspace_uri": "viking://resources/workspace-a/",
+    }
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        created = await client.post(
+            "/api/knowledge/v1/openviking/profiles", headers=headers, json=body
+        )
+        profile_id = created.json()["data"]["profile_id"]
+        denied_update = await client.patch(
+            f"/api/knowledge/v1/openviking/profiles/{profile_id}",
+            headers=other,
+            json={"api_key": "attacker-secret"},
+        )
+        updated = await client.patch(
+            f"/api/knowledge/v1/openviking/profiles/{profile_id}",
+            headers=headers,
+            json={
+                "display_name": "Updated",
+                "base_url": "http://localhost:38111",
+                "api_key": "new-secret",
+            },
+        )
+        stored_updated = service.repository.get(
+            profile_id, tenant_id="tenant-a", workspace_id="workspace-a"
+        )
+        denied_revoke = await client.delete(
+            f"/api/knowledge/v1/openviking/profiles/{profile_id}", headers=other
+        )
+        revoked = await client.delete(
+            f"/api/knowledge/v1/openviking/profiles/{profile_id}", headers=headers
+        )
+        missing = await client.get(
+            f"/api/knowledge/v1/openviking/profiles/{profile_id}", headers=headers
+        )
+
+    assert denied_update.status_code == denied_revoke.status_code == 404
+    assert updated.status_code == 200
+    assert updated.json()["data"]["display_name"] == "Updated"
+    assert "localhost" not in updated.text
+    assert "secret" not in updated.text
+    assert stored_updated is not None
+    assert b"new-secret" not in stored_updated.encrypted_api_key
+    assert b"localhost" not in stored_updated.encrypted_base_url
+    assert service._credentials(stored_updated) == (
+        "http://localhost:38111",
+        "new-secret",
+    )
+    assert revoked.status_code == 204
+    assert missing.status_code == 404
+    assert (
+        service.repository.get(
+            profile_id, tenant_id="tenant-a", workspace_id="workspace-a"
+        )
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_connection_resource_import_reauthorizes_and_strips_secrets() -> None:
+    class RecordingGateway:
+        calls: list[tuple[str, str, str, str]] = []
+
+        async def get_adapter_resource(
+            self,
+            resource_id: str,
+            *,
+            tenant_id: str,
+            workspace_id: str,
+            principal_id: str,
+        ) -> dict:
+            self.calls.append((resource_id, tenant_id, workspace_id, principal_id))
+            return {"resourceId": resource_id}
+
+    knowledge = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    knowledge.repository.save_resource(
+        WorkspaceResource(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            resource_id="resource-a",
+            kind=WorkspaceResourceKind.REST_OPENAPI,
+            display_name="Orders API",
+            scope="team",
+            status="verified",
+            source_id="source-a",
+            adapter_resource_id="adapter-private-a",
+            metadata={
+                "summary": "Order schema",
+                "api_key": "top-secret",
+                "clientSecret": "also-hidden",
+                "nested": {
+                    "password": "hidden",
+                    "access_token": "nested-hidden",
+                    "columns": ["order_id", "status"],
+                },
+            },
+        )
+    )
+    gateway = RecordingGateway()
+    actor = Actor("tenant-a", "workspace-a", "user-a")
+    observed: dict[str, object] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed.update(json.loads(request.content))
+        return httpx.Response(200, json={"result": {"uri": observed["uri"]}})
+
+    upstream_client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    openviking = OpenVikingService(
+        OpenVikingProfileRepository(), config(), client=upstream_client
+    )
+    openviking_profile = profile(openviking)
+    parent_ref = openviking.resource_ref(
+        openviking_profile, openviking_profile.workspace_uri
+    )
+    app = FastAPI()
+
+    async def resolver(principal: Actor, resource_id: str):
+        return await resolve_connection_resource(
+            principal,
+            resource_id,
+            knowledge_service=knowledge,
+            connection_gateway=gateway,
+        )
+
+    mount_openviking_routes(
+        app,
+        openviking,
+        actor_resolver=lambda _request: actor,
+        connection_resource_resolver=resolver,
+    )
+    transport = httpx.ASGITransport(app=app)
+    path = (
+        f"/api/knowledge/v1/openviking/profiles/{openviking_profile.profile_id}"
+        "/connection-resource"
+    )
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        imported = await client.post(
+            path,
+            json={
+                "parent_ref": parent_ref,
+                "filename": "orders.json.md",
+                "resource_id": "resource-a",
+            },
+        )
+
+    expected_document = {
+        "kind": "rest_openapi",
+        "display_name": "Orders API",
+        "description": {
+            "summary": "Order schema",
+            "nested": {"columns": ["order_id", "status"]},
+        },
+    }
+    assert imported.status_code == 200
+    assert gateway.calls == [("adapter-private-a", "tenant-a", "workspace-a", "user-a")]
+    assert json.loads(str(observed["content"])) == expected_document
+    assert observed["uri"] == "viking://resources/workspace-a/orders.json.md"
+    serialized = json.dumps(observed)
+    assert "top-secret" not in serialized
+    assert "also-hidden" not in serialized
+    assert "nested-hidden" not in serialized
+    assert "password" not in serialized
+    assert "adapter-private-a" not in serialized
+
+    with pytest.raises(HTTPException) as missing:
+        await resolve_connection_resource(
+            Actor("tenant-b", "workspace-a", "user-b"),
+            "resource-a",
+            knowledge_service=knowledge,
+            connection_gateway=gateway,
+        )
+    assert getattr(missing.value, "status_code", None) == 404
+    assert len(gateway.calls) == 1
+
+    with pytest.raises(HTTPException) as absent:
+        await resolve_connection_resource(
+            actor,
+            "missing-resource",
+            knowledge_service=knowledge,
+            connection_gateway=gateway,
+        )
+    assert getattr(absent.value, "status_code", None) == 404
+    assert len(gateway.calls) == 1
+    await upstream_client.aclose()
 
 
 @pytest.mark.asyncio

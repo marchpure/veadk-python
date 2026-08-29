@@ -33,6 +33,7 @@ class ProfileUpdateBody(BaseModel):
     api_key: str | None = Field(default=None, min_length=1, max_length=4096)
     workspace_uri: str | None = Field(default=None, max_length=2048)
 
+
 class TextImportBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     parent_ref: str = Field(min_length=1, max_length=4096)
@@ -52,9 +53,7 @@ def mount_openviking_routes(
     service: OpenVikingService,
     *,
     actor_resolver: Callable[[Request], Actor],
-    connection_resource_resolver: Callable[
-        [Actor, str], Awaitable[dict[str, Any]]
-    ]
+    connection_resource_resolver: Callable[[Actor, str], Awaitable[dict[str, Any]]]
     | None = None,
     prefix: str = "/api/knowledge/v1/openviking",
 ) -> None:
@@ -202,6 +201,7 @@ def mount_openviking_routes(
     async def import_connection_resource(
         request: Request, profile_id: str, body: ConnectionImportBody
     ) -> dict[str, Any]:
+        openviking_profile = profile(request, profile_id)
         if connection_resource_resolver is None:
             raise HTTPException(
                 503,
@@ -214,7 +214,7 @@ def mount_openviking_routes(
         document = await connection_resource_resolver(principal, body.resource_id)
         value = await invoke(
             lambda: service.import_connection_resource(
-                profile(request, profile_id),
+                openviking_profile,
                 parent_ref=body.parent_ref,
                 filename=body.filename,
                 document=document,
