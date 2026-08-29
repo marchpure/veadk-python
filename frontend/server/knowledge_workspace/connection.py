@@ -424,13 +424,37 @@ class ConnectionServiceGateway:
         connection_name: str,
         **actor: str,
     ) -> dict[str, Any]:
+        canonical_name = service_connection_name(connection_name, service)
         response = await self._request(
             "POST",
             "/v1/oauth/authorizations",
-            json={"service": service, "connectionName": connection_name},
+            json={"service": service, "connectionName": canonical_name},
             **actor,
         )
-        return dict(response.json())
+        result = dict(response.json())
+        result["connectionName"] = canonical_name
+        return result
+
+    async def oauth_status(self, *, state: str, **actor: str) -> dict[str, Any]:
+        if not state.strip() or len(state) > 512:
+            raise ConnectionServiceError(
+                "INVALID_ARGUMENT",
+                "OAuth authorization state is invalid",
+                400,
+            )
+        response = await self._request(
+            "GET",
+            f"/oauth/status?{httpx.QueryParams({'state': state})}",
+            **actor,
+        )
+        payload = response.json()
+        if not isinstance(payload, Mapping):
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "Connection Service OAuth status response is invalid",
+                502,
+            )
+        return dict(payload)
 
     async def list_files(self, **actor: str) -> list[dict[str, Any]]:
         payload = (await self._request("GET", "/v1/files", **actor)).json()

@@ -13,6 +13,80 @@ from frontend.server.knowledge_workspace.routes import mount_knowledge_workspace
 from frontend.server.knowledge_workspace.service import Actor, KnowledgeWorkspaceService
 
 
+@pytest.mark.asyncio
+async def test_oauth_routes_use_same_origin_envelopes_and_tenant_actor() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/v1/oauth/configs":
+            return httpx.Response(200, json={"config": {"configured": True}})
+        if request.url.path == "/v1/oauth/authorizations":
+            return httpx.Response(
+                200,
+                json={
+                    "authorizationUrl": "https://accounts.feishu.cn/authorize?state=opaque",
+                    "state": "opaque",
+                },
+            )
+        if request.url.path == "/oauth/status":
+            assert request.url.params["state"] == "opaque"
+            return httpx.Response(
+                200,
+                json={"service": "feishu", "connectionName": "My-Feishu", "status": "connected"},
+            )
+        raise AssertionError(request.url.path)
+
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    from frontend.server.knowledge_workspace.connection import ConnectionServiceConfig, ConnectionServiceGateway
+
+    mount_knowledge_workspace_routes(
+        app,
+        service,
+        connection_gateway=ConnectionServiceGateway(
+            ConnectionServiceConfig("https://connections.test", "test-secret"),
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        ),
+        allow_insecure_test_headers=True,
+    )
+    headers = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+    }
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        started = await client.post(
+            "/api/knowledge/v1/oauth/authorize",
+            headers=headers,
+            json={
+                "service": "feishu",
+                "client_id": "cli_test",
+                "client_secret": "app-secret",
+                "connection_name": "My Feishu",
+            },
+        )
+        status = await client.get(
+            "/api/knowledge/v1/oauth/status",
+            headers=headers,
+            params={"state": "opaque"},
+        )
+
+    assert started.status_code == 200
+    assert started.json()["data"]["connectionName"] == "My-Feishu"
+    assert status.status_code == 200
+    assert status.json()["data"]["status"] == "connected"
+    assert "app-secret" not in started.text
+    assert [request.url.path for request in requests] == [
+        "/v1/oauth/configs",
+        "/v1/oauth/authorizations",
+        "/oauth/status",
+    ]
+
+
 def test_routes_require_trusted_actor_resolver_by_default() -> None:
     app = FastAPI()
     service = KnowledgeWorkspaceService(

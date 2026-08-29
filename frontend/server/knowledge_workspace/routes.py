@@ -742,6 +742,22 @@ def mount_knowledge_workspace_routes(
         )
         return envelope(result, request)
 
+    @app.get(f"{prefix}/oauth/status")
+    async def oauth_status(request: Request, state: str) -> dict[str, Any]:
+        if not state.strip():
+            raise HTTPException(status_code=422, detail={
+                "code": "INVALID_ARGUMENT",
+                "message": "OAuth authorization state is required",
+                "retryable": False,
+            })
+        result = await connection_call(
+            lambda: require_connections().oauth_status(
+                state=state,
+                **connection_actor(request),
+            )
+        )
+        return envelope(result, request)
+
     @app.patch(f"{prefix}/connections/{{connection_id}}")
     async def update_connection(
         request: Request,

@@ -1,0 +1,20 @@
+{
+  "feature": "real-feishu-oauth-connection",
+  "callback_url": "http://127.0.0.1:3400/oauth/callback",
+  "workspace_url": "http://127.0.0.1:18403/?view=knowledge-workspace&file=welcome",
+  "automated_evidence": [
+    "Connection Service callback, state isolation, replay, provider-error, token-failure, and encrypted-state tests",
+    "BFF connection gateway and Knowledge Workspace route tests",
+    "Knowledge Workspace OAuth popup/polling and contract tests"
+  ],
+  "real_feishu_e2e": {
+    "status": "EXTERNAL_BLOCKED",
+    "reason": "The local BFF and Connection Service were not running for this verification; CONNECTION_SERVICE_AUTH_SECRET, CONNECTION_SERVICE_ENCRYPTION_KEY, KNOWLEDGE_CONNECTION_SERVICE_BASE_URL, KNOWLEDGE_CONNECTION_SERVICE_AUTH_SECRET, and KNOWLEDGE_CONNECTION_SERVICE_RUNTIME_PUBLIC_URL were not configured, so live browser OAuth and downstream resource/action verification could not be executed.",
+    "required_follow_up": [
+      "Configure the exact callback URL in Feishu Open Platform",
+      "Complete authorization from the Knowledge Workspace",
+      "Discover one authorized Feishu resource and invoke one read-only action",
+      "Revoke authorization and verify the read fails closed"
+    ]
+  }
+}

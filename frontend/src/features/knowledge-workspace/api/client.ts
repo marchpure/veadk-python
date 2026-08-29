@@ -2,6 +2,7 @@ import { withAuth } from "../../../adk/auth";
 import { withLocalUser } from "../../../adk/identity";
 import { parseSSE } from "../../../adk/sse";
 import { ConnectionJobPollError, waitForConnectionJob } from "./connectionJobs";
+import type { OAuthStatus } from "./oauthFlow";
 import type {
   ArchivedInvocationEvent,
   Artifact,
@@ -110,6 +111,12 @@ export interface OAuthAuthorizeInput {
   connection_name?: string;
 }
 
+export interface OAuthAuthorizeResult {
+  authorizationUrl: string;
+  state: string;
+  connectionName: string;
+}
+
 type RequestOptions = RequestInit & {
   idempotencyKey?: string;
   etag?: string;
@@ -204,7 +211,8 @@ export interface KnowledgeApi {
   registerMcpAdapter(definition: JsonObject): Promise<ApiEnvelope<AdapterCapabilityResult>>;
   callMcpAdapter(definitionId: string, name: string, callArguments?: JsonObject): Promise<ApiEnvelope<JsonObject>>;
   saveMcpResource(body: JsonObject): Promise<ApiEnvelope<WorkspaceResource>>;
-  authorizeOAuth(input: OAuthAuthorizeInput): Promise<ApiEnvelope<JsonObject>>;
+  authorizeOAuth(input: OAuthAuthorizeInput): Promise<ApiEnvelope<OAuthAuthorizeResult>>;
+  getOAuthStatus(state: string, signal?: AbortSignal): Promise<ApiEnvelope<OAuthStatus>>;
   listAdapterFiles(signal?: AbortSignal): Promise<ApiEnvelope<JsonObject[]>>;
   previewAdapterFile(fileId: string, signal?: AbortSignal): Promise<ApiEnvelope<JsonObject>>;
   validateConnection(id: string): Promise<ApiEnvelope<JobResult>>;
@@ -348,10 +356,14 @@ export const knowledgeApi: KnowledgeApi = {
     return result.envelope;
   },
   async authorizeOAuth(input) {
-    const result = await request<JsonObject>("/oauth/authorize", {
+    const result = await request<OAuthAuthorizeResult>("/oauth/authorize", {
       method: "POST",
       body: JSON.stringify(input),
     });
+    return result.envelope;
+  },
+  async getOAuthStatus(state, signal) {
+    const result = await request<OAuthStatus>(`/oauth/status?state=${encodeURIComponent(state)}`, { signal });
     return result.envelope;
   },
   async listAdapterFiles(signal) {

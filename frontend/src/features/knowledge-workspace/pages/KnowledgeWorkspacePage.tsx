@@ -53,8 +53,10 @@ import {
   type AdapterCapabilityResult,
   type CreateConnectionInput,
   type JobResult,
+  type OAuthAuthorizeResult,
   type UploadResult,
 } from "../api/client";
+import { OAuthFlowPollError, waitForOAuthConnection } from "../api/oauthFlow";
 import { Modal } from "../components/Modal";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
@@ -132,6 +134,12 @@ const ERROR_LABELS: Record<string, string> = {
 };
 
 function errorMessage(error: unknown): string {
+  if (error instanceof OAuthFlowPollError) {
+    if (error.code === "OAUTH_POPUP_BLOCKED") return "浏览器阻止了授权窗口，请允许弹窗后重试。";
+    if (error.code === "OAUTH_CANCELLED") return "授权窗口已关闭，连接尚未创建。";
+    if (error.code === "OAUTH_PROVIDER_ERROR") return error.message;
+    if (error.code === "OAUTH_TIMEOUT") return "授权已超时，请重新发起 OAuth。";
+  }
   if (error instanceof KnowledgeApiError) {
     return ERROR_LABELS[error.code] || error.message;
   }
@@ -1715,7 +1723,11 @@ function ConnectionForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<JsonObject | null>(null);
+  const [oauthStage, setOauthStage] = useState<
+    "idle" | "configuring" | "waiting" | "completing" | "connected" | "cancelled" | "timeout" | "provider_error"
+  >("idle");
   const [fileResult, setFileResult] = useState<UploadResult | null>(null);
+  const oauthPopupRef = useRef<Window | null>(null);
   const connector = connectors.find((item) => item.connector_key === connectorKey);
   const isAdapter = connector?.category === "adapter";
   const authOptions = authSchemaOptions(connector?.auth_schema);
@@ -1740,10 +1752,16 @@ function ConnectionForm({
         && selectedAuthSchema.required.includes(name),
     ] as const),
   ];
+  useEffect(() => () => {
+    oauthPopupRef.current?.close();
+    oauthPopupRef.current = null;
+  }, []);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setOauthStage("idle");
     const config: JsonObject = {};
     const credential: JsonObject = selectedAuthType
       ? { _auth_type: selectedAuthType }
@@ -1847,13 +1865,70 @@ function ConnectionForm({
         return;
       }
       if (selectedAuthType === "oauth2") {
-        const oauth = await knowledgeApi.authorizeOAuth({
-          service: connectorKey,
-          client_id: String(values.client_id || ""),
-          client_secret: String(values.client_secret || ""),
-          connection_name: displayName.trim() || connectorKey,
+        const popup = window.open(
+          "about:blank",
+          "_blank",
+          "popup,width=520,height=720",
+        );
+        if (!popup) {
+          throw new OAuthFlowPollError(
+            "浏览器阻止了授权窗口，请允许弹窗后重试。",
+            "OAUTH_POPUP_BLOCKED",
+            false,
+          );
+        }
+        oauthPopupRef.current = popup;
+        setOauthStage("configuring");
+        const requestedConnectionName = displayName.trim() || connectorKey;
+        let authorization: OAuthAuthorizeResult;
+        try {
+          authorization = (
+            await knowledgeApi.authorizeOAuth({
+              service: connectorKey,
+              client_id: String(values.client_id || ""),
+              client_secret: String(values.client_secret || ""),
+              connection_name: requestedConnectionName,
+            })
+          ).data;
+          const authorizationUrl = new URL(authorization.authorizationUrl);
+          if (!["http:", "https:"].includes(authorizationUrl.protocol)) {
+            throw new Error("授权地址无效，请检查 Connection Service 配置。");
+          }
+          popup.location.replace(authorizationUrl.toString());
+        } catch (cause) {
+          popup.close();
+          oauthPopupRef.current = null;
+          throw cause;
+        }
+        setOauthStage("waiting");
+        const connected = await waitForOAuthConnection(
+          connectorKey,
+          authorization.connectionName,
+          async () => (await knowledgeApi.getOAuthStatus(authorization.state)).data,
+          async () => (await knowledgeApi.listConnections()).data,
+          {
+            isPopupClosed: () => popup.closed,
+            onStatus: (status) => {
+              if (status.status === "connected") setOauthStage("completing");
+              else if (status.status === "provider_error") setOauthStage("provider_error");
+            },
+          },
+        );
+        setOauthStage("connected");
+        setValues((current) => {
+          const next = { ...current };
+          delete next.client_secret;
+          return next;
         });
-        setResult(oauth.data);
+        setResult({
+          status: "connected",
+          connection_id: connected.connection_id,
+          connector_key: connected.connector_key,
+          display_name: connected.display_name,
+        });
+        popup.close();
+        oauthPopupRef.current = null;
+        await onCreated(connected);
         return;
       }
       const created = await knowledgeApi.createConnection(input);
@@ -1861,6 +1936,13 @@ function ConnectionForm({
       await knowledgeApi.waitForConnectionJob(started);
       await onCreated(created.data);
     } catch (cause) {
+      if (cause instanceof OAuthFlowPollError) {
+        if (cause.code === "OAUTH_CANCELLED") setOauthStage("cancelled");
+        if (cause.code === "OAUTH_TIMEOUT") setOauthStage("timeout");
+        if (cause.code === "OAUTH_PROVIDER_ERROR") setOauthStage("provider_error");
+      }
+      oauthPopupRef.current?.close();
+      oauthPopupRef.current = null;
       setError(errorMessage(cause));
     } finally {
       setBusy(false);
@@ -1947,6 +2029,21 @@ function ConnectionForm({
         {connectorKey === "rest_openapi" ? (
           <div className="kw-form-note">
             当前入口是粘贴 OpenAPI JSON 创建真实 API 资源；网页解析生成 OpenAPI 属于后续能力，不会在此处伪造成功。
+          </div>
+        ) : null}
+        {selectedAuthType === "oauth2" && oauthStage !== "idle" ? (
+          <div className="kw-oauth-box" role="status" aria-live="polite">
+            <strong>
+              {oauthStage === "configuring" ? "正在配置 OAuth 应用"
+                : oauthStage === "waiting" ? "等待飞书授权"
+                : oauthStage === "completing" ? "正在完成连接"
+                : oauthStage === "connected" ? "已连接"
+                : oauthStage === "cancelled" ? "用户取消/窗口关闭"
+                : oauthStage === "timeout" ? "授权超时"
+                : oauthStage === "provider_error" ? "飞书返回错误"
+                : "正在配置 OAuth 应用"}
+            </strong>
+            <span>连接状态以 Connection Service 返回和连接列表为准。</span>
           </div>
         ) : null}
         {result ? (

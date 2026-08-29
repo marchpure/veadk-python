@@ -275,6 +275,65 @@ async def test_gateway_forwards_connection_service_catalog_schemas() -> None:
 
 
 @pytest.mark.asyncio
+async def test_oauth_gateway_starts_and_polls_without_returning_client_secret() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/v1/oauth/configs":
+            assert json.loads(request.content) == {
+                "service": "feishu",
+                "clientId": "cli_test",
+                "clientSecret": "app-secret",
+            }
+            return httpx.Response(200, json={"config": {"service": "feishu", "configured": True}})
+        if request.url.path == "/v1/oauth/authorizations":
+            assert json.loads(request.content) == {
+                "service": "feishu",
+                "connectionName": "My-Feishu",
+            }
+            return httpx.Response(
+                200,
+                json={
+                    "authorizationUrl": "https://accounts.feishu.cn/open-apis/authen/v1/authorize?state=opaque",
+                    "state": "opaque",
+                },
+            )
+        if request.url.path == "/oauth/status":
+            assert request.url.params["state"] == "opaque"
+            return httpx.Response(
+                200,
+                json={"service": "feishu", "connectionName": "my-feishu", "status": "connected"},
+            )
+        raise AssertionError(request.url.path)
+
+    target = gateway(handler)
+    authorization = await target.configure_oauth(
+        service="feishu",
+        client_id="cli_test",
+        client_secret="app-secret",
+        **ACTOR,
+    )
+    started = await target.start_oauth(service="feishu", connection_name="My Feishu", **ACTOR)
+    status = await target.oauth_status(state=started["state"], **ACTOR)
+
+    assert authorization == {"service": "feishu", "configured": True}
+    assert started == {
+        "authorizationUrl": "https://accounts.feishu.cn/open-apis/authen/v1/authorize?state=opaque",
+        "state": "opaque",
+        "connectionName": "My-Feishu",
+    }
+    assert status["status"] == "connected"
+    assert "app-secret" not in json.dumps(authorization)
+    assert "app-secret" not in json.dumps(started)
+    assert [request.url.path for request in requests] == [
+        "/v1/oauth/configs",
+        "/v1/oauth/authorizations",
+        "/oauth/status",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_gateway_rejects_catalog_entries_without_service_owned_schemas() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v1/catalog"

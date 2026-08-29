@@ -12,6 +12,7 @@ servers:
 tags:
   - name: connectors
   - name: connections
+  - name: oauth
   - name: uploads
   - name: drafts
   - name: invocations
@@ -214,6 +215,48 @@ paths:
                 $ref: '#/components/schemas/JobResponse'
         '409':
           $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /oauth/authorize:
+    post:
+      tags: [oauth]
+      operationId: authorizeOAuth
+      summary: Configure a tenant OAuth app and start authorization
+      description: |
+        The BFF stores the client configuration server-side and returns a
+        provider authorization URL. Client secrets are accepted only in this
+        request and are never returned or persisted by the browser.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuthAuthorizeRequest'
+      responses:
+        '200':
+          description: Provider authorization URL and opaque polling state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizeResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /oauth/status:
+    get:
+      tags: [oauth]
+      operationId: getOAuthStatus
+      summary: Read the current principal's OAuth flow status
+      parameters:
+        - $ref: '#/components/parameters/OAuthState'
+      responses:
+        '200':
+          description: OAuth flow status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthStatusResponse'
         default:
           $ref: '#/components/responses/Error'
 
@@ -692,6 +735,12 @@ components:
       in: query
       required: false
       schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    OAuthState:
+      name: state
+      in: query
+      required: true
+      description: Opaque, short-lived, one-time OAuth polling state.
+      schema: { type: string, minLength: 1, maxLength: 512 }
   headers:
     ETag:
       description: Opaque strong validator for this resource representation.
@@ -747,6 +796,9 @@ components:
             - PRECONDITION_FAILED
             - NOT_FOUND
             - INVALID_ARGUMENT
+            - OAUTH_PROVIDER_ERROR
+            - OAUTH_COMPLETION_FAILED
+            - OAUTH_TIMEOUT
         message: { type: string }
         retryable: { type: boolean }
         details: { type: object, additionalProperties: true }
@@ -825,6 +877,42 @@ components:
           type: object
           description: Accepted only by BFF over TLS; never echoed or persisted in browser state.
           additionalProperties: true
+      additionalProperties: false
+    OAuthAuthorizeRequest:
+      type: object
+      required: [service, client_id, client_secret]
+      properties:
+        service: { type: string, minLength: 1 }
+        client_id: { type: string, minLength: 1 }
+        client_secret:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: Feishu App Secret; never returned or persisted in browser storage.
+        connection_name: { type: string, minLength: 1, maxLength: 120 }
+      additionalProperties: false
+    OAuthAuthorizeResponse:
+      type: object
+      required: [authorizationUrl, state, connectionName]
+      properties:
+        authorizationUrl: { type: string, format: uri }
+        state: { type: string, minLength: 1, maxLength: 512 }
+        connectionName: { type: string }
+      additionalProperties: false
+    OAuthStatusResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          required: [service, connectionName, status]
+          properties:
+            service: { type: string }
+            connectionName: { type: string }
+            status:
+              type: string
+              enum: [pending, processing, connected, provider_error, error, expired]
+        meta: { $ref: '#/components/schemas/Meta' }
       additionalProperties: false
     UpdateConnectionRequest:
       type: object
