@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .source_contracts import KnowledgeSourceRef
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -62,6 +64,7 @@ class SkillDraft(ImmutableModel):
     trial_task: str | None = Field(default=None, max_length=20_000)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    knowledge_source_refs: tuple[KnowledgeSourceRef, ...] = Field(default_factory=tuple, max_length=64)
     openviking_profile_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
     openviking_resource_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
@@ -91,6 +94,7 @@ class Invocation(ImmutableModel):
     revision_id: str | None = Field(default=None, max_length=160)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    knowledge_source_refs: tuple[KnowledgeSourceRef, ...] = Field(default_factory=tuple, max_length=64)
     openviking_profile_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=16)
     openviking_resource_refs: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)

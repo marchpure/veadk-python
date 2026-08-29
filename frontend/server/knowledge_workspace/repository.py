@@ -18,6 +18,7 @@ from .models import (
     WorkspaceResource,
     WorkspaceUpload,
 )
+from .migration import hydrate_payload
 
 
 class KnowledgeWorkspaceRepository:
@@ -56,15 +57,26 @@ class KnowledgeWorkspaceRepository:
 
     @staticmethod
     def _json(value: Any) -> str:
+        payload = value.model_dump(mode="json") if hasattr(value, "model_dump") else value
+        if isinstance(payload, dict) and "knowledge_source_refs" in payload:
+            # New writes use only the vendor-neutral field. Legacy keys are
+            # accepted on hydration but never emitted by the repository.
+            payload.pop("openviking_profile_ids", None)
+            payload.pop("openviking_resource_refs", None)
         return json.dumps(
-            value.model_dump(mode="json") if hasattr(value, "model_dump") else value,
+            payload,
             ensure_ascii=False,
             sort_keys=True,
         )
 
     @staticmethod
     def _model(row: sqlite3.Row | None, model: Any) -> Any:
-        return model.model_validate(json.loads(row["payload"])) if row else None
+        if not row:
+            return None
+        payload = json.loads(row["payload"])
+        if "knowledge_source_refs" in getattr(model, "model_fields", {}):
+            payload = hydrate_payload(payload)
+        return model.model_validate(payload)
 
     def save_draft(self, draft: SkillDraft) -> None:
         with self._lock:
@@ -97,7 +109,7 @@ class KnowledgeWorkspaceRepository:
                 (tenant_id, workspace_id),
             ).fetchall()
         return tuple(
-            SkillDraft.model_validate(json.loads(row["payload"])) for row in rows
+            SkillDraft.model_validate(hydrate_payload(json.loads(row["payload"]))) for row in rows
         )
 
     def save_upload(self, upload: WorkspaceUpload) -> WorkspaceUpload:
@@ -223,7 +235,7 @@ class KnowledgeWorkspaceRepository:
                 "SELECT payload FROM kw_invocations ORDER BY id"
             ).fetchall()
         return tuple(
-            Invocation.model_validate(json.loads(row["payload"]))
+            Invocation.model_validate(hydrate_payload(json.loads(row["payload"])))
             for row in rows
             if json.loads(row["payload"]).get("status") in {"queued", "running"}
         )
@@ -243,7 +255,7 @@ class KnowledgeWorkspaceRepository:
         return tuple(
             sorted(
                 (
-                    Invocation.model_validate(json.loads(row["payload"]))
+                Invocation.model_validate(hydrate_payload(json.loads(row["payload"])))
                     for row in rows
                 ),
                 key=lambda item: (item.created_at, item.invocation_id),
@@ -265,7 +277,7 @@ class KnowledgeWorkspaceRepository:
         return tuple(
             invocation
             for row in rows
-            for invocation in (Invocation.model_validate(json.loads(row["payload"])),)
+            for invocation in (Invocation.model_validate(hydrate_payload(json.loads(row["payload"]))),)
             if invocation.revision_id == revision_id
         )
 
