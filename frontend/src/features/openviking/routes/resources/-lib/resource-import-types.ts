@@ -10,7 +10,7 @@ export type ResourceProcessingMode = 'semantic_and_vectors' | 'vectors_only'
 
 export type ResourceTagMode = 'replace' | 'append'
 
-export type ResourceImportArgs = Record<string, unknown> & {
+type ResourceImportArgs = Record<string, unknown> & {
   allow_external_links?: boolean
   auth_config?: Record<string, unknown>
   branch?: string

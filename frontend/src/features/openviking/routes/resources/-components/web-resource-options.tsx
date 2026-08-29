@@ -7,7 +7,7 @@ import { RadioGroup } from '#/components/ui/radio-group'
 import { Textarea } from '#/components/ui/textarea'
 import { ResourceOptionRadioCard } from './resource-option-radio-card'
 
-export type WebImportMode = 'auto' | 'single' | 'recursive' | 'site'
+type WebImportMode = 'auto' | 'single' | 'recursive' | 'site'
 
 const WEB_IMPORT_MODES: WebImportMode[] = [
   'auto',

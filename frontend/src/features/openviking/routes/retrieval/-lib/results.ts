@@ -36,7 +36,7 @@ export function memoryTypeFromUri(uri: string): string | undefined {
   return type ? type.toUpperCase() : undefined
 }
 
-export function isDirectoryResult(item: FindResultItem): boolean {
+function isDirectoryResult(item: FindResultItem): boolean {
   return item.uri.endsWith('/') || item.level < 2
 }
 

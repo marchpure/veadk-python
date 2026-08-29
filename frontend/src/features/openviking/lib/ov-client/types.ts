@@ -1,4 +1,4 @@
-import type { AxiosInstance, AxiosResponse } from 'axios'
+import type { AxiosInstance } from 'axios'
 
 import type { Client } from '#/gen/ov-client/client'
 
@@ -35,14 +35,4 @@ export interface OvClientErrorOptions {
   requestId?: string
   responseBody?: unknown
   statusCode?: number
-}
-
-export interface OvSuccessEnvelope<TResult = unknown> {
-  result?: TResult
-  status?: string
-  telemetry?: unknown
-}
-
-export type OvResponse<TResult = unknown> = AxiosResponse<unknown> & {
-  data: OvSuccessEnvelope<TResult> | TResult | unknown
 }

@@ -15,7 +15,7 @@ type RemoteResourceDescriptor = {
   type: SelectableRemoteResourceKind
 }
 
-export const REMOTE_RESOURCE_DESCRIPTORS: RemoteResourceDescriptor[] = [
+const REMOTE_RESOURCE_DESCRIPTORS: RemoteResourceDescriptor[] = [
   {
     type: 'feishu',
     icon: FileText,

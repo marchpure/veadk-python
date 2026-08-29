@@ -255,9 +255,6 @@ function ConnectionPage({
 }) {
   return (
     <div className="ov-connection-page">
-      <header className="ov-page-heading">
-        <h1>Connection</h1>
-      </header>
       {activeProfile ? (
         <section className="ov-active-connection" aria-label="Active connection">
           <div>

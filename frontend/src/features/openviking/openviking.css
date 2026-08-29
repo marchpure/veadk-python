@@ -131,7 +131,7 @@
 }
 
 .openviking-main {
-  background: hsl(var(--background));
+  background: hsl(var(--muted) / 0.42);
 }
 
 .ov-navbar-profile {
@@ -379,6 +379,7 @@
 
 .ov-resource-preview {
   flex: 1;
+  background: hsl(var(--background));
 }
 
 .ov-page-scroll {
@@ -386,18 +387,44 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 22px 24px 32px;
+  padding: 28px 32px 40px;
 }
 
 .ov-page-content,
 .ov-connection-page {
-  width: min(1180px, 100%);
+  width: min(1240px, 100%);
   margin: 0 auto;
+}
+
+.ov-page-content > * {
+  min-width: 0;
+}
+
+.ov-page-content > div[class*='flex'][class*='flex-col'] {
+  padding-bottom: 8px;
+}
+
+.ov-page-content > div[class*='flex'][class*='flex-col'] > header {
+  padding: 0 0 18px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.ov-page-content > div[class*='flex'][class*='flex-col'] > header h1 {
+  color: hsl(var(--foreground));
+  letter-spacing: 0;
+}
+
+.ov-page-content > div[class*='flex'][class*='flex-col'] > .rounded-xl.border,
+.ov-page-content > div[class*='flex'][class*='flex-col'] > .rounded-lg.border,
+.ov-page-content > div[class*='flex'][class*='flex-col'] > [data-slot='card'] {
+  border-color: hsl(var(--border));
+  background: hsl(var(--panel));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.025);
 }
 
 .ov-connection-page {
   display: grid;
-  gap: 24px;
+  gap: 16px;
 }
 
 .ov-page-heading {
@@ -425,8 +452,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 0 0 24px;
-  border-bottom: 1px solid hsl(var(--border));
+  padding: 16px 18px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--panel));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.025);
 }
 
 .ov-active-connection h2 {
@@ -478,7 +508,12 @@
 .ov-profile-form {
   display: grid;
   width: min(720px, 100%);
-  gap: 18px;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--panel));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.025);
 }
 
 .ov-profile-heading {
@@ -591,7 +626,7 @@
   }
 
   .ov-page-scroll {
-    padding: 16px;
+    padding: 18px 16px 28px;
   }
 
   .ov-form-grid {

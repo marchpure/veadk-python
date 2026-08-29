@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 
-import type { OvClientErrorOptions, OvErrorEnvelope, OvResponse } from './types'
+import type { OvClientErrorOptions, OvErrorEnvelope } from './types'
 
 const MAX_ERROR_TEXT_LENGTH = 2000
 
@@ -36,7 +36,9 @@ function hasResult(value: unknown): value is { result: unknown } {
   return isRecord(value) && 'result' in value
 }
 
-function isResponseLike(value: unknown): value is OvResponse<unknown> {
+function isResponseLike(
+  value: unknown,
+): value is { data: unknown; headers: unknown; status: number } {
   return (
     isRecord(value) &&
     'data' in value &&
