@@ -1223,6 +1223,7 @@ class KnowledgeWorkspaceService:
         session: AuthoringSession,
         file_type: str,
         name: str | None = None,
+        state: bytes | None = None,
     ) -> bytes:
         """Download stateful files or extract stateless files from state."""
 
@@ -1240,7 +1241,7 @@ class KnowledgeWorkspaceService:
                 or "HTTP 404" not in str(exc)
             ):
                 raise
-            state = self._state_for_invocation(session, invocation)
+            state = state or self._state_for_invocation(session, invocation)
             if state is None:
                 raise
             prefix = (
@@ -1249,6 +1250,10 @@ class KnowledgeWorkspaceService:
                 else "output_files/"
             )
             extracted = self._state_subtree(state, prefix=prefix)
+            if extracted is None and file_type == "output" and name:
+                extracted = self._state_subtree(
+                    state, prefix=f"skillhub/{name}/"
+                )
             if extracted is None:
                 raise
             return extracted
@@ -1850,13 +1855,18 @@ class KnowledgeWorkspaceService:
                     raise KnowledgeWorkspaceError(
                         "AUTOSKILL_PROTOCOL_ERROR", str(exc), 502
                     ) from exc
+                prepared_autoskill_state = state_zip
                 state_digest = hashlib.sha256(state_zip).hexdigest()
                 state_uri = self.repository.put_object(
                     state_digest, state_zip, suffix=".state.zip"
                 )
-                self.repository.save_session(
-                    session.model_copy(update={"state_uri": state_uri})
-                )
+                if (
+                    invocation.autoskill_agent_id == session.autoskill_agent_id
+                    and invocation.autoskill_session_id == session.autoskill_session_id
+                ):
+                    self.repository.save_session(
+                        session.model_copy(update={"state_uri": state_uri})
+                    )
             finished = current.model_copy(
                 update={
                     "status": InvocationStatus.SUCCEEDED,
@@ -1866,7 +1876,11 @@ class KnowledgeWorkspaceService:
             )
             if invocation.kind is InvocationKind.RUN and invocation.revision_id:
                 await self._capture_output(
-                    actor, finished, invocation.revision_id, session
+                    actor,
+                    finished,
+                    invocation.revision_id,
+                    session,
+                    state=prepared_autoskill_state,
                 )
             self.repository.save_invocation(finished)
             # Artifacts are persisted before terminal success is exposed.
@@ -2000,6 +2014,7 @@ class KnowledgeWorkspaceService:
         invocation: Invocation,
         revision_id: str,
         session: AuthoringSession,
+        state: bytes | None = None,
     ) -> None:
         revision = self.repository.get_revision(
             revision_id,
@@ -2013,6 +2028,8 @@ class KnowledgeWorkspaceService:
                 invocation=invocation,
                 session=session,
                 file_type="output",
+                name=revision.skill_name,
+                state=state,
             )
         except AutoSkillProtocolError as exc:
             raise KnowledgeWorkspaceError(
