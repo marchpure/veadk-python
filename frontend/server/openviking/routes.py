@@ -89,12 +89,17 @@ def mount_openviking_routes(
     @app.post(f"{prefix}/profiles", status_code=201)
     async def create_profile(request: Request, body: ProfileBody) -> dict[str, Any]:
         principal = actor(request)
-        value = service.create_profile(
-            tenant_id=principal.tenant_id,
-            workspace_id=principal.workspace_id,
-            principal_id=principal.principal_id,
-            **body.model_dump(),
-        )
+        try:
+            value = service.create_profile(
+                tenant_id=principal.tenant_id,
+                workspace_id=principal.workspace_id,
+                principal_id=principal.principal_id,
+                **body.model_dump(),
+            )
+        except OpenVikingError as exc:
+            raise HTTPException(
+                exc.status_code, {"code": exc.code, "message": str(exc)}
+            ) from exc
         return envelope(service.public_profile(value), request)
 
     @app.get(f"{prefix}/profiles/{{profile_id}}")

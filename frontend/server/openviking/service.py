@@ -195,7 +195,6 @@ OPERATIONS: Mapping[str, Operation] = {
     "glob": Operation("POST", "/api/v1/search/glob"),
     "tasks": Operation("GET", "/api/v1/tasks"),
     "watches": Operation("GET", "/api/v1/watches"),
-    "watch_create": Operation("POST", "/api/v1/watches"),
 }
 
 ITEM_OPERATIONS: Mapping[str, Operation] = {
@@ -539,16 +538,28 @@ class OpenVikingService:
             "parent": "parent_ref",
             "to": "destination_ref",
         }
+        private_fields = {
+            "account_id",
+            "api_key",
+            "archive_uri",
+            "authorization",
+            "base_url",
+            "internal_url",
+            "lease_ref",
+            "lock_paths",
+            "memory_diff_uri",
+            "original_role",
+            "owner_id",
+            "ownership_ref",
+            "resource_lock",
+            "temp_uri",
+            "token",
+            "user_id",
+        }
         if isinstance(value, dict):
             result: dict[str, Any] = {}
             for key, item in value.items():
-                if key.casefold() in {
-                    "api_key",
-                    "token",
-                    "authorization",
-                    "base_url",
-                    "internal_url",
-                }:
+                if key.casefold() in private_fields:
                     continue
                 if (
                     key in ref_fields
@@ -559,11 +570,24 @@ class OpenVikingService:
                     result[ref_fields[key]] = self.resource_ref(profile, item)
                     result[key] = f"viking://workspace/{relative}"
                     result["display_path"] = relative
+                elif isinstance(item, str) and item.startswith("viking://"):
+                    # Non-workspace URIs expose upstream account/session layout and
+                    # cannot be represented by this profile's scoped resource refs.
+                    continue
+                elif (
+                    key in {"path", "source_path"}
+                    and isinstance(item, str)
+                    and Path(item).is_absolute()
+                ):
+                    # Parser results may contain upstream temporary filesystem paths.
+                    result[key] = Path(item).name
                 else:
                     result[key] = self._sanitize(profile, item)
             return result
         if isinstance(value, list):
             return [self._sanitize(profile, item) for item in value]
+        if isinstance(value, str):
+            return value.replace(profile.workspace_uri, "viking://workspace/")
         return value
 
     async def request(
@@ -584,6 +608,10 @@ class OpenVikingService:
                 "OPERATION_NOT_ALLOWED", "Operation is not allowed", 404
             )
         body = self._replace_refs(profile, dict(payload or {}))
+        if operation_name in {"fs_list", "fs_tree"} and not any(
+            key in body for key in {"uri", "resource_ref"}
+        ):
+            body["uri"] = profile.workspace_uri
         if operation_name == "resource_import":
             remote_url = body.get("path")
             if isinstance(remote_url, str) and (

@@ -74,6 +74,13 @@ def test_profile_lookup_enforces_tenant_and_workspace() -> None:
     )
 
 
+def test_operation_allowlist_matches_frozen_watch_api() -> None:
+    from frontend.server.openviking.service import OPERATIONS
+
+    assert "watches" in OPERATIONS
+    assert "watch_create" not in OPERATIONS
+
+
 def test_resource_refs_are_signed_profile_scoped_and_workspace_scoped() -> None:
     service = OpenVikingService(OpenVikingProfileRepository(), config())
     first = profile(service)
@@ -130,6 +137,20 @@ async def test_operation_injects_secret_server_side_and_sanitizes_response() -> 
                     "uri": "viking://resources/workspace-a/guide.md",
                     "api_key": "must-not-leak",
                     "base_url": "http://internal:9999",
+                    "source_path": "/private/tmp/upstream/guide.md",
+                    "temp_uri": "viking://temp/default/upload",
+                    "archive_uri": "viking://user/default/sessions/private",
+                    "account_id": "upstream-account",
+                    "processor_kwargs": {
+                        "resource_lock": {
+                            "owner_id": "internal-owner",
+                            "lock_paths": ["/private/data/workspace"],
+                        }
+                    },
+                    "overview": (
+                        "Read "
+                        "[guide](viking://resources/workspace-a/guide.md)"
+                    ),
                 },
             },
         )
@@ -148,6 +169,16 @@ async def test_operation_injects_secret_server_side_and_sanitizes_response() -> 
     }
     assert "secret-api-key" not in serialized
     assert "internal" not in serialized
+    assert "/private/" not in serialized
+    assert "viking://temp/" not in serialized
+    assert "viking://user/" not in serialized
+    assert "upstream-account" not in serialized
+    assert result["result"]["source_path"] == "guide.md"
+    assert result["result"]["processor_kwargs"] == {}
+    assert (
+        result["result"]["overview"]
+        == "Read [guide](viking://workspace/guide.md)"
+    )
     assert "resource_ref" in serialized
     assert "viking://workspace/guide.md" in serialized
     await client.aclose()
@@ -161,6 +192,26 @@ async def test_operation_rejects_raw_browser_viking_uri() -> None:
         await service.request(
             value, "fs_list", payload={"uri": "viking://resources/workspace-a/"}
         )
+
+
+@pytest.mark.asyncio
+async def test_empty_workspace_listing_uses_profile_root() -> None:
+    observed: dict[str, str] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed["url"] = str(request.url)
+        return httpx.Response(200, json={"status": "ok", "result": []})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+
+    await service.request(value, "fs_list", payload={})
+
+    assert observed["url"].endswith(
+        "/api/v1/fs/ls?uri=viking%3A%2F%2Fresources%2Fworkspace-a%2F"
+    )
+    await client.aclose()
 
 
 @pytest.mark.asyncio
@@ -263,7 +314,14 @@ async def test_profile_routes_reject_extra_fields_and_cross_tenant_access() -> N
         hidden = await client.get(
             f"/api/knowledge/v1/openviking/profiles/{profile_id}", headers=second
         )
+        ssrf = await client.post(
+            "/api/knowledge/v1/openviking/profiles",
+            headers=first,
+            json=body | {"base_url": "https://127.0.0.1"},
+        )
 
     assert invalid.status_code == 422
     assert created.status_code == 201
     assert hidden.status_code == 404
+    assert ssrf.status_code == 422
+    assert ssrf.json()["detail"]["code"] == "SSRF_BLOCKED"
