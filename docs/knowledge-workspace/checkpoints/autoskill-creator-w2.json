@@ -37,7 +37,8 @@
       "frontend/server/knowledge_workspace/zip_validator.py",
       "tests/knowledge_workspace/test_autoskill_adapter.py",
       "tests/knowledge_workspace/test_service_contracts.py",
-      "tests/knowledge_workspace/test_connection_gateway.py"
+      "tests/knowledge_workspace/test_connection_gateway.py",
+      "tests/knowledge_workspace/test_routes.py"
     ],
     "not_modified": [
       "frontend/src/**",
@@ -57,7 +58,8 @@
     "Published invocation starts a fresh AutoSkill agent/session, obtains a fresh consumer lease, uploads the fixed revision ZIP, and does not inherit authoring session state in stateless mode.",
     "Run and publication invocation reject requested connection IDs outside the frozen revision manifest connection_refs.",
     "Public DTOs continue to omit secrets, provider runtime IDs, leases, and AutoSkill request IDs; server-side revision metadata retains request lineage only behind the BFF boundary.",
-    "Freeze revalidates persisted invocation policy_evaluation before creating a revision, so stale/corrupt successful invocation records cannot bypass policy gates."
+    "Freeze revalidates persisted invocation policy_evaluation before creating a revision, so stale/corrupt successful invocation records cannot bypass policy gates.",
+    "Lease expiry failure leaves the draft recoverable by a later invocation with a fresh lease."
   ],
   "api_contracts": [
     "OpenAPI documents server-only invocation_policy behavior on generation/update/run flows.",
@@ -76,14 +78,13 @@
     {
       "command": "python -m pytest -q tests/knowledge_workspace",
       "status": "passed",
-      "summary": "87 passed in 1.15s",
+      "summary": "89 passed in 1.01s",
       "scope": "Knowledge Workspace backend unit/contract tests with fake AutoSkill and fake Connection ports where appropriate"
     },
     {
-      "command": "python -m pytest -q tests/knowledge_workspace/test_service_contracts.py -k 'full_autoskill_creator_lifecycle or freeze_rechecks_persisted_policy_evaluation or repository_reopen_restores'",
-      "status": "passed",
-      "summary": "3 passed, 30 deselected",
-      "scope": "Focused full lifecycle, freeze policy recheck, and durable reopen recovery regressions"
+      "command": "python -m pytest -q tests/knowledge_workspace/test_service_contracts.py -k 'full_autoskill_creator_lifecycle or freeze_rechecks_persisted_policy_evaluation or repository_reopen_restores or lease_expiry_failure_is_recoverable'",
+      "status": "passed as part of python -m pytest -q tests/knowledge_workspace",
+      "scope": "Focused full lifecycle, freeze policy recheck, lease-expiry recovery, and durable reopen recovery regressions"
     },
     {
       "command": "tests/knowledge_workspace/test_connection_gateway.py::test_gateway_rejects_tampered_cross_scope_lease_reference",
@@ -99,17 +100,17 @@
       "status": "passed"
     },
     {
-      "command": "uvx --from ruff==0.11.12 ruff check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
+      "command": "uvx --from ruff==0.11.12 ruff check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py tests/knowledge_workspace/test_connection_gateway.py tests/knowledge_workspace/test_routes.py",
       "status": "passed",
-      "summary": "All checks passed for W2-modified Python files after follow-up regressions"
+      "summary": "All checks passed for W2-modified Python files after lifecycle/recovery regressions"
     },
     {
-      "command": "uvx --from ruff==0.11.12 ruff format --check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
+      "command": "uvx --from ruff==0.11.12 ruff format --check frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py tests/knowledge_workspace/test_connection_gateway.py tests/knowledge_workspace/test_routes.py",
       "status": "passed",
-      "summary": "7 files already formatted after targeted formatting"
+      "summary": "8 W2-modified Python files already formatted after targeted formatting"
     },
     {
-      "command": "pre-commit run --files docs/knowledge-workspace/api-contracts/openapi.yaml docs/knowledge-workspace/checkpoints/autoskill-creator-w2.json frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py",
+      "command": "pre-commit run --files docs/knowledge-workspace/api-contracts/openapi.yaml docs/knowledge-workspace/checkpoints/autoskill-creator-w2.json frontend/server/knowledge_workspace/autoskill.py frontend/server/knowledge_workspace/models.py frontend/server/knowledge_workspace/service.py frontend/server/knowledge_workspace/zip_validator.py tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py tests/knowledge_workspace/test_connection_gateway.py tests/knowledge_workspace/test_routes.py",
       "status": "passed",
       "summary": "ruff check, ruff format, and gitleaks passed for scoped W2 files"
     },

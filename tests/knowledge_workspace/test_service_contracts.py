@@ -158,6 +158,12 @@ class FakeLeasePort:
         self.prepared.append(kwargs)
 
 
+class ExpiredLeasePort(FakeLeasePort):
+    async def issue(self, **kwargs: object) -> EphemeralConnectionContext:
+        self.issued.append(kwargs)
+        raise KnowledgeWorkspaceError("LEASE_EXPIRED", "lease expired", 409)
+
+
 class FakePublicationRegistry:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
@@ -895,6 +901,45 @@ async def test_connection_backed_invocation_requires_satisfied_policy_and_execut
 
 
 @pytest.mark.asyncio
+async def test_lease_expiry_failure_is_recoverable_by_new_invocation() -> None:
+    autoskill = FakeAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        ExpiredLeasePort(),
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    expired = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    saved_expired = service.repository.get_invocation(
+        expired.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_expired is not None
+    assert saved_expired.status is InvocationStatus.FAILED
+    assert saved_expired.error_code == "LEASE_EXPIRED"
+
+    service.connection_context = FakeLeasePort()
+    recovered = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    saved_recovered = service.repository.get_invocation(
+        recovered.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert saved_recovered is not None
+    assert saved_recovered.status is InvocationStatus.SUCCEEDED
+
+
+@pytest.mark.asyncio
 async def test_run_requires_request_summary_skills_used_target_skill() -> None:
     service, actor = make_freeze_service()
     draft = service.create_draft(actor, "goal", ["connection-a"])
@@ -1179,7 +1224,17 @@ async def test_full_autoskill_creator_lifecycle_freezes_updates_and_invokes_publ
 
 
 @pytest.mark.asyncio
-async def test_freeze_rechecks_persisted_policy_evaluation_before_revision() -> None:
+@pytest.mark.parametrize(
+    "summary,match",
+    [
+        (policy_summary(satisfied=False), "policy_evaluation"),
+        (policy_summary(matched_action_id="fixture.other"), "execute_action"),
+    ],
+)
+async def test_freeze_rechecks_persisted_policy_evaluation_before_revision(
+    summary: dict[str, object],
+    match: str,
+) -> None:
     service, actor = make_freeze_service()
     draft = service.create_draft(actor, "goal", ["connection-a"])
     invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
@@ -1191,10 +1246,10 @@ async def test_freeze_rechecks_persisted_policy_evaluation_before_revision() -> 
     )
     assert saved is not None
     service.repository.save_invocation(
-        saved.model_copy(update={"request_summary": policy_summary(satisfied=False)})
+        saved.model_copy(update={"request_summary": summary})
     )
 
-    with pytest.raises(KnowledgeWorkspaceError, match="policy_evaluation"):
+    with pytest.raises(KnowledgeWorkspaceError, match=match):
         await service.freeze(actor, draft.draft_id, invocation.invocation_id)
 
 
@@ -1366,6 +1421,14 @@ async def test_publish_requires_run_policy_snapshot_for_connection_backed_revisi
         saved_run.model_copy(update={"invocation_policy": None})
     )
 
+    with pytest.raises(KnowledgeWorkspaceError, match="successful real run"):
+        service.publish(actor, revision.revision_id, "personal")
+
+    service.repository.save_invocation(
+        saved_run.model_copy(
+            update={"request_summary": policy_summary(satisfied=False)}
+        )
+    )
     with pytest.raises(KnowledgeWorkspaceError, match="successful real run"):
         service.publish(actor, revision.revision_id, "personal")
 

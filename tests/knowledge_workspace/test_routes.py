@@ -33,7 +33,11 @@ async def test_oauth_routes_use_same_origin_envelopes_and_tenant_actor() -> None
             assert request.url.params["state"] == "opaque"
             return httpx.Response(
                 200,
-                json={"service": "feishu", "connectionName": "My-Feishu", "status": "connected"},
+                json={
+                    "service": "feishu",
+                    "connectionName": "My-Feishu",
+                    "status": "connected",
+                },
             )
         raise AssertionError(request.url.path)
 
@@ -42,7 +46,10 @@ async def test_oauth_routes_use_same_origin_envelopes_and_tenant_actor() -> None
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
     )
-    from frontend.server.knowledge_workspace.connection import ConnectionServiceConfig, ConnectionServiceGateway
+    from frontend.server.knowledge_workspace.connection import (
+        ConnectionServiceConfig,
+        ConnectionServiceGateway,
+    )
 
     mount_knowledge_workspace_routes(
         app,
@@ -58,7 +65,9 @@ async def test_oauth_routes_use_same_origin_envelopes_and_tenant_actor() -> None
         "x-workspace-id": "workspace-a",
         "x-principal-id": "user-a",
     }
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         started = await client.post(
             "/api/knowledge/v1/oauth/authorize",
             headers=headers,
@@ -130,6 +139,12 @@ async def test_same_origin_routes_scope_draft_by_server_actor() -> None:
             await client.get(
                 f"/api/knowledge/v1/skills/drafts/{draft_id}",
                 headers={**headers, "x-tenant-id": "tenant-b"},
+            )
+        ).status_code == 404
+        assert (
+            await client.get(
+                f"/api/knowledge/v1/skills/drafts/{draft_id}",
+                headers={**headers, "x-workspace-id": "workspace-b"},
             )
         ).status_code == 404
         loaded = await client.get(
