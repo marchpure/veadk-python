@@ -35,4 +35,8 @@ def hydrate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
             and item.get("provider") == "openviking"
             and isinstance(item.get("resource_ref"), str)
         ]
+    # Legacy keys are an input-only compatibility shape.  Do not leak them
+    # into strict canonical domain models during hydration.
+    result.pop("openviking_profile_ids", None)
+    result.pop("openviking_resource_refs", None)
     return result

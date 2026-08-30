@@ -624,8 +624,6 @@ class KnowledgeWorkspaceService:
             connection_ids=unique,
             resource_ids=resources,
             knowledge_source_refs=source_refs,
-            openviking_profile_ids=ov_profiles,
-            openviking_resource_refs=ov_refs,
             upload_ids=uploads,
             etag=new_id("etag"),
         )
@@ -731,11 +729,8 @@ class KnowledgeWorkspaceService:
                     normalized.append(dict(ref))
             updates["knowledge_source_refs"] = tuple(normalized)
             profiles, resources = _provider_refs(normalized)
-            updates["openviking_profile_ids"] = profiles
-            updates["openviking_resource_refs"] = resources
         elif openviking_profile_ids is not None:
             profiles = tuple(dict.fromkeys(str(item) for item in openviking_profile_ids))
-            updates["openviking_profile_ids"] = profiles
             existing_refs = [ref for ref in updated_refs if ref.get("resource_ref")]
             updates["knowledge_source_refs"] = tuple(
                 [{"provider": "openviking", "profile_ref": item} for item in profiles]
@@ -743,7 +738,6 @@ class KnowledgeWorkspaceService:
             )
         if knowledge_source_refs is None and openviking_resource_refs is not None:
             resources = tuple(dict.fromkeys(str(item) for item in openviking_resource_refs))
-            updates["openviking_resource_refs"] = resources
             existing_refs = [ref for ref in updated_refs if ref.get("profile_ref")]
             updates["knowledge_source_refs"] = tuple(
                 existing_refs
@@ -775,11 +769,8 @@ class KnowledgeWorkspaceService:
                 "at least one connection or resource is required",
                 409,
             )
-        self._openviking_context(
-            actor,
-            updated.openviking_profile_ids,
-            updated.openviking_resource_refs,
-        )
+        source_profiles, source_resources = _provider_refs(updated.knowledge_source_refs)
+        self._openviking_context(actor, source_profiles, source_resources)
         self.repository.save_draft(updated)
         if idempotency_key:
             try:
@@ -867,11 +858,8 @@ class KnowledgeWorkspaceService:
         effective_connection_ids = tuple(connection_ids) or draft.connection_ids
         effective_resource_ids = tuple(resource_ids) or draft.resource_ids
         effective_upload_ids = tuple(upload_ids) or draft.upload_ids
-        self._openviking_context(
-            actor,
-            draft.openviking_profile_ids,
-            draft.openviking_resource_refs,
-        )
+        source_profiles, source_resources = _provider_refs(draft.knowledge_source_refs)
+        self._openviking_context(actor, source_profiles, source_resources)
         for upload_id in effective_upload_ids:
             if (
                 self.repository.get_upload(
@@ -929,8 +917,6 @@ class KnowledgeWorkspaceService:
             connection_ids=effective_connection_ids,
             resource_ids=effective_resource_ids,
             knowledge_source_refs=draft.knowledge_source_refs,
-            openviking_profile_ids=draft.openviking_profile_ids,
-            openviking_resource_refs=draft.openviking_resource_refs,
             upload_ids=effective_upload_ids,
             lease_id=lease_id,
             authoring_session_id=session.authoring_session_id,

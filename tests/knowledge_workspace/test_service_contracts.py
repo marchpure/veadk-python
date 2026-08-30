@@ -233,8 +233,8 @@ async def test_openviking_context_is_distinct_and_sent_to_autoskill() -> None:
     ]
     assert fake.commands == ["create_skill"]
     assert '"openviking_context"' in str(fake.command_calls[0]["prompt"])
-    assert invocation.openviking_profile_ids == ("ovp_a",)
-    assert invocation.openviking_resource_refs == ("ovr_a",)
+    assert [ref.profile_ref for ref in invocation.knowledge_source_refs if ref.profile_ref] == ["ovp_a"]
+    assert [ref.resource_ref for ref in invocation.knowledge_source_refs if ref.resource_ref] == ["ovr_a"]
 
 
 @pytest.mark.asyncio
