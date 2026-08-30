@@ -24,8 +24,7 @@ class KnowledgeContextResolver(Protocol):
     def __call__(
         self,
         actor: Any,
-        profile_refs: Sequence[str],
-        resource_refs: Sequence[str],
+        refs: Sequence[KnowledgeSourceRef],
     ) -> Mapping[str, object]: ...
 
 
@@ -33,6 +32,5 @@ class AsyncKnowledgeContextResolver(Protocol):
     def __call__(
         self,
         actor: Any,
-        profile_refs: Sequence[str],
-        resource_refs: Sequence[str],
+        refs: Sequence[KnowledgeSourceRef],
     ) -> Awaitable[Mapping[str, object]]: ...

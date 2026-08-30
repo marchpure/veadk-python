@@ -199,6 +199,10 @@ async function installRoutes(page) {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([personalConnection, teamConnection]) });
       return;
     }
+    if (url.pathname === "/api/knowledge/v1/openviking/profiles" && request.method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: envelope([]) });
+      return;
+    }
     if (url.pathname === "/api/knowledge/v1/resources" && request.method() === "GET") {
       await route.fulfill({ status: 200, contentType: "application/json", body: envelope([fileResource]) });
       return;

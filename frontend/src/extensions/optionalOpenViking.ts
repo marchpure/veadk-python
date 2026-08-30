@@ -11,19 +11,37 @@ export interface OpenVikingApi {
   listProfiles(signal?: AbortSignal): Promise<OpenVikingProfile[]>;
 }
 
-const modulePath = "./openviking/public";
+type OpenVikingPublicModule = {
+  openVikingApi?: OpenVikingApi;
+};
+
+type OpenVikingWorkspaceModule = {
+  OpenVikingWorkspace?: ComponentType;
+};
+
+const openVikingPublicModules = import.meta.glob("./openviking/public.ts");
+const openVikingWorkspaceModules = import.meta.glob("./openviking/OpenVikingWorkspace.tsx");
+
+function missingOpenVikingWorkspace(): null {
+  return null;
+}
 
 export async function loadOpenVikingApi(): Promise<OpenVikingApi | null> {
-  try {
-    const module = await import(/* @vite-ignore */ modulePath) as { openVikingApi?: OpenVikingApi };
-    return module.openVikingApi ?? null;
-  } catch {
-    return null;
-  }
+  const loader = openVikingPublicModules["./openviking/public.ts"] as
+    | (() => Promise<OpenVikingPublicModule>)
+    | undefined;
+  if (!loader) return null;
+  const module = await loader();
+  return module.openVikingApi ?? null;
 }
 
 export async function loadOpenVikingWorkspace(): Promise<{ default: ComponentType }> {
-  const modulePath = "./openviking/OpenVikingWorkspace";
-  const module = await import(/* @vite-ignore */ modulePath) as { OpenVikingWorkspace: ComponentType };
-  return { default: module.OpenVikingWorkspace };
+  const loader = openVikingWorkspaceModules["./openviking/OpenVikingWorkspace.tsx"] as
+    | (() => Promise<OpenVikingWorkspaceModule>)
+    | undefined;
+  if (!loader) {
+    return { default: missingOpenVikingWorkspace };
+  }
+  const module = await loader();
+  return { default: module.OpenVikingWorkspace ?? missingOpenVikingWorkspace };
 }

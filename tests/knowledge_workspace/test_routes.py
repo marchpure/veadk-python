@@ -213,9 +213,9 @@ async def test_create_draft_accepts_unified_knowledge_source_refs() -> None:
     service = KnowledgeWorkspaceService(
         KnowledgeWorkspaceRepository(),
         UnavailableAutoSkillClient("not configured"),
-        knowledge_context_resolver=lambda actor, profiles, resources: {
-            "profiles": list(profiles),
-            "resources": list(resources),
+        knowledge_context_resolver=lambda actor, refs: {
+            "profiles": [ref.profile_ref for ref in refs if ref.profile_ref],
+            "resources": [ref.resource_ref for ref in refs if ref.resource_ref],
         },
     )
     mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
@@ -418,9 +418,9 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
             "model",
             "started_at",
             "finished_at",
-        "created_at",
-        "knowledge_source_refs",
-        "event_url",
+            "created_at",
+            "knowledge_source_refs",
+            "event_url",
         }
         stale = await client.post(
             f"/api/knowledge/v1/skills/drafts/{draft_id}/messages",

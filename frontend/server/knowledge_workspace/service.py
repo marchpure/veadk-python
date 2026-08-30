@@ -7,7 +7,7 @@ import hashlib
 import io
 import json
 import zipfile
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 
 from .autoskill import AutoSkillClient, AutoSkillProtocolError
@@ -35,23 +35,12 @@ from .models import (
 from .registry import PublicationRegistryPort
 from .repository import KnowledgeWorkspaceRepository
 from .sse import ParsedUpstreamEvent, normalize_upstream_event, sanitize_event_payload
-from .source_contracts import AsyncKnowledgeContextResolver, KnowledgeContextResolver
-
-
-def _provider_refs(refs: Sequence[object], provider: str = "openviking") -> tuple[tuple[str, ...], tuple[str, ...]]:
-    profiles: list[str] = []
-    resources: list[str] = []
-    for ref in refs:
-        item = ref if isinstance(ref, Mapping) else getattr(ref, "model_dump", lambda **_: {})()
-        if not isinstance(item, Mapping) or item.get("provider") != provider:
-            continue
-        profile = item.get("profile_ref")
-        resource = item.get("resource_ref")
-        if isinstance(profile, str) and profile and profile not in profiles:
-            profiles.append(profile)
-        if isinstance(resource, str) and resource and resource not in resources:
-            resources.append(resource)
-    return tuple(profiles), tuple(resources)
+from .migration import merge_knowledge_source_refs
+from .source_contracts import (
+    AsyncKnowledgeContextResolver,
+    KnowledgeContextResolver,
+    KnowledgeSourceRef,
+)
 from .zip_validator import SkillZipError, validate_skill_zip
 
 
@@ -78,64 +67,58 @@ class KnowledgeWorkspaceService:
         publication_registry: PublicationRegistryPort | None = None,
         knowledge_context_resolver: KnowledgeContextResolver | None = None,
         knowledge_content_resolver: AsyncKnowledgeContextResolver | None = None,
-        openviking_context_resolver: Callable[[Actor, Sequence[str], Sequence[str]], Mapping[str, object]] | None = None,
-        openviking_content_resolver: Callable[[Actor, Sequence[str], Sequence[str]], Awaitable[Mapping[str, object]]] | None = None,
     ) -> None:
         self.repository = repository
         self.autoskill = autoskill
         self.connection_context = connection_context
         self.publication_registry = publication_registry
-        self.knowledge_context_resolver = knowledge_context_resolver or openviking_context_resolver
-        self.knowledge_content_resolver = knowledge_content_resolver or openviking_content_resolver
-        # Legacy aliases remain writable for older integrations/tests; new
-        # composition roots use the vendor-neutral attributes above.
-        self.openviking_context_resolver = openviking_context_resolver
-        self.openviking_content_resolver = openviking_content_resolver
+        self.knowledge_context_resolver = knowledge_context_resolver
+        self.knowledge_content_resolver = knowledge_content_resolver
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._cancelled: set[str] = set()
 
-    def _openviking_context(
+    def _knowledge_context(
         self,
         actor: Actor,
-        profile_ids: Sequence[str],
-        resource_refs: Sequence[str],
+        refs: Sequence[KnowledgeSourceRef],
     ) -> Mapping[str, object] | None:
-        if not profile_ids and not resource_refs:
+        if not refs:
             return None
-        resolver = self.knowledge_context_resolver or self.openviking_context_resolver
+        resolver = self.knowledge_context_resolver
         if resolver is None:
             raise KnowledgeWorkspaceError(
-                "OPENVIKING_CONTEXT_UNAVAILABLE",
-                "OpenViking knowledge context is not configured",
+                "KNOWLEDGE_CONTEXT_UNAVAILABLE",
+                "Knowledge context is not configured",
                 503,
             )
         try:
-            return resolver(actor, profile_ids, resource_refs)
+            return resolver(actor, refs)
         except KnowledgeWorkspaceError:
             raise
         except Exception as exc:
             status_code = int(getattr(exc, "status_code", 403))
-            code = str(getattr(exc, "code", "OPENVIKING_CONTEXT_FORBIDDEN"))
+            code = str(getattr(exc, "code", "KNOWLEDGE_CONTEXT_FORBIDDEN"))
             raise KnowledgeWorkspaceError(code, str(exc), status_code) from exc
 
-    def _source_context(self, actor: Actor, refs: Sequence[object]) -> Mapping[str, object] | None:
-        profiles, resources = _provider_refs(refs)
-        return self._openviking_context(actor, profiles, resources)
+    def _source_context(
+        self, actor: Actor, refs: Sequence[KnowledgeSourceRef]
+    ) -> Mapping[str, object] | None:
+        return self._knowledge_context(actor, refs)
 
     @staticmethod
-    def _with_openviking_context(
+    def _with_knowledge_context(
         message: str, context: Mapping[str, object] | None
     ) -> str:
         if not context:
             return message
         encoded = json.dumps(
-            {"openviking_context": context},
+            {"knowledge_context": context},
             ensure_ascii=True,
             sort_keys=True,
             separators=(",", ":"),
         )
         return (
-            f"{message}\n\nUse the following server-validated OpenViking knowledge "
+            f"{message}\n\nUse the following server-validated knowledge "
             f"context when creating or running the Skill:\n{encoded}"
         )
 
@@ -538,8 +521,6 @@ class KnowledgeWorkspaceService:
         *,
         resource_ids: Sequence[str] = (),
         knowledge_source_refs: Sequence[Mapping[str, object]] = (),
-        openviking_profile_ids: Sequence[str] = (),
-        openviking_resource_refs: Sequence[str] = (),
         trial_task: str | None = None,
         upload_ids: Sequence[str] = (),
         idempotency_key: str | None = None,
@@ -549,24 +530,17 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError("INVALID_REQUEST", "goal is required", 400)
         unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
         resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
-        source_ref_list: list[Mapping[str, object]] = []
-        for item in knowledge_source_refs:
-            if isinstance(item, Mapping) and dict(item) not in [dict(existing) for existing in source_ref_list]:
-                source_ref_list.append(dict(item))
-        source_refs = tuple(source_ref_list)
-        if not source_refs:
-            source_refs = tuple(
-                [{"provider": "openviking", "profile_ref": item} for item in openviking_profile_ids]
-                + [{"provider": "openviking", "resource_ref": item} for item in openviking_resource_refs]
-            )
-        ov_profiles, ov_refs = _provider_refs(source_refs)
-        if not unique and not resources and not ov_refs:
+        source_refs = tuple(
+            KnowledgeSourceRef.model_validate(item)
+            for item in merge_knowledge_source_refs(knowledge_source_refs) or ()
+        )
+        if not unique and not resources and not source_refs:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY",
                 "at least one connection or knowledge resource is required",
                 409,
             )
-        self._openviking_context(actor, ov_profiles, ov_refs)
+        self._knowledge_context(actor, source_refs)
         uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
         for upload_id in uploads:
             if (
@@ -650,8 +624,6 @@ class KnowledgeWorkspaceService:
         trial_task: str | None = None,
         resource_ids: Sequence[str] | None = None,
         knowledge_source_refs: Sequence[Mapping[str, object]] | None = None,
-        openviking_profile_ids: Sequence[str] | None = None,
-        openviking_resource_refs: Sequence[str] | None = None,
         upload_ids: Sequence[str] | None = None,
         idempotency_key: str | None = None,
         request_digest: str = "",
@@ -694,10 +666,6 @@ class KnowledgeWorkspaceService:
             "status": DraftStatus.EDITING,
             "updated_at": utc_now(),
         }
-        updated_refs = [
-            ref.model_dump(mode="json", exclude_none=True)
-            for ref in draft.knowledge_source_refs
-        ]
         if goal is not None:
             if not goal.strip():
                 raise KnowledgeWorkspaceError(
@@ -723,25 +691,9 @@ class KnowledgeWorkspaceService:
                     )
             updates["resource_ids"] = resources
         if knowledge_source_refs is not None:
-            normalized: list[Mapping[str, object]] = []
-            for ref in knowledge_source_refs:
-                if isinstance(ref, Mapping) and dict(ref) not in [dict(item) for item in normalized]:
-                    normalized.append(dict(ref))
-            updates["knowledge_source_refs"] = tuple(normalized)
-            profiles, resources = _provider_refs(normalized)
-        elif openviking_profile_ids is not None:
-            profiles = tuple(dict.fromkeys(str(item) for item in openviking_profile_ids))
-            existing_refs = [ref for ref in updated_refs if ref.get("resource_ref")]
             updates["knowledge_source_refs"] = tuple(
-                [{"provider": "openviking", "profile_ref": item} for item in profiles]
-                + existing_refs
-            )
-        if knowledge_source_refs is None and openviking_resource_refs is not None:
-            resources = tuple(dict.fromkeys(str(item) for item in openviking_resource_refs))
-            existing_refs = [ref for ref in updated_refs if ref.get("profile_ref")]
-            updates["knowledge_source_refs"] = tuple(
-                existing_refs
-                + [{"provider": "openviking", "resource_ref": item} for item in resources]
+                KnowledgeSourceRef.model_validate(item)
+                for item in merge_knowledge_source_refs(knowledge_source_refs) or ()
             )
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
@@ -769,8 +721,7 @@ class KnowledgeWorkspaceService:
                 "at least one connection or resource is required",
                 409,
             )
-        source_profiles, source_resources = _provider_refs(updated.knowledge_source_refs)
-        self._openviking_context(actor, source_profiles, source_resources)
+        self._knowledge_context(actor, updated.knowledge_source_refs)
         self.repository.save_draft(updated)
         if idempotency_key:
             try:
@@ -858,8 +809,7 @@ class KnowledgeWorkspaceService:
         effective_connection_ids = tuple(connection_ids) or draft.connection_ids
         effective_resource_ids = tuple(resource_ids) or draft.resource_ids
         effective_upload_ids = tuple(upload_ids) or draft.upload_ids
-        source_profiles, source_resources = _provider_refs(draft.knowledge_source_refs)
-        self._openviking_context(actor, source_profiles, source_resources)
+        self._knowledge_context(actor, draft.knowledge_source_refs)
         for upload_id in effective_upload_ids:
             if (
                 self.repository.get_upload(
@@ -977,21 +927,14 @@ class KnowledgeWorkspaceService:
     ) -> None:
         context: Mapping[str, object] | None = None
         try:
-            source_profiles, source_resources = _provider_refs(invocation.knowledge_source_refs)
-            context = self._openviking_context(
-                actor,
-                source_profiles,
-                source_resources,
-            )
-            content_resolver = self.knowledge_content_resolver or self.openviking_content_resolver
+            context = self._knowledge_context(actor, invocation.knowledge_source_refs)
+            content_resolver = self.knowledge_content_resolver
             if context and content_resolver is not None:
                 context = await content_resolver(
-                    actor,
-                    source_profiles,
-                    source_resources,
+                    actor, invocation.knowledge_source_refs
                 )
         except Exception as exc:
-            code = str(getattr(exc, "code", "OPENVIKING_CONTEXT_UNAVAILABLE"))
+            code = str(getattr(exc, "code", "KNOWLEDGE_CONTEXT_UNAVAILABLE"))
             failed = invocation.model_copy(
                 update={
                     "status": InvocationStatus.FAILED,
@@ -1008,7 +951,7 @@ class KnowledgeWorkspaceService:
             )
             self._tasks.pop(invocation.invocation_id, None)
             return
-        message = self._with_openviking_context(message, context)
+        message = self._with_knowledge_context(message, context)
         current = invocation.model_copy(
             update={"status": InvocationStatus.RUNNING, "started_at": utc_now()}
         )

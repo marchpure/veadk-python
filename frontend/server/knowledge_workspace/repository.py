@@ -57,19 +57,9 @@ class KnowledgeWorkspaceRepository:
 
     @staticmethod
     def _json(value: Any) -> str:
-        payload = value.model_dump(mode="json") if hasattr(value, "model_dump") else value
-        if isinstance(payload, dict) and "knowledge_source_refs" in payload:
-            if not payload.get("knowledge_source_refs"):
-                refs = []
-                for key, field in (("profile_ref", "openviking_profile_ids"), ("resource_ref", "openviking_resource_refs")):
-                    for item in payload.get(field, ()) or ():
-                        if isinstance(item, str) and item:
-                            refs.append({"provider": "openviking", key: item})
-                payload["knowledge_source_refs"] = refs
-            # New writes use only the vendor-neutral field. Legacy keys are
-            # accepted on hydration but never emitted by the repository.
-            payload.pop("openviking_profile_ids", None)
-            payload.pop("openviking_resource_refs", None)
+        payload = (
+            value.model_dump(mode="json") if hasattr(value, "model_dump") else value
+        )
         return json.dumps(
             payload,
             ensure_ascii=False,
@@ -116,7 +106,8 @@ class KnowledgeWorkspaceRepository:
                 (tenant_id, workspace_id),
             ).fetchall()
         return tuple(
-            SkillDraft.model_validate(hydrate_payload(json.loads(row["payload"]))) for row in rows
+            SkillDraft.model_validate(hydrate_payload(json.loads(row["payload"])))
+            for row in rows
         )
 
     def save_upload(self, upload: WorkspaceUpload) -> WorkspaceUpload:
@@ -185,8 +176,7 @@ class KnowledgeWorkspaceRepository:
                 (tenant_id, workspace_id),
             ).fetchall()
         return tuple(
-            WorkspaceResource.model_validate(json.loads(row["payload"]))
-            for row in rows
+            WorkspaceResource.model_validate(json.loads(row["payload"])) for row in rows
         )
 
     def save_session(self, session: AuthoringSession) -> None:
@@ -262,7 +252,9 @@ class KnowledgeWorkspaceRepository:
         return tuple(
             sorted(
                 (
-                Invocation.model_validate(hydrate_payload(json.loads(row["payload"])))
+                    Invocation.model_validate(
+                        hydrate_payload(json.loads(row["payload"]))
+                    )
                     for row in rows
                 ),
                 key=lambda item: (item.created_at, item.invocation_id),
@@ -284,7 +276,9 @@ class KnowledgeWorkspaceRepository:
         return tuple(
             invocation
             for row in rows
-            for invocation in (Invocation.model_validate(hydrate_payload(json.loads(row["payload"]))),)
+            for invocation in (
+                Invocation.model_validate(hydrate_payload(json.loads(row["payload"]))),
+            )
             if invocation.revision_id == revision_id
         )
 

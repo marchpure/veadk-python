@@ -6,6 +6,7 @@ import os
 from functools import partial
 from typing import Any
 
+from .compat import split_knowledge_source_refs
 from .connection_resource import resolve_connection_resource
 from .routes import mount_openviking_routes
 from .service import OpenVikingConfig, OpenVikingProfileRepository, OpenVikingService
@@ -21,22 +22,43 @@ def register_openviking(
     """Create and mount the extension with one host-facing registration call."""
     service = OpenVikingService(
         OpenVikingProfileRepository(
-            os.getenv("OPENVIKING_PROFILE_DATABASE", ".veadk/openviking-profiles.sqlite3")
+            os.getenv(
+                "OPENVIKING_PROFILE_DATABASE", ".veadk/openviking-profiles.sqlite3"
+            )
         ),
         OpenVikingConfig.from_env(),
     )
-    knowledge_service.knowledge_context_resolver = lambda actor, profiles, refs: service.creator_context(
-        tenant_id=actor.tenant_id,
-        workspace_id=actor.workspace_id,
-        profile_ids=tuple(profiles),
-        resource_refs=tuple(refs),
-    )
-    knowledge_service.knowledge_content_resolver = lambda actor, profiles, refs: service.resolved_creator_context(
-        tenant_id=actor.tenant_id,
-        workspace_id=actor.workspace_id,
-        profile_ids=tuple(profiles),
-        resource_refs=tuple(refs),
-    )
+
+    def split_refs(refs: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        return split_knowledge_source_refs(
+            [
+                ref.model_dump(mode="json", exclude_none=True)
+                if hasattr(ref, "model_dump")
+                else ref
+                for ref in refs
+            ]
+        )
+
+    def context(actor: Any, refs: Any) -> dict[str, object]:
+        profile_ids, resource_refs = split_refs(refs)
+        return service.creator_context(
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            profile_ids=profile_ids,
+            resource_refs=resource_refs,
+        )
+
+    async def resolved_context(actor: Any, refs: Any) -> dict[str, object]:
+        profile_ids, resource_refs = split_refs(refs)
+        return await service.resolved_creator_context(
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            profile_ids=profile_ids,
+            resource_refs=resource_refs,
+        )
+
+    knowledge_service.knowledge_context_resolver = context
+    knowledge_service.knowledge_content_resolver = resolved_context
     mount_openviking_routes(
         app,
         service,
