@@ -2,6 +2,7 @@
   "createCalls": 1,
   "generateCalls": 1,
   "publishCalls": 1,
+  "agentDirectoryCalls": 2,
   "consoleErrors": [],
   "pageErrors": [],
   "missingAssets": [],

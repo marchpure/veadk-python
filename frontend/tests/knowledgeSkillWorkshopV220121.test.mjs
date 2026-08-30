@@ -60,6 +60,7 @@ test("first message maps to one real draft and generation invocation", () => {
   assert.match(page, /knowledgeApi\.generateDraft/);
   assert.match(page, /setRoute\("draft", created\.value\.data\.draft_id\)/);
   assert.match(page, /goal,\s*template_key/s);
+  assert.match(page, /pendingCreatedDraftRef\.current[\s\S]*?knowledgeApi\.updateDraft/s);
 });
 
 test("draft workspace is conversation-led with invocation rail and artifact pane", () => {

@@ -415,6 +415,10 @@
   border-radius: 16px;
   background: #fff;
 }
+.kw-agent-directory { display: grid; gap: 8px; margin: 20px 0; }
+.kw-agent-directory-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.kw-agent-directory-row > span { display: grid; gap: 3px; }
+.kw-agent-directory-row small { color: #64748b; font-size: 12px; }
 .kw-agent-footer {
   display: flex;
   justify-content: flex-end;
