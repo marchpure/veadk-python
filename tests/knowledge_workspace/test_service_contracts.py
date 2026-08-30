@@ -19,6 +19,7 @@ from frontend.server.knowledge_workspace.models import (
     WorkspaceUpload,
     new_id,
 )
+from frontend.server.knowledge_workspace.source_contracts import KnowledgeSourceRef
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
 from frontend.server.knowledge_workspace.service import (
     Actor,
@@ -933,7 +934,17 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
     autoskill = Resumable()
     repository = KnowledgeWorkspaceRepository()
     lease = FakeLeasePort()
-    service = KnowledgeWorkspaceService(repository, autoskill, lease)
+    resolved: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+
+    def resolve(
+        _actor: Actor, profile_ids: Sequence[str], resource_refs: Sequence[str]
+    ) -> dict[str, object]:
+        resolved.append((tuple(profile_ids), tuple(resource_refs)))
+        return {"profile_ids": list(profile_ids), "resource_refs": list(resource_refs)}
+
+    service = KnowledgeWorkspaceService(
+        repository, autoskill, lease, openviking_context_resolver=resolve
+    )
     actor = Actor("tenant", "workspace", "principal")
     draft = service.create_draft(actor, "goal", ["connection-a"])
     session = repository.get_session(
@@ -954,6 +965,9 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
         principal_id="principal",
         message="goal",
         connection_ids=("connection-a",),
+        knowledge_source_refs=(
+            KnowledgeSourceRef(provider="openviking", resource_ref="kb://restart"),
+        ),
         lease_id="lease-before-restart",
     )
     repository.save_invocation(invocation)
@@ -967,6 +981,7 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
     assert saved.status is InvocationStatus.SUCCEEDED
     assert autoskill.commands == 0
     assert autoskill.reconnects == 1
+    assert resolved == [((), ("kb://restart",))]
     assert lease.revoked == [
         "lease-before-restart",
         f"lease-{invocation.autoskill_request_id}",
