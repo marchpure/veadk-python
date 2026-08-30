@@ -1,0 +1,63 @@
+{
+  "boundary": {
+    "extension_roots": [
+      "frontend/src/extensions/openviking/**",
+      "frontend/server/extensions/openviking/**"
+    ],
+    "forbidden": [
+      "no direct OpenViking business imports in KnowledgeWorkspacePage",
+      "no second copied Studio shell outside the extension",
+      "no Connection, Search, or AutoSkill expansion",
+      "no hand-merged hashed veadk/webui assets"
+    ],
+    "host_allowed_touchpoints": [
+      "frontend/src/extensions/knowledgeSources.ts imports ./openviking/public.ts only",
+      "frontend/src/extensions/optionalOpenViking.ts re-exports public loader",
+      "frontend/src/App.tsx lazy-loads through optionalOpenViking and switches root workspace on popstate",
+      "frontend/src/ui/Sidebar.tsx provides reusable contextNavigation shell slot",
+      "frontend/server/extensions/openviking/register.py wires BFF routes and context resolvers at composition root"
+    ]
+  },
+  "evidence": [
+    "tests/frontend/server/test_openviking_bff.py",
+    "frontend/tests/openVikingIsolation.test.mjs",
+    "frontend/tests/openVikingStudio.test.mjs",
+    "frontend/tests/openVikingW4Journey.test.mjs",
+    "docs/knowledge-workspace/evidence/w4/openviking-real-e2e.json"
+  ],
+  "generated_at": "2026-08-30T11:19:01.519391+00:00",
+  "host_contract": {
+    "backend_registration": "frontend/server/extensions/openviking/register.py",
+    "backend_routes": "frontend/server/extensions/openviking/routes.py",
+    "frontend_manifest": "frontend/src/extensions/openviking/manifest.ts",
+    "frontend_public_entry": "frontend/src/extensions/openviking/public.ts",
+    "frontend_registry": "frontend/src/extensions/knowledgeSources.ts",
+    "stable_contracts": [
+      "frontend/src/extensions/knowledge-source-contracts.ts",
+      "frontend/server/knowledge_workspace/source_contracts.py"
+    ]
+  },
+  "schema_version": 1,
+  "security_wiring": {
+    "credential_storage": "API key and base URL encrypted in OpenVikingProfileRepository; public profile exposes configured/masked status only",
+    "fail_closed": "creator_context requires ready scoped profile and signed resource refs; revoked profiles return forbidden/not found before AutoSkill execution",
+    "ready_guard": "operations, upload, text import, connection-resource import, and item operations require ready profile",
+    "ssrf": "DNS/IP validation rejects private, loopback except dev HTTP loopback, link-local, multicast, reserved, unspecified; redirects disabled",
+    "tenant_isolation": "profile repository get/list/delete scoped by tenant_id and workspace_id",
+    "url_policy": "production HTTPS only; dev HTTP exception only for localhost/127.0.0.1/[::1] loopback with DNS/IP validation"
+  },
+  "slots": {
+    "createKnowledgeBase": {
+      "entry": "manifest.slots.createKnowledgeBase.run()",
+      "label": "\u521b\u5efa\u77e5\u8bc6\u5e93",
+      "provider": "openviking",
+      "route": "?view=openviking&return=knowledge-workspace"
+    },
+    "dataTools": {
+      "entry": "manifest.slots.dataTools.listOptions()",
+      "provider": "openviking",
+      "returns": "canonical KnowledgeSourceRef[] with opaque profile_ref/resource_ref"
+    }
+  },
+  "status": "PASS_WITH_REAL_E2E_BLOCKED"
+}

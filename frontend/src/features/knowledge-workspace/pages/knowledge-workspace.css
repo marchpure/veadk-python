@@ -1023,6 +1023,39 @@
 .kw-skill-create-icon svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .kw-skill-create-content > h1 { margin: 0; color: hsl(var(--foreground)); font-size: 26px; font-weight: 600; line-height: 1.2; }
 .kw-skill-create-content > p { max-width: 480px; margin: 10px 0 32px; color: hsl(var(--muted-foreground)); font-size: 14px; line-height: 1.65; text-align: center; }
+.kw-create-entry-cards {
+  display: grid;
+  width: min(620px, 100%);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.kw-create-entry-card {
+  display: grid;
+  min-height: 86px;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--panel));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+}
+.kw-create-entry-card:hover {
+  border-color: hsl(var(--primary) / 45%);
+  background: hsl(var(--muted));
+}
+.kw-create-entry-card strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+.kw-create-entry-card span {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.5;
+}
 .kw-skill-composer {
   position: relative;
   width: 100%;
@@ -1223,6 +1256,7 @@
   .kw-main > .kw-draft-topbar { display: flex; }
   .kw-skill-create-landing { padding: 24px 16px; }
   .kw-skill-create-content > p { margin-bottom: 24px; }
+  .kw-create-entry-cards { grid-template-columns: minmax(0, 1fr); }
   .kw-skill-suggestions { align-items: stretch; flex-direction: column; width: 100%; }
   .kw-data-tool-drawer { width: 100vw; max-width: none; }
   .kw-skill-workshop,

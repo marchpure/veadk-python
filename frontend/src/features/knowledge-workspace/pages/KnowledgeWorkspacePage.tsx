@@ -6,7 +6,6 @@ import {
   useReducer,
   useRef,
   useState,
-  type ChangeEvent,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -15,7 +14,6 @@ import {
   Activity,
   ArrowLeft,
   Bell,
-  Check,
   CheckCircle2,
   ChevronRight,
   CirclePlus,
@@ -65,6 +63,14 @@ import {
   type UploadResult,
 } from "../api/client";
 import { OAuthFlowPollError, waitForOAuthConnection } from "../api/oauthFlow";
+import {
+  loadKnowledgeSourceActions,
+  knowledgeSourceOptionIdsFromRefs,
+  knowledgeSourceRefsForOptionIds,
+  loadKnowledgeSourceOptions,
+  type KnowledgeSourceAction,
+  type KnowledgeSourceOption,
+} from "../../../extensions/knowledgeSources";
 import { Modal } from "../components/Modal";
 import { SkillWorkspaceShell } from "../workspace/SkillWorkspaceShell";
 import { readQuery, writeQuery } from "../application/cache";
@@ -160,7 +166,7 @@ const TEMPLATE_DEFINITIONS: Array<{
   {
     key: "sop",
     label: "SOP",
-    description: "从文档、OpenViking 和 action 证据生成可执行流程",
+    description: "从文档、知识源和 action 证据生成可执行流程",
     config: { mode: "evidence_sop" },
   },
 ];
@@ -474,6 +480,9 @@ export function KnowledgeWorkspacePage({
   const [publication, setPublication] = useState<Publication | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
+  const [selectedKnowledgeSourceOptionIds, setSelectedKnowledgeSourceOptionIds] = useState<string[]>([]);
+  const [knowledgeSourceActions, setKnowledgeSourceActions] = useState<KnowledgeSourceAction[]>([]);
+  const [knowledgeSourceOptions, setKnowledgeSourceOptions] = useState<KnowledgeSourceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -523,6 +532,31 @@ export function KnowledgeWorkspacePage({
       })
       .catch(() => setAuthStatus("unauthenticated"));
   }, []);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    const controller = new AbortController();
+    void loadKnowledgeSourceActions()
+      .then(setKnowledgeSourceActions)
+      .catch(() => setKnowledgeSourceActions([]));
+    void loadKnowledgeSourceOptions(controller.signal)
+      .then((options) => {
+        const readyOptions = options.filter((item) => item.ready);
+        setKnowledgeSourceOptions(readyOptions);
+        const returnedOptionIds = readyOptions
+          .filter((item) => item.selected)
+          .map((item) => item.id);
+        if (returnedOptionIds.length) {
+          setSelectedKnowledgeSourceOptionIds((current) => [
+            ...current,
+            ...returnedOptionIds.filter((id) => !current.includes(id)),
+          ]);
+          setRoute("skill_new");
+        }
+      })
+      .catch(() => setKnowledgeSourceOptions([]));
+    return () => controller.abort();
+  }, [authStatus]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -616,6 +650,12 @@ export function KnowledgeWorkspacePage({
         setEtag(result.etag);
         setSelectedConnectionIds(result.value.data.connection_ids);
         setSelectedResourceIds(result.value.data.resource_ids);
+        setSelectedKnowledgeSourceOptionIds(
+          knowledgeSourceOptionIdsFromRefs(
+            knowledgeSourceOptions,
+            result.value.data.knowledge_source_refs,
+          ),
+        );
         const [revisionResult, sessionResult, publicationResult] = await Promise.all([
           knowledgeApi.listRevisions(route.draftId, controller.signal),
           knowledgeApi.listSessions(route.draftId, controller.signal),
@@ -715,7 +755,7 @@ export function KnowledgeWorkspacePage({
         if (!controller.signal.aborted) setBusy("");
       });
     return () => controller.abort();
-  }, [authStatus, draftLoadAttempt, route.draftId, route.sessionId]);
+  }, [authStatus, draftLoadAttempt, knowledgeSourceOptions, route.draftId, route.sessionId]);
 
   const availableConnections = useMemo(
     () => connections.filter((connection) => connection.status !== "revoked"),
@@ -748,6 +788,7 @@ export function KnowledgeWorkspacePage({
     setSelectedTemplateKey("generic");
     setSelectedConnectionIds([]);
     setSelectedResourceIds([]);
+    setSelectedKnowledgeSourceOptionIds([]);
     setError("");
     setShowDataToolDrawer(false);
     contextReturnRouteRef.current = null;
@@ -889,12 +930,17 @@ export function KnowledgeWorkspacePage({
     templateConfig: JsonObject,
     connectionIds: string[],
     resourceIds: string[],
+    knowledgeSourceOptionIds: string[],
     trialTask: string,
     uploadIds: string[],
   ) => {
     setBusy("generate");
     setError("");
     try {
+      const knowledgeSourceRefs = knowledgeSourceRefsForOptionIds(
+        knowledgeSourceOptions,
+        knowledgeSourceOptionIds,
+      );
       const created = pendingCreatedDraftRef.current
         ? await knowledgeApi.updateDraft(
           pendingCreatedDraftRef.current.draft.draft_id,
@@ -906,6 +952,7 @@ export function KnowledgeWorkspacePage({
             resource_ids: resourceIds,
             trial_task: trialTask.trim(),
             upload_ids: uploadIds,
+            ...(knowledgeSourceRefs.length ? { knowledge_source_refs: knowledgeSourceRefs } : {}),
           },
           pendingCreatedDraftRef.current.etag,
         )
@@ -915,6 +962,7 @@ export function KnowledgeWorkspacePage({
           template_config: templateConfig,
           connection_ids: connectionIds,
           ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
+          ...(knowledgeSourceRefs.length ? { knowledge_source_refs: knowledgeSourceRefs } : {}),
           ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
           ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
         });
@@ -927,6 +975,7 @@ export function KnowledgeWorkspacePage({
       setEtag(created.etag);
       setSelectedConnectionIds(connectionIds);
       setSelectedResourceIds(resourceIds);
+      setSelectedKnowledgeSourceOptionIds(knowledgeSourceOptionIds);
       setDrafts((current) => [
         ...current.filter((item) => item.draft_id !== created.value.data.draft_id),
         created.value.data,
@@ -956,7 +1005,7 @@ export function KnowledgeWorkspacePage({
     } finally {
       setBusy("");
     }
-  }, []);
+  }, [knowledgeSourceOptions]);
 
   const applyEvent = useCallback((event: KnowledgeInvocationEvent) => {
     dispatchAssistant({ type: "event.received", event });
@@ -1224,16 +1273,26 @@ export function KnowledgeWorkspacePage({
   const updateDraftContext = useCallback(async (
     connectionIds: string[],
     resourceIds: string[],
+    knowledgeSourceOptionIds: string[] = selectedKnowledgeSourceOptionIds,
   ) => {
+    const knowledgeSourceRefs = knowledgeSourceRefsForOptionIds(
+      knowledgeSourceOptions,
+      knowledgeSourceOptionIds,
+    );
     setSelectedConnectionIds(connectionIds);
     setSelectedResourceIds(resourceIds);
+    setSelectedKnowledgeSourceOptionIds(knowledgeSourceOptionIds);
     if (!draft) return;
     setBusy("update-context");
     setError("");
     try {
       const result = await knowledgeApi.updateDraft(
         draft.draft_id,
-        { connection_ids: connectionIds, resource_ids: resourceIds },
+        {
+          connection_ids: connectionIds,
+          resource_ids: resourceIds,
+          knowledge_source_refs: knowledgeSourceRefs,
+        },
         etag,
       );
       setDraft(result.value.data);
@@ -1242,12 +1301,18 @@ export function KnowledgeWorkspacePage({
     } catch (cause) {
       setSelectedConnectionIds(draft.connection_ids);
       setSelectedResourceIds(draft.resource_ids);
+      setSelectedKnowledgeSourceOptionIds(
+        knowledgeSourceOptionIdsFromRefs(
+          knowledgeSourceOptions,
+          draft.knowledge_source_refs,
+        ),
+      );
       setError(errorMessage(cause));
       throw cause;
     } finally {
       setBusy("");
     }
-  }, [draft, etag]);
+  }, [draft, etag, knowledgeSourceOptions, selectedKnowledgeSourceOptionIds]);
 
   // Keep the directory snapshot as the underlying document when a detail
   // request fails. This lets the UI render a real, actionable state overlay
@@ -1461,13 +1526,18 @@ export function KnowledgeWorkspacePage({
             setGoal={setWelcomeGoal}
             connections={availableConnections}
             resources={resources}
+            knowledgeSourceActions={knowledgeSourceActions}
             selectedConnectionIds={selectedConnectionIds}
             selectedResourceIds={selectedResourceIds}
+            knowledgeSourceOptions={knowledgeSourceOptions}
+            selectedKnowledgeSourceOptionIds={selectedKnowledgeSourceOptionIds}
             templateKey={selectedTemplateKey}
             setTemplateKey={setSelectedTemplateKey}
             onOpenDataTools={() => setShowDataToolDrawer(true)}
+            onCreateConnection={() => openConnectionSelector("personal")}
             onRemoveConnection={(id) => setSelectedConnectionIds((current) => current.filter((item) => item !== id))}
             onRemoveResource={(id) => setSelectedResourceIds((current) => current.filter((item) => item !== id))}
+            onRemoveKnowledgeSource={(id) => setSelectedKnowledgeSourceOptionIds((current) => current.filter((item) => item !== id))}
             onCreate={() => {
               const definition = templateDefinition(selectedTemplateKey);
               void createAndGenerate(
@@ -1476,6 +1546,7 @@ export function KnowledgeWorkspacePage({
                 definition?.config || { mode: "auto" },
                 selectedConnectionIds,
                 selectedResourceIds,
+                selectedKnowledgeSourceOptionIds,
                 "",
                 [],
               );
@@ -1596,11 +1667,13 @@ export function KnowledgeWorkspacePage({
         open={showDataToolDrawer}
         connections={connections}
         resources={resources}
+        knowledgeSourceOptions={knowledgeSourceOptions}
         selectedConnectionIds={selectedConnectionIds}
         selectedResourceIds={selectedResourceIds}
+        selectedKnowledgeSourceOptionIds={selectedKnowledgeSourceOptionIds}
         onClose={() => setShowDataToolDrawer(false)}
-        onConfirm={(connectionIds, resourceIds) => {
-          void updateDraftContext(connectionIds, resourceIds)
+        onConfirm={(connectionIds, resourceIds, knowledgeSourceOptionIds) => {
+          void updateDraftContext(connectionIds, resourceIds, knowledgeSourceOptionIds)
             .then(() => setShowDataToolDrawer(false))
             .catch(() => undefined);
         }}
@@ -1681,198 +1754,6 @@ export function KnowledgeWorkspacePage({
     </div>
   );
 }
-
-export function SkillNewView({
-  connections,
-  resources,
-  selectedIds,
-  selectedResourceIds,
-  onSelectedIdsChange,
-  templateKey,
-  onTemplateKeyChange,
-  onCreate,
-  onUpload,
-  onAddConnection,
-  busy,
-  initialGoal,
-  onBack,
-}: {
-  connections: ConnectionProfile[];
-  resources: WorkspaceResource[];
-  selectedIds: string[];
-  selectedResourceIds: string[];
-  onSelectedIdsChange: (ids: string[]) => void;
-  templateKey: TemplateKey;
-  onTemplateKeyChange: (templateKey: TemplateKey) => void;
-  onCreate: (goal: string, templateKey: TemplateKey, templateConfig: JsonObject, connectionIds: string[], resourceIds: string[], trialTask: string, uploadIds: string[]) => Promise<void>;
-  onUpload: (file: File, onProgress: (percent: number) => void) => Promise<UploadResult>;
-  onAddConnection: () => void;
-  busy: boolean;
-  initialGoal?: string;
-  onBack: () => void;
-}) {
-  const [goal, setGoal] = useState(initialGoal || "");
-  const [trialTask, setTrialTask] = useState("");
-  const [uploads, setUploads] = useState<UploadResult[]>([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [resourceIds, setResourceIds] = useState<string[]>(selectedResourceIds);
-  const activeTemplate = templateDefinition(templateKey);
-  useEffect(() => {
-    setResourceIds(selectedResourceIds);
-  }, [selectedResourceIds]);
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    if (goal.trim() && (selectedIds.length || resourceIds.length)) {
-      void onCreate(
-        goal,
-        templateKey,
-        activeTemplate?.config || {},
-        selectedIds,
-        resourceIds,
-        trialTask,
-        uploads.map((upload) => upload.upload_id),
-      );
-    }
-  };
-  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setUploading(true);
-    setUploadError("");
-    setUploadProgress(0);
-    try {
-      const upload = await onUpload(file, setUploadProgress);
-      setUploads((current) => [...current, upload]);
-      setUploadProgress(100);
-    } catch (cause) {
-      setUploadError(errorMessage(cause));
-    } finally {
-      setUploading(false);
-    }
-  };
-  return (
-    <section className="kw-create">
-      <div className="kw-create-copy">
-        <div className="kw-skill-new-heading">
-          <button type="button" className="kw-icon-button kw-skill-new-back" onClick={onBack} aria-label="返回工作台">
-            <ArrowLeft size={18} />
-          </button>
-          <h1>生成第一版 Skill</h1>
-        </div>
-      </div>
-      <form className="kw-create-form" onSubmit={submit}>
-        <div className="kw-form-section">
-          <div className="kw-form-section-title">
-            <span>1. 选择模板</span>
-            <span className="kw-muted">最终产物仍是一个 Skill</span>
-          </div>
-          <div className="kw-template-selector" role="radiogroup" aria-label="Skill 模板">
-            {TEMPLATE_DEFINITIONS.map((item) => (
-              <label
-                className={`kw-template-choice${templateKey === item.key ? " is-selected" : ""}`}
-                key={item.key}
-              >
-                <input
-                  type="radio"
-                  name="template_key"
-                  value={item.key}
-                  checked={templateKey === item.key}
-                  onChange={() => onTemplateKeyChange(item.key)}
-                />
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.description}</small>
-                </span>
-                {templateKey === item.key ? <Check size={16} /> : null}
-              </label>
-            ))}
-          </div>
-        </div>
-        <label>
-          <span className="kw-form-step-label">2. 谁会使用，希望解决什么问题</span>
-          <textarea
-            value={goal}
-            onChange={(event) => setGoal(event.target.value)}
-            placeholder="例如：让售后工程师排查最近的蓝牙断连并给出处置建议"
-            aria-label="谁使用，解决什么问题？"
-            rows={4}
-            required
-          />
-        </label>
-        <div className="kw-form-section">
-          <div className="kw-form-section-title">
-            <span>3. 接入数据与工具</span>
-            <button type="button" className="kw-link-button" onClick={onAddConnection}><CirclePlus size={14} /> 添加连接</button>
-          </div>
-          {connections.length ? connections.map((connection) => (
-            <label className={`kw-connection-choice${selectedIds.includes(connection.connection_id) ? " is-selected" : ""}`} key={connection.connection_id}>
-              <input
-                type="checkbox"
-                checked={selectedIds.includes(connection.connection_id)}
-                disabled={connection.status !== "ready"}
-                onChange={(event) => onSelectedIdsChange(
-                  event.target.checked
-                    ? [...selectedIds, connection.connection_id]
-                    : selectedIds.filter((id) => id !== connection.connection_id),
-                )}
-              />
-              <span className="kw-choice-copy">
-                <strong>{connection.display_name}</strong>
-                <small>{connection.scope === "team" ? "团队" : "个人"} · {idempotentLabel(connection.status)}</small>
-              </span>
-              {connection.status === "ready" ? <Check size={16} /> : <span className="kw-disabled-label">不可用</span>}
-            </label>
-          )) : (
-            <div className="kw-inline-empty">暂无可用连接，请先添加并验证连接。</div>
-          )}
-          {resources.map((resource) => (
-            <label className={`kw-connection-choice${resourceIds.includes(resource.resource_id) ? " is-selected" : ""}`} key={resource.resource_id}>
-              <input
-                type="checkbox"
-                checked={resourceIds.includes(resource.resource_id)}
-                onChange={(event) => setResourceIds((current) => (
-                  event.target.checked
-                    ? [...current, resource.resource_id]
-                    : current.filter((id) => id !== resource.resource_id)
-                ))}
-              />
-              <span className="kw-choice-copy">
-                <strong>{resource.display_name}</strong>
-                <small>{resource.kind} · {resource.status} · 专用资源</small>
-              </span>
-              <Check size={16} />
-            </label>
-          ))}
-        </div>
-        <label>
-          <span className="kw-form-step-label">4. 先试一句任务（可选）</span>
-          <textarea value={trialTask} onChange={(event) => setTrialTask(event.target.value)} placeholder="生成后直接用什么输入试跑？" aria-label="可选：先试一句真实任务" rows={3} />
-        </label>
-        <div className="kw-form-section">
-          <div className="kw-form-section-title"><span>可选：上传任务输入</span><span className="kw-muted">文件由 BFF 隔离存储</span></div>
-          <label className="kw-upload-box">
-            <Upload size={16} />
-            <span>{uploading ? `正在上传 ${uploadProgress}%` : "选择文件并显示真实上传进度"}</span>
-            <input type="file" onChange={(event) => void handleUpload(event)} disabled={uploading} />
-          </label>
-          {uploading ? <progress className="kw-upload-progress" max={100} value={uploadProgress}>{uploadProgress}%</progress> : null}
-          {uploads.map((upload) => <div className="kw-uploaded-file" key={upload.upload_id}>{upload.filename} · sha256:{upload.sha256.slice(0, 12)}…</div>)}
-          {uploadError ? <div className="kw-form-error" role="alert">{uploadError}</div> : null}
-        </div>
-        <button className="kw-primary" type="submit" disabled={busy || !goal.trim() || (!selectedIds.length && !resourceIds.length)}>
-          {busy ? <Loader2 className="kw-spin" size={16} /> : <Play size={16} />}
-          生成并试用 Skill
-        </button>
-      </form>
-    </section>
-  );
-}
-
-// CreationRail remains a migration boundary marker; the source-aligned flow
-// is represented by the numbered form sections in SkillNewView.
 
 function ConnectionDetailView({
   connection,

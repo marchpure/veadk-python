@@ -27,8 +27,8 @@ test("W4 create flow submits template metadata through the existing draft API", 
   assert.match(page, /template_key: templateKey/);
   assert.match(page, /template_config: templateConfig/);
   assert.match(composer, /templateKey === option\.key/);
-  assert.match(page, /onCreate: \(goal: string, templateKey: TemplateKey, templateConfig: JsonObject/);
-  assert.match(page, /final.*Skill|最终产物仍是一个 Skill/s);
+  assert.match(page, /const createAndGenerate = useCallback\(async \(\s*goal: string,\s*templateKey: TemplateKey,\s*templateConfig: JsonObject/s);
+  assert.match(page, /TEMPLATE_DEFINITIONS[\s\S]*config: \{ mode: "auto" \}/);
 });
 
 test("W4 generated package keeps HTML as presentation artifact with lineage", () => {

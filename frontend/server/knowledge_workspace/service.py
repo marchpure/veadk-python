@@ -35,7 +35,13 @@ from .models import (
     utc_now,
 )
 from .registry import PublicationRegistryPort
+from .migration import merge_knowledge_source_refs
 from .repository import KnowledgeWorkspaceRepository
+from .source_contracts import (
+    AsyncKnowledgeContextResolver,
+    KnowledgeContextResolver,
+    KnowledgeSourceRef,
+)
 from .sse import (
     ParsedUpstreamEvent,
     event_kind,
@@ -72,11 +78,15 @@ class KnowledgeWorkspaceService:
         autoskill: AutoSkillClient,
         connection_context: ConnectionInvocationContextPort | None = None,
         publication_registry: PublicationRegistryPort | None = None,
+        knowledge_context_resolver: KnowledgeContextResolver | None = None,
+        knowledge_content_resolver: AsyncKnowledgeContextResolver | None = None,
     ) -> None:
         self.repository = repository
         self.autoskill = autoskill
         self.connection_context = connection_context
         self.publication_registry = publication_registry
+        self.knowledge_context_resolver = knowledge_context_resolver
+        self.knowledge_content_resolver = knowledge_content_resolver
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._cancelled: set[str] = set()
 
@@ -303,6 +313,7 @@ class KnowledgeWorkspaceService:
         draft: SkillDraft,
         invocation: Invocation,
         message: str,
+        knowledge_context: Mapping[str, object] | None = None,
         invocation_policy: Mapping[str, object] | None = None,
     ) -> str:
         action = (
@@ -336,6 +347,8 @@ class KnowledgeWorkspaceService:
                 "artifact": "immutable, bound to revision, invocation, source refs, and digest",
             },
         }
+        if knowledge_context:
+            payload["knowledge_context"] = knowledge_context
         connection_gate = ""
         if invocation.connection_ids and isinstance(invocation_policy, Mapping):
             allowed_actions = [
@@ -383,6 +396,51 @@ class KnowledgeWorkspaceService:
             "Structured context JSON follows. Treat it as authoritative and "
             "redacted; never reveal secrets or internal provider identifiers.\n"
             f"{json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2)}"
+        )
+
+    def _knowledge_context(
+        self,
+        actor: Actor,
+        refs: Sequence[KnowledgeSourceRef],
+    ) -> Mapping[str, object] | None:
+        if not refs:
+            return None
+        resolver = self.knowledge_context_resolver
+        if resolver is None:
+            raise KnowledgeWorkspaceError(
+                "KNOWLEDGE_CONTEXT_UNAVAILABLE",
+                "Knowledge context is not configured",
+                503,
+            )
+        try:
+            return resolver(actor, refs)
+        except KnowledgeWorkspaceError:
+            raise
+        except Exception as exc:
+            status_code = int(getattr(exc, "status_code", 403))
+            code = str(getattr(exc, "code", "KNOWLEDGE_CONTEXT_FORBIDDEN"))
+            raise KnowledgeWorkspaceError(code, str(exc), status_code) from exc
+
+    def _source_context(
+        self, actor: Actor, refs: Sequence[KnowledgeSourceRef]
+    ) -> Mapping[str, object] | None:
+        return self._knowledge_context(actor, refs)
+
+    @staticmethod
+    def _with_knowledge_context(
+        message: str, context: Mapping[str, object] | None
+    ) -> str:
+        if not context:
+            return message
+        encoded = json.dumps(
+            {"knowledge_context": context},
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return (
+            f"{message}\n\nUse the following server-validated knowledge "
+            f"context when creating or running the Skill:\n{encoded}"
         )
 
     @staticmethod
@@ -794,6 +852,10 @@ class KnowledgeWorkspaceService:
             "kind": invocation.kind,
             "status": invocation.status,
             "message": invocation.message,
+            "knowledge_source_refs": [
+                ref.model_dump(mode="json", exclude_none=True)
+                for ref in invocation.knowledge_source_refs
+            ],
             "model": invocation.model,
             "started_at": invocation.started_at,
             "finished_at": invocation.finished_at,
@@ -1217,6 +1279,10 @@ class KnowledgeWorkspaceService:
             ),
             "connection_ids": draft.connection_ids,
             "resource_ids": draft.resource_ids,
+            "knowledge_source_refs": [
+                ref.model_dump(mode="json", exclude_none=True)
+                for ref in draft.knowledge_source_refs
+            ],
             "upload_ids": draft.upload_ids,
             "lifecycle": draft.status,
             "current_revision_id": draft.current_revision_id,
@@ -1299,6 +1365,7 @@ class KnowledgeWorkspaceService:
         connection_ids: Sequence[str],
         *,
         resource_ids: Sequence[str] = (),
+        knowledge_source_refs: Sequence[Mapping[str, object]] = (),
         trial_task: str | None = None,
         template_key: str | TemplateKey | None = None,
         template_config: Mapping[str, object] | None = None,
@@ -1310,14 +1377,19 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError("INVALID_REQUEST", "goal is required", 400)
         unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
         resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
-        if not unique and not resources:
+        source_refs = tuple(
+            KnowledgeSourceRef.model_validate(item)
+            for item in merge_knowledge_source_refs(knowledge_source_refs) or ()
+        )
+        if not unique and not resources and not source_refs:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY",
-                "at least one connection or resource is required",
+                "at least one connection or knowledge resource is required",
                 409,
             )
         normalized_template_key = self._template_key(template_key)
         safe_template_config = self._sanitize_template_config(template_config)
+        self._knowledge_context(actor, source_refs)
         uploads = tuple(dict.fromkeys(str(item) for item in upload_ids))
         for upload_id in uploads:
             if (
@@ -1376,6 +1448,7 @@ class KnowledgeWorkspaceService:
             template_config=safe_template_config,
             connection_ids=unique,
             resource_ids=resources,
+            knowledge_source_refs=source_refs,
             upload_ids=uploads,
             etag=new_id("etag"),
         )
@@ -1405,6 +1478,7 @@ class KnowledgeWorkspaceService:
         resource_ids: Sequence[str] | None = None,
         template_key: str | TemplateKey | None = None,
         template_config: Mapping[str, object] | None = None,
+        knowledge_source_refs: Sequence[Mapping[str, object]] | None = None,
         upload_ids: Sequence[str] | None = None,
         idempotency_key: str | None = None,
         request_digest: str = "",
@@ -1475,6 +1549,11 @@ class KnowledgeWorkspaceService:
             updates["template_key"] = self._template_key(template_key)
         if template_config is not None:
             updates["template_config"] = self._sanitize_template_config(template_config)
+        if knowledge_source_refs is not None:
+            updates["knowledge_source_refs"] = tuple(
+                KnowledgeSourceRef.model_validate(item)
+                for item in merge_knowledge_source_refs(knowledge_source_refs) or ()
+            )
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
         if upload_ids is not None:
@@ -1491,12 +1570,17 @@ class KnowledgeWorkspaceService:
                     raise KnowledgeWorkspaceError("NOT_FOUND", "upload not found", 404)
             updates["upload_ids"] = uploads
         updated = draft.model_copy(update=updates)
-        if not updated.connection_ids and not updated.resource_ids:
+        if (
+            not updated.connection_ids
+            and not updated.resource_ids
+            and not updated.knowledge_source_refs
+        ):
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY",
                 "at least one connection or resource is required",
                 409,
             )
+        self._knowledge_context(actor, updated.knowledge_source_refs)
         self.repository.save_draft(updated)
         if idempotency_key:
             try:
@@ -1811,6 +1895,7 @@ class KnowledgeWorkspaceService:
         effective_connection_ids = tuple(connection_ids) or draft.connection_ids
         effective_resource_ids = tuple(resource_ids) or draft.resource_ids
         effective_upload_ids = tuple(upload_ids) or draft.upload_ids
+        self._knowledge_context(actor, draft.knowledge_source_refs)
         for upload_id in effective_upload_ids:
             if (
                 self.repository.get_upload(
@@ -1867,6 +1952,7 @@ class KnowledgeWorkspaceService:
             revision_id=revision_id,
             connection_ids=effective_connection_ids,
             resource_ids=effective_resource_ids,
+            knowledge_source_refs=draft.knowledge_source_refs,
             upload_ids=effective_upload_ids,
             lease_id=lease_id,
             authoring_session_id=session.authoring_session_id,
@@ -1892,7 +1978,12 @@ class KnowledgeWorkspaceService:
             )
         task = asyncio.create_task(
             self._execute(
-                actor, invocation, draft, session, message or draft.goal, model
+                actor,
+                invocation,
+                draft,
+                session,
+                message or draft.goal,
+                model,
             )
         )
         self._tasks[invocation.invocation_id] = task
@@ -1997,6 +2088,33 @@ class KnowledgeWorkspaceService:
         *,
         resume: bool = False,
     ) -> None:
+        context: Mapping[str, object] | None = None
+        try:
+            context = self._knowledge_context(actor, invocation.knowledge_source_refs)
+            content_resolver = self.knowledge_content_resolver
+            if context and content_resolver is not None:
+                context = await content_resolver(
+                    actor, invocation.knowledge_source_refs
+                )
+        except Exception as exc:
+            code = str(getattr(exc, "code", "KNOWLEDGE_CONTEXT_UNAVAILABLE"))
+            failed = invocation.model_copy(
+                update={
+                    "status": InvocationStatus.FAILED,
+                    "error_code": code,
+                    "error_message": str(sanitize_event_payload(str(exc))),
+                    "finished_at": utc_now(),
+                }
+            )
+            self.repository.save_invocation(failed)
+            self.repository.save_draft(
+                draft.model_copy(
+                    update={"status": DraftStatus.FAILED, "updated_at": utc_now()}
+                )
+            )
+            self._tasks.pop(invocation.invocation_id, None)
+            return
+        message = self._with_knowledge_context(message, context)
         current = invocation.model_copy(
             update={"status": InvocationStatus.RUNNING, "started_at": utc_now()}
         )
@@ -2282,6 +2400,7 @@ class KnowledgeWorkspaceService:
                         draft=draft,
                         invocation=invocation,
                         message=message,
+                        knowledge_context=context,
                         invocation_policy=invocation_policy,
                     ),
                     model=model,
@@ -2301,6 +2420,7 @@ class KnowledgeWorkspaceService:
                         draft=draft,
                         invocation=invocation,
                         message=message,
+                        knowledge_context=context,
                         invocation_policy=invocation_policy,
                     ),
                     model=model,
@@ -2715,9 +2835,22 @@ class KnowledgeWorkspaceService:
                 state=state,
             )
         except AutoSkillProtocolError as exc:
-            raise KnowledgeWorkspaceError(
-                "ARTIFACT_UNAVAILABLE", str(exc), 502
-            ) from exc
+            if "HTTP 404" not in str(exc):
+                raise KnowledgeWorkspaceError(
+                    "ARTIFACT_UNAVAILABLE", str(exc), 502
+                ) from exc
+            final_content = ""
+            for item in self.repository.events_after(invocation.invocation_id):
+                event = item.get("event", {})
+                if event.get("type") == "assistant.final":
+                    data = event.get("data", {})
+                    if isinstance(data, Mapping):
+                        final_content = str(data.get("content") or "").strip()
+            if not final_content:
+                raise KnowledgeWorkspaceError(
+                    "ARTIFACT_UNAVAILABLE", str(exc), 502
+                ) from exc
+            output = final_content.encode("utf-8")
         media_type = "application/octet-stream"
         encoding = "binary"
         metadata: dict[str, object] = {
@@ -2739,6 +2872,18 @@ class KnowledgeWorkspaceService:
                 )
             elif output[:2] == b"PK":
                 name, content, metadata = validate_output_archive(output)
+            else:
+                text = output.decode("utf-8")
+                if text.strip():
+                    name = "output.txt"
+                    metadata = {
+                        "sha256": hashlib.sha256(output).hexdigest(),
+                        "size_bytes": len(output),
+                        "media_type": "text/plain",
+                        "encoding": "utf-8",
+                        "csp": "default-src 'none'",
+                        "sandbox": "",
+                    }
         except HtmlArtifactError as exc:
             # A real non-HTML result is still an artifact; only HTML receives
             # the HTML viewer policy. Never synthesize a dashboard fallback.
@@ -3370,6 +3515,11 @@ class KnowledgeWorkspaceService:
                 },
                 "connection_refs": list(invocation.connection_ids),
                 "resource_refs": list(invocation.resource_ids),
+                "resource_refs": list(invocation.resource_ids),
+                "knowledge_source_refs": [
+                    ref.model_dump(mode="json", exclude_none=True)
+                    for ref in invocation.knowledge_source_refs
+                ],
                 "allowed_action_ids": list(
                     (invocation.invocation_policy or {}).get("allowed_action_ids", [])
                 ),
@@ -3482,7 +3632,8 @@ class KnowledgeWorkspaceService:
         )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
-        if not connection_ids and not resource_ids:
+        has_knowledge_context = bool(revision.manifest.get("knowledge_source_refs"))
+        if not connection_ids and not resource_ids and not has_knowledge_context:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "connection permission is required", 409
             )
@@ -3754,10 +3905,6 @@ class KnowledgeWorkspaceService:
         )
         if publication is None or publication.status != "published":
             raise KnowledgeWorkspaceError("NOT_FOUND", "publication not found", 404)
-        if not connection_ids and not resource_ids:
-            raise KnowledgeWorkspaceError(
-                "CONNECTION_NOT_READY", "consumer authorization is required", 403
-            )
         revision = self.repository.get_revision(
             publication.revision_id,
             tenant_id=actor.tenant_id,
@@ -3766,6 +3913,11 @@ class KnowledgeWorkspaceService:
         if revision is None:
             raise KnowledgeWorkspaceError(
                 "NOT_FOUND", "published revision not found", 404
+            )
+        has_knowledge_context = bool(revision.manifest.get("knowledge_source_refs"))
+        if not connection_ids and not resource_ids and not has_knowledge_context:
+            raise KnowledgeWorkspaceError(
+                "CONNECTION_NOT_READY", "consumer authorization is required", 403
             )
         requested_connection_ids = tuple(str(item) for item in connection_ids)
         requested_resource_ids = tuple(str(item) for item in resource_ids)

@@ -67,7 +67,8 @@ test("route states and server errors remain actionable without client outcomes",
     assert.match(page, new RegExp(code));
   }
   assert.match(page, /terminalInvocationRef/);
-  assert.match(page, /CreationRail/);
+  assert.match(page, /SkillCreateLanding/);
+  assert.match(page, /DataToolDrawer/);
   assert.match(page, /selectedConfigSchema\.required/);
   assert.match(connectionSchema, /schema\?\.oneOf/);
   assert.doesNotMatch(page, /route\.runState|route\.state/);

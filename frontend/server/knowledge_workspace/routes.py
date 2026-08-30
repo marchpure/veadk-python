@@ -48,6 +48,7 @@ from .models import (
     utc_now,
 )
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
+from .migration import merge_knowledge_source_refs
 
 
 class CreateDraftBody(BaseModel):
@@ -57,8 +58,13 @@ class CreateDraftBody(BaseModel):
     template_config: dict[str, Any] = Field(default_factory=dict)
     connection_ids: list[str] = Field(default_factory=list, max_length=64)
     resource_ids: list[str] = Field(default_factory=list, max_length=64)
+    openviking_profile_ids: list[str] = Field(default_factory=list, max_length=16)
+    openviking_resource_refs: list[str] = Field(default_factory=list, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
+    knowledge_source_refs: list[dict[str, str]] = Field(
+        default_factory=list, max_length=64
+    )
 
 
 class UpdateDraftBody(BaseModel):
@@ -68,8 +74,13 @@ class UpdateDraftBody(BaseModel):
     template_config: dict[str, Any] | None = None
     connection_ids: list[str] | None = Field(default=None, max_length=64)
     resource_ids: list[str] | None = Field(default=None, max_length=64)
+    openviking_profile_ids: list[str] | None = Field(default=None, max_length=16)
+    openviking_resource_refs: list[str] | None = Field(default=None, max_length=64)
     trial_task: str | None = Field(default=None, max_length=20_000)
     upload_ids: list[str] | None = Field(default=None, max_length=64)
+    knowledge_source_refs: list[dict[str, str]] | None = Field(
+        default=None, max_length=64
+    )
 
 
 class GenerateBody(BaseModel):
@@ -348,7 +359,9 @@ def mount_knowledge_workspace_routes(
             lambda: require_connections().catalog(**connection_actor(request))
         )
         adapters = await connection_call(
-            lambda: require_connections().adapter_capabilities(**connection_actor(request))
+            lambda: require_connections().adapter_capabilities(
+                **connection_actor(request)
+            )
         )
         return envelope([*providers, *adapters], request)
 
@@ -381,11 +394,14 @@ def mount_knowledge_workspace_routes(
             workspace_id=actor(request).workspace_id,
         )
         if item is None:
-            raise HTTPException(status_code=404, detail={
-                "code": "NOT_FOUND",
-                "message": "resource not found",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "NOT_FOUND",
+                    "message": "resource not found",
+                    "retryable": False,
+                },
+            )
         return envelope(service.public_resource(item), request)
 
     @app.post(f"{prefix}/adapters/rest/validate")
@@ -400,7 +416,9 @@ def mount_knowledge_workspace_routes(
         return envelope(result, request)
 
     @app.post(f"{prefix}/resources/rest")
-    async def save_rest_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    async def save_rest_resource(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
         result = await connection_call(
             lambda: require_connections().validate_rest(
                 body, **connection_actor(request)
@@ -410,7 +428,9 @@ def mount_knowledge_workspace_routes(
         adapter_resource = await connection_call(
             lambda: require_connections().save_adapter_resource(
                 kind="rest_openapi",
-                display_name=str(body.get("display_name") or body.get("baseUrl") or "REST / OpenAPI"),
+                display_name=str(
+                    body.get("display_name") or body.get("baseUrl") or "REST / OpenAPI"
+                ),
                 visibility=str(body.get("scope") or "personal"),
                 source_id=hashlib.sha256(
                     json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8")
@@ -425,7 +445,9 @@ def mount_knowledge_workspace_routes(
             workspace_id=actor_value.workspace_id,
             resource_id=new_id("resource"),
             kind=WorkspaceResourceKind.REST_OPENAPI,
-            display_name=str(body.get("display_name") or body.get("baseUrl") or "REST / OpenAPI"),
+            display_name=str(
+                body.get("display_name") or body.get("baseUrl") or "REST / OpenAPI"
+            ),
             scope=str(body.get("scope") or "personal"),
             status="beta",
             source_id=hashlib.sha256(
@@ -462,7 +484,9 @@ def mount_knowledge_workspace_routes(
         return envelope(result, request)
 
     @app.post(f"{prefix}/resources/oracle")
-    async def save_oracle_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    async def save_oracle_resource(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
         validation = await connection_call(
             lambda: require_connections().validate_oracle(
                 body, **connection_actor(request)
@@ -540,11 +564,14 @@ def mount_knowledge_workspace_routes(
     ) -> dict[str, Any]:
         definition = body.get("definition")
         if not isinstance(definition, dict):
-            raise HTTPException(status_code=422, detail={
-                "code": "INVALID_ARGUMENT",
-                "message": "definition is required",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_ARGUMENT",
+                    "message": "definition is required",
+                    "retryable": False,
+                },
+            )
         result = await connection_call(
             lambda: require_connections().discover_mcp(
                 definition, **connection_actor(request)
@@ -558,11 +585,14 @@ def mount_knowledge_workspace_routes(
     ) -> dict[str, Any]:
         definition = body.get("definition")
         if not isinstance(definition, dict):
-            raise HTTPException(status_code=422, detail={
-                "code": "INVALID_ARGUMENT",
-                "message": "definition is required",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_ARGUMENT",
+                    "message": "definition is required",
+                    "retryable": False,
+                },
+            )
         result = await connection_call(
             lambda: require_connections().register_mcp(
                 definition, **connection_actor(request)
@@ -577,15 +607,22 @@ def mount_knowledge_workspace_routes(
         definition_id = str(body.get("definition_id") or "").strip()
         name = str(body.get("name") or "").strip()
         arguments = body.get("arguments")
-        if not definition_id or not name or (
-            arguments is not None
-            and (not isinstance(arguments, dict) or isinstance(arguments, list))
+        if (
+            not definition_id
+            or not name
+            or (
+                arguments is not None
+                and (not isinstance(arguments, dict) or isinstance(arguments, list))
+            )
         ):
-            raise HTTPException(status_code=422, detail={
-                "code": "INVALID_ARGUMENT",
-                "message": "definition_id, name, and object arguments are required",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_ARGUMENT",
+                    "message": "definition_id, name, and object arguments are required",
+                    "retryable": False,
+                },
+            )
         result = await connection_call(
             lambda: require_connections().call_mcp(
                 definition_id,
@@ -597,14 +634,19 @@ def mount_knowledge_workspace_routes(
         return envelope(result, request)
 
     @app.post(f"{prefix}/resources/mcp")
-    async def save_mcp_resource(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    async def save_mcp_resource(
+        request: Request, body: dict[str, Any]
+    ) -> dict[str, Any]:
         definition = body.get("definition")
         if not isinstance(definition, dict):
-            raise HTTPException(status_code=422, detail={
-                "code": "INVALID_ARGUMENT",
-                "message": "definition is required",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_ARGUMENT",
+                    "message": "definition is required",
+                    "retryable": False,
+                },
+            )
         discovered = await connection_call(
             lambda: require_connections().discover_mcp(
                 definition, **connection_actor(request)
@@ -616,13 +658,18 @@ def mount_knowledge_workspace_routes(
             )
         )
         actor_value = actor(request)
-        definition_id = str(registered.get("id") or registered.get("definitionId") or "")
+        definition_id = str(
+            registered.get("id") or registered.get("definitionId") or ""
+        )
         if not definition_id:
-            raise HTTPException(status_code=502, detail={
-                "code": "CONNECTION_SERVICE_INVALID_RESPONSE",
-                "message": "MCP registration did not return a definition id",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "code": "CONNECTION_SERVICE_INVALID_RESPONSE",
+                    "message": "MCP registration did not return a definition id",
+                    "retryable": False,
+                },
+            )
         adapter_resource = await connection_call(
             lambda: require_connections().save_adapter_resource(
                 kind="mcp",
@@ -669,20 +716,21 @@ def mount_knowledge_workspace_routes(
         return envelope(result, request)
 
     @app.get(f"{prefix}/adapter-files/{{file_id}}/preview")
-    async def adapter_file_preview(
-        request: Request, file_id: str
-    ) -> dict[str, Any]:
+    async def adapter_file_preview(request: Request, file_id: str) -> dict[str, Any]:
         upload = service.repository.get_upload(
             file_id,
             tenant_id=actor(request).tenant_id,
             workspace_id=actor(request).workspace_id,
         )
         if upload is None or not upload.connection_file_id:
-            raise HTTPException(status_code=404, detail={
-                "code": "NOT_FOUND",
-                "message": "file preview is not available",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "NOT_FOUND",
+                    "message": "file preview is not available",
+                    "retryable": False,
+                },
+            )
         result = await connection_call(
             lambda: require_connections().preview_file(
                 upload.connection_file_id, **connection_actor(request)
@@ -742,11 +790,14 @@ def mount_knowledge_workspace_routes(
         client_id = str(body.get("client_id") or "").strip()
         client_secret = str(body.get("client_secret") or "")
         if not service_name or not client_id or not client_secret:
-            raise HTTPException(status_code=422, detail={
-                "code": "INVALID_ARGUMENT",
-                "message": "OAuth service, client ID, and client secret are required",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_ARGUMENT",
+                    "message": "OAuth service, client ID, and client secret are required",
+                    "retryable": False,
+                },
+            )
         await connection_call(
             lambda: require_connections().configure_oauth(
                 service=service_name,
@@ -767,11 +818,14 @@ def mount_knowledge_workspace_routes(
     @app.get(f"{prefix}/oauth/status")
     async def oauth_status(request: Request, state: str) -> dict[str, Any]:
         if not state.strip():
-            raise HTTPException(status_code=422, detail={
-                "code": "INVALID_ARGUMENT",
-                "message": "OAuth authorization state is required",
-                "retryable": False,
-            })
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_ARGUMENT",
+                    "message": "OAuth authorization state is required",
+                    "retryable": False,
+                },
+            )
         result = await connection_call(
             lambda: require_connections().oauth_status(
                 state=state,
@@ -1092,12 +1146,18 @@ def mount_knowledge_workspace_routes(
             ..., alias="Idempotency-Key", min_length=16, max_length=256
         ),
     ) -> dict[str, Any]:
+        merged_refs = merge_knowledge_source_refs(
+            body.knowledge_source_refs,
+            body.openviking_profile_ids,
+            body.openviking_resource_refs,
+        )
         result = invoke(
             lambda: service.create_draft(
                 actor(request),
                 body.goal,
                 body.connection_ids,
                 resource_ids=body.resource_ids,
+                knowledge_source_refs=merged_refs or (),
                 trial_task=body.trial_task,
                 template_key=body.template_key,
                 template_config=body.template_config,
@@ -1136,6 +1196,11 @@ def mount_knowledge_workspace_routes(
             ..., alias="Idempotency-Key", min_length=16, max_length=256
         ),
     ) -> dict[str, Any]:
+        merged_refs = merge_knowledge_source_refs(
+            body.knowledge_source_refs,
+            body.openviking_profile_ids,
+            body.openviking_resource_refs,
+        )
         result = invoke(
             lambda: service.update_draft(
                 actor(request),
@@ -1143,6 +1208,7 @@ def mount_knowledge_workspace_routes(
                 goal=body.goal,
                 connection_ids=body.connection_ids,
                 resource_ids=body.resource_ids,
+                knowledge_source_refs=merged_refs,
                 if_match=if_match,
                 trial_task=body.trial_task,
                 template_key=body.template_key,

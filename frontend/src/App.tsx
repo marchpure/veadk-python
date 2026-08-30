@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -245,6 +247,16 @@ import {
   IssueFeedbackIcon,
 } from "./ui/icons/FeedbackIcons";
 import { KnowledgeWorkspacePage } from "./features/knowledge-workspace/pages/KnowledgeWorkspacePage";
+import { loadOpenVikingWorkspace } from "./extensions/optionalOpenViking";
+const OpenVikingWorkspace = lazy(loadOpenVikingWorkspace);
+
+type RootWorkspace = "agent-studio" | "knowledge-workspace" | "openviking";
+
+function rootWorkspaceFromLocation(): RootWorkspace {
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("view") === "knowledge-workspace") return "knowledge-workspace";
+  return query.get("view") === "openviking" ? "openviking" : "agent-studio";
+}
 
 interface IssueFeedbackTarget {
   turn: Turn;
@@ -993,14 +1005,36 @@ function sessionUsageKey(app: string, session: string): string {
 }
 
 export default function App() {
-  const query = new URLSearchParams(window.location.search);
-  if (query.get("view") === "knowledge-workspace") {
+  const [rootWorkspace, setRootWorkspace] = useState(rootWorkspaceFromLocation);
+
+  useEffect(() => {
+    const syncRootWorkspace = () => setRootWorkspace(rootWorkspaceFromLocation());
+    window.addEventListener("popstate", syncRootWorkspace);
+    return () => window.removeEventListener("popstate", syncRootWorkspace);
+  }, []);
+
+  if (rootWorkspace === "knowledge-workspace") {
     return <KnowledgeWorkspacePage />;
   }
-  return <StudioApp />;
+  return <StudioApp initialWorkspace={rootWorkspace} />;
 }
 
-function StudioApp() {
+function StudioApp({
+  initialWorkspace,
+}: {
+  initialWorkspace: "agent-studio" | "openviking";
+}) {
+  if (initialWorkspace === "openviking") {
+    return (
+      <Suspense fallback={<div role="status">Loading OpenViking…</div>}>
+        <OpenVikingWorkspace />
+      </Suspense>
+    );
+  }
+  return <AgentStudioApp />;
+}
+
+function AgentStudioApp() {
   const [apps, setApps] = useState<string[]>([]);
   const [appName, setAppName] = useState("");
   const [sessions, setSessions] = useState<AdkSession[]>([]);

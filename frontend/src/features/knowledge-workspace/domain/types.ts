@@ -83,11 +83,21 @@ export interface Draft {
   template_config?: JsonObject;
   connection_ids: string[];
   resource_ids: string[];
+  knowledge_source_refs: KnowledgeSourceRef[];
   lifecycle: DraftLifecycle;
   current_revision_id?: string;
   active_invocation_id?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface KnowledgeSourceRef {
+  provider: string;
+  profile_ref?: string;
+  resource_ref?: string;
+  version?: string;
+  etag?: string;
+  metadata?: Record<string, string>;
 }
 
 export interface Invocation {
@@ -101,6 +111,7 @@ export interface Invocation {
   started_at?: string;
   finished_at?: string;
   created_at: string;
+  knowledge_source_refs?: KnowledgeSourceRef[];
 }
 
 export interface AuthoringSession {
