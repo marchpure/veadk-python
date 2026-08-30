@@ -314,28 +314,43 @@ async def main() -> int:
         workspace_id,
         principal_id,
     )
-    credentials = postgres_readonly_credentials()
-    connection = await gateway.create_connection(
-        {
-            "connector_key": "postgresql",
-            "display_name": "w4-live-final-" + uuid.uuid4().hex[:12],
-            "scope": "personal",
-            "config": {
-                "host": credentials["host"],
-                "port": credentials["port"],
-                "database": credentials["database"],
-                "tls": credentials["tls"],
+    existing_connection_id = os.getenv("W4_CONNECTION_ID", "").strip()
+    if existing_connection_id:
+        connection = await gateway.get_connection(
+            existing_connection_id,
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            principal_id=principal_id,
+        )
+        if connection.get("connector_key") != "postgresql":
+            raise RuntimeError("W4_CONNECTION_ID is not a PostgreSQL connection")
+        if connection.get("status") not in {"ready", "verified", "active"}:
+            raise RuntimeError(
+                f"W4_CONNECTION_ID is not ready: {connection.get('status')}"
+            )
+    else:
+        credentials = postgres_readonly_credentials()
+        connection = await gateway.create_connection(
+            {
+                "connector_key": "postgresql",
+                "display_name": "w4-live-final-" + uuid.uuid4().hex[:12],
+                "scope": "personal",
+                "config": {
+                    "host": credentials["host"],
+                    "port": credentials["port"],
+                    "database": credentials["database"],
+                    "tls": credentials["tls"],
+                },
+                "credential": {
+                    "_auth_type": "custom_credential",
+                    "username": credentials["username"],
+                    "password": credentials["password"],
+                },
             },
-            "credential": {
-                "_auth_type": "custom_credential",
-                "username": credentials["username"],
-                "password": credentials["password"],
-            },
-        },
-        tenant_id=tenant_id,
-        workspace_id=workspace_id,
-        principal_id=principal_id,
-    )
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            principal_id=principal_id,
+        )
     CONNECTION_ID = str(connection["connection_id"])
     health = await autoskill.health()
     async with httpx.AsyncClient(timeout=30) as openviking:

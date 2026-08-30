@@ -360,6 +360,20 @@ def test_skill_zip_accepts_output_presentation_directory() -> None:
     assert "skillhub/demo/output/semantic_browser.html" in checked["paths"]
 
 
+def test_skill_zip_accepts_standard_presentation_directory() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr(
+            "skillhub/demo/presentation/schema_browser.html",
+            "<!doctype html><html><body>live presentation</body></html>",
+        )
+
+    checked = validate_skill_zip(normalize_skill_zip(source.getvalue()))
+
+    assert "skillhub/demo/presentation/schema_browser.html" in checked["paths"]
+
+
 def test_state_zip_extracts_only_requested_skill_subtree() -> None:
     source = io.BytesIO()
     with zipfile.ZipFile(source, "w") as archive:
