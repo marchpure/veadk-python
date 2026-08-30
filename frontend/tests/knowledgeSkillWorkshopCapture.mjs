@@ -124,7 +124,11 @@ async function main() {
   let createCalls = 0;
   let generateCalls = 0;
   let publishCalls = 0;
+  let agentDirectoryCalls = 0;
   let created = false;
+  let retryScenario = false;
+  let retryGenerateFailed = false;
+  let retryPatchBody = null;
   const layoutMetrics = {};
 
   page.on("console", (message) => {
@@ -139,6 +143,25 @@ async function main() {
     const url = new URL(request.url());
     if (url.pathname === "/oauth2/userinfo") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sub: "workshop-user", email: "workshop@example.com" }) });
     if (url.pathname === "/web/auth-config") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ providers: [] }) });
+    if (url.pathname === "/web/runtimes") {
+      agentDirectoryCalls += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          runtimes: [{
+            name: "门店运营 Agent",
+            runtimeId: "runtime-workshop",
+            status: "RUNNING",
+            region: "cn-beijing",
+            author: "workshop-user",
+            isMine: true,
+            canDelete: false,
+          }],
+          nextToken: "",
+        }),
+      });
+    }
     if (!url.pathname.startsWith("/api/knowledge/v1")) return route.continue();
     const ok = (data, headers = {}) => route.fulfill({ status: 200, headers, contentType: "application/json", body: envelope(data) });
     if (url.pathname.endsWith("/content")) {
@@ -167,12 +190,29 @@ async function main() {
     if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "POST") {
       createCalls += 1;
       const body = JSON.parse(request.postData() || "{}");
-      assert.equal(body.goal, draft.goal);
+      assert.equal(body.goal, retryScenario ? "分析华东区域首次异常" : draft.goal);
       assert.deepEqual(body.connection_ids, [connection.connection_id]);
       assert.equal(body.template_key, "generic");
       assert.deepEqual(body.template_config, { mode: "auto" });
       created = true;
-      return route.fulfill({ status: 201, headers: { ETag: "draft-v1" }, contentType: "application/json", body: envelope(draft) });
+      return route.fulfill({
+        status: 201,
+        headers: { ETag: "draft-v1" },
+        contentType: "application/json",
+        body: envelope({ ...draft, goal: body.goal }),
+      });
+    }
+    if (
+      url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`
+      && request.method() === "PATCH"
+    ) {
+      retryPatchBody = JSON.parse(request.postData() || "{}");
+      return route.fulfill({
+        status: 200,
+        headers: { ETag: "draft-v2" },
+        contentType: "application/json",
+        body: envelope({ ...draft, ...retryPatchBody }),
+      });
     }
     if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`) {
       return ok({ ...draft, lifecycle: publishCalls ? "published" : draft.lifecycle }, { ETag: "draft-v1" });
@@ -181,6 +221,21 @@ async function main() {
     if (url.pathname.endsWith("/conversation")) return ok(conversation);
     if (url.pathname.endsWith("/generate")) {
       generateCalls += 1;
+      if (retryScenario && !retryGenerateFailed) {
+        retryGenerateFailed = true;
+        return route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: {
+              code: "AUTOSKILL_UNAVAILABLE",
+              message: "fixture generation interruption",
+              retryable: true,
+            },
+            meta: { request_id: "req-workshop" },
+          }),
+        });
+      }
       return route.fulfill({ status: 202, contentType: "application/json", body: envelope(invocation) });
     }
     if (url.pathname.endsWith("/events")) {
@@ -209,13 +264,49 @@ async function main() {
     }));
     await page.screenshot({ path: path.join(evidenceDir, name), fullPage: false });
   };
+
+  retryScenario = true;
+  await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  await page.getByLabel("描述业务任务").fill("分析华东区域首次异常");
+  await page.getByRole("button", { name: "添加数据与工具" }).click();
+  let dataDrawer = page.getByRole("dialog", { name: "添加数据与工具" });
+  await dataDrawer.getByRole("button", { name: /华东门店业务库/ }).click();
+  await page.getByRole("button", { name: "确认选择" }).click();
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.getByRole("alert").filter({ hasText: "Skill 服务暂不可用，请稍后重试。" }).first().waitFor();
+  await page.getByLabel("描述业务任务").fill("分析华东区域最新异常");
+  await page.getByRole("button", { name: "发送" }).click();
+  await page.waitForURL(/file=draft&draftId=draft-workshop/);
+  assert.equal(createCalls, 1);
+  assert.equal(generateCalls, 2);
+  assert.deepEqual(retryPatchBody, {
+    goal: "分析华东区域最新异常",
+    template_key: "generic",
+    template_config: { mode: "auto" },
+    connection_ids: [connection.connection_id],
+    resource_ids: [],
+    trial_task: "",
+    upload_ids: [],
+  });
+  assert.deepEqual(consoleErrors, [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+  ]);
+
+  retryScenario = false;
+  retryGenerateFailed = false;
+  retryPatchBody = null;
+  createCalls = 0;
+  generateCalls = 0;
+  created = false;
+  consoleErrors.length = 0;
   await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
   await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
   await capture("01-new-empty-1440x1000.png");
   await page.getByRole("button", { name: "分析华东区域异常" }).click();
   assert.equal(await page.getByLabel("描述业务任务").inputValue(), draft.goal);
   await page.getByRole("button", { name: "发送" }).click();
-  const dataDrawer = page.getByRole("dialog", { name: "添加数据与工具" });
+  dataDrawer = page.getByRole("dialog", { name: "添加数据与工具" });
   await dataDrawer.waitFor();
   await page.getByText("请先选择至少一个可用的 Connection 或 Resource。").waitFor();
   assert.equal(await dataDrawer.getByRole("button", { name: /正在验证的数据仓库/ }).isDisabled(), true);
@@ -244,9 +335,16 @@ async function main() {
   await capture("04-published-1440x1000.png");
   await page.reload();
   await page.getByRole("button", { name: /已发布/ }).waitFor();
+  const directoryCallsBeforeModal = agentDirectoryCalls;
   await page.getByRole("button", { name: "添加到 Agent" }).click();
-  await page.getByText("暂无可绑定的 Agent").waitFor();
+  await page.getByText("门店运营 Agent").waitFor();
+  await page.getByText("当前服务尚未提供 Skill-to-Agent 绑定 API").waitFor();
+  assert.ok(agentDirectoryCalls > directoryCallsBeforeModal);
   await capture("05-bind-agent-1440x1000.png");
+  await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
+  await page.getByRole("button", { name: "分享" }).click();
+  await page.getByText("尚无服务端快照分享 API").waitFor();
+  assert.equal(await page.getByRole("button", { name: "分享 API 未开放" }).isDisabled(), true);
   await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
 
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -268,6 +366,7 @@ async function main() {
     createCalls,
     generateCalls,
     publishCalls,
+    agentDirectoryCalls,
     consoleErrors,
     pageErrors,
     missingAssets,

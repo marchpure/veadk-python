@@ -41,6 +41,10 @@ import {
   USERNAME_RE,
   type AuthStatus,
 } from "../../../adk/identity";
+import {
+  getRuntimes,
+  type CloudRuntime,
+} from "../../../adk/client";
 import { ArtifactViewer } from "../artifact/ArtifactViewer";
 import { AssistantPanel } from "../assistant/AssistantPanel";
 import { DataToolDrawer } from "../creator/DataToolDrawer";
@@ -710,10 +714,19 @@ export function KnowledgeWorkspacePage() {
     setError("");
     try {
       const created = pendingCreatedDraftRef.current
-        ? {
-          value: { data: pendingCreatedDraftRef.current.draft },
-          etag: pendingCreatedDraftRef.current.etag,
-        }
+        ? await knowledgeApi.updateDraft(
+          pendingCreatedDraftRef.current.draft.draft_id,
+          {
+            goal,
+            template_key: templateKey,
+            template_config: templateConfig,
+            connection_ids: connectionIds,
+            resource_ids: resourceIds,
+            trial_task: trialTask.trim(),
+            upload_ids: uploadIds,
+          },
+          pendingCreatedDraftRef.current.etag,
+        )
         : await knowledgeApi.createDraft({
           goal,
           template_key: templateKey,
@@ -2246,6 +2259,34 @@ function WorkspaceStateModal({
   connections: ConnectionProfile[];
   onClose: () => void;
 }) {
+  const [agents, setAgents] = useState<CloudRuntime[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [agentsError, setAgentsError] = useState("");
+  useEffect(() => {
+    if (kind !== "agent") return;
+    const controller = new AbortController();
+    setAgentsLoading(true);
+    setAgentsError("");
+    void getRuntimes({
+      pageSize: 30,
+      region: "all",
+      scope: "all",
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (!controller.signal.aborted) setAgents(result.runtimes);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) {
+          setAgents([]);
+          setAgentsError(cause instanceof Error ? cause.message : "Agent 目录加载失败");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAgentsLoading(false);
+      });
+    return () => controller.abort();
+  }, [kind]);
   const skillName = revision?.skill_name || "当前 Skill";
   const goal = draft?.goal || "当前目标由 BFF 返回。";
   const selectedConnections = draft?.connection_ids.length
@@ -2268,23 +2309,45 @@ function WorkspaceStateModal({
         <div className="kw-agent-layout">
           <div className="kw-agent-picker">
             <div className="kw-agent-heading"><h2><GlobeIcon /> 选择绑定目标 Agent</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></div>
-            <div className="kw-agent-empty kw-agent-empty-inline">
-              <ToyBrick size={28} />
-              <strong>暂无可绑定的 Agent</strong>
-              <span>可绑定目标由 BFF 权限与 Agent 目录返回。</span>
-            </div>
+            {agentsLoading ? (
+              <div className="kw-agent-empty kw-agent-empty-inline" role="status">
+                <Loader2 className="kw-spin" size={28} />
+                <strong>正在加载 Agent 目录</strong>
+              </div>
+            ) : agentsError ? (
+              <div className="kw-agent-empty kw-agent-empty-inline" role="alert">
+                <AlertCircle size={28} />
+                <strong>Agent 目录加载失败</strong>
+                <span>{agentsError}</span>
+              </div>
+            ) : agents.length ? (
+              <div className="kw-agent-directory" role="list" aria-label="Agent 目录">
+                {agents.map((agent) => (
+                  <div role="listitem" className="kw-agent-directory-row" key={agent.runtimeId}>
+                    <ToyBrick size={20} />
+                    <span><strong>{agent.name}</strong><small>{agent.region} · {agent.status}</small></span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="kw-agent-empty kw-agent-empty-inline">
+                <ToyBrick size={28} />
+                <strong>暂无可绑定的 Agent</strong>
+                <span>当前账号的真实 Agent 目录为空。</span>
+              </div>
+            )}
             <div className="kw-agent-footer">
               <button type="button" onClick={onClose} className="kw-agent-cancel">取消</button>
-              <button type="button" className="kw-agent-bind" disabled><Play size={14} /> 绑定并调用</button>
+              <button type="button" className="kw-agent-bind" disabled><Play size={14} /> 绑定 API 未开放</button>
             </div>
           </div>
-          <div className="kw-agent-empty"><ToyBrick size={48} /><strong>等待选择 Agent</strong><span>选择 Agent 并点击确认后，将在此展示真实调用与结果渲染。</span></div>
+          <div className="kw-agent-empty"><ToyBrick size={48} /><strong>暂不能完成绑定</strong><span>当前服务尚未提供 Skill-to-Agent 绑定 API；目录仅用于展示真实可见 Agent。</span></div>
         </div>
       </section>
     </div>
   );
   if (kind === "share_run") return wrap(
-    <><header className="kw-state-modal-header"><h2><Share2 size={21} /> 分享本次结果</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body"><div className="kw-share-warning"><AlertCircle size={18} /><span>当前分享严格绑定在单次运行结果上 (RunID: <span className="kw-run-id">{shareRunId}</span>)。<br />该链接内容不会随着系统配置实时刷新，也无法对内容进行调整。</span></div><button type="button" className="kw-share-create">生成结果快照链接</button><h3>已生成的链接 (0)</h3><div className="kw-share-empty">暂无分享链接</div></div></>
+    <><header className="kw-state-modal-header"><h2><Share2 size={21} /> 分享本次结果</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body"><div className="kw-share-warning"><AlertCircle size={18} /><span>当前运行 (RunID: <span className="kw-run-id">{shareRunId}</span>) 尚无服务端快照分享 API。为避免生成无法访问或越权的假链接，分享功能暂不可用。</span></div><button type="button" className="kw-share-create" disabled>分享 API 未开放</button><div className="kw-share-empty">待 BFF 提供受权限保护的结果快照与撤销接口后启用。</div></div></>
   , "is-share");
   if (kind === "instructions") return wrap(
     <><header className="kw-state-modal-header"><h2><FileText size={21} /> 调用说明</h2><button type="button" onClick={onClose} aria-label="关闭"><X size={19} /></button></header><div className="kw-state-modal-body kw-instructions"><InfoField label="业务用途" value={goal} /><InfoField label="自然语言任务" value={draft?.trial_task || "由调用方提交的任务由 BFF 传递。"} /><InfoField label="业务输出" value="输出内容由已发布 Revision 和真实运行结果决定。" /><InfoField label="发布版本" value={revision ? `v${revision.number}` : "未返回"} mono /><InfoField label="权限范围" value="由 BFF 返回的连接与 Agent 授权范围决定。" /><InfoField label="已绑定 Agent" value="由 BFF 返回" /></div></>

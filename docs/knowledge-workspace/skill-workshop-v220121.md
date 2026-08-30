@@ -22,8 +22,12 @@ does not create, validate, discover, or simulate Connection Service records.
   therefore shows real Invocations grouped by date and does not offer a fake
   “new session”.
 - Agent directory/binding APIs are not exposed by the current Knowledge
-  Workspace client. The existing bind surface shows a real empty state rather
-  than sample Agents.
+  Workspace service. The bind surface reads the existing real Runtime directory,
+  but keeps binding disabled and explains the missing API rather than claiming
+  success.
+- The current BFF has no access-controlled result-snapshot sharing endpoint.
+  The share surface identifies the real Invocation but stays explicitly
+  disabled instead of generating a local or unauthorised link.
 - Publication refresh uses the existing BFF publication listing and matches
   published records to the Draft's real Revision IDs.
 
