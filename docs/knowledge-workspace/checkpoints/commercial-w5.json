@@ -1,7 +1,7 @@
 {
   "checkpoint": "KNOWLEDGE_COMMERCIAL_W5_FROZEN",
   "worker": "W5",
-  "base_branch": "feat/knowledge-workspace-v220121-w4-integration",
+  "base_branch": "feat/knowledge-workshop-v220121-w4-integration",
   "base_sha": "de50cccc506d128e6fad93d3a0fa79fffa8ddf69",
   "branch": "feat/knowledge-commercial-w5-demo-onboarding",
   "demo": {
@@ -26,7 +26,7 @@
   ],
   "verification": {
     "contract_tests": {
-      "python": "5 passed: tests/knowledge_workspace/test_demo_w5.py",
+      "python": "6 passed: tests/knowledge_workspace/test_demo_w5.py",
       "frontend": "4 passed: frontend/tests/knowledgeCommercialW5Demo.test.mjs",
       "full_frontend": "895 passed, 1 skipped",
       "typecheck": "passed",
