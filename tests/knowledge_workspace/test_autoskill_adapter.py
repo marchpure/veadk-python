@@ -547,6 +547,35 @@ def test_html_policy_allows_isolated_inline_interactions() -> None:
     assert "connect-src 'none'" in metadata["csp"]
 
 
+def test_html_policy_allows_capability_words_in_visible_copy() -> None:
+    safe = b"""<!doctype html><html><body>
+    <p>Please wait while we fetch your dashboard information.</p>
+    <p>The browser may show a loading state while data is refreshed.</p>
+    </body></html>"""
+
+    metadata = validate_html_artifact(safe)
+
+    assert metadata["media_type"] == "text/html"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "<script>fetch('/secret')</script>",
+        "<script>new XMLHttpRequest()</script>",
+        "<script>document.cookie</script>",
+        "<script>localStorage.getItem('x')</script>",
+        "<script>navigator.sendBeacon('/audit')</script>",
+    ],
+)
+def test_html_policy_rejects_capability_calls(source: str) -> None:
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_html_artifact(
+            ("<!doctype html><html><body>" + source + "</body></html>").encode()
+        )
+    assert error.value.code == "ARTIFACT_UNSAFE"
+
+
 def test_output_zip_returns_real_html_without_constructing_content() -> None:
     buffer = io.BytesIO()
     html = b"<!doctype html><html><body>real</body></html>"
