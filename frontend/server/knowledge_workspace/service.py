@@ -460,8 +460,6 @@ class KnowledgeWorkspaceService:
                 ref.model_dump(mode="json", exclude_none=True)
                 for ref in draft.knowledge_source_refs
             ],
-            "openviking_profile_ids": draft.openviking_profile_ids,
-            "openviking_resource_refs": draft.openviking_resource_refs,
             "upload_ids": draft.upload_ids,
             "lifecycle": draft.status,
             "current_revision_id": draft.current_revision_id,

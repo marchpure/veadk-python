@@ -241,8 +241,10 @@ async def test_create_draft_accepts_unified_knowledge_source_refs() -> None:
             },
         )
     assert response.status_code == 201
-    assert response.json()["data"]["openviking_profile_ids"] == ["profile-a"]
-    assert response.json()["data"]["openviking_resource_refs"] == ["resource-a"]
+    assert response.json()["data"]["knowledge_source_refs"] == [
+        {"provider": "openviking", "profile_ref": "profile-a"},
+        {"provider": "openviking", "resource_ref": "resource-a"},
+    ]
 
 
 @pytest.mark.asyncio
