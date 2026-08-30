@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import threading
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,7 @@ SCENARIOS: tuple[dict[str, Any], ...] = (
         "html": "<h1>海底捞门店巡检</h1><p>平均评分 4.25 · 异常项 2 · 整改中 2</p><h2>整改 SOP</h2><ol><li>负责人确认异常</li><li>在期限前完成整改</li><li>复检并关闭事项</li></ol>",
     },
 )
+_SEED_LOCK = threading.RLock()
 
 
 def _id(prefix: str, value: str) -> str:
@@ -111,6 +113,13 @@ def _event(repository: Any, invocation_id: str, event_type: str, data: dict[str,
 
 def ensure_demo_seed(actor: Actor, service: KnowledgeWorkspaceService) -> dict[str, Any]:
     """Create all three scenarios once for this tenant/workspace/principal."""
+    with _SEED_LOCK:
+        return _ensure_demo_seed_locked(actor, service)
+
+
+def _ensure_demo_seed_locked(
+    actor: Actor, service: KnowledgeWorkspaceService
+) -> dict[str, Any]:
     existing = {
         draft.display_name: draft
         for draft in service.repository.list_drafts(
