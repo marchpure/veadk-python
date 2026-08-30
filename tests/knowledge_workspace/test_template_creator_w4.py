@@ -266,6 +266,8 @@ async def test_w4_update_prompt_binds_current_revision_skill() -> None:
                 "refresh",
                 "no-permission",
                 "same revision rerun",
+                "event listeners",
+                "onclick",
             ],
         ),
         (

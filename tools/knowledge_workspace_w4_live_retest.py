@@ -54,7 +54,16 @@ from frontend.server.knowledge_workspace.zip_validator import (
 )
 
 ROOT = Path(os.getenv("W4_EVIDENCE_ROOT", "/tmp/kp-rerun-20260829/w4-live-final"))
-TEMPLATES = ("semantic", "dashboard", "sop")
+_requested_templates = tuple(
+    item.strip().casefold()
+    for item in os.getenv("W4_TEMPLATES", "semantic,dashboard,sop").split(",")
+    if item.strip()
+)
+if not _requested_templates or any(
+    item not in {"semantic", "dashboard", "sop"} for item in _requested_templates
+):
+    raise RuntimeError("W4_TEMPLATES must contain only semantic, dashboard, or sop")
+TEMPLATES = _requested_templates
 
 
 def redact(value: str) -> str:
