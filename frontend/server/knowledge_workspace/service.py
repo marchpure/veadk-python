@@ -302,7 +302,11 @@ class KnowledgeWorkspaceService:
         message: str,
         invocation_policy: Mapping[str, object] | None = None,
     ) -> str:
-        action = "create_skill" if invocation.kind is InvocationKind.GENERATE else "update_skill"
+        action = (
+            "create_skill"
+            if invocation.kind is InvocationKind.GENERATE
+            else "update_skill"
+        )
         current_target = ""
         if invocation.kind is InvocationKind.UPDATE and draft.current_revision_id:
             current_revision = self.repository.get_revision(
@@ -632,11 +636,9 @@ class KnowledgeWorkspaceService:
 
     @staticmethod
     def _summary_status_succeeded(summary: Mapping[str, object] | None) -> bool:
-        return (
-            isinstance(summary, Mapping)
-            and str(summary.get("status", "")).casefold()
-            in {"success", "succeeded", "ok", "completed"}
-        )
+        return isinstance(summary, Mapping) and str(
+            summary.get("status", "")
+        ).casefold() in {"success", "succeeded", "ok", "completed"}
 
     @staticmethod
     def _skill_manifest_path(skill_name: str) -> str:
@@ -1078,9 +1080,7 @@ class KnowledgeWorkspaceService:
         if template_key is not None:
             updates["template_key"] = self._template_key(template_key)
         if template_config is not None:
-            updates["template_config"] = self._sanitize_template_config(
-                template_config
-            )
+            updates["template_config"] = self._sanitize_template_config(template_config)
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
         if upload_ids is not None:
@@ -1307,9 +1307,7 @@ class KnowledgeWorkspaceService:
             )
             extracted = self._state_subtree(state, prefix=prefix)
             if extracted is None and file_type == "output" and name:
-                extracted = self._state_subtree(
-                    state, prefix=f"skillhub/{name}/"
-                )
+                extracted = self._state_subtree(state, prefix=f"skillhub/{name}/")
             if extracted is None:
                 raise
             return extracted
@@ -1609,12 +1607,13 @@ class KnowledgeWorkspaceService:
                             state_digest, prepared_state, suffix=".state.zip"
                         )
                         if (
-                            invocation.autoskill_agent_id
-                            == session.autoskill_agent_id
+                            invocation.autoskill_agent_id == session.autoskill_agent_id
                             and invocation.autoskill_session_id
                             == session.autoskill_session_id
                         ):
-                            session = session.model_copy(update={"state_uri": state_uri})
+                            session = session.model_copy(
+                                update={"state_uri": state_uri}
+                            )
                             self.repository.save_session(session)
             if invocation.invocation_id in self._cancelled:
                 cancelled = current.model_copy(

@@ -82,7 +82,9 @@ def w4_skill_zip(name: str = "demo", marker: str = "") -> bytes:
 async def test_w4_template_metadata_flows_to_prompt_revision_and_artifact() -> None:
     autoskill = RecordingFreezeAutoSkill(
         [
-            event("planning", {"text": "discover schema and create the semantic skill"}),
+            event(
+                "planning", {"text": "discover schema and create the semantic skill"}
+            ),
             event(
                 "action",
                 {
@@ -224,7 +226,9 @@ async def test_w4_template_freeze_requires_scripts_and_tests() -> None:
     invocation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
     await asyncio.sleep(0)
 
-    with pytest.raises(KnowledgeWorkspaceError, match="template Skill ZIP must include"):
+    with pytest.raises(
+        KnowledgeWorkspaceError, match="template Skill ZIP must include"
+    ):
         await service.freeze(actor, draft.draft_id, invocation.invocation_id)
 
 
@@ -259,7 +263,7 @@ async def test_w4_update_prompt_binds_current_revision_skill() -> None:
     await asyncio.sleep(0)
     first = await service.freeze(actor, draft.draft_id, generation.invocation_id)
 
-    update = service.start(
+    service.start(
         actor,
         draft.draft_id,
         InvocationKind.UPDATE,
