@@ -247,11 +247,8 @@ import {
   IssueFeedbackIcon,
 } from "./ui/icons/FeedbackIcons";
 import { KnowledgeWorkspacePage } from "./features/knowledge-workspace/pages/KnowledgeWorkspacePage";
-const OpenVikingWorkspace = lazy(() =>
-  import("./extensions/openviking/OpenVikingWorkspace").then((module) => ({
-    default: module.OpenVikingWorkspace,
-  })),
-);
+import { loadOpenVikingWorkspace } from "./extensions/optionalOpenViking";
+const OpenVikingWorkspace = lazy(loadOpenVikingWorkspace);
 
 interface IssueFeedbackTarget {
   turn: Turn;

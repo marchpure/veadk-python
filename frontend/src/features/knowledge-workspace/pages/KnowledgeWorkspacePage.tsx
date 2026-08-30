@@ -59,7 +59,7 @@ import {
   type UploadResult,
 } from "../api/client";
 import { OAuthFlowPollError, waitForOAuthConnection } from "../api/oauthFlow";
-import { openVikingApi, type OpenVikingProfile } from "../../../extensions/openviking/public";
+import { loadOpenVikingApi, type OpenVikingProfile } from "../../../extensions/optionalOpenViking";
 import { Modal } from "../components/Modal";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
@@ -425,7 +425,7 @@ export function KnowledgeWorkspacePage() {
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     const controller = new AbortController();
-    void openVikingApi.listProfiles(controller.signal)
+    void loadOpenVikingApi().then((api) => api ? api.listProfiles(controller.signal) : [])
       .then((profiles) => setOpenVikingProfiles(profiles.filter((item) => item.status === "ready")))
       .catch(() => setOpenVikingProfiles([]));
     return () => controller.abort();
