@@ -98,9 +98,9 @@ export function SkillWorkspaceShell({
         <ArtifactWorkspace
           artifacts={artifacts}
           revisions={revisions}
+          turns={turns}
           published={published}
           onClose={mobileDrawer ? () => setMobileDrawer(null) : undefined}
-          onRun={() => void onRun(turns.at(-1)?.userMessage || draft.goal)}
           onShare={onShare}
           onPublish={onPublish}
           onBindAgent={onBindAgent}

@@ -1,0 +1,31 @@
+{
+  "status": "BLOCKED_BY_REAL_UPSTREAM_OUTPUT",
+  "checked_at": "2026-08-30T18:50:00+08:00",
+  "command": "KNOWLEDGE_AUTOSKILL_BASE_URL=https://test-bytebrain.byted.org python tools/autoskill_real_smoke.py",
+  "authorization": "anonymous",
+  "base_url": "https://test-bytebrain.byted.org",
+  "observed": {
+    "create_stream_completed": true,
+    "create_event_count": 120,
+    "create_event_types": [
+      "planning",
+      "action",
+      "observation",
+      "final_answer",
+      "state_update",
+      "request_summary",
+      "done"
+    ],
+    "summary_status": "succeeded"
+  },
+  "blocker": {
+    "reason": "SkillZipError",
+    "message": "Skill ZIP contains unsupported entry: skillhub/<generated-skill>/.pytest_cache/.gitignore",
+    "classification": "real upstream generated ZIP violates existing ZIP safety gate"
+  },
+  "policy": {
+    "mock_fallback_used": false,
+    "zip_gate_relaxed": false,
+    "html_snapshot_fabricated": false
+  }
+}

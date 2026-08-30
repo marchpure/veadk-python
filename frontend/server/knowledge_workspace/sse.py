@@ -303,9 +303,16 @@ def normalize_upstream_event(
     if event.malformed or (turn_match is None and kind not in {
         "planning",
         "action",
+        "tool_call",
         "observation",
+        "tool_output",
+        "progress",
+        "artifact_preview",
+        "html_edit_complete",
+        "artifact_final",
         "final_answer",
         "request_summary",
+        "state",
         "state_update",
         "error",
         "done",
@@ -343,9 +350,10 @@ def normalize_upstream_event(
                 "steps": steps,
             },
         }
-    if kind == "action":
+    if kind in {"action", "tool_call"}:
         call_id = (
             _identifier(data.get("call_id"))
+            or _identifier(data.get("tool_call_id"))
             or _identifier(event.payload.get("id"))
             or str(base["id"])
         )
@@ -358,7 +366,20 @@ def normalize_upstream_event(
             or data.get("name")
             or "autoskill.action"
         )
-        if action in {
+        if kind == "tool_call":
+            return {
+                **base,
+                "type": "tool_call",
+                "data": {
+                    "call_id": call_id,
+                    "name": tool,
+                    "status": "running",
+                    "input_summary": _safe_summary(data.get("input_summary"))
+                    or _safe_structured_summary(data.get("arguments"))
+                    or _safe_structured_summary(data.get("input")),
+                },
+            }
+        if kind == "action" and action in {
             "completed",
             "complete",
             "end",
@@ -401,13 +422,39 @@ def normalize_upstream_event(
                 or _safe_structured_summary(data.get("input")),
             },
         }
-    if kind == "observation":
+    if kind in {"observation", "tool_output"}:
         call_id = (
             _identifier(data.get("call_id"))
+            or _identifier(data.get("tool_call_id"))
             or parent_id
             or _identifier(event.payload.get("id"))
             or str(base["id"])
         )
+        if kind == "tool_output":
+            return {
+                **base,
+                "type": "tool_output",
+                "data": {
+                    "call_id": call_id,
+                    "name": str(
+                        data.get("tool_name")
+                        or data.get("name")
+                        or "autoskill.observation"
+                    ),
+                    "status": "succeeded" if data.get("ok", True) else "failed",
+                    **(
+                        {"duration_ms": _duration_ms(data.get("duration_ms"))}
+                        if data.get("duration_ms") is not None
+                        else {}
+                    ),
+                    "output_summary": _safe_summary(
+                        data.get("output_summary") or data.get("summary")
+                    ),
+                    "error_summary": _safe_summary(
+                        data.get("error_summary") or data.get("error")
+                    ),
+                },
+            }
         return {
             **base,
             "type": "activity.completed",
@@ -429,7 +476,9 @@ def normalize_upstream_event(
                 "output_summary": _safe_summary(
                     data.get("output_summary") or data.get("summary")
                 ),
-                "error_summary": _safe_summary(data.get("error_summary")),
+                "error_summary": _safe_summary(
+                    data.get("error_summary") or data.get("error")
+                ),
             },
         }
     if kind == "final_answer":
@@ -451,7 +500,9 @@ def normalize_upstream_event(
         )
         return {
             **base,
-            "type": "assistant.delta",
+            "type": "message.delta"
+            if event.event_type in {"message.delta", "message_delta"}
+            else "assistant.delta",
             "data": {
                 "text": str(sanitize_event_payload(text)),
                 "sequence": _non_negative_int(
@@ -460,23 +511,70 @@ def normalize_upstream_event(
                 "final": bool(data.get("final", False)),
             },
         }
+    if kind == "progress":
+        return {
+            **base,
+            "type": "progress",
+            "data": {
+                "text": _safe_summary(
+                    data.get("text") or data.get("message") or data.get("stage")
+                ),
+                "stage": _safe_summary(data.get("stage"), limit=160),
+            },
+        }
+    if kind == "html_edit_complete":
+        return {
+            **base,
+            "type": "progress",
+            "data": {
+                "text": _safe_summary(
+                    data.get("message") or data.get("summary") or "HTML preview snapshot received"
+                ),
+                "stage": "html_edit_complete",
+            },
+        }
+    if kind == "artifact_final":
+        return {
+            **base,
+            "type": "artifact.final",
+            "data": {
+                "artifact_id": _safe_summary(data.get("artifact_id"), limit=160),
+                "revision_id": _safe_summary(data.get("revision_id"), limit=160),
+                "media_type": _safe_summary(data.get("media_type"), limit=160),
+                "sha256": _safe_summary(data.get("sha256"), limit=80),
+                "title": _safe_summary(data.get("title"), limit=256),
+                "uri": _safe_summary(data.get("uri"), limit=2048),
+                "message": _safe_summary(data.get("message")),
+            },
+        }
+    if kind == "done":
+        return {
+            **base,
+            "type": "done",
+            "data": {
+                "status": "succeeded",
+                **(
+                    {"revision_id": _safe_summary(data.get("revision_id"), limit=160)}
+                    if data.get("revision_id")
+                    else {}
+                ),
+            },
+        }
     if kind == "error":
         return {
             **base,
-            "type": "run.failed",
+            "type": "error",
             "data": {
-                "status": "failed",
-                "error": {
-                    "code": str(data.get("code") or "AUTOSKILL_ERROR"),
-                    "message": str(
-                        sanitize_event_payload(
-                            data.get("message")
-                            or data.get("error")
-                            or "AutoSkill error"
-                        )
-                    )[:2000],
-                    "retryable": bool(data.get("retryable", False)),
-                },
+                "code": str(data.get("code") or "AUTOSKILL_ERROR"),
+                "message": str(
+                    sanitize_event_payload(
+                        data.get("message")
+                        or data.get("error")
+                        or "AutoSkill error"
+                    )
+                )[:2000],
+                "retryable": bool(data.get("retryable", False)),
+                "category": _safe_summary(data.get("category"), limit=64) or "model",
             },
         }
     if kind == "request_summary":

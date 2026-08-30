@@ -48,6 +48,7 @@ class KnowledgeWorkspaceRepository:
             CREATE TABLE IF NOT EXISTS kw_events (invocation_id TEXT NOT NULL, sequence INTEGER NOT NULL, raw_payload TEXT NOT NULL, normalized_payload TEXT, upstream_id TEXT, PRIMARY KEY(invocation_id, sequence));
             CREATE TABLE IF NOT EXISTS kw_revisions (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, draft_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_artifacts (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision_id TEXT NOT NULL, payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS kw_artifact_snapshots (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, invocation_id TEXT NOT NULL, expires_at REAL NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_publications (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_uploads (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS kw_resources (id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, workspace_id TEXT NOT NULL, payload TEXT NOT NULL);
@@ -445,6 +446,48 @@ class KnowledgeWorkspaceRepository:
         return tuple(
             Artifact.model_validate(json.loads(row["payload"])) for row in rows
         )
+
+    def save_artifact_snapshot(
+        self,
+        snapshot_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        invocation_id: str,
+        expires_at: float,
+        payload: dict[str, Any],
+    ) -> None:
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO kw_artifact_snapshots(id,tenant_id,workspace_id,invocation_id,expires_at,payload) VALUES(?,?,?,?,?,?)",
+                (
+                    snapshot_id,
+                    tenant_id,
+                    workspace_id,
+                    invocation_id,
+                    expires_at,
+                    self._json(payload),
+                ),
+            )
+
+    def get_artifact_snapshot(
+        self,
+        snapshot_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        now: float,
+    ) -> dict[str, Any] | None:
+        with self._lock:
+            self._db.execute(
+                "DELETE FROM kw_artifact_snapshots WHERE expires_at<=?",
+                (now,),
+            )
+            row = self._db.execute(
+                "SELECT payload FROM kw_artifact_snapshots WHERE id=? AND tenant_id=? AND workspace_id=?",
+                (snapshot_id, tenant_id, workspace_id),
+            ).fetchone()
+        return json.loads(row["payload"]) if row else None
 
     def save_publication(self, publication: Publication) -> Publication:
         with self._lock:

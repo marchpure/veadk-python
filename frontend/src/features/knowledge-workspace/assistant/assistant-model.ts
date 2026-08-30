@@ -16,7 +16,7 @@ export type ActivityStatus =
 
 export interface AssistantActivity {
   id: string;
-  kind: "turn" | "planning" | "tool" | "progress";
+  kind: "turn" | "planning" | "action" | "tool" | "observation" | "progress";
   title: string;
   status: ActivityStatus;
   parentId?: string;
@@ -29,6 +29,22 @@ export interface AssistantActivity {
   outputSummary?: string;
   errorSummary?: string;
   steps?: PlanStep[];
+}
+
+export interface AssistantArtifactPreview {
+  artifactId?: string;
+  revisionId?: string;
+  title?: string;
+  mediaType?: string;
+  sha256?: string;
+  uri?: string;
+  csp?: string;
+  sandbox?: string;
+  status: "pending" | "preview" | "final" | "blocked" | "error";
+  message?: string;
+  source?: string;
+  log: string[];
+  updatedAt: string;
 }
 
 export interface RequestSummary {
@@ -50,7 +66,8 @@ export interface ConversationTurnModel {
   activities: AssistantActivity[];
   assistantContent: string;
   requestSummary?: RequestSummary;
-  error?: { code: string; message: string; retryable: boolean };
+  error?: { code: string; message: string; retryable: boolean; category?: string };
+  artifactPreview?: AssistantArtifactPreview;
   stateUpdate?: {
     stateReady?: boolean;
     remoteSaved?: boolean;

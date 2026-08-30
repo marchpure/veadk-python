@@ -1,0 +1,178 @@
+{
+  "$schema": "knowledge-workspace/commercial-w2-checkpoint.schema.json",
+  "checkpoint": "KNOWLEDGE_COMMERCIAL_W2_FROZEN",
+  "step": "knowledge-workspace-commercial-w2-assistant-artifact",
+  "created_at": "2026-08-30T18:50:00+08:00",
+  "base_sha": "de50cccc506d128e6fad93d3a0fa79fffa8ddf69",
+  "branch": "feat/knowledge-commercial-w2-assistant-artifact",
+  "worktree": "/Users/bytedance/.codex/worktrees/knowledge-commercial-w2-assistant-artifact",
+  "scope": {
+    "included": [
+      "Assistant streaming reducer and activity presentation",
+      "BFF-controlled HTML preview snapshots",
+      "Final immutable HTML Artifact handoff",
+      "Artifact Preview/Source/Log panes and toolbar polish",
+      "Targeted frontend and Python contract tests"
+    ],
+    "excluded": [
+      "Session API",
+      "Search",
+      "OpenViking",
+      "Demo seed",
+      "KnowledgeWorkspacePage.tsx changes"
+    ],
+    "forbidden_paths_verified_clean": [
+      "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx"
+    ]
+  },
+  "wiring_manifest": {
+    "assistant_event_model": [
+      "frontend/src/features/knowledge-workspace/domain/types.ts",
+      "frontend/src/features/knowledge-workspace/api/client.ts",
+      "frontend/src/features/knowledge-workspace/assistant/assistant-model.ts",
+      "frontend/src/features/knowledge-workspace/assistant/assistant-reducer.ts",
+      "frontend/src/features/knowledge-workspace/assistant/ActivityTimeline.tsx",
+      "frontend/src/features/knowledge-workspace/assistant/ToolActivity.tsx",
+      "frontend/src/features/knowledge-workspace/assistant/ConversationTurn.tsx"
+    ],
+    "artifact_runtime": [
+      "frontend/src/features/knowledge-workspace/artifact/ArtifactViewer.tsx",
+      "frontend/src/features/knowledge-workspace/workspace/ArtifactWorkspace.tsx",
+      "frontend/src/features/knowledge-workspace/workspace/ArtifactToolbar.tsx",
+      "frontend/src/features/knowledge-workspace/workspace/SkillWorkspaceShell.tsx"
+    ],
+    "bff_snapshot_boundary": [
+      "frontend/server/knowledge_workspace/service.py",
+      "frontend/server/knowledge_workspace/repository.py",
+      "frontend/server/knowledge_workspace/routes.py",
+      "frontend/server/knowledge_workspace/sse.py",
+      "frontend/server/knowledge_workspace/html_artifact.py",
+      "frontend/server/knowledge_workspace/zip_validator.py"
+    ],
+    "routes": [
+      "GET /api/knowledge/v1/invocations/{invocation_id}/events",
+      "GET /api/knowledge/v1/artifacts/{artifact_id}/content",
+      "GET /api/knowledge/v1/artifact-snapshots/{snapshot_id}/content"
+    ],
+    "renderability_contract": "hasRenderableArtifact returns true only for text/html artifacts with same-origin /api/knowledge/v1/artifacts/ URLs; preview snapshots are accepted only from same-origin /api/knowledge/v1/artifact-snapshots/ while in preview/final state.",
+    "event_contract": [
+      "message.delta",
+      "planning",
+      "action",
+      "observation",
+      "tool_call",
+      "tool_output",
+      "progress",
+      "artifact.preview",
+      "artifact.final",
+      "state",
+      "error",
+      "done"
+    ]
+  },
+  "implemented": [
+    "Assistant reducer accepts W2 event aliases, deduplicates events by id, merges action/tool start and output by call_id, sorts activities by timestamp, and preserves terminal status against late non-artifact events.",
+    "History restore replays completed invocation events before applying terminal state so refresh recovery shows existing assistant content, activities, summaries, and artifact state without duplicating events.",
+    "Immutable artifact.final has priority over late artifact.preview and artifact.created replay; late events may append logs or fill missing fields but cannot replace final artifact id, revision id, URI, sha256, source, or status.",
+    "Activity UI exposes stage, status, tool/action names, duration, plan completion, and collapsed input/output/error summaries so large JSON is not expanded by default.",
+    "Conversation UI keeps process visible, supports stop, reconnect, retry, refresh recovery, and does not force-scroll when the user manually scrolls away from latest.",
+    "BFF validates only real upstream artifact_preview/html_edit_complete HTML snapshots through html_artifact.py, saves short-lived tenant/workspace scoped snapshots, and emits blocked preview events when HTML is missing or unsafe.",
+    "BFF now preserves the provider-normalized event and appends a separate BFF-controlled artifact.preview event for valid or blocked snapshots.",
+    "Final HTML capture emits artifact.created and artifact.final after immutable artifact storage; frontend prefers final artifacts over preview snapshots in Preview and Source.",
+    "Artifact viewer provides Preview, Source, Log, version selection, local refresh, fullscreen, and download controls with controlled same-origin URL checks.",
+    "Toolbar groups lightweight icon controls and keeps Publish Skill as the only primary action; refresh is local and does not create a revision."
+  ],
+  "security_gates": [
+    "No frontend mock/template HTML fallback is shipped.",
+    "Snapshot creation fails closed when upstream omits complete legal HTML or violates HTML artifact policy.",
+    "iframe sandbox remains provider/BFF controlled and does not add allow-same-origin.",
+    "Snapshot content route returns CSP, Cache-Control: no-store, Referrer-Policy: no-referrer, X-Content-Type-Options: nosniff.",
+    "Snapshot lookup is tenant and workspace scoped and expired snapshots return a closed failure.",
+    "Artifact object reads stay confined to immutable object storage.",
+    "Existing ZIP validation remains in force for traversal, duplicate paths, symlinks/special files, file counts, size limits, and compression ratio."
+  ],
+  "tests": [
+    {
+      "command": "node --test frontend/tests/knowledgeAssistantReducer.test.mjs frontend/tests/knowledgeArtifactViewerContract.test.mjs frontend/tests/knowledgeWorkspaceContract.test.mjs",
+      "result": "PASS",
+      "coverage": "W2 event aliases, shuffled/duplicate tool events, stop/reconnect/retry strings, manual scroll recovery, refresh restore, final-over-preview/created/late-preview, artifact panes, Source final priority, and toolbar contracts"
+    },
+    {
+      "command": "python -m pytest tests/knowledge_workspace/test_autoskill_adapter.py tests/knowledge_workspace/test_service_contracts.py tests/knowledge_workspace/test_routes.py -q",
+      "result": "PASS: 113 passed",
+      "coverage": "SSE normalization, preview snapshot creation/blocking, provider event plus snapshot preservation, final artifact events, snapshot route headers/scope/expiry"
+    },
+    {
+      "command": "npm run typecheck",
+      "cwd": "frontend",
+      "result": "PASS"
+    },
+    {
+      "command": "npm run test:webui-assets",
+      "cwd": "frontend",
+      "result": "PASS: 85 packaged WebUI files and 229 internal references verified"
+    },
+    {
+      "command": "npm run build",
+      "cwd": "frontend",
+      "result": "PASS with existing Vite dynamic import and chunk-size warnings; generated veadk/webui artifacts restored and not committed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    },
+    {
+      "command": "rg -n \"(?i)(api[_-]?key|access[_-]?token|authorization|cookie|password|secret|bearer\\\\s+)\" <changed files>",
+      "result": "PASS after review: hits are sanitizer keywords, OAuth field names, policy text, or test redaction fixtures; no real credential is committed"
+    },
+    {
+      "command": "KW_SCREENSHOT=assistant-desktop-1440x900.png KW_VIEWPORT_WIDTH=1440 KW_VIEWPORT_HEIGHT=900 node frontend/tests/knowledgeAssistantVisualE2E.mjs",
+      "result": "PASS",
+      "evidence": "docs/knowledge-workspace/evidence/assistant-ux/assistant-desktop-1440x900.png"
+    },
+    {
+      "command": "KW_SCREENSHOT=assistant-mobile-390x844.png KW_VIEWPORT_WIDTH=390 KW_VIEWPORT_HEIGHT=844 node frontend/tests/knowledgeAssistantVisualE2E.mjs",
+      "result": "PASS",
+      "evidence": "docs/knowledge-workspace/evidence/assistant-ux/assistant-mobile-390x844.png"
+    },
+    {
+      "command": "KW_PREVIEW_URL=http://127.0.0.1:5174 node frontend/tests/knowledgeArtifactVisualE2E.mjs",
+      "result": "PASS",
+      "coverage": "Production React ArtifactWorkspace/ArtifactViewer under intercepted BFF API: preview snapshot to immutable final priority, late preview ignored for iframe/source, Preview/Source/Log panes, version select, refresh, fullscreen, download, publish modal, controlled same-origin URL",
+      "evidence": "docs/knowledge-workspace/evidence/assistant-ux/artifact-workspace-1440x900.png"
+    }
+  ],
+  "real_autoskill_attempt": {
+    "command": "KNOWLEDGE_AUTOSKILL_BASE_URL=https://test-bytebrain.byted.org python tools/autoskill_real_smoke.py",
+    "result": "BLOCKED_BY_REAL_UPSTREAM_OUTPUT",
+    "authorization": "anonymous",
+    "base_url": "https://test-bytebrain.byted.org",
+    "observed": "Official AutoSkill returned a successful create stream with 120 SSE events including planning/action/observation/final_answer/state_update/request_summary/done.",
+    "blocker": "Downloaded real Skill ZIP contained unsupported runtime residue path skillhub/<generated-skill>/.pytest_cache/.gitignore; existing ZIP safety validation rejected it.",
+    "evidence": "docs/knowledge-workspace/evidence/assistant-ux/real-autoskill-w2-blocker.json",
+    "policy": "No fixture or mock was substituted, and ZIP/path safety gates were not relaxed."
+  },
+  "browser_evidence": {
+    "contract_fixture_only": true,
+    "not_real_autoskill_evidence": true,
+    "screenshots": [
+      "docs/knowledge-workspace/evidence/assistant-ux/assistant-desktop-1440x900.png",
+      "docs/knowledge-workspace/evidence/assistant-ux/assistant-mobile-390x844.png",
+      "docs/knowledge-workspace/evidence/assistant-ux/artifact-workspace-1440x900.png"
+    ],
+    "validated": [
+      "streamed/restored Assistant content remains visible",
+      "Markdown heading/table/code/link render without raw scripts",
+      "activity summaries are collapsed by default",
+      "desktop and mobile containers do not horizontally overflow",
+      "Artifact Preview/Source/Log panes and toolbar controls render through production React components",
+      "final Artifact iframe and Source take precedence over preview and late preview snapshots"
+    ]
+  },
+  "non_claims": [
+    "No successful real AutoSkill final HTML Artifact is claimed because the real ZIP was rejected by safety validation before run/output capture.",
+    "No frontend-generated HTML mock, template fallback, or fixture is used as a production Artifact.",
+    "No Session, Search, OpenViking, or Demo scope was added."
+  ],
+  "status": "KNOWLEDGE_COMMERCIAL_W2_FROZEN"
+}

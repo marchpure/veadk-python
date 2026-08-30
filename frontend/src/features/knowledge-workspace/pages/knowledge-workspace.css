@@ -1194,6 +1194,32 @@
 .kw-artifact-waiting { display: grid; height: 100%; min-height: 360px; place-content: center; justify-items: center; gap: 8px; color: hsl(var(--muted-foreground)); text-align: center; }
 .kw-artifact-waiting strong { color: hsl(var(--foreground)); font-size: 16px; font-weight: 550; }
 .kw-artifact-waiting span { font-size: 12px; }
+.kw-artifact-identity { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.kw-artifact-identity span { min-width: 0; overflow: hidden; color: hsl(var(--foreground)); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.kw-artifact-identity code { flex: 0 0 auto; padding: 2px 5px; border-radius: 5px; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); font-size: 10px; }
+.kw-artifact-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+.kw-artifact-controls select { max-width: 160px; height: 28px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--panel)); color: hsl(var(--foreground)); font-size: 11px; }
+.kw-artifact-controls button, .kw-artifact-icon-button { display: inline-grid; width: 30px; height: 30px; min-width: 30px; place-items: center; padding: 0; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--panel)); color: hsl(var(--muted-foreground)); cursor: pointer; }
+.kw-artifact-controls button:hover:not(:disabled), .kw-artifact-icon-button:hover:not(:disabled) { border-color: hsl(var(--primary) / 42%); color: hsl(var(--primary)); }
+.kw-artifact-pane-tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
+.kw-artifact-pane-tabs button { display: inline-flex; min-height: 30px; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 12px; }
+.kw-artifact-pane-tabs button[aria-selected="true"] { border-bottom-color: hsl(var(--primary)); color: hsl(var(--foreground)); font-weight: 600; }
+.kw-artifact-pane-tabs span { min-width: 16px; padding: 1px 5px; border-radius: 999px; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); font-size: 10px; text-align: center; }
+.kw-artifact-pane-body { position: relative; min-height: 420px; height: calc(100% - 80px); overflow: hidden; background: #fff; }
+.kw-artifact-pane-body iframe { height: 100%; min-height: 420px; }
+.kw-artifact-source { display: block; width: 100%; height: 100%; min-height: 420px; padding: 14px; border: 0; outline: 0; background: #0f172a; color: #dbeafe; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; resize: none; }
+.kw-artifact-log { display: grid; align-content: start; gap: 7px; height: 100%; min-height: 420px; padding: 14px; overflow: auto; background: #f8fafc; color: #475569; font-size: 12px; }
+.kw-artifact-log p { display: flex; align-items: center; gap: 6px; margin: 0; overflow-wrap: anywhere; }
+.kw-artifact-skeleton { position: absolute; z-index: 1; inset: 0; display: grid; align-content: start; gap: 10px; padding: 18px; background: linear-gradient(180deg, #ffffffd9, #ffffffa6); }
+.kw-artifact-skeleton span { height: 18px; border-radius: 6px; background: linear-gradient(90deg, #edf2f7, #f8fafc, #edf2f7); background-size: 200% 100%; animation: kw-shimmer 1.2s ease-in-out infinite; }
+.kw-artifact-skeleton span:nth-child(2) { width: 78%; }
+.kw-artifact-skeleton span:nth-child(3) { width: 56%; }
+.kw-artifact-toolbar-group { display: inline-flex; align-items: center; gap: 5px; }
+.kw-artifact-secondary-action, .kw-artifact-publish-action { display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; min-height: 30px; }
+.kw-artifact-publish-action { margin-left: auto; border-color: hsl(var(--primary)) !important; background: hsl(var(--primary)) !important; color: hsl(var(--primary-foreground)) !important; font-weight: 650; }
+.kw-activity-kind, .kw-activity-steps { flex: 0 0 auto; padding: 2px 5px; border-radius: 5px; background: #eef2ff; color: #3751a3; font-size: 10px; }
+.kw-activity-steps { background: #ecfdf3; color: #147044; }
+@keyframes kw-shimmer { to { background-position: -200% 0; } }
 
 @media (max-width: 1180px) {
   .kw-skill-workshop { grid-template-columns: 220px minmax(420px, 48vw) minmax(300px, 1fr); }

@@ -1367,6 +1367,31 @@ def mount_knowledge_workspace_routes(
             },
         )
 
+    @app.get(f"{prefix}/artifact-snapshots/{{snapshot_id}}/content")
+    async def artifact_snapshot_content(
+        request: Request, snapshot_id: str
+    ) -> FastAPIResponse:
+        try:
+            content, media_type, csp = service.artifact_snapshot_content(
+                actor(request), snapshot_id
+            )
+        except KnowledgeWorkspaceError as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={"code": exc.code, "message": str(exc), "retryable": False},
+            ) from exc
+        return FastAPIResponse(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Security-Policy": csp,
+                "Content-Disposition": "inline",
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
     @app.get(f"{prefix}/publications")
     async def publications(request: Request) -> dict[str, Any]:
         return envelope(service.list_publications(actor(request)), request)
