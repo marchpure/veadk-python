@@ -1,17 +1,17 @@
 {
-  "status": "BLOCKED_EXTERNAL",
-  "baseline_sha": "5948d5dd3b29358591b81da2390dc69ff922760c",
-  "branch": "validation/openviking-integration-acceptance",
-  "integration_session": "01a0529b-aabb-7c42-8f03-00b385d7f520",
-  "endpoint": "local BFF http://127.0.0.1:38111; configured upstream endpoint unavailable and redacted",
+  "bff": "http://127.0.0.1:38111",
   "credentials": {
-    "OPENVIKING_E2E_BASE_URL": "UNSET",
     "OPENVIKING_E2E_API_KEY": "UNSET",
+    "OPENVIKING_E2E_BASE_URL": "UNSET",
     "OPENVIKING_PROFILE_ENCRYPTION_KEY": "UNSET",
     "OPENVIKING_REF_SIGNING_KEY": "UNSET"
   },
-  "notes": [
-    "No credential was read from repository, fixture, log, screenshot, or process environment.",
-    "An existing local Studio profile was used only for a limited BFF smoke; its upstream returned OPENVIKING_UNAVAILABLE."
-  ]
+  "missing": [
+    "OPENVIKING_E2E_BASE_URL",
+    "OPENVIKING_E2E_API_KEY",
+    "OPENVIKING_PROFILE_ENCRYPTION_KEY",
+    "OPENVIKING_REF_SIGNING_KEY"
+  ],
+  "status": "BLOCKED_EXTERNAL",
+  "upstream": "UNSET"
 }

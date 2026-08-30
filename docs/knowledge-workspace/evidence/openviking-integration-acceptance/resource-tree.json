@@ -1,0 +1,6 @@
+{
+  "status": "BLOCKED_EXTERNAL",
+  "profile": "not created in this run",
+  "resources": [],
+  "reason": "No live OpenViking upstream credentials/service were available."
+}

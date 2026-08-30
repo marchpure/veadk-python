@@ -1,13 +1,13 @@
 {
-  "status": "PASS",
+  "status": "BLOCKED_EXTERNAL",
   "entries": [
-    {"capability": "profile CRUD/encrypted credential storage", "ui": "PASS", "bff": "PASS", "upstream": "BLOCKED_EXTERNAL"},
-    {"capability": "manual text", "ui": "PASS (.md/.txt)", "bff": "PASS", "upstream": "BLOCKED_EXTERNAL"},
-    {"capability": "file upload", "ui": "PASS", "bff": "PASS (.csv/.json/.md/.pdf/.txt/.xlsx)", "upstream": "BLOCKED_EXTERNAL"},
-    {"capability": "URL/web import", "ui": "PASS", "bff": "PASS via generic resource_import with HTTPS/SSRF checks", "upstream": "BLOCKED_EXTERNAL"},
-    {"capability": "Git, Feishu, directory, batch, image, DOCX, PPTX, HTML", "ui": "PASS", "bff": "PASS via generic operation bridge", "upstream": "BLOCKED_EXTERNAL"},
-    {"capability": "resource tree/content/search/tasks", "ui": "PASS", "bff": "PASS via generic operation bridge", "upstream": "BLOCKED_EXTERNAL"},
-    {"capability": "delete resource", "ui": "PASS", "bff": "operation bridge only", "upstream": "BLOCKED_EXTERNAL"}
+    {"capability": "profile CRUD/encrypted credential storage", "status": "BLOCKED_EXTERNAL", "notes": "contract present; live upstream unavailable"},
+    {"capability": "manual text", "status": "BLOCKED_EXTERNAL", "notes": "UI/BFF present; no live task evidence"},
+    {"capability": "file upload", "status": "BLOCKED_EXTERNAL", "notes": "BFF allows csv/json/md/pdf/txt/xlsx; no live task evidence"},
+    {"capability": "URL/web import", "status": "BLOCKED_EXTERNAL", "notes": "generic resource_import plus HTTPS/SSRF checks; no live task evidence"},
+    {"capability": "Git, Feishu, directory, batch, image, DOCX, PPTX, HTML", "status": "BLOCKED_EXTERNAL", "notes": "UI/upstream operation surface present; no live task evidence"},
+    {"capability": "resource tree/content/search/tasks", "status": "BLOCKED_EXTERNAL", "notes": "generic operation bridge present; upstream unavailable"},
+    {"capability": "delete resource", "status": "BLOCKED_EXTERNAL", "notes": "operation bridge present; deletion effect not live-verified"}
   ],
   "boundaries": {
     "migrated_openviking_code": "frontend/src/extensions/openviking/**",
