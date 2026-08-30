@@ -452,6 +452,10 @@ class KnowledgeWorkspaceService:
             "trial_task": draft.trial_task,
             "connection_ids": draft.connection_ids,
             "resource_ids": draft.resource_ids,
+            "knowledge_source_refs": [
+                ref.model_dump(mode="json", exclude_none=True)
+                for ref in draft.knowledge_source_refs
+            ],
             "openviking_profile_ids": draft.openviking_profile_ids,
             "openviking_resource_refs": draft.openviking_resource_refs,
             "upload_ids": draft.upload_ids,
@@ -689,6 +693,10 @@ class KnowledgeWorkspaceService:
             "status": DraftStatus.EDITING,
             "updated_at": utc_now(),
         }
+        updated_refs = [
+            ref.model_dump(mode="json", exclude_none=True)
+            for ref in draft.knowledge_source_refs
+        ]
         if goal is not None:
             if not goal.strip():
                 raise KnowledgeWorkspaceError(
@@ -714,12 +722,20 @@ class KnowledgeWorkspaceService:
                     )
             updates["resource_ids"] = resources
         if openviking_profile_ids is not None:
-            updates["openviking_profile_ids"] = tuple(
-                dict.fromkeys(str(item) for item in openviking_profile_ids)
+            profiles = tuple(dict.fromkeys(str(item) for item in openviking_profile_ids))
+            updates["openviking_profile_ids"] = profiles
+            existing_refs = [ref for ref in updated_refs if ref.get("resource_ref")]
+            updates["knowledge_source_refs"] = tuple(
+                [{"provider": "openviking", "profile_ref": item} for item in profiles]
+                + existing_refs
             )
         if openviking_resource_refs is not None:
-            updates["openviking_resource_refs"] = tuple(
-                dict.fromkeys(str(item) for item in openviking_resource_refs)
+            resources = tuple(dict.fromkeys(str(item) for item in openviking_resource_refs))
+            updates["openviking_resource_refs"] = resources
+            existing_refs = [ref for ref in updated_refs if ref.get("profile_ref")]
+            updates["knowledge_source_refs"] = tuple(
+                existing_refs
+                + [{"provider": "openviking", "resource_ref": item} for item in resources]
             )
         if trial_task is not None:
             updates["trial_task"] = trial_task.strip() or None
