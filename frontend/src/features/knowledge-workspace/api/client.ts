@@ -687,8 +687,24 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
     typeof data.sequence === "number"
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
+    type === "message.delta" &&
+    typeof data.text === "string" &&
+    (
+      data.sequence === undefined ||
+      typeof data.sequence === "number"
+    )
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
     type === "assistant.progress" &&
     typeof data.text === "string"
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "progress" &&
+    (
+      typeof data.text === "string" ||
+      typeof data.message === "string" ||
+      typeof data.stage === "string"
+    )
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "assistant.final" &&
@@ -703,6 +719,23 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
     (type === "activity.started" || type === "activity.completed") &&
     typeof data.activity_id === "string" &&
     (data.activity_kind === "planning" || data.activity_kind === "tool")
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (type === "planning") {
+    return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  }
+  if (
+    (type === "action" || type === "tool_call") &&
+    (
+      typeof data.call_id === "string" ||
+      typeof data.tool_call_id === "string"
+    )
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    (type === "observation" || type === "tool_output") &&
+    (
+      typeof data.call_id === "string" ||
+      typeof data.tool_call_id === "string"
+    )
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "request.summary" &&
@@ -729,6 +762,21 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
       || typeof data.remote_saved === "boolean"
     )
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    type === "state" &&
+    (
+      data.state_ready === undefined
+      || typeof data.state_ready === "boolean"
+    ) &&
+    (
+      data.remote_saved === undefined
+      || typeof data.remote_saved === "boolean"
+    ) &&
+    (
+      data.error_summary === undefined
+      || typeof data.error_summary === "string"
+    )
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (type === "plan.updated" && Array.isArray(data.steps)) {
     return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   }
@@ -743,6 +791,15 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
     typeof data.revision_id === "string" &&
     typeof data.media_type === "string" &&
     typeof data.sha256 === "string"
+  ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  if (
+    (type === "artifact.preview" || type === "artifact.final") &&
+    (
+      typeof data.uri === "string" ||
+      typeof data.message === "string" ||
+      typeof data.artifact_id === "string" ||
+      typeof data.snapshot_id === "string"
+    )
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (
     type === "revision.created" &&
@@ -764,6 +821,12 @@ function normalizeEvent(value: JsonObject): KnowledgeInvocationEvent | undefined
     !Array.isArray(data.error)
   ) return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   if (type === "run.cancelled" && data.status === "cancelled") {
+    return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  }
+  if (type === "error") {
+    return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
+  }
+  if (type === "done") {
     return { ...normalizedValue, type, data } as unknown as KnowledgeInvocationEvent;
   }
   return undefined;

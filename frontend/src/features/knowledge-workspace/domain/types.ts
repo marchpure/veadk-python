@@ -142,6 +142,22 @@ export interface Artifact {
   created_at: string;
 }
 
+export interface ArtifactPreviewEventData {
+  artifact_id?: string;
+  snapshot_id?: string;
+  revision_id?: string;
+  media_type?: string;
+  sha256?: string;
+  title?: string;
+  uri?: string;
+  csp?: string;
+  sandbox?: string;
+  status?: "pending" | "preview" | "final" | "blocked" | "error";
+  message?: string;
+  source?: string;
+  log?: string | string[];
+}
+
 export interface Publication {
   publication_id: string;
   revision_id: string;
@@ -178,6 +194,72 @@ interface InvocationEventBase {
 }
 
 export type KnowledgeInvocationEvent = InvocationEventBase & (
+  | {
+      type: "message.delta";
+      data: { text: string; sequence?: number; final?: boolean };
+    }
+  | {
+      type: "progress";
+      data: { text?: string; message?: string; stage?: string };
+    }
+  | {
+      type: "planning";
+      data: { steps?: PlanStep[]; summary?: string; title?: string; status?: string };
+    }
+  | {
+      type: "action" | "tool_call";
+      data: {
+        call_id?: string;
+        tool_call_id?: string;
+        name?: string;
+        tool_name?: string;
+        input?: JsonValue;
+        arguments?: JsonValue;
+        input_summary?: string;
+        status?: string;
+      };
+    }
+  | {
+      type: "observation" | "tool_output";
+      data: {
+        call_id?: string;
+        tool_call_id?: string;
+        name?: string;
+        tool_name?: string;
+        ok?: boolean;
+        output?: JsonValue;
+        output_summary?: string;
+        error?: string;
+        error_summary?: string;
+        duration_ms?: number;
+        status?: string;
+      };
+    }
+  | {
+      type: "artifact.preview" | "artifact.final";
+      data: ArtifactPreviewEventData;
+    }
+  | {
+      type: "state";
+      data: {
+        state_ready?: boolean;
+        remote_saved?: boolean;
+        error_summary?: string;
+      };
+    }
+  | {
+      type: "error";
+      data: {
+        code?: string;
+        message?: string;
+        retryable?: boolean;
+        category?: "network" | "permission" | "model" | "artifact" | "unknown";
+      };
+    }
+  | {
+      type: "done";
+      data: { status?: "succeeded"; finished_at?: string; artifact_ids?: string[]; revision_id?: string };
+    }
   | {
       type: "run.started";
       data: {

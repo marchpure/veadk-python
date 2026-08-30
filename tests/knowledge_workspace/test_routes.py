@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import time
 
 import httpx
 import pytest
@@ -529,6 +531,78 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
             json={"message": "stale", "intent": "update"},
         )
         assert stale.status_code == 412
+
+
+@pytest.mark.asyncio
+async def test_artifact_snapshot_content_is_same_origin_no_store_and_tenant_scoped() -> None:
+    app = FastAPI()
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(
+        repository,
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    html = b"<!doctype html><html><body>real preview</body></html>"
+    digest = hashlib.sha256(html).hexdigest()
+    uri = repository.put_object(digest, html, suffix=".html")
+    repository.save_artifact_snapshot(
+        "snapshot-live",
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        invocation_id="invocation-a",
+        expires_at=time.time() + 300,
+        payload={
+            "uri": uri,
+            "sha256": digest,
+            "media_type": "text/html",
+            "csp": "default-src 'none'; connect-src 'none'",
+            "sandbox": "allow-scripts",
+            "source": html.decode("utf-8"),
+        },
+    )
+    repository.save_artifact_snapshot(
+        "snapshot-expired",
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        invocation_id="invocation-a",
+        expires_at=time.time() - 1,
+        payload={
+            "uri": uri,
+            "sha256": digest,
+            "media_type": "text/html",
+            "csp": "default-src 'none'",
+            "sandbox": "allow-scripts",
+        },
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        owner_headers = {
+            "x-tenant-id": "tenant-a",
+            "x-workspace-id": "workspace-a",
+            "x-principal-id": "user-a",
+        }
+        loaded = await client.get(
+            "/api/knowledge/v1/artifact-snapshots/snapshot-live/content",
+            headers=owner_headers,
+        )
+        cross_tenant = await client.get(
+            "/api/knowledge/v1/artifact-snapshots/snapshot-live/content",
+            headers={**owner_headers, "x-tenant-id": "tenant-b"},
+        )
+        expired = await client.get(
+            "/api/knowledge/v1/artifact-snapshots/snapshot-expired/content",
+            headers=owner_headers,
+        )
+
+    assert loaded.status_code == 200
+    assert loaded.text == html.decode("utf-8")
+    assert loaded.headers["content-type"].startswith("text/html")
+    assert loaded.headers["cache-control"] == "no-store"
+    assert loaded.headers["referrer-policy"] == "no-referrer"
+    assert "connect-src 'none'" in loaded.headers["content-security-policy"]
+    assert "allow-same-origin" not in loaded.text
+    assert cross_tenant.status_code == 410
+    assert expired.status_code == 410
 
 
 @pytest.mark.asyncio

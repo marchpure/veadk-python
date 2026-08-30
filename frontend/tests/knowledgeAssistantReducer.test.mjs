@@ -84,6 +84,26 @@ test("retains two messages and merges action observation by call_id during repla
   assert.equal(replayed.turns[0].assistantContent, "# First");
 });
 
+test("history restore replays completed invocation events before applying terminal state", () => {
+  const events = [
+    event("inv-1", "turn-1", 1, "turn.started", {
+      turn_number: 1, title: "Restored turn", status: "running",
+    }),
+    event("inv-1", "final-1", 2, "assistant.final", {
+      content: "# Restored answer",
+    }),
+  ];
+  const state = assistantReducer(initialAssistantState, {
+    type: "history.restored",
+    entries: [{ invocation: invocation("inv-1", "question", "succeeded"), events }],
+  });
+
+  assert.equal(state.turns[0].status, "succeeded");
+  assert.equal(state.turns[0].assistantContent, "# Restored answer");
+  assert.equal(state.turns[0].activities[0].title, "Restored turn");
+  assert.deepEqual(state.turns[0].eventIds, ["turn-1", "final-1"]);
+});
+
 test("derives tool duration from action and observation timestamps when provider omits it", () => {
   const events = [
     event("inv-1", "action-1", 2, "activity.started", {
@@ -202,4 +222,210 @@ test("history restore does not overwrite a live invocation receiving events", ()
   assert.deepEqual(state.turns[0].eventIds, ["started"]);
   assert.equal(state.turns[0].connectionState, "connected");
   assert.equal(state.turns[0].status, "running");
+});
+
+test("normalizes modern event aliases, merges duplicate tool calls, and keeps late events after done from changing terminal state", () => {
+  let state = assistantReducer(initialAssistantState, {
+    type: "invocation.started",
+    invocation: invocation("inv-1", "question"),
+  });
+
+  for (const nextEvent of [
+    event("inv-1", "tool-done-first", 3, "tool_output", {
+      call_id: "call-a",
+      name: "query_table",
+      ok: true,
+      output: { rows: 3, debug: { hidden: true } },
+      duration_ms: 42,
+    }),
+    event("inv-1", "plan", 1, "planning", {
+      summary: "Use the authorized connection, then render the real report.",
+      steps: [{ id: "step-1", label: "读取真实数据", status: "completed" }],
+    }),
+    event("inv-1", "tool-start", 2, "tool_call", {
+      call_id: "call-a",
+      name: "query_table",
+      input: { sql: "select * from sales" },
+    }),
+    event("inv-1", "delta", 4, "message.delta", { text: "hello", sequence: 1 }),
+    event("inv-1", "done", 5, "done", { finished_at: "2026-08-28T00:00:05Z" }),
+    event("inv-1", "late-error", 6, "error", {
+      code: "MODEL_ERROR",
+      message: "late provider duplicate",
+      retryable: true,
+      category: "model",
+    }),
+    event("inv-1", "tool-done-duplicate", 7, "tool_output", {
+      call_id: "call-a",
+      name: "query_table",
+      ok: true,
+      output_summary: "duplicate replay",
+      duration_ms: 50,
+    }),
+  ]) {
+    state = assistantReducer(state, { type: "event.received", event: nextEvent });
+  }
+
+  assert.equal(state.turns[0].status, "succeeded");
+  assert.equal(state.turns[0].error, undefined);
+  assert.equal(state.turns[0].assistantContent, "hello");
+  assert.equal(state.turns[0].activities.length, 2);
+  assert.equal(state.turns[0].activities[0].kind, "planning");
+  assert.equal(state.turns[0].activities[0].steps[0].status, "completed");
+  assert.equal(state.turns[0].activities[1].kind, "tool");
+  assert.equal(state.turns[0].activities[1].callId, "call-a");
+  assert.equal(state.turns[0].activities[1].status, "succeeded");
+  assert.equal(state.turns[0].activities[1].durationMs, 42);
+  assert.match(state.turns[0].activities[1].inputSummary, /select/);
+  assert.match(state.turns[0].activities[1].outputSummary, /rows/);
+});
+
+test("tracks artifact preview snapshots without inventing final artifacts", () => {
+  let state = assistantReducer(initialAssistantState, {
+    type: "invocation.started",
+    invocation: invocation("inv-1", "question"),
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "preview", 1, "artifact.preview", {
+      artifact_id: "preview-1",
+      revision_id: "rev-1",
+      media_type: "text/html",
+      sha256: "a".repeat(64),
+      uri: "/api/knowledge/v1/artifact-snapshots/snapshot-1/content",
+      title: "临时预览",
+      source: "<!doctype html><html><body>real</body></html>",
+      log: "validated preview snapshot",
+    }),
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "blocked", 2, "artifact.preview", {
+      status: "blocked",
+      message: "AutoSkill has not emitted a complete legal HTML snapshot.",
+      log: ["blocked"],
+    }),
+  });
+
+  assert.equal(state.turns[0].artifactPreview.status, "blocked");
+  assert.equal(state.turns[0].artifactPreview.artifactId, "preview-1");
+  assert.equal(state.turns[0].artifactPreview.revisionId, "rev-1");
+  assert.equal(state.turns[0].artifactPreview.uri, "/api/knowledge/v1/artifact-snapshots/snapshot-1/content");
+  assert.match(state.turns[0].artifactPreview.source, /real/);
+  assert.deepEqual(state.turns[0].artifactPreview.log, [
+    "validated preview snapshot",
+    "blocked",
+  ]);
+
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "final", 3, "artifact.final", {
+      artifact_id: "artifact-final",
+      revision_id: "rev-2",
+      media_type: "text/html",
+      sha256: "b".repeat(64),
+      uri: "/api/knowledge/v1/artifacts/artifact-final/content",
+      title: "最终产物",
+    }),
+  });
+
+  assert.equal(state.turns[0].artifactPreview.status, "final");
+  assert.equal(state.turns[0].artifactPreview.artifactId, "artifact-final");
+  assert.equal(state.turns[0].artifactPreview.sha256, "b".repeat(64));
+});
+
+test("keeps immutable final artifact ahead of late preview replay", () => {
+  let state = assistantReducer(initialAssistantState, {
+    type: "invocation.started",
+    invocation: invocation("inv-1", "question"),
+  });
+
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "final", 1, "artifact.final", {
+      artifact_id: "artifact-final",
+      revision_id: "rev-final",
+      media_type: "text/html",
+      sha256: "f".repeat(64),
+      uri: "/api/knowledge/v1/artifacts/artifact-final/content",
+      title: "最终产物",
+      log: "immutable final artifact recorded",
+    }),
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "late-preview", 2, "artifact.preview", {
+      artifact_id: "snapshot-late",
+      snapshot_id: "snapshot-late",
+      revision_id: "rev-old",
+      media_type: "text/html",
+      sha256: "p".repeat(64),
+      uri: "/api/knowledge/v1/artifact-snapshots/snapshot-late/content",
+      title: "迟到预览",
+      status: "preview",
+      log: "late preview replayed",
+    }),
+  });
+
+  assert.equal(state.turns[0].artifactPreview.status, "final");
+  assert.equal(state.turns[0].artifactPreview.artifactId, "artifact-final");
+  assert.equal(state.turns[0].artifactPreview.revisionId, "rev-final");
+  assert.equal(state.turns[0].artifactPreview.uri, "/api/knowledge/v1/artifacts/artifact-final/content");
+  assert.equal(state.turns[0].artifactPreview.sha256, "f".repeat(64));
+  assert.deepEqual(state.turns[0].artifactPreview.log, [
+    "immutable final artifact recorded",
+    "late preview replayed",
+  ]);
+});
+
+test("artifact.created after artifact.final only appends evidence without losing final uri", () => {
+  let state = assistantReducer(initialAssistantState, {
+    type: "invocation.started",
+    invocation: invocation("inv-1", "question"),
+  });
+
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "final", 1, "artifact.final", {
+      artifact_id: "artifact-final",
+      revision_id: "rev-final",
+      media_type: "text/html",
+      sha256: "f".repeat(64),
+      uri: "/api/knowledge/v1/artifacts/artifact-final/content",
+      title: "最终产物",
+      source: "{\"lineage\":\"final\"}",
+      log: "immutable final artifact recorded",
+    }),
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "created", 2, "artifact.created", {
+      artifact_id: "artifact-final",
+      revision_id: "rev-final",
+      media_type: "text/html",
+      sha256: "f".repeat(64),
+      title: "最终产物",
+    }),
+  });
+  state = assistantReducer(state, {
+    type: "event.received",
+    event: event("inv-1", "late-preview", 3, "artifact.preview", {
+      snapshot_id: "snapshot-late",
+      revision_id: "rev-preview",
+      media_type: "text/html",
+      uri: "/api/knowledge/v1/artifact-snapshots/snapshot-late/content",
+      source: "<!doctype html><html><body>late</body></html>",
+      log: "late preview replayed",
+    }),
+  });
+
+  assert.equal(state.turns[0].artifactPreview.status, "final");
+  assert.equal(state.turns[0].artifactPreview.artifactId, "artifact-final");
+  assert.equal(state.turns[0].artifactPreview.uri, "/api/knowledge/v1/artifacts/artifact-final/content");
+  assert.equal(state.turns[0].artifactPreview.source, "{\"lineage\":\"final\"}");
+  assert.deepEqual(state.turns[0].artifactPreview.log, [
+    "immutable final artifact recorded",
+    "final artifact artifact-final recorded",
+    "late preview replayed",
+  ]);
 });

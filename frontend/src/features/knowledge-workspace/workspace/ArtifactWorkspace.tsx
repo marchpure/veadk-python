@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArtifactViewer } from "../artifact/ArtifactViewer";
+import { ArtifactViewer, hasRenderableArtifact } from "../artifact/ArtifactViewer";
 import type { Artifact, Revision, TemplateKey } from "../domain/types";
+import type { AssistantArtifactPreview, ConversationTurnModel } from "../assistant/assistant-model";
 import { ArtifactToolbar } from "./ArtifactToolbar";
 
 function artifactKind(artifact: Artifact, revision: Revision | null): TemplateKey {
@@ -23,9 +24,9 @@ function CloseIcon() {
 export function ArtifactWorkspace({
   artifacts,
   revisions,
+  turns,
   published,
   onClose,
-  onRun,
   onShare,
   onPublish,
   onBindAgent,
@@ -33,9 +34,9 @@ export function ArtifactWorkspace({
 }: {
   artifacts: Artifact[];
   revisions: Revision[];
+  turns?: ConversationTurnModel[];
   published: boolean;
   onClose?: () => void;
-  onRun: () => void;
   onShare: () => void;
   onPublish: () => void;
   onBindAgent: () => void;
@@ -56,11 +57,44 @@ export function ArtifactWorkspace({
   }, [artifacts, currentRevision, revisions]);
   const kinds = [...latestByKind.keys()];
   const [activeKind, setActiveKind] = useState<TemplateKey>("generic");
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>("");
+  const [viewerRefreshKey, setViewerRefreshKey] = useState(0);
   const pane = useRef<HTMLDivElement>(null);
+  const previewState = useMemo<AssistantArtifactPreview | undefined>(() => (
+    [...(turns || [])].reverse().find((turn) => turn.artifactPreview)?.artifactPreview
+  ), [turns]);
   useEffect(() => {
     if (!latestByKind.has(activeKind) && kinds.length) setActiveKind(kinds.at(-1) || "generic");
   }, [activeKind, kinds, latestByKind]);
-  const activeArtifact = latestByKind.get(activeKind) || artifacts.at(-1) || null;
+  useEffect(() => {
+    const latestRevisionId = artifacts.at(-1)?.revision_id || revisions.at(-1)?.revision_id || "";
+    if (!selectedRevisionId && latestRevisionId) setSelectedRevisionId(latestRevisionId);
+    if (selectedRevisionId && revisions.length && !revisions.some((revision) => revision.revision_id === selectedRevisionId)) {
+      setSelectedRevisionId(latestRevisionId);
+    }
+  }, [artifacts, revisions, selectedRevisionId]);
+  const selectedArtifact = selectedRevisionId
+    ? artifacts.find((item) => item.revision_id === selectedRevisionId) || null
+    : null;
+  const activeArtifact = selectedArtifact || latestByKind.get(activeKind) || artifacts.at(-1) || null;
+  const hasPreviewSnapshot = (() => {
+    if (
+      !previewState
+      || !["preview", "final"].includes(previewState.status)
+      || previewState.mediaType !== "text/html"
+      || !previewState.uri
+    ) return false;
+    try {
+      const url = new URL(previewState.uri, window.location.origin);
+      if (url.origin !== window.location.origin) return false;
+      return previewState.status === "preview"
+        ? url.pathname.startsWith("/api/knowledge/v1/artifact-snapshots/")
+        : url.pathname.startsWith("/api/knowledge/v1/artifacts/");
+    } catch {
+      return false;
+    }
+  })();
+  const hasArtifact = hasRenderableArtifact(activeArtifact) || hasPreviewSnapshot;
 
   const exportArtifact = () => {
     if (!activeArtifact?.uri) return;
@@ -90,7 +124,8 @@ export function ArtifactWorkspace({
       <ArtifactToolbar
         revision={currentRevision}
         published={published}
-        onRun={onRun}
+        hasArtifact={hasArtifact}
+        onRefresh={() => setViewerRefreshKey((value) => value + 1)}
         onFullscreen={() => void pane.current?.requestFullscreen?.()}
         onExport={exportArtifact}
         onShare={onShare}
@@ -99,10 +134,21 @@ export function ArtifactWorkspace({
         onAdvanced={onAdvanced}
       />
       <div className="kw-artifact-stage">
-        {activeArtifact ? (
+        {activeArtifact || previewState ? (
           <>
-            <div className="kw-artifact-version">v{revisions.find((item) => item.revision_id === activeArtifact.revision_id)?.number || "—"} · {new Date(activeArtifact.created_at).toLocaleString("zh-CN")}</div>
-            <ArtifactViewer artifact={activeArtifact} />
+            <div className="kw-artifact-version">
+              {activeArtifact
+                ? `v${revisions.find((item) => item.revision_id === activeArtifact.revision_id)?.number || "—"} · ${new Date(activeArtifact.created_at).toLocaleString("zh-CN")}`
+                : "临时预览 · 等待最终 Artifact"}
+            </div>
+            <ArtifactViewer
+              key={viewerRefreshKey}
+              artifact={activeArtifact}
+              previewState={previewState}
+              revisions={revisions}
+              selectedRevisionId={selectedRevisionId}
+              onSelectRevision={setSelectedRevisionId}
+            />
           </>
         ) : (
           <div className="kw-artifact-waiting"><strong>等待产物生成</strong><span>真实 Artifact 创建后会立即显示在这里。</span></div>

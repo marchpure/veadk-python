@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import io
 import json
+import time
 import zipfile
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -63,6 +64,8 @@ class KnowledgeWorkspaceError(RuntimeError):
 
 
 class KnowledgeWorkspaceService:
+    PREVIEW_SNAPSHOT_TTL_SECONDS = 300
+
     def __init__(
         self,
         repository: KnowledgeWorkspaceRepository,
@@ -1908,6 +1911,81 @@ class KnowledgeWorkspaceService:
             event.event_id,
         )
 
+    def _preview_snapshot_from_event(
+        self,
+        actor: Actor,
+        invocation: Invocation,
+        event: ParsedUpstreamEvent,
+    ) -> dict[str, object] | None:
+        kind = event_kind(event.event_type)
+        if kind not in {"artifact_preview", "html_edit_complete"}:
+            return None
+        data = event.payload.get("data")
+        if not isinstance(data, Mapping):
+            return None
+        raw_html = (
+            data.get("html")
+            or data.get("content")
+            or data.get("snapshot")
+            or data.get("source")
+        )
+        if not isinstance(raw_html, str) or not raw_html.strip():
+            return {
+                "type": "artifact.preview",
+                "data": {
+                    "status": "blocked",
+                    "message": "AutoSkill has not emitted a complete legal HTML snapshot.",
+                    "log": ["preview blocked: missing complete HTML snapshot"],
+                },
+            }
+        content = raw_html.encode("utf-8")
+        try:
+            metadata = validate_html_artifact(content)
+        except HtmlArtifactError as exc:
+            return {
+                "type": "artifact.preview",
+                "data": {
+                    "status": "blocked",
+                    "message": str(exc),
+                    "log": [f"preview blocked: {exc.code}"],
+                },
+            }
+        digest = str(metadata["sha256"])
+        uri = self.repository.put_object(digest, content, suffix=".html")
+        snapshot_id = new_id("snapshot")
+        self.repository.save_artifact_snapshot(
+            snapshot_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            invocation_id=invocation.invocation_id,
+            expires_at=time.time() + self.PREVIEW_SNAPSHOT_TTL_SECONDS,
+            payload={
+                "uri": uri,
+                "sha256": digest,
+                "media_type": metadata["media_type"],
+                "csp": metadata["csp"],
+                "sandbox": metadata["sandbox"],
+                "source": raw_html[:200_000],
+            },
+        )
+        return {
+            "type": "artifact.preview",
+            "data": {
+                "artifact_id": snapshot_id,
+                "snapshot_id": snapshot_id,
+                "revision_id": str(data.get("revision_id") or invocation.revision_id or ""),
+                "media_type": metadata["media_type"],
+                "sha256": digest,
+                "title": str(data.get("title") or "临时 HTML 预览"),
+                "uri": f"/api/knowledge/v1/artifact-snapshots/{snapshot_id}/content",
+                "csp": metadata["csp"],
+                "sandbox": metadata["sandbox"],
+                "status": "preview",
+                "source": raw_html[:200_000],
+                "log": ["validated preview snapshot"],
+            },
+        }
+
     async def _execute(
         self,
         actor: Actor,
@@ -2289,12 +2367,33 @@ class KnowledgeWorkspaceService:
                     cursor=len(self.repository.raw_events(invocation.invocation_id))
                     + 1,
                 )
+                preview_snapshot = self._preview_snapshot_from_event(
+                    actor, current, event
+                )
                 if event.malformed:
                     malformed_event = event
                 if kind == "done":
                     terminal_event = event
                     break
                 await self._append(current, event, normalized)
+                if preview_snapshot is not None:
+                    preview_cursor = (
+                        len(self.repository.raw_events(invocation.invocation_id)) + 1
+                    )
+                    self.repository.append_event(
+                        invocation.invocation_id,
+                        {
+                            "type": "artifact.preview",
+                            "data": preview_snapshot["data"],
+                        },
+                        {
+                            "id": f"{invocation.invocation_id}:{preview_cursor}",
+                            "invocation_id": invocation.invocation_id,
+                            "occurred_at": utc_now().isoformat(),
+                            **preview_snapshot,
+                        },
+                        None,
+                    )
             if terminal_event is not None:
                 await self._append(current, terminal_event, None)
             if malformed_event is not None:
@@ -2443,6 +2542,34 @@ class KnowledgeWorkspaceService:
                         ]
                         if invocation.revision_id
                         else [],
+                        "revision_id": invocation.revision_id,
+                    },
+                },
+                None,
+            )
+            done_cursor = len(self.repository.raw_events(invocation.invocation_id)) + 1
+            artifact_ids = [
+                item.artifact_id
+                for item in self.repository.artifacts_for_revision(
+                    invocation.revision_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+            ] if invocation.revision_id else []
+            self.repository.append_event(
+                invocation.invocation_id,
+                {"type": "done", "data": {"status": "succeeded"}},
+                {
+                    "id": f"{invocation.invocation_id}:{done_cursor}",
+                    "type": "done",
+                    "invocation_id": invocation.invocation_id,
+                    "occurred_at": utc_now().isoformat(),
+                    "data": {
+                        "status": "succeeded",
+                        "finished_at": finished.finished_at.isoformat()
+                        if finished.finished_at
+                        else utc_now().isoformat(),
+                        "artifact_ids": artifact_ids,
                         "revision_id": invocation.revision_id,
                     },
                 },
@@ -2689,6 +2816,35 @@ class KnowledgeWorkspaceService:
             },
             None,
         )
+        if artifact.media_type == "text/html":
+            cursor = len(self.repository.raw_events(invocation.invocation_id)) + 1
+            public_artifact = self.public_artifact(artifact)
+            self.repository.append_event(
+                invocation.invocation_id,
+                {
+                    "type": "artifact.final",
+                    "data": {"artifact_id": artifact.artifact_id},
+                },
+                {
+                    "id": f"{invocation.invocation_id}:{cursor}",
+                    "type": "artifact.final",
+                    "invocation_id": invocation.invocation_id,
+                    "occurred_at": utc_now().isoformat(),
+                    "data": {
+                        "artifact_id": artifact.artifact_id,
+                        "revision_id": revision_id,
+                        "media_type": artifact.media_type,
+                        "sha256": artifact.sha256,
+                        "uri": public_artifact["uri"],
+                        "csp": artifact.csp,
+                        "sandbox": artifact.sandbox,
+                        "status": "final",
+                        "title": "最终 HTML Artifact",
+                        "log": ["immutable final artifact recorded"],
+                    },
+                },
+                None,
+            )
 
     def _record_request_id(self, invocation: Invocation, request_id: str) -> Invocation:
         """Persist every provider request used by one invocation."""
@@ -3399,6 +3555,25 @@ class KnowledgeWorkspaceService:
             self.repository.read_object(artifact.uri),
             artifact.media_type,
             artifact.csp,
+        )
+
+    def artifact_snapshot_content(
+        self, actor: Actor, snapshot_id: str
+    ) -> tuple[bytes, str, str]:
+        snapshot = self.repository.get_artifact_snapshot(
+            snapshot_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            now=time.time(),
+        )
+        if snapshot is None:
+            raise KnowledgeWorkspaceError(
+                "ARTIFACT_PREVIEW_EXPIRED", "artifact preview snapshot expired", 410
+            )
+        return (
+            self.repository.read_object(str(snapshot["uri"])),
+            str(snapshot["media_type"]),
+            str(snapshot["csp"]),
         )
 
     def list_publications(self, actor: Actor) -> tuple[Publication, ...]:

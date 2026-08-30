@@ -35,9 +35,11 @@ from frontend.server.knowledge_workspace.service import (
 from frontend.server.knowledge_workspace.sse import ParsedUpstreamEvent
 
 
-def event(event_type: str, data: object = None) -> ParsedUpstreamEvent:
+def event(
+    event_type: str, data: object = None, *, event_id: str | None = None
+) -> ParsedUpstreamEvent:
     return ParsedUpstreamEvent(
-        event_id=event_type,
+        event_id=event_id or event_type,
         event_type=event_type,
         payload={"type": event_type, "data": data if data is not None else {}},
         raw="",
@@ -246,6 +248,158 @@ def make_service(
         lease,
     )
     return service, Actor("tenant", "workspace", "principal"), lease
+
+
+@pytest.mark.asyncio
+async def test_run_stream_creates_controlled_preview_snapshot_without_mock_html() -> None:
+    html = "<!doctype html><html><body><h1>Real preview</h1></body></html>"
+    service, actor, _ = make_service(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    fake.invoke_events = (
+        event("artifact_preview", {"html": html, "title": "Live preview"}),
+        event("final_answer", {"answer": "ran"}),
+        event("request_summary", policy_summary(skills_field="skills_used")),
+        event("done"),
+    )
+    run = await service.run_revision(
+        actor,
+        revision.revision_id,
+        "produce the report",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+
+    browser_events = [
+        item["event"] for item in service.repository.events_after(run.invocation_id)
+    ]
+    preview = next(item for item in browser_events if item["type"] == "artifact.preview")
+    assert preview["data"]["status"] == "preview"
+    assert preview["data"]["media_type"] == "text/html"
+    assert preview["data"]["sandbox"] == "allow-scripts"
+    assert "connect-src 'none'" in preview["data"]["csp"]
+    assert preview["data"]["uri"].startswith(
+        "/api/knowledge/v1/artifact-snapshots/"
+    )
+    content, media_type, csp = service.artifact_snapshot_content(
+        actor, preview["data"]["snapshot_id"]
+    )
+    assert content.decode("utf-8") == html
+    assert media_type == "text/html"
+    assert "connect-src 'none'" in csp
+    assert "allow-same-origin" not in json.dumps(browser_events)
+    assert "mock" not in json.dumps(browser_events).lower()
+
+
+@pytest.mark.asyncio
+async def test_run_stream_keeps_provider_preview_event_and_controlled_snapshot() -> None:
+    html = "<!doctype html><html><body><h1>Real preview</h1></body></html>"
+    service, actor, _ = make_service(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    fake.invoke_events = (
+        event(
+            "html_edit_complete",
+            {"html": html, "message": "provider completed html edit"},
+            event_id="provider-preview-1",
+        ),
+        event("final_answer", {"answer": "ran"}),
+        event("request_summary", policy_summary(skills_field="skills_used")),
+        event("done"),
+    )
+    run = await service.run_revision(
+        actor,
+        revision.revision_id,
+        "produce the report",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+
+    stored = service.repository.events_after(run.invocation_id)
+    raw_events = service.repository.raw_events(run.invocation_id)
+    provider_sequence = next(
+        item["sequence"]
+        for item in raw_events
+        if item["upstream_id"] == "provider-preview-1"
+    )
+    provider = [item for item in stored if item["sequence"] == provider_sequence]
+    snapshots = [
+        item["event"] for item in stored if item["event"]["type"] == "artifact.preview"
+    ]
+
+    assert len(provider) == 1
+    assert provider[0]["event"]["type"] == "progress"
+    assert provider[0]["event"]["data"]["text"] == "provider completed html edit"
+    assert len(snapshots) == 1
+    assert snapshots[0]["data"]["status"] == "preview"
+    assert snapshots[0]["data"]["uri"].startswith(
+        "/api/knowledge/v1/artifact-snapshots/"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_stream_blocks_preview_when_provider_snapshot_is_not_legal_html() -> None:
+    service, actor, _ = make_service(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    fake = service.autoskill
+    assert isinstance(fake, FakeAutoSkill)
+    fake.invoke_events = (
+        event("artifact_preview", {"html": "<div>partial</div>"}, event_id="preview-invalid"),
+        event("artifact_preview", {"message": "working"}, event_id="preview-missing"),
+        event("final_answer", {"answer": "ran"}),
+        event("request_summary", policy_summary(skills_field="skills_used")),
+        event("done"),
+    )
+    run = await service.run_revision(
+        actor,
+        revision.revision_id,
+        "produce the report",
+        ("connection-a",),
+    )
+    await asyncio.sleep(0)
+
+    previews = [
+        item["event"]
+        for item in service.repository.events_after(run.invocation_id)
+        if item["event"]["type"] == "artifact.preview"
+    ]
+    assert [item["data"]["status"] for item in previews] == ["blocked", "blocked"]
+    assert all("uri" not in item["data"] for item in previews)
+    assert "mock" not in json.dumps(previews).lower()
+    with pytest.raises(KnowledgeWorkspaceError, match="expired"):
+        service.artifact_snapshot_content(actor, "snapshot_missing")
 
 
 class FreezeAutoSkill(FakeAutoSkill):
@@ -525,6 +679,12 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
     )
     assert len(artifacts) == 1
     assert artifacts[0].media_type == "text/html"
+    event_types = [
+        item["event"]["type"]
+        for item in service.repository.events_after(run.invocation_id)
+    ]
+    assert "artifact.created" in event_types
+    assert "artifact.final" in event_types
     assert (
         "autoskill_request_id" not in service.public_artifact(artifacts[0])["lineage"]
     )

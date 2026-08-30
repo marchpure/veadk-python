@@ -161,8 +161,10 @@ def test_normalizes_full_agent_sequence_with_stable_parent_and_call_relationship
         "inv:5",
     ]
     assert normalized[1]["parent_id"] == "1"
+    assert normalized[1]["data"]["activity_kind"] == "planning"
     assert normalized[2]["parent_id"] == "1"
     assert normalized[2]["data"]["call_id"] == "call-7"
+    assert normalized[2]["data"]["activity_kind"] == "tool"
     assert normalized[3]["parent_id"] == "call-7"
     assert normalized[3]["data"]["call_id"] == "call-7"
     assert "reasoning" not in json.dumps(normalized)
@@ -211,11 +213,13 @@ def test_normalizes_official_autoskill_event_shape_without_transport_id_breaking
 
     assert normalized[0]["id"] == "1"
     assert normalized[1]["parent_id"] == normalized[0]["id"]
+    assert normalized[1]["data"]["activity_kind"] == "planning"
     assert normalized[1]["data"]["steps"] == [
         {"id": "step-1", "label": "mcp_lookup", "status": "running"}
     ]
     assert normalized[2]["parent_id"] == normalized[0]["id"]
     assert normalized[2]["data"]["call_id"] == "call-real"
+    assert normalized[2]["data"]["activity_kind"] == "tool"
     assert normalized[3]["parent_id"] == normalized[2]["data"]["call_id"]
     assert normalized[3]["data"]["call_id"] == normalized[2]["data"]["call_id"]
     assert "private scratch text" not in json.dumps(normalized)
@@ -263,6 +267,49 @@ def test_request_summary_and_state_update_keep_distinct_safe_semantics() -> None
     assert state["data"] == {"state_ready": True, "remote_saved": True}
     assert "secret" not in json.dumps([summary, state])
     assert "127.0.0.1" not in json.dumps([summary, state])
+
+
+def test_normalizes_w2_error_event_without_hiding_error_category() -> None:
+    parsed = parse_sse(
+        [
+            'id: error-1\ndata: {"type":"error","data":{"code":"MODEL_ERROR","message":"model failed","retryable":true,"category":"model"}}\n\n',
+        ]
+    )[0]
+
+    normalized = normalize_upstream_event(parsed, invocation_id="inv", cursor=1)
+
+    assert normalized["type"] == "error"
+    assert normalized["data"] == {
+        "code": "MODEL_ERROR",
+        "message": "model failed",
+        "retryable": True,
+        "category": "model",
+    }
+
+
+def test_passes_through_w2_canonical_alias_events_for_assistant_reducer() -> None:
+    parsed = parse_sse(
+        [
+            'data: {"type":"tool_call","data":{"call_id":"call-1","name":"query","input":{"sql":"select 1"}}}\n\n',
+            'data: {"type":"tool_output","data":{"call_id":"call-1","name":"query","ok":true,"output_summary":"1 row"}}\n\n',
+            'data: {"type":"progress","data":{"message":"rendering"}}\n\n',
+            'data: {"type":"message.delta","data":{"text":"stream","sequence":3}}\n\n',
+            'data: {"type":"artifact_final","data":{"artifact_id":"artifact-1","revision_id":"rev-1","media_type":"text/html","sha256":"abc","uri":"/api/knowledge/v1/artifacts/artifact-1/content"}}\n\n',
+        ]
+    )
+
+    normalized = [
+        normalize_upstream_event(item, invocation_id="inv", cursor=index + 1)
+        for index, item in enumerate(parsed)
+    ]
+
+    assert [item["type"] for item in normalized] == [
+        "tool_call",
+        "tool_output",
+        "progress",
+        "message.delta",
+        "artifact.final",
+    ]
 
 
 def test_state_update_preserves_only_flags_the_provider_actually_sent() -> None:

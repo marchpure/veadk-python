@@ -230,12 +230,15 @@ async function main() {
     });
     if (url.pathname === "/api/knowledge/v1/connector-definitions") return response([]);
     if (url.pathname === "/api/knowledge/v1/connections") return response([connection]);
+    if (url.pathname === "/api/knowledge/v1/resources") return response([]);
     if (url.pathname === "/api/knowledge/v1/skills/drafts") return response([draft]);
     if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`) {
       return response(draft, { ETag: "draft-evidence-v1" });
     }
     if (url.pathname.endsWith("/revisions")) return response([revision]);
+    if (url.pathname.endsWith("/artifacts")) return response([]);
     if (url.pathname.endsWith("/conversation")) return response(conversation);
+    if (url.pathname === "/api/knowledge/v1/publications") return response([]);
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -249,8 +252,15 @@ async function main() {
   await page.goto(
     `${baseURL}/?view=knowledge-workspace&file=draft&draftId=${draft.draft_id}`,
   );
-  const assistant = page.getByRole("complementary", { name: "分析助手" });
-  await assistant.getByRole("heading", { name: "处置建议" }).waitFor();
+  const assistant = page.locator(".kw-skill-conversation");
+  try {
+    await assistant.locator(".kw-assistant-message").filter({ hasText: "处置建议" }).waitFor();
+  } catch (error) {
+    const bodyText = await page.locator("body").innerText().catch(() => "");
+    throw new Error(`Assistant message did not render. Page text:\n${bodyText}`, {
+      cause: error,
+    });
+  }
   assert.equal(await assistant.locator(".kw-user-message").count(), 2);
   assert.equal(await assistant.locator(".kw-activity").count(), 5);
   assert.equal(await assistant.locator("script").count(), 0);
@@ -266,7 +276,7 @@ async function main() {
   const box = await assistant.boundingBox();
   assert.ok(box);
   if (viewport.width >= 900) {
-    assert.ok(box.width >= 379 && box.width <= 381, JSON.stringify(box));
+    assert.ok(box.width >= 560 && box.width <= 760, JSON.stringify(box));
   } else {
     await assistant.scrollIntoViewIfNeeded();
     assert.ok(box.width <= viewport.width, JSON.stringify(box));

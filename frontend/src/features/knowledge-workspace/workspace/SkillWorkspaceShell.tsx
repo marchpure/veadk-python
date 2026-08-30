@@ -9,6 +9,7 @@ import type {
   WorkspaceResource,
 } from "../domain/types";
 import { ArtifactWorkspace } from "./ArtifactWorkspace";
+import { InvocationRail } from "./InvocationRail";
 import { SkillConversation } from "./SkillConversation";
 
 export function SkillWorkspaceShell({
@@ -72,13 +73,25 @@ export function SkillWorkspaceShell({
   onBindAgent: () => void;
   onAdvanced: () => void;
 }) {
-  const [mobileDrawer, setMobileDrawer] = useState<"artifacts" | null>(null);
+  const [mobileDrawer, setMobileDrawer] = useState<"invocations" | "artifacts" | null>(null);
+  const [focusInvocationId, setFocusInvocationId] = useState<string>();
   const title = revisions.at(-1)?.skill_name || draft.goal;
   const boundConnections = connections.filter((item) => draft.connection_ids.includes(item.connection_id));
   const boundResources = resources.filter((item) => draft.resource_ids.includes(item.resource_id));
   const showArtifactPane = hasArtifact ?? artifacts.length > 0;
   return (
     <section className={`kw-skill-workshop${showArtifactPane ? " has-artifact" : " is-conversation-only"}`}>
+      <div className={mobileDrawer === "invocations" ? "kw-workshop-mobile-drawer is-open" : "kw-workshop-rail"}>
+        <InvocationRail
+          turns={turns}
+          activeInvocationId={focusInvocationId}
+          onSelect={(id) => {
+            setFocusInvocationId(id);
+            setMobileDrawer(null);
+          }}
+          onClose={mobileDrawer ? () => setMobileDrawer(null) : undefined}
+        />
+      </div>
       <SkillConversation
         title={title}
         turns={turns}
@@ -90,6 +103,8 @@ export function SkillWorkspaceShell({
         busy={busy === "message" || busy === "retry" || busy === "cancel"}
         modeSelectorSlot={modeSelectorSlot}
         hasArtifacts={showArtifactPane}
+        focusInvocationId={focusInvocationId}
+        onOpenInvocations={() => setMobileDrawer("invocations")}
         onOpenArtifacts={showArtifactPane ? () => setMobileDrawer("artifacts") : undefined}
         onOpenDataTools={onOpenDataTools}
         onCreateSession={onCreateSession}
@@ -121,9 +136,9 @@ export function SkillWorkspaceShell({
             <ArtifactWorkspace
               artifacts={artifacts}
               revisions={revisions}
+              turns={turns}
               published={published}
               onClose={mobileDrawer ? () => setMobileDrawer(null) : undefined}
-              onRun={() => void onRun(turns.at(-1)?.userMessage || draft.goal)}
               onShare={onShare}
               onPublish={onPublish}
               onBindAgent={onBindAgent}
