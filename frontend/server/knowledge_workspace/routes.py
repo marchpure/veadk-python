@@ -1613,7 +1613,9 @@ def mount_knowledge_workspace_routes(
             headers={
                 "Content-Security-Policy": csp,
                 "Content-Disposition": "inline",
+                "Cache-Control": "no-store",
                 "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
             },
         )
 
