@@ -1084,6 +1084,7 @@ def mount_knowledge_workspace_routes(
                 body.goal,
                 body.connection_ids,
                 resource_ids=body.resource_ids,
+                knowledge_source_refs=body.knowledge_source_refs,
                 openviking_profile_ids=source_profiles or body.openviking_profile_ids,
                 openviking_resource_refs=source_resources or body.openviking_resource_refs,
                 trial_task=body.trial_task,

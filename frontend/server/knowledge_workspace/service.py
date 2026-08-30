@@ -535,6 +535,7 @@ class KnowledgeWorkspaceService:
         connection_ids: Sequence[str],
         *,
         resource_ids: Sequence[str] = (),
+        knowledge_source_refs: Sequence[Mapping[str, object]] = (),
         openviking_profile_ids: Sequence[str] = (),
         openviking_resource_refs: Sequence[str] = (),
         trial_task: str | None = None,
@@ -546,18 +547,17 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError("INVALID_REQUEST", "goal is required", 400)
         unique = tuple(dict.fromkeys(str(item) for item in connection_ids))
         resources = tuple(dict.fromkeys(str(item) for item in resource_ids))
-        ov_profiles = tuple(dict.fromkeys(str(item) for item in openviking_profile_ids))
-        ov_refs = tuple(dict.fromkeys(str(item) for item in openviking_resource_refs))
-        source_refs = tuple(
-            [
-                {"provider": "openviking", "profile_ref": item}
-                for item in ov_profiles
-            ]
-            + [
-                {"provider": "openviking", "resource_ref": item}
-                for item in ov_refs
-            ]
-        )
+        source_ref_list: list[Mapping[str, object]] = []
+        for item in knowledge_source_refs:
+            if isinstance(item, Mapping) and dict(item) not in [dict(existing) for existing in source_ref_list]:
+                source_ref_list.append(dict(item))
+        source_refs = tuple(source_ref_list)
+        if not source_refs:
+            source_refs = tuple(
+                [{"provider": "openviking", "profile_ref": item} for item in openviking_profile_ids]
+                + [{"provider": "openviking", "resource_ref": item} for item in openviking_resource_refs]
+            )
+        ov_profiles, ov_refs = _provider_refs(source_refs)
         if not unique and not resources and not ov_refs:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY",
