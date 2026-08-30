@@ -299,6 +299,15 @@ class KnowledgeWorkspaceService:
         invocation_policy: Mapping[str, object] | None = None,
     ) -> str:
         action = "create_skill" if invocation.kind is InvocationKind.GENERATE else "update_skill"
+        current_target = ""
+        if invocation.kind is InvocationKind.UPDATE and draft.current_revision_id:
+            current_revision = self.repository.get_revision(
+                draft.current_revision_id,
+                tenant_id=draft.tenant_id,
+                workspace_id=draft.workspace_id,
+            )
+            if current_revision is not None:
+                current_target = current_revision.skill_name
         payload = {
             "template_key": draft.template_key.value,
             "template_config": dict(draft.template_config),
@@ -308,6 +317,7 @@ class KnowledgeWorkspaceService:
             "connection_refs": list(invocation.connection_ids),
             "resource_refs": self._resource_refs(self.repository, draft),
             "upload_refs": self._upload_refs(self.repository, draft),
+            "current_revision_skill": current_target or None,
             "lifecycle": {
                 "draft": "editing -> generating -> generated -> validating -> ready_to_publish",
                 "run": "queued -> running -> succeeded|failed|cancelled",
@@ -334,12 +344,21 @@ class KnowledgeWorkspaceService:
                     "and in the generated Skill. A successful call must be "
                     "present in the final policy_evaluation.\n\n"
                 )
+        update_binding = (
+            "Update binding (mandatory): this is an immutable revision update. "
+            f"Call update_skill exactly for the existing Skill '{current_target}', "
+            "and validate that same Skill. Do not update a prebuilt, unrelated, "
+            "or helper Skill; do not create a second target.\n\n"
+            if action == "update_skill" and current_target
+            else ""
+        )
         return (
             "AutoSkill Creator W4 request.\n"
             f"Command: {action}\n"
             f"template_key={draft.template_key.value}\n"
             "Requirements:\n"
             f"{self._template_requirements(draft.template_key)}\n\n"
+            f"{update_binding}"
             f"{connection_gate}"
             "Live context gate (mandatory, before finalizing): use the "
             "provided Connection/OpenViking MCP context at least once. For a "
@@ -572,6 +591,31 @@ class KnowledgeWorkspaceService:
                 502,
             )
         return target
+
+    def _require_update_target_matches_revision(
+        self, invocation: Invocation, draft: SkillDraft, target: str
+    ) -> None:
+        if invocation.kind is not InvocationKind.UPDATE:
+            return
+        if not draft.current_revision_id:
+            raise KnowledgeWorkspaceError(
+                "REVISION_CONFLICT",
+                "update invocation has no current immutable revision target",
+                409,
+            )
+        revision = self.repository.get_revision(
+            draft.current_revision_id,
+            tenant_id=draft.tenant_id,
+            workspace_id=draft.workspace_id,
+        )
+        expected = revision.skill_name if revision is not None else "[missing]"
+        if revision is None or revision.skill_name != target:
+            raise KnowledgeWorkspaceError(
+                "SKILL_IDENTITY_MISMATCH",
+                f"update target_skill '{target}' does not match current revision "
+                f"Skill '{expected}'",
+                409,
+            )
 
     @staticmethod
     def _summary_skill_version(summary: Mapping[str, object] | None) -> str:
@@ -2507,6 +2551,7 @@ class KnowledgeWorkspaceService:
                 else None
             )
             skill_name = self._summary_target_skill(invocation)
+            self._require_update_target_matches_revision(invocation, draft, skill_name)
             view_request = new_id("request")
             invocation = self._record_request_id(invocation, view_request)
             view_events = await self._skill_command(

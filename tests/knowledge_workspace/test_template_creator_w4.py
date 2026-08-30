@@ -209,6 +209,51 @@ async def test_w4_template_freeze_requires_scripts_and_tests() -> None:
 
 
 @pytest.mark.asyncio
+async def test_w4_update_prompt_binds_current_revision_skill() -> None:
+    events = [
+        event("planning", {"text": "update the bound skill"}),
+        tool_event("action", call_id="validate", name="validate_skill"),
+        tool_event(
+            "observation",
+            call_id="validate",
+            name="validate_skill",
+            ok=True,
+        ),
+        event("final_answer", {"answer": "updated"}),
+        event(
+            "request_summary",
+            policy_summary(target_skill="demo", skills_field="skills_updated"),
+        ),
+        event("done"),
+    ]
+    autoskill = RecordingFreezeAutoSkill(events)
+    autoskill.skill_zip = w4_skill_zip("demo", "updated")
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        FakeLeasePort(),
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "Create a dashboard skill", ["connection-a"])
+    generation = service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    first = await service.freeze(actor, draft.draft_id, generation.invocation_id)
+
+    update = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.UPDATE,
+        message="add a refresh state",
+    )
+    await asyncio.sleep(0)
+    update_prompt = autoskill.command_calls[-1]["prompt"]
+
+    assert first.skill_name == "demo"
+    assert "current_revision_skill" in str(update_prompt)
+    assert "existing Skill 'demo'" in str(update_prompt)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("template_key", "required_terms"),
     [
