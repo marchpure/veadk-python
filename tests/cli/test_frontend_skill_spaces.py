@@ -109,6 +109,35 @@ def test_frontend_server_uses_provider_compatible_static_response_encoding(
         assert "Accept-Encoding" in response.headers["vary"]
 
 
+def test_local_identity_cookie_round_trips_knowledge_workspace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("KNOWLEDGE_DEMO_ENABLED", "1")
+    monkeypatch.setenv(
+        "KNOWLEDGE_WORKSPACE_DATABASE",
+        str(tmp_path / "knowledge-workspace.sqlite3"),
+    )
+    monkeypatch.setenv(
+        "KNOWLEDGE_WORKSPACE_OBJECT_ROOT",
+        str(tmp_path / "knowledge-workspace-objects"),
+    )
+    app = _create_frontend_app(monkeypatch, tmp_path)
+
+    with TestClient(app) as client:
+        first = client.get(
+            "/api/knowledge/v1/skills/drafts",
+            headers={"X-VeADK-Local-User": "cookie-user"},
+        )
+        assert first.status_code == 200
+        assert "veadk_local_session=" in first.headers["set-cookie"]
+        first_ids = [item["draft_id"] for item in first.json()["data"]]
+
+        second = client.get("/api/knowledge/v1/skills/drafts")
+
+    assert second.status_code == 200
+    assert [item["draft_id"] for item in second.json()["data"]] == first_ids
+
+
 def test_list_a2a_spaces_paginates_and_maps_names(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

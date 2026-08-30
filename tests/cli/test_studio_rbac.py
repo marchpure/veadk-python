@@ -363,6 +363,25 @@ def test_auth_config_uses_cloud_specific_identity_label(
     ]
 
 
+def test_gateway_mode_ignores_local_identity_cookie(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    app = _create_studio_app(
+        monkeypatch,
+        tmp_path,
+        auth_mode="gateway",
+        developers="developer",
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/knowledge/v1/skills/drafts",
+            cookies={"veadk_local_session": "developer.invalid-signature"},
+        )
+
+    assert response.status_code == 401
+
+
 def test_project_handoff_pairing_authorizes_only_terminal_session_routes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
