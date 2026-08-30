@@ -1,0 +1,8 @@
+{
+  "status": "BLOCKED_EXTERNAL",
+  "contract_suite": {"status": "PASS", "passed": 7, "skipped": 2, "failed": 0},
+  "skipped": ["mock-dependent W4 OpenViking journey", "unrelated W3 journey"],
+  "real_desktop": "BLOCKED_EXTERNAL",
+  "real_narrow_screen": "BLOCKED_EXTERNAL",
+  "screenshots": []
+}

@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "entries": [
+    {"capability": "profile CRUD/encrypted credential storage", "ui": "PASS", "bff": "PASS", "upstream": "BLOCKED_EXTERNAL"},
+    {"capability": "manual text", "ui": "PASS (.md/.txt)", "bff": "PASS", "upstream": "BLOCKED_EXTERNAL"},
+    {"capability": "file upload", "ui": "PASS", "bff": "PASS (.csv/.json/.md/.pdf/.txt/.xlsx)", "upstream": "BLOCKED_EXTERNAL"},
+    {"capability": "URL/web import", "ui": "PASS", "bff": "PASS via generic resource_import with HTTPS/SSRF checks", "upstream": "BLOCKED_EXTERNAL"},
+    {"capability": "Git, Feishu, directory, batch, image, DOCX, PPTX, HTML", "ui": "PASS", "bff": "PASS via generic operation bridge", "upstream": "BLOCKED_EXTERNAL"},
+    {"capability": "resource tree/content/search/tasks", "ui": "PASS", "bff": "PASS via generic operation bridge", "upstream": "BLOCKED_EXTERNAL"},
+    {"capability": "delete resource", "ui": "PASS", "bff": "operation bridge only", "upstream": "BLOCKED_EXTERNAL"}
+  ],
+  "boundaries": {
+    "migrated_openviking_code": "frontend/src/extensions/openviking/**",
+    "adapter_and_bff": "frontend/server/extensions/openviking/**",
+    "fake_entrypoints": "none found; live smoke reached the BFF and failed at unavailable upstream"
+  }
+}

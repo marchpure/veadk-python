@@ -1,0 +1,4 @@
+{"event":"baseline_verified","status":"PASS","local_sha":"5948d5dd3b29358591b81da2390dc69ff922760c","remote_sha":"5948d5dd3b29358591b81da2390dc69ff922760c"}
+{"event":"server_contract_tests","status":"PASS","result":"136 passed"}
+{"event":"live_bff_smoke","status":"BLOCKED_EXTERNAL","result":"OPENVIKING_UNAVAILABLE"}
+{"event":"live_import_matrix","status":"BLOCKED_EXTERNAL","result":"credentials/upstream unavailable"}

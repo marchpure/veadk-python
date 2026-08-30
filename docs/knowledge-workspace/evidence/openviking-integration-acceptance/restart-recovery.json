@@ -1,0 +1,5 @@
+{
+  "status": "BLOCKED_EXTERNAL",
+  "reason": "No live import task was created because the configured upstream was unavailable.",
+  "contract_evidence": ["SQLite profile persistence", "task history persistence", "server-side tenant/workspace scoping"]
+}
