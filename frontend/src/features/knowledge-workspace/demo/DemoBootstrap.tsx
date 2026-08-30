@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { withAuth } from "../../../adk/auth";
+import { withLocalUser } from "../../../adk/identity";
 import { DemoOnboarding } from "./DemoOnboarding";
 import { DemoScenarioCard } from "./DemoScenarioCard";
 import type { DemoManifest, DemoScenario } from "./types";
@@ -8,10 +10,10 @@ const MANIFEST_URL = "/api/knowledge/v1/demo/manifest";
 
 export interface DemoBootstrapProps {
   manifestUrl?: string;
-  onOpenSkill?: (scenario: DemoScenario) => void;
-  onViewConnection?: (scenario: DemoScenario) => void;
-  onCopy?: (scenario: DemoScenario) => void;
-  onRevalidate?: (scenario: DemoScenario) => void;
+  onOpenSkill?: (scenario: DemoScenario) => void | Promise<void>;
+  onViewConnection?: (scenario: DemoScenario) => void | Promise<void>;
+  onCopy?: (scenario: DemoScenario) => void | Promise<void>;
+  onRevalidate?: (scenario: DemoScenario) => void | Promise<void>;
 }
 
 export function DemoBootstrap({
@@ -26,7 +28,9 @@ export function DemoBootstrap({
   const load = useCallback(async () => {
     setError("");
     try {
-      const response = await fetch(manifestUrl, { headers: { Accept: "application/json" } });
+      const response = await fetch(withAuth(manifestUrl), {
+        headers: withLocalUser({ Accept: "application/json" }),
+      });
       if (!response.ok) throw new Error(`manifest HTTP ${response.status}`);
       const payload = await response.json() as { data?: DemoManifest };
       if (!payload.data) throw new Error("manifest 缺少 data");
@@ -51,7 +55,7 @@ export function DemoBootstrap({
       </header>
       {!hasReady && <DemoOnboarding nextStep={manifest.next_step} />}
       <div className="kw-demo-grid">
-        {manifest.scenarios.map((scenario) => <DemoScenarioCard key={scenario.scenario_id} scenario={scenario} onOpenSkill={onOpenSkill} onViewConnection={onViewConnection} onRevalidate={onRevalidate} onCopy={onCopy} />)}
+        {manifest.scenarios.map((scenario) => <DemoScenarioCard key={scenario.scenario_id} scenario={scenario} onOpenSkill={onOpenSkill} onViewConnection={onViewConnection} onRevalidate={async (item) => { await onRevalidate(item); await load(); }} onCopy={onCopy} />)}
       </div>
     </section>
   );

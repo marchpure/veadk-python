@@ -2,10 +2,10 @@ import type { DemoScenario } from "./types";
 
 interface Props {
   scenario: DemoScenario;
-  onOpenSkill: (scenario: DemoScenario) => void;
-  onViewConnection: (scenario: DemoScenario) => void;
-  onRevalidate: (scenario: DemoScenario) => void;
-  onCopy: (scenario: DemoScenario) => void;
+  onOpenSkill: (scenario: DemoScenario) => void | Promise<void>;
+  onViewConnection: (scenario: DemoScenario) => void | Promise<void>;
+  onRevalidate: (scenario: DemoScenario) => void | Promise<void>;
+  onCopy: (scenario: DemoScenario) => void | Promise<void>;
 }
 
 export function DemoScenarioCard({

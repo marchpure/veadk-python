@@ -13,10 +13,11 @@ import json
 import os
 import sqlite3
 import threading
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -67,6 +68,10 @@ COMMON_GATE_EVIDENCE = {
     "revision",
     "artifact_html",
 }
+PRIMARY_SCENARIO_ID = "anta-sports-daily"
+
+DemoGate = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
+DemoGateFactory = Callable[[Actor], DemoGate]
 
 
 @dataclass(frozen=True)
@@ -76,7 +81,7 @@ class DemoConfig:
     database: str = ".veadk/knowledge-demo.sqlite3"
 
     @classmethod
-    def from_env(cls) -> "DemoConfig":
+    def from_env(cls) -> DemoConfig:
         raw = os.getenv("KNOWLEDGE_DEMO_ENABLED", "false").strip().casefold()
         return cls(
             enabled=raw in {"1", "true", "yes", "on"},
@@ -120,7 +125,9 @@ class DemoSeedStore:
             ).fetchone()
         return json.loads(row["payload"]) if row else None
 
-    def put(self, actor: Actor, seed_version: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def put(
+        self, actor: Actor, seed_version: str, payload: Mapping[str, Any]
+    ) -> dict[str, Any]:
         now = utc_iso()
         value = json.dumps(dict(payload), ensure_ascii=False, sort_keys=True)
         with self._lock:
@@ -228,7 +235,7 @@ class DemoSeedCoordinator:
         self,
         actor: Actor,
         *,
-        gate: Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]],
+        gate: DemoGate,
     ) -> dict[str, Any]:
         if not self.config.enabled:
             raise RuntimeError("DEMO_DISABLED: set KNOWLEDGE_DEMO_ENABLED=true")
@@ -237,79 +244,123 @@ class DemoSeedCoordinator:
             return existing
         completed: list[dict[str, Any]] = []
         for scenario in SCENARIOS:
-            result = dict(await gate(dict(scenario)))
-            if result.get("connection_status") != "verified":
-                raise RuntimeError(
-                    f"{scenario['scenario_id']}: real connection validate/discover did not pass"
+            try:
+                result = dict(await gate(dict(scenario)))
+                self._validate_gate_result(scenario, result)
+            except RuntimeError as exc:
+                if scenario["scenario_id"] == PRIMARY_SCENARIO_ID:
+                    raise
+                completed.append(
+                    {
+                        **scenario,
+                        "status": "blocked",
+                        "connection_status": "not_verified",
+                        "skill_status": "not_generated",
+                        "created_at": utc_iso(),
+                        "source": "demo_seed",
+                        "data_source": scenario["source"],
+                        "seed_version": self.config.seed_version,
+                        "provenance": "knowledge-commercial-w5",
+                        "last_verified_at": None,
+                        "next_step": str(exc)[:500],
+                    }
                 )
-            if result.get("skill_status") != "generated":
-                raise RuntimeError(
-                    f"{scenario['scenario_id']}: real AutoSkill generation did not pass"
-                )
-            observed = {
-                str(item)
-                for item in result.get("evidence", [])
-                if str(item)
-            }
-            required = COMMON_GATE_EVIDENCE | {
-                "query"
-                if scenario["connection_kind"] == "postgresql"
-                else "invoke"
-            }
-            if scenario["scenario_id"] == "im-after-sales":
-                required.add("openviking")
-            missing = sorted(required - observed)
-            if missing:
-                raise RuntimeError(
-                    f"{scenario['scenario_id']}: real gate evidence is incomplete "
-                    f"({', '.join(missing)})"
-                )
-            required_skills = {
-                item.strip().casefold()
-                for item in str(scenario["skill_type"]).replace("+", ",").split(",")
-                if item.strip()
-            }
+                continue
             generated_skills = {
                 str(item).strip().casefold()
                 for item in result.get("skill_types_generated", [])
                 if str(item).strip()
             }
-            missing_skills = sorted(required_skills - generated_skills)
-            revision_ids = [str(item) for item in result.get("revision_ids", [])]
-            artifact_ids = [str(item) for item in result.get("artifact_ids", [])]
-            if missing_skills or len(revision_ids) < len(required_skills) or len(artifact_ids) < len(required_skills):
-                raise RuntimeError(
-                    f"{scenario['scenario_id']}: each Skill type needs a real "
-                    "generation, immutable revision, and HTML artifact"
-                )
-            # Store only the stable, browser-safe fields.  Gate implementations
-            # may return audit details, lease references, or provider payloads;
-            # none of those belong in the demo ledger and variable fields must
-            # not make a second invocation produce a different object.
-            completed.append({
-                **scenario,
-                "status": "ready",
-                "connection_status": "verified",
-                "skill_status": "generated",
-                "connection_id": str(result.get("connection_id") or ""),
-                "revision_ids": [
-                    str(item) for item in result.get("revision_ids", [])
-                ],
-                "artifact_ids": [
-                    str(item) for item in result.get("artifact_ids", [])
-                ],
-                "skill_types_generated": sorted(generated_skills),
-                "created_at": utc_iso(),
-                "source": "demo_seed",
-                "data_source": scenario["source"],
-                "seed_version": self.config.seed_version,
-                "provenance": "knowledge-commercial-w5",
-                "last_verified_at": result.get("last_verified_at") or utc_iso(),
-                "next_step": "可打开 Skill、查看连接、重新验证或复制到自己的数据。",
-            })
+            completed.append(
+                {
+                    **scenario,
+                    "status": "ready",
+                    "connection_status": "verified",
+                    "skill_status": "generated",
+                    "connection_id": str(result.get("connection_id") or ""),
+                    "draft_id": str(result.get("draft_id") or ""),
+                    "authoring_session_id": str(
+                        result.get("authoring_session_id") or ""
+                    ),
+                    "publication_id": str(result.get("publication_id") or ""),
+                    "revision_ids": [
+                        str(item) for item in result.get("revision_ids", [])
+                    ],
+                    "artifact_ids": [
+                        str(item) for item in result.get("artifact_ids", [])
+                    ],
+                    "skill_types_generated": sorted(generated_skills),
+                    "created_at": utc_iso(),
+                    "source": "demo_seed",
+                    "data_source": scenario["source"],
+                    "seed_version": self.config.seed_version,
+                    "provenance": "knowledge-commercial-w5",
+                    "last_verified_at": result.get("last_verified_at") or utc_iso(),
+                    "next_step": "可打开 Skill、查看连接、重新验证或复制到自己的数据。",
+                }
+            )
         payload = _initial_state(actor, self.config.seed_version)
-        payload.update({"status": "ready", "scenarios": completed, "updated_at": utc_iso()})
+        payload.update(
+            {"status": "ready", "scenarios": completed, "updated_at": utc_iso()}
+        )
         return self.store.put(actor, self.config.seed_version, payload)
+
+    @staticmethod
+    def _validate_gate_result(
+        scenario: Mapping[str, Any], result: Mapping[str, Any]
+    ) -> None:
+        if result.get("connection_status") != "verified":
+            raise RuntimeError(
+                f"{scenario['scenario_id']}: real connection validate/discover did not pass"
+            )
+        if result.get("skill_status") != "generated":
+            raise RuntimeError(
+                f"{scenario['scenario_id']}: real AutoSkill generation did not pass"
+            )
+        observed = {str(item) for item in result.get("evidence", []) if str(item)}
+        required = COMMON_GATE_EVIDENCE | {
+            "query" if scenario["connection_kind"] == "postgresql" else "invoke"
+        }
+        if scenario["scenario_id"] == "im-after-sales":
+            required.add("openviking")
+        missing = sorted(required - observed)
+        if missing:
+            raise RuntimeError(
+                f"{scenario['scenario_id']}: real gate evidence is incomplete "
+                f"({', '.join(missing)})"
+            )
+        required_skills = {
+            item.strip().casefold()
+            for item in str(scenario["skill_type"]).replace("+", ",").split(",")
+            if item.strip()
+        }
+        generated_skills = {
+            str(item).strip().casefold()
+            for item in result.get("skill_types_generated", [])
+            if str(item).strip()
+        }
+        missing_skills = sorted(required_skills - generated_skills)
+        revision_ids = [str(item) for item in result.get("revision_ids", [])]
+        artifact_ids = [str(item) for item in result.get("artifact_ids", [])]
+        navigation_ids = {
+            key: str(result.get(key) or "")
+            for key in (
+                "connection_id",
+                "draft_id",
+                "authoring_session_id",
+                "publication_id",
+            )
+        }
+        if (
+            missing_skills
+            or not revision_ids
+            or not artifact_ids
+            or not all(navigation_ids.values())
+        ):
+            raise RuntimeError(
+                f"{scenario['scenario_id']}: the combined Skill needs a real "
+                "generation, immutable revision, HTML artifact, and navigation IDs"
+            )
 
 
 def mount_demo_routes(
@@ -318,7 +369,8 @@ def mount_demo_routes(
     config: DemoConfig | None = None,
     store: DemoSeedStore | None = None,
     actor_resolver: Callable[[Request], Actor],
-    gate: Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]] | None = None,
+    gate: DemoGate | None = None,
+    gate_factory: DemoGateFactory | None = None,
     prefix: str = "/api/knowledge/v1/demo",
 ) -> None:
     """Optional W5 wiring; callers choose when to mount it."""
@@ -328,12 +380,15 @@ def mount_demo_routes(
     @app.get(prefix + "/manifest")
     async def manifest(request: Request) -> JSONResponse:
         actor = actor_resolver(request)
-        return JSONResponse({"data": build_demo_manifest(actor, resolved_config, resolved_store)})
+        return JSONResponse(
+            {"data": build_demo_manifest(actor, resolved_config, resolved_store)}
+        )
 
     @app.post(prefix + "/seed")
     async def seed(request: Request) -> JSONResponse:
         actor = actor_resolver(request)
-        if gate is None:
+        resolved_gate = gate_factory(actor) if gate_factory is not None else gate
+        if resolved_gate is None:
             return JSONResponse(
                 {
                     "error": {
@@ -347,11 +402,17 @@ def mount_demo_routes(
             )
         try:
             result = await DemoSeedCoordinator(resolved_config, resolved_store).seed(
-                actor, gate=gate
+                actor, gate=resolved_gate
             )
         except RuntimeError as exc:
             return JSONResponse(
-                {"error": {"code": "DEMO_SEED_FAILED", "message": str(exc), "retryable": True}},
+                {
+                    "error": {
+                        "code": "DEMO_SEED_FAILED",
+                        "message": str(exc),
+                        "retryable": True,
+                    }
+                },
                 status_code=409,
             )
         return JSONResponse({"data": _public_state(result)})
@@ -363,7 +424,12 @@ def mount_demo_routes(
         version = str(body.get("seed_version") or resolved_config.seed_version)
         if version != resolved_config.seed_version:
             return JSONResponse(
-                {"error": {"code": "DEMO_RESET_SCOPE", "message": "只能 reset 当前 seed_version"}},
+                {
+                    "error": {
+                        "code": "DEMO_RESET_SCOPE",
+                        "message": "只能 reset 当前 seed_version",
+                    }
+                },
                 status_code=400,
             )
         deleted = resolved_store.reset(actor, version)

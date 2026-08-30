@@ -6,6 +6,7 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -19,7 +20,6 @@ from frontend.server.knowledge_workspace.demo import (
     mount_demo_routes,
 )
 from frontend.server.knowledge_workspace.service import Actor
-
 
 ACTOR = Actor("demo-tenant", "demo-workspace", "demo-principal")
 
@@ -36,7 +36,9 @@ def test_disabled_by_default_is_empty_and_does_not_leak_demo_cards() -> None:
     }
 
 
-def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(tmp_path: Path) -> None:
+def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(
+    tmp_path: Path,
+) -> None:
     store = DemoSeedStore(tmp_path / "demo.sqlite")
     coordinator = DemoSeedCoordinator(
         DemoConfig(enabled=True, seed_version="w5-v1"), store
@@ -46,10 +48,17 @@ def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(tmp_path: Pat
     async def gate(scenario: dict[str, object]) -> dict[str, object]:
         calls.append(str(scenario["scenario_id"]))
         evidence = {
-            "validate", "discover", "lease", "autoskill_create",
-            "autoskill_validate", "revision", "artifact_html",
+            "validate",
+            "discover",
+            "lease",
+            "autoskill_create",
+            "autoskill_validate",
+            "revision",
+            "artifact_html",
         }
-        evidence.add("query" if scenario["connection_kind"] == "postgresql" else "invoke")
+        evidence.add(
+            "query" if scenario["connection_kind"] == "postgresql" else "invoke"
+        )
         if scenario["scenario_id"] == "im-after-sales":
             evidence.add("openviking")
         required_skills = {
@@ -64,13 +73,14 @@ def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(tmp_path: Pat
             "skill_types_generated": sorted(required_skills),
             "last_verified_at": "2026-08-30T00:00:00+00:00",
             "connection_id": f"real-{scenario['scenario_id']}",
+            "draft_id": f"draft-{scenario['scenario_id']}",
+            "authoring_session_id": f"session-{scenario['scenario_id']}",
+            "publication_id": f"publication-{scenario['scenario_id']}",
             "revision_ids": [
-                f"revision-{scenario['scenario_id']}-{item}"
-                for item in required_skills
+                f"revision-{scenario['scenario_id']}-{item}" for item in required_skills
             ],
             "artifact_ids": [
-                f"artifact-{scenario['scenario_id']}-{item}"
-                for item in required_skills
+                f"artifact-{scenario['scenario_id']}-{item}" for item in required_skills
             ],
         }
 
@@ -85,6 +95,9 @@ def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(tmp_path: Pat
     assert first["source"] == "demo_seed"
     assert first["seed_version"] == "w5-v1"
     assert all(item["status"] == "ready" for item in first["scenarios"])
+    assert first["scenarios"][0]["draft_id"] == "draft-anta-sports-daily"
+    assert first["scenarios"][0]["authoring_session_id"] == "session-anta-sports-daily"
+    assert first["scenarios"][0]["publication_id"] == "publication-anta-sports-daily"
 
     other = Actor("other-tenant", ACTOR.workspace_id, ACTOR.principal_id)
     third = asyncio.run(coordinator.seed(other, gate=gate))
@@ -92,7 +105,7 @@ def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(tmp_path: Pat
     assert len(calls) == 6
 
 
-def test_seed_fails_closed_when_a_real_gate_is_not_verified() -> None:
+def test_seed_fails_closed_when_primary_real_gate_is_not_verified() -> None:
     coordinator = DemoSeedCoordinator(
         DemoConfig(enabled=True), DemoSeedStore(":memory:")
     )
@@ -104,7 +117,54 @@ def test_seed_fails_closed_when_a_real_gate_is_not_verified() -> None:
         asyncio.run(coordinator.seed(ACTOR, gate=blocked))
 
 
-def test_routes_are_tenant_scoped_and_reset_requires_current_version(tmp_path: Path) -> None:
+def test_seed_keeps_optional_scenarios_explicitly_blocked() -> None:
+    coordinator = DemoSeedCoordinator(
+        DemoConfig(enabled=True), DemoSeedStore(":memory:")
+    )
+
+    async def primary_only(scenario: dict[str, object]) -> dict[str, object]:
+        scenario_id = str(scenario["scenario_id"])
+        if scenario_id != "anta-sports-daily":
+            raise RuntimeError(f"{scenario_id}: lifecycle is not wired")
+        return {
+            "connection_status": "verified",
+            "skill_status": "generated",
+            "evidence": [
+                "validate",
+                "discover",
+                "lease",
+                "query",
+                "autoskill_create",
+                "autoskill_validate",
+                "revision",
+                "artifact_html",
+            ],
+            "skill_types_generated": ["semantic", "dashboard"],
+            "connection_id": "connection-primary",
+            "draft_id": "draft-primary",
+            "authoring_session_id": "session-primary",
+            "publication_id": "publication-primary",
+            "revision_ids": ["revision-primary"],
+            "artifact_ids": ["artifact-primary"],
+        }
+
+    seeded = asyncio.run(coordinator.seed(ACTOR, gate=primary_only))
+    assert seeded["status"] == "ready"
+    assert [item["status"] for item in seeded["scenarios"]] == [
+        "ready",
+        "blocked",
+        "blocked",
+    ]
+    assert all(
+        item["connection_status"] == "not_verified"
+        and item["skill_status"] == "not_generated"
+        for item in seeded["scenarios"][1:]
+    )
+
+
+def test_routes_are_tenant_scoped_and_reset_requires_current_version(
+    tmp_path: Path,
+) -> None:
     app = FastAPI()
     store = DemoSeedStore(tmp_path / "demo.sqlite")
 
@@ -113,10 +173,17 @@ def test_routes_are_tenant_scoped_and_reset_requires_current_version(tmp_path: P
 
     async def gate(scenario: dict[str, object]) -> dict[str, object]:
         evidence = {
-            "validate", "discover", "lease", "autoskill_create",
-            "autoskill_validate", "revision", "artifact_html",
+            "validate",
+            "discover",
+            "lease",
+            "autoskill_create",
+            "autoskill_validate",
+            "revision",
+            "artifact_html",
         }
-        evidence.add("query" if scenario["connection_kind"] == "postgresql" else "invoke")
+        evidence.add(
+            "query" if scenario["connection_kind"] == "postgresql" else "invoke"
+        )
         if scenario["scenario_id"] == "im-after-sales":
             evidence.add("openviking")
         required_skills = {
@@ -129,30 +196,40 @@ def test_routes_are_tenant_scoped_and_reset_requires_current_version(tmp_path: P
             "skill_status": "generated",
             "evidence": sorted(evidence),
             "skill_types_generated": sorted(required_skills),
+            "connection_id": f"connection-{scenario['scenario_id']}",
+            "draft_id": f"draft-{scenario['scenario_id']}",
+            "authoring_session_id": f"session-{scenario['scenario_id']}",
+            "publication_id": f"publication-{scenario['scenario_id']}",
             "revision_ids": [f"revision-{item}" for item in required_skills],
             "artifact_ids": [f"artifact-{item}" for item in required_skills],
         }
+
+    gate_actors: list[Actor] = []
+
+    def gate_factory(actor: Actor):  # type: ignore[no-untyped-def]
+        gate_actors.append(actor)
+        return gate
 
     mount_demo_routes(
         app,
         config=DemoConfig(enabled=True, seed_version="w5-v1"),
         store=store,
         actor_resolver=actor,  # type: ignore[arg-type]
-        gate=gate,
+        gate_factory=gate_factory,
     )
     client = TestClient(app)
-    assert client.get("/api/knowledge/v1/demo/manifest").json()["data"]["status"] == "not_initialized"
+    assert (
+        client.get("/api/knowledge/v1/demo/manifest").json()["data"]["status"]
+        == "not_initialized"
+    )
     seeded = client.post("/api/knowledge/v1/demo/seed")
     assert seeded.status_code == 200
     assert seeded.json()["data"]["status"] == "ready"
     assert "tenant_id" not in seeded.json()["data"]
-    wrong = client.post(
-        "/api/knowledge/v1/demo/reset", json={"seed_version": "w5-v0"}
-    )
+    assert gate_actors == [ACTOR]
+    wrong = client.post("/api/knowledge/v1/demo/reset", json={"seed_version": "w5-v0"})
     assert wrong.status_code == 400
-    right = client.post(
-        "/api/knowledge/v1/demo/reset", json={"seed_version": "w5-v1"}
-    )
+    right = client.post("/api/knowledge/v1/demo/reset", json={"seed_version": "w5-v1"})
     assert right.json()["data"]["deleted"] is True
 
 
@@ -189,11 +266,16 @@ def test_local_mcp_provider_implements_initialize_discover_and_call() -> None:
 
                 time.sleep(0.02)
 
-        def rpc(method: str, params: dict[str, object] | None = None) -> dict[str, object]:
+        def rpc(method: str, params: dict[str, object] | None = None) -> dict[str, Any]:
             request = urllib.request.Request(
                 "http://127.0.0.1:28093/mcp",
                 data=json.dumps(
-                    {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": method,
+                        "params": params or {},
+                    }
                 ).encode(),
                 headers={
                     "Content-Type": "application/json",
@@ -202,7 +284,10 @@ def test_local_mcp_provider_implements_initialize_discover_and_call() -> None:
             )
             return json.load(urllib.request.urlopen(request, timeout=2))
 
-        assert rpc("initialize")["result"]["serverInfo"]["name"] == "knowledge-commercial-demo"  # type: ignore[index]
+        assert (
+            rpc("initialize")["result"]["serverInfo"]["name"]
+            == "knowledge-commercial-demo"
+        )  # type: ignore[index]
         tools = rpc("tools/list")["result"]["tools"]  # type: ignore[index]
         assert tools[0]["name"] == "inspect_store"  # type: ignore[index]
         called = rpc(

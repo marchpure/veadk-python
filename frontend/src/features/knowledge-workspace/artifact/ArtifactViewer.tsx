@@ -9,6 +9,7 @@ import {
 import { withAuth } from "../../../adk/auth";
 import type { AssistantArtifactPreview } from "../assistant/assistant-model";
 import type { Artifact, Revision } from "../domain/types";
+import { useDelayedValue } from "./useDelayedValue";
 
 type ArtifactPane = "preview" | "source" | "log";
 
@@ -120,23 +121,23 @@ export function ArtifactViewer({
   const [pane, setPane] = useState<ArtifactPane>("preview");
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [debouncedSource, setDebouncedSource] = useState<ControlledArtifactSource | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const source = useMemo(() => sourceFor(artifact, previewState), [artifact, previewState]);
+  const debouncedSource = useDelayedValue(
+    source,
+    source?.kind === "preview" ? PREVIEW_DEBOUNCE_MS : 0,
+  );
   const sha = artifactSha(artifact, previewState);
   const title = artifactTitle(artifact, previewState);
   const logs = logLines(artifact, previewState);
 
   useEffect(() => {
     if (!source) {
-      setDebouncedSource(null);
       setLoadState("idle");
       return undefined;
     }
     setLoadState("loading");
-    const delay = source.kind === "preview" ? PREVIEW_DEBOUNCE_MS : 0;
-    const id = window.setTimeout(() => setDebouncedSource(source), delay);
-    return () => window.clearTimeout(id);
+    return undefined;
   }, [source]);
 
   const download = () => {
@@ -222,12 +223,23 @@ export function ArtifactViewer({
                 <span />
               </div>
             ) : null}
-            {debouncedSource ? (
+            {debouncedSource && artifact && debouncedSource.kind === "final" ? (
               <iframe
                 key={`${debouncedSource.href}:${refreshKey}`}
                 title={title}
                 src={debouncedSource.href}
-                sandbox={debouncedSource.sandbox}
+                sandbox={artifact.sandbox || ""}
+                referrerPolicy="no-referrer"
+                onLoad={() => setLoadState("loaded")}
+                onError={() => setLoadState("error")}
+                className={loadState === "loaded" ? "is-loaded" : "is-pending"}
+              />
+            ) : debouncedSource ? (
+              <iframe
+                key={`${debouncedSource.href}:${refreshKey}`}
+                title={title}
+                src={debouncedSource.href}
+                sandbox={debouncedSource.sandbox || ""}
                 referrerPolicy="no-referrer"
                 onLoad={() => setLoadState("loaded")}
                 onError={() => setLoadState("error")}

@@ -2413,6 +2413,25 @@ def _run_frontend_server(
         connection_gateway=connection_gateway,
     )
 
+    from frontend.server.knowledge_workspace.demo import mount_demo_routes
+    from frontend.server.knowledge_workspace.demo_gate import build_real_demo_gate
+
+    mount_demo_routes(
+        app,
+        actor_resolver=lambda request: _knowledge_workspace_actor(
+            request, _knowledge_identity
+        ),
+        gate_factory=(
+            (
+                lambda actor: build_real_demo_gate(
+                    actor, knowledge_service, connection_gateway
+                )
+            )
+            if connection_gateway is not None
+            else None
+        ),
+    )
+
     # OpenViking is a separate knowledge runtime profile. Its upstream origin
     # and API key remain server-managed and are never part of Connection IDs.
     try:

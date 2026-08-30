@@ -1,6 +1,6 @@
 {
   "name": "knowledge-commercial-w5-demo-wiring",
-  "main_entry_modified": false,
+  "main_entry_modified": true,
   "backend_mount": "frontend.server.knowledge_workspace.demo.mount_demo_routes",
   "frontend_component": "frontend/src/features/knowledge-workspace/demo/DemoBootstrap.tsx",
   "onboarding_component": "frontend/src/features/knowledge-workspace/demo/DemoOnboarding.tsx",

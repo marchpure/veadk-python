@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type {
   ConnectionProfile,
   TemplateKey,
@@ -41,6 +42,7 @@ export function SkillCreateLanding({
   onCreate,
   busy,
   error,
+  beforeSlot,
 }: {
   goal: string;
   setGoal: (value: string) => void;
@@ -61,6 +63,7 @@ export function SkillCreateLanding({
   onCreate: () => void;
   busy: boolean;
   error?: string;
+  beforeSlot?: ReactNode;
 }) {
   const [contextRequired, setContextRequired] = useState(false);
   const selectedConnections = connections.filter((connection) => selectedConnectionIds.includes(connection.connection_id));
@@ -77,60 +80,63 @@ export function SkillCreateLanding({
   };
 
   return (
-    <section className="kw-skill-create-landing">
-      <div className="kw-skill-create-content">
-        <div className="kw-skill-create-icon"><SkillIcon /></div>
-        <h1>创建一个新技能</h1>
-        <p>描述业务工作，选择数据和工具，由 Agent 生成可复用 Skill</p>
-        <div className="kw-create-entry-cards" aria-label="新建入口">
-          <button type="button" className="kw-create-entry-card" onClick={onCreateConnection}>
-            <strong>创建连接</strong>
-            <span>接入数据库、文件、API 或 MCP，继续使用现有 Connection catalog。</span>
-          </button>
-          {knowledgeSourceActions.map((action) => (
-            <button
-              type="button"
-              className="kw-create-entry-card"
-              key={action.id}
-              onClick={action.run}
-            >
-              <strong>{action.label}</strong>
-              <span>{action.description}</span>
+    <>
+      {beforeSlot}
+      <section className="kw-skill-create-landing">
+        <div className="kw-skill-create-content">
+          <div className="kw-skill-create-icon"><SkillIcon /></div>
+          <h1>创建一个新技能</h1>
+          <p>描述业务工作，选择数据和工具，由 Agent 生成可复用 Skill</p>
+          <div className="kw-create-entry-cards" aria-label="新建入口">
+            <button type="button" className="kw-create-entry-card" onClick={onCreateConnection}>
+              <strong>创建连接</strong>
+              <span>接入数据库、文件、API 或 MCP，继续使用现有 Connection catalog。</span>
             </button>
-          ))}
-        </div>
-        <SkillComposer
-          goal={goal}
-          onGoalChange={setGoal}
-          connections={selectedConnections}
-          resources={selectedResources}
-          knowledgeSourceOptions={selectedKnowledgeSources}
-          templateKey={templateKey}
-          onTemplateKeyChange={setTemplateKey}
-          onOpenDataTools={onOpenDataTools}
-          onRemoveConnection={onRemoveConnection}
-          onRemoveResource={onRemoveResource}
-          onRemoveKnowledgeSource={onRemoveKnowledgeSource}
-          onSend={send}
-          busy={busy}
-          error={error}
-          autoFocus
-        />
-        {contextRequired ? (
-          <div className="kw-context-required" role="alert">请先选择至少一个可用的 Connection 或 Resource。</div>
-        ) : null}
-        {busy ? (
-          <div className="kw-create-progress" role="status">
-            <span className="kw-create-progress-user">{goal}</span>
-            <span>正在创建 Skill Draft 并启动第一次生成…</span>
+            {knowledgeSourceActions.map((action) => (
+              <button
+                type="button"
+                className="kw-create-entry-card"
+                key={action.id}
+                onClick={action.run}
+              >
+                <strong>{action.label}</strong>
+                <span>{action.description}</span>
+              </button>
+            ))}
           </div>
-        ) : null}
-        <div className="kw-skill-suggestions" aria-label="任务建议">
-          {SUGGESTIONS.map((suggestion) => (
-            <button type="button" key={suggestion} onClick={() => setGoal(suggestion)}>{suggestion}</button>
-          ))}
+          <SkillComposer
+            goal={goal}
+            onGoalChange={setGoal}
+            connections={selectedConnections}
+            resources={selectedResources}
+            knowledgeSourceOptions={selectedKnowledgeSources}
+            templateKey={templateKey}
+            onTemplateKeyChange={setTemplateKey}
+            onOpenDataTools={onOpenDataTools}
+            onRemoveConnection={onRemoveConnection}
+            onRemoveResource={onRemoveResource}
+            onRemoveKnowledgeSource={onRemoveKnowledgeSource}
+            onSend={send}
+            busy={busy}
+            error={error}
+            autoFocus
+          />
+          {contextRequired ? (
+            <div className="kw-context-required" role="alert">请先选择至少一个可用的 Connection 或 Resource。</div>
+          ) : null}
+          {busy ? (
+            <div className="kw-create-progress" role="status">
+              <span className="kw-create-progress-user">{goal}</span>
+              <span>正在创建 Skill Draft 并启动第一次生成…</span>
+            </div>
+          ) : null}
+          <div className="kw-skill-suggestions" aria-label="任务建议">
+            {SUGGESTIONS.map((suggestion) => (
+              <button type="button" key={suggestion} onClick={() => setGoal(suggestion)}>{suggestion}</button>
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

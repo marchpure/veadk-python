@@ -10,6 +10,12 @@ export interface DemoScenario {
   status: DemoScenarioStatus;
   connection_status: string;
   skill_status: string;
+  connection_id?: string;
+  draft_id?: string;
+  authoring_session_id?: string;
+  publication_id?: string;
+  revision_ids?: string[];
+  artifact_ids?: string[];
   last_verified_at?: string | null;
   next_step: string;
 }

@@ -13,7 +13,7 @@ const types = await readFile(path.join(demo, "types.ts"), "utf8");
 const seed = JSON.parse(await readFile(path.resolve(root, "../demo/seed-manifest.json"), "utf8"));
 const wiring = JSON.parse(await readFile(path.resolve(root, "../demo/wiring-manifest.json"), "utf8"));
 
-test("DemoBootstrap is explicit, tenant-safe, and does not modify the main entry", () => {
+test("DemoBootstrap is explicit, tenant-safe, and mounted by integration", () => {
   assert.match(bootstrap, /\/api\/knowledge\/v1\/demo\/manifest/);
   assert.match(bootstrap, /示例数据/);
   assert.match(bootstrap, /未通过真实连接验证/);
@@ -45,6 +45,6 @@ test("seed and wiring manifests describe three traceable scenarios and opt-in be
     "im-after-sales",
     "haidilao-inspection",
   ]);
-  assert.equal(wiring.main_entry_modified, false);
+  assert.equal(wiring.main_entry_modified, true);
   assert.equal(wiring.manifest_route, "/api/knowledge/v1/demo/manifest");
 });
