@@ -2130,7 +2130,7 @@ class KnowledgeWorkspaceService:
                 },
                 "connection_refs": list(invocation.connection_ids),
                 "knowledge_source_refs": [
-                    ref.model_dump(mode="json")
+                    ref.model_dump(mode="json", exclude_none=True)
                     for ref in invocation.knowledge_source_refs
                 ],
                 "allowed_action_ids": list(
@@ -2231,10 +2231,8 @@ class KnowledgeWorkspaceService:
         )
         if revision is None:
             raise KnowledgeWorkspaceError("NOT_FOUND", "revision not found", 404)
-        has_openviking_context = bool(
-            revision.manifest.get("openviking_resource_refs")
-        )
-        if not connection_ids and not resource_ids and not has_openviking_context:
+        has_knowledge_context = bool(revision.manifest.get("knowledge_source_refs"))
+        if not connection_ids and not resource_ids and not has_knowledge_context:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "connection permission is required", 409
             )
@@ -2470,10 +2468,8 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError(
                 "NOT_FOUND", "published revision not found", 404
             )
-        has_openviking_context = bool(
-            revision.manifest.get("openviking_resource_refs")
-        )
-        if not connection_ids and not resource_ids and not has_openviking_context:
+        has_knowledge_context = bool(revision.manifest.get("knowledge_source_refs"))
+        if not connection_ids and not resource_ids and not has_knowledge_context:
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY", "consumer authorization is required", 403
             )
