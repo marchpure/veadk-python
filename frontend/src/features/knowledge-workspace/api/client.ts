@@ -240,6 +240,7 @@ export interface KnowledgeApi {
   freezeRevision(id: string, input: FreezeRevisionInput, etag?: string): Promise<{ value: ApiEnvelope<Revision>; etag: string }>;
   runRevision(id: string, connection_ids: string[], message: string, uploadIds?: string[], resourceIds?: string[]): Promise<ApiEnvelope<Invocation>>;
   getArtifact(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Artifact>; etag: string }>;
+  listPublications(signal?: AbortSignal): Promise<ApiEnvelope<Publication[]>>;
   publishRevision(id: string, target_space: "personal" | "team", display_name?: string): Promise<ApiEnvelope<Publication>>;
   invokePublication(id: string, input: PublicationInvokeInput): Promise<ApiEnvelope<Invocation>>;
   streamInvocationEvents(
@@ -514,6 +515,10 @@ export const knowledgeApi: KnowledgeApi = {
   async getArtifact(id, signal) {
     const result = await request<Artifact>(`/artifacts/${encodeURIComponent(id)}`, { signal });
     return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
+  },
+  async listPublications(signal) {
+    const result = await request<Publication[]>("/publications", { signal });
+    return result.envelope;
   },
   async publishRevision(id, target_space, display_name) {
     const result = await request<Publication>(`/skill-revisions/${encodeURIComponent(id)}/publish`, {

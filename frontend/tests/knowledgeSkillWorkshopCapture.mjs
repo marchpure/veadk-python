@@ -27,6 +27,12 @@ const unavailableConnection = {
   display_name: "正在验证的数据仓库",
   status: "validating",
 };
+const revokedConnection = {
+  ...connection,
+  connection_id: "conn-revoked",
+  display_name: "已撤销的数据仓库",
+  status: "revoked",
+};
 const resource = {
   resource_id: "resource-workshop",
   kind: "files",
@@ -35,6 +41,12 @@ const resource = {
   status: "verified",
   created_at: now,
   updated_at: now,
+};
+const unavailableResource = {
+  ...resource,
+  resource_id: "resource-error",
+  display_name: "解析失败的巡检表.xlsx",
+  status: "error",
 };
 const draft = {
   draft_id: "draft-workshop",
@@ -138,8 +150,17 @@ async function main() {
       });
     }
     if (url.pathname === "/api/knowledge/v1/connector-definitions") return ok([]);
-    if (url.pathname === "/api/knowledge/v1/connections") return ok([connection, unavailableConnection]);
-    if (url.pathname === "/api/knowledge/v1/resources") return ok([resource]);
+    if (url.pathname === "/api/knowledge/v1/connections") return ok([connection, unavailableConnection, revokedConnection]);
+    if (url.pathname === "/api/knowledge/v1/resources") return ok([resource, unavailableResource]);
+    if (url.pathname === "/api/knowledge/v1/publications") {
+      return ok(publishCalls ? [{
+        publication_id: "publication-workshop",
+        revision_id: revision.revision_id,
+        target_space: "personal",
+        status: "published",
+        created_at: now,
+      }] : []);
+    }
     if (url.pathname === "/api/knowledge/v1/skills/drafts" && request.method() === "GET") {
       return ok(created ? [{ ...draft, lifecycle: publishCalls ? "published" : draft.lifecycle }] : []);
     }
@@ -198,7 +219,15 @@ async function main() {
   await dataDrawer.waitFor();
   await page.getByText("请先选择至少一个可用的 Connection 或 Resource。").waitFor();
   assert.equal(await dataDrawer.getByRole("button", { name: /正在验证的数据仓库/ }).isDisabled(), true);
+  assert.equal(await dataDrawer.getByRole("button", { name: /已撤销的数据仓库/ }).isDisabled(), true);
+  await dataDrawer.getByText("已撤销", { exact: true }).waitFor();
   await capture("02-data-tools-1440x1000.png");
+  await dataDrawer.getByRole("button", { name: "查看" }).click();
+  await page.getByRole("button", { name: "返回选择" }).click();
+  await dataDrawer.waitFor();
+  await page.getByRole("button", { name: "取消" }).click();
+  assert.equal(await page.getByLabel("描述业务任务").inputValue(), draft.goal);
+  await page.getByRole("button", { name: "添加数据与工具" }).click();
   await dataDrawer.getByRole("button", { name: /华东门店业务库/ }).click();
   await page.getByRole("button", { name: "确认选择" }).click();
   await page.getByRole("button", { name: "发送" }).click();

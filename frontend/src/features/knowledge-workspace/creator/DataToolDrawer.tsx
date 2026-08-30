@@ -13,6 +13,13 @@ const CONNECTION_STATUS: Record<ConnectionProfile["status"], string> = {
   revoked: "已撤销",
 };
 
+const RESOURCE_STATUS: Record<WorkspaceResource["status"], string> = {
+  beta: "Beta",
+  verified: "已验证",
+  dev: "开发中",
+  error: "错误",
+};
+
 type Category = "全部" | "数据库" | "文件与表格" | "对象存储" | "API / MCP" | "办公与知识";
 const CATEGORIES: Category[] = ["全部", "数据库", "文件与表格", "对象存储", "API / MCP", "办公与知识"];
 
@@ -46,6 +53,7 @@ export function DataToolDrawer({
   onConfirm,
   onClose,
   onConfigureConnection,
+  onInspectResource,
 }: {
   open: boolean;
   connections: ConnectionProfile[];
@@ -55,6 +63,7 @@ export function DataToolDrawer({
   onConfirm: (connectionIds: string[], resourceIds: string[]) => void;
   onClose: () => void;
   onConfigureConnection: (connection: ConnectionProfile) => void;
+  onInspectResource: (resource: WorkspaceResource) => void;
 }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<Category>("全部");
@@ -96,7 +105,7 @@ export function DataToolDrawer({
         name: resource.display_name,
         type: resource.kind,
         scope: resource.scope,
-        status: resource.status,
+        status: RESOURCE_STATUS[resource.status],
         category: categoryFor(resource.kind),
         ready: resource.status === "verified",
         resource,
@@ -156,6 +165,9 @@ export function DataToolDrawer({
                 </button>
                 {!item.ready && item.kind === "connection" ? (
                   <button type="button" className="kw-data-tool-configure" onClick={() => onConfigureConnection(item.connection)}>去配置</button>
+                ) : null}
+                {!item.ready && item.kind === "resource" ? (
+                  <button type="button" className="kw-data-tool-configure" onClick={() => onInspectResource(item.resource)}>查看</button>
                 ) : null}
               </div>
             );

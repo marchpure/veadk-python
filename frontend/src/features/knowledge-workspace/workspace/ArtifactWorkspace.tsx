@@ -41,7 +41,11 @@ export function ArtifactWorkspace({
   onBindAgent: () => void;
   onAdvanced: () => void;
 }) {
-  const currentRevision = revisions.at(-1) || null;
+  const currentRevision = revisions.reduce<Revision | null>(
+    (current, revision) =>
+      !current || revision.number > current.number ? revision : current,
+    null,
+  );
   const latestByKind = useMemo(() => {
     const result = new Map<TemplateKey, Artifact>();
     for (const artifact of artifacts) {
