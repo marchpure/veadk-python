@@ -24,6 +24,12 @@
 .kw-studio-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
 .kw-studio-actions button:hover { background: #f1f5f9; color: #1e293b; }
 .kw-workspace-frame { display: grid; grid-template-columns: 248px minmax(0, 1fr); width: min(1440px, 100%); flex: 1; min-height: 0; margin: 0 auto; overflow: hidden; border-inline: 1px solid #e2e8f0; background: #fff; box-shadow: 0 1px 4px #0f172a0a; }
+.kw-shell.is-workshop-route .kw-workspace-frame { width: 100%; grid-template-columns: minmax(0, 1fr); border-inline: 0; }
+.kw-shell.is-workshop-route .kw-sidebar { display: none; }
+.kw-shell.is-create-route .kw-workspace-frame { width: 100%; grid-template-columns: minmax(0, 1fr); border-inline: 0; }
+.kw-shell.is-create-route .kw-sidebar { display: none; }
+.kw-shell.is-workshop-route > .kw-studio-nav,
+.kw-shell.is-create-route > .kw-studio-nav { display: none; }
 .kw-auth-state { display: grid; place-content: center; justify-items: center; gap: 10px; height: 100%; padding: 24px; text-align: center; color: var(--kw-text, #17181c); }.kw-auth-state h1 { margin: 0; font-size: 20px; }.kw-auth-state p { margin: 0 0 8px; color: var(--kw-muted, #737680); font-size: 13px; }
 .kw-sidebar { width: 248px; flex: 0 0 248px; padding: 8px 8px 12px; background: #fdfefe; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
 .kw-brand { display: flex; align-items: center; gap: 9px; padding: 2px 10px 18px; font-weight: 650; }
@@ -1098,4 +1104,230 @@
   .kw-composer-actions button { flex: 1; }
   .kw-home-composer textarea { min-height: 112px; }
   .kw-output-type { min-height: 84px; }
+}
+
+/* Skill Workshop v2.20.12.1 */
+.kw-skill-create-landing {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  padding: 40px 24px;
+  overflow: auto;
+  background: hsl(var(--canvas));
+}
+.kw-skill-create-content {
+  display: flex;
+  width: min(760px, 100%);
+  flex-direction: column;
+  align-items: center;
+}
+.kw-skill-create-icon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 24px;
+  place-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 16px;
+  background: hsl(var(--panel));
+  color: hsl(var(--primary));
+  box-shadow: 0 4px 16px rgb(15 23 42 / 6%);
+}
+.kw-skill-create-icon svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.kw-skill-create-content > h1 { margin: 0; color: hsl(var(--foreground)); font-size: 26px; font-weight: 600; line-height: 1.2; }
+.kw-skill-create-content > p { max-width: 480px; margin: 10px 0 32px; color: hsl(var(--muted-foreground)); font-size: 14px; line-height: 1.65; text-align: center; }
+.kw-skill-composer {
+  position: relative;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 16px;
+  background: hsl(var(--panel));
+  box-shadow: 0 8px 28px rgb(15 23 42 / 8%);
+}
+.kw-skill-composer:focus-within { border-color: hsl(var(--primary)); box-shadow: 0 0 0 2px hsl(var(--primary) / 10%), 0 10px 32px rgb(15 23 42 / 9%); }
+.kw-skill-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 76px;
+  max-height: 200px;
+  padding: 8px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.55;
+  resize: none;
+}
+.kw-composer-context, .kw-workshop-context { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px 4px; }
+.kw-composer-context > span, .kw-workshop-context > span {
+  display: inline-flex;
+  max-width: 220px;
+  min-height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kw-workshop-context > span { display: inline-flex; padding-right: 3px; }
+.kw-workshop-context > span > button { min-height: 26px; padding: 0 5px; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 11px; }
+.kw-workshop-context > span > button:last-child { width: 24px; padding: 0; border-radius: 4px; }
+.kw-composer-context svg { width: 13px; height: 13px; flex: 0 0 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kw-composer-context span button { display: grid; width: 20px; height: 20px; margin-right: -5px; padding: 0; place-items: center; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
+.kw-skill-composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; }
+.kw-add-context, .kw-template-trigger {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  font-size: 12px;
+}
+.kw-add-context:hover, .kw-template-trigger:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.kw-add-context svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kw-template-menu { position: relative; display: flex; align-items: center; gap: 8px; }
+.kw-template-trigger { border: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
+.kw-template-trigger svg, .kw-template-popover svg, .kw-data-tool-drawer > header svg, .kw-data-tool-check svg, .kw-invocation-rail > header svg, .kw-workshop-close svg, .kw-workshop-mobile-control svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kw-workshop-context svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.kw-template-popover { position: absolute; right: 44px; bottom: 42px; z-index: 5; display: grid; width: 220px; padding: 4px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--panel)); box-shadow: 0 12px 32px rgb(15 23 42 / 14%); }
+.kw-template-popover button { display: flex; min-height: 36px; align-items: center; justify-content: space-between; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: hsl(var(--foreground)); cursor: pointer; font-size: 12px; text-align: left; }
+.kw-template-popover button:hover, .kw-template-popover button[aria-selected="true"] { background: hsl(var(--muted)); }
+.kw-composer-send { display: grid; width: 36px; height: 36px; padding: 0; place-items: center; border: 1px solid hsl(var(--primary)); border-radius: 10px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); cursor: pointer; }
+.kw-composer-send svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kw-composer-send:disabled { border-color: hsl(var(--border)); background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+.kw-composer-error { margin: 4px 8px; color: hsl(var(--destructive)); font-size: 12px; }
+.kw-context-required { align-self: stretch; margin-top: 10px; color: hsl(var(--destructive)); font-size: 12px; text-align: center; }
+.kw-skill-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+.kw-skill-suggestions button { min-height: 36px; padding: 0 14px; border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--panel)); color: hsl(var(--foreground)); cursor: pointer; font-size: 12px; }
+.kw-skill-suggestions button:hover { border-color: hsl(var(--primary) / 45%); background: hsl(var(--muted)); }
+.kw-create-progress { display: flex; width: 100%; flex-direction: column; gap: 6px; margin-top: 16px; color: hsl(var(--muted-foreground)); font-size: 12px; }
+.kw-create-progress-user { align-self: flex-end; max-width: 80%; padding: 8px 11px; border-radius: 10px 10px 3px 10px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.kw-drawer-layer { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: flex-end; background: rgb(15 23 42 / 28%); }
+.kw-data-tool-drawer { display: flex; width: min(480px, 100vw); height: 100%; flex-direction: column; background: hsl(var(--panel)); box-shadow: -12px 0 32px rgb(15 23 42 / 12%); }
+.kw-data-tool-drawer > header { display: flex; min-height: 58px; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid hsl(var(--border)); }
+.kw-data-tool-drawer h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.kw-data-tool-drawer > header button, .kw-workshop-close { width: 32px; height: 32px; border: 0; border-radius: 7px; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 20px; }
+.kw-data-tool-search { position: relative; margin: 16px 20px 10px; }
+.kw-data-tool-search svg { position: absolute; top: 10px; left: 11px; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.kw-data-tool-search input { width: 100%; height: 36px; padding: 0 12px 0 34px; border: 1px solid hsl(var(--border)); border-radius: 8px; outline: 0; background: hsl(var(--muted)); color: hsl(var(--foreground)); font: inherit; font-size: 12px; }
+.kw-data-tool-search input:focus { border-color: hsl(var(--primary)); background: hsl(var(--panel)); box-shadow: 0 0 0 2px hsl(var(--primary) / 10%); }
+.kw-data-tool-categories { display: flex; gap: 6px; padding: 0 20px 12px; overflow-x: auto; }
+.kw-data-tool-categories button { min-height: 30px; padding: 0 10px; border: 0; border-radius: 999px; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 11px; white-space: nowrap; }
+.kw-data-tool-categories button[aria-selected="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.kw-data-tool-list { flex: 1; min-height: 0; padding: 4px 16px 16px; overflow: auto; }
+.kw-data-tool-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; border: 1px solid transparent; border-radius: 10px; }
+.kw-data-tool-row.is-selected { border-color: hsl(var(--primary) / 30%); background: hsl(var(--primary) / 6%); }
+.kw-data-tool-row.is-disabled { opacity: .72; }
+.kw-data-tool-select { display: grid; min-width: 0; min-height: 60px; flex: 1; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: hsl(var(--foreground)); cursor: pointer; text-align: left; }
+.kw-data-tool-select:not(:disabled):hover { background: hsl(var(--muted)); }
+.kw-data-tool-check { display: grid; width: 20px; height: 20px; place-items: center; border: 1px solid hsl(var(--border)); border-radius: 5px; color: hsl(var(--primary)); font-size: 12px; }
+.kw-data-tool-copy { display: grid; min-width: 0; gap: 4px; }
+.kw-data-tool-copy strong { overflow: hidden; font-size: 13px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.kw-data-tool-copy small { color: hsl(var(--muted-foreground)); font-size: 11px; }
+.kw-data-tool-status { padding: 3px 6px; border-radius: 5px; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); font-size: 10px; white-space: nowrap; }
+.kw-data-tool-status.is-ready { background: hsl(145 60% 94%); color: hsl(145 55% 30%); }
+.kw-data-tool-configure { margin-right: 8px; border: 0; background: transparent; color: hsl(var(--primary)); cursor: pointer; font-size: 11px; white-space: nowrap; }
+.kw-data-tool-empty { padding: 56px 16px; color: hsl(var(--muted-foreground)); font-size: 12px; text-align: center; }
+.kw-data-tool-drawer > footer { display: flex; min-height: 68px; align-items: center; justify-content: space-between; padding: 0 20px; border-top: 1px solid hsl(var(--border)); font-size: 12px; }
+.kw-data-tool-drawer > footer > div { display: flex; gap: 8px; }
+.kw-data-tool-drawer > footer button { min-height: 34px; padding: 0 12px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--panel)); color: hsl(var(--foreground)); cursor: pointer; }
+.kw-data-tool-drawer > footer .kw-primary-small { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+
+.kw-skill-workshop {
+  display: grid;
+  grid-template-columns: 240px minmax(420px, min(760px, 42vw)) minmax(0, 1fr);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: hsl(var(--panel));
+}
+.kw-workshop-rail, .kw-workshop-artifacts { min-width: 0; min-height: 0; }
+.kw-invocation-rail { display: flex; height: 100%; min-height: 0; flex-direction: column; border-right: 1px solid hsl(var(--border)); background: hsl(var(--muted)); }
+.kw-invocation-rail > header { display: flex; min-height: 54px; align-items: center; justify-content: space-between; padding: 0 16px; }
+.kw-invocation-rail > header strong { font-size: 13px; font-weight: 600; }
+.kw-invocation-rail > header button { border: 0; background: transparent; color: hsl(var(--muted-foreground)); font-size: 20px; }
+.kw-session-gap { margin: 0 10px 10px; padding: 8px 10px; border-radius: 7px; background: hsl(var(--panel)); color: hsl(var(--muted-foreground)); font-size: 10px; }
+.kw-invocation-list { flex: 1; min-height: 0; padding: 0 8px 12px; overflow: auto; }
+.kw-invocation-list section h3 { margin: 14px 8px 6px; color: hsl(var(--muted-foreground)); font-size: 10px; font-weight: 600; }
+.kw-invocation-list section > button { display: grid; width: 100%; gap: 5px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: hsl(var(--foreground)); cursor: pointer; text-align: left; }
+.kw-invocation-list section > button:hover, .kw-invocation-list section > button.is-active { background: hsl(var(--panel)); }
+.kw-invocation-list button span { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.kw-invocation-list button small { color: hsl(var(--muted-foreground)); font-size: 10px; }
+.kw-invocation-list button small.is-running { color: hsl(var(--primary)); }
+.kw-invocation-list button small.is-failed { color: hsl(var(--destructive)); }
+.kw-invocation-empty { padding: 30px 10px; color: hsl(var(--muted-foreground)); font-size: 11px; line-height: 1.6; text-align: center; }
+.kw-skill-conversation { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; border-right: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
+.kw-skill-conversation > header { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px; border-bottom: 1px solid hsl(var(--border)); }
+.kw-skill-conversation > header h1 { min-width: 0; margin: 0; overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.kw-skill-conversation > header > div { display: flex; gap: 6px; }
+.kw-skill-conversation > header button { min-height: 30px; padding: 0 9px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--panel)); color: hsl(var(--foreground)); cursor: pointer; font-size: 11px; white-space: nowrap; }
+.kw-skill-transcript { flex: 1; min-height: 0; overflow: auto; }
+.kw-skill-transcript-column { width: min(760px, 100%); min-height: 100%; margin: 0 auto; padding: 24px 24px 156px; }
+.kw-skill-transcript .kw-user-message { justify-self: end; max-width: 82%; padding: 10px 13px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 13px; }
+.kw-workshop-composer-wrap { position: absolute; right: 0; bottom: 0; left: 0; padding: 28px 20px 18px; background: linear-gradient(to bottom, transparent, hsl(var(--panel)) 28%); }
+.kw-workshop-composer { width: min(760px, 100%); min-height: 96px; margin: 0 auto; padding: 9px 10px; border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--panel)); box-shadow: 0 5px 22px rgb(15 23 42 / 9%); }
+.kw-workshop-composer textarea { display: block; width: 100%; min-height: 48px; max-height: 160px; padding: 5px 7px; border: 0; outline: 0; background: transparent; color: hsl(var(--foreground)); font: inherit; font-size: 13px; line-height: 1.55; resize: vertical; }
+.kw-workshop-context { padding: 0 4px 3px; }
+.kw-workshop-context button { cursor: pointer; }
+.kw-workshop-composer-actions { display: flex; align-items: center; justify-content: space-between; }
+.kw-workshop-composer-actions > button:first-child { min-height: 30px; padding: 0 7px; border: 0; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 11px; }
+.kw-workshop-composer-actions .kw-composer-send { width: 32px; height: 32px; }
+.kw-workshop-mobile-control { display: none; }
+.kw-artifact-workspace { display: flex; height: 100%; min-width: 0; min-height: 0; flex-direction: column; background: hsl(var(--canvas)); }
+.kw-artifact-workspace > header { display: flex; min-height: 54px; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
+.kw-artifact-tabs { display: flex; height: 54px; align-items: stretch; gap: 14px; overflow-x: auto; }
+.kw-artifact-tabs button { position: relative; border: 0; border-bottom: 2px solid transparent; background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 12px; white-space: nowrap; }
+.kw-artifact-tabs button[aria-selected="true"] { border-bottom-color: hsl(var(--primary)); color: hsl(var(--primary)); font-weight: 600; }
+.kw-artifact-tabs strong { align-self: center; font-size: 13px; }
+.kw-artifact-toolbar { display: flex; min-height: 46px; align-items: center; justify-content: flex-end; gap: 5px; padding: 6px 10px; overflow-x: auto; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
+.kw-artifact-toolbar button { min-height: 30px; padding: 0 8px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--panel)); color: hsl(var(--foreground)); cursor: pointer; font-size: 10px; white-space: nowrap; }
+.kw-artifact-toolbar .kw-primary-small { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.kw-artifact-stage { flex: 1; min-height: 0; padding: 14px; overflow: auto; }
+.kw-artifact-stage .kw-artifact-viewer { height: calc(100% - 26px); margin: 0; border-radius: 10px; background: hsl(var(--panel)); }
+.kw-artifact-stage .kw-artifact-viewer iframe { height: calc(100% - 38px); min-height: 420px; }
+.kw-artifact-version { margin-bottom: 8px; color: hsl(var(--muted-foreground)); font-size: 10px; text-align: right; }
+.kw-artifact-waiting { display: grid; height: 100%; min-height: 360px; place-content: center; justify-items: center; gap: 8px; color: hsl(var(--muted-foreground)); text-align: center; }
+.kw-artifact-waiting strong { color: hsl(var(--foreground)); font-size: 16px; font-weight: 550; }
+.kw-artifact-waiting span { font-size: 12px; }
+
+@media (max-width: 1180px) {
+  .kw-skill-workshop { grid-template-columns: 220px minmax(420px, 48vw) minmax(300px, 1fr); }
+  .kw-artifact-toolbar { justify-content: flex-start; }
+}
+
+@media (max-width: 720px) {
+  .kw-shell { overflow-x: hidden; }
+  .kw-studio-nav, .kw-main > .kw-draft-topbar { display: none; }
+  .kw-skill-create-landing { padding: 24px 16px; }
+  .kw-skill-create-content > p { margin-bottom: 24px; }
+  .kw-skill-suggestions { align-items: stretch; flex-direction: column; width: 100%; }
+  .kw-data-tool-drawer { width: 100vw; max-width: none; }
+  .kw-skill-workshop { display: block; width: 100%; overflow-x: hidden; }
+  .kw-workshop-rail, .kw-workshop-artifacts { display: none; }
+  .kw-workshop-mobile-drawer { position: fixed; inset: 0; z-index: 90; display: block; width: 100vw; height: 100%; background: hsl(var(--panel)); }
+  .kw-skill-conversation { width: 100%; height: 100%; border-right: 0; }
+  .kw-workshop-mobile-control { display: inline-flex !important; }
+  .kw-skill-conversation > header { padding: 0 10px; }
+  .kw-skill-conversation > header h1 { font-size: 13px; }
+  .kw-run-revision { padding-inline: 6px !important; }
+  .kw-skill-transcript-column { padding: 18px 14px 150px; }
+  .kw-workshop-composer-wrap { padding: 24px 10px 10px; }
+  .kw-artifact-workspace { width: 100vw; height: 100%; }
 }

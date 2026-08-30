@@ -24,7 +24,6 @@ import {
   History,
   Loader2,
   MessageSquare,
-  MoreHorizontal,
   Play,
   RefreshCw,
   Search,
@@ -44,6 +43,8 @@ import {
 } from "../../../adk/identity";
 import { ArtifactViewer } from "../artifact/ArtifactViewer";
 import { AssistantPanel } from "../assistant/AssistantPanel";
+import { DataToolDrawer } from "../creator/DataToolDrawer";
+import { SkillCreateLanding } from "../creator/SkillCreateLanding";
 import {
   assistantReducer,
   initialAssistantState,
@@ -60,6 +61,7 @@ import {
 } from "../api/client";
 import { OAuthFlowPollError, waitForOAuthConnection } from "../api/oauthFlow";
 import { Modal } from "../components/Modal";
+import { SkillWorkspaceShell } from "../workspace/SkillWorkspaceShell";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
   Artifact,
@@ -73,6 +75,7 @@ import type {
   Revision,
   TemplateKey,
   WorkspaceResource,
+  Publication,
 } from "../domain/types";
 import {
   authSchemaOptions,
@@ -123,6 +126,12 @@ const TEMPLATE_DEFINITIONS: Array<{
   description: string;
   config: JsonObject;
 }> = [
+  {
+    key: "generic",
+    label: "Auto",
+    description: "由 Agent 根据业务任务自动推荐呈现方式",
+    config: { mode: "auto" },
+  },
   {
     key: "semantic",
     label: "Semantic",
@@ -395,6 +404,14 @@ function parseStringList(value: JsonValue | undefined): string[] {
   return value.split(/[\n,\s]+/u).map((item) => item.trim()).filter(Boolean);
 }
 
+export async function uploadSkillInput(
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<UploadResult> {
+  const result = await knowledgeApi.uploadFile(file, "skill_input", onProgress);
+  return result.data;
+}
+
 export function KnowledgeWorkspacePage() {
   const [route, setRouteState] = useState(routeFromLocation);
   const [connections, setConnections] = useState<ConnectionProfile[]>(
@@ -422,18 +439,21 @@ export function KnowledgeWorkspacePage() {
     message: string;
   } | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
-  const [artifact, setArtifact] = useState<Artifact | null>(null);
+  const [, setArtifact] = useState<Artifact | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [publication, setPublication] = useState<Publication | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<string[]>([]);
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [showDataToolDrawer, setShowDataToolDrawer] = useState(false);
   const [connectionFormScope, setConnectionFormScope] = useState<"personal" | "team">("personal");
   const [showVersions, setShowVersions] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [welcomeGoal, setWelcomeGoal] = useState("");
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState<TemplateKey>("semantic");
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<TemplateKey>("generic");
   const [connectionJob, setConnectionJob] = useState<{
     kind: "validate" | "discover";
     status: JobResult["status"];
@@ -444,6 +464,7 @@ export function KnowledgeWorkspacePage() {
   );
   const [activeInvocation, setActiveInvocation] = useState<Invocation | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const pendingCreatedDraftRef = useRef<{ draft: Draft; etag: string } | null>(null);
   const lastCursorRef = useRef(new Map<string, string>());
   const terminalInvocationRef = useRef(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
@@ -533,6 +554,8 @@ export function KnowledgeWorkspacePage() {
       setDraft(null);
       setRevisions([]);
       setArtifact(null);
+      setArtifacts([]);
+      setPublication(null);
       setDraftResourceError(null);
       return;
     }
@@ -561,6 +584,25 @@ export function KnowledgeWorkspacePage() {
           type: "history.restored",
           entries: conversationResult.data,
         });
+        const historicalArtifactIds = [...new Set(
+          conversationResult.data.flatMap((entry) =>
+            entry.events.flatMap((event) =>
+              event.type === "artifact.created" ? [event.data.artifact_id] : []),
+          ),
+        )];
+        if (historicalArtifactIds.length) {
+          const restoredResults = await Promise.allSettled(
+            historicalArtifactIds.map((id) =>
+              knowledgeApi.getArtifact(id, controller.signal).then((value) => value.value.data),
+            ),
+          );
+          const restoredArtifacts = restoredResults.flatMap((result) =>
+            result.status === "fulfilled" ? [result.value] : []);
+          if (!controller.signal.aborted) {
+            setArtifacts(restoredArtifacts);
+            setArtifact(restoredArtifacts.at(-1) || null);
+          }
+        }
         lastCursorRef.current = new Map(
           conversationResult.data.flatMap((entry) => {
             const cursor = entry.events.at(-1)?.cursor;
@@ -639,15 +681,24 @@ export function KnowledgeWorkspacePage() {
     setBusy("generate");
     setError("");
     try {
-      const created = await knowledgeApi.createDraft({
-        goal,
-        template_key: templateKey,
-        template_config: templateConfig,
-        connection_ids: connectionIds,
-        ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
-        ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
-        ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
-      });
+      const created = pendingCreatedDraftRef.current
+        ? {
+          value: { data: pendingCreatedDraftRef.current.draft },
+          etag: pendingCreatedDraftRef.current.etag,
+        }
+        : await knowledgeApi.createDraft({
+          goal,
+          template_key: templateKey,
+          template_config: templateConfig,
+          connection_ids: connectionIds,
+          ...(resourceIds.length ? { resource_ids: resourceIds } : {}),
+          ...(trialTask.trim() ? { trial_task: trialTask.trim() } : {}),
+          ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
+        });
+      pendingCreatedDraftRef.current = {
+        draft: created.value.data,
+        etag: created.etag,
+      };
       setDraft(created.value.data);
       writeQuery(`draft:${created.value.data.draft_id}`, created.value.data);
       setEtag(created.etag);
@@ -657,27 +708,20 @@ export function KnowledgeWorkspacePage() {
         ...current.filter((item) => item.draft_id !== created.value.data.draft_id),
         created.value.data,
       ]);
-      setRoute("draft", created.value.data.draft_id);
       const invocation = await knowledgeApi.generateDraft(
         created.value.data.draft_id,
         created.etag,
-        trialTask.trim() || undefined,
+        goal,
       );
       setActiveInvocation(invocation.data);
       dispatchAssistant({ type: "invocation.started", invocation: invocation.data });
+      pendingCreatedDraftRef.current = null;
+      setRoute("draft", created.value.data.draft_id);
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
       setBusy("");
     }
-  }, []);
-
-  const uploadSkillInput = useCallback(async (
-    file: File,
-    onProgress: (percent: number) => void,
-  ): Promise<UploadResult> => {
-    const result = await knowledgeApi.uploadFile(file, "skill_input", onProgress);
-    return result.data;
   }, []);
 
   const applyEvent = useCallback((event: KnowledgeInvocationEvent) => {
@@ -687,6 +731,10 @@ export function KnowledgeWorkspacePage() {
       void knowledgeApi.getArtifact(event.data.artifact_id)
         .then((result) => {
           setArtifact(result.value.data);
+          setArtifacts((current) => [
+            ...current.filter((item) => item.artifact_id !== result.value.data.artifact_id),
+            result.value.data,
+          ]);
           writeQuery(`artifact:${event.data.artifact_id}`, result.value.data);
         })
         .catch((cause) => setError(errorMessage(cause)));
@@ -917,7 +965,8 @@ export function KnowledgeWorkspacePage() {
     if (!revision) return;
     setBusy("publish");
     try {
-      await knowledgeApi.publishRevision(revision.revision_id, target);
+      const result = await knowledgeApi.publishRevision(revision.revision_id, target);
+      setPublication(result.data);
       setShowPublish(false);
       setRoute("published", draft?.draft_id);
     } catch (cause) {
@@ -926,6 +975,34 @@ export function KnowledgeWorkspacePage() {
       setBusy("");
     }
   }, [draft?.current_revision_id, draft?.draft_id, revisions]);
+
+  const updateDraftContext = useCallback(async (
+    connectionIds: string[],
+    resourceIds: string[],
+  ) => {
+    setSelectedConnectionIds(connectionIds);
+    setSelectedResourceIds(resourceIds);
+    if (!draft) return;
+    setBusy("update-context");
+    setError("");
+    try {
+      const result = await knowledgeApi.updateDraft(
+        draft.draft_id,
+        { connection_ids: connectionIds, resource_ids: resourceIds },
+        etag,
+      );
+      setDraft(result.value.data);
+      setEtag(result.etag);
+      writeQuery(`draft:${draft.draft_id}`, result.value.data);
+    } catch (cause) {
+      setSelectedConnectionIds(draft.connection_ids);
+      setSelectedResourceIds(draft.resource_ids);
+      setError(errorMessage(cause));
+      throw cause;
+    } finally {
+      setBusy("");
+    }
+  }, [draft, etag]);
 
   // Keep the directory snapshot as the underlying document when a detail
   // request fails. This lets the UI render a real, actionable state overlay
@@ -1004,7 +1081,7 @@ export function KnowledgeWorkspacePage() {
     : sendMessage;
 
   return (
-    <div className={`kw-shell${selectedDraft ? " has-draft" : ""}${route.file === "draft" ? " is-draft-route" : ""}`}>
+    <div className={`kw-shell${selectedDraft ? " has-draft" : ""}${route.file === "draft" || route.file === "published" ? " is-workshop-route" : ""}${route.file === "skill_new" ? " is-create-route" : ""}`}>
       <header className="kw-studio-nav">
         <button className="kw-studio-brand" type="button" onClick={() => setRoute("welcome")}>
           <span className="kw-studio-mark"><Database size={15} /></span>
@@ -1111,38 +1188,7 @@ export function KnowledgeWorkspacePage() {
         </aside>
 
         <main className="kw-main">
-        {route.file === "draft" && selectedDraft ? (
-          <header className="kw-topbar kw-draft-topbar">
-            <div className="kw-draft-topbar-heading">
-              <button type="button" className="kw-icon-button" onClick={() => setRoute("welcome")} aria-label="返回工作台">
-                <ArrowLeft size={18} />
-              </button>
-              <h1>{selectedRevision?.skill_name || selectedDraft.goal}</h1>
-              <span className="kw-template-badge">{templateLabel(selectedDraft.template_key)}</span>
-              <span className="kw-draft-status">草稿</span>
-              <span className="kw-draft-autosave">已自动保存</span>
-            </div>
-            <div className="kw-top-actions kw-draft-top-actions">
-              <button type="button" onClick={() => {
-                const query = new URLSearchParams(window.location.search);
-                query.set("modal", "tools");
-                window.history.pushState({}, "", `${window.location.pathname}?${query}`);
-                window.dispatchEvent(new PopStateEvent("popstate"));
-              }}><Database size={14} />数据与工具 ({selectedDraft.connection_ids.length})</button>
-              <button type="button" onClick={() => {
-                const query = new URLSearchParams(window.location.search);
-                query.set("modal", "test_records");
-                window.history.pushState({}, "", `${window.location.pathname}?${query}`);
-                window.dispatchEvent(new PopStateEvent("popstate"));
-              }}><History size={14} />测试记录</button>
-              <button type="button" onClick={() => setShowVersions(true)}>版本</button>
-              <button type="button" className="kw-primary-small" onClick={() => setShowPublish(true)} disabled={!revisions.length}>
-                发布
-              </button>
-              <button type="button" className="kw-icon-button" aria-label="更多操作"><MoreHorizontal size={18} /></button>
-            </div>
-          </header>
-        ) : route.file === "connection" ? (
+        {route.file === "connection" ? (
           <header className="kw-topbar">
             <div className="kw-breadcrumb">
               <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
@@ -1177,23 +1223,33 @@ export function KnowledgeWorkspacePage() {
             onAddConnection={() => openConnectionSelector("personal")}
           />
         ) : route.file === "skill_new" ? (
-          <section className="kw-create-layout is-skill-new">
-          <SkillNewView
-            connections={personalConnections}
+          <SkillCreateLanding
+            goal={welcomeGoal}
+            setGoal={setWelcomeGoal}
+            connections={availableConnections}
             resources={resources}
-            selectedIds={selectedConnectionIds}
+            selectedConnectionIds={selectedConnectionIds}
             selectedResourceIds={selectedResourceIds}
-            onSelectedIdsChange={setSelectedConnectionIds}
             templateKey={selectedTemplateKey}
-            onTemplateKeyChange={setSelectedTemplateKey}
-            onCreate={createAndGenerate}
-              onUpload={uploadSkillInput}
-              onAddConnection={() => openConnectionSelector("personal")}
-              busy={busy === "generate"}
-              initialGoal={welcomeGoal}
-              onBack={() => setRoute("welcome")}
-            />
-          </section>
+            setTemplateKey={setSelectedTemplateKey}
+            onOpenDataTools={() => setShowDataToolDrawer(true)}
+            onRemoveConnection={(id) => setSelectedConnectionIds((current) => current.filter((item) => item !== id))}
+            onRemoveResource={(id) => setSelectedResourceIds((current) => current.filter((item) => item !== id))}
+            onCreate={() => {
+              const definition = templateDefinition(selectedTemplateKey);
+              void createAndGenerate(
+                welcomeGoal.trim(),
+                selectedTemplateKey,
+                definition?.config || { mode: "auto" },
+                selectedConnectionIds,
+                selectedResourceIds,
+                "",
+                [],
+              );
+            }}
+            busy={busy === "generate"}
+            error={error}
+          />
         ) : route.file === "connection" ? (
           <ConnectionDetailView
             connection={selectedConnection}
@@ -1240,46 +1296,19 @@ export function KnowledgeWorkspacePage() {
               setRoute("skill_new");
             }}
           />
-        ) : route.file === "published" ? (
-          <section className="kw-selected-skill-layout">
-            <PublishedWorkspace
-              draft={selectedDraft}
-              revision={selectedRevision}
-              connections={availableConnections}
-              resources={resources}
-              onBack={() => setRoute("welcome")}
-              onOpenAgent={() => openRouteModal("agent")}
-              onOpenModal={openRouteModal}
-              onRun={runSkill}
-            />
-            {selectedDraft ? (
-              <AssistantPanel
-                turns={assistantState.turns}
-                busy={busy === "message" || busy === "retry" || busy === "cancel"}
-                onSend={handleAssistantSend}
-                onCancel={cancel}
-                onReconnect={(turn) => {
-                  if (activeInvocation?.invocation_id === turn.invocation.invocation_id) {
-                    void stream(activeInvocation);
-                  } else {
-                    setActiveInvocation(turn.invocation);
-                  }
-                }}
-                onRetry={(turn) => void retryInvocation(turn)}
-              />
-            ) : null}
-          </section>
-        ) : (
-          <DraftWorkspace
+        ) : selectedDraft && (route.file === "draft" || route.file === "published") ? (
+          <SkillWorkspaceShell
             draft={selectedDraft}
             revisions={revisions}
-            artifact={artifact}
+            artifacts={artifacts}
             connections={availableConnections}
             resources={resources}
             turns={assistantState.turns}
             busy={busy}
-            resourceError={draftResourceError}
-            onSend={sendMessage}
+            published={publication?.status === "published" || selectedDraft.lifecycle === "published"}
+            onOpenDataTools={() => setShowDataToolDrawer(true)}
+            onUpdateContext={updateDraftContext}
+            onSend={handleAssistantSend}
             onCancel={cancel}
             onReconnect={(turn) => {
               if (activeInvocation?.invocation_id === turn.invocation.invocation_id) {
@@ -1290,15 +1319,51 @@ export function KnowledgeWorkspacePage() {
             }}
             onRetry={(turn) => void retryInvocation(turn)}
             onRun={runSkill}
-            onRetryLoad={() => {
-              setError("");
-              setDraftLoadAttempt((current) => current + 1);
+            onShare={() => openRouteModal("share_run")}
+            onPublish={() => setShowPublish(true)}
+            onBindAgent={() => {
+              if (publication?.status !== "published" && selectedDraft.lifecycle !== "published") {
+                setError("请先发布 Skill，再添加到 Agent。");
+                return;
+              }
+              openRouteModal("agent");
             }}
+            onAdvanced={() => openRouteModal("versions")}
           />
+        ) : (
+          <div className="kw-empty-page">
+            {draftResourceError ? (
+              <div className="kw-state-card is-failed" role="alert">
+                <strong>无法加载当前资源</strong>
+                <span>{draftResourceError.message}</span>
+                <button type="button" onClick={() => {
+                  setError("");
+                  setDraftLoadAttempt((current) => current + 1);
+                }}>重新加载资源</button>
+              </div>
+            ) : "正在从 BFF 恢复草稿…"}
+          </div>
         )}
         </main>
 
       </div>
+      <DataToolDrawer
+        open={showDataToolDrawer}
+        connections={availableConnections}
+        resources={resources}
+        selectedConnectionIds={selectedConnectionIds}
+        selectedResourceIds={selectedResourceIds}
+        onClose={() => setShowDataToolDrawer(false)}
+        onConfirm={(connectionIds, resourceIds) => {
+          void updateDraftContext(connectionIds, resourceIds)
+            .then(() => setShowDataToolDrawer(false))
+            .catch(() => undefined);
+        }}
+        onConfigureConnection={(connection) => {
+          setShowDataToolDrawer(false);
+          setRoute("connection", "", connection.connection_id);
+        }}
+      />
       {showConnectionForm ? (
         <ConnectionForm
           connectors={connectors}
@@ -1362,7 +1427,7 @@ export function KnowledgeWorkspacePage() {
   );
 }
 
-function SkillNewView({
+export function SkillNewView({
   connections,
   resources,
   selectedIds,
@@ -1818,7 +1883,7 @@ function WorkspaceResourceDetail({
   );
 }
 
-function DraftWorkspace({
+export function DraftWorkspace({
   draft,
   revisions,
   artifact,
@@ -1971,7 +2036,7 @@ function DraftWorkspace({
   );
 }
 
-function PublishedWorkspace({
+export function PublishedWorkspace({
   draft,
   revision,
   connections,

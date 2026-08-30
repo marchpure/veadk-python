@@ -1,0 +1,370 @@
+{
+  "createCalls": 1,
+  "generateCalls": 1,
+  "publishCalls": 1,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "missingAssets": [],
+  "layoutMetrics": {
+    "01-new-empty-1440x1000.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "body": {
+        "width": 1440,
+        "height": 1000
+      },
+      "create": {
+        "x": 340,
+        "y": 299.859375,
+        "width": 760,
+        "height": 400.28125,
+        "top": 299.859375,
+        "right": 1100,
+        "bottom": 700.140625,
+        "left": 340
+      }
+    },
+    "02-data-tools-1440x1000.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "body": {
+        "width": 1440,
+        "height": 1000
+      },
+      "create": {
+        "x": 340,
+        "y": 285.859375,
+        "width": 760,
+        "height": 428.28125,
+        "top": 285.859375,
+        "right": 1100,
+        "bottom": 714.140625,
+        "left": 340
+      },
+      "drawer": {
+        "x": 960,
+        "y": 0,
+        "width": 480,
+        "height": 1000,
+        "top": 0,
+        "right": 1440,
+        "bottom": 1000,
+        "left": 960
+      }
+    },
+    "03-workshop-1440x1000.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "body": {
+        "width": 1440,
+        "height": 1000
+      },
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 1000,
+        "top": 0,
+        "right": 240,
+        "bottom": 1000,
+        "left": 0
+      },
+      "chat": {
+        "x": 240,
+        "y": 0,
+        "width": 604.796875,
+        "height": 1000,
+        "top": 0,
+        "right": 844.796875,
+        "bottom": 1000,
+        "left": 240
+      },
+      "artifact": {
+        "x": 844.796875,
+        "y": 0,
+        "width": 595.203125,
+        "height": 1000,
+        "top": 0,
+        "right": 1440,
+        "bottom": 1000,
+        "left": 844.796875
+      },
+      "composer": {
+        "x": 260,
+        "y": 828.578125,
+        "width": 563.796875,
+        "height": 153.421875,
+        "top": 828.578125,
+        "right": 823.796875,
+        "bottom": 982,
+        "left": 260
+      }
+    },
+    "04-published-1440x1000.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "body": {
+        "width": 1440,
+        "height": 1000
+      },
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 1000,
+        "top": 0,
+        "right": 240,
+        "bottom": 1000,
+        "left": 0
+      },
+      "chat": {
+        "x": 240,
+        "y": 0,
+        "width": 604.796875,
+        "height": 1000,
+        "top": 0,
+        "right": 844.796875,
+        "bottom": 1000,
+        "left": 240
+      },
+      "artifact": {
+        "x": 844.796875,
+        "y": 0,
+        "width": 595.203125,
+        "height": 1000,
+        "top": 0,
+        "right": 1440,
+        "bottom": 1000,
+        "left": 844.796875
+      },
+      "composer": {
+        "x": 260,
+        "y": 828.578125,
+        "width": 563.796875,
+        "height": 153.421875,
+        "top": 828.578125,
+        "right": 823.796875,
+        "bottom": 982,
+        "left": 260
+      }
+    },
+    "05-bind-agent-1440x1000.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "body": {
+        "width": 1440,
+        "height": 1000
+      },
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 1000,
+        "top": 0,
+        "right": 240,
+        "bottom": 1000,
+        "left": 0
+      },
+      "chat": {
+        "x": 240,
+        "y": 0,
+        "width": 604.796875,
+        "height": 1000,
+        "top": 0,
+        "right": 844.796875,
+        "bottom": 1000,
+        "left": 240
+      },
+      "artifact": {
+        "x": 844.796875,
+        "y": 0,
+        "width": 595.203125,
+        "height": 1000,
+        "top": 0,
+        "right": 1440,
+        "bottom": 1000,
+        "left": 844.796875
+      },
+      "composer": {
+        "x": 260,
+        "y": 828.578125,
+        "width": 563.796875,
+        "height": 153.421875,
+        "top": 828.578125,
+        "right": 823.796875,
+        "bottom": 982,
+        "left": 260
+      },
+      "modal": {
+        "x": 272,
+        "y": 229,
+        "width": 896,
+        "height": 542,
+        "top": 229,
+        "right": 1168,
+        "bottom": 771,
+        "left": 272
+      }
+    },
+    "06-workshop-1280x800.png": {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "body": {
+        "width": 1280,
+        "height": 800
+      },
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 800,
+        "top": 0,
+        "right": 240,
+        "bottom": 800,
+        "left": 0
+      },
+      "chat": {
+        "x": 240,
+        "y": 0,
+        "width": 537.59375,
+        "height": 800,
+        "top": 0,
+        "right": 777.59375,
+        "bottom": 800,
+        "left": 240
+      },
+      "artifact": {
+        "x": 777.59375,
+        "y": 0,
+        "width": 502.40625,
+        "height": 800,
+        "top": 0,
+        "right": 1280,
+        "bottom": 800,
+        "left": 777.59375
+      },
+      "composer": {
+        "x": 260,
+        "y": 628.578125,
+        "width": 496.59375,
+        "height": 153.421875,
+        "top": 628.578125,
+        "right": 756.59375,
+        "bottom": 782,
+        "left": 260
+      }
+    },
+    "07-workshop-390x844.png": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "body": {
+        "width": 390,
+        "height": 844
+      },
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "chat": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 844,
+        "top": 0,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "artifact": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "composer": {
+        "x": 10,
+        "y": 680.578125,
+        "width": 370,
+        "height": 153.421875,
+        "top": 680.578125,
+        "right": 380,
+        "bottom": 834,
+        "left": 10
+      }
+    }
+  },
+  "metrics": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "body": {
+      "width": 390,
+      "height": 844
+    },
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "chat": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 844,
+      "top": 0,
+      "right": 390,
+      "bottom": 844,
+      "left": 0
+    },
+    "artifact": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "composer": {
+      "x": 10,
+      "y": 680.578125,
+      "width": 370,
+      "height": 153.421875,
+      "top": 680.578125,
+      "right": 380,
+      "bottom": 834,
+      "left": 10
+    }
+  }
+}

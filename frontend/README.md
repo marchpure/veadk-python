@@ -3,6 +3,9 @@
 A React web UI for VeADK / Google ADK agents. It talks to the standard ADK API
 server that `veadk frontend` launches — no separate backend.
 
+Knowledge Workspace Skill creation and authoring is documented in
+[`../docs/knowledge-workspace/skill-workshop-v220121.md`](../docs/knowledge-workspace/skill-workshop-v220121.md).
+
 ## Features
 
 - **Streaming chat** over the ADK `/run_sse` event stream. While an Agent is
