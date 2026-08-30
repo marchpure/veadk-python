@@ -76,26 +76,39 @@ test("inspecting unavailable context returns to the in-progress creator", () => 
   assert.match(page, /disabled=\{resource\.status !== "verified"\}/);
 });
 
-test("first message maps to one real draft and generation invocation", () => {
+test("first message maps to one real draft and session-bound generation invocation", () => {
   assert.match(page, /template_key: templateKey/);
   assert.match(page, /template_config: templateConfig/);
   assert.match(page, /knowledgeApi\.createDraft/);
-  assert.match(page, /knowledgeApi\.generateDraft/);
-  assert.match(page, /setRoute\("draft", created\.value\.data\.draft_id\)/);
+  assert.match(page, /knowledgeApi\.listSessions\(created\.value\.data\.draft_id\)/);
+  assert.match(page, /knowledgeApi\.generateSessionDraft/);
+  assert.match(page, /setRoute\("draft", created\.value\.data\.draft_id,[\s\S]*?initialSession\?\.authoring_session_id/);
   assert.match(page, /goal,\s*template_key/s);
   assert.match(page, /pendingCreatedDraftRef\.current[\s\S]*?knowledgeApi\.updateDraft/s);
 });
 
-test("draft workspace is conversation-led with invocation rail and artifact pane", () => {
-  assert.match(workspace, /InvocationRail/);
+test("draft workspace is conversation-led with session selector and conditional artifact pane", () => {
+  assert.match(page, /KnowledgeWorkspacePageProps/);
+  assert.doesNotMatch(workspace, /InvocationRail/);
   assert.match(workspace, /SkillConversation/);
   assert.match(workspace, /ArtifactWorkspace/);
+  assert.match(workspace, /hasArtifact/);
+  assert.match(workspace, /artifactPaneSlot/);
+  assert.match(workspace, /data-w2-slot="artifact-pane"/);
+  assert.match(workspace, /is-conversation-only/);
+  assert.match(workspace, /has-artifact/);
+  assert.match(conversation, /选择作者会话/);
+  assert.match(conversation, /onCreateSession/);
+  assert.match(conversation, /onRefreshSession/);
+  assert.match(conversation, /modeSelectorSlot/);
   assert.match(conversation, /intent="update"/);
   assert.match(conversation, /试跑\s*\/\s*刷新/);
   assert.match(workspace, /onUpdateContext/);
   assert.match(page, /knowledgeApi\.updateDraft/);
   assert.doesNotMatch(workspace, /SkillPackagePanel/);
-  assert.match(css, /grid-template-columns:\s*240px minmax\(420px,\s*min\(760px,\s*42vw\)\) minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.kw-skill-workshop\s*\{[\s\S]*?grid-template-columns:\s*minmax\(480px,\s*1fr\)/);
+  assert.match(css, /\.kw-skill-workshop\.has-artifact\s*\{[\s\S]*?grid-template-columns:\s*minmax\(480px,\s*1fr\) minmax\(360px,\s*min\(44vw,\s*720px\)\)/);
+  assert.doesNotMatch(css, /is-workshop-route[\s\S]*?display:\s*none/);
 });
 
 test("artifacts are restored from conversation events and remain controlled", () => {
@@ -107,6 +120,27 @@ test("artifacts are restored from conversation events and remain controlled", ()
   assert.match(toolbar, /发布 Skill/);
   assert.match(toolbar, /添加到 Agent/);
   assert.doesNotMatch(artifacts, /dangerouslySetInnerHTML|固定销售|mock/i);
+});
+
+test("draft route persists and restores real authoring sessions", () => {
+  assert.match(page, /query\.get\("draftId"\) \|\| query\.get\("draft_id"\)/);
+  assert.match(page, /sessionId:\s*query\.get\("sessionId"\)/);
+  assert.match(page, /query\.set\("sessionId", sessionId\)/);
+  assert.match(page, /knowledgeApi\.listSessions\(route\.draftId/);
+  assert.match(page, /knowledgeApi\.getSessionConversation/);
+  assert.match(page, /setCurrentSession\(selectedSession\)/);
+  assert.match(page, /composerDraftsRef/);
+  assert.match(page, /knowledgeApi\.sendSessionMessage/);
+  assert.match(page, /authoring_session_id:\s*currentSession\.authoring_session_id/);
+});
+
+test("integration slots are stable for downstream workers", () => {
+  assert.match(page, /artifactPaneSlot\?: ReactNode/);
+  assert.match(page, /modeSelectorSlot\?: ReactNode/);
+  assert.match(page, /knowledgeBaseNavSlot\?: ReactNode/);
+  assert.match(page, /createKnowledgeBaseSlot\?: ReactNode/);
+  assert.match(page, /data-w4-slot="knowledge-base-nav"/);
+  assert.match(page, /data-w4-slot="create-knowledge-base"/);
 });
 
 test("publication state is restored from the existing BFF listing endpoint", () => {

@@ -787,6 +787,7 @@ class KnowledgeWorkspaceService:
 
         return {
             "invocation_id": invocation.invocation_id,
+            "authoring_session_id": invocation.authoring_session_id,
             "kind": invocation.kind,
             "status": invocation.status,
             "message": invocation.message,
@@ -796,8 +797,400 @@ class KnowledgeWorkspaceService:
             "created_at": invocation.created_at,
         }
 
-    def conversation(self, actor: Actor, draft_id: str) -> list[dict[str, object]]:
+    def public_session(self, session: AuthoringSession) -> dict[str, object]:
+        cursor: str | None = None
+        active_invocation_id = session.active_invocation_id
+        latest_invocation = (
+            self.repository.get_invocation(
+                active_invocation_id,
+                tenant_id=session.tenant_id,
+                workspace_id=session.workspace_id,
+            )
+            if active_invocation_id
+            else None
+        )
+        if latest_invocation is None:
+            latest_invocation = next(
+                reversed(
+                    self.repository.invocations_for_session(
+                        session.draft_id,
+                        session.authoring_session_id,
+                        tenant_id=session.tenant_id,
+                        workspace_id=session.workspace_id,
+                    )
+                ),
+                None,
+            )
+        if latest_invocation is not None:
+            events = self.repository.events_after(latest_invocation.invocation_id)
+            if events:
+                cursor = str(events[-1]["sequence"])
+        return {
+            "authoring_session_id": session.authoring_session_id,
+            "draft_id": session.draft_id,
+            "title": session.title,
+            "status": session.status,
+            "last_message_preview": session.last_message_preview,
+            "active_invocation_id": session.active_invocation_id,
+            "last_event_cursor": cursor,
+            "created_at": session.created_at,
+            "updated_at": session.updated_at,
+        }
+
+    @staticmethod
+    def _session_title_from_message(message: str) -> str:
+        compact = " ".join(message.split()).strip()
+        return compact[:40] or "新会话"
+
+    @staticmethod
+    def _session_message_preview(message: str) -> str | None:
+        compact = " ".join(message.split()).strip()
+        return compact[:120] if compact else None
+
+    def _save_session_update(
+        self,
+        session: AuthoringSession,
+        updates: Mapping[str, object],
+    ) -> AuthoringSession:
+        updated = session.model_copy(update={**dict(updates), "updated_at": utc_now()})
+        self.repository.save_session(updated)
+        return updated
+
+    def _session_active_invocation(
+        self,
+        session: AuthoringSession,
+    ) -> Invocation | None:
+        candidate: Invocation | None = None
+        if session.active_invocation_id:
+            candidate = self.repository.get_invocation(
+                session.active_invocation_id,
+                tenant_id=session.tenant_id,
+                workspace_id=session.workspace_id,
+            )
+            if candidate and candidate.status in {
+                InvocationStatus.QUEUED,
+                InvocationStatus.RUNNING,
+            }:
+                return candidate
+        for invocation in reversed(
+            self.repository.invocations_for_session(
+                session.draft_id,
+                session.authoring_session_id,
+                tenant_id=session.tenant_id,
+                workspace_id=session.workspace_id,
+            )
+        ):
+            if invocation.status in {
+                InvocationStatus.QUEUED,
+                InvocationStatus.RUNNING,
+            }:
+                return invocation
+        if session.status == "running" or session.active_invocation_id:
+            self._save_session_update(
+                session,
+                {"status": "idle", "active_invocation_id": None},
+            )
+        return None
+
+    def _mark_session_running(
+        self,
+        session: AuthoringSession,
+        invocation: Invocation,
+        message: str,
+    ) -> AuthoringSession:
+        return self._save_session_update(
+            session,
+            {
+                "status": "running",
+                "active_invocation_id": invocation.invocation_id,
+                "last_message_preview": self._session_message_preview(message),
+            },
+        )
+
+    def _mark_session_finished(
+        self,
+        session: AuthoringSession,
+        invocation: Invocation,
+    ) -> None:
+        latest = self.repository.get_session_by_id(
+            session.draft_id,
+            session.authoring_session_id,
+            tenant_id=session.tenant_id,
+            workspace_id=session.workspace_id,
+        )
+        if latest is None:
+            return
+        if (
+            latest.active_invocation_id
+            and latest.active_invocation_id != invocation.invocation_id
+        ):
+            return
+        self._save_session_update(
+            latest,
+            {"status": "idle", "active_invocation_id": None},
+        )
+
+    def _has_active_authoring_invocations(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        principal_id: str | None = None,
+        excluding_invocation_id: str,
+    ) -> bool:
+        return any(
+            invocation.invocation_id != excluding_invocation_id
+            and (principal_id is None or invocation.principal_id == principal_id)
+            and invocation.kind is not InvocationKind.RUN
+            and invocation.status
+            in {InvocationStatus.QUEUED, InvocationStatus.RUNNING}
+            for invocation in self.repository.invocations_for_draft(
+                draft_id, tenant_id=tenant_id, workspace_id=workspace_id
+            )
+        )
+
+    @staticmethod
+    def _session_visible_to_actor(
+        session: AuthoringSession, draft: SkillDraft, actor: Actor
+    ) -> bool:
+        return session.principal_id == actor.principal_id or (
+            session.principal_id == "legacy" and draft.created_by == actor.principal_id
+        )
+
+    def _list_visible_sessions(
+        self,
+        draft: SkillDraft,
+        actor: Actor,
+        *,
+        include_archived: bool = False,
+    ) -> tuple[AuthoringSession, ...]:
+        sessions = self.repository.list_sessions(
+            draft.draft_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+            include_archived=include_archived,
+        )
+        return tuple(
+            session
+            for session in sessions
+            if self._session_visible_to_actor(session, draft, actor)
+        )
+
+    def _invocation_visible_to_actor(
+        self, invocation: Invocation, actor: Actor
+    ) -> bool:
+        if invocation.principal_id == actor.principal_id:
+            return True
+        if invocation.principal_id != "legacy":
+            return False
+        draft = self.repository.get_draft(
+            invocation.draft_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        )
+        return draft is not None and draft.created_by == actor.principal_id
+
+    def create_session(
+        self,
+        actor: Actor,
+        draft_id: str,
+        *,
+        title: str | None = None,
+        idempotency_key: str | None = None,
+        request_digest: str = "",
+    ) -> AuthoringSession:
+        draft = self.get_draft(actor, draft_id)
+        session_id = new_id("authoring")
+        if idempotency_key:
+            try:
+                session_id = self.repository.idempotent(
+                    f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:session:{draft_id}",
+                    idempotency_key,
+                    request_digest,
+                    session_id,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
+                raise
+            existing = self.repository.get_session_by_id(
+                draft_id,
+                session_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+                principal_id=actor.principal_id,
+            )
+            if existing is not None:
+                return existing
+        return self._create_session_for_draft(
+            draft,
+            principal_id=actor.principal_id,
+            session_id=session_id,
+            title=(title or "").strip()[:160] or "新会话",
+        )
+
+    def _create_session_for_draft(
+        self,
+        draft: SkillDraft,
+        *,
+        principal_id: str | None = None,
+        session_id: str | None = None,
+        title: str | None = None,
+    ) -> AuthoringSession:
+        now = utc_now()
+        session = AuthoringSession(
+            tenant_id=draft.tenant_id,
+            workspace_id=draft.workspace_id,
+            draft_id=draft.draft_id,
+            principal_id=principal_id or draft.created_by,
+            authoring_session_id=session_id or new_id("authoring"),
+            autoskill_agent_id=new_id("agent"),
+            autoskill_session_id=new_id("session"),
+            title=(title or "").strip()[:160] or self._session_title_from_message(draft.goal),
+            created_at=now,
+            updated_at=now,
+        )
+        self.repository.save_session(session)
+        return session
+
+    def list_sessions(
+        self,
+        actor: Actor,
+        draft_id: str,
+        *,
+        include_archived: bool = False,
+    ) -> tuple[AuthoringSession, ...]:
+        draft = self.get_draft(actor, draft_id)
+        sessions = self._list_visible_sessions(
+            draft, actor, include_archived=include_archived
+        )
+        if sessions:
+            return sessions
+        if self._list_visible_sessions(draft, actor, include_archived=True):
+            return sessions
+        return (self._create_session_for_draft(draft, principal_id=actor.principal_id),)
+
+    def get_authoring_session(
+        self,
+        actor: Actor,
+        draft_id: str,
+        authoring_session_id: str,
+    ) -> AuthoringSession:
+        draft = self.get_draft(actor, draft_id)
+        session = self.repository.get_session_by_id(
+            draft_id,
+            authoring_session_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        )
+        if session is None or not self._session_visible_to_actor(session, draft, actor):
+            raise KnowledgeWorkspaceError(
+                "NOT_FOUND", "authoring session not found", 404
+            )
+        return session
+
+    def update_session(
+        self,
+        actor: Actor,
+        draft_id: str,
+        authoring_session_id: str,
+        *,
+        title: str | None = None,
+        archive: bool | None = None,
+        idempotency_key: str | None = None,
+        request_digest: str = "",
+    ) -> AuthoringSession:
+        session = self.get_authoring_session(actor, draft_id, authoring_session_id)
+        idempotency_scope = (
+            f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:"
+            f"session-update:{draft_id}:{authoring_session_id}"
+        )
+        if idempotency_key:
+            try:
+                replay_id = self.repository.idempotency_value(
+                    idempotency_scope,
+                    idempotency_key,
+                    request_digest,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
+                raise
+            if replay_id:
+                return self.get_authoring_session(actor, draft_id, replay_id)
+        updates: dict[str, object] = {}
+        if title is not None:
+            if not title.strip():
+                raise KnowledgeWorkspaceError(
+                    "INVALID_REQUEST", "session title is required", 422
+                )
+            updates["title"] = title.strip()[:160]
+        if archive is not None:
+            if archive and self._session_active_invocation(session) is not None:
+                raise KnowledgeWorkspaceError(
+                    "INVOCATION_ACTIVE",
+                    "session has an active invocation",
+                    409,
+                )
+            updates["status"] = "archived" if archive else "idle"
+            if archive:
+                updates["active_invocation_id"] = None
+        if not updates:
+            return session
+        updated = self._save_session_update(session, updates)
+        if idempotency_key:
+            try:
+                self.repository.idempotent(
+                    idempotency_scope,
+                    idempotency_key,
+                    request_digest,
+                    updated.authoring_session_id,
+                )
+            except ValueError as exc:
+                if str(exc) == "IDEMPOTENCY_CONFLICT":
+                    raise KnowledgeWorkspaceError(
+                        "IDEMPOTENCY_CONFLICT",
+                        "idempotency key was reused with different input",
+                        409,
+                    ) from exc
+                raise
+        return updated
+
+    def conversation(
+        self,
+        actor: Actor,
+        draft_id: str,
+        authoring_session_id: str | None = None,
+    ) -> list[dict[str, object]]:
         self.get_draft(actor, draft_id)
+        invocations = (
+            self.repository.invocations_for_session(
+                draft_id,
+                self._session(actor, draft_id, authoring_session_id).authoring_session_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+            if authoring_session_id is not None
+            else self.repository.invocations_for_draft(
+                draft_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+        )
+        invocations = tuple(
+            invocation
+            for invocation in invocations
+            if self._invocation_visible_to_actor(invocation, actor)
+        )
         return [
             {
                 "invocation": self.public_invocation(invocation),
@@ -806,11 +1199,7 @@ class KnowledgeWorkspaceService:
                     for item in self.repository.events_after(invocation.invocation_id)
                 ],
             }
-            for invocation in self.repository.invocations_for_draft(
-                draft_id,
-                tenant_id=actor.tenant_id,
-                workspace_id=actor.workspace_id,
-            )
+            for invocation in invocations
         ]
 
     @staticmethod
@@ -991,9 +1380,11 @@ class KnowledgeWorkspaceService:
             tenant_id=actor.tenant_id,
             workspace_id=actor.workspace_id,
             draft_id=draft.draft_id,
+            principal_id=actor.principal_id,
             authoring_session_id=new_id("authoring"),
             autoskill_agent_id=new_id("agent"),
             autoskill_session_id=new_id("session"),
+            title=self._session_title_from_message(goal),
         )
         self.repository.save_draft(draft)
         self.repository.save_session(session)
@@ -1123,11 +1514,15 @@ class KnowledgeWorkspaceService:
         return updated
 
     def list_drafts(self, actor: Actor) -> tuple[SkillDraft, ...]:
-        return self.repository.list_drafts(
-            tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+        return tuple(
+            draft
+            for draft in self.repository.list_drafts(
+                tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+            )
+            if draft.created_by == actor.principal_id
         )
 
-    def get_draft(self, actor: Actor, draft_id: str) -> SkillDraft:
+    def _get_workspace_draft(self, actor: Actor, draft_id: str) -> SkillDraft:
         draft = self.repository.get_draft(
             draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
@@ -1135,11 +1530,69 @@ class KnowledgeWorkspaceService:
             raise KnowledgeWorkspaceError("NOT_FOUND", "draft not found", 404)
         return draft
 
-    def _session(self, actor: Actor, draft_id: str) -> AuthoringSession:
-        session = self.repository.get_session(
-            draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+    def get_draft(self, actor: Actor, draft_id: str) -> SkillDraft:
+        draft = self._get_workspace_draft(actor, draft_id)
+        if draft.created_by != actor.principal_id:
+            raise KnowledgeWorkspaceError("NOT_FOUND", "draft not found", 404)
+        return draft
+
+    def list_revisions(self, actor: Actor, draft_id: str) -> tuple[SkillRevision, ...]:
+        self.get_draft(actor, draft_id)
+        return self.repository.revisions(
+            draft_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
         )
+
+    def _session(
+        self,
+        actor: Actor,
+        draft_id: str,
+        authoring_session_id: str | None = None,
+        *,
+        require_draft_owner: bool = True,
+    ) -> AuthoringSession:
+        draft = (
+            self.get_draft(actor, draft_id)
+            if require_draft_owner
+            else self._get_workspace_draft(actor, draft_id)
+        )
+        session = (
+            self.repository.get_session_by_id(
+                draft_id,
+                authoring_session_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+                principal_id=None if require_draft_owner else actor.principal_id,
+            )
+            if authoring_session_id
+            else (
+                self._list_visible_sessions(draft, actor)[0]
+                if require_draft_owner and self._list_visible_sessions(draft, actor)
+                else self.repository.get_session(
+                    draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                    principal_id=actor.principal_id,
+                )
+            )
+        )
+        if (
+            session is not None
+            and require_draft_owner
+            and not self._session_visible_to_actor(session, draft, actor)
+        ):
+            session = None
         if session is None:
+            if authoring_session_id is None:
+                session_title = (
+                    self._session_title_from_message(draft.goal)
+                    if require_draft_owner
+                    else "Consumer run"
+                )
+                return self._create_session_for_draft(
+                    draft, principal_id=actor.principal_id, title=session_title
+                )
             raise KnowledgeWorkspaceError(
                 "NOT_FOUND", "authoring session not found", 404
             )
@@ -1328,11 +1781,26 @@ class KnowledgeWorkspaceService:
         if_match: str | None = None,
         idempotency_key: str | None = None,
         request_digest: str = "",
+        authoring_session_id: str | None = None,
         autoskill_agent_id: str | None = None,
         autoskill_session_id: str | None = None,
+        require_draft_owner: bool = True,
     ) -> Invocation:
-        draft = self.get_draft(actor, draft_id)
-        session = self._session(actor, draft_id)
+        draft = (
+            self.get_draft(actor, draft_id)
+            if require_draft_owner
+            else self._get_workspace_draft(actor, draft_id)
+        )
+        session = self._session(
+            actor,
+            draft_id,
+            authoring_session_id,
+            require_draft_owner=require_draft_owner,
+        )
+        if session.status == "archived":
+            raise KnowledgeWorkspaceError(
+                "SESSION_ARCHIVED", "authoring session is archived", 409
+            )
         if if_match and if_match.strip('"') != draft.etag:
             raise KnowledgeWorkspaceError(
                 "ETAG_MISMATCH", "draft was modified by another request", 412
@@ -1364,7 +1832,7 @@ class KnowledgeWorkspaceService:
         if idempotency_key:
             try:
                 invocation_id = self.repository.idempotent(
-                    f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:{draft_id}:{kind.value}",
+                    f"{actor.tenant_id}:{actor.workspace_id}:{actor.principal_id}:{draft_id}:{session.authoring_session_id}:{kind.value}",
                     idempotency_key,
                     request_digest,
                     invocation_id,
@@ -1384,9 +1852,9 @@ class KnowledgeWorkspaceService:
             )
             if existing is not None:
                 return existing
-        if draft.status == DraftStatus.GENERATING:
+        if self._session_active_invocation(session) is not None:
             raise KnowledgeWorkspaceError(
-                "INVOCATION_ACTIVE", "draft already has an active invocation", 409
+                "INVOCATION_ACTIVE", "session already has an active invocation", 409
             )
         invocation = Invocation(
             tenant_id=actor.tenant_id,
@@ -1412,6 +1880,7 @@ class KnowledgeWorkspaceService:
             update={"autoskill_request_ids": (invocation.autoskill_request_id,)}
         )
         self.repository.save_invocation(invocation)
+        session = self._mark_session_running(session, invocation, message or draft.goal)
         if kind is not InvocationKind.RUN:
             self.repository.save_draft(
                 draft.model_copy(
@@ -1480,6 +1949,7 @@ class KnowledgeWorkspaceService:
         malformed_event: ParsedUpstreamEvent | None = None
         prepared_autoskill_state: bytes | None = None
         try:
+            session = self._mark_session_running(session, current, message)
             prior_events = self.repository.raw_events(invocation.invocation_id)
             prior_raw = [item["raw"] for item in prior_events]
             had_error = any(
@@ -1524,6 +1994,7 @@ class KnowledgeWorkspaceService:
                     }
                 )
                 self.repository.save_invocation(cancelled)
+                self._mark_session_finished(session, cancelled)
                 return
             if (
                 invocation.connection_ids or invocation.resource_ids
@@ -1611,10 +2082,9 @@ class KnowledgeWorkspaceService:
                             and invocation.autoskill_session_id
                             == session.autoskill_session_id
                         ):
-                            session = session.model_copy(
-                                update={"state_uri": state_uri}
+                            session = self._save_session_update(
+                                session, {"state_uri": state_uri}
                             )
-                            self.repository.save_session(session)
             if invocation.invocation_id in self._cancelled:
                 cancelled = current.model_copy(
                     update={
@@ -1624,6 +2094,7 @@ class KnowledgeWorkspaceService:
                     }
                 )
                 self.repository.save_invocation(cancelled)
+                self._mark_session_finished(session, cancelled)
                 return
             if (
                 invocation.kind is InvocationKind.RUN
@@ -1685,16 +2156,16 @@ class KnowledgeWorkspaceService:
                         and invocation.autoskill_session_id
                         == session.autoskill_session_id
                     ):
-                        session = session.model_copy(
-                            update={
+                        session = self._save_session_update(
+                            session,
+                            {
                                 "state_uri": self.repository.put_object(
                                     hashlib.sha256(combined_state).hexdigest(),
                                     combined_state,
                                     suffix=".state.zip",
                                 )
-                            }
+                            },
                         )
-                        self.repository.save_session(session)
             for upload_id in invocation.upload_ids:
                 upload = self.repository.get_upload(
                     upload_id,
@@ -1833,14 +2304,14 @@ class KnowledgeWorkspaceService:
                     502,
                 )
             if invocation.invocation_id in self._cancelled:
-                self.repository.save_invocation(
-                    current.model_copy(
-                        update={
-                            "status": InvocationStatus.CANCELLED,
-                            "finished_at": utc_now(),
-                        }
-                    )
+                cancelled = current.model_copy(
+                    update={
+                        "status": InvocationStatus.CANCELLED,
+                        "finished_at": utc_now(),
+                    }
                 )
+                self.repository.save_invocation(cancelled)
+                self._mark_session_finished(session, cancelled)
                 return
             if (
                 had_error
@@ -1925,8 +2396,8 @@ class KnowledgeWorkspaceService:
                     invocation.autoskill_agent_id == session.autoskill_agent_id
                     and invocation.autoskill_session_id == session.autoskill_session_id
                 ):
-                    self.repository.save_session(
-                        session.model_copy(update={"state_uri": state_uri})
+                    session = self._save_session_update(
+                        session, {"state_uri": state_uri}
                     )
             finished = current.model_copy(
                 update={
@@ -1944,6 +2415,7 @@ class KnowledgeWorkspaceService:
                     state=prepared_autoskill_state,
                 )
             self.repository.save_invocation(finished)
+            self._mark_session_finished(session, finished)
             # Artifacts are persisted before terminal success is exposed.
             completed_cursor = (
                 len(self.repository.raw_events(invocation.invocation_id)) + 1
@@ -1977,14 +2449,21 @@ class KnowledgeWorkspaceService:
                 None,
             )
             if invocation.kind is not InvocationKind.RUN:
-                self.repository.save_draft(
-                    draft.model_copy(
-                        update={
-                            "status": DraftStatus.GENERATED,
-                            "updated_at": utc_now(),
-                        }
+                if not self._has_active_authoring_invocations(
+                    draft.draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                    principal_id=actor.principal_id,
+                    excluding_invocation_id=invocation.invocation_id,
+                ):
+                    self.repository.save_draft(
+                        draft.model_copy(
+                            update={
+                                "status": DraftStatus.GENERATED,
+                                "updated_at": utc_now(),
+                            }
+                        )
                     )
-                )
         except asyncio.CancelledError:
             raise
         except (
@@ -2006,17 +2485,25 @@ class KnowledgeWorkspaceService:
                 }
             )
             self.repository.save_invocation(failed)
+            self._mark_session_finished(session, failed)
             if invocation.kind is not InvocationKind.RUN:
-                self.repository.save_draft(
-                    draft.model_copy(
-                        update={
-                            "status": DraftStatus.CANCELLED
-                            if failed.status is InvocationStatus.CANCELLED
-                            else DraftStatus.FAILED,
-                            "updated_at": utc_now(),
-                        }
+                if not self._has_active_authoring_invocations(
+                    draft.draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                    principal_id=actor.principal_id,
+                    excluding_invocation_id=invocation.invocation_id,
+                ):
+                    self.repository.save_draft(
+                        draft.model_copy(
+                            update={
+                                "status": DraftStatus.CANCELLED
+                                if failed.status is InvocationStatus.CANCELLED
+                                else DraftStatus.FAILED,
+                                "updated_at": utc_now(),
+                            }
+                        )
                     )
-                )
             normalized = {
                 "id": f"{invocation.invocation_id}:failure",
                 "type": "run.cancelled"
@@ -2052,15 +2539,23 @@ class KnowledgeWorkspaceService:
                 }
             )
             self.repository.save_invocation(failed)
+            self._mark_session_finished(session, failed)
             if invocation.kind is not InvocationKind.RUN:
-                self.repository.save_draft(
-                    draft.model_copy(
-                        update={
-                            "status": DraftStatus.FAILED,
-                            "updated_at": utc_now(),
-                        }
+                if not self._has_active_authoring_invocations(
+                    draft.draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                    principal_id=actor.principal_id,
+                    excluding_invocation_id=invocation.invocation_id,
+                ):
+                    self.repository.save_draft(
+                        draft.model_copy(
+                            update={
+                                "status": DraftStatus.FAILED,
+                                "updated_at": utc_now(),
+                            }
+                        )
                     )
-                )
         finally:
             if lease_id and self.connection_context is not None:
                 try:
@@ -2364,7 +2859,7 @@ class KnowledgeWorkspaceService:
         invocation = self.repository.get_invocation(
             invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
-        if invocation is None:
+        if invocation is None or not self._invocation_visible_to_actor(invocation, actor):
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
         if idempotency_key:
             try:
@@ -2407,12 +2902,30 @@ class KnowledgeWorkspaceService:
             }
         )
         self.repository.save_invocation(result)
+        session = self.repository.get_session_by_id(
+            invocation.draft_id,
+            invocation.authoring_session_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        )
+        if session is not None:
+            self._mark_session_finished(session, result)
         draft = self.repository.get_draft(
             invocation.draft_id,
             tenant_id=actor.tenant_id,
             workspace_id=actor.workspace_id,
         )
-        if draft is not None and draft.status is DraftStatus.GENERATING:
+        if (
+            draft is not None
+            and draft.status is DraftStatus.GENERATING
+            and not self._has_active_authoring_invocations(
+                draft.draft_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+                principal_id=actor.principal_id,
+                excluding_invocation_id=invocation.invocation_id,
+            )
+        ):
             self.repository.save_draft(
                 draft.model_copy(
                     update={
@@ -2445,7 +2958,7 @@ class KnowledgeWorkspaceService:
         invocation = self.repository.get_invocation(
             invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
-        if invocation is None:
+        if invocation is None or not self._invocation_visible_to_actor(invocation, actor):
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
         cursor = after
         while True:
@@ -2512,10 +3025,10 @@ class KnowledgeWorkspaceService:
         invocation = self.repository.get_invocation(
             invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
-        session = self._session(actor, draft_id)
         if (
             invocation is None
             or invocation.draft_id != draft_id
+            or not self._invocation_visible_to_actor(invocation, actor)
             or invocation.status is not InvocationStatus.SUCCEEDED
         ):
             raise KnowledgeWorkspaceError(
@@ -2523,6 +3036,7 @@ class KnowledgeWorkspaceService:
                 "invocation is not a successful draft invocation",
                 409,
             )
+        session = self._session(actor, draft_id, invocation.authoring_session_id)
         if (
             not invocation.request_summary
             or invocation.error_code
@@ -2771,8 +3285,9 @@ class KnowledgeWorkspaceService:
                 tenant_id=invocation.tenant_id,
                 workspace_id=invocation.workspace_id,
             )
-            session = self.repository.get_session(
+            session = self.repository.get_session_by_id(
                 invocation.draft_id,
+                invocation.authoring_session_id,
                 tenant_id=invocation.tenant_id,
                 workspace_id=invocation.workspace_id,
             )
@@ -2802,6 +3317,7 @@ class KnowledgeWorkspaceService:
         *,
         resource_ids: Sequence[str] = (),
         upload_ids: Sequence[str] = (),
+        authoring_session_id: str | None = None,
         idempotency_key: str | None = None,
         request_digest: str = "",
     ) -> Invocation:
@@ -2848,6 +3364,7 @@ class KnowledgeWorkspaceService:
             connection_ids=requested_connection_ids,
             resource_ids=requested_resource_ids,
             upload_ids=upload_ids,
+            authoring_session_id=authoring_session_id,
             idempotency_key=idempotency_key,
             request_digest=request_digest,
         )
@@ -2857,7 +3374,20 @@ class KnowledgeWorkspaceService:
         artifact = self.repository.get_artifact(
             artifact_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
-        if artifact is None:
+        invocation = (
+            self.repository.get_invocation(
+                artifact.invocation_id,
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            )
+            if artifact is not None
+            else None
+        )
+        if (
+            artifact is None
+            or invocation is None
+            or not self._invocation_visible_to_actor(invocation, actor)
+        ):
             raise KnowledgeWorkspaceError("NOT_FOUND", "artifact not found", 404)
         return artifact
 
@@ -3101,6 +3631,8 @@ class KnowledgeWorkspaceService:
             upload_ids=upload_ids,
             idempotency_key=idempotency_key,
             request_digest=request_digest,
+            authoring_session_id=None,
             autoskill_agent_id=consumer_agent_id,
             autoskill_session_id=consumer_session_id,
+            require_draft_owner=False,
         )

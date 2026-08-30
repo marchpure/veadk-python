@@ -70,6 +70,7 @@ import { SkillWorkspaceShell } from "../workspace/SkillWorkspaceShell";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
   Artifact,
+  AuthoringSession,
   ConnectorDefinition,
   ConnectionProfile,
   Draft,
@@ -101,7 +102,15 @@ interface WorkspaceRoute {
   draftId: string;
   connectionId: string;
   resourceId: string;
+  sessionId: string;
   modal: string;
+}
+
+export interface KnowledgeWorkspacePageProps {
+  artifactPaneSlot?: ReactNode;
+  createKnowledgeBaseSlot?: ReactNode;
+  knowledgeBaseNavSlot?: ReactNode;
+  modeSelectorSlot?: ReactNode;
 }
 
 const STATUS_LABELS: Record<ConnectionProfile["status"], string> = {
@@ -371,21 +380,32 @@ function routeFromLocation(): WorkspaceRoute {
             : "skill_new";
   return {
     file,
-    draftId: query.get("draftId") || "",
-    connectionId: query.get("connectionId") || "",
-    resourceId: query.get("resourceId") || "",
+    draftId: query.get("draftId") || query.get("draft_id") || "",
+    connectionId: query.get("connectionId") || query.get("connection_id") || "",
+    resourceId: query.get("resourceId") || query.get("resource_id") || "",
+    sessionId: query.get("sessionId") || "",
     modal: query.get("modal") || "",
   };
 }
 
-function setRoute(file: WorkspaceFile, draftId = "", connectionId = "", resourceId = "") {
+function setRoute(file: WorkspaceFile, draftId = "", connectionId = "", resourceId = "", sessionId = "") {
   const query = new URLSearchParams();
   query.set("view", "knowledge-workspace");
   if (file !== "skill_new") query.set("file", file);
   if (draftId) query.set("draftId", draftId);
   if (connectionId) query.set("connectionId", connectionId);
   if (resourceId) query.set("resourceId", resourceId);
+  if (sessionId) query.set("sessionId", sessionId);
   window.history.pushState({}, "", `${window.location.pathname}?${query}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function replaceRouteSessionId(sessionId: string) {
+  const query = new URLSearchParams(window.location.search);
+  query.set("view", "knowledge-workspace");
+  query.set("file", query.get("file") || "draft");
+  query.set("sessionId", sessionId);
+  window.history.replaceState({}, "", `${window.location.pathname}?${query}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -414,7 +434,12 @@ export async function uploadSkillInput(
   return result.data;
 }
 
-export function KnowledgeWorkspacePage() {
+export function KnowledgeWorkspacePage({
+  artifactPaneSlot,
+  createKnowledgeBaseSlot,
+  knowledgeBaseNavSlot,
+  modeSelectorSlot,
+}: KnowledgeWorkspacePageProps = {}) {
   const [route, setRouteState] = useState(routeFromLocation);
   const [connections, setConnections] = useState<ConnectionProfile[]>(
     () => readQuery<ConnectionProfile[]>("connections") || [],
@@ -441,6 +466,9 @@ export function KnowledgeWorkspacePage() {
     message: string;
   } | null>(null);
   const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [sessions, setSessions] = useState<AuthoringSession[]>([]);
+  const [currentSession, setCurrentSession] = useState<AuthoringSession | null>(null);
+  const [composerDraft, setComposerDraft] = useState("");
   const [, setArtifact] = useState<Artifact | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [publication, setPublication] = useState<Publication | null>(null);
@@ -469,6 +497,7 @@ export function KnowledgeWorkspacePage() {
   const streamAbortRef = useRef<AbortController | null>(null);
   const pendingCreatedDraftRef = useRef<{ draft: Draft; etag: string } | null>(null);
   const contextReturnRouteRef = useRef<WorkspaceRoute | null>(null);
+  const composerDraftsRef = useRef(new Map<string, string>());
   const lastCursorRef = useRef(new Map<string, string>());
   const terminalInvocationRef = useRef(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
@@ -563,6 +592,9 @@ export function KnowledgeWorkspacePage() {
     if (!route.draftId) {
       setDraft(null);
       setRevisions([]);
+      setSessions([]);
+      setCurrentSession(null);
+      setComposerDraft("");
       setArtifact(null);
       setArtifacts([]);
       setPublication(null);
@@ -584,13 +616,32 @@ export function KnowledgeWorkspacePage() {
         setEtag(result.etag);
         setSelectedConnectionIds(result.value.data.connection_ids);
         setSelectedResourceIds(result.value.data.resource_ids);
-        const [revisionResult, conversationResult, publicationResult] = await Promise.all([
+        const [revisionResult, sessionResult, publicationResult] = await Promise.all([
           knowledgeApi.listRevisions(route.draftId, controller.signal),
-          knowledgeApi.getConversation(route.draftId, controller.signal),
+          knowledgeApi.listSessions(route.draftId, controller.signal),
           knowledgeApi.listPublications(controller.signal),
         ]);
         setRevisions(revisionResult.data);
         writeQuery(`revisions:${route.draftId}`, revisionResult.data);
+        setSessions(sessionResult.data);
+        const selectedSession = sessionResult.data.find(
+          (session) => session.authoring_session_id === route.sessionId,
+        ) || sessionResult.data[0] || null;
+        setCurrentSession(selectedSession);
+        if (selectedSession) {
+          const currentQuerySessionId = new URLSearchParams(window.location.search).get("sessionId") || "";
+          if (currentQuerySessionId !== selectedSession.authoring_session_id) {
+            replaceRouteSessionId(selectedSession.authoring_session_id);
+          }
+          setComposerDraft(composerDraftsRef.current.get(selectedSession.authoring_session_id) || "");
+        }
+        const conversationResult = selectedSession
+          ? await knowledgeApi.getSessionConversation(
+            route.draftId,
+            selectedSession.authoring_session_id,
+            controller.signal,
+          )
+          : { data: [], meta: { request_id: "" } };
         const currentRevisionId = result.value.data.current_revision_id
           || revisionResult.data.reduce<Revision | null>(
             (current, revision) =>
@@ -604,7 +655,7 @@ export function KnowledgeWorkspacePage() {
         );
         setPublication(restoredPublication || null);
         dispatchAssistant({
-          type: "history.restored",
+          type: "history.replaced",
           entries: conversationResult.data,
         });
         const historicalArtifactIds = [...new Set(
@@ -625,6 +676,9 @@ export function KnowledgeWorkspacePage() {
             setArtifacts(restoredArtifacts);
             setArtifact(restoredArtifacts.at(-1) || null);
           }
+        } else {
+          setArtifacts([]);
+          setArtifact(null);
         }
         lastCursorRef.current = new Map(
           conversationResult.data.flatMap((entry) => {
@@ -661,7 +715,7 @@ export function KnowledgeWorkspacePage() {
         if (!controller.signal.aborted) setBusy("");
       });
     return () => controller.abort();
-  }, [authStatus, draftLoadAttempt, route.draftId]);
+  }, [authStatus, draftLoadAttempt, route.draftId, route.sessionId]);
 
   const availableConnections = useMemo(
     () => connections.filter((connection) => connection.status !== "revoked"),
@@ -706,7 +760,7 @@ export function KnowledgeWorkspacePage() {
     const previous = contextReturnRouteRef.current;
     contextReturnRouteRef.current = null;
     if (previous?.file === "draft" || previous?.file === "published") {
-      setRoute(previous.file, previous.draftId);
+      setRoute(previous.file, previous.draftId, "", "", previous.sessionId);
       setShowDataToolDrawer(true);
       return;
     }
@@ -720,6 +774,114 @@ export function KnowledgeWorkspacePage() {
     const target = drafts[0];
     if (target) setRoute(route.file, target.draft_id);
   }, [authStatus, drafts, route.draftId, route.file]);
+
+  const saveComposerDraft = useCallback((sessionId: string | undefined, value: string) => {
+    if (!sessionId) return;
+    composerDraftsRef.current.set(sessionId, value);
+  }, []);
+
+  const updateComposerDraft = useCallback((value: string) => {
+    setComposerDraft(value);
+    saveComposerDraft(currentSession?.authoring_session_id, value);
+  }, [currentSession?.authoring_session_id, saveComposerDraft]);
+
+  const selectSession = useCallback((authoringSessionId: string) => {
+    if (!draft || !authoringSessionId) return;
+    saveComposerDraft(currentSession?.authoring_session_id, composerDraft);
+    setRoute(route.file === "published" ? "published" : "draft", draft.draft_id, "", "", authoringSessionId);
+  }, [composerDraft, currentSession?.authoring_session_id, draft, route.file, saveComposerDraft]);
+
+  const refreshSession = useCallback(async () => {
+    if (!draft || !currentSession) return;
+    setBusy("load-session");
+    setError("");
+    try {
+      const [sessionResult, conversationResult] = await Promise.all([
+        knowledgeApi.listSessions(draft.draft_id),
+        knowledgeApi.getSessionConversation(
+          draft.draft_id,
+          currentSession.authoring_session_id,
+        ),
+      ]);
+      setSessions(sessionResult.data);
+      setCurrentSession(
+        sessionResult.data.find(
+          (item) => item.authoring_session_id === currentSession.authoring_session_id,
+        ) || currentSession,
+      );
+      dispatchAssistant({
+        type: "history.replaced",
+        entries: conversationResult.data,
+      });
+      const historicalArtifactIds = [...new Set(
+        conversationResult.data.flatMap((entry) =>
+          entry.events.flatMap((event) =>
+            event.type === "artifact.created" ? [event.data.artifact_id] : []),
+        ),
+      )];
+      if (historicalArtifactIds.length) {
+        const restoredResults = await Promise.allSettled(
+          historicalArtifactIds.map((id) =>
+            knowledgeApi.getArtifact(id).then((value) => value.value.data),
+          ),
+        );
+        const restoredArtifacts = restoredResults.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : []);
+        setArtifacts(restoredArtifacts);
+        setArtifact(restoredArtifacts.at(-1) || null);
+      } else {
+        setArtifacts([]);
+        setArtifact(null);
+      }
+      lastCursorRef.current = new Map(
+        conversationResult.data.flatMap((entry) => {
+          const cursor = entry.events.at(-1)?.cursor;
+          return cursor ? [[entry.invocation.invocation_id, cursor] as const] : [];
+        }),
+      );
+      const active = [...conversationResult.data].reverse().find(
+        (entry) =>
+          entry.invocation.status === "queued"
+          || entry.invocation.status === "running",
+      );
+      setActiveInvocation(active?.invocation || null);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy("");
+    }
+  }, [currentSession, draft]);
+
+  const createSession = useCallback(async () => {
+    if (!draft) return;
+    saveComposerDraft(currentSession?.authoring_session_id, composerDraft);
+    setBusy("create-session");
+    setError("");
+    try {
+      const result = await knowledgeApi.createSession(draft.draft_id, {
+        title: "新会话",
+      });
+      setSessions((current) => [
+        result.data,
+        ...current.filter(
+          (item) => item.authoring_session_id !== result.data.authoring_session_id,
+        ),
+      ]);
+      setCurrentSession(result.data);
+      setComposerDraft("");
+      composerDraftsRef.current.set(result.data.authoring_session_id, "");
+      setArtifacts([]);
+      setArtifact(null);
+      dispatchAssistant({ type: "history.replaced", entries: [] });
+      lastCursorRef.current = new Map();
+      setActiveInvocation(null);
+      setRoute(route.file === "published" ? "published" : "draft", draft.draft_id, "", "", result.data.authoring_session_id);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setBusy("");
+    }
+  }, [composerDraft, currentSession?.authoring_session_id, draft, route.file, saveComposerDraft]);
 
   const createAndGenerate = useCallback(async (
     goal: string,
@@ -769,15 +931,26 @@ export function KnowledgeWorkspacePage() {
         ...current.filter((item) => item.draft_id !== created.value.data.draft_id),
         created.value.data,
       ]);
-      const invocation = await knowledgeApi.generateDraft(
+      const sessionResult = await knowledgeApi.listSessions(created.value.data.draft_id);
+      const initialSession = sessionResult.data[0] || null;
+      setSessions(sessionResult.data);
+      setCurrentSession(initialSession);
+      const invocation = initialSession
+        ? await knowledgeApi.generateSessionDraft(
+          created.value.data.draft_id,
+          initialSession.authoring_session_id,
+          created.etag,
+          goal,
+        )
+        : await knowledgeApi.generateDraft(
         created.value.data.draft_id,
         created.etag,
         goal,
-      );
+        );
       setActiveInvocation(invocation.data);
       dispatchAssistant({ type: "invocation.started", invocation: invocation.data });
       pendingCreatedDraftRef.current = null;
-      setRoute("draft", created.value.data.draft_id);
+      setRoute("draft", created.value.data.draft_id, "", "", initialSession?.authoring_session_id || "");
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
@@ -893,10 +1066,11 @@ export function KnowledgeWorkspacePage() {
   }, [activeInvocation]);
 
   const sendMessage = useCallback(async (message: string, intent: "update" | "run") => {
-    if (!draft || !message.trim()) return;
+    if (!draft || !currentSession || !message.trim()) return;
     const optimisticId = `pending-${globalThis.crypto?.randomUUID?.() || Date.now()}`;
     const optimistic: Invocation = {
       invocation_id: optimisticId,
+      authoring_session_id: currentSession.authoring_session_id,
       kind: intent,
       status: "queued",
       message: message.trim(),
@@ -907,8 +1081,9 @@ export function KnowledgeWorkspacePage() {
     setBusy("message");
     setError("");
     try {
-      const result = await knowledgeApi.sendDraftMessage(
+      const result = await knowledgeApi.sendSessionMessage(
         draft.draft_id,
+        currentSession.authoring_session_id,
         message.trim(),
         intent,
         etag,
@@ -933,10 +1108,10 @@ export function KnowledgeWorkspacePage() {
     } finally {
       setBusy("");
     }
-  }, [draft, etag]);
+  }, [currentSession, draft, etag]);
 
   const runSkill = useCallback(async (message: string) => {
-    if (!draft || !message.trim()) return;
+    if (!draft || !currentSession || !message.trim()) return;
     const revision = draft.current_revision_id
       ? revisions.find((item) => item.revision_id === draft.current_revision_id)
       : revisions.reduce<Revision | null>(
@@ -950,6 +1125,7 @@ export function KnowledgeWorkspacePage() {
     const optimisticId = `pending-${globalThis.crypto?.randomUUID?.() || Date.now()}`;
     const optimistic: Invocation = {
       invocation_id: optimisticId,
+      authoring_session_id: currentSession.authoring_session_id,
       kind: "run",
       status: "queued",
       message: message.trim(),
@@ -966,6 +1142,7 @@ export function KnowledgeWorkspacePage() {
         message.trim(),
         undefined,
         draft.resource_ids,
+        currentSession.authoring_session_id,
       );
       setActiveInvocation(result.data);
       dispatchAssistant({
@@ -987,23 +1164,29 @@ export function KnowledgeWorkspacePage() {
     } finally {
       setBusy("");
     }
-  }, [draft, revisions, sendMessage]);
+  }, [currentSession, draft, revisions, sendMessage]);
 
   const retryInvocation = useCallback(async (turn?: ConversationTurnModel) => {
-    if (!draft) return;
+    if (!draft || !currentSession) return;
     const source = turn?.invocation || activeInvocation;
     if (!source) return;
     setBusy("retry");
     setError("");
     try {
       const result = source.kind === "generate"
-        ? await knowledgeApi.generateDraft(draft.draft_id, etag, source.message)
-        : await knowledgeApi.sendDraftMessage(
+        ? await knowledgeApi.generateSessionDraft(
           draft.draft_id,
+          currentSession.authoring_session_id,
+          etag,
+          source.message,
+        )
+        : await knowledgeApi.sendSessionMessage(
+          draft.draft_id,
+          currentSession.authoring_session_id,
           source.message,
           source.kind === "update" ? "update" : "run",
           etag,
-      );
+        );
       dispatchAssistant({
         type: "invocation.started",
         invocation: result.data,
@@ -1015,7 +1198,7 @@ export function KnowledgeWorkspacePage() {
     } finally {
       setBusy("");
     }
-  }, [activeInvocation, draft, etag]);
+  }, [activeInvocation, currentSession, draft, etag]);
 
   const publish = useCallback(async (target: "personal" | "team") => {
     const revision = draft?.current_revision_id
@@ -1030,13 +1213,13 @@ export function KnowledgeWorkspacePage() {
       const result = await knowledgeApi.publishRevision(revision.revision_id, target);
       setPublication(result.data);
       setShowPublish(false);
-      setRoute("published", draft?.draft_id);
+      setRoute("published", draft?.draft_id, "", "", currentSession?.authoring_session_id || "");
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
       setBusy("");
     }
-  }, [draft?.current_revision_id, draft?.draft_id, revisions]);
+  }, [currentSession?.authoring_session_id, draft?.current_revision_id, draft?.draft_id, revisions]);
 
   const updateDraftContext = useCallback(async (
     connectionIds: string[],
@@ -1209,6 +1392,15 @@ export function KnowledgeWorkspacePage() {
               <span className={`kw-status-dot is-${resource.status}`} title={`${resource.kind} · ${resource.status}`} />
             </button>
           )) : <div className="kw-tree-muted">暂无专用资源。</div>}
+          <div className="kw-tree-label kw-tree-label-row">
+            <span>我的知识库</span>
+            <span data-w4-slot="create-knowledge-base">
+              {createKnowledgeBaseSlot || <button type="button" aria-label="创建知识库" disabled><CirclePlus size={13} /></button>}
+            </span>
+          </div>
+          <div data-w4-slot="knowledge-base-nav">
+            {knowledgeBaseNavSlot || <div className="kw-tree-muted">W4 接入知识库列表。</div>}
+          </div>
           <div className="kw-tree-label">我的 Skill</div>
           {drafts.map((item) => (
             <button
@@ -1346,11 +1538,21 @@ export function KnowledgeWorkspacePage() {
             artifacts={artifacts}
             connections={availableConnections}
             resources={resources}
+            sessions={sessions}
+            currentSession={currentSession}
+            composerValue={composerDraft}
             turns={assistantState.turns}
             busy={busy}
             published={publication?.status === "published" || selectedDraft.lifecycle === "published"}
+            modeSelectorSlot={modeSelectorSlot}
+            hasArtifact={artifacts.length > 0}
+            artifactPaneSlot={artifactPaneSlot}
             onOpenDataTools={() => setShowDataToolDrawer(true)}
             onUpdateContext={updateDraftContext}
+            onCreateSession={createSession}
+            onSelectSession={selectSession}
+            onRefreshSession={refreshSession}
+            onComposerDraftChange={updateComposerDraft}
             onSend={handleAssistantSend}
             onCancel={cancel}
             onReconnect={(turn) => {

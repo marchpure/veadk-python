@@ -1,0 +1,763 @@
+{
+  "createCalls": 1,
+  "generateCalls": 1,
+  "publishCalls": 1,
+  "agentDirectoryCalls": 2,
+  "sessionCreateCalls": 1,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "missingAssets": [],
+  "layoutMetrics": {
+    "10-default-root-1280x800.png": {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "html": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "body": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "height": 800
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 48,
+        "top": 0,
+        "right": 1280,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 752,
+        "top": 48,
+        "right": 249,
+        "bottom": 800,
+        "left": 1
+      },
+      "artifactSlotCount": 0,
+      "artifactWorkspaceCount": 0,
+      "create": {
+        "x": 384,
+        "y": 223.859375,
+        "width": 760,
+        "height": 400.28125,
+        "top": 223.859375,
+        "right": 1144,
+        "bottom": 624.140625,
+        "left": 384
+      }
+    },
+    "11-default-root-390x844.png": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "html": {
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "body": {
+        "clientWidth": 390,
+        "scrollWidth": 390,
+        "height": 844
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 48,
+        "top": 0,
+        "right": 390,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 48,
+        "width": 390,
+        "height": 168,
+        "top": 48,
+        "right": 390,
+        "bottom": 216,
+        "left": 0
+      },
+      "artifactSlotCount": 0,
+      "artifactWorkspaceCount": 0,
+      "create": {
+        "x": 16,
+        "y": 294.46875,
+        "width": 358,
+        "height": 507.375,
+        "top": 294.46875,
+        "right": 374,
+        "bottom": 801.84375,
+        "left": 16
+      }
+    },
+    "01-new-empty-1440x900.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "html": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440
+      },
+      "body": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "height": 900
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 48,
+        "top": 0,
+        "right": 1440,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 852,
+        "top": 48,
+        "right": 249,
+        "bottom": 900,
+        "left": 1
+      },
+      "artifactSlotCount": 0,
+      "artifactWorkspaceCount": 0,
+      "create": {
+        "x": 464,
+        "y": 273.859375,
+        "width": 760,
+        "height": 400.28125,
+        "top": 273.859375,
+        "right": 1224,
+        "bottom": 674.140625,
+        "left": 464
+      }
+    },
+    "02-data-tools-1440x900.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "html": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440
+      },
+      "body": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "height": 900
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 48,
+        "top": 0,
+        "right": 1440,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 852,
+        "top": 48,
+        "right": 249,
+        "bottom": 900,
+        "left": 1
+      },
+      "artifactSlotCount": 0,
+      "artifactWorkspaceCount": 0,
+      "create": {
+        "x": 464,
+        "y": 259.859375,
+        "width": 760,
+        "height": 428.28125,
+        "top": 259.859375,
+        "right": 1224,
+        "bottom": 688.140625,
+        "left": 464
+      },
+      "drawer": {
+        "x": 960,
+        "y": 0,
+        "width": 480,
+        "height": 900,
+        "top": 0,
+        "right": 1440,
+        "bottom": 900,
+        "left": 960
+      }
+    },
+    "03-workshop-1440x900.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "html": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440
+      },
+      "body": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "height": 900
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 48,
+        "top": 0,
+        "right": 1440,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 852,
+        "top": 48,
+        "right": 249,
+        "bottom": 900,
+        "left": 1
+      },
+      "workshop": {
+        "x": 249,
+        "y": 48,
+        "width": 1190,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 249
+      },
+      "workshopClasses": "kw-skill-workshop has-artifact",
+      "artifactSlotCount": 1,
+      "artifactWorkspaceCount": 1,
+      "currentSessionId": "session-workshop",
+      "chat": {
+        "x": 249,
+        "y": 48,
+        "width": 556.40625,
+        "height": 852,
+        "top": 48,
+        "right": 805.40625,
+        "bottom": 900,
+        "left": 249
+      },
+      "artifact": {
+        "x": 806.40625,
+        "y": 48,
+        "width": 632.59375,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 806.40625
+      },
+      "composer": {
+        "x": 269,
+        "y": 728.578125,
+        "width": 515.40625,
+        "height": 153.421875,
+        "top": 728.578125,
+        "right": 784.40625,
+        "bottom": 882,
+        "left": 269
+      }
+    },
+    "04-published-1440x900.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "html": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440
+      },
+      "body": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "height": 900
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 48,
+        "top": 0,
+        "right": 1440,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 852,
+        "top": 48,
+        "right": 249,
+        "bottom": 900,
+        "left": 1
+      },
+      "workshop": {
+        "x": 249,
+        "y": 48,
+        "width": 1190,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 249
+      },
+      "workshopClasses": "kw-skill-workshop has-artifact",
+      "artifactSlotCount": 1,
+      "artifactWorkspaceCount": 1,
+      "currentSessionId": "session-workshop",
+      "chat": {
+        "x": 249,
+        "y": 48,
+        "width": 556.40625,
+        "height": 852,
+        "top": 48,
+        "right": 805.40625,
+        "bottom": 900,
+        "left": 249
+      },
+      "artifact": {
+        "x": 806.40625,
+        "y": 48,
+        "width": 632.59375,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 806.40625
+      },
+      "composer": {
+        "x": 269,
+        "y": 728.578125,
+        "width": 515.40625,
+        "height": 153.421875,
+        "top": 728.578125,
+        "right": 784.40625,
+        "bottom": 882,
+        "left": 269
+      }
+    },
+    "05-bind-agent-1440x900.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "html": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440
+      },
+      "body": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "height": 900
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 48,
+        "top": 0,
+        "right": 1440,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 852,
+        "top": 48,
+        "right": 249,
+        "bottom": 900,
+        "left": 1
+      },
+      "workshop": {
+        "x": 249,
+        "y": 48,
+        "width": 1190,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 249
+      },
+      "workshopClasses": "kw-skill-workshop has-artifact",
+      "artifactSlotCount": 1,
+      "artifactWorkspaceCount": 1,
+      "currentSessionId": "session-workshop",
+      "chat": {
+        "x": 249,
+        "y": 48,
+        "width": 556.40625,
+        "height": 852,
+        "top": 48,
+        "right": 805.40625,
+        "bottom": 900,
+        "left": 249
+      },
+      "artifact": {
+        "x": 806.40625,
+        "y": 48,
+        "width": 632.59375,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 806.40625
+      },
+      "composer": {
+        "x": 269,
+        "y": 728.578125,
+        "width": 515.40625,
+        "height": 153.421875,
+        "top": 728.578125,
+        "right": 784.40625,
+        "bottom": 882,
+        "left": 269
+      },
+      "modal": {
+        "x": 272,
+        "y": 179,
+        "width": 896,
+        "height": 542,
+        "top": 179,
+        "right": 1168,
+        "bottom": 721,
+        "left": 272
+      }
+    },
+    "06-workshop-1280x800.png": {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "html": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280
+      },
+      "body": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "height": 800
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 48,
+        "top": 0,
+        "right": 1280,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 752,
+        "top": 48,
+        "right": 249,
+        "bottom": 800,
+        "left": 1
+      },
+      "workshop": {
+        "x": 249,
+        "y": 48,
+        "width": 1030,
+        "height": 752,
+        "top": 48,
+        "right": 1279,
+        "bottom": 800,
+        "left": 249
+      },
+      "workshopClasses": "kw-skill-workshop has-artifact",
+      "artifactSlotCount": 1,
+      "artifactWorkspaceCount": 1,
+      "currentSessionId": "session-workshop",
+      "chat": {
+        "x": 249,
+        "y": 48,
+        "width": 480,
+        "height": 752,
+        "top": 48,
+        "right": 729,
+        "bottom": 800,
+        "left": 249
+      },
+      "artifact": {
+        "x": 730,
+        "y": 48,
+        "width": 549,
+        "height": 752,
+        "top": 48,
+        "right": 1279,
+        "bottom": 800,
+        "left": 730
+      },
+      "composer": {
+        "x": 269,
+        "y": 628.578125,
+        "width": 439,
+        "height": 153.421875,
+        "top": 628.578125,
+        "right": 708,
+        "bottom": 782,
+        "left": 269
+      }
+    },
+    "07-workshop-390x844.png": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "html": {
+        "clientWidth": 390,
+        "scrollWidth": 390
+      },
+      "body": {
+        "clientWidth": 390,
+        "scrollWidth": 390,
+        "height": 844
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 48,
+        "top": 0,
+        "right": 390,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 0,
+        "y": 48,
+        "width": 390,
+        "height": 168,
+        "top": 48,
+        "right": 390,
+        "bottom": 216,
+        "left": 0
+      },
+      "workshop": {
+        "x": 0,
+        "y": 261.203125,
+        "width": 390,
+        "height": 582.796875,
+        "top": 261.203125,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "workshopClasses": "kw-skill-workshop has-artifact",
+      "artifactSlotCount": 1,
+      "artifactWorkspaceCount": 1,
+      "currentSessionId": "session-workshop",
+      "chat": {
+        "x": 0,
+        "y": 261.203125,
+        "width": 390,
+        "height": 582.796875,
+        "top": 261.203125,
+        "right": 390,
+        "bottom": 844,
+        "left": 0
+      },
+      "artifact": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      },
+      "composer": {
+        "x": 10,
+        "y": 680.578125,
+        "width": 370,
+        "height": 153.421875,
+        "top": 680.578125,
+        "right": 380,
+        "bottom": 834,
+        "left": 10
+      }
+    },
+    "12-workshop-no-artifact-1440x900.png": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "html": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440
+      },
+      "body": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "height": 900
+      },
+      "nav": {
+        "x": 0,
+        "y": 0,
+        "width": 1440,
+        "height": 48,
+        "top": 0,
+        "right": 1440,
+        "bottom": 48,
+        "left": 0
+      },
+      "sidebar": {
+        "x": 1,
+        "y": 48,
+        "width": 248,
+        "height": 852,
+        "top": 48,
+        "right": 249,
+        "bottom": 900,
+        "left": 1
+      },
+      "workshop": {
+        "x": 249,
+        "y": 48,
+        "width": 1190,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 249
+      },
+      "workshopClasses": "kw-skill-workshop is-conversation-only",
+      "artifactSlotCount": 0,
+      "artifactWorkspaceCount": 0,
+      "currentSessionId": "session-empty",
+      "chat": {
+        "x": 249,
+        "y": 48,
+        "width": 1190,
+        "height": 852,
+        "top": 48,
+        "right": 1439,
+        "bottom": 900,
+        "left": 249
+      },
+      "composer": {
+        "x": 463.5,
+        "y": 728.578125,
+        "width": 760,
+        "height": 153.421875,
+        "top": 728.578125,
+        "right": 1223.5,
+        "bottom": 882,
+        "left": 463.5
+      }
+    }
+  },
+  "metrics": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "html": {
+      "clientWidth": 390,
+      "scrollWidth": 390
+    },
+    "body": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "height": 844
+    },
+    "nav": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 48,
+      "top": 0,
+      "right": 390,
+      "bottom": 48,
+      "left": 0
+    },
+    "sidebar": {
+      "x": 0,
+      "y": 48,
+      "width": 390,
+      "height": 168,
+      "top": 48,
+      "right": 390,
+      "bottom": 216,
+      "left": 0
+    },
+    "workshop": {
+      "x": 0,
+      "y": 261.203125,
+      "width": 390,
+      "height": 582.796875,
+      "top": 261.203125,
+      "right": 390,
+      "bottom": 844,
+      "left": 0
+    },
+    "workshopClasses": "kw-skill-workshop has-artifact",
+    "artifactSlotCount": 1,
+    "artifactWorkspaceCount": 1,
+    "currentSessionId": "session-workshop",
+    "chat": {
+      "x": 0,
+      "y": 261.203125,
+      "width": 390,
+      "height": 582.796875,
+      "top": 261.203125,
+      "right": 390,
+      "bottom": 844,
+      "left": 0
+    },
+    "artifact": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    },
+    "composer": {
+      "x": 10,
+      "y": 680.578125,
+      "width": 370,
+      "height": 153.421875,
+      "top": 680.578125,
+      "right": 380,
+      "bottom": 834,
+      "left": 10
+    }
+  }
+}

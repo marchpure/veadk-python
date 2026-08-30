@@ -1,0 +1,86 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/commercial-wiring-manifest.schema.json",
+  "manifest": "KNOWLEDGE_COMMERCIAL_W1_WIRING",
+  "created_at": "2026-08-30T17:50:11+08:00",
+  "base_sha": "de50cccc506d128e6fad93d3a0fa79fffa8ddf69",
+  "branch": "feat/knowledge-commercial-w1-shell-session",
+  "workspace_entry": {
+    "route": "/?view=knowledge-workspace",
+    "component": "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+    "app_mount": "frontend/src/App.tsx",
+    "rule": "W2-W4 should pass integrations through the listed props/slots and routes; they should not replace the route entry or fork KnowledgeWorkspacePage."
+  },
+  "query_contract": {
+    "draft": ["draftId", "draft_id"],
+    "connection": ["connectionId", "connection_id"],
+    "resource": ["resourceId", "resource_id"],
+    "session": ["sessionId"],
+    "modal": ["modal"]
+  },
+  "slots": {
+    "w2_artifact": {
+      "props": ["hasArtifact", "artifactPaneSlot"],
+      "dom_slot": "data-w2-slot=\"artifact-pane\"",
+      "owner_component": "frontend/src/features/knowledge-workspace/workspace/SkillWorkspaceShell.tsx",
+      "default_component": "frontend/src/features/knowledge-workspace/workspace/ArtifactWorkspace.tsx",
+      "contract": "Render the artifact pane only when hasArtifact is true. The default pane keeps ArtifactViewer internals untouched; W2 can provide artifactPaneSlot without changing the workspace route."
+    },
+    "w3_mode_selector": {
+      "props": ["modeSelectorSlot"],
+      "owner_components": [
+        "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+        "frontend/src/features/knowledge-workspace/workspace/SkillWorkspaceShell.tsx",
+        "frontend/src/features/knowledge-workspace/workspace/SkillConversation.tsx"
+      ],
+      "session_runtime_context": [
+        "currentSession.authoring_session_id",
+        "currentSession.status",
+        "currentSession.active_invocation_id",
+        "currentSession.last_event_cursor"
+      ],
+      "contract": "Render mode selection beside the session controls in the conversation header. W3 should use the current authoring session context and must not reuse invocation IDs as session IDs."
+    },
+    "w4_knowledge_base": {
+      "props": ["knowledgeBaseNavSlot", "createKnowledgeBaseSlot"],
+      "dom_slots": [
+        "data-w4-slot=\"knowledge-base-nav\"",
+        "data-w4-slot=\"create-knowledge-base\""
+      ],
+      "owner_component": "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+      "contract": "W4 should render knowledge-base navigation and create action through these slots. W1 intentionally ships disabled placeholders and does not implement OpenViking."
+    }
+  },
+  "routes": {
+    "sessions": [
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}",
+      "PATCH /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}",
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}/conversation",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}/generate",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}/messages"
+    ],
+    "compatible_existing_routes": [
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/conversation",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/generate",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/messages",
+      "POST /api/knowledge/v1/skill-revisions/{revision_id}/run with optional authoring_session_id"
+    ]
+  },
+  "public_session_dto": [
+    "authoring_session_id",
+    "draft_id",
+    "title",
+    "status",
+    "last_message_preview",
+    "active_invocation_id",
+    "last_event_cursor",
+    "created_at",
+    "updated_at"
+  ],
+  "non_contracts": [
+    "Browser code must not receive or select autoskill_agent_id, autoskill_session_id, state_uri, lease_id, or provider request IDs.",
+    "InvocationRail is intentionally not part of the W1 shell contract.",
+    "The artifact viewer implementation remains owned by W2; W1 only gates whether the pane exists."
+  ]
+}

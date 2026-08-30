@@ -15,6 +15,7 @@ tags:
   - name: oauth
   - name: uploads
   - name: drafts
+  - name: sessions
   - name: invocations
   - name: revisions
   - name: artifacts
@@ -390,6 +391,191 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /skills/drafts/{draft_id}/sessions:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+    get:
+      tags: [drafts, sessions]
+      operationId: listDraftSessions
+      summary: List Studio authoring sessions for a draft
+      description: |
+        Returns tenant/workspace/principal-visible authoring sessions sorted by
+        updated_at descending. Archived sessions are excluded from the default
+        list. AutoSkill agent_id, session_id, state_uri, leases, and provider
+        request IDs are never returned to the browser.
+      responses:
+        '200':
+          description: Authoring sessions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthoringSessionList'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [drafts, sessions]
+      operationId: createDraftSession
+      summary: Create an isolated Studio authoring session
+      description: |
+        Idempotently creates a new Studio authoring_session_id and binds it
+        server-side to a distinct AutoSkill agent/session pair and isolated
+        state_uri. The returned identifier is the only session identifier the
+        browser stores or sends.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthoringSessionResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/sessions/{authoring_session_id}:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+      - $ref: '#/components/parameters/AuthoringSessionId'
+    get:
+      tags: [drafts, sessions]
+      operationId: getDraftSession
+      summary: Get a Studio authoring session
+      description: |
+        Returns session metadata plus last_event_cursor for reconnecting the
+        active or most recent invocation without exposing AutoSkill internals.
+      responses:
+        '200':
+          description: Authoring session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthoringSessionResponse'
+        default:
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [drafts, sessions]
+      operationId: updateDraftSession
+      summary: Rename or archive a Studio authoring session
+      description: |
+        Supports title updates and reversible archive status. Archiving never
+        deletes conversation history and is rejected while the session has an
+        active invocation.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Authoring session updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthoringSessionResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/sessions/{authoring_session_id}/conversation:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+      - $ref: '#/components/parameters/AuthoringSessionId'
+    get:
+      tags: [drafts, sessions, invocations]
+      operationId: getDraftSessionConversation
+      summary: Restore one session conversation
+      description: |
+        Returns only invocations whose authoring_session_id matches the route,
+        preserving per-session history and reconnect state.
+      responses:
+        '200':
+          description: Ordered session turns and normalized events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/sessions/{authoring_session_id}/generate:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+      - $ref: '#/components/parameters/AuthoringSessionId'
+    post:
+      tags: [drafts, sessions, invocations]
+      operationId: generateDraftInSession
+      summary: Start generation in one authoring session
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+      responses:
+        '202':
+          description: Invocation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /skills/drafts/{draft_id}/sessions/{authoring_session_id}/messages:
+    parameters:
+      - $ref: '#/components/parameters/DraftId'
+      - $ref: '#/components/parameters/AuthoringSessionId'
+    post:
+      tags: [drafts, sessions, invocations]
+      operationId: sendDraftSessionMessage
+      summary: Update or run a draft in one authoring session
+      description: |
+        The invocation is bound to the route authoring_session_id, uses that
+        session's isolated AutoSkill state_uri, and only blocks concurrent work
+        in the same session.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftMessageRequest'
+      responses:
+        '202':
+          description: Invocation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvocationResponse'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        default:
+          $ref: '#/components/responses/Error'
+
   /skills/drafts/{draft_id}/generate:
     parameters:
       - $ref: '#/components/parameters/DraftId'
@@ -717,6 +903,11 @@ components:
       in: path
       required: true
       schema: { type: string, minLength: 1 }
+    AuthoringSessionId:
+      name: authoring_session_id
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
     RevisionId:
       name: revision_id
       in: path
@@ -821,6 +1012,7 @@ components:
             - SKILL_ZIP_INVALID
             - ARTIFACT_UNSAFE
             - REVISION_CONFLICT
+            - SESSION_ARCHIVED
             - PUBLISH_GATE_FAILED
             - IDEMPOTENCY_CONFLICT
             - PRECONDITION_FAILED
@@ -1039,6 +1231,52 @@ components:
       properties:
         data: { $ref: '#/components/schemas/Draft' }
         meta: { $ref: '#/components/schemas/Meta' }
+    AuthoringSession:
+      type: object
+      required: [authoring_session_id, draft_id, title, status, created_at, updated_at]
+      properties:
+        authoring_session_id:
+          type: string
+          description: Browser-visible Studio session ID.
+        draft_id: { type: string }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        status: { type: string, enum: [idle, running, archived] }
+        last_message_preview: { type: string, maxLength: 240 }
+        active_invocation_id: { type: string }
+        last_event_cursor:
+          type: string
+          description: Cursor of the latest persisted event for the active or most recent invocation.
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      additionalProperties: false
+    AuthoringSessionList:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AuthoringSession' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    AuthoringSessionResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { $ref: '#/components/schemas/AuthoringSession' }
+        meta: { $ref: '#/components/schemas/Meta' }
+    CreateSessionRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+      additionalProperties: false
+    UpdateSessionRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 160 }
+        archive:
+          type: boolean
+          description: true archives without deleting history; false restores to idle.
+      additionalProperties: false
     CreateDraftRequest:
       type: object
       required: [goal]
@@ -1089,6 +1327,9 @@ components:
       required: [invocation_id, kind, status, message, event_url, created_at]
       properties:
         invocation_id: { type: string }
+        authoring_session_id:
+          type: string
+          description: Studio authoring session that owns this invocation.
         kind: { type: string, enum: [generate, update, run, validate, discover] }
         status: { type: string, enum: [queued, running, succeeded, failed, cancelled] }
         message: { type: string }
@@ -1242,6 +1483,9 @@ components:
         resource_ids: { type: array, items: { type: string } }
         message: { type: string, minLength: 1, maxLength: 20000 }
         upload_ids: { type: array, items: { type: string } }
+        authoring_session_id:
+          type: string
+          description: Optional Studio authoring session to bind this trial run to.
       additionalProperties: false
     Artifact:
       type: object

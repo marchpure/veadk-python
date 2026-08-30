@@ -22,6 +22,7 @@ export type InvocationStatus =
   | "succeeded"
   | "failed"
   | "cancelled";
+export type AuthoringSessionStatus = "idle" | "running" | "archived";
 export type TemplateKey = "generic" | "semantic" | "dashboard" | "sop";
 
 export interface Meta {
@@ -91,6 +92,7 @@ export interface Draft {
 
 export interface Invocation {
   invocation_id: string;
+  authoring_session_id?: string;
   kind: "generate" | "update" | "run" | "validate" | "discover";
   status: InvocationStatus;
   message: string;
@@ -99,6 +101,18 @@ export interface Invocation {
   started_at?: string;
   finished_at?: string;
   created_at: string;
+}
+
+export interface AuthoringSession {
+  authoring_session_id: string;
+  draft_id: string;
+  title: string;
+  status: AuthoringSessionStatus;
+  last_message_preview?: string;
+  active_invocation_id?: string;
+  last_event_cursor?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Revision {

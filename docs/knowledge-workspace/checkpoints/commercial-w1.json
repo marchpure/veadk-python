@@ -1,0 +1,85 @@
+{
+  "$schema": "https://agentkit.bytedance.net/schemas/knowledge-workspace/commercial-w1-checkpoint.schema.json",
+  "checkpoint": "KNOWLEDGE_COMMERCIAL_W1_FROZEN",
+  "step": "knowledge-workshop-commercial-polish-w1-shell-session",
+  "created_at": "2026-08-30T17:50:11+08:00",
+  "verified_at": "2026-08-30T19:39:31+08:00",
+  "base_sha": "de50cccc506d128e6fad93d3a0fa79fffa8ddf69",
+  "base_branch": "feat/knowledge-workshop-v220121-w4-integration",
+  "branch": "feat/knowledge-commercial-w1-shell-session",
+  "worktree": "/Users/bytedance/worktrees/veadk-python-knowledge-commercial-w1-shell-session",
+  "implemented": [
+    "Knowledge Workspace draft and published routes remain inside the shared Studio shell with the top nav and global left sidebar visible.",
+    "The sidebar includes new Skill, personal and team connections, resources, W4 knowledge-base slots, and Skill navigation.",
+    "The workshop no longer renders InvocationRail; session selection, create, refresh, status, and updated time are in the Skill conversation header.",
+    "Authoring sessions are first-class backend records scoped by tenant_id, workspace_id, draft_id, and principal idempotency scope.",
+    "Each authoring session owns isolated AutoSkill agent/session IDs and state_uri server-side; browser DTOs expose only authoring_session_id.",
+    "Session-scoped generation, message, conversation, and revision run paths bind invocations to an explicit authoring_session_id.",
+    "Concurrent invocation blocking is per authoring session, so switching sessions does not cancel or block work in another session.",
+    "Refreshing or deep-linking with sessionId restores that session's conversation, last event cursor, active invocation, and artifacts.",
+    "Composer drafts are cached per authoring_session_id while switching sessions.",
+    "The artifact pane is conditional. With no artifacts, the conversation uses a single-column layout; on narrow screens the artifact pane opens as a full-screen drawer only when artifacts exist."
+  ],
+  "integration_slots": {
+    "w2": "SkillWorkspaceShell props hasArtifact and artifactPaneSlot; DOM marker data-w2-slot=\"artifact-pane\".",
+    "w3": "KnowledgeWorkspacePage/SkillWorkspaceShell/SkillConversation prop modeSelectorSlot plus currentSession runtime context.",
+    "w4": "KnowledgeWorkspacePage props knowledgeBaseNavSlot and createKnowledgeBaseSlot; DOM markers data-w4-slot=\"knowledge-base-nav\" and data-w4-slot=\"create-knowledge-base\"."
+  },
+  "api_contract": {
+    "openapi": "docs/knowledge-workspace/api-contracts/openapi.yaml",
+    "session_routes": [
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}",
+      "PATCH /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}",
+      "GET /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}/conversation",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}/generate",
+      "POST /api/knowledge/v1/skills/drafts/{draft_id}/sessions/{authoring_session_id}/messages"
+    ]
+  },
+  "evidence_dir": "docs/knowledge-workspace/evidence/commercial-w1",
+  "tests": {
+    "python_compile": "PASS: python -m compileall frontend/server/knowledge_workspace",
+    "python_focused": "PASS: python -m pytest tests/knowledge_workspace/test_service_contracts.py tests/knowledge_workspace/test_routes.py -q (64 passed)",
+    "python_workspace": "PASS: python -m pytest tests/knowledge_workspace -q (144 passed)",
+    "frontend_typecheck": "PASS: cd frontend && npm run typecheck",
+    "frontend_contract": "PASS: cd frontend && node --test tests/knowledgeSkillWorkshopV220121.test.mjs (13 passed)",
+    "frontend_suite": "PASS: cd frontend && npm test (893 passed, 1 skipped)",
+    "production_build": "PASS: cd frontend && npm run build; generated veadk/webui hashed assets",
+    "asset_verifier": "PASS: cd frontend && npm run test:webui-assets (Verified 85 packaged WebUI files and 229 internal references)",
+    "browser_capture": "PASS: KW_PREVIEW_URL=http://127.0.0.1:5175 KW_SCREENSHOT_DIR=../docs/knowledge-workspace/evidence/commercial-w1 node tests/knowledgeSkillWorkshopCapture.mjs",
+    "diff_check": "PASS: git diff --check && git diff --cached --check"
+  },
+  "browser_evidence": {
+    "metrics": "docs/knowledge-workspace/evidence/commercial-w1/metrics.json",
+    "screenshots": [
+      "01-new-empty-1440x900.png",
+      "02-data-tools-1440x900.png",
+      "03-workshop-1440x900.png",
+      "04-published-1440x900.png",
+      "05-bind-agent-1440x900.png",
+      "06-workshop-1280x800.png",
+      "07-workshop-390x844.png",
+      "08-default-root-1440x900.png",
+      "09-compatible-skill-new-1440x900.png",
+      "10-default-root-1280x800.png",
+      "11-default-root-390x844.png",
+      "12-workshop-no-artifact-1440x900.png"
+    ],
+    "assertions": [
+      "Studio nav and global sidebar are present on captured routes.",
+      "No captured viewport has horizontal overflow.",
+      "URL sessionId restores session-workshop and session-created after navigation/reload.",
+      "Session switching preserves per-authoring-session composer drafts.",
+      "Artifact routes render kw-skill-workshop has-artifact with one W2 slot and one artifact workspace.",
+      "No-artifact route renders kw-skill-workshop is-conversation-only with no W2 slot and no artifact workspace.",
+      "Mobile 390x844 keeps conversation visible and hides artifact pane until the drawer is opened."
+    ]
+  },
+  "non_claims": [
+    "W1 does not implement the W2 ArtifactViewer replacement.",
+    "W1 does not implement W3 Search mode behavior.",
+    "W1 does not implement W4 OpenViking knowledge-base business logic.",
+    "Playwright capture uses same-origin BFF fixtures for visual and routing evidence; backend session behavior is covered by repository/service/routes tests."
+  ]
+}

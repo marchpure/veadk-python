@@ -2,12 +2,14 @@ import {
   useEffect,
   useRef,
   useState,
+  type ReactNode,
   type KeyboardEvent,
   type UIEvent,
 } from "react";
 import { ConversationTurn } from "../assistant/ConversationTurn";
 import type { ConversationTurnModel } from "../assistant/assistant-model";
 import type {
+  AuthoringSession,
   ConnectionProfile,
   WorkspaceResource,
 } from "../domain/types";
@@ -16,24 +18,49 @@ function SendIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 14-7-5 14-2.4-5.6L5 12Z" /><path d="m11.6 13.4 3.1-3.1" /></svg>;
 }
 
-function MenuIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
-}
-
 function CloseIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17" /></svg>;
 }
+
+function PlusIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>;
+}
+
+function RefreshIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.7L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.7L20 16M16 16h4v4" /></svg>;
+}
+
+function formatSessionUpdated(value?: string): string {
+  if (!value) return "未同步";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "未同步";
+  return date.toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
+}
+
+const SESSION_STATUS_LABELS: Record<AuthoringSession["status"], string> = {
+  idle: "空闲",
+  running: "运行中",
+  archived: "已归档",
+};
 
 export function SkillConversation({
   title,
   turns,
   connections,
   resources,
+  sessions,
+  currentSession,
+  composerValue,
   busy,
   focusInvocationId,
-  onOpenInvocations,
+  modeSelectorSlot,
+  hasArtifacts,
   onOpenArtifacts,
   onOpenDataTools,
+  onCreateSession,
+  onSelectSession,
+  onRefreshSession,
+  onComposerDraftChange,
   onRemoveConnection,
   onRemoveResource,
   onSend,
@@ -46,11 +73,19 @@ export function SkillConversation({
   turns: ConversationTurnModel[];
   connections: ConnectionProfile[];
   resources: WorkspaceResource[];
+  sessions: AuthoringSession[];
+  currentSession: AuthoringSession | null;
+  composerValue: string;
   busy: boolean;
   focusInvocationId?: string;
-  onOpenInvocations: () => void;
-  onOpenArtifacts: () => void;
+  modeSelectorSlot?: ReactNode;
+  hasArtifacts?: boolean;
+  onOpenArtifacts?: () => void;
   onOpenDataTools: () => void;
+  onCreateSession: () => Promise<void>;
+  onSelectSession: (authoringSessionId: string) => void;
+  onRefreshSession: () => Promise<void>;
+  onComposerDraftChange: (value: string) => void;
   onRemoveConnection: (id: string) => void;
   onRemoveResource: (id: string) => void;
   onSend: (message: string, intent: "update" | "run") => Promise<void>;
@@ -59,7 +94,7 @@ export function SkillConversation({
   onReconnect: (turn: ConversationTurnModel) => void;
   onRetry: (turn: ConversationTurnModel) => void;
 }) {
-  const [message, setMessage] = useState("");
+  const message = composerValue;
   const [following, setFollowing] = useState(true);
   const scroller = useRef<HTMLDivElement>(null);
   const composing = useRef(false);
@@ -78,7 +113,7 @@ export function SkillConversation({
     const value = message.trim();
     if (!value || busy || activeTurn || submitting.current) return;
     submitting.current = true;
-    setMessage("");
+    onComposerDraftChange("");
     setFollowing(true);
     try {
       await onSend(value, "update");
@@ -105,14 +140,40 @@ export function SkillConversation({
   return (
     <section className="kw-skill-conversation" aria-label="Skill 对话">
       <header>
-        <button type="button" className="kw-workshop-mobile-control" onClick={onOpenInvocations} aria-label="打开会话列表"><MenuIcon /></button>
-        <h1>{title}</h1>
-        <div>
+        <div className="kw-skill-title-block">
+          <h1>{title}</h1>
+          <div className="kw-session-toolbar">
+            <label>
+              <span>Session</span>
+              <select
+                value={currentSession?.authoring_session_id || ""}
+                onChange={(event) => onSelectSession(event.target.value)}
+                aria-label="选择作者会话"
+                disabled={!sessions.length || busy}
+              >
+                {sessions.map((session) => (
+                  <option key={session.authoring_session_id} value={session.authoring_session_id}>
+                    {session.title} · {SESSION_STATUS_LABELS[session.status]} · {formatSessionUpdated(session.updated_at)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="kw-session-icon-button" onClick={() => void onCreateSession()} disabled={busy} aria-label="新建会话">
+              <PlusIcon />
+            </button>
+            <button type="button" className="kw-session-icon-button" onClick={() => void onRefreshSession()} disabled={!currentSession || busy} aria-label="刷新当前会话">
+              <RefreshIcon />
+            </button>
+            {currentSession?.active_invocation_id ? <span className="kw-session-running">运行中</span> : null}
+          </div>
+        </div>
+        <div className="kw-skill-header-actions">
+          {modeSelectorSlot}
           {activeTurn ? <button type="button" onClick={() => void onCancel()}>停止</button> : null}
           <button type="button" className="kw-run-revision" onClick={() => void onRun(message.trim() || turns.at(-1)?.userMessage || title)} disabled={busy || !!activeTurn}>
             试跑 / 刷新
           </button>
-          <button type="button" className="kw-workshop-mobile-control" onClick={onOpenArtifacts} aria-label="打开产物">产物</button>
+          {hasArtifacts && onOpenArtifacts ? <button type="button" className="kw-workshop-mobile-control" onClick={onOpenArtifacts} aria-label="打开产物">产物</button> : null}
         </div>
       </header>
       <div className="kw-skill-transcript" ref={scroller} onScroll={onScroll} aria-live="polite">
@@ -151,7 +212,7 @@ export function SkillConversation({
           ) : null}
           <textarea
             value={message}
-            onChange={(event) => setMessage(event.target.value)}
+            onChange={(event) => onComposerDraftChange(event.target.value)}
             onKeyDown={keyDown}
             onCompositionStart={() => { composing.current = true; }}
             onCompositionEnd={() => { composing.current = false; }}

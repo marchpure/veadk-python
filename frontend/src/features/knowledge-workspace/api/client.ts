@@ -6,6 +6,7 @@ import type { OAuthStatus } from "./oauthFlow";
 import type {
   ArchivedInvocationEvent,
   Artifact,
+  AuthoringSession,
   ConnectorDefinition,
   ConnectionProfile,
   WorkspaceResource,
@@ -101,6 +102,15 @@ export interface ConnectionJobWaitOptions {
 
 export interface FreezeRevisionInput {
   invocation_id: string;
+}
+
+export interface CreateSessionInput {
+  title?: string;
+}
+
+export interface UpdateSessionInput {
+  title?: string;
+  archive?: boolean;
 }
 
 export interface PublicationInvokeInput {
@@ -230,15 +240,22 @@ export interface KnowledgeApi {
   ): Promise<ApiEnvelope<JobResult>>;
   listDrafts(signal?: AbortSignal): Promise<ApiEnvelope<Draft[]>>;
   getDraft(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
+  listSessions(draftId: string, signal?: AbortSignal): Promise<ApiEnvelope<AuthoringSession[]>>;
+  createSession(draftId: string, input?: CreateSessionInput): Promise<ApiEnvelope<AuthoringSession>>;
+  getSession(draftId: string, sessionId: string, signal?: AbortSignal): Promise<ApiEnvelope<AuthoringSession>>;
+  updateSession(draftId: string, sessionId: string, input: UpdateSessionInput): Promise<ApiEnvelope<AuthoringSession>>;
   getConversation(id: string, signal?: AbortSignal): Promise<ApiEnvelope<ConversationHistoryEntry[]>>;
+  getSessionConversation(draftId: string, sessionId: string, signal?: AbortSignal): Promise<ApiEnvelope<ConversationHistoryEntry[]>>;
   createDraft(input: CreateDraftInput): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   updateDraft(id: string, input: UpdateDraftInput, etag?: string): Promise<{ value: ApiEnvelope<Draft>; etag: string }>;
   generateDraft(id: string, etag?: string, message?: string): Promise<ApiEnvelope<Invocation>>;
+  generateSessionDraft(draftId: string, sessionId: string, etag?: string, message?: string): Promise<ApiEnvelope<Invocation>>;
   sendDraftMessage(id: string, message: string, intent: "update" | "run", etag?: string, uploadIds?: string[]): Promise<ApiEnvelope<Invocation>>;
+  sendSessionMessage(draftId: string, sessionId: string, message: string, intent: "update" | "run", etag?: string, uploadIds?: string[]): Promise<ApiEnvelope<Invocation>>;
   cancelInvocation(id: string): Promise<ApiEnvelope<Invocation>>;
   listRevisions(id: string, signal?: AbortSignal): Promise<ApiEnvelope<Revision[]>>;
   freezeRevision(id: string, input: FreezeRevisionInput, etag?: string): Promise<{ value: ApiEnvelope<Revision>; etag: string }>;
-  runRevision(id: string, connection_ids: string[], message: string, uploadIds?: string[], resourceIds?: string[]): Promise<ApiEnvelope<Invocation>>;
+  runRevision(id: string, connection_ids: string[], message: string, uploadIds?: string[], resourceIds?: string[], authoringSessionId?: string): Promise<ApiEnvelope<Invocation>>;
   getArtifact(id: string, signal?: AbortSignal): Promise<{ value: ApiEnvelope<Artifact>; etag: string }>;
   listPublications(signal?: AbortSignal): Promise<ApiEnvelope<Publication[]>>;
   publishRevision(id: string, target_space: "personal" | "team", display_name?: string): Promise<ApiEnvelope<Publication>>;
@@ -430,9 +447,52 @@ export const knowledgeApi: KnowledgeApi = {
     const result = await request<Draft>(`/skills/drafts/${encodeURIComponent(id)}`, { signal });
     return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
   },
+  async listSessions(draftId, signal) {
+    const result = await request<AuthoringSession[]>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions`,
+      { signal },
+    );
+    return result.envelope;
+  },
+  async createSession(draftId, input = {}) {
+    const result = await request<AuthoringSession>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+        idempotencyKey: key("session"),
+      },
+    );
+    return result.envelope;
+  },
+  async getSession(draftId, sessionId, signal) {
+    const result = await request<AuthoringSession>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions/${encodeURIComponent(sessionId)}`,
+      { signal },
+    );
+    return result.envelope;
+  },
+  async updateSession(draftId, sessionId, input) {
+    const result = await request<AuthoringSession>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions/${encodeURIComponent(sessionId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input),
+        idempotencyKey: key("session-update"),
+      },
+    );
+    return result.envelope;
+  },
   async getConversation(id, signal) {
     const result = await request<ConversationHistoryEntry[]>(
       `/skills/drafts/${encodeURIComponent(id)}/conversation`,
+      { signal },
+    );
+    return result.envelope;
+  },
+  async getSessionConversation(draftId, sessionId, signal) {
+    const result = await request<ConversationHistoryEntry[]>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions/${encodeURIComponent(sessionId)}/conversation`,
       { signal },
     );
     return result.envelope;
@@ -463,6 +523,18 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return result.envelope;
   },
+  async generateSessionDraft(draftId, sessionId, etag, message) {
+    const result = await request<Invocation>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions/${encodeURIComponent(sessionId)}/generate`,
+      {
+        method: "POST",
+        body: JSON.stringify(message ? { message } : {}),
+        etag,
+        idempotencyKey: key("generate"),
+      },
+    );
+    return result.envelope;
+  },
   async sendDraftMessage(id, message, intent, etag, uploadIds) {
     const result = await request<Invocation>(`/skills/drafts/${encodeURIComponent(id)}/messages`, {
       method: "POST",
@@ -474,6 +546,22 @@ export const knowledgeApi: KnowledgeApi = {
       etag,
       idempotencyKey: key("message"),
     });
+    return result.envelope;
+  },
+  async sendSessionMessage(draftId, sessionId, message, intent, etag, uploadIds) {
+    const result = await request<Invocation>(
+      `/skills/drafts/${encodeURIComponent(draftId)}/sessions/${encodeURIComponent(sessionId)}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          message,
+          intent,
+          ...(uploadIds?.length ? { upload_ids: uploadIds } : {}),
+        }),
+        etag,
+        idempotencyKey: key("message"),
+      },
+    );
     return result.envelope;
   },
   async cancelInvocation(id) {
@@ -499,7 +587,7 @@ export const knowledgeApi: KnowledgeApi = {
     });
     return { value: result.envelope, etag: result.response.headers.get("ETag") ?? "" };
   },
-  async runRevision(id, connection_ids, message, uploadIds, resourceIds) {
+  async runRevision(id, connection_ids, message, uploadIds, resourceIds, authoringSessionId) {
     const result = await request<Invocation>(`/skill-revisions/${encodeURIComponent(id)}/run`, {
       method: "POST",
       body: JSON.stringify({
@@ -507,6 +595,7 @@ export const knowledgeApi: KnowledgeApi = {
         message,
         ...(uploadIds?.length ? { upload_ids: uploadIds } : {}),
         ...(resourceIds?.length ? { resource_ids: resourceIds } : {}),
+        ...(authoringSessionId ? { authoring_session_id: authoringSessionId } : {}),
       }),
       idempotencyKey: key("run"),
     });

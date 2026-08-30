@@ -83,11 +83,17 @@ class AuthoringSession(ImmutableModel):
     tenant_id: str = Field(min_length=1, max_length=160)
     workspace_id: str = Field(min_length=1, max_length=160)
     draft_id: str = Field(min_length=1, max_length=160)
+    principal_id: str = Field(default="legacy", min_length=1, max_length=160)
     authoring_session_id: str = Field(min_length=1, max_length=160)
     autoskill_agent_id: str = Field(min_length=1, max_length=160)
     autoskill_session_id: str = Field(min_length=1, max_length=160)
+    title: str = Field(default="新会话", min_length=1, max_length=160)
+    status: str = Field(default="idle", pattern=r"^(idle|running|archived)$")
+    last_message_preview: str | None = Field(default=None, max_length=240)
+    active_invocation_id: str | None = Field(default=None, max_length=160)
     state_uri: str | None = Field(default=None, max_length=2_048)
     created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class Invocation(ImmutableModel):

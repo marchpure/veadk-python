@@ -34,6 +34,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .connection import ConnectionServiceError, ConnectionServiceGateway
 from .models import (
     Artifact,
+    AuthoringSession,
     Invocation,
     InvocationKind,
     Publication,
@@ -77,6 +78,17 @@ class GenerateBody(BaseModel):
     message: str | None = Field(default=None, max_length=20_000)
 
 
+class CreateSessionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+
+
+class UpdateSessionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    archive: bool | None = None
+
+
 class DraftMessageBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     message: str = Field(min_length=1, max_length=20_000)
@@ -95,6 +107,7 @@ class RunBody(BaseModel):
     resource_ids: list[str] = Field(default_factory=list, max_length=64)
     message: str = Field(min_length=1, max_length=20_000)
     upload_ids: list[str] = Field(default_factory=list, max_length=64)
+    authoring_session_id: str | None = Field(default=None, min_length=1, max_length=160)
 
 
 class PublishBody(BaseModel):
@@ -231,6 +244,8 @@ def mount_knowledge_workspace_routes(
         if isinstance(data, Invocation):
             data = service.public_invocation(data)
             data["event_url"] = f"{prefix}/invocations/{data['invocation_id']}/events"
+        elif isinstance(data, AuthoringSession):
+            data = service.public_session(data)
         elif isinstance(data, WorkspaceUpload):
             data = service.public_upload(data)
         elif isinstance(data, SkillDraft):
@@ -244,6 +259,8 @@ def mount_knowledge_workspace_routes(
                 data = [service.public_publication(item) for item in data]
             elif data and isinstance(data[0], SkillDraft):
                 data = [service.public_draft(item) for item in data]
+            elif data and isinstance(data[0], AuthoringSession):
+                data = [service.public_session(item) for item in data]
             else:
                 data = list(data)
         elif isinstance(data, Publication):
@@ -1140,6 +1157,163 @@ def mount_knowledge_workspace_routes(
         payload["meta"]["etag"] = result.etag
         return payload
 
+    @app.get(f"{prefix}/skills/drafts/{{draft_id}}/sessions")
+    async def list_sessions(request: Request, draft_id: str) -> dict[str, Any]:
+        return envelope(
+            invoke(lambda: service.list_sessions(actor(request), draft_id)),
+            request,
+        )
+
+    @app.post(f"{prefix}/skills/drafts/{{draft_id}}/sessions", status_code=201)
+    async def create_session(
+        request: Request,
+        draft_id: str,
+        body: CreateSessionBody | None = None,
+        idempotency_key: str = Header(
+            ..., alias="Idempotency-Key", min_length=16, max_length=256
+        ),
+    ) -> dict[str, Any]:
+        body = body or CreateSessionBody()
+        body_value = body.model_dump(mode="json", exclude_none=True)
+        return envelope(
+            invoke(
+                lambda: service.create_session(
+                    actor(request),
+                    draft_id,
+                    title=body.title,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest(body_value),
+                )
+            ),
+            request,
+        )
+
+    @app.get(f"{prefix}/skills/drafts/{{draft_id}}/sessions/{{authoring_session_id}}")
+    async def get_session(
+        request: Request,
+        draft_id: str,
+        authoring_session_id: str,
+    ) -> dict[str, Any]:
+        return envelope(
+            invoke(
+                lambda: service.get_authoring_session(
+                    actor(request), draft_id, authoring_session_id
+                )
+            ),
+            request,
+        )
+
+    @app.patch(f"{prefix}/skills/drafts/{{draft_id}}/sessions/{{authoring_session_id}}")
+    async def update_session(
+        request: Request,
+        draft_id: str,
+        authoring_session_id: str,
+        body: UpdateSessionBody,
+        idempotency_key: str = Header(
+            ..., alias="Idempotency-Key", min_length=16, max_length=256
+        ),
+    ) -> dict[str, Any]:
+        body_value = body.model_dump(mode="json", exclude_none=True)
+        return envelope(
+            invoke(
+                lambda: service.update_session(
+                    actor(request),
+                    draft_id,
+                    authoring_session_id,
+                    title=body.title,
+                    archive=body.archive,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest(body_value),
+                )
+            ),
+            request,
+        )
+
+    @app.get(
+        f"{prefix}/skills/drafts/{{draft_id}}/sessions/{{authoring_session_id}}/conversation"
+    )
+    async def session_conversation(
+        request: Request,
+        draft_id: str,
+        authoring_session_id: str,
+    ) -> dict[str, Any]:
+        values = invoke(
+            lambda: service.conversation(
+                actor(request), draft_id, authoring_session_id
+            )
+        )
+        for item in values:
+            invocation = item["invocation"]
+            invocation["event_url"] = (
+                f"{prefix}/invocations/{invocation['invocation_id']}/events"
+            )
+        return envelope(values, request)
+
+    @app.post(
+        f"{prefix}/skills/drafts/{{draft_id}}/sessions/{{authoring_session_id}}/generate",
+        status_code=202,
+    )
+    async def session_generate(
+        request: Request,
+        draft_id: str,
+        authoring_session_id: str,
+        body: GenerateBody | None = None,
+        idempotency_key: str = Header(
+            ..., alias="Idempotency-Key", min_length=16, max_length=256
+        ),
+        if_match: str = Header(..., alias="If-Match", min_length=1),
+    ) -> dict[str, Any]:
+        body = body or GenerateBody()
+        return envelope(
+            invoke(
+                lambda: service.start(
+                    actor(request),
+                    draft_id,
+                    InvocationKind.GENERATE,
+                    message=body.message or "",
+                    model=body.model,
+                    if_match=if_match,
+                    authoring_session_id=authoring_session_id,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest(body.model_dump(mode="json")),
+                )
+            ),
+            request,
+        )
+
+    @app.post(
+        f"{prefix}/skills/drafts/{{draft_id}}/sessions/{{authoring_session_id}}/messages",
+        status_code=202,
+    )
+    async def session_message(
+        request: Request,
+        draft_id: str,
+        authoring_session_id: str,
+        body: DraftMessageBody,
+        idempotency_key: str = Header(
+            ..., alias="Idempotency-Key", min_length=16, max_length=256
+        ),
+        if_match: str = Header(..., alias="If-Match", min_length=1),
+    ) -> dict[str, Any]:
+        kind = InvocationKind.UPDATE if body.intent == "update" else InvocationKind.RUN
+        return envelope(
+            invoke(
+                lambda: service.start(
+                    actor(request),
+                    draft_id,
+                    kind,
+                    message=body.message,
+                    connection_ids=(),
+                    upload_ids=body.upload_ids,
+                    if_match=if_match,
+                    authoring_session_id=authoring_session_id,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest(body.model_dump(mode="json")),
+                )
+            ),
+            request,
+        )
+
     @app.get(f"{prefix}/skills/drafts/{{draft_id}}/conversation")
     async def conversation(request: Request, draft_id: str) -> dict[str, Any]:
         values = invoke(lambda: service.conversation(actor(request), draft_id))
@@ -1213,12 +1387,13 @@ def mount_knowledge_workspace_routes(
         invocation_id: str,
         last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
     ) -> StreamingResponse:
+        actor_value = actor(request)
         invocation = service.repository.get_invocation(
             invocation_id,
-            tenant_id=actor(request).tenant_id,
-            workspace_id=actor(request).workspace_id,
+            tenant_id=actor_value.tenant_id,
+            workspace_id=actor_value.workspace_id,
         )
-        if invocation is None:
+        if invocation is None or not service._invocation_visible_to_actor(invocation, actor_value):
             raise HTTPException(
                 status_code=404,
                 detail={
@@ -1241,7 +1416,7 @@ def mount_knowledge_workspace_routes(
                 ) from exc
 
         async def stream():
-            async for event in service.events(actor(request), invocation_id, after):
+            async for event in service.events(actor_value, invocation_id, after):
                 if event.get("heartbeat"):
                     yield ": heartbeat\n\n"
                 else:
@@ -1275,11 +1450,7 @@ def mount_knowledge_workspace_routes(
 
     @app.get(f"{prefix}/skills/drafts/{{draft_id}}/revisions")
     async def revisions(request: Request, draft_id: str) -> dict[str, Any]:
-        values = service.repository.revisions(
-            draft_id,
-            tenant_id=actor(request).tenant_id,
-            workspace_id=actor(request).workspace_id,
-        )
+        values = invoke(lambda: service.list_revisions(actor(request), draft_id))
         return envelope(
             tuple(service.public_revision(item) for item in values), request
         )
@@ -1326,6 +1497,7 @@ def mount_knowledge_workspace_routes(
                     body.connection_ids,
                     resource_ids=body.resource_ids,
                     upload_ids=body.upload_ids,
+                    authoring_session_id=body.authoring_session_id,
                     idempotency_key=idempotency_key,
                     request_digest=request_digest(body.model_dump(mode="json")),
                 )
