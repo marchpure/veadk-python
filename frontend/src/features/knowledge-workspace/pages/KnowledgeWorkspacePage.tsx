@@ -1923,7 +1923,14 @@ function WorkspaceResourceDetail({
         ) : null}
         <pre className="kw-safe-profile">{JSON.stringify(metadata, null, 2)}</pre>
         <div className="kw-detail-actions">
-          <button type="button" className="kw-primary-small" onClick={onUse}>加入 Skill 上下文</button>
+          <button
+            type="button"
+            className="kw-primary-small"
+            onClick={onUse}
+            disabled={resource.status !== "verified"}
+          >
+            {resource.status === "verified" ? "加入 Skill 上下文" : "当前状态不可用"}
+          </button>
         </div>
       </div>
     </section>
