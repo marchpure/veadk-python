@@ -46,7 +46,7 @@ from .models import (
     utc_now,
 )
 from .service import Actor, KnowledgeWorkspaceError, KnowledgeWorkspaceService
-from frontend.server.extensions.openviking.compat import split_knowledge_source_refs
+from .migration import split_knowledge_source_refs
 
 
 class CreateDraftBody(BaseModel):

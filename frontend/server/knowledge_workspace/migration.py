@@ -5,6 +5,22 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+
+def split_knowledge_source_refs(refs: object) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    profiles: list[str] = []
+    resources: list[str] = []
+    if isinstance(refs, (list, tuple)):
+        for item in refs:
+            if not isinstance(item, Mapping) or item.get("provider") != "openviking":
+                continue
+            profile = item.get("profile_ref")
+            resource = item.get("resource_ref")
+            if isinstance(profile, str) and profile and profile not in profiles:
+                profiles.append(profile)
+            if isinstance(resource, str) and resource and resource not in resources:
+                resources.append(resource)
+    return tuple(profiles), tuple(resources)
+
 def hydrate_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(payload)
     if not result.get("knowledge_source_refs"):
