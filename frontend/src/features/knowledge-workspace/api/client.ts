@@ -14,6 +14,7 @@ import type {
   Invocation,
   JsonObject,
   JsonValue,
+  KnowledgeSourceRef,
   KnowledgeInvocationEvent,
   Meta,
   Publication,
@@ -57,6 +58,7 @@ export interface CreateDraftInput {
   resource_ids?: string[];
   trial_task?: string;
   upload_ids?: string[];
+  knowledge_source_refs?: KnowledgeSourceRef[];
 }
 
 export interface UpdateDraftInput {
@@ -67,6 +69,7 @@ export interface UpdateDraftInput {
   resource_ids?: string[];
   trial_task?: string;
   upload_ids?: string[];
+  knowledge_source_refs?: KnowledgeSourceRef[];
 }
 
 export interface UploadResult {

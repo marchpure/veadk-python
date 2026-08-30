@@ -1,0 +1,1733 @@
+{
+  "schema_version": 1,
+  "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+  "generated_at": "2026-08-29T00:00:00Z",
+  "required_roots": [
+    "web-studio/src/routes/resources",
+    "web-studio/src/routes/retrieval",
+    "web-studio/src/routes/tasks",
+    "web-studio/src/routes/watches",
+    "web-studio/src/lib/ov-client",
+    "web-studio/src/i18n"
+  ],
+  "source_files_total": 136,
+  "copied": 120,
+  "adapted": 16,
+  "excluded": 0,
+  "unclassified": 0,
+  "files": [
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/alert-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/alert-dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e94fdb62ec480767e344dcabdf51f34cb51a8ce8420191135a49ea1957c02b4e",
+      "target_sha256": "e94fdb62ec480767e344dcabdf51f34cb51a8ce8420191135a49ea1957c02b4e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/badge.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/badge.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "5a5756fdb19fa733c5deb90d01c3d459b135e3b1f784b48a43c9651a193ee8b6",
+      "target_sha256": "5a5756fdb19fa733c5deb90d01c3d459b135e3b1f784b48a43c9651a193ee8b6"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/button-group.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/button-group.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1275ec7787e646aabed7adc1bb9054349f51561a67ce5c64669743b7cb7a4946",
+      "target_sha256": "1275ec7787e646aabed7adc1bb9054349f51561a67ce5c64669743b7cb7a4946"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/button.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/button.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "10d5c01626d4424e34ea962b12bc5c05fb82293ff4ae1853ccbe3f33ebe97f1c",
+      "target_sha256": "10d5c01626d4424e34ea962b12bc5c05fb82293ff4ae1853ccbe3f33ebe97f1c"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/card.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/card.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "94e1e012fd86aa746f251543ee7c1ce87c1e04928cf5900a8915d070251da4c4",
+      "target_sha256": "94e1e012fd86aa746f251543ee7c1ce87c1e04928cf5900a8915d070251da4c4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/checkbox.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/checkbox.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "d6a22f3fc22241b2f80820730698b883d3f498fe2d434dd3f5edd58cbd2b80f0",
+      "target_sha256": "d6a22f3fc22241b2f80820730698b883d3f498fe2d434dd3f5edd58cbd2b80f0"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/collapsible.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/collapsible.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "3de60b605e64c835588cecc189fbcf907eb602b0158f970d614b067e868b491e",
+      "target_sha256": "3de60b605e64c835588cecc189fbcf907eb602b0158f970d614b067e868b491e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "f9e337cf82ae97b3f87df24095bb4ebe609aa292ff4c13dfb826f016b861f020",
+      "target_sha256": "f9e337cf82ae97b3f87df24095bb4ebe609aa292ff4c13dfb826f016b861f020"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/dropdown-menu.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/dropdown-menu.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "4e8539bc06fbcbd58d1bf1dad2697558a17497a5c3a47cc6c837fa98e7e9888d",
+      "target_sha256": "4e8539bc06fbcbd58d1bf1dad2697558a17497a5c3a47cc6c837fa98e7e9888d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/field.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/field.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e35189fb75b75f546b650de353ac53a70c6bb014f63dd6232e4c4e19314e0d93",
+      "target_sha256": "e35189fb75b75f546b650de353ac53a70c6bb014f63dd6232e4c4e19314e0d93"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/input.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/input.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "aeffe56e3a0a37ed13e8237f7f5b8e07a36b3e068fd725f86e192a2c048cf78e",
+      "target_sha256": "aeffe56e3a0a37ed13e8237f7f5b8e07a36b3e068fd725f86e192a2c048cf78e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/label.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/label.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "dad928d3ada088c3a1e140f93d62208f72ecfcc6b253ec15bd472c8990d2205f",
+      "target_sha256": "dad928d3ada088c3a1e140f93d62208f72ecfcc6b253ec15bd472c8990d2205f"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/pagination.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/pagination.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "007833f0bc64cf3d3d068a19655f98ffdde1d6443c6ac9fa3c1acb1a40469b7a",
+      "target_sha256": "007833f0bc64cf3d3d068a19655f98ffdde1d6443c6ac9fa3c1acb1a40469b7a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/popover.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/popover.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "27202112ea022bfc105bdbe3141e4163f15316954e7536948e0e41db4e12848a",
+      "target_sha256": "27202112ea022bfc105bdbe3141e4163f15316954e7536948e0e41db4e12848a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/radio-group.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/radio-group.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "9081548e456ec9f9686f3f22e2db1e43487bbc0401a3224d45d3f4d940c21c02",
+      "target_sha256": "9081548e456ec9f9686f3f22e2db1e43487bbc0401a3224d45d3f4d940c21c02"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/scroll-area.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/scroll-area.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "2390831e3de53e190a52b5197dc6e2765ca5024d937dcddc52db77d82f30816f",
+      "target_sha256": "2390831e3de53e190a52b5197dc6e2765ca5024d937dcddc52db77d82f30816f"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/select.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/select.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "d596047728b15d6964bfd65e4244f8d4c18f5edb0cfabdc58881107c288638e4",
+      "target_sha256": "d596047728b15d6964bfd65e4244f8d4c18f5edb0cfabdc58881107c288638e4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/separator.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/separator.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1bba86d2e304b6b87c9ef80c324dc8c4c10f2fb5af99b8eaafba1fb64ef84309",
+      "target_sha256": "1bba86d2e304b6b87c9ef80c324dc8c4c10f2fb5af99b8eaafba1fb64ef84309"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/sheet.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "05d1e1bcef676f6a468f4bab83a20b54c273bcfbb75ab19871efa40dfddbd7cd",
+      "target_sha256": "05d1e1bcef676f6a468f4bab83a20b54c273bcfbb75ab19871efa40dfddbd7cd"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/spinner.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/spinner.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0cf9f7baad0a2039339593ec00256c1cedd56501b0722c4003239179938d9454",
+      "target_sha256": "0cf9f7baad0a2039339593ec00256c1cedd56501b0722c4003239179938d9454"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/switch.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/switch.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "ada044189e0acea340a4e11acbd7fd945770b3b0fc6a3743916d4a93de0b802d",
+      "target_sha256": "ada044189e0acea340a4e11acbd7fd945770b3b0fc6a3743916d4a93de0b802d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/table.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/table.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "be29b70b20ea3e05792fc7a45dd85fda03c292765195b9b8fcd0911c26f2bbec",
+      "target_sha256": "be29b70b20ea3e05792fc7a45dd85fda03c292765195b9b8fcd0911c26f2bbec"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/textarea.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/textarea.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "94db1bb9afea727d4bec254012921a411d22b7d56873ffd5bfc7128df6478316",
+      "target_sha256": "94db1bb9afea727d4bec254012921a411d22b7d56873ffd5bfc7128df6478316"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/components/ui/tooltip.tsx",
+      "target_path": "frontend/src/extensions/openviking/components/ui/tooltip.tsx",
+      "classification": "copied",
+      "reason": "Direct component dependency migrated with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "54bbd22d3924f7d06a5ac74d0b3111f45e91ea00c6446a49ba791446cbd58070",
+      "target_sha256": "54bbd22d3924f7d06a5ac74d0b3111f45e91ea00c6446a49ba791446cbd58070"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/index.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/index.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "b0057f438099a43ef132abcd7d9bf9f3ab173afae1e5d44adb7bc8f71110151f",
+      "target_sha256": "b0057f438099a43ef132abcd7d9bf9f3ab173afae1e5d44adb7bc8f71110151f"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/en.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "7d4f448b63dd8041d250f47e04ff24cd282e19b5d1b635f21e3eab55888f8b9a",
+      "target_sha256": "7d4f448b63dd8041d250f47e04ff24cd282e19b5d1b635f21e3eab55888f8b9a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/en/activity.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en/activity.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "8d49d35d66809ad140e9e3be18383072b9ff54f799b77faa4fd100ce408f7ab4",
+      "target_sha256": "8d49d35d66809ad140e9e3be18383072b9ff54f799b77faa4fd100ce408f7ab4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/en/resources.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en/resources.ts",
+      "classification": "adapted",
+      "reason": "AgentKit adds labels for manual text and authorized Connection resource import modes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx"
+      ],
+      "source_sha256": "792990fc88dd3bcd5b88b91da1296849502cbce349fab36710dfe0369cd0fbbc",
+      "target_sha256": "4e70e2dd099e17ec3c76e3334c4c7dfd09cb44b2fca6a5a41cb48b8e82be45e4",
+      "key_differences": [
+        "Adds English labels and validation copy for manual-text and authorized Connection import modes."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/en/workspace.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/en/workspace.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1295117c529560cac57f7619de5a2c5db2ffc8fa12fa2e86e6311a54f544a748",
+      "target_sha256": "1295117c529560cac57f7619de5a2c5db2ffc8fa12fa2e86e6311a54f544a748"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/zh-CN.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "cfd902a558cdff4e9fc58c558a8f0a003e01bd1101d1bd92e5ef36eae0f38451",
+      "target_sha256": "cfd902a558cdff4e9fc58c558a8f0a003e01bd1101d1bd92e5ef36eae0f38451"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/zh-CN/activity.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN/activity.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "237b25aa0acab47ce8170ef3e24a5a01de72a138dc04df00c24fb852a734eef1",
+      "target_sha256": "237b25aa0acab47ce8170ef3e24a5a01de72a138dc04df00c24fb852a734eef1"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/zh-CN/resources.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN/resources.ts",
+      "classification": "adapted",
+      "reason": "AgentKit adds labels for manual text and authorized Connection resource import modes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx"
+      ],
+      "source_sha256": "f2bd664750c2b459e6c446dffe45d766be2681ea701cc7698b73d54615c37a31",
+      "target_sha256": "9051c59d57e299a044f1eea3ccceadc7d7913e19b929920fe28c749612f9e979",
+      "key_differences": [
+        "Adds Chinese labels and validation copy for manual-text and authorized Connection import modes."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/locales/zh-CN/workspace.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/locales/zh-CN/workspace.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e0af05c00426e608faed87af2aa9fcbc55d46c19c60d4d3056cb8b70353271e6",
+      "target_sha256": "e0af05c00426e608faed87af2aa9fcbc55d46c19c60d4d3056cb8b70353271e6"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/i18n/resources.ts",
+      "target_path": "frontend/src/extensions/openviking/i18n/resources.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0bdaf9acd68b1f82767f7a58c6d7feec1820830686bdc57d0d85a14da52e7602",
+      "target_sha256": "0bdaf9acd68b1f82767f7a58c6d7feec1820830686bdc57d0d85a14da52e7602"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/lib/ov-client/client.test.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/client.test.ts",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend/src/extensions/openviking/lib/ov-client/client.test.ts"
+      ],
+      "source_sha256": "14ce0b6f6c19840410ab1aaa889d49bbf2f867390d50eae0b87ec28dd6923076",
+      "target_sha256": "9ce6f9e2e4d18b6783f1f540549f4d55f17c2393d5ac9c708282b51099e93c34",
+      "key_differences": [
+        "Replaces direct credential-injection assertions with same-origin BFF rewrite, opaque resource-ref, operation allowlist, and session-commit retry assertions."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/lib/ov-client/client.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/client.ts",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "883edc5bbd2bbf35f96585ed5f3fdbff0552a59d7d992231866dcc46df165f70",
+      "target_sha256": "1bfc41d34e28b149da577b6896ba88dd607d0358a0f21b85b4e424158361d20e",
+      "key_differences": [
+        "Routes allowlisted Studio operations to the same-origin AgentKit BFF.",
+        "Removes browser API-key/account-header persistence and injection.",
+        "Translates viking:// URIs to profile-scoped opaque resource refs, including fixed-path session commit retry."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/lib/ov-client/errors.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/errors.ts",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0fd4ea2eafc14b6e17d06b8a316c08ab1662b8432fc17cee43b0c42404743941",
+      "target_sha256": "e2e0a2e42bab493cd74a7d8074194fa8ca9bb22f48d653cd75187ea306d8a5a7",
+      "key_differences": [
+        "Normalizes AgentKit BFF HTTP detail envelopes in addition to upstream OpenViking error envelopes.",
+        "Removes the upstream prompt that instructed browsers to configure an API key."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/lib/ov-client/index.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/index.ts",
+      "classification": "adapted",
+      "reason": "AgentKit same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "519a2a537a68a389f9edf73ecde36911b6a35e907534c5c0bec37455dc3d156f",
+      "target_sha256": "3d8ddd06416341976529f42868167239c6d61b73ba7a6c8c068e16009bb1ce77",
+      "key_differences": [
+        "Does not export upstream browser credential state or API-key storage symbols."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/lib/ov-client/types.ts",
+      "target_path": "frontend/src/extensions/openviking/lib/ov-client/types.ts",
+      "classification": "adapted",
+      "reason": "AgentKit same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "8892f1d79981403ebb76df647088bc317843a3d14ad4da643bba5317ed8ce793",
+      "target_sha256": "6b6b489007efe9cce9506adb42d2ccbda41258c55882b83f606edbf603c2359c",
+      "key_differences": [
+        "Removes API-key, account, identity-header, session-storage, and configurable internal-URL fields from browser DTOs."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/add-resource-page.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx"
+      ],
+      "source_sha256": "72a51f959067cffd47a7734392f6e5ff741ce04469afdbd0a67df07e4f42e1e2",
+      "target_sha256": "67bcb6533434d5ef2d83b9820c736342a945cdd748cb4dbfa107a8ea9854abe4",
+      "key_differences": [
+        "Adds coverage for AgentKit manual-text and authorized Connection import modes."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/add-resource-page.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.tsx",
+      "classification": "adapted",
+      "reason": "AgentKit adds manual text and authorized Connection resource import modes through scoped same-origin BFF commands",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/add-resource-page.test.tsx",
+        "tests/frontend/server/test_openviking_bff.py"
+      ],
+      "source_sha256": "82a33cd09aec304d08e323d7441a203bbb15589cd1c122a3da29a21a9c08fa80",
+      "target_sha256": "5c5748f8767b6a326c1209407f8819024f4a9230642b8be99966021e127ec1e4",
+      "key_differences": [
+        "Adds manual-text and authorized Connection resource import modes through scoped same-origin BFF commands.",
+        "Retains upstream upload and remote URL flows while adapting completion handling to the AgentKit shell."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/additional-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/additional-resource-options.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e788555411789e62ecc648f754b3c6f0d182c6f70a5d47fd30c0bffbade4cafe",
+      "target_sha256": "e788555411789e62ecc648f754b3c6f0d182c6f70a5d47fd30c0bffbade4cafe"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/code-editor.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/code-editor.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "b4f99842de0369b2d8bc69dd4bfa4649f3715e54499c343a15c6c1c118683be9",
+      "target_sha256": "b4f99842de0369b2d8bc69dd4bfa4649f3715e54499c343a15c6c1c118683be9"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/dir-browser.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/dir-browser.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "b9f1540c6eadab9cbf30ab7d7d8b1380808ef1104416825c9d858934c5177c13",
+      "target_sha256": "b9f1540c6eadab9cbf30ab7d7d8b1380808ef1104416825c9d858934c5177c13"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/directory-picker-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/directory-picker-dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "46eccf9436a6d8c54acbfa210278585359e309553ee034032ea397f962087577",
+      "target_sha256": "46eccf9436a6d8c54acbfa210278585359e309553ee034032ea397f962087577"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/feishu-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/feishu-resource-options.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "37372fc98f872d520d61b04a35479a85cc8569bbcff2a75cec994adddfafd2ba",
+      "target_sha256": "37372fc98f872d520d61b04a35479a85cc8569bbcff2a75cec994adddfafd2ba"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/file-preview-html.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/file-preview-html.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/file-preview-html.test.tsx"
+      ],
+      "source_sha256": "1a5e8a779dc892972c20908394ed2945d4e103af3768b6c29bba0c6f7cfb4873",
+      "target_sha256": "1a5e8a779dc892972c20908394ed2945d4e103af3768b6c29bba0c6f7cfb4873"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/file-preview.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/file-preview.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/file-preview.test.tsx"
+      ],
+      "source_sha256": "f811dd6fda83e059388185f476ce379090c519ca232c58afa0f8fc522f09bc3e",
+      "target_sha256": "f811dd6fda83e059388185f476ce379090c519ca232c58afa0f8fc522f09bc3e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/file-preview.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/file-preview.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "be10ef2e0a3a8db57748f43a17c6a32e62632aa804586f0f4fbf43a918a02c49",
+      "target_sha256": "be10ef2e0a3a8db57748f43a17c6a32e62632aa804586f0f4fbf43a918a02c49"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/find-palette.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/find-palette.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "c1e77e2692dfb58944d565665067963a3aa5e8d91f45412340dcc2777144b532",
+      "target_sha256": "c1e77e2692dfb58944d565665067963a3aa5e8d91f45412340dcc2777144b532"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/git-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/git-resource-options.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "8e6e8623b06a4196afcc44c085f6936d218c2c0504151aa045e484e7f99d5724",
+      "target_sha256": "8e6e8623b06a4196afcc44c085f6936d218c2c0504151aa045e484e7f99d5724"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/item-column.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/item-column.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "d4abffbf9b7879a1e10dee95f63e065d041873eeed4bf1daec2cd628e720754d",
+      "target_sha256": "d4abffbf9b7879a1e10dee95f63e065d041873eeed4bf1daec2cd628e720754d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/lazy-file-preview.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/lazy-file-preview.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "8a2100b06f6f1c322292a2dc32b18b2fba56a4eb59c8e27c9bd0216c34725300",
+      "target_sha256": "8a2100b06f6f1c322292a2dc32b18b2fba56a4eb59c8e27c9bd0216c34725300"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/remote-resource-descriptors.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/remote-resource-descriptors.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "a8d7f866f2952ee3ce37394d382a1d77c88cd7e6785281b4af4d1d2dfb323aaa",
+      "target_sha256": "a8d7f866f2952ee3ce37394d382a1d77c88cd7e6785281b4af4d1d2dfb323aaa"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/remote-resource-fields.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/remote-resource-fields.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e72ffb57d460a30feaef4c08173dbb23e2e2b546945b03d1e0575f54f4d0a9fa",
+      "target_sha256": "e72ffb57d460a30feaef4c08173dbb23e2e2b546945b03d1e0575f54f4d0a9fa"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/remote-resource-type-picker.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/remote-resource-type-picker.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "04d0e5fc561154c8c96c8f7c5f1d22a94438a5ea7d88b07835cd215d11da06fb",
+      "target_sha256": "04d0e5fc561154c8c96c8f7c5f1d22a94438a5ea7d88b07835cd215d11da06fb"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/resource-configuration-guide.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/resource-configuration-guide.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "465cfb60c2bb210c26009f8826a38a3933a047eb81b13be6bd1482f1b1eec362",
+      "target_sha256": "465cfb60c2bb210c26009f8826a38a3933a047eb81b13be6bd1482f1b1eec362"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/resource-destination-fields.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/resource-destination-fields.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "6f4d114bc6788e2815468f8e268e7059b4efb878ab43838f4c84e7cb086512e4",
+      "target_sha256": "6f4d114bc6788e2815468f8e268e7059b4efb878ab43838f4c84e7cb086512e4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/resource-option-radio-card.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/resource-option-radio-card.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "a29255767da576649cdfbc5ed891f3ab83d7f6bf05c8c61b5bdd0023e5a49e25",
+      "target_sha256": "a29255767da576649cdfbc5ed891f3ab83d7f6bf05c8c61b5bdd0023e5a49e25"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/tos-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/tos-resource-options.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "f3dbe3273f6e971a90fcf42c96c4563cd8ce992a5313c350a5caa66080d43fbe",
+      "target_sha256": "f3dbe3273f6e971a90fcf42c96c4563cd8ce992a5313c350a5caa66080d43fbe"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/upload-resource-fields.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/upload-resource-fields.test.tsx",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-components/upload-resource-fields.test.tsx"
+      ],
+      "source_sha256": "dddd060842e1a663d8facd62005217204ca36dedc5c53e4f467c6b6e7ff79bf8",
+      "target_sha256": "9df4bc99f61f8c1829478a0394a18cc53fa3db7d47a827301d251a037371e6c7",
+      "key_differences": [
+        "Adds an explicit translator-function type adaptation required by AgentKit TypeScript settings; behavior is unchanged."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/upload-resource-fields.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/upload-resource-fields.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "fe5b416979b30d97675ac50369a2b3b134e605c5db9f8b74c4bda5038dafc10a",
+      "target_sha256": "fe5b416979b30d97675ac50369a2b3b134e605c5db9f8b74c4bda5038dafc10a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/upload-task-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/upload-task-dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "fa13b3c40bde218de911230f198dc66a4625432fd3a9da04d61c02ff98583ed4",
+      "target_sha256": "fa13b3c40bde218de911230f198dc66a4625432fd3a9da04d61c02ff98583ed4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-components/web-resource-options.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-components/web-resource-options.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "21999113568eb7959b72459faf48149af65e2551ad64371b54d3c4820e6ba718",
+      "target_sha256": "21999113568eb7959b72459faf48149af65e2551ad64371b54d3c4820e6ba718"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-constants/.gitkeep",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-constants/.gitkeep",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "7a9e401257de023fbf009e98e6bd831352a1093c593a73c5b9fde92df6f368a4",
+      "target_sha256": "7a9e401257de023fbf009e98e6bd831352a1093c593a73c5b9fde92df6f368a4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-hooks/use-json-format.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-json-format.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "cf76dc593fb49daa8664539e3399ec6f3cad982eb4e15a9b57f2821a192bafbc",
+      "target_sha256": "cf76dc593fb49daa8664539e3399ec6f3cad982eb4e15a9b57f2821a192bafbc"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-hooks/use-list-navigation.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-list-navigation.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "4138a3c2efc65a57d4157e9d7f1e9e3bcd7a44bb7a1d4df7ff406c741a3eb8d7",
+      "target_sha256": "4138a3c2efc65a57d4157e9d7f1e9e3bcd7a44bb7a1d4df7ff406c741a3eb8d7"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-hooks/use-resource-upload.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-resource-upload.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-hooks/use-resource-upload.test.tsx"
+      ],
+      "source_sha256": "c944baec7ab2ed9909fa4398380d53d4b4c43770c8db1c7483df9cd56fd8afd3",
+      "target_sha256": "c944baec7ab2ed9909fa4398380d53d4b4c43770c8db1c7483df9cd56fd8afd3"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-hooks/use-resource-upload.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/use-resource-upload.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "f769ac0832f57d85b71da249ec1ea0f34e9e2eabf508e48106951e4b4bab4a45",
+      "target_sha256": "f769ac0832f57d85b71da249ec1ea0f34e9e2eabf508e48106951e4b4bab4a45"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-hooks/viking-fm.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/viking-fm.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-hooks/viking-fm.test.tsx"
+      ],
+      "source_sha256": "880975f1b10a4cdec85ebba2b660be3fbfb838db2f82978d4498956e12edf525",
+      "target_sha256": "880975f1b10a4cdec85ebba2b660be3fbfb838db2f82978d4498956e12edf525"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-hooks/viking-fm.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-hooks/viking-fm.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "2e39e8772de76aad03c8b0145a5c827bff784c2433d737a0d3bcf101313ddef6",
+      "target_sha256": "2e39e8772de76aad03c8b0145a5c827bff784c2433d737a0d3bcf101313ddef6"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/api.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/api.test.ts",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/api.test.ts"
+      ],
+      "source_sha256": "33653943a6ee55de1405653a2d2bcdd1cc8ed262cdda919e5df4b38fb83f8b83",
+      "target_sha256": "e63459550ccf757b0fbc81ad75f52451ef6c55d78f99ce31f6a19a9b75d4c2fa",
+      "key_differences": [
+        "Adds an explicit generic type to the partial ov-client mock required by AgentKit TypeScript settings; behavior is unchanged."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/api.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/api.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1a1478a8613cf7b017c1255d9a7dfe73e682777ec0a08e9677cf71f31dc1b050",
+      "target_sha256": "1a1478a8613cf7b017c1255d9a7dfe73e682777ec0a08e9677cf71f31dc1b050"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/find-search.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/find-search.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/find-search.test.ts"
+      ],
+      "source_sha256": "e0758f6ac694412b54fa60866332677af20e380484836b38607eeea889c23516",
+      "target_sha256": "e0758f6ac694412b54fa60866332677af20e380484836b38607eeea889c23516"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/find-search.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/find-search.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "a74a55d4229f19d5b23bbc61b8020ede00cee42f4807f4844ef8e8a66866a873",
+      "target_sha256": "a74a55d4229f19d5b23bbc61b8020ede00cee42f4807f4844ef8e8a66866a873"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/json-format.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/json-format.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/json-format.test.ts"
+      ],
+      "source_sha256": "c42b49384d0204561bcd41c645cdfb75a384275552e83d92a6f4074f874051aa",
+      "target_sha256": "c42b49384d0204561bcd41c645cdfb75a384275552e83d92a6f4074f874051aa"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/json-format.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/json-format.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "a74ddd9088346960ab7756f7d464ec485d15b2a58c6b9ec731f553267efab607",
+      "target_sha256": "a74ddd9088346960ab7756f7d464ec485d15b2a58c6b9ec731f553267efab607"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/json-format.worker.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/json-format.worker.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0a6cb93e3dc91de8b8e29b3fe8c40df82e878b9b115555a02186b98186361baa",
+      "target_sha256": "0a6cb93e3dc91de8b8e29b3fe8c40df82e878b9b115555a02186b98186361baa"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/normalize.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/normalize.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/normalize.test.ts"
+      ],
+      "source_sha256": "b1035b3b8b4b23b420260e2a7fb66dbb06d80dc5cccc7ea537188e16437bc066",
+      "target_sha256": "b1035b3b8b4b23b420260e2a7fb66dbb06d80dc5cccc7ea537188e16437bc066"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/normalize.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/normalize.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "35880228785abccc23f1464b5f00fa4ca0815ba7b2bfa19b1ecb2f16e8401436",
+      "target_sha256": "35880228785abccc23f1464b5f00fa4ca0815ba7b2bfa19b1ecb2f16e8401436"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/palette-mode.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/palette-mode.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "afdbff52e45a8f9709b5a8999da3d6b665964c21e2d0de524da340b7cacf921a",
+      "target_sha256": "afdbff52e45a8f9709b5a8999da3d6b665964c21e2d0de524da340b7cacf921a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-import-api.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-api.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "c82203be3103f3103d08bff7c720ff78bce982b7bc7877a2c9695137730a9755",
+      "target_sha256": "c82203be3103f3103d08bff7c720ff78bce982b7bc7877a2c9695137730a9755"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-import-request.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-request.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-request.test.ts"
+      ],
+      "source_sha256": "7d32138c78b1a12afe594125f92065367311c6f439f9a3a15115a3906f3dce8c",
+      "target_sha256": "7d32138c78b1a12afe594125f92065367311c6f439f9a3a15115a3906f3dce8c"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-import-request.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-request.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "26cf72c2ce4935bd0aa135a8e7ac595a4b727cf4976b1a619b255f7e933cfce6",
+      "target_sha256": "26cf72c2ce4935bd0aa135a8e7ac595a4b727cf4976b1a619b255f7e933cfce6"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-import-types.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-import-types.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "eca72b686ac8e8728bf4c16e8a06892e4e5ef1b026cea504b20a4931628c9ac9",
+      "target_sha256": "eca72b686ac8e8728bf4c16e8a06892e4e5ef1b026cea504b20a4931628c9ac9"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-option-values.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-option-values.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-option-values.test.ts"
+      ],
+      "source_sha256": "e392e679b0495b16e96cbbac22bd8abdbf9d4231a62f5b98b048592b568659c0",
+      "target_sha256": "e392e679b0495b16e96cbbac22bd8abdbf9d4231a62f5b98b048592b568659c0"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-option-values.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-option-values.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "165bac83affd335e7155742af3a6bb0dca51e0c1fe06560e5a7f1a69722bf694",
+      "target_sha256": "165bac83affd335e7155742af3a6bb0dca51e0c1fe06560e5a7f1a69722bf694"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-source-strategy.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source-strategy.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-source-strategy.test.ts"
+      ],
+      "source_sha256": "dc21d9b180fd80c105acd030b0b39cfa0a4c858be8c6ad3c618c5515509c88f0",
+      "target_sha256": "dc21d9b180fd80c105acd030b0b39cfa0a4c858be8c6ad3c618c5515509c88f0"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-source-strategy.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source-strategy.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "54b645ccbf57daaf88dc51db66084f45f48539dbff97b6ba4f33b06069f80684",
+      "target_sha256": "54b645ccbf57daaf88dc51db66084f45f48539dbff97b6ba4f33b06069f80684"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-source.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-source.test.ts"
+      ],
+      "source_sha256": "1e505030201f7780a4a8269d694f45734dc96a56590102dcc0f92b6780078ad4",
+      "target_sha256": "1e505030201f7780a4a8269d694f45734dc96a56590102dcc0f92b6780078ad4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-source.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-source.ts",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "fdad776cff291a862e1873a93a1d880ad1a29fdc6e4b20c4de2b3b2e049998fc",
+      "target_sha256": "a95c60aa6d22511676d5ab8c75c1d27df92f000218153381f3a297d6f2d6d748",
+      "key_differences": [
+        "Handles an undefined URL extension under AgentKit strict TypeScript settings; classification behavior is unchanged."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-upload-tasks.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-upload-tasks.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/resources/-lib/resource-upload-tasks.test.ts"
+      ],
+      "source_sha256": "c18dd2b5a9074172c7ba42d49ae6bae396ee7517dd6ad8677d6373cb730f2a28",
+      "target_sha256": "c18dd2b5a9074172c7ba42d49ae6bae396ee7517dd6ad8677d6373cb730f2a28"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/resource-upload-tasks.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/resource-upload-tasks.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "3343e212523baef6d9b9146616a53c7d7e6288baa1237b68e94c8a6256fbcf31",
+      "target_sha256": "3343e212523baef6d9b9146616a53c7d7e6288baa1237b68e94c8a6256fbcf31"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-lib/upload.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-lib/upload.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "458ea120486fbe81a5e521c89bc4e4f5a695ba2cc0a119637db0b007c471e94b",
+      "target_sha256": "458ea120486fbe81a5e521c89bc4e4f5a695ba2cc0a119637db0b007c471e94b"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-schemas/.gitkeep",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-schemas/.gitkeep",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "7a9e401257de023fbf009e98e6bd831352a1093c593a73c5b9fde92df6f368a4",
+      "target_sha256": "7a9e401257de023fbf009e98e6bd831352a1093c593a73c5b9fde92df6f368a4"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/-types/viking-fm.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/-types/viking-fm.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "35418c62747bd9cf6f3dc102c9c52db36f26d70189e251be6567ac501c2bd659",
+      "target_sha256": "35418c62747bd9cf6f3dc102c9c52db36f26d70189e251be6567ac501c2bd659"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/resources/resource-upload.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/resources/resource-upload.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "39ccd060390f890277f1581369e4320a9bbcaaeb5d44f82de63808c7ab06d7de",
+      "target_sha256": "39ccd060390f890277f1581369e4320a9bbcaaeb5d44f82de63808c7ab06d7de"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/date-range-picker.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/date-range-picker.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/retrieval/-components/date-range-picker.test.tsx"
+      ],
+      "source_sha256": "89b0421ba3de04d81325cca20c1b75650434dad020dccb14eedb46099bdaed18",
+      "target_sha256": "89b0421ba3de04d81325cca20c1b75650434dad020dccb14eedb46099bdaed18"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/date-range-picker.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/date-range-picker.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "3f58fe8ad88c0cc7b769fa978cd348d90b8f55b058a654a32fb0f4b9d1fae167",
+      "target_sha256": "3f58fe8ad88c0cc7b769fa978cd348d90b8f55b058a654a32fb0f4b9d1fae167"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/loading-hint.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/loading-hint.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "26d9a41df95b594de2b338e2e78f89461117472d71a5d843315b8eeeae9974fe",
+      "target_sha256": "26d9a41df95b594de2b338e2e78f89461117472d71a5d843315b8eeeae9974fe"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/retrieval-controls.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-controls.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "64976ffe0b527e3d257ce3d6b225a977ebac0e93eff14d23b30d43e7366814a2",
+      "target_sha256": "64976ffe0b527e3d257ce3d6b225a977ebac0e93eff14d23b30d43e7366814a2"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/retrieval-detail-sheet.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-detail-sheet.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-detail-sheet.test.tsx"
+      ],
+      "source_sha256": "2f80df271a2c2f77f4748ca96f0f2b765922e8d36ec9d37d7d27ebab393b73f6",
+      "target_sha256": "2f80df271a2c2f77f4748ca96f0f2b765922e8d36ec9d37d7d27ebab393b73f6"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/retrieval-detail-sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-detail-sheet.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "ea45556cf2efe71059fb78f5e1571b88c31059c4e20661f729b37b9ee8a0c3a3",
+      "target_sha256": "ea45556cf2efe71059fb78f5e1571b88c31059c4e20661f729b37b9ee8a0c3a3"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/retrieval-results.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-results.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-results.test.tsx"
+      ],
+      "source_sha256": "3b7513e1c4b89f4d7315c3cc0e26e0ffc0623a18d8917352fc7ae6c05164d6d1",
+      "target_sha256": "3b7513e1c4b89f4d7315c3cc0e26e0ffc0623a18d8917352fc7ae6c05164d6d1"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/retrieval-results.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/retrieval-results.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "aa470bfda9f44e84e44cd53467f61f0ba96a4d4d8c36666e1a8330b600daa9f5",
+      "target_sha256": "aa470bfda9f44e84e44cd53467f61f0ba96a4d4d8c36666e1a8330b600daa9f5"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/search-bar.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/search-bar.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0b8427524a6e0295ac99922df7631d1cc41366a609d166ead7d3099daab52b5d",
+      "target_sha256": "0b8427524a6e0295ac99922df7631d1cc41366a609d166ead7d3099daab52b5d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/tag-filter-input.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/tag-filter-input.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/retrieval/-components/tag-filter-input.test.tsx"
+      ],
+      "source_sha256": "3bb305d681b0c221cad51262f13cbadf73f45392570e9ea74a77ed5a49962fce",
+      "target_sha256": "3bb305d681b0c221cad51262f13cbadf73f45392570e9ea74a77ed5a49962fce"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-components/tag-filter-input.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-components/tag-filter-input.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "a992784107d5b38778ce706bef2d1ccb722a3c1125584322c0030b399597db95",
+      "target_sha256": "a992784107d5b38778ce706bef2d1ccb722a3c1125584322c0030b399597db95"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-constants/retrieval.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-constants/retrieval.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "c029cdb9f13520291f41dc1668dcd07917036b56684ab9276dcb69ef29864d4b",
+      "target_sha256": "c029cdb9f13520291f41dc1668dcd07917036b56684ab9276dcb69ef29864d4b"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-hooks/use-resource-context-probe.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-hooks/use-resource-context-probe.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "e43ee35cc1adcc9420dcbde1bcc3518a2a5ce42f328c855e98afcc25bb99f0fb",
+      "target_sha256": "e43ee35cc1adcc9420dcbde1bcc3518a2a5ce42f328c855e98afcc25bb99f0fb"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-hooks/use-retrieval-query.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-hooks/use-retrieval-query.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "ce84f97cd57c192318fe1b946f3768d221bbaaf8a81f3d13d997f3b9c033b3c3",
+      "target_sha256": "ce84f97cd57c192318fe1b946f3768d221bbaaf8a81f3d13d997f3b9c033b3c3"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-lib/results.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/results.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "eccbb6a4622570d11755a7254701830f995d54e6b9e1f73396dd294402e0b4bb",
+      "target_sha256": "eccbb6a4622570d11755a7254701830f995d54e6b9e1f73396dd294402e0b4bb"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-lib/scope.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/scope.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "d714614312723e5bcd93a004c80e5af8ac91b3e0e3f40e9f617c23f7fb324550",
+      "target_sha256": "d714614312723e5bcd93a004c80e5af8ac91b3e0e3f40e9f617c23f7fb324550"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-lib/search-state.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/search-state.test.ts",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/retrieval/-lib/search-state.test.ts"
+      ],
+      "source_sha256": "0f94445e2567aecfa28c5156e35404c7ad77a6998ea4d4063cb8922d6a4cac8d",
+      "target_sha256": "d455a26815334978337e89c5f5b580264352716f99c4400496bc062a1cd72d64",
+      "key_differences": [
+        "Adapts search-state assertions to AgentKit route embedding and query serialization."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-lib/search-state.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-lib/search-state.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "b4fb2dc139614eba9895f36de7ec18f9e387983a740830c3b98e5aa4794a018d",
+      "target_sha256": "b4fb2dc139614eba9895f36de7ec18f9e387983a740830c3b98e5aa4794a018d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/-types/retrieval.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/-types/retrieval.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "caa6e9ead6fccac66ebad3a7bfcfebe4d3f4e27590bc9e67b6a2e8e2e38a4c63",
+      "target_sha256": "caa6e9ead6fccac66ebad3a7bfcfebe4d3f4e27590bc9e67b6a2e8e2e38a4c63"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/retrieval/route.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/retrieval/route.tsx",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "26cb3dcad9c48781677e8351e0d685363f9f5c50d86be34617292b8fd76cbc59",
+      "target_sha256": "555da66f7fd777fcde1cb9a97658d7d62852e791c8313853ae9751f97e40370d",
+      "key_differences": [
+        "Removes the standalone TanStack route wrapper.",
+        "Uses browser history and an AgentKit shell event for embedded navigation while retaining upstream retrieval state and controls."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-components/task-detail-sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-components/task-detail-sheet.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "1600435fa288e311b1111567d450ca91407fc8d1572e1037dee428320a6719be",
+      "target_sha256": "1600435fa288e311b1111567d450ca91407fc8d1572e1037dee428320a6719be"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-list.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-list.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/tasks/-lib/task-list.test.ts"
+      ],
+      "source_sha256": "19bd62016aa2738f5390c29647119a5af3cf92116c4967980e1520c9f3649588",
+      "target_sha256": "19bd62016aa2738f5390c29647119a5af3cf92116c4967980e1520c9f3649588"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-list.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-list.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "bd0312d2726fa3f282020f0ac6063556bdc7fb1b1bf6d7be5d58bc81535f5879",
+      "target_sha256": "bd0312d2726fa3f282020f0ac6063556bdc7fb1b1bf6d7be5d58bc81535f5879"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-pipeline.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-pipeline.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0ab69c1de85a30e464d5dfa03a5fdcbbb9a9108bbbb20e8b439364ab1e8fbc99",
+      "target_sha256": "0ab69c1de85a30e464d5dfa03a5fdcbbb9a9108bbbb20e8b439364ab1e8fbc99"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-record.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-record.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/tasks/-lib/task-record.test.ts"
+      ],
+      "source_sha256": "24f327b58d6031336a0392e2df7d23078947a1d19a46212a4a4cb42e9cb94eff",
+      "target_sha256": "24f327b58d6031336a0392e2df7d23078947a1d19a46212a4a4cb42e9cb94eff"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-record.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-record.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "2ee7ea87dd7b06f3d020396f0adeb3e2ff8395c5930449315e6d2a2031299d8d",
+      "target_sha256": "2ee7ea87dd7b06f3d020396f0adeb3e2ff8395c5930449315e6d2a2031299d8d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-time.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-time.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/tasks/-lib/task-time.test.ts"
+      ],
+      "source_sha256": "77ffd046bc7eb40c4cc00178466f1df1de1aaf03aec8692e50e6a39726277cc1",
+      "target_sha256": "77ffd046bc7eb40c4cc00178466f1df1de1aaf03aec8692e50e6a39726277cc1"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/-lib/task-time.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/-lib/task-time.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "18954077956602bb95ad5833c918ae852b69e6dc586727c0d36db092e131d2c1",
+      "target_sha256": "18954077956602bb95ad5833c918ae852b69e6dc586727c0d36db092e131d2c1"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/route.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/route.tsx",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "fe7fb51538acfed05406476da5f8ee99b3c91effc0fe92b4f4154540f1e3e829",
+      "target_sha256": "ae903cf2c2edf521bad816ee80a4ae4c49475c9485d4c048045f41ddf6cd7593",
+      "key_differences": [
+        "Removes the standalone TanStack route wrapper and exports the page for AgentKit embedding.",
+        "Removes redundant local task-step/status variables while retaining upstream task actions, including BFF-routed retry."
+      ]
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/tasks/task-model.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/tasks/task-model.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "517c9c5c937f7659482218e99dc1ed18db19b1cda425e8b8a685508b55e16f9e",
+      "target_sha256": "517c9c5c937f7659482218e99dc1ed18db19b1cda425e8b8a685508b55e16f9e"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-components/edit-watch-dialog.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-components/edit-watch-dialog.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/watches/-components/edit-watch-dialog.test.tsx"
+      ],
+      "source_sha256": "50a0be97981062eec30244a6ccf29275fcd5c397b9bcf190cd864e86d7bd2851",
+      "target_sha256": "50a0be97981062eec30244a6ccf29275fcd5c397b9bcf190cd864e86d7bd2851"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-components/edit-watch-dialog.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-components/edit-watch-dialog.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "ba7b9348c05d101e18880a8937d7838406cadc0337b1ac2e0b652efcfb314d8a",
+      "target_sha256": "ba7b9348c05d101e18880a8937d7838406cadc0337b1ac2e0b652efcfb314d8a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-components/watch-history-sheet.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-components/watch-history-sheet.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "aefd20366e7692796a632d3d5320b3be3b0c57b5bed6260aa4218eca574fd99a",
+      "target_sha256": "aefd20366e7692796a632d3d5320b3be3b0c57b5bed6260aa4218eca574fd99a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-lib/api.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/api.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/watches/-lib/api.test.ts"
+      ],
+      "source_sha256": "53323e7c549085ec142be289b31907f7397d43413100ea3413462c91f636207f",
+      "target_sha256": "53323e7c549085ec142be289b31907f7397d43413100ea3413462c91f636207f"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-lib/api.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/api.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "95d0686347e650174272bd1b5eabd04311b468d7279caa4459a21c24b461ad7a",
+      "target_sha256": "95d0686347e650174272bd1b5eabd04311b468d7279caa4459a21c24b461ad7a"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-lib/watch-discovery.test.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/watch-discovery.test.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/watches/-lib/watch-discovery.test.ts"
+      ],
+      "source_sha256": "69c4b5da9b5218652904bbe674d7926d9a107c483f1f0a4480e08d5467a4cd0d",
+      "target_sha256": "69c4b5da9b5218652904bbe674d7926d9a107c483f1f0a4480e08d5467a4cd0d"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/-lib/watch-discovery.ts",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/-lib/watch-discovery.ts",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "0e5653e9d49a3df462c35712812d4c0b4d70bb7969f925353cf43db9a582b666",
+      "target_sha256": "0e5653e9d49a3df462c35712812d4c0b4d70bb7969f925353cf43db9a582b666"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/route.test.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/route.test.tsx",
+      "classification": "copied",
+      "reason": "Direct source migration with no content changes",
+      "tests": [
+        "frontend/src/extensions/openviking/routes/watches/route.test.tsx"
+      ],
+      "source_sha256": "2b5ec9d427dd1e7b894e6f421f84cfbdc90c5e0ef7ad30e38fe5d1e332335a2c",
+      "target_sha256": "2b5ec9d427dd1e7b894e6f421f84cfbdc90c5e0ef7ad30e38fe5d1e332335a2c"
+    },
+    {
+      "source_sha": "cd8580c6f8a50ec44593618b3102799ab0b553fd",
+      "source_path": "web-studio/src/routes/watches/route.tsx",
+      "target_path": "frontend/src/extensions/openviking/routes/watches/route.tsx",
+      "classification": "adapted",
+      "reason": "AgentKit shell, module alias, generated client, or same-origin BFF security adaptation",
+      "tests": [
+        "frontend migrated Vitest suite"
+      ],
+      "source_sha256": "172552982b5c7af04b930d0366b1ff27dc0364dfd602ea4124f3ab3440bf518a",
+      "target_sha256": "56932d5567860a07da25830a39a8d1bfa44ab30161783b7b1c8af50fb24506f9",
+      "key_differences": [
+        "Removes the standalone TanStack route wrapper and exports the page for AgentKit embedding; watch behavior is unchanged."
+      ]
+    }
+  ],
+  "direct_component_dependencies": [
+    "web-studio/src/components/ui/alert-dialog.tsx",
+    "web-studio/src/components/ui/badge.tsx",
+    "web-studio/src/components/ui/button.tsx",
+    "web-studio/src/components/ui/button-group.tsx",
+    "web-studio/src/components/ui/card.tsx",
+    "web-studio/src/components/ui/checkbox.tsx",
+    "web-studio/src/components/ui/collapsible.tsx",
+    "web-studio/src/components/ui/dialog.tsx",
+    "web-studio/src/components/ui/dropdown-menu.tsx",
+    "web-studio/src/components/ui/field.tsx",
+    "web-studio/src/components/ui/input.tsx",
+    "web-studio/src/components/ui/label.tsx",
+    "web-studio/src/components/ui/pagination.tsx",
+    "web-studio/src/components/ui/popover.tsx",
+    "web-studio/src/components/ui/radio-group.tsx",
+    "web-studio/src/components/ui/scroll-area.tsx",
+    "web-studio/src/components/ui/select.tsx",
+    "web-studio/src/components/ui/separator.tsx",
+    "web-studio/src/components/ui/sheet.tsx",
+    "web-studio/src/components/ui/spinner.tsx",
+    "web-studio/src/components/ui/switch.tsx",
+    "web-studio/src/components/ui/table.tsx",
+    "web-studio/src/components/ui/textarea.tsx",
+    "web-studio/src/components/ui/tooltip.tsx"
+  ]
+}

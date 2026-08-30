@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .source_contracts import KnowledgeSourceRef
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -71,6 +73,7 @@ class SkillDraft(ImmutableModel):
     template_config: Mapping[str, Any] = Field(default_factory=dict)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    knowledge_source_refs: tuple[KnowledgeSourceRef, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     status: DraftStatus = DraftStatus.EDITING
     current_revision_id: str | None = None
@@ -98,6 +101,7 @@ class Invocation(ImmutableModel):
     revision_id: str | None = Field(default=None, max_length=160)
     connection_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     resource_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
+    knowledge_source_refs: tuple[KnowledgeSourceRef, ...] = Field(default_factory=tuple, max_length=64)
     upload_ids: tuple[str, ...] = Field(default_factory=tuple, max_length=64)
     lease_id: str | None = Field(default=None, max_length=4_096)
     authoring_session_id: str = Field(min_length=1, max_length=160)

@@ -252,6 +252,46 @@ async def test_draft_routes_accept_and_return_w4_template_metadata() -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_draft_accepts_unified_knowledge_source_refs() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+        knowledge_context_resolver=lambda actor, refs: {
+            "profiles": [ref.profile_ref for ref in refs if ref.profile_ref],
+            "resources": [ref.resource_ref for ref in refs if ref.resource_ref],
+        },
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    headers = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+        "idempotency-key": "draft-unified-123456",
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers=headers,
+            json={
+                "goal": "unified refs",
+                "connection_ids": [],
+                "knowledge_source_refs": [
+                    {"provider": "openviking", "profile_ref": "profile-a"},
+                    {"provider": "openviking", "resource_ref": "resource-a"},
+                ],
+            },
+        )
+    assert response.status_code == 201
+    assert response.json()["data"]["knowledge_source_refs"] == [
+        {"provider": "openviking", "profile_ref": "profile-a"},
+        {"provider": "openviking", "resource_ref": "resource-a"},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_unconfigured_autoskill_fails_closed_on_generate() -> None:
     app = FastAPI()
     service = KnowledgeWorkspaceService(
@@ -423,6 +463,7 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
             "started_at",
             "finished_at",
             "created_at",
+            "knowledge_source_refs",
             "event_url",
         }
         stale = await client.post(

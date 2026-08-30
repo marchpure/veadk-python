@@ -18,13 +18,16 @@ const toolbar = await readFile(path.join(feature, "workspace/ArtifactToolbar.tsx
 
 test("new Skill starts with one business composer and Auto delivery", () => {
   assert.match(creator, /创建一个新技能/);
+  assert.match(creator, /创建连接/);
+  assert.match(creator, /knowledgeSourceActions\.map/);
+  assert.match(creator, /action\.run/);
   assert.match(composer, /Auto（自动推荐）/);
   assert.match(creator, /分析华东区域异常/);
   assert.match(creator, /生成蓝牙诊断 SOP/);
   assert.match(creator, /制作门店巡检看板/);
   assert.doesNotMatch(creator, /1\.\s*选择模板|2\.\s*谁会使用|3\.\s*接入|4\.\s*先试/);
   assert.match(creator, /setGoal\(suggestion\)/);
-  assert.match(creator, /if \(!selectedConnectionIds\.length && !selectedResourceIds\.length\)/);
+  assert.match(creator, /if \(!selectedConnectionIds\.length && !selectedResourceIds\.length && !selectedKnowledgeSourceOptionIds\.length\)/);
 });
 
 test("Knowledge Workspace root and legacy entry routes share the canonical creator", () => {

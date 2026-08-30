@@ -34,6 +34,7 @@ import unicodedata
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
 from time import monotonic, sleep
 from typing import Any, Literal
@@ -2411,6 +2412,26 @@ def _run_frontend_server(
         ),
         connection_gateway=connection_gateway,
     )
+
+    # OpenViking is a separate knowledge runtime profile. Its upstream origin
+    # and API key remain server-managed and are never part of Connection IDs.
+    try:
+        from frontend.server.extensions.openviking import register_openviking
+
+        register_openviking(
+            app,
+            knowledge_service=knowledge_service,
+            actor_resolver=lambda request: _knowledge_workspace_actor(
+                request, _knowledge_identity
+            ),
+            connection_gateway=connection_gateway,
+        )
+    except Exception as error:
+        logger.warning(
+            "OpenViking BFF is disabled because secure profile storage "
+            "is not configured: %s",
+            type(error).__name__,
+        )
 
     from frontend.server.video.routes import (
         build_video_service,

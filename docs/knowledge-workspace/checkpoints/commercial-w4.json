@@ -1,0 +1,76 @@
+{
+  "baseline_sha": "de50cccc506d128e6fad93d3a0fa79fffa8ddf69",
+  "branch": "feat/knowledge-commercial-w4-openviking-studio",
+  "browser_evidence": {
+    "desktop_1440x900": "docs/knowledge-workspace/evidence/w4/browser/openviking-w4-desktop-1440x900.png",
+    "fixture": "frontend/tests/openVikingW4Journey.test.mjs",
+    "mobile_390x844": "docs/knowledge-workspace/evidence/w4/browser/openviking-w4-mobile-390x844.png"
+  },
+  "generated_at": "2026-08-30T11:20:36.194116+00:00",
+  "implemented": [
+    "OpenViking profile CRUD with encrypted credentials and masked public profile contract",
+    "HTTPS/localhost URL policy with SSRF DNS/IP guard and redirect blocking",
+    "ready-profile guard for OpenViking operations and imports",
+    "tenant/workspace scoped profile and task history repository",
+    "signed opaque resource refs and server-side Skill context resolution",
+    "createKnowledgeBase action and dataTools slot via public manifest",
+    "two primary create cards: create Connection and create knowledge source",
+    "OpenViking workspace embedded in the existing Studio shell with contextual Sidebar/Navbar",
+    "return-to-Skill flow using canonical KnowledgeSourceRef selection"
+  ],
+  "local_artifacts": {
+    ".veadk": "ignored local Knowledge Workspace cache; not staged"
+  },
+  "manifests": {
+    "import_manifest": "docs/openviking/migration-manifest.json",
+    "wiring_manifest": "docs/knowledge-workspace/evidence/w4/openviking-wiring-manifest.json"
+  },
+  "merge_base_sha": "187d9ed49047e51116ef0c9494d995d04c732caf",
+  "merge_conflicts": {
+    "conflict_markers": 0,
+    "generated_assets_policy": "veadk/webui/** and index.html regenerated from final source build; not hand-merged per hashed asset",
+    "resolved_source_files": [
+      "frontend/server/knowledge_workspace/service.py",
+      "frontend/src/features/knowledge-workspace/api/client.ts",
+      "frontend/src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx",
+      "tests/knowledge_workspace/test_routes.py"
+    ],
+    "unmerged_files": 0
+  },
+  "openviking_source_sha": "7ab6a8697a04cbbfdea7f88aaa27d6c117663fc2",
+  "real_openviking_e2e": {
+    "evidence": "docs/knowledge-workspace/evidence/w4/openviking-real-e2e.json",
+    "not_claimed_as_pass": true,
+    "status": "BLOCKED_EXTERNAL_CREDENTIALS_UNSET"
+  },
+  "schema_version": 1,
+  "scope": {
+    "connection_search_autoskill_not_expanded": true,
+    "css_scoped": true,
+    "disabled_unconfigured_host_safe": true,
+    "host_contract_only": true,
+    "no_second_studio": true,
+    "openviking_isolated": true
+  },
+  "status": "PASS_WITH_REAL_E2E_BLOCKED",
+  "verification": {
+    "completed_before_checkpoint": [
+      "python -m pytest tests/frontend/server/test_openviking_bff.py -q -> 62 passed",
+      "python -m pytest tests/knowledge_workspace/test_routes.py tests/knowledge_workspace/test_service_contracts.py tests/knowledge_workspace/test_source_migration.py tests/frontend/server/test_openviking_bff.py -q -> 121 passed",
+      "python -m py_compile changed knowledge_workspace/openviking Python files and tests -> passed",
+      "node --test frontend/tests/openVikingIsolation.test.mjs frontend/tests/openVikingStudio.test.mjs frontend/tests/knowledgeSkillWorkshopV220121.test.mjs frontend/tests/openVikingW4Journey.test.mjs -> 18 passed, 1 skipped",
+      "cd frontend && npm test -> 898 passed, 2 skipped",
+      "cd frontend && npm run typecheck -> passed",
+      "cd frontend && npm run build -> passed with existing Vite chunk warnings",
+      "cd frontend && npm run test:webui-assets -> verified 103 packaged WebUI files and 296 internal references",
+      "KW_RUN_W4_PLAYWRIGHT=1 desktop openVikingW4Journey -> passed",
+      "KW_RUN_W4_PLAYWRIGHT=1 mobile openVikingW4Journey -> passed",
+      "python tools/openviking_deletion_smoke.py -> passed",
+      "git diff --check -> passed",
+      "unmerged/conflict marker scan -> 0",
+      "production source/config secret scan -> no hits; broad scan hits are test redaction fixtures and docs placeholders only"
+    ],
+    "remaining_before_commit": []
+  },
+  "worker": "W4"
+}

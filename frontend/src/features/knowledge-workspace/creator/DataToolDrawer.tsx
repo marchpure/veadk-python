@@ -3,6 +3,7 @@ import type {
   ConnectionProfile,
   WorkspaceResource,
 } from "../domain/types";
+import type { KnowledgeSourceOption } from "../../../extensions/knowledge-source-contracts";
 
 const CONNECTION_STATUS: Record<ConnectionProfile["status"], string> = {
   draft: "草稿",
@@ -48,8 +49,10 @@ export function DataToolDrawer({
   open,
   connections,
   resources,
+  knowledgeSourceOptions,
   selectedConnectionIds,
   selectedResourceIds,
+  selectedKnowledgeSourceOptionIds,
   onConfirm,
   onClose,
   onConfigureConnection,
@@ -58,9 +61,15 @@ export function DataToolDrawer({
   open: boolean;
   connections: ConnectionProfile[];
   resources: WorkspaceResource[];
+  knowledgeSourceOptions: KnowledgeSourceOption[];
   selectedConnectionIds: string[];
   selectedResourceIds: string[];
-  onConfirm: (connectionIds: string[], resourceIds: string[]) => void;
+  selectedKnowledgeSourceOptionIds: string[];
+  onConfirm: (
+    connectionIds: string[],
+    resourceIds: string[],
+    knowledgeSourceOptionIds: string[],
+  ) => void;
   onClose: () => void;
   onConfigureConnection: (connection: ConnectionProfile) => void;
   onInspectResource: (resource: WorkspaceResource) => void;
@@ -69,12 +78,14 @@ export function DataToolDrawer({
   const [category, setCategory] = useState<Category>("全部");
   const [connectionIds, setConnectionIds] = useState(selectedConnectionIds);
   const [resourceIds, setResourceIds] = useState(selectedResourceIds);
+  const [knowledgeSourceOptionIds, setKnowledgeSourceOptionIds] = useState(selectedKnowledgeSourceOptionIds);
 
   useEffect(() => {
     if (!open) return;
     setConnectionIds(selectedConnectionIds);
     setResourceIds(selectedResourceIds);
-  }, [open, selectedConnectionIds, selectedResourceIds]);
+    setKnowledgeSourceOptionIds(selectedKnowledgeSourceOptionIds);
+  }, [open, selectedConnectionIds, selectedKnowledgeSourceOptionIds, selectedResourceIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -110,14 +121,25 @@ export function DataToolDrawer({
         ready: resource.status === "verified",
         resource,
       })),
+      ...knowledgeSourceOptions.map((option) => ({
+        kind: "knowledge-source" as const,
+        id: option.id,
+        name: option.displayName,
+        type: option.type,
+        scope: option.scope,
+        status: option.status,
+        category: (option.category ? categoryFor(option.category) : "办公与知识") as Category,
+        ready: option.ready,
+        option,
+      })),
     ].filter((item) =>
       (category === "全部" || item.category === category)
       && (!normalizedSearch || `${item.name} ${item.type}`.toLowerCase().includes(normalizedSearch)),
     );
-  }, [category, connections, resources, search]);
+  }, [category, connections, knowledgeSourceOptions, resources, search]);
 
   if (!open) return null;
-  const selectedCount = connectionIds.length + resourceIds.length;
+  const selectedCount = connectionIds.length + resourceIds.length + knowledgeSourceOptionIds.length;
   return (
     <div className="kw-drawer-layer" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
@@ -140,7 +162,9 @@ export function DataToolDrawer({
           {items.map((item) => {
             const selected = item.kind === "connection"
               ? connectionIds.includes(item.id)
-              : resourceIds.includes(item.id);
+              : item.kind === "resource"
+                ? resourceIds.includes(item.id)
+                : knowledgeSourceOptionIds.includes(item.id);
             return (
               <div className={`kw-data-tool-row${selected ? " is-selected" : ""}${item.ready ? "" : " is-disabled"}`} key={`${item.kind}:${item.id}`}>
                 <button
@@ -151,8 +175,10 @@ export function DataToolDrawer({
                   onClick={() => {
                     if (item.kind === "connection") {
                       setConnectionIds((current) => selected ? current.filter((id) => id !== item.id) : [...current, item.id]);
-                    } else {
+                    } else if (item.kind === "resource") {
                       setResourceIds((current) => selected ? current.filter((id) => id !== item.id) : [...current, item.id]);
+                    } else {
+                      setKnowledgeSourceOptionIds((current) => selected ? current.filter((id) => id !== item.id) : [...current, item.id]);
                     }
                   }}
                 >
@@ -178,7 +204,7 @@ export function DataToolDrawer({
           <span>已选 <strong>{selectedCount}</strong> 个</span>
           <div>
             <button type="button" onClick={onClose}>取消</button>
-            <button type="button" className="kw-primary-small" onClick={() => onConfirm(connectionIds, resourceIds)}>确认选择</button>
+            <button type="button" className="kw-primary-small" onClick={() => onConfirm(connectionIds, resourceIds, knowledgeSourceOptionIds)}>确认选择</button>
           </div>
         </footer>
       </section>

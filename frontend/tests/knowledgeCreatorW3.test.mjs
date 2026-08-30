@@ -16,6 +16,7 @@ const reducer = await readFile(path.join(featureRoot, "assistant/assistant-reduc
 test("W3 landing route starts from a central creator composer", () => {
   assert.match(page, /<SkillCreateLanding/);
   assert.match(creator, /创建一个新技能/);
+  assert.match(creator, /创建连接/);
   assert.match(creator, /<SkillComposer/);
   assert.match(composer, /Dashboard/);
   assert.match(composer, /SOP/);

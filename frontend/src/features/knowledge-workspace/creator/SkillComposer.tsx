@@ -9,6 +9,7 @@ import type {
   TemplateKey,
   WorkspaceResource,
 } from "../domain/types";
+import type { KnowledgeSourceOption } from "../../../extensions/knowledge-source-contracts";
 
 function AttachIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 12.5 13.8 6.7a3.2 3.2 0 0 1 4.5 4.5l-7.6 7.6a5 5 0 0 1-7.1-7.1l7.1-7.1" /></svg>;
@@ -42,11 +43,13 @@ export function SkillComposer({
   onGoalChange,
   connections,
   resources,
+  knowledgeSourceOptions,
   templateKey,
   onTemplateKeyChange,
   onOpenDataTools,
   onRemoveConnection,
   onRemoveResource,
+  onRemoveKnowledgeSource,
   onSend,
   busy,
   error,
@@ -56,11 +59,13 @@ export function SkillComposer({
   onGoalChange: (value: string) => void;
   connections: ConnectionProfile[];
   resources: WorkspaceResource[];
+  knowledgeSourceOptions: KnowledgeSourceOption[];
   templateKey: TemplateKey;
   onTemplateKeyChange: (value: TemplateKey) => void;
   onOpenDataTools: () => void;
   onRemoveConnection: (id: string) => void;
   onRemoveResource: (id: string) => void;
+  onRemoveKnowledgeSource: (id: string) => void;
   onSend: () => void;
   busy: boolean;
   error?: string;
@@ -87,6 +92,11 @@ export function SkillComposer({
       onRemoveResource(resource.resource_id);
     }
   };
+  const removeKnowledgeSource = (option: KnowledgeSourceOption) => {
+    if (window.confirm("仅从当前 Skill 移除，不会删除外部知识源配置或资源。")) {
+      onRemoveKnowledgeSource(option.id);
+    }
+  };
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (
       event.key !== "Enter"
@@ -101,7 +111,7 @@ export function SkillComposer({
 
   return (
     <div className="kw-skill-composer">
-      {(connections.length > 0 || resources.length > 0) ? (
+      {(connections.length > 0 || resources.length > 0 || knowledgeSourceOptions.length > 0) ? (
         <div className="kw-composer-context" aria-label="当前数据与工具">
           {connections.map((connection) => (
             <span key={connection.connection_id}>
@@ -117,6 +127,15 @@ export function SkillComposer({
               <AttachIcon />
               {resource.display_name}
               <button type="button" aria-label={`移除 ${resource.display_name}`} onClick={() => removeResource(resource)}>
+                <CloseIcon />
+              </button>
+            </span>
+          ))}
+          {knowledgeSourceOptions.map((option) => (
+            <span key={option.id}>
+              <AttachIcon />
+              {option.displayName}
+              <button type="button" aria-label={`移除 ${option.displayName}`} onClick={() => removeKnowledgeSource(option)}>
                 <CloseIcon />
               </button>
             </span>

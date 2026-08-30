@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-08-30T11:18:37.619620+00:00",
+  "missing_env": [
+    "OPENVIKING_E2E_BASE_URL",
+    "OPENVIKING_E2E_API_KEY",
+    "OPENVIKING_PROFILE_ENCRYPTION_KEY",
+    "OPENVIKING_REF_SIGNING_KEY"
+  ],
+  "note": "No real endpoint request was attempted because required credentials are absent from the process environment.",
+  "real_e2e_pass": false,
+  "redaction": {
+    "OPENVIKING_E2E_API_KEY": "UNSET",
+    "OPENVIKING_E2E_BASE_URL": "UNSET",
+    "OPENVIKING_PROFILE_ENCRYPTION_KEY": "UNSET",
+    "OPENVIKING_REF_SIGNING_KEY": "UNSET"
+  },
+  "reproduce": [
+    "export OPENVIKING_E2E_BASE_URL=<https endpoint>",
+    "export OPENVIKING_E2E_API_KEY=<redacted key>",
+    "export OPENVIKING_PROFILE_ENCRYPTION_KEY=<base64url 32-byte key>",
+    "export OPENVIKING_REF_SIGNING_KEY=<32+ byte signing key>",
+    "python -m pytest tests/frontend/server/test_openviking_bff.py -q",
+    "cd frontend && KW_RUN_W4_PLAYWRIGHT=1 KW_PREVIEW_URL=http://127.0.0.1:5174 node --test tests/openVikingW4Journey.test.mjs"
+  ],
+  "required_flow": [
+    "create profile with real endpoint and encrypted API key",
+    "validate profile via upstream fs_list",
+    "import a small text document",
+    "recover import task state after route reload",
+    "read tree and document content",
+    "run retrieval against imported content",
+    "return profile as canonical KnowledgeSourceRef to Skill creator",
+    "revoke profile and confirm subsequent operations fail closed"
+  ],
+  "schema_version": 1,
+  "status": "BLOCKED_EXTERNAL_CREDENTIALS_UNSET"
+}
