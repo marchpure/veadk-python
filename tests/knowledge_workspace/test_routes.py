@@ -14,6 +14,9 @@ from frontend.server.knowledge_workspace.models import (
     InvocationKind,
     InvocationStatus,
     SkillDraft,
+    WorkspaceResource,
+    WorkspaceResourceKind,
+    WorkspaceUpload,
 )
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
 from frontend.server.knowledge_workspace.routes import mount_knowledge_workspace_routes
@@ -256,6 +259,79 @@ async def test_artifact_metadata_errors_are_structured_not_500() -> None:
         "message": "artifact not found",
         "retryable": False,
     }
+
+
+@pytest.mark.asyncio
+async def test_resource_preview_reads_legacy_bff_upload_and_scopes_contract() -> None:
+    app = FastAPI()
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(
+        repository,
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(
+        app,
+        service,
+        allow_insecure_test_headers=True,
+    )
+    content = b"case_id,status\n1,open\n2,closed\n"
+    digest = hashlib.sha256(content).hexdigest()
+    upload = WorkspaceUpload(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        upload_id="upload-a",
+        filename="cases.csv",
+        sha256=digest,
+        size_bytes=len(content),
+        media_type="text/csv",
+        purpose="skill_input",
+        uri=repository.put_object(digest, content, suffix=".csv"),
+    )
+    repository.save_upload(upload)
+    repository.save_resource(
+        WorkspaceResource(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            resource_id="resource-a",
+            kind=WorkspaceResourceKind.FILE,
+            display_name="Cases",
+            scope="personal",
+            status="verified",
+            source_id="upload-a",
+            metadata={},
+        )
+    )
+    owner = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "owner",
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/api/knowledge/v1/resources/resource-a/preview",
+            headers=owner,
+        )
+        forbidden = await client.get(
+            "/api/knowledge/v1/resources/resource-a/preview",
+            headers={**owner, "x-tenant-id": "tenant-b"},
+        )
+
+    assert response.status_code == 200
+    preview = response.json()["data"]
+    assert preview == {
+        "kind": "table",
+        "columns": ["case_id", "status"],
+        "rows": [["1", "open"], ["2", "closed"]],
+        "total_rows": 2,
+        "truncated": False,
+        "filename": "cases.csv",
+        "media_type": "text/csv",
+        "sha256": digest,
+        "source": "bff_upload",
+    }
+    assert forbidden.status_code == 404
 
 
 @pytest.mark.asyncio

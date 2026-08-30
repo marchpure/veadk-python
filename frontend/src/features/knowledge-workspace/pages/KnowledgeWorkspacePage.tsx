@@ -718,9 +718,12 @@ export function KnowledgeWorkspacePage({
           );
           const restoredArtifacts = restoredResults.flatMap((result) =>
             result.status === "fulfilled" ? [result.value] : []);
+          const currentRevisionArtifacts = restoredArtifacts.filter(
+            (item) => item.revision_id === currentRevisionId,
+          );
           if (!controller.signal.aborted) {
-            setArtifacts(restoredArtifacts);
-            setArtifact(restoredArtifacts.at(-1) || null);
+            setArtifacts(currentRevisionArtifacts);
+            setArtifact(currentRevisionArtifacts.at(-1) || null);
           }
         } else {
           setArtifacts([]);
@@ -872,10 +875,13 @@ export function KnowledgeWorkspacePage({
             knowledgeApi.getArtifact(id).then((value) => value.value.data),
           ),
         );
-        const restoredArtifacts = restoredResults.flatMap((result) =>
-          result.status === "fulfilled" ? [result.value] : []);
-        setArtifacts(restoredArtifacts);
-        setArtifact(restoredArtifacts.at(-1) || null);
+      const restoredArtifacts = restoredResults.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []);
+        const currentRevisionArtifacts = restoredArtifacts.filter(
+          (item) => item.revision_id === selectedDraft?.current_revision_id,
+        );
+        setArtifacts(currentRevisionArtifacts);
+        setArtifact(currentRevisionArtifacts.at(-1) || null);
       } else {
         setArtifacts([]);
         setArtifact(null);
@@ -1828,14 +1834,9 @@ function WorkspaceResourceDetail({
     setPreview(null);
     setError("");
     if (resource?.kind !== "files") return () => { cancelled = true; };
-    const uploadId = resource.metadata?.upload_id;
-    if (typeof uploadId !== "string" || !uploadId) {
-      setError("文件资源缺少 BFF 上传引用，无法预览。");
-      return () => { cancelled = true; };
-    }
-    void knowledgeApi.previewAdapterFile(uploadId)
+    void knowledgeApi.previewResource(resource.resource_id)
       .then((result) => {
-        if (!cancelled) setPreview(result.data);
+        if (!cancelled) setPreview(result.data as unknown as JsonObject);
       })
       .catch((cause) => {
         if (!cancelled) setError(errorMessage(cause));

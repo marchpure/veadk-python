@@ -79,11 +79,7 @@ def _zip_for(item: dict[str, Any]) -> bytes:
     entries = {
         "SKILL.md": (package / "SKILL.md").read_bytes(),
         "manifest.json": (package / "manifest.json").read_bytes(),
-        "output/index.html": (
-            f"<!doctype html><html><head><meta charset='utf-8'><title>{item['name']}</title>"
-            "<style>body{font:16px system-ui;margin:32px;color:#18212f}h1{color:#1769aa}</style>"
-            f"</head><body>{item['html']}</body></html>"
-        ).encode(),
+        "output/index.html": (package / "output" / "index.html").read_bytes(),
         f"data/{item['fixture']}": (
             ROOT / "demo" / "fixtures" / str(item["fixture"])
         ).read_bytes(),
@@ -132,6 +128,32 @@ def _ensure_demo_seed_locked(
     for item in SCENARIOS:
         if item["name"] in existing:
             draft = existing[item["name"]]
+            resource = service.repository.get_resource(
+                draft.resource_ids[0],
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            ) if draft.resource_ids else None
+            upload = service.repository.get_upload(
+                draft.upload_ids[0],
+                tenant_id=actor.tenant_id,
+                workspace_id=actor.workspace_id,
+            ) if draft.upload_ids else None
+            if resource is not None and upload is not None:
+                service.repository.update_resource(
+                    resource.model_copy(
+                        update={
+                            "metadata": {
+                                **dict(resource.metadata),
+                                "upload_id": upload.upload_id,
+                                "filename": upload.filename,
+                                "media_type": upload.media_type,
+                                "size_bytes": upload.size_bytes,
+                                "sha256": upload.sha256,
+                                "seed_version": SEED_VERSION,
+                            }
+                        },
+                    )
+                )
             session = service.repository.get_session(
                 draft.draft_id,
                 tenant_id=actor.tenant_id,
@@ -140,9 +162,143 @@ def _ensure_demo_seed_locked(
             revisions = service.repository.revisions(
                 draft.draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
             )
+            desired_zip = _zip_for(item)
+            latest = revisions[-1] if revisions else None
+            latest_artifacts = (
+                service.repository.artifacts_for_revision(
+                    latest.revision_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if latest
+                else ()
+            )
+            needs_refresh = (
+                latest is None
+                or service.repository.read_object(latest.zip_uri) != desired_zip
+                or not latest_artifacts
+            )
+            if needs_refresh and session is not None and resource is not None:
+                zip_manifest = validate_skill_zip(desired_zip)
+                zip_uri = service.repository.put_object(
+                    zip_manifest["sha256"], desired_zip, suffix=".zip"
+                )
+                candidate_revision_id = _id(
+                    "revision", f"{draft.draft_id}:presentation-v2"
+                )
+                revision = service.repository.get_revision(
+                    candidate_revision_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if revision is None:
+                    revision = SkillRevision(
+                        tenant_id=actor.tenant_id,
+                        workspace_id=actor.workspace_id,
+                        revision_id=candidate_revision_id,
+                        draft_id=draft.draft_id,
+                        number=(latest.number + 1) if latest else 1,
+                        skill_name=item["directory"],
+                        template_key=item["template"],
+                        template_config=dict(draft.template_config),
+                        zip_uri=zip_uri,
+                        sha256=zip_manifest["sha256"],
+                        manifest={
+                            **zip_manifest,
+                            "provenance": "versioned_demo_bundle",
+                            "resource_refs": [resource.resource_id],
+                            "connection_refs": [],
+                        },
+                        created_from_invocation=_id(
+                            "inv", f"{draft.draft_id}:presentation-v2:generate"
+                        ),
+                    )
+                    service.repository.freeze_revision(revision)
+                generate = service.repository.invocations_for_draft(
+                    draft.draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )[0]
+                run_id = _id("inv", f"{draft.draft_id}:presentation-v2:run")
+                run = generate.model_copy(
+                    update={
+                        "invocation_id": run_id,
+                        "revision_id": revision.revision_id,
+                        "kind": InvocationKind.RUN,
+                        "lease_id": f"demo-lease-{item['id']}-v2",
+                        "autoskill_request_id": _id("request", run_id),
+                        "autoskill_request_ids": (_id("request", run_id),),
+                    }
+                )
+                service.repository.save_invocation(run)
+                _event(
+                    service.repository,
+                    run_id,
+                    "tool.call",
+                    {
+                        "action_id": "workspace.resource.read",
+                        "status": "succeeded",
+                    },
+                )
+                with zipfile.ZipFile(io.BytesIO(desired_zip)) as archive:
+                    html_bytes = archive.read(
+                        f"skillhub/{item['directory']}/output/index.html"
+                    )
+                html = validate_html_artifact(html_bytes)
+                artifact_digest = hashlib.sha256(html_bytes).hexdigest()
+                artifact_uri = service.repository.put_object(
+                    artifact_digest, html_bytes, suffix=".html"
+                )
+                artifact_id = _id("artifact", revision.revision_id)
+                existing_artifact = service.repository.get_artifact(
+                    artifact_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
+                if existing_artifact is None:
+                    service.repository.save_artifact(
+                        Artifact(
+                        tenant_id=actor.tenant_id,
+                        workspace_id=actor.workspace_id,
+                        artifact_id=artifact_id,
+                        revision_id=revision.revision_id,
+                        invocation_id=run_id,
+                        uri=artifact_uri,
+                        sha256=artifact_digest,
+                        media_type="text/html",
+                        encoding="utf-8",
+                        size_bytes=len(html_bytes),
+                        lineage={
+                            "source": "versioned_demo_bundle",
+                            "revision_id": revision.revision_id,
+                        },
+                        csp=str(html["csp"]),
+                        sandbox=str(html["sandbox"]),
+                        )
+                    )
+                _event(
+                    service.repository,
+                    run_id,
+                    "artifact.created",
+                    {"artifact_id": artifact_id},
+                )
+                service.publish(
+                    actor,
+                    revision.revision_id,
+                    "personal",
+                    idempotency_key=_id(
+                        "publication-key", f"{item['id']}:presentation-v2"
+                    ),
+                    request_digest=revision.revision_id,
+                )
+                revisions = service.repository.revisions(
+                    draft.draft_id,
+                    tenant_id=actor.tenant_id,
+                    workspace_id=actor.workspace_id,
+                )
             artifacts = (
                 service.repository.artifacts_for_revision(
-                    revisions[0].revision_id,
+                    revisions[-1].revision_id,
                     tenant_id=actor.tenant_id,
                     workspace_id=actor.workspace_id,
                 )
@@ -152,7 +308,7 @@ def _ensure_demo_seed_locked(
             pubs = service.repository.list_publications(
                 tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
             )
-            pub = next((p for p in pubs if revisions and p.revision_id == revisions[0].revision_id), None)
+            pub = next((p for p in pubs if revisions and p.revision_id == revisions[-1].revision_id), None)
             result.append({
                 "scenario_id": item["id"], "resource_id": draft.resource_ids[0],
                 "draft_id": draft.draft_id,
@@ -179,7 +335,14 @@ def _ensure_demo_seed_locked(
             resource_id=_id("resource", upload_id), kind=item["kind"],
             display_name=f"{item['name']}示例数据", scope="personal", status="verified",
             source_id=upload_id,
-            metadata={"filename": item["fixture"], "sha256": digest, "seed_version": SEED_VERSION},
+            metadata={
+                "upload_id": upload_id,
+                "filename": item["fixture"],
+                "media_type": upload.media_type,
+                "size_bytes": upload.size_bytes,
+                "sha256": digest,
+                "seed_version": SEED_VERSION,
+            },
         )
         service.repository.save_resource(resource)
         draft = service.create_draft(
@@ -230,10 +393,9 @@ def _ensure_demo_seed_locked(
         )
         service.repository.freeze_revision(revision)
         _event(service.repository, generate_id, "revision.created", {"revision_id": revision.revision_id})
-        html = validate_html_artifact(
-            f"<!doctype html><html><body>{item['html']}</body></html>".encode()
-        )
-        html_bytes = f"<!doctype html><html><body>{item['html']}</body></html>".encode()
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+            html_bytes = archive.read(f"skillhub/{item['directory']}/output/index.html")
+        html = validate_html_artifact(html_bytes)
         run_id = _id("inv", f"{draft.draft_id}:run")
         run = generate.model_copy(update={
             "invocation_id": run_id, "revision_id": revision.revision_id,

@@ -138,6 +138,21 @@ class KnowledgeWorkspaceRepository:
             ).fetchone()
         return self._model(row, WorkspaceUpload)
 
+    def find_upload_for_resource(
+        self, source_id: str, *, tenant_id: str, workspace_id: str
+    ) -> WorkspaceUpload | None:
+        """Resolve legacy file resources without exposing storage metadata."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_uploads WHERE tenant_id=? AND workspace_id=?",
+                (tenant_id, workspace_id),
+            ).fetchall()
+        for row in rows:
+            upload = self._model(row, WorkspaceUpload)
+            if upload is not None and upload.upload_id == source_id:
+                return upload
+        return None
+
     def save_resource(self, resource: WorkspaceResource) -> WorkspaceResource:
         with self._lock:
             payload = self._json(resource)
@@ -155,6 +170,19 @@ class KnowledgeWorkspaceRepository:
                     resource.tenant_id,
                     resource.workspace_id,
                     payload,
+                ),
+            )
+        return resource
+
+    def update_resource(self, resource: WorkspaceResource) -> WorkspaceResource:
+        with self._lock:
+            self._db.execute(
+                "UPDATE kw_resources SET payload=? WHERE id=? AND tenant_id=? AND workspace_id=?",
+                (
+                    self._json(resource),
+                    resource.resource_id,
+                    resource.tenant_id,
+                    resource.workspace_id,
                 ),
             )
         return resource

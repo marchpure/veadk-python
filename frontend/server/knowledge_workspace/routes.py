@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import hashlib
 import inspect
+import csv
+import io
 from collections.abc import Callable
 from typing import Any
 
@@ -738,6 +740,181 @@ def mount_knowledge_workspace_routes(
             )
         )
         return envelope(result, request)
+
+    @app.get(f"{prefix}/resources/{{resource_id}}/preview")
+    async def resource_preview(request: Request, resource_id: str) -> dict[str, Any]:
+        actor_value = actor(request)
+        resource = service.repository.get_resource(
+            resource_id,
+            tenant_id=actor_value.tenant_id,
+            workspace_id=actor_value.workspace_id,
+        )
+        if resource is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": "resource not found", "retryable": False},
+            )
+        if resource.kind != WorkspaceResourceKind.FILE:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "UNSUPPORTED", "message": "resource preview is only available for files", "retryable": False},
+            )
+        metadata = dict(resource.metadata)
+        upload_id = metadata.get("upload_id")
+        upload = (
+            service.repository.get_upload(
+                str(upload_id),
+                tenant_id=actor_value.tenant_id,
+                workspace_id=actor_value.workspace_id,
+            )
+            if isinstance(upload_id, str) and upload_id
+            else None
+        )
+        if upload is None:
+            upload = service.repository.find_upload_for_resource(
+                resource.source_id,
+                tenant_id=actor_value.tenant_id,
+                workspace_id=actor_value.workspace_id,
+            )
+        if upload is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": "resource upload not found", "retryable": False},
+            )
+        if upload.connection_file_id:
+            result = await connection_call(
+                lambda: require_connections().preview_file(
+                    upload.connection_file_id, **connection_actor(request)
+                )
+            )
+            return envelope(
+                {
+                    **result,
+                    "filename": upload.filename,
+                    "media_type": upload.media_type,
+                    "sha256": upload.sha256,
+                    "source": "connection_service",
+                },
+                request,
+            )
+        try:
+            content = service.repository.read_object(upload.uri)
+        except (OSError, ValueError) as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_OBJECT", "message": "file object is unavailable", "retryable": False},
+            ) from exc
+        if len(content) != upload.size_bytes or hashlib.sha256(content).hexdigest() != upload.sha256:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_OBJECT", "message": "file object digest mismatch", "retryable": False},
+            )
+        if len(content) > 4 * 1024 * 1024:
+            raise HTTPException(
+                status_code=413,
+                detail={"code": "FILE_TOO_LARGE", "message": "file preview exceeds size limit", "retryable": False},
+            )
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_ENCODING", "message": "file is not valid UTF-8", "retryable": False},
+            ) from exc
+        filename = upload.filename
+        media_type = upload.media_type
+        if filename.casefold().endswith(".csv") or "csv" in media_type:
+            try:
+                records = list(csv.reader(io.StringIO(text, newline="")))
+            except csv.Error as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "INVALID_CSV", "message": "file is not valid CSV", "retryable": False},
+                ) from exc
+            if not records:
+                result = {"kind": "table", "columns": [], "rows": [], "total_rows": 0, "truncated": False}
+            else:
+                columns = records[0][:64]
+                rows = [
+                    row[:64] + [""] * max(0, len(columns) - len(row))
+                    for row in records[1:501]
+                ]
+                if any(len(cell) > 4096 for row in records[:502] for cell in row[:64]):
+                    raise HTTPException(
+                        status_code=422,
+                        detail={"code": "CELL_TOO_LARGE", "message": "file cell exceeds preview limit", "retryable": False},
+                    )
+                result = {
+                    "kind": "table",
+                    "columns": columns,
+                    "rows": rows,
+                    "total_rows": max(0, len(records) - 1),
+                    "truncated": len(records) > 501,
+                }
+        elif filename.casefold().endswith(".json") or "json" in media_type:
+            try:
+                value = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "INVALID_JSON", "message": "file is not valid JSON", "retryable": False},
+                ) from exc
+            def _json_depth(item: Any, depth: int = 0) -> int:
+                if depth > 12:
+                    return depth
+                if isinstance(item, dict):
+                    return max([depth, *(_json_depth(v, depth + 1) for v in item.values())])
+                if isinstance(item, list):
+                    return max([depth, *(_json_depth(v, depth + 1) for v in item[:64])])
+                if isinstance(item, str) and len(item) > 4096:
+                    return 13
+                return depth
+            if _json_depth(value) > 12:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "JSON_TOO_DEEP", "message": "JSON structure exceeds preview limit", "retryable": False},
+                )
+            if isinstance(value, list):
+                rows = value[:500]
+                result = {
+                    "kind": "json",
+                    "columns": [],
+                    "rows": rows,
+                    "total_rows": len(value),
+                    "truncated": len(value) > 500,
+                }
+            else:
+                result = {
+                    "kind": "json",
+                    "columns": [],
+                    "rows": [value],
+                    "total_rows": 1,
+                    "truncated": False,
+                }
+        else:
+            if len(text) > 1_000_000:
+                raise HTTPException(
+                    status_code=413,
+                    detail={"code": "TEXT_TOO_LARGE", "message": "text preview exceeds limit", "retryable": False},
+                )
+            result = {
+                "kind": "text",
+                "text": text,
+                "columns": [],
+                "rows": [],
+                "total_rows": text.count("\n") + (1 if text else 0),
+                "truncated": False,
+            }
+        return envelope(
+            {
+                **result,
+                "filename": filename,
+                "media_type": media_type,
+                "sha256": upload.sha256,
+                "source": "bff_upload",
+            },
+            request,
+        )
 
     @app.get(f"{prefix}/connections")
     async def connections(request: Request) -> dict[str, Any]:

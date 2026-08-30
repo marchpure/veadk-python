@@ -81,6 +81,19 @@ export interface UploadResult {
   media_type?: string;
 }
 
+export interface ResourcePreview {
+  kind: "table" | "json" | "text";
+  filename: string;
+  columns: string[];
+  rows: JsonValue[];
+  text?: string;
+  total_rows: number;
+  truncated: boolean;
+  media_type: string;
+  sha256: string;
+  source: "bff_upload" | "connection_service";
+}
+
 export interface AdapterCapabilityResult {
   definitionVersion?: string;
   operations?: JsonObject[];
@@ -234,6 +247,7 @@ export interface KnowledgeApi {
   getOAuthStatus(state: string, signal?: AbortSignal): Promise<ApiEnvelope<OAuthStatus>>;
   listAdapterFiles(signal?: AbortSignal): Promise<ApiEnvelope<JsonObject[]>>;
   previewAdapterFile(fileId: string, signal?: AbortSignal): Promise<ApiEnvelope<JsonObject>>;
+  previewResource(resourceId: string, signal?: AbortSignal): Promise<ApiEnvelope<ResourcePreview>>;
   validateConnection(id: string): Promise<ApiEnvelope<JobResult>>;
   discoverConnection(id: string): Promise<ApiEnvelope<JobResult>>;
   getConnectionJob(id: string, signal?: AbortSignal): Promise<ApiEnvelope<JobResult>>;
@@ -399,6 +413,13 @@ export const knowledgeApi: KnowledgeApi = {
   },
   async previewAdapterFile(fileId, signal) {
     const result = await request<JsonObject>(`/adapter-files/${encodeURIComponent(fileId)}/preview`, { signal });
+    return result.envelope;
+  },
+  async previewResource(resourceId, signal) {
+    const result = await request<ResourcePreview>(
+      `/resources/${encodeURIComponent(resourceId)}/preview`,
+      { signal },
+    );
     return result.envelope;
   },
   async validateConnection(id) {
