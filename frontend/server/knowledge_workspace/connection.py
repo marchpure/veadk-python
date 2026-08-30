@@ -101,6 +101,30 @@ class ConnectionServiceConfig:
         )
 
 
+def _runtime_url_allowed(parsed: Any) -> bool:
+    if (
+        parsed is None
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        return False
+    if parsed.scheme == "https":
+        return True
+    if parsed.scheme != "http":
+        return False
+    if os.getenv("KNOWLEDGE_ALLOW_INSECURE_LOOPBACK_RUNTIME") != "1":
+        return False
+    if os.getenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development").casefold() not in {
+        "development",
+        "test",
+    }:
+        return False
+    return parsed.hostname.casefold() in {"localhost", "127.0.0.1", "::1"}
+
+
 class ConnectionServiceGateway:
     """Tenant-scoped HTTP gateway and invocation lease adapter.
 
@@ -839,15 +863,7 @@ class ConnectionServiceGateway:
             if self.config.runtime_public_url
             else None
         )
-        if (
-            parsed_runtime is None
-            or parsed_runtime.scheme != "https"
-            or not parsed_runtime.hostname
-            or parsed_runtime.username
-            or parsed_runtime.password
-            or parsed_runtime.query
-            or parsed_runtime.fragment
-        ):
+        if not _runtime_url_allowed(parsed_runtime):
             raise ConnectionServiceError(
                 "CONNECTION_RUNTIME_UNAVAILABLE",
                 "The Connection Service MCP runtime requires a public HTTPS URL",

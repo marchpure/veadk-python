@@ -596,7 +596,10 @@ async def test_gateway_uploads_resource_only_autoskill_context() -> None:
 
 
 @pytest.mark.asyncio
-async def test_gateway_requires_public_https_for_connection_service_runtime() -> None:
+async def test_gateway_requires_public_https_for_connection_service_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KNOWLEDGE_ALLOW_INSECURE_LOOPBACK_RUNTIME", raising=False)
     requests: list[httpx.Request] = []
     target = bridge_gateway(requests)
     invalid = ConnectionServiceGateway(
@@ -610,6 +613,76 @@ async def test_gateway_requires_public_https_for_connection_service_runtime() ->
     with pytest.raises(ConnectionServiceError, match="public HTTPS"):
         await invalid.prepare_autoskill(
             context=bridge_context(invalid),
+            autoskill=RecordingAutoSkill(),
+            agent_id="agent-1",
+            session_id="session-1",
+            invocation_id="invocation-bridge",
+        )
+
+
+@pytest.mark.asyncio
+async def test_gateway_allows_loopback_http_runtime_only_with_development_switch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KNOWLEDGE_ALLOW_INSECURE_LOOPBACK_RUNTIME", "1")
+    monkeypatch.setenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development")
+    for host in ("localhost", "127.0.0.1", "[::1]"):
+        target = ConnectionServiceGateway(
+            ConnectionServiceConfig(
+                "https://connections.test",
+                "test-secret",
+                runtime_public_url=f"http://{host}:3400",
+            ),
+            client=httpx.AsyncClient(
+                transport=httpx.MockTransport(
+                    lambda request: httpx.Response(200, json={"ok": True})
+                )
+            ),
+        )
+        await target.prepare_autoskill(
+            context=bridge_context(target),
+            autoskill=RecordingAutoSkill(),
+            agent_id="agent-1",
+            session_id="session-1",
+            invocation_id="invocation-bridge",
+        )
+
+
+@pytest.mark.asyncio
+async def test_gateway_rejects_loopback_http_runtime_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KNOWLEDGE_ALLOW_INSECURE_LOOPBACK_RUNTIME", "1")
+    monkeypatch.setenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "production")
+    target = ConnectionServiceGateway(
+        ConnectionServiceConfig(
+            "https://connections.test",
+            "test-secret",
+            runtime_public_url="http://127.0.0.1:3400",
+        )
+    )
+    with pytest.raises(ConnectionServiceError):
+        await target.prepare_autoskill(
+            context=bridge_context(target),
+            autoskill=RecordingAutoSkill(),
+            agent_id="agent-1",
+            session_id="session-1",
+            invocation_id="invocation-bridge",
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url", ["http://8.8.8.8:3400", "http://10.0.0.1:3400"])
+async def test_gateway_rejects_non_loopback_http_runtime(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("KNOWLEDGE_ALLOW_INSECURE_LOOPBACK_RUNTIME", "1")
+    target = ConnectionServiceGateway(
+        ConnectionServiceConfig("https://connections.test", "test-secret", runtime_public_url=url)
+    )
+    with pytest.raises(ConnectionServiceError):
+        await target.prepare_autoskill(
+            context=bridge_context(target),
             autoskill=RecordingAutoSkill(),
             agent_id="agent-1",
             session_id="session-1",
