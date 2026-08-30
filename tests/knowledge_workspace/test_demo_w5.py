@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -163,3 +166,50 @@ def test_contract_manifests_keep_oracle_as_unconnected_configuration_example() -
     ]
     assert all("validate" in scenario["requires"] for scenario in seed["scenarios"])
     assert seed["oracle_configuration_example"]["connected"] is False
+
+
+def test_local_mcp_provider_implements_initialize_discover_and_call() -> None:
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "demo-services/local_service.py",
+            "--service",
+            "mcp",
+            "--port",
+            "28093",
+        ]
+    )
+    try:
+        for _ in range(50):
+            try:
+                urllib.request.urlopen("http://127.0.0.1:28093/healthz", timeout=0.1)
+                break
+            except OSError:
+                import time
+
+                time.sleep(0.02)
+
+        def rpc(method: str, params: dict[str, object] | None = None) -> dict[str, object]:
+            request = urllib.request.Request(
+                "http://127.0.0.1:28093/mcp",
+                data=json.dumps(
+                    {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
+                ).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/event-stream",
+                },
+            )
+            return json.load(urllib.request.urlopen(request, timeout=2))
+
+        assert rpc("initialize")["result"]["serverInfo"]["name"] == "knowledge-commercial-demo"  # type: ignore[index]
+        tools = rpc("tools/list")["result"]["tools"]  # type: ignore[index]
+        assert tools[0]["name"] == "inspect_store"  # type: ignore[index]
+        called = rpc(
+            "tools/call",
+            {"name": "inspect_store", "arguments": {"store_id": "store-sh"}},
+        )
+        assert "98" in called["result"]["content"][0]["text"]  # type: ignore[index]
+    finally:
+        process.terminate()
+        process.wait(timeout=5)

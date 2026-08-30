@@ -38,13 +38,25 @@
       "postgres": "healthy; pg_isready; isolated host port 25432",
       "web_action": "healthy; repair action returned evidence; isolated host port 28081",
       "form_api": "healthy; inspection submission returned id; isolated host port 28082",
-      "mcp": "healthy; JSON-RPC inspect_store returned rows; isolated host port 28083"
+      "mcp": "passed: standard Streamable HTTP initialize, tools/list, resources/list, prompts/list and tools/call; Connection Service discover and persisted-definition call returned inspect_store score 98"
     },
     "real_e2e": {
       "status": "integration_required",
-      "reason": "Current environment has no configured Connection Service, AutoSkill, or OpenViking endpoints.",
-      "gate": "Integration runs validate/discover/lease/query-or-invoke and real AutoSkill revision/artifact/publish after W1-W4 merge.",
+      "reason": "W5 owns the demo boundary and local providers, not the merged W4 AutoSkill/OpenViking lifecycle or final browser journey.",
+      "gate": "Integration runs the three scenarios through merged Connection/AutoSkill/OpenViking, then proves Semantic, Dashboard and SOP revision/artifact/publish plus the browser journey.",
       "fallback": "No fixture-success fallback; missing dependencies remain 示例尚未初始化."
     }
+  },
+  "integration_handoff": {
+    "w5_complete": [
+      "Demo MCP is a real Streamable HTTP MCP server and is discoverable/callable through Connection Service",
+      "seed idempotency, scoped reset, production-default-off and fail-closed behavior are covered by tests",
+      "local PostgreSQL, Web Action and Form API providers remain reproducible"
+    ],
+    "integration_owned": [
+      "provide the gate module to tools/seed_demo_tenant.py",
+      "run merged W4 AutoSkill and OpenViking lifecycle",
+      "perform final three-Skill browser acceptance"
+    ]
   }
 }

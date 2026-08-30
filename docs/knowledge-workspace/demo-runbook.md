@@ -10,7 +10,7 @@ docker compose -f demo-services/docker-compose.yml up -d
 docker compose -f demo-services/docker-compose.yml ps
 ```
 
-四个本地 provider 都必须是 healthy：PostgreSQL `15432`、售后 Web Action `18081`、巡检 Form API `18082`、MCP `18083`。provider 只提供可复现的本地示例数据，不代表连接已验证。
+四个本地 provider 都必须是 healthy：PostgreSQL `15432`、售后 Web Action `18081`、巡检 Form API `18082`、MCP `18083`。MCP provider 实现标准 Streamable HTTP `initialize`、发现和 `tools/call`，可由 Connection Service 真实 discover/invoke。provider 健康本身不代表完整 Demo 已初始化。
 
 显式 seed 入口要求一个真实 gate module：
 
@@ -21,6 +21,8 @@ python tools/seed_demo_tenant.py \
   --principal demo-principal \
   --gate-module your_integration.demo_gate
 ```
+
+`--gate-module` 由 Integration 在 W1–W4 合并后提供；W5 不内置或替代 AutoSkill/OpenViking lifecycle runner。未提供 gate、依赖不可用或任一真实校验失败时，seed 必须 fail closed。
 
 `gate(scenario)` 必须对每条 scenario 完成：
 
