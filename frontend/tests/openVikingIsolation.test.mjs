@@ -7,10 +7,18 @@ const knowledgePage = readFileSync(
   new URL("../src/features/knowledge-workspace/pages/KnowledgeWorkspacePage.tsx", import.meta.url),
   "utf8",
 );
+const frontendServer = readFileSync(
+  new URL("../../veadk/cli/cli_frontend.py", import.meta.url),
+  "utf8",
+);
 
 test("OpenViking implementation is not statically imported by App", () => {
   assert.match(appSource, /lazy\(loadOpenVikingWorkspace\)/);
   assert.doesNotMatch(appSource, /from\s*["']\.\/extensions\/openviking\//);
+});
+
+test("SPA view routing does not change production module identity", () => {
+  assert.match(frontendServer, /unquote_plus\(part\.partition\("="\)\[0\]\) != "view"/);
 });
 
 test("legacy OpenViking source roots are removed", () => {

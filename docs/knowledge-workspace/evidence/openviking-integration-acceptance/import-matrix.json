@@ -1,16 +1,157 @@
 {
-  "status": "BLOCKED_EXTERNAL",
-  "types": [
-    {"type": "manual_text", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "URL_web", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "TXT", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "Markdown", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "PDF", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "CSV", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "JSON", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "XLSX", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
-    {"type": "DOCX/PPTX/HTML/images/directories/batch/Git/Feishu", "status": "BLOCKED_EXTERNAL", "reason": "UI/upstream operation exists, but no live acceptance evidence"}
+  "imports": [
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "cce7d380-2034-4763-8dd5-3290020c1068",
+      "type": "manual_text"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "24808b11-8aec-46db-b5c1-614ed9dc6ad7",
+      "type": "TXT"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "7803b26d-00d1-4095-bc4f-30e404a42633",
+      "type": "Markdown"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "5a475fab-60ed-443f-8db3-7de7bf8626ea",
+      "type": "PDF"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "8efd3235-e874-440e-b53d-a377cc28f613",
+      "type": "CSV"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "8a82cbb0-bb78-4a2b-af87-6d0d8e3fbb9b",
+      "type": "JSON"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "a038fa06-fbc7-4afb-b23e-f4a64d11ce5c",
+      "type": "XLSX"
+    },
+    {
+      "checks": {
+        "content_readable": true,
+        "delete_effect": true,
+        "search_hit": true,
+        "task_id": true,
+        "terminal_success": true,
+        "tree_visible": true
+      },
+      "root_ref": "[redacted]",
+      "status": "PASS",
+      "task_id": "b5003341-1c32-4ab6-aa73-020dddc9dac8",
+      "type": "URL_web"
+    },
+    {
+      "reason": "当前适配层未实现",
+      "status": "NOT_SUPPORTED",
+      "type": "DOC/DOCX"
+    },
+    {
+      "reason": "当前适配层未实现",
+      "status": "NOT_SUPPORTED",
+      "type": "PPT/PPTX"
+    },
+    {
+      "reason": "当前适配层未实现",
+      "status": "NOT_SUPPORTED",
+      "type": "HTML local upload"
+    },
+    {
+      "reason": "当前适配层未实现",
+      "status": "NOT_SUPPORTED",
+      "type": "images/audio/video local upload"
+    },
+    {
+      "reason": "当前适配层未实现",
+      "status": "NOT_SUPPORTED",
+      "type": "archives/directories/batch upload"
+    },
+    {
+      "reason": "需要外部转换器",
+      "status": "NOT_SUPPORTED",
+      "type": "Git remote import"
+    },
+    {
+      "reason": "需要外部转换器",
+      "status": "NOT_SUPPORTED",
+      "type": "Feishu/Lark remote import"
+    },
+    {
+      "reason": "UI 未暴露可独立验收的外部凭据",
+      "status": "NOT_SUPPORTED",
+      "type": "TOS remote import"
+    }
   ],
-  "required_assertions": ["task id", "terminal success", "tree visibility", "content read", "canary search", "refresh recovery", "restart recovery", "delete effect"],
-  "completed_assertions": []
+  "status": "PASS"
 }

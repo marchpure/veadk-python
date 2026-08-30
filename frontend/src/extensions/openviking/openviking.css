@@ -410,8 +410,20 @@
 }
 
 .ov-resource-preview {
+  position: relative;
   flex: 1;
   background: hsl(var(--background));
+}
+
+.ov-resource-preview-actions {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  right: 14px;
+}
+
+.ov-resource-preview-actions + * > :first-child {
+  padding-right: 150px;
 }
 
 .ov-page-scroll {

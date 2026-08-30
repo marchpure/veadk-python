@@ -28,9 +28,6 @@ export const openVikingManifest: KnowledgeSourceExtension = {
       id: "data-tools",
       listOptions: async (signal) => {
         const returnOptionId = sessionStorage.getItem(KNOWLEDGE_SOURCE_RETURN_OPTION_KEY);
-        if (returnOptionId) {
-          sessionStorage.removeItem(KNOWLEDGE_SOURCE_RETURN_OPTION_KEY);
-        }
         const profiles = await openVikingApi.listProfiles(signal);
         return profiles.map((profile) => ({
           id: `openviking:profile:${profile.profile_id}`,

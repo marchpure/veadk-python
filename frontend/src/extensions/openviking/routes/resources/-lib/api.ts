@@ -8,6 +8,7 @@ import {
   getFsTree,
   getOvResult,
   normalizeOvClientError,
+  ovClient,
   postContentWrite,
 } from '#/lib/ov-client'
 import type {
@@ -217,6 +218,26 @@ export async function saveFileContent(
           mode: 'replace',
           wait: false,
         },
+      }),
+    )
+  } catch (error) {
+    throw toVikingApiError(error)
+  }
+}
+
+export async function deleteFsResource(
+  uri: string,
+  recursive = false,
+): Promise<void> {
+  try {
+    await getOvResult(
+      ovClient.client.delete({
+        query: {
+          uri,
+          recursive,
+          wait: true,
+        },
+        url: '/api/v1/fs',
       }),
     )
   } catch (error) {

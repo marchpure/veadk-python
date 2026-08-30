@@ -1,17 +1,9 @@
 {
-  "bff": "http://127.0.0.1:38111",
-  "credentials": {
-    "OPENVIKING_E2E_API_KEY": "UNSET",
-    "OPENVIKING_E2E_BASE_URL": "UNSET",
-    "OPENVIKING_PROFILE_ENCRYPTION_KEY": "UNSET",
-    "OPENVIKING_REF_SIGNING_KEY": "UNSET"
-  },
-  "missing": [
-    "OPENVIKING_E2E_BASE_URL",
-    "OPENVIKING_E2E_API_KEY",
-    "OPENVIKING_PROFILE_ENCRYPTION_KEY",
-    "OPENVIKING_REF_SIGNING_KEY"
-  ],
-  "status": "BLOCKED_EXTERNAL",
-  "upstream": "UNSET"
+  "bff": "http://127.0.0.1:38112",
+  "credentials": "configured and redacted",
+  "profile_id": "[redacted]",
+  "status": "PASS",
+  "tenant": "local",
+  "upstream": "http://127.0.0.1:1935",
+  "workspace": "studio"
 }

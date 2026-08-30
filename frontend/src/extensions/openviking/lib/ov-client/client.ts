@@ -1,6 +1,8 @@
 import axios, { AxiosHeaders } from 'axios'
 import type { InternalAxiosRequestConfig } from 'axios'
 
+import { withAuth } from '../../../../adk/auth'
+import { withLocalUser } from '../../../../adk/identity'
 import { createClient } from '#/gen/ov-client/client'
 import { client as sdkClient } from '#/gen/ov-client/client.gen'
 
@@ -33,6 +35,7 @@ const OPERATION_PATHS = new Map<string, string>([
   ['/api/v1/fs/ls', 'fs_list'],
   ['/api/v1/fs/tree', 'fs_tree'],
   ['/api/v1/fs/stat', 'fs_stat'],
+  ['/api/v1/fs', 'fs_delete'],
   ['/api/v1/content/read', 'content_read'],
   ['/api/v1/content/abstract', 'content_abstract'],
   ['/api/v1/content/overview', 'content_overview'],
@@ -317,6 +320,10 @@ export function createOvClient(options: OvClientOptions = {}): OvClientAdapter {
     headers.delete('X-API-Key')
     headers.delete('X-OpenViking-Account')
     headers.delete('X-OpenViking-User')
+    for (const [key, value] of withLocalUser()) {
+      headers.set(key, value)
+    }
+    config.url = withAuth(config.url)
     if (!isUpload) headers.set('Content-Type', 'application/json')
 
     config.headers = headers

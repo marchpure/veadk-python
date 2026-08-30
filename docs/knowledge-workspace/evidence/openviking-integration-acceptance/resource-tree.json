@@ -1,6 +1,558 @@
 {
-  "status": "BLOCKED_EXTERNAL",
-  "profile": "not created in this run",
-  "resources": [],
-  "reason": "No live OpenViking upstream credentials/service were available."
+  "profile_id": "[redacted]",
+  "resources": [
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "# Acceptance\n\nOV_ACCEPTANCE_MANUAL_1788104734-a412209e_38426d04",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:45:42Z",
+              "mode": 493,
+              "name": "acceptance-manual-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-manual-1788104734-a412209e/acceptance-manual-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:45:35.000Z",
+                "rel_path": "acceptance-manual-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 164,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "manual_text"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "OV_ACCEPTANCE_TXT_1788104734-a412209e_068710e2",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:45:55Z",
+              "mode": 493,
+              "name": "acceptance-txt-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-txt-1788104734-a412209e/acceptance-txt-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:45:44.000Z",
+                "rel_path": "acceptance-txt-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 146,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "TXT"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "# Acceptance\n\nOV_ACCEPTANCE_MARKDOWN_1788104734-a412209e_398fb79c",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:46:07Z",
+              "mode": 493,
+              "name": "acceptance-markdown-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-markdown-1788104734-a412209e/acceptance-markdown-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:45:56.000Z",
+                "rel_path": "acceptance-markdown-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 166,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "Markdown"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "<!-- Page 1 -->\nOV_ACCEPTANCE_PDF_1788104734-a412209e_1356866f",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:46:21Z",
+              "mode": 493,
+              "name": "acceptance-pdf-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-pdf-1788104734-a412209e/acceptance-pdf-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:46:08.000Z",
+                "rel_path": "acceptance-pdf-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 162,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "PDF"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "name,value\ncanary,OV_ACCEPTANCE_CSV_1788104734-a412209e_25f10aaf",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:46:39Z",
+              "mode": 493,
+              "name": "acceptance-csv-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-csv-1788104734-a412209e/acceptance-csv-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:46:23.000Z",
+                "rel_path": "acceptance-csv-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 165,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "CSV"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "{\"canary\": \"OV_ACCEPTANCE_JSON_1788104734-a412209e_1b20df7c\"}",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:46:54Z",
+              "mode": 493,
+              "name": "acceptance-json-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-json-1788104734-a412209e/acceptance-json-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:46:42.000Z",
+                "rel_path": "acceptance-json-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 161,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "JSON"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "# upload_8197bbdb423941d2b6e9e7bcb0b8db3e\n\n**Sheets:** 1\n\n## Sheet: Sheet\n\n**Dimensions:** 1 rows × 2 columns\n\n| canary | OV_ACCEPTANCE_XLSX_1788104734-a412209e_2fbc873e |",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:47:11Z",
+              "mode": 493,
+              "name": "acceptance-xlsx-1788104734-a412209e",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "acceptance-xlsx-1788104734-a412209e/acceptance-xlsx-1788104734-a412209e.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:46:54.000Z",
+                "rel_path": "acceptance-xlsx-1788104734-a412209e.md",
+                "resource_ref": "[redacted]",
+                "size": 272,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "XLSX"
+    },
+    {
+      "content_ref": "[redacted]",
+      "read": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": "{\n  \"args\": {\n    \"canary\": \"OV_ACCEPTANCE_URL_1788104734-a412209e_875895a5\"\n  }, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept\": \"*/*\", \n    \"Accept-Encoding\": \"gzip, deflate, br, zstd\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\", \n    \"X-Amzn-Trace-Id\": \"Root=1-6a945086-22bce26121367fad23566d52\"\n  }, \n  \"json\": null, \n  \"method\": \"GET\", \n  \"ori…",
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "root_ref": "[redacted]",
+      "stat": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": {
+              "count": 3,
+              "isDir": true,
+              "isLocked": false,
+              "modTime": "2026-08-30T15:47:34Z",
+              "mode": 493,
+              "name": "anything",
+              "size": 160
+            },
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "tree": {
+        "response": {
+          "data": {
+            "error": null,
+            "profile": null,
+            "result": [
+              {
+                "abstract": "",
+                "display_path": "anything/anything.md",
+                "isDir": false,
+                "modTime": "2026-08-30T15:47:19.000Z",
+                "rel_path": "anything.md",
+                "resource_ref": "[redacted]",
+                "size": 722,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "status": "ok",
+            "telemetry": null
+          },
+          "meta": {
+            "request_id": "server-generated"
+          }
+        },
+        "status_code": 200
+      },
+      "type": "URL_web"
+    }
+  ],
+  "status": "PASS"
 }

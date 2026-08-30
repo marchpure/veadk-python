@@ -301,6 +301,7 @@ OPERATIONS: Mapping[str, Operation] = {
     "fs_list": Operation("GET", "/api/v1/fs/ls"),
     "fs_tree": Operation("GET", "/api/v1/fs/tree"),
     "fs_stat": Operation("GET", "/api/v1/fs/stat"),
+    "fs_delete": Operation("DELETE", "/api/v1/fs"),
     "content_read": Operation("GET", "/api/v1/content/read"),
     "content_abstract": Operation("GET", "/api/v1/content/abstract"),
     "content_overview": Operation("GET", "/api/v1/content/overview"),
@@ -351,6 +352,7 @@ OPERATION_FIELDS: Mapping[str, frozenset[str]] = {
         }
     ),
     "fs_stat": frozenset({"resource_ref"}),
+    "fs_delete": frozenset({"resource_ref", "recursive", "wait", "timeout"}),
     "content_read": frozenset({"resource_ref", "offset", "limit", "raw"}),
     "content_abstract": frozenset({"resource_ref"}),
     "content_overview": frozenset({"resource_ref"}),
@@ -1489,9 +1491,9 @@ class OpenVikingService:
             kwargs: dict[str, Any] = {
                 "headers": {"X-API-Key": api_key, "Accept": "application/json"}
             }
-            if operation.method == "GET":
+            if operation.method in {"GET", "DELETE"}:
                 kwargs["params"] = body
-            elif operation.method != "DELETE":
+            else:
                 kwargs["json"] = body
             response = await client.request(
                 operation.method, self._join_upstream_url(base_url, path), **kwargs
@@ -1668,8 +1670,7 @@ class OpenVikingService:
             payload={
                 "temp_file_id": temp_file_id,
                 "parent_ref": parent_ref,
-                "wait": True,
-                "timeout": self.config.timeout_seconds,
+                "wait": False,
             },
         )
 
@@ -1723,6 +1724,13 @@ class OpenVikingService:
             )
         if not content or len(content) > MAX_UPLOAD_BYTES:
             raise OpenVikingError("PAYLOAD_TOO_LARGE", "Upload is too large", 413)
+        if suffix == ".json":
+            try:
+                json.loads(content)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise OpenVikingError(
+                    "INVALID_FILE_CONTENT", "JSON file is malformed", 422
+                ) from exc
         base_url, api_key = self._credentials(profile)
         client = self._client or httpx.AsyncClient(
             timeout=httpx.Timeout(self.config.timeout_seconds, connect=5),

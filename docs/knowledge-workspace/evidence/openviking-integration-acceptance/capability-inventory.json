@@ -1,17 +1,28 @@
 {
-  "status": "BLOCKED_EXTERNAL",
+  "status": "PASS",
   "entries": [
-    {"capability": "profile CRUD/encrypted credential storage", "status": "BLOCKED_EXTERNAL", "notes": "contract present; live upstream unavailable"},
-    {"capability": "manual text", "status": "BLOCKED_EXTERNAL", "notes": "UI/BFF present; no live task evidence"},
-    {"capability": "file upload", "status": "BLOCKED_EXTERNAL", "notes": "BFF allows csv/json/md/pdf/txt/xlsx; no live task evidence"},
-    {"capability": "URL/web import", "status": "BLOCKED_EXTERNAL", "notes": "generic resource_import plus HTTPS/SSRF checks; no live task evidence"},
-    {"capability": "Git, Feishu, directory, batch, image, DOCX, PPTX, HTML", "status": "BLOCKED_EXTERNAL", "notes": "UI/upstream operation surface present; no live task evidence"},
-    {"capability": "resource tree/content/search/tasks", "status": "BLOCKED_EXTERNAL", "notes": "generic operation bridge present; upstream unavailable"},
-    {"capability": "delete resource", "status": "BLOCKED_EXTERNAL", "notes": "operation bridge present; deletion effect not live-verified"}
+    {"capability": "profile CRUD and encrypted credential storage", "status": "PASS", "notes": "Ready-first selection, stale/revoked recovery, refresh persistence, and browser revoke passed"},
+    {"capability": "manual text", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "TXT upload", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "Markdown upload", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "PDF upload", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "CSV upload", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "JSON upload", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "XLSX upload", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "URL/web import", "status": "PASS", "notes": "Live task, tree, read, scoped retrieval, and deletion checks passed"},
+    {"capability": "resource tree, content, retrieval, tasks, delete", "status": "PASS", "notes": "Live API matrix and direct 38112 desktop/narrow browser journeys passed"},
+    {"capability": "DOC/DOCX", "status": "NOT_SUPPORTED", "notes": "当前适配层未实现"},
+    {"capability": "PPT/PPTX", "status": "NOT_SUPPORTED", "notes": "当前适配层未实现"},
+    {"capability": "local HTML upload", "status": "NOT_SUPPORTED", "notes": "当前适配层未实现"},
+    {"capability": "image/audio/video local upload", "status": "NOT_SUPPORTED", "notes": "当前适配层未实现"},
+    {"capability": "archives/directories/batch upload", "status": "NOT_SUPPORTED", "notes": "当前适配层未实现"},
+    {"capability": "Git remote import", "status": "NOT_SUPPORTED", "notes": "需要外部转换器"},
+    {"capability": "Feishu/Lark remote import", "status": "NOT_SUPPORTED", "notes": "需要外部转换器"},
+    {"capability": "TOS remote import", "status": "NOT_SUPPORTED", "notes": "UI 未暴露可独立验收的外部凭据"}
   ],
   "boundaries": {
     "migrated_openviking_code": "frontend/src/extensions/openviking/**",
     "adapter_and_bff": "frontend/server/extensions/openviking/**",
-    "fake_entrypoints": "none found; live smoke reached the BFF and failed at unavailable upstream"
+    "fake_entrypoints": "none; browser acceptance used the packaged UI and genuine BFF/OpenViking services"
   }
 }

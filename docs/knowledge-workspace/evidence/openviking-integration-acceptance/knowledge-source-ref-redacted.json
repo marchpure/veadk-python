@@ -1,11 +1,13 @@
 {
+  "capability": "content_read through resolved_creator_context",
+  "cross_workspace_fail_closed": true,
+  "live_delivery_content_canary": true,
+  "profile_identity": "sha256:52fad2f7dc4a721a8e64cdcbc3c9a15df1a0a67f19c4499b69091da0697cd2bc",
+  "provider": "openviking",
+  "resource_identity": "signed opaque ref, sha256:19fab3309dc950339f283291329f8ddfec97e99b68d38bda32431165142cbd7e",
+  "revoked_ref_fail_closed": true,
+  "signature": "HMAC opaque token, redacted",
   "status": "PASS",
-  "shape": {
-    "provider": "openviking",
-    "profile_ref": "ovp_<opaque>",
-    "resource_ref": "ovr_<signed-opaque>",
-    "scope": "server-side tenant/workspace lookup; not serialized as raw URL or API key",
-    "capability": "ready profile and matching signed resource enforced by resolver"
-  },
-  "live_delivery": "BLOCKED_EXTERNAL"
+  "tampered_ref_fail_closed": true,
+  "tenant_workspace_scope": "validated server-side by profile lookup"
 }
