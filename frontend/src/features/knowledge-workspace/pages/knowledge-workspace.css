@@ -24,9 +24,6 @@
 .kw-studio-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
 .kw-studio-actions button:hover { background: #f1f5f9; color: #1e293b; }
 .kw-workspace-frame { display: grid; grid-template-columns: 248px minmax(0, 1fr); width: min(1440px, 100%); flex: 1; min-height: 0; margin: 0 auto; overflow: hidden; border-inline: 1px solid #e2e8f0; background: #fff; box-shadow: 0 1px 4px #0f172a0a; }
-.kw-shell.is-workshop-route .kw-workspace-frame { width: 100%; grid-template-columns: minmax(0, 1fr); border-inline: 0; }
-.kw-shell.is-workshop-route .kw-sidebar { display: none; }
-.kw-shell.is-workshop-route > .kw-studio-nav { display: none; }
 .kw-auth-state { display: grid; place-content: center; justify-items: center; gap: 10px; height: 100%; padding: 24px; text-align: center; color: var(--kw-text, #17181c); }.kw-auth-state h1 { margin: 0; font-size: 20px; }.kw-auth-state p { margin: 0 0 8px; color: var(--kw-muted, #737680); font-size: 13px; }
 .kw-sidebar { width: 248px; flex: 0 0 248px; padding: 8px 8px 12px; background: #fdfefe; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
 .kw-brand { display: flex; align-items: center; gap: 9px; padding: 2px 10px 18px; font-weight: 650; }
@@ -931,7 +928,7 @@
 
 @media (max-width: 720px) {
   .kw-workspace-frame { grid-template-columns: 1fr; }
-  .kw-sidebar { display: none; }
+  .kw-sidebar { width: 100%; max-height: 168px; border-right: 0; border-bottom: 1px solid #e2e8f0; }
   .kw-chat { width: 100%; max-width: none; min-width: 0; flex-basis: auto; }
   .kw-draft-layout { flex-direction: column; overflow: auto; }
   .kw-draft-center { flex: 0 0 auto; padding: 0 16px 24px; }
@@ -1091,7 +1088,7 @@
 .kw-add-context svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .kw-template-menu { position: relative; display: flex; align-items: center; gap: 8px; }
 .kw-template-trigger { border: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
-.kw-template-trigger svg, .kw-template-popover svg, .kw-data-tool-drawer > header svg, .kw-data-tool-check svg, .kw-invocation-rail > header svg, .kw-workshop-close svg, .kw-workshop-mobile-control svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.kw-template-trigger svg, .kw-template-popover svg, .kw-data-tool-drawer > header svg, .kw-data-tool-check svg, .kw-session-icon-button svg, .kw-workshop-close svg, .kw-workshop-mobile-control svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .kw-workshop-context svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .kw-template-popover { position: absolute; right: 44px; bottom: 42px; z-index: 5; display: grid; width: 220px; padding: 4px; border: 1px solid hsl(var(--border)); border-radius: 10px; background: hsl(var(--panel)); box-shadow: 0 12px 32px rgb(15 23 42 / 14%); }
 .kw-template-popover button { display: flex; min-height: 36px; align-items: center; justify-content: space-between; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: hsl(var(--foreground)); cursor: pointer; font-size: 12px; text-align: left; }
@@ -1139,32 +1136,26 @@
 
 .kw-skill-workshop {
   display: grid;
-  grid-template-columns: 240px minmax(420px, min(760px, 42vw)) minmax(0, 1fr);
+  grid-template-columns: minmax(480px, 1fr);
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: hsl(var(--panel));
 }
-.kw-workshop-rail, .kw-workshop-artifacts { min-width: 0; min-height: 0; }
-.kw-invocation-rail { display: flex; height: 100%; min-height: 0; flex-direction: column; border-right: 1px solid hsl(var(--border)); background: hsl(var(--muted)); }
-.kw-invocation-rail > header { display: flex; min-height: 54px; align-items: center; justify-content: space-between; padding: 0 16px; }
-.kw-invocation-rail > header strong { font-size: 13px; font-weight: 600; }
-.kw-invocation-rail > header button { border: 0; background: transparent; color: hsl(var(--muted-foreground)); font-size: 20px; }
-.kw-session-gap { margin: 0 10px 10px; padding: 8px 10px; border-radius: 7px; background: hsl(var(--panel)); color: hsl(var(--muted-foreground)); font-size: 10px; }
-.kw-invocation-list { flex: 1; min-height: 0; padding: 0 8px 12px; overflow: auto; }
-.kw-invocation-list section h3 { margin: 14px 8px 6px; color: hsl(var(--muted-foreground)); font-size: 10px; font-weight: 600; }
-.kw-invocation-list section > button { display: grid; width: 100%; gap: 5px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: hsl(var(--foreground)); cursor: pointer; text-align: left; }
-.kw-invocation-list section > button:hover, .kw-invocation-list section > button.is-active { background: hsl(var(--panel)); }
-.kw-invocation-list button span { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.kw-invocation-list button small { color: hsl(var(--muted-foreground)); font-size: 10px; }
-.kw-invocation-list button small.is-running { color: hsl(var(--primary)); }
-.kw-invocation-list button small.is-failed { color: hsl(var(--destructive)); }
-.kw-invocation-empty { padding: 30px 10px; color: hsl(var(--muted-foreground)); font-size: 11px; line-height: 1.6; text-align: center; }
+.kw-skill-workshop.has-artifact { grid-template-columns: minmax(480px, 1fr) minmax(360px, min(44vw, 720px)); }
+.kw-workshop-artifacts { min-width: 0; min-height: 0; border-left: 1px solid hsl(var(--border)); }
 .kw-skill-conversation { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; border-right: 1px solid hsl(var(--border)); background: hsl(var(--panel)); }
 .kw-skill-conversation > header { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px; border-bottom: 1px solid hsl(var(--border)); }
 .kw-skill-conversation > header h1 { min-width: 0; margin: 0; overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.kw-skill-conversation > header > div { display: flex; gap: 6px; }
+.kw-skill-title-block { display: grid; min-width: 0; gap: 4px; padding: 7px 0; }
+.kw-session-toolbar { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.kw-session-toolbar label { display: flex; min-width: 0; align-items: center; gap: 6px; color: hsl(var(--muted-foreground)); font-size: 10px; }
+.kw-session-toolbar label span { font-size: 10px; font-weight: 600; text-transform: uppercase; }
+.kw-session-toolbar select { width: min(360px, 42vw); min-width: 160px; height: 28px; padding: 0 28px 0 8px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--panel)); color: hsl(var(--foreground)); font: inherit; font-size: 11px; }
+.kw-session-icon-button { display: grid; width: 28px; height: 28px; min-height: 28px !important; padding: 0 !important; place-items: center; }
+.kw-session-running { padding: 3px 6px; border-radius: 5px; background: hsl(var(--primary) / 8%); color: hsl(var(--primary)); font-size: 10px; white-space: nowrap; }
+.kw-skill-header-actions { display: flex; align-items: center; gap: 6px; }
 .kw-skill-conversation > header button { min-height: 30px; padding: 0 9px; border: 1px solid hsl(var(--border)); border-radius: 7px; background: hsl(var(--panel)); color: hsl(var(--foreground)); cursor: pointer; font-size: 11px; white-space: nowrap; }
 .kw-skill-transcript { flex: 1; min-height: 0; overflow: auto; }
 .kw-skill-transcript-column { width: min(760px, 100%); min-height: 100%; margin: 0 auto; padding: 24px 24px 156px; }
@@ -1196,24 +1187,34 @@
 .kw-artifact-waiting span { font-size: 12px; }
 
 @media (max-width: 1180px) {
-  .kw-skill-workshop { grid-template-columns: 220px minmax(420px, 48vw) minmax(300px, 1fr); }
+  .kw-skill-workshop.has-artifact { grid-template-columns: minmax(440px, 1fr) minmax(320px, min(42vw, 620px)); }
   .kw-artifact-toolbar { justify-content: flex-start; }
 }
 
 @media (max-width: 720px) {
   .kw-shell { overflow-x: hidden; }
-  .kw-studio-nav, .kw-main > .kw-draft-topbar { display: none; }
+  .kw-studio-nav { min-height: 46px; }
+  .kw-main > .kw-draft-topbar { display: flex; }
   .kw-skill-create-landing { padding: 24px 16px; }
   .kw-skill-create-content > p { margin-bottom: 24px; }
   .kw-skill-suggestions { align-items: stretch; flex-direction: column; width: 100%; }
   .kw-data-tool-drawer { width: 100vw; max-width: none; }
-  .kw-skill-workshop { display: block; width: 100%; overflow-x: hidden; }
-  .kw-workshop-rail, .kw-workshop-artifacts { display: none; }
+  .kw-skill-workshop,
+  .kw-skill-workshop.has-artifact,
+  .kw-skill-workshop.is-conversation-only {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  .kw-workshop-artifacts { display: none; }
   .kw-workshop-mobile-drawer { position: fixed; inset: 0; z-index: 90; display: block; width: 100vw; height: 100%; background: hsl(var(--panel)); }
   .kw-skill-conversation { width: 100%; height: 100%; border-right: 0; }
   .kw-workshop-mobile-control { display: inline-flex !important; }
-  .kw-skill-conversation > header { padding: 0 10px; }
+  .kw-skill-conversation > header { align-items: flex-start; min-height: 86px; padding: 8px 10px; }
   .kw-skill-conversation > header h1 { font-size: 13px; }
+  .kw-session-toolbar { flex-wrap: wrap; }
+  .kw-session-toolbar select { width: min(260px, calc(100vw - 118px)); }
   .kw-run-revision { padding-inline: 6px !important; }
   .kw-skill-transcript-column { padding: 18px 14px 150px; }
   .kw-workshop-composer-wrap { padding: 24px 10px 10px; }

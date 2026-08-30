@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import zipfile
@@ -12,10 +13,13 @@ import pytest
 from frontend.server.knowledge_workspace.connection import EphemeralConnectionContext
 from frontend.server.knowledge_workspace.autoskill import AutoSkillProtocolError
 from frontend.server.knowledge_workspace.models import (
+    Artifact,
+    SkillDraft,
     DraftStatus,
     Invocation,
     InvocationKind,
     InvocationStatus,
+    SkillRevision,
     WorkspaceResource,
     WorkspaceResourceKind,
     WorkspaceUpload,
@@ -370,7 +374,7 @@ async def test_stateless_run_state_contains_fixed_revision_skill() -> None:
     await asyncio.sleep(0)
     revision = await service.freeze(actor, draft.draft_id, generation.invocation_id)
 
-    run = await service.run_revision(
+    await service.run_revision(
         actor, revision.revision_id, "run the fixed skill", ("connection-a",)
     )
     await asyncio.sleep(0)
@@ -679,6 +683,37 @@ async def test_publication_consumer_gets_fresh_autoskill_identity() -> None:
     assert consumer.autoskill_agent_id != generation.autoskill_agent_id
     assert consumer.autoskill_session_id != generation.autoskill_session_id
     assert consumer.connection_ids == ("connection-a",)
+
+
+@pytest.mark.asyncio
+async def test_publication_consumer_can_run_without_authoring_draft_access() -> None:
+    service, author = make_freeze_service()
+    consumer_actor = Actor(author.tenant_id, author.workspace_id, "consumer")
+    draft = service.create_draft(author, "goal", ["connection-a"])
+    generation = service.start(author, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    revision = await service.freeze(author, draft.draft_id, generation.invocation_id)
+    service.start(
+        author,
+        draft.draft_id,
+        InvocationKind.RUN,
+        revision_id=revision.revision_id,
+        connection_ids=("connection-a",),
+    )
+    await asyncio.sleep(0)
+    publication = service.publish(author, revision.revision_id, "personal")
+
+    assert service.list_drafts(consumer_actor) == ()
+    with pytest.raises(KnowledgeWorkspaceError, match="draft not found"):
+        service.get_draft(consumer_actor, draft.draft_id)
+
+    consumer = await service.invoke_publication(
+        consumer_actor, publication.publication_id, "use it", ("connection-a",)
+    )
+
+    assert consumer.principal_id == consumer_actor.principal_id
+    assert consumer.autoskill_agent_id != generation.autoskill_agent_id
+    assert consumer.autoskill_session_id != generation.autoskill_session_id
 
 
 @pytest.mark.asyncio
@@ -1014,6 +1049,298 @@ def test_sqlite_repository_reopens_durable_workspace_state(tmp_path: Path) -> No
     )
     assert loaded is not None
     assert loaded.goal == "durable goal"
+
+
+def test_authoring_sessions_are_distinct_and_ordered_by_activity() -> None:
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(repository, FakeAutoSkill([]))
+    actor = Actor("tenant", "workspace", "principal")
+
+    draft = service.create_draft(actor, "session goal", ["connection-a"])
+    initial = service.list_sessions(actor, draft.draft_id)
+    second = service.create_session(actor, draft.draft_id, title="second thread")
+
+    sessions = service.list_sessions(actor, draft.draft_id)
+
+    assert len(sessions) == 2
+    assert sessions[0].authoring_session_id == second.authoring_session_id
+    assert sessions[1].authoring_session_id == initial[0].authoring_session_id
+    assert sessions[0].autoskill_agent_id != sessions[1].autoskill_agent_id
+    assert sessions[0].autoskill_session_id != sessions[1].autoskill_session_id
+    assert set(service.public_session(sessions[0])) == {
+        "authoring_session_id",
+        "draft_id",
+        "title",
+        "status",
+        "last_message_preview",
+        "active_invocation_id",
+        "last_event_cursor",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_authoring_drafts_are_scoped_by_principal() -> None:
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(repository, FakeAutoSkill([]))
+    owner = Actor("tenant", "workspace", "principal-a")
+    other = Actor("tenant", "workspace", "principal-b")
+
+    draft = service.create_draft(owner, "owned session goal", ["connection-a"])
+
+    assert [item.draft_id for item in service.list_drafts(owner)] == [draft.draft_id]
+    assert service.list_drafts(other) == ()
+    with pytest.raises(KnowledgeWorkspaceError, match="draft not found"):
+        service.get_draft(other, draft.draft_id)
+    with pytest.raises(KnowledgeWorkspaceError, match="draft not found"):
+        service.list_sessions(other, draft.draft_id)
+
+
+@pytest.mark.asyncio
+async def test_authoring_invocation_and_artifact_reads_are_scoped_by_principal() -> None:
+    service, owner, _lease = make_service(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ]
+    )
+    other = Actor(owner.tenant_id, owner.workspace_id, "principal-b")
+    draft = service.create_draft(owner, "owned goal", ["connection-a"])
+    invocation = service.start(owner, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+    saved = service.repository.get_invocation(
+        invocation.invocation_id,
+        tenant_id=owner.tenant_id,
+        workspace_id=owner.workspace_id,
+    )
+    assert saved is not None
+
+    with pytest.raises(KnowledgeWorkspaceError, match="invocation not found"):
+        await service.cancel(other, invocation.invocation_id)
+    with pytest.raises(KnowledgeWorkspaceError, match="invocation not found"):
+        async for _event in service.events(other, invocation.invocation_id):
+            pass
+
+    skill_zip = make_skill_zip("demo", "# Demo\n")
+    revision = SkillRevision(
+        tenant_id=owner.tenant_id,
+        workspace_id=owner.workspace_id,
+        revision_id="revision-principal",
+        draft_id=draft.draft_id,
+        number=1,
+        skill_name="demo",
+        zip_uri=service.repository.put_object(
+            hashlib.sha256(skill_zip).hexdigest(),
+            skill_zip,
+            suffix=".zip",
+        ),
+        sha256=hashlib.sha256(skill_zip).hexdigest(),
+        manifest={"connection_refs": ["connection-a"]},
+        created_from_invocation=invocation.invocation_id,
+    )
+    service.repository.freeze_revision(revision)
+    artifact = Artifact(
+        tenant_id=owner.tenant_id,
+        workspace_id=owner.workspace_id,
+        artifact_id="artifact-principal",
+        revision_id=revision.revision_id,
+        invocation_id=invocation.invocation_id,
+        uri=service.repository.put_object(
+            hashlib.sha256(b"artifact").hexdigest(),
+            b"artifact",
+            suffix=".bin",
+        ),
+        sha256=hashlib.sha256(b"artifact").hexdigest(),
+        media_type="text/plain",
+        encoding="identity",
+        size_bytes=len(b"artifact"),
+        lineage={},
+        csp="default-src 'none'",
+        sandbox="",
+    )
+    service.repository.save_artifact(artifact)
+
+    assert service.get_artifact(owner, artifact.artifact_id).artifact_id == artifact.artifact_id
+    with pytest.raises(KnowledgeWorkspaceError, match="artifact not found"):
+        service.get_artifact(other, artifact.artifact_id)
+
+
+def test_legacy_conversation_filters_invocations_by_principal() -> None:
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(repository, FakeAutoSkill([]))
+    owner = Actor("tenant", "workspace", "principal-a")
+    other = Actor("tenant", "workspace", "principal-b")
+    draft = service.create_draft(owner, "owned goal", ["connection-a"])
+    owner_session = service.list_sessions(owner, draft.draft_id)[0]
+    other_session = service._create_session_for_draft(
+        draft, principal_id=other.principal_id, title="consumer run"
+    )
+    repository.save_invocation(
+        Invocation(
+            tenant_id=owner.tenant_id,
+            workspace_id=owner.workspace_id,
+            invocation_id="inv-owner",
+            draft_id=draft.draft_id,
+            authoring_session_id=owner_session.authoring_session_id,
+            principal_id=owner.principal_id,
+            kind=InvocationKind.RUN,
+            message="owner",
+            autoskill_agent_id=owner_session.autoskill_agent_id,
+            autoskill_session_id=owner_session.autoskill_session_id,
+            autoskill_request_id="request-owner",
+        )
+    )
+    repository.save_invocation(
+        Invocation(
+            tenant_id=owner.tenant_id,
+            workspace_id=owner.workspace_id,
+            invocation_id="inv-other",
+            draft_id=draft.draft_id,
+            authoring_session_id=other_session.authoring_session_id,
+            principal_id=other.principal_id,
+            kind=InvocationKind.RUN,
+            message="other",
+            autoskill_agent_id=other_session.autoskill_agent_id,
+            autoskill_session_id=other_session.autoskill_session_id,
+            autoskill_request_id="request-other",
+        )
+    )
+
+    turns = service.conversation(owner, draft.draft_id)
+
+    assert [turn["invocation"]["invocation_id"] for turn in turns] == ["inv-owner"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_draft_without_session_gets_default_authoring_session() -> None:
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(repository, FakeAutoSkill([]))
+    actor = Actor("tenant", "workspace", "principal")
+    draft = SkillDraft(
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+        draft_id="draft-legacy",
+        created_by=actor.principal_id,
+        goal="legacy draft goal",
+        connection_ids=("connection-a",),
+        etag="etag-legacy",
+    )
+    repository.save_draft(draft)
+
+    sessions = service.list_sessions(actor, draft.draft_id)
+    invocation = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.RUN,
+        message="continue legacy draft",
+    )
+    await asyncio.sleep(0)
+
+    assert len(sessions) == 1
+    assert sessions[0].title == "legacy draft goal"
+    assert sessions[0].authoring_session_id == invocation.authoring_session_id
+    assert repository.get_session_by_id(
+        draft.draft_id,
+        sessions[0].authoring_session_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+
+
+def test_archived_only_draft_does_not_backfill_another_session() -> None:
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(repository, FakeAutoSkill([]))
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "session goal", ["connection-a"])
+    session = service.list_sessions(actor, draft.draft_id)[0]
+
+    service.update_session(actor, draft.draft_id, session.authoring_session_id, archive=True)
+
+    assert service.list_sessions(actor, draft.draft_id) == ()
+    assert len(service.list_sessions(actor, draft.draft_id, include_archived=True)) == 1
+
+
+@pytest.mark.asyncio
+async def test_authoring_sessions_isolate_autoskill_state_and_active_runs() -> None:
+    class NeverFinishAutoSkill(FakeAutoSkill):
+        async def command(
+            self, *args: object, **kwargs: object
+        ) -> AsyncIterator[ParsedUpstreamEvent]:
+            if args:
+                self.commands.append(str(args[0]))
+            self.request_ids.append(str(kwargs["request_id"]))
+            self.policies.append(kwargs.get("invocation_policy"))
+            yield event("planning", {"text": "working"})
+            await asyncio.Event().wait()
+
+        async def invoke(self, **kwargs: object) -> AsyncIterator[ParsedUpstreamEvent]:
+            self.invocations.append(kwargs)
+            self.request_ids.append(str(kwargs["request_id"]))
+            self.policies.append(kwargs.get("invocation_policy"))
+            yield event("planning", {"text": "working"})
+            await asyncio.Event().wait()
+
+    autoskill = NeverFinishAutoSkill([])
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(repository, autoskill, FakeLeasePort())
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "goal", ["connection-a"])
+    first_session = repository.get_session(
+        draft.draft_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
+    )
+    assert first_session is not None
+    second_session = service.create_session(actor, draft.draft_id, title="parallel")
+
+    first = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.GENERATE,
+        authoring_session_id=first_session.authoring_session_id,
+    )
+    await asyncio.sleep(0)
+    second = service.start(
+        actor,
+        draft.draft_id,
+        InvocationKind.GENERATE,
+        authoring_session_id=second_session.authoring_session_id,
+    )
+    await asyncio.sleep(0)
+
+    assert first.autoskill_agent_id == first_session.autoskill_agent_id
+    assert second.autoskill_agent_id == second_session.autoskill_agent_id
+    assert first.autoskill_agent_id != second.autoskill_agent_id
+    assert (
+        service.repository.get_session_by_id(
+            draft.draft_id,
+            first_session.authoring_session_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        ).active_invocation_id
+        == first.invocation_id
+    )
+    assert (
+        service.repository.get_session_by_id(
+            draft.draft_id,
+            second_session.authoring_session_id,
+            tenant_id=actor.tenant_id,
+            workspace_id=actor.workspace_id,
+        ).active_invocation_id
+        == second.invocation_id
+    )
+
+    await service.cancel(actor, first.invocation_id)
+    await asyncio.sleep(0)
+    remaining = service.repository.get_invocation(
+        second.invocation_id,
+        tenant_id=actor.tenant_id,
+        workspace_id=actor.workspace_id,
+    )
+    assert remaining is not None
+    assert remaining.status is InvocationStatus.RUNNING
+    for task in tuple(service._tasks.values()):
+        task.cancel()
+    await asyncio.gather(*tuple(service._tasks.values()), return_exceptions=True)
 
 
 def test_event_replay_uses_sequence_cursor_without_replacing_semantic_id() -> None:
@@ -1416,7 +1743,7 @@ async def test_resource_only_revision_keeps_policy_and_authorized_resource_refs(
             resource_ids=("resource-other",),
         )
 
-    run = await service.run_revision(
+    await service.run_revision(
         actor,
         revision.revision_id,
         "use it",

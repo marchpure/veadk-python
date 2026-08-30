@@ -7,7 +7,12 @@ import pytest
 from fastapi import FastAPI
 
 from frontend.server.knowledge_workspace.autoskill import UnavailableAutoSkillClient
-from frontend.server.knowledge_workspace.models import Invocation, InvocationKind
+from frontend.server.knowledge_workspace.models import (
+    Invocation,
+    InvocationKind,
+    InvocationStatus,
+    SkillDraft,
+)
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
 from frontend.server.knowledge_workspace.routes import mount_knowledge_workspace_routes
 from frontend.server.knowledge_workspace.service import Actor, KnowledgeWorkspaceService
@@ -172,6 +177,94 @@ async def test_same_origin_routes_scope_draft_by_server_actor() -> None:
             json={"goal": "stale write"},
         )
         assert conflict.status_code == 412
+
+
+@pytest.mark.asyncio
+async def test_authoring_routes_scope_drafts_sessions_and_invocations_by_principal() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    owner = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+    }
+    other = {**owner, "x-principal-id": "user-b"}
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        created = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers={**owner, "idempotency-key": "draft-key-principal-1"},
+            json={"goal": "principal scoped skill", "connection_ids": ["conn-a"]},
+        )
+        assert created.status_code == 201
+        draft_id = created.json()["data"]["draft_id"]
+        sessions = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+            headers=owner,
+        )
+        session_id = sessions.json()["data"][0]["authoring_session_id"]
+        invocation = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}/generate",
+            headers={
+                **owner,
+                "if-match": created.headers["etag"],
+                "idempotency-key": "generate-key-principal-1",
+            },
+        )
+        invocation_id = invocation.json()["data"]["invocation_id"]
+
+        hidden_list = await client.get("/api/knowledge/v1/skills/drafts", headers=other)
+        hidden_draft = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}", headers=other
+        )
+        hidden_sessions = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions", headers=other
+        )
+        hidden_session = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}",
+            headers=other,
+        )
+        hidden_conversation = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}/conversation",
+            headers=other,
+        )
+        hidden_revisions = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/revisions",
+            headers=other,
+        )
+        blocked_generate = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}/generate",
+            headers={
+                **other,
+                "if-match": created.headers["etag"],
+                "idempotency-key": "generate-key-principal-2",
+            },
+        )
+        hidden_events = await client.get(
+            f"/api/knowledge/v1/invocations/{invocation_id}/events",
+            headers=other,
+        )
+        hidden_cancel = await client.post(
+            f"/api/knowledge/v1/invocations/{invocation_id}/cancel",
+            headers={**other, "idempotency-key": "cancel-key-principal-1"},
+        )
+
+    assert hidden_list.status_code == 200
+    assert hidden_list.json()["data"] == []
+    assert hidden_draft.status_code == 404
+    assert hidden_sessions.status_code == 404
+    assert hidden_session.status_code == 404
+    assert hidden_conversation.status_code == 404
+    assert hidden_revisions.status_code == 404
+    assert blocked_generate.status_code == 404
+    assert hidden_events.status_code == 404
+    assert hidden_cancel.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -416,6 +509,7 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
         )
         assert set(payload) == {
             "invocation_id",
+            "authoring_session_id",
             "kind",
             "status",
             "message",
@@ -540,3 +634,265 @@ async def test_draft_conversation_restores_ordered_turns_from_bff_events() -> No
     assert "private-agent" not in response.text
     assert "private-session" not in response.text
     assert "private-request" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_authoring_session_routes_are_scoped_and_idempotent() -> None:
+    app = FastAPI()
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(
+        repository,
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    headers = {
+        "x-tenant-id": "tenant-a",
+        "x-workspace-id": "workspace-a",
+        "x-principal-id": "user-a",
+    }
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        draft = await client.post(
+            "/api/knowledge/v1/skills/drafts",
+            headers={**headers, "idempotency-key": "draft-key-sessions-1"},
+            json={"goal": "build a reusable skill", "connection_ids": ["conn-a"]},
+        )
+        assert draft.status_code == 201
+        draft_id = draft.json()["data"]["draft_id"]
+
+        initial = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+            headers=headers,
+        )
+        assert initial.status_code == 200
+        assert len(initial.json()["data"]) == 1
+        assert set(initial.json()["data"][0]) >= {
+            "authoring_session_id",
+            "draft_id",
+            "title",
+            "status",
+            "last_message_preview",
+            "active_invocation_id",
+            "created_at",
+            "updated_at",
+        }
+
+        create_headers = {**headers, "idempotency-key": "session-key-123456"}
+        first = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+            headers=create_headers,
+            json={"title": "验证口径"},
+        )
+        replay = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions",
+            headers=create_headers,
+            json={"title": "验证口径"},
+        )
+        assert first.status_code == replay.status_code == 201
+        assert first.json()["data"]["authoring_session_id"] == replay.json()["data"][
+            "authoring_session_id"
+        ]
+        session_id = first.json()["data"]["authoring_session_id"]
+        assert first.json()["data"]["title"] == "验证口径"
+
+        patched = await client.patch(
+            f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}",
+            headers={**headers, "idempotency-key": "session-patch-123456"},
+            json={"title": "新版口径"},
+        )
+        assert patched.status_code == 200
+        assert patched.json()["data"]["title"] == "新版口径"
+
+        assert (
+            await client.get(
+                f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}",
+                headers={**headers, "x-tenant-id": "tenant-b"},
+            )
+        ).status_code == 404
+        assert (
+            await client.get(
+                f"/api/knowledge/v1/skills/drafts/{draft_id}/sessions/{session_id}",
+                headers={**headers, "x-workspace-id": "workspace-b"},
+            )
+        ).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_session_listing_backfills_legacy_draft_without_session() -> None:
+    app = FastAPI()
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(
+        repository,
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    actor_value = Actor("tenant", "workspace", "principal")
+    draft = SkillDraft(
+        tenant_id=actor_value.tenant_id,
+        workspace_id=actor_value.workspace_id,
+        draft_id="draft-legacy",
+        created_by=actor_value.principal_id,
+        goal="legacy draft goal",
+        connection_ids=("connection",),
+        etag="etag-legacy",
+    )
+    repository.save_draft(draft)
+    headers = {
+        "x-tenant-id": actor_value.tenant_id,
+        "x-workspace-id": actor_value.workspace_id,
+        "x-principal-id": actor_value.principal_id,
+    }
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/sessions",
+            headers=headers,
+        )
+        session_id = response.json()["data"][0]["authoring_session_id"]
+        sent = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/messages",
+            headers={
+                **headers,
+                "if-match": draft.etag,
+                "idempotency-key": "legacy-message-key-123456",
+            },
+            json={"message": "continue", "intent": "run"},
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["data"]) == 1
+    assert response.json()["data"][0]["title"] == "legacy draft goal"
+    assert sent.status_code == 202
+    assert sent.json()["data"]["authoring_session_id"] == session_id
+
+
+@pytest.mark.asyncio
+async def test_session_scoped_messages_replay_and_restore_only_that_session() -> None:
+    app = FastAPI()
+    repository = KnowledgeWorkspaceRepository()
+    service = KnowledgeWorkspaceService(
+        repository,
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(app, service, allow_insecure_test_headers=True)
+    actor_value = Actor("tenant", "workspace", "principal")
+    headers = {
+        "x-tenant-id": actor_value.tenant_id,
+        "x-workspace-id": actor_value.workspace_id,
+        "x-principal-id": actor_value.principal_id,
+    }
+    draft = service.create_draft(actor_value, "goal", ["connection"])
+    first_session = repository.get_session(
+        draft.draft_id, tenant_id="tenant", workspace_id="workspace"
+    )
+    assert first_session is not None
+    second_session = service.create_session(actor_value, draft.draft_id, title="second")
+
+    first_invocation = Invocation(
+        tenant_id="tenant",
+        workspace_id="workspace",
+        invocation_id="inv-first",
+        draft_id=draft.draft_id,
+        authoring_session_id=first_session.authoring_session_id,
+        kind=InvocationKind.RUN,
+        status=InvocationStatus.SUCCEEDED,
+        autoskill_agent_id="private-agent-1",
+        autoskill_session_id="private-session-1",
+        autoskill_request_id="private-request-1",
+        message="first",
+    )
+    second_invocation = Invocation(
+        tenant_id="tenant",
+        workspace_id="workspace",
+        invocation_id="inv-second",
+        draft_id=draft.draft_id,
+        authoring_session_id=second_session.authoring_session_id,
+        kind=InvocationKind.RUN,
+        status=InvocationStatus.RUNNING,
+        autoskill_agent_id="private-agent-2",
+        autoskill_session_id="private-session-2",
+        autoskill_request_id="private-request-2",
+        message="second",
+    )
+    repository.save_invocation(first_invocation)
+    repository.save_invocation(second_invocation)
+    repository.save_session(
+        second_session.model_copy(
+            update={
+                "status": "running",
+                "active_invocation_id": second_invocation.invocation_id,
+                "last_message_preview": second_invocation.message,
+            }
+        )
+    )
+    repository.append_event(
+        first_invocation.invocation_id,
+        {"type": "final_answer", "data": {"answer": "first answer"}},
+        {
+            "id": "first-answer",
+            "type": "assistant.final",
+            "invocation_id": first_invocation.invocation_id,
+            "occurred_at": "2026-08-28T00:00:01+00:00",
+            "data": {"content": "first answer"},
+        },
+        "first-answer",
+    )
+    repository.append_event(
+        second_invocation.invocation_id,
+        {"type": "run.started"},
+        {
+            "id": "second-started",
+            "type": "run.started",
+            "invocation_id": second_invocation.invocation_id,
+            "occurred_at": "2026-08-28T00:00:02+00:00",
+            "data": {"kind": "run", "status": "running", "draft_id": draft.draft_id},
+        },
+        "second-started",
+    )
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        restored = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/sessions/{second_session.authoring_session_id}",
+            headers=headers,
+        )
+        conversation = await client.get(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/sessions/{second_session.authoring_session_id}/conversation",
+            headers=headers,
+        )
+        sent = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/sessions/{first_session.authoring_session_id}/messages",
+            headers={
+                **headers,
+                "if-match": draft.etag,
+                "idempotency-key": "message-session-key-123456",
+            },
+            json={"message": "follow up", "intent": "run"},
+        )
+        replay = await client.post(
+            f"/api/knowledge/v1/skills/drafts/{draft.draft_id}/sessions/{first_session.authoring_session_id}/messages",
+            headers={
+                **headers,
+                "if-match": draft.etag,
+                "idempotency-key": "message-session-key-123456",
+            },
+            json={"message": "follow up", "intent": "run"},
+        )
+
+    assert restored.status_code == 200
+    assert restored.json()["data"]["active_invocation_id"] == "inv-second"
+    assert restored.json()["data"]["last_event_cursor"] == "1"
+    assert conversation.status_code == 200
+    assert [item["invocation"]["invocation_id"] for item in conversation.json()["data"]] == [
+        "inv-second"
+    ]
+    assert "private-agent" not in conversation.text
+    assert sent.status_code == replay.status_code == 202
+    assert sent.json()["data"]["invocation_id"] == replay.json()["data"][
+        "invocation_id"
+    ]
+    assert (
+        sent.json()["data"]["authoring_session_id"]
+        == first_session.authoring_session_id
+    )

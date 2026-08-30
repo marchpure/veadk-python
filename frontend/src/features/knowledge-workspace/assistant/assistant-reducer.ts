@@ -16,6 +16,7 @@ export const initialAssistantState: AssistantState = { turns: [] };
 
 export type AssistantAction =
   | { type: "history.restored"; entries: ConversationHistoryEntry[] }
+  | { type: "history.replaced"; entries: ConversationHistoryEntry[] }
   | { type: "invocation.started"; invocation: Invocation; retryOf?: string }
   | {
       type: "invocation.confirmed";
@@ -207,6 +208,9 @@ export function assistantReducer(
         ...restored.filter((turn) => !currentIds.has(turn.invocationId)),
       ],
     };
+  }
+  if (action.type === "history.replaced") {
+    return { turns: action.entries.map(restoreEntry) };
   }
   if (action.type === "invocation.started") {
     const existing = state.turns.findIndex(

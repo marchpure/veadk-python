@@ -87,11 +87,42 @@ const artifact = {
 };
 const invocation = {
   invocation_id: "invocation-workshop",
+  authoring_session_id: "session-workshop",
   kind: "generate",
   status: "running",
   message: draft.goal,
   event_url: "/api/knowledge/v1/invocations/invocation-workshop/events",
   created_at: now,
+};
+const session = {
+  authoring_session_id: "session-workshop",
+  draft_id: draft.draft_id,
+  title: "分析华东区域异常",
+  status: "idle",
+  last_message_preview: draft.goal,
+  active_invocation_id: null,
+  created_at: now,
+  updated_at: now,
+};
+const emptySession = {
+  authoring_session_id: "session-empty",
+  draft_id: draft.draft_id,
+  title: "空白复盘会话",
+  status: "idle",
+  last_message_preview: null,
+  active_invocation_id: null,
+  created_at: now,
+  updated_at: "2026-08-30T07:59:00Z",
+};
+const createdSession = {
+  authoring_session_id: "session-created",
+  draft_id: draft.draft_id,
+  title: "新会话",
+  status: "idle",
+  last_message_preview: null,
+  active_invocation_id: null,
+  created_at: "2026-08-30T08:01:00Z",
+  updated_at: "2026-08-30T08:01:00Z",
 };
 const conversation = [{
   invocation: { ...invocation, status: "succeeded", finished_at: "2026-08-30T08:00:06Z" },
@@ -116,16 +147,18 @@ function envelope(data) {
 async function main() {
   await mkdir(evidenceDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const consoleErrors = [];
   const pageErrors = [];
   const missingAssets = [];
   let createCalls = 0;
+  let sessionCreateCalls = 0;
   let generateCalls = 0;
   let publishCalls = 0;
   let agentDirectoryCalls = 0;
   let created = false;
+  let createdAuthoringSession = false;
   let retryScenario = false;
   let retryGenerateFailed = false;
   let retryPatchBody = null;
@@ -223,7 +256,32 @@ async function main() {
     if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}`) {
       return ok({ ...draft, lifecycle: publishCalls ? "published" : draft.lifecycle }, { ETag: "draft-v1" });
     }
+    if (
+      url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions`
+      && request.method() === "GET"
+    ) {
+      return ok(createdAuthoringSession ? [createdSession, session, emptySession] : [session, emptySession]);
+    }
+    if (
+      url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions`
+      && request.method() === "POST"
+    ) {
+      sessionCreateCalls += 1;
+      const body = JSON.parse(request.postData() || "{}");
+      assert.equal(body.title, "新会话");
+      createdAuthoringSession = true;
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: envelope(createdSession),
+      });
+    }
+    if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions/${session.authoring_session_id}`) return ok(session);
+    if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions/${emptySession.authoring_session_id}`) return ok(emptySession);
+    if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions/${createdSession.authoring_session_id}`) return ok(createdSession);
     if (url.pathname.endsWith("/revisions")) return ok([revision]);
+    if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions/${emptySession.authoring_session_id}/conversation`) return ok([]);
+    if (url.pathname === `/api/knowledge/v1/skills/drafts/${draft.draft_id}/sessions/${createdSession.authoring_session_id}/conversation`) return ok([]);
     if (url.pathname.endsWith("/conversation")) return ok(conversation);
     if (url.pathname.endsWith("/generate")) {
       generateCalls += 1;
@@ -259,7 +317,22 @@ async function main() {
   const capture = async (name) => {
     layoutMetrics[name] = await page.evaluate(() => ({
       viewport: { width: innerWidth, height: innerHeight },
-      body: { width: document.body.scrollWidth, height: document.body.scrollHeight },
+      html: {
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      },
+      body: {
+        clientWidth: document.body.clientWidth,
+        scrollWidth: document.body.scrollWidth,
+        height: document.body.scrollHeight,
+      },
+      nav: document.querySelector(".kw-studio-nav")?.getBoundingClientRect().toJSON(),
+      sidebar: document.querySelector(".kw-sidebar")?.getBoundingClientRect().toJSON(),
+      workshop: document.querySelector(".kw-skill-workshop")?.getBoundingClientRect().toJSON(),
+      workshopClasses: document.querySelector(".kw-skill-workshop")?.className,
+      artifactSlotCount: document.querySelectorAll("[data-w2-slot='artifact-pane']").length,
+      artifactWorkspaceCount: document.querySelectorAll(".kw-artifact-workspace").length,
+      currentSessionId: document.querySelector(".kw-session-toolbar select")?.value,
       create: document.querySelector(".kw-skill-create-content")?.getBoundingClientRect().toJSON(),
       drawer: document.querySelector(".kw-data-tool-drawer")?.getBoundingClientRect().toJSON(),
       rail: document.querySelector(".kw-invocation-rail")?.getBoundingClientRect().toJSON(),
@@ -268,6 +341,13 @@ async function main() {
       composer: document.querySelector(".kw-workshop-composer")?.getBoundingClientRect().toJSON(),
       modal: document.querySelector("[data-state-modal]")?.getBoundingClientRect().toJSON(),
     }));
+    assert.equal(
+      layoutMetrics[name].html.scrollWidth <= layoutMetrics[name].html.clientWidth,
+      true,
+      `${name} has horizontal overflow`,
+    );
+    assert.ok(layoutMetrics[name].nav, `${name} is missing Studio nav`);
+    assert.ok(layoutMetrics[name].sidebar, `${name} is missing global sidebar`);
     await page.screenshot({ path: path.join(evidenceDir, name), fullPage: false });
   };
 
@@ -285,7 +365,7 @@ async function main() {
   await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
   const canonicalSnapshot = await creatorSnapshot();
   const canonicalScreenshot = await page.screenshot({
-    path: path.join(evidenceDir, "08-default-root-1440x1000.png"),
+    path: path.join(evidenceDir, "08-default-root-1440x900.png"),
   });
   assert.equal(new URL(page.url()).search, "?view=knowledge-workspace");
 
@@ -293,7 +373,7 @@ async function main() {
   await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
   assert.deepEqual(await creatorSnapshot(), canonicalSnapshot);
   const compatibleScreenshot = await page.screenshot({
-    path: path.join(evidenceDir, "09-compatible-skill-new-1440x1000.png"),
+    path: path.join(evidenceDir, "09-compatible-skill-new-1440x900.png"),
   });
   assert.deepEqual(compatibleScreenshot, canonicalScreenshot);
 
@@ -361,13 +441,9 @@ async function main() {
     await page.setViewportSize(viewport);
     await page.goto(`${baseURL}/?view=knowledge-workspace`);
     await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
-      true,
-    );
-    await page.screenshot({ path: path.join(evidenceDir, viewport.name) });
+    await capture(viewport.name);
   }
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   retryScenario = true;
   await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
@@ -406,7 +482,7 @@ async function main() {
   consoleErrors.length = 0;
   await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
   await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
-  await capture("01-new-empty-1440x1000.png");
+  await capture("01-new-empty-1440x900.png");
   await page.getByRole("button", { name: "分析华东区域异常" }).click();
   assert.equal(await page.getByLabel("描述业务任务").inputValue(), draft.goal);
   await page.getByRole("button", { name: "发送" }).click();
@@ -415,7 +491,7 @@ async function main() {
   assert.equal(await dataDrawer.getByRole("button", { name: /正在验证的数据仓库/ }).isDisabled(), true);
   assert.equal(await dataDrawer.getByRole("button", { name: /已撤销的数据仓库/ }).isDisabled(), true);
   await dataDrawer.getByText("已撤销", { exact: true }).waitFor();
-  await capture("02-data-tools-1440x1000.png");
+  await capture("02-data-tools-1440x900.png");
   await dataDrawer.getByRole("button", { name: "查看" }).click();
   await page.getByRole("button", { name: "返回选择" }).click();
   await dataDrawer.waitFor();
@@ -430,20 +506,59 @@ async function main() {
   await page.getByRole("region", { name: "HTML Artifact" }).waitFor();
   assert.equal(createCalls, 1);
   assert.equal(generateCalls, 1);
-  await capture("03-workshop-1440x1000.png");
+  assert.equal(new URL(page.url()).searchParams.get("sessionId"), session.authoring_session_id);
+  await capture("03-workshop-1440x900.png");
+  assert.equal(layoutMetrics["03-workshop-1440x900.png"].artifactSlotCount, 1);
+  assert.equal(layoutMetrics["03-workshop-1440x900.png"].artifactWorkspaceCount, 1);
+  assert.match(layoutMetrics["03-workshop-1440x900.png"].workshopClasses || "", /has-artifact/);
+  assert.ok(layoutMetrics["03-workshop-1440x900.png"].artifact.right <= 1440);
+  await page.getByLabel("修改当前 Skill").fill("主会话草稿");
+  await page.getByLabel("新建会话").click();
+  await page.waitForURL(/sessionId=session-created/);
+  await page.getByText("继续描述修改，Agent 会更新当前 Skill。").waitFor();
+  assert.equal(sessionCreateCalls, 1);
+  assert.equal(await page.getByLabel("修改当前 Skill").inputValue(), "");
+  assert.equal(layoutMetrics["03-workshop-1440x900.png"].currentSessionId, session.authoring_session_id);
+  await page.getByLabel("修改当前 Skill").fill("新会话草稿");
+  await page.getByLabel("选择作者会话").selectOption(session.authoring_session_id);
+  await page.waitForURL(/sessionId=session-workshop/);
+  await page.waitForFunction(
+    (sessionId) => document.querySelector(".kw-session-toolbar select")?.value === sessionId,
+    session.authoring_session_id,
+  );
+  await page.getByText("已完成华东区域异常分析").waitFor();
+  assert.equal(await page.getByLabel("修改当前 Skill").inputValue(), "主会话草稿");
+  await page.getByLabel("选择作者会话").selectOption(createdSession.authoring_session_id);
+  await page.waitForURL(/sessionId=session-created/);
+  await page.waitForFunction(
+    (sessionId) => document.querySelector(".kw-session-toolbar select")?.value === sessionId,
+    createdSession.authoring_session_id,
+  );
+  assert.equal(await page.getByLabel("修改当前 Skill").inputValue(), "新会话草稿");
+  await page.getByLabel("选择作者会话").selectOption(session.authoring_session_id);
+  await page.waitForURL(/sessionId=session-workshop/);
+  await page.waitForFunction(
+    (sessionId) => document.querySelector(".kw-session-toolbar select")?.value === sessionId,
+    session.authoring_session_id,
+  );
+  await page.getByText("已完成华东区域异常分析").waitFor();
+  assert.equal(await page.getByLabel("修改当前 Skill").inputValue(), "主会话草稿");
   await page.getByRole("button", { name: "发布 Skill" }).click();
   await page.getByRole("button", { name: "发布到个人" }).click();
   await page.waitForURL(/file=published/);
+  assert.equal(new URL(page.url()).searchParams.get("sessionId"), session.authoring_session_id);
   await page.getByRole("button", { name: /已发布/ }).waitFor();
-  await capture("04-published-1440x1000.png");
+  await capture("04-published-1440x900.png");
   await page.reload();
   await page.getByRole("button", { name: /已发布/ }).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("sessionId"), session.authoring_session_id);
+  await page.getByText("已完成华东区域异常分析").waitFor();
   const directoryCallsBeforeModal = agentDirectoryCalls;
   await page.getByRole("button", { name: "添加到 Agent" }).click();
   await page.getByText("门店运营 Agent").waitFor();
   await page.getByText("当前服务尚未提供 Skill-to-Agent 绑定 API").waitFor();
   assert.ok(agentDirectoryCalls > directoryCallsBeforeModal);
-  await capture("05-bind-agent-1440x1000.png");
+  await capture("05-bind-agent-1440x900.png");
   await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
   await page.getByRole("button", { name: "分享" }).click();
   await page.getByText("尚无服务端快照分享 API").waitFor();
@@ -451,14 +566,32 @@ async function main() {
   await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
 
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto(`${baseURL}/?view=knowledge-workspace&file=draft&draftId=${draft.draft_id}`);
+  await page.goto(`${baseURL}/?view=knowledge-workspace&file=draft&draftId=${draft.draft_id}&sessionId=${session.authoring_session_id}`);
   await page.getByRole("region", { name: "HTML Artifact" }).waitFor();
   await capture("06-workshop-1280x800.png");
+  assert.equal(layoutMetrics["06-workshop-1280x800.png"].artifactSlotCount, 1);
+  assert.equal(layoutMetrics["06-workshop-1280x800.png"].artifactWorkspaceCount, 1);
+  assert.match(layoutMetrics["06-workshop-1280x800.png"].workshopClasses || "", /has-artifact/);
+  assert.ok(layoutMetrics["06-workshop-1280x800.png"].artifact.right <= 1280);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await page.getByRole("region", { name: "Skill 对话" }).waitFor();
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
+  await page.getByRole("button", { name: "打开产物" }).waitFor();
   await capture("07-workshop-390x844.png");
+  assert.equal(layoutMetrics["07-workshop-390x844.png"].artifactSlotCount, 1);
+  assert.equal(layoutMetrics["07-workshop-390x844.png"].artifactWorkspaceCount, 1);
+  assert.equal(layoutMetrics["07-workshop-390x844.png"].artifact.width, 0);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${baseURL}/?view=knowledge-workspace&file=draft&draftId=${draft.draft_id}&sessionId=${emptySession.authoring_session_id}`);
+  await page.getByRole("region", { name: "Skill 对话" }).waitFor();
+  await page.getByText("继续描述修改，Agent 会更新当前 Skill。").waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("sessionId"), emptySession.authoring_session_id);
+  await capture("12-workshop-no-artifact-1440x900.png");
+  assert.equal(layoutMetrics["12-workshop-no-artifact-1440x900.png"].artifactSlotCount, 0);
+  assert.equal(layoutMetrics["12-workshop-no-artifact-1440x900.png"].artifactWorkspaceCount, 0);
+  assert.match(layoutMetrics["12-workshop-no-artifact-1440x900.png"].workshopClasses || "", /is-conversation-only/);
+  assert.ok(layoutMetrics["12-workshop-no-artifact-1440x900.png"].chat.width > 1000);
 
   const metrics = layoutMetrics["07-workshop-390x844.png"];
   assert.deepEqual(consoleErrors, []);
@@ -470,13 +603,14 @@ async function main() {
     generateCalls,
     publishCalls,
     agentDirectoryCalls,
+    sessionCreateCalls,
     consoleErrors,
     pageErrors,
     missingAssets,
     layoutMetrics,
     metrics,
   }, null, 2));
-  console.log(JSON.stringify({ evidenceDir, createCalls, generateCalls, publishCalls, metrics }));
+  console.log(JSON.stringify({ evidenceDir, createCalls, sessionCreateCalls, generateCalls, publishCalls, metrics }));
   await browser.close();
 }
 

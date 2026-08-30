@@ -186,14 +186,76 @@ class KnowledgeWorkspaceRepository:
             )
 
     def get_session(
-        self, draft_id: str, *, tenant_id: str, workspace_id: str
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        principal_id: str | None = None,
+    ) -> AuthoringSession | None:
+        sessions = self.list_sessions(
+            draft_id,
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            principal_id=principal_id,
+            include_archived=False,
+        )
+        return sessions[0] if sessions else None
+
+    def get_session_by_id(
+        self,
+        draft_id: str,
+        authoring_session_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        principal_id: str | None = None,
     ) -> AuthoringSession | None:
         with self._lock:
             row = self._db.execute(
-                "SELECT payload FROM kw_sessions WHERE draft_id=? AND tenant_id=? AND workspace_id=? ORDER BY id LIMIT 1",
-                (draft_id, tenant_id, workspace_id),
+                "SELECT payload FROM kw_sessions WHERE id=? AND draft_id=? AND tenant_id=? AND workspace_id=?",
+                (authoring_session_id, draft_id, tenant_id, workspace_id),
             ).fetchone()
-        return self._model(row, AuthoringSession)
+        session = self._model(row, AuthoringSession)
+        if (
+            session is not None
+            and principal_id is not None
+            and session.principal_id != principal_id
+        ):
+            return None
+        return session
+
+    def list_sessions(
+        self,
+        draft_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+        principal_id: str | None = None,
+        include_archived: bool = False,
+    ) -> tuple[AuthoringSession, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_sessions WHERE draft_id=? AND tenant_id=? AND workspace_id=?",
+                (draft_id, tenant_id, workspace_id),
+            ).fetchall()
+        sessions = tuple(
+            AuthoringSession.model_validate(json.loads(row["payload"]))
+            for row in rows
+        )
+        if principal_id is not None:
+            sessions = tuple(
+                item for item in sessions if item.principal_id == principal_id
+            )
+        if not include_archived:
+            sessions = tuple(item for item in sessions if item.status != "archived")
+        return tuple(
+            sorted(
+                sessions,
+                key=lambda item: (item.updated_at, item.authoring_session_id),
+                reverse=True,
+            )
+        )
 
     def save_invocation(self, invocation: Invocation) -> None:
         with self._lock:
@@ -246,6 +308,33 @@ class KnowledgeWorkspaceRepository:
                 (
                     Invocation.model_validate(json.loads(row["payload"]))
                     for row in rows
+                ),
+                key=lambda item: (item.created_at, item.invocation_id),
+            )
+        )
+
+    def invocations_for_session(
+        self,
+        draft_id: str,
+        authoring_session_id: str,
+        *,
+        tenant_id: str,
+        workspace_id: str,
+    ) -> tuple[Invocation, ...]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT payload FROM kw_invocations WHERE draft_id=? AND tenant_id=? AND workspace_id=?",
+                (draft_id, tenant_id, workspace_id),
+            ).fetchall()
+        return tuple(
+            sorted(
+                (
+                    invocation
+                    for row in rows
+                    for invocation in (
+                        Invocation.model_validate(json.loads(row["payload"])),
+                    )
+                    if invocation.authoring_session_id == authoring_session_id
                 ),
                 key=lambda item: (item.created_at, item.invocation_id),
             )

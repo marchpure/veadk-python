@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { ConversationTurnModel } from "../assistant/assistant-model";
 import type {
   Artifact,
+  AuthoringSession,
   ConnectionProfile,
   Draft,
   Revision,
   WorkspaceResource,
 } from "../domain/types";
 import { ArtifactWorkspace } from "./ArtifactWorkspace";
-import { InvocationRail } from "./InvocationRail";
 import { SkillConversation } from "./SkillConversation";
 
 export function SkillWorkspaceShell({
@@ -17,11 +17,21 @@ export function SkillWorkspaceShell({
   artifacts,
   connections,
   resources,
+  sessions,
+  currentSession,
+  composerValue,
   turns,
   busy,
   published,
+  modeSelectorSlot,
+  hasArtifact,
+  artifactPaneSlot,
   onOpenDataTools,
   onUpdateContext,
+  onCreateSession,
+  onSelectSession,
+  onRefreshSession,
+  onComposerDraftChange,
   onSend,
   onRun,
   onCancel,
@@ -37,11 +47,21 @@ export function SkillWorkspaceShell({
   artifacts: Artifact[];
   connections: ConnectionProfile[];
   resources: WorkspaceResource[];
+  sessions: AuthoringSession[];
+  currentSession: AuthoringSession | null;
+  composerValue: string;
   turns: ConversationTurnModel[];
   busy: string;
   published: boolean;
+  modeSelectorSlot?: ReactNode;
+  hasArtifact?: boolean;
+  artifactPaneSlot?: ReactNode;
   onOpenDataTools: () => void;
   onUpdateContext: (connectionIds: string[], resourceIds: string[]) => Promise<void>;
+  onCreateSession: () => Promise<void>;
+  onSelectSession: (authoringSessionId: string) => void;
+  onRefreshSession: () => Promise<void>;
+  onComposerDraftChange: (value: string) => void;
   onSend: (message: string, intent: "update" | "run") => Promise<void>;
   onRun: (message: string) => Promise<void>;
   onCancel: () => Promise<void>;
@@ -52,34 +72,32 @@ export function SkillWorkspaceShell({
   onBindAgent: () => void;
   onAdvanced: () => void;
 }) {
-  const [mobileDrawer, setMobileDrawer] = useState<"invocations" | "artifacts" | null>(null);
-  const [focusInvocationId, setFocusInvocationId] = useState<string>();
+  const [mobileDrawer, setMobileDrawer] = useState<"artifacts" | null>(null);
   const title = revisions.at(-1)?.skill_name || draft.goal;
   const boundConnections = connections.filter((item) => draft.connection_ids.includes(item.connection_id));
   const boundResources = resources.filter((item) => draft.resource_ids.includes(item.resource_id));
+  const showArtifactPane = hasArtifact ?? artifacts.length > 0;
   return (
-    <section className="kw-skill-workshop">
-      <div className={mobileDrawer === "invocations" ? "kw-workshop-mobile-drawer is-open" : "kw-workshop-rail"}>
-        <InvocationRail
-          turns={turns}
-          activeInvocationId={focusInvocationId}
-          onSelect={(id) => {
-            setFocusInvocationId(id);
-            setMobileDrawer(null);
-          }}
-          onClose={mobileDrawer ? () => setMobileDrawer(null) : undefined}
-        />
-      </div>
+    <section className={`kw-skill-workshop${showArtifactPane ? " has-artifact" : " is-conversation-only"}`}>
       <SkillConversation
         title={title}
         turns={turns}
         connections={boundConnections}
         resources={boundResources}
+        sessions={sessions}
+        currentSession={currentSession}
+        composerValue={composerValue}
         busy={busy === "message" || busy === "retry" || busy === "cancel"}
-        focusInvocationId={focusInvocationId}
-        onOpenInvocations={() => setMobileDrawer("invocations")}
-        onOpenArtifacts={() => setMobileDrawer("artifacts")}
+        modeSelectorSlot={modeSelectorSlot}
+        hasArtifacts={showArtifactPane}
+        onOpenArtifacts={showArtifactPane ? () => setMobileDrawer("artifacts") : undefined}
         onOpenDataTools={onOpenDataTools}
+        onCreateSession={onCreateSession}
+        onSelectSession={(id) => {
+          onSelectSession(id);
+        }}
+        onRefreshSession={onRefreshSession}
+        onComposerDraftChange={onComposerDraftChange}
         onRemoveConnection={(id) => void onUpdateContext(
           draft.connection_ids.filter((item) => item !== id),
           draft.resource_ids,
@@ -94,19 +112,26 @@ export function SkillWorkspaceShell({
         onReconnect={onReconnect}
         onRetry={onRetry}
       />
-      <div className={mobileDrawer === "artifacts" ? "kw-workshop-mobile-drawer is-open" : "kw-workshop-artifacts"}>
-        <ArtifactWorkspace
-          artifacts={artifacts}
-          revisions={revisions}
-          published={published}
-          onClose={mobileDrawer ? () => setMobileDrawer(null) : undefined}
-          onRun={() => void onRun(turns.at(-1)?.userMessage || draft.goal)}
-          onShare={onShare}
-          onPublish={onPublish}
-          onBindAgent={onBindAgent}
-          onAdvanced={onAdvanced}
-        />
-      </div>
+      {showArtifactPane ? (
+        <div
+          className={mobileDrawer === "artifacts" ? "kw-workshop-mobile-drawer is-open" : "kw-workshop-artifacts"}
+          data-w2-slot="artifact-pane"
+        >
+          {artifactPaneSlot || (
+            <ArtifactWorkspace
+              artifacts={artifacts}
+              revisions={revisions}
+              published={published}
+              onClose={mobileDrawer ? () => setMobileDrawer(null) : undefined}
+              onRun={() => void onRun(turns.at(-1)?.userMessage || draft.goal)}
+              onShare={onShare}
+              onPublish={onPublish}
+              onBindAgent={onBindAgent}
+              onAdvanced={onAdvanced}
+            />
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }
