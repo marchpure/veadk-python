@@ -1,0 +1,50 @@
+{
+  "checkpoint": "KNOWLEDGE_COMMERCIAL_W5_FROZEN",
+  "worker": "W5",
+  "base_branch": "feat/knowledge-workspace-v220121-w4-integration",
+  "base_sha": "de50cccc506d128e6fad93d3a0fa79fffa8ddf69",
+  "branch": "feat/knowledge-commercial-w5-demo-onboarding",
+  "demo": {
+    "enabled_by_default": false,
+    "seed_version": "w5-v1",
+    "idempotency_key": ["tenant_id", "workspace_id", "seed_version"],
+    "reset_scope": ["tenant_id", "workspace_id", "seed_version"],
+    "source": "demo_seed",
+    "provenance": "knowledge-commercial-w5"
+  },
+  "scenarios": [
+    {"id": "anta-sports-daily", "connection": "local-postgresql", "skills": ["semantic", "dashboard"]},
+    {"id": "im-after-sales", "connection": "local-web-action-api-mcp", "knowledge": "openviking-history-cases", "skills": ["sop"]},
+    {"id": "haidilao-inspection", "connection": "local-form-api", "skills": ["sop", "dashboard"]}
+  ],
+  "artifacts": [
+    "demo/seed-manifest.json",
+    "demo/wiring-manifest.json",
+    "docs/knowledge-workspace/demo-runbook.md",
+    "frontend/server/knowledge_workspace/demo.py",
+    "frontend/src/features/knowledge-workspace/demo/DemoBootstrap.tsx"
+  ],
+  "verification": {
+    "contract_tests": {
+      "python": "5 passed: tests/knowledge_workspace/test_demo_w5.py",
+      "frontend": "4 passed: frontend/tests/knowledgeCommercialW5Demo.test.mjs",
+      "full_frontend": "895 passed, 1 skipped",
+      "typecheck": "passed",
+      "build": "passed",
+      "diff_check": "passed",
+      "secret_scan": "passed"
+    },
+    "local_services": {
+      "postgres": "healthy; pg_isready; isolated host port 25432",
+      "web_action": "healthy; repair action returned evidence; isolated host port 28081",
+      "form_api": "healthy; inspection submission returned id; isolated host port 28082",
+      "mcp": "healthy; JSON-RPC inspect_store returned rows; isolated host port 28083"
+    },
+    "real_e2e": {
+      "status": "integration_required",
+      "reason": "Current environment has no configured Connection Service, AutoSkill, or OpenViking endpoints.",
+      "gate": "Integration runs validate/discover/lease/query-or-invoke and real AutoSkill revision/artifact/publish after W1-W4 merge.",
+      "fallback": "No fixture-success fallback; missing dependencies remain 示例尚未初始化."
+    }
+  }
+}

@@ -1,0 +1,28 @@
+.kw-demo-shell{display:grid;gap:18px;padding:24px;background:#f7f8fb;color:#172033}
+.kw-demo-shell__header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+.kw-demo-shell h1,.kw-demo-shell h2,.kw-demo-shell h3{margin:0 0 6px}
+.kw-demo-shell__header p,.kw-demo-card p{margin:0;color:#667085}
+.kw-demo-kicker,.kw-demo-label{color:#2563eb;font-size:12px;font-weight:700}
+.kw-demo-tenant-badge,.kw-demo-status{border-radius:999px;padding:5px 9px;background:#eaf2ff;color:#174ea6;font-size:12px;font-weight:700;white-space:nowrap}
+.kw-demo-status.is-not_initialized,.kw-demo-status.is-blocked{background:#fff2d6;color:#8b5300}
+.kw-demo-status.is-error{background:#ffefed;color:#b42318}
+.kw-demo-onboarding{display:grid;gap:14px;padding:18px;border:1px solid #c9d9ff;border-radius:12px;background:#fff}
+.kw-demo-onboarding ol{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0;padding:0;list-style:none}
+.kw-demo-onboarding li{display:grid;gap:4px;padding:12px;background:#f7f9fd;border-radius:8px}
+.kw-demo-onboarding small{color:#667085}
+.kw-demo-onboarding p{margin:0;color:#8b5300}
+.kw-demo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.kw-demo-card{display:grid;gap:11px;padding:16px;border:1px solid #dfe3eb;border-radius:12px;background:#fff;box-shadow:0 1px 2px #1018280a}
+.kw-demo-card__heading{display:flex;justify-content:space-between;gap:8px}
+.kw-demo-card__heading h3{font-size:17px}
+.kw-demo-card__source,.kw-demo-card__skill{font-size:13px}
+.kw-demo-card__next{min-height:38px;padding:9px;background:#fff8e8;border-radius:7px;color:#8b5300!important;font-size:13px}
+.kw-demo-card__meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.kw-demo-card__meta div{padding:8px;background:#fafbfc;border-radius:7px}
+.kw-demo-card__meta dt{font-size:11px;color:#667085}.kw-demo-card__meta dd{margin:3px 0 0;font-size:12px}
+.kw-demo-card__actions{display:flex;flex-wrap:wrap;gap:7px}
+.kw-demo-card__actions button,.kw-demo-error button{border:1px solid #cfd5df;border-radius:7px;padding:7px 9px;background:#fff;cursor:pointer}
+.kw-demo-card__actions button:first-child{background:#2563eb;border-color:#2563eb;color:#fff}
+.kw-demo-card__actions button:disabled{cursor:not-allowed;opacity:.5}
+.kw-demo-error{border:1px solid #f2b8b5;border-radius:10px;background:#fff7f6}
+@media(max-width:900px){.kw-demo-grid{grid-template-columns:1fr}.kw-demo-onboarding ol{grid-template-columns:1fr}.kw-demo-shell__header{display:grid}}
