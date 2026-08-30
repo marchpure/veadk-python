@@ -1,5 +1,5 @@
 {
-  "status": "PASS_CONTRACT",
+  "status": "PASS",
   "shape": {
     "provider": "openviking",
     "profile_ref": "ovp_<opaque>",

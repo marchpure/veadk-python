@@ -1,0 +1,5 @@
+{
+  "status": "BLOCKED_EXTERNAL",
+  "queries": [],
+  "reason": "No live import was completed, so canary retrieval cannot be asserted."
+}

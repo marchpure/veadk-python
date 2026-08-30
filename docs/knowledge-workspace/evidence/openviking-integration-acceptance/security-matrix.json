@@ -1,12 +1,12 @@
 {
-  "status": "PASS_WITH_EXTERNAL_BLOCK",
+  "status": "BLOCKED_EXTERNAL",
   "checks": [
     {"check": "wrong API key failure", "status": "BLOCKED_EXTERNAL"},
-    {"check": "revoke old ref fail-closed", "status": "PASS_CONTRACT"},
-    {"check": "cross tenant/workspace ref rejection", "status": "PASS_CONTRACT"},
-    {"check": "tampered resource/scope/signature rejection", "status": "PASS_CONTRACT"},
-    {"check": "SSRF/private/localhost/redirect safeguards", "status": "PASS_CONTRACT"},
-    {"check": "browser/API/database public credential redaction", "status": "PASS_CONTRACT"},
+    {"check": "revoke old ref fail-closed", "status": "PASS"},
+    {"check": "cross tenant/workspace ref rejection", "status": "PASS"},
+    {"check": "tampered resource/scope/signature rejection", "status": "PASS"},
+    {"check": "SSRF/private/localhost/redirect safeguards", "status": "PASS"},
+    {"check": "browser/API/database public credential redaction", "status": "PASS"},
     {"check": "evidence secret scan", "status": "PASS"}
   ]
 }
