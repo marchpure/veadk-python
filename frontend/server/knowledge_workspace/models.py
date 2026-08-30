@@ -67,6 +67,7 @@ class SkillDraft(ImmutableModel):
     workspace_id: str = Field(min_length=1, max_length=160)
     draft_id: str = Field(min_length=1, max_length=160)
     created_by: str = Field(min_length=1, max_length=160)
+    display_name: str | None = Field(default=None, max_length=256)
     goal: str = Field(min_length=1, max_length=8_000)
     trial_task: str | None = Field(default=None, max_length=20_000)
     template_key: TemplateKey = TemplateKey.GENERIC

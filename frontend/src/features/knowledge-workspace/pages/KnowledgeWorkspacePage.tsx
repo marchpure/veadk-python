@@ -72,8 +72,6 @@ import {
   type KnowledgeSourceOption,
 } from "../../../extensions/knowledgeSources";
 import { Modal } from "../components/Modal";
-import { DemoBootstrap } from "../demo/DemoBootstrap";
-import type { DemoScenario } from "../demo/types";
 import { SkillWorkspaceShell } from "../workspace/SkillWorkspaceShell";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
@@ -798,44 +796,6 @@ export function KnowledgeWorkspacePage({
     setCreatorResetKey((current) => current + 1);
     setRoute("skill_new");
   }, []);
-
-  const copyDemoScenario = useCallback((scenario: DemoScenario) => {
-    setWelcomeGoal(scenario.goal);
-    setSelectedTemplateKey(
-      scenario.skill_type.toLowerCase().includes("dashboard")
-        ? "dashboard"
-        : scenario.skill_type.toLowerCase().includes("sop")
-          ? "sop"
-          : "generic",
-    );
-    setSelectedConnectionIds(
-      scenario.connection_id ? [scenario.connection_id] : [],
-    );
-    setSelectedResourceIds([]);
-    setSelectedKnowledgeSourceOptionIds([]);
-    setCreatorResetKey((current) => current + 1);
-    setRoute("skill_new");
-  }, []);
-
-  const revalidateDemoScenario = useCallback(async (scenario: DemoScenario) => {
-    if (!scenario.connection_id) {
-      setError("该示例尚未创建可验证的连接。");
-      return;
-    }
-    setBusy("validate");
-    try {
-      const started = await knowledgeApi.validateConnection(scenario.connection_id);
-      setConnectionJob({ kind: "validate", status: started.data.status });
-      const result = await knowledgeApi.waitForConnectionJob(started);
-      setConnectionJob({ kind: "validate", status: result.data.status });
-      await reloadDirectory();
-    } catch (cause) {
-      setConnectionJob({ kind: "validate", status: "failed" });
-      setError(errorMessage(cause));
-    } finally {
-      setBusy("");
-    }
-  }, [reloadDirectory]);
 
   const returnFromContextDetail = useCallback(() => {
     const previous = contextReturnRouteRef.current;
@@ -1562,30 +1522,6 @@ export function KnowledgeWorkspacePage({
         {route.file === "skill_new" ? (
           <SkillCreateLanding
             key={creatorResetKey}
-            beforeSlot={(
-              <DemoBootstrap
-                onOpenSkill={(scenario) => {
-                  if (scenario.draft_id) {
-                    setRoute(
-                      "draft",
-                      scenario.draft_id,
-                      "",
-                      "",
-                      scenario.authoring_session_id || "",
-                    );
-                  }
-                }}
-                onViewConnection={(scenario) => {
-                  if (scenario.connection_id) {
-                    setRoute("connection", "", scenario.connection_id);
-                  } else {
-                    setError("该示例尚未创建连接。");
-                  }
-                }}
-                onRevalidate={revalidateDemoScenario}
-                onCopy={copyDemoScenario}
-              />
-            )}
             goal={welcomeGoal}
             setGoal={setWelcomeGoal}
             connections={availableConnections}

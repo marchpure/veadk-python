@@ -2395,14 +2395,29 @@ def _run_frontend_server(
         connection_context=connection_gateway,
     )
 
+    _demo_seed_enabled = os.getenv("KNOWLEDGE_DEMO_ENABLED", "").strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    _demo_seed = None
+    if _demo_seed_enabled:
+        from frontend.server.knowledge_workspace.demo_seed import ensure_demo_seed
+
+        _demo_seed = ensure_demo_seed
+
     def _knowledge_workspace_actor(request: Request, resolver: Any) -> Actor:
         principal = resolver(request)
         owner_id = str(getattr(principal, "owner_id", "") or "local")
-        return Actor(
+        actor = Actor(
             tenant_id=owner_id,
             workspace_id="studio",
             principal_id=owner_id,
         )
+        if _demo_seed is not None:
+            _demo_seed(actor, knowledge_service)
+        return actor
 
     mount_knowledge_workspace_routes(
         app,

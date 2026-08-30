@@ -1271,6 +1271,7 @@ class KnowledgeWorkspaceService:
     def public_draft(draft: SkillDraft) -> dict[str, object]:
         return {
             "draft_id": draft.draft_id,
+            "display_name": draft.display_name,
             "goal": draft.goal,
             "trial_task": draft.trial_task,
             "template_key": draft.template_key,
@@ -1364,6 +1365,7 @@ class KnowledgeWorkspaceService:
         goal: str,
         connection_ids: Sequence[str],
         *,
+        display_name: str | None = None,
         resource_ids: Sequence[str] = (),
         knowledge_source_refs: Sequence[Mapping[str, object]] = (),
         trial_task: str | None = None,
@@ -1440,6 +1442,11 @@ class KnowledgeWorkspaceService:
             workspace_id=actor.workspace_id,
             draft_id=draft_id,
             created_by=actor.principal_id,
+            display_name=(
+                display_name.strip()[:256]
+                if display_name and display_name.strip()
+                else None
+            ),
             goal=goal.strip(),
             trial_task=trial_task.strip()
             if trial_task and trial_task.strip()

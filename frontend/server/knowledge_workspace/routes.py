@@ -54,6 +54,7 @@ from .migration import merge_knowledge_source_refs
 class CreateDraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     goal: str = Field(min_length=1, max_length=8_000)
+    display_name: str | None = Field(default=None, max_length=256)
     template_key: TemplateKey = TemplateKey.GENERIC
     template_config: dict[str, Any] = Field(default_factory=dict)
     connection_ids: list[str] = Field(default_factory=list, max_length=64)
@@ -1156,6 +1157,7 @@ def mount_knowledge_workspace_routes(
                 actor(request),
                 body.goal,
                 body.connection_ids,
+                display_name=body.display_name,
                 resource_ids=body.resource_ids,
                 knowledge_source_refs=merged_refs or (),
                 trial_task=body.trial_task,

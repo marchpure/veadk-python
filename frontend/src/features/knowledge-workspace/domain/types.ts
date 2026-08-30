@@ -77,6 +77,7 @@ export interface WorkspaceResource {
 
 export interface Draft {
   draft_id: string;
+  display_name?: string;
   goal: string;
   trial_task?: string;
   template_key: TemplateKey;

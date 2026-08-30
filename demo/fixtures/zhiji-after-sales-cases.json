@@ -1,0 +1,22 @@
+[
+  {
+    "case_id": "ZHJ-2026-001",
+    "model": "智己L7",
+    "fault_code": "BMS_P0715",
+    "software_signal": "battery_pack_temperature_delta > 8C",
+    "symptom": "低温环境下充电功率下降",
+    "historical_steps": ["读取BMS版本", "确认温差趋势", "检查热管理回路"],
+    "result": "升级BMS并完成热管理排气后恢复",
+    "escalate_when": "温差持续超过10C或出现绝缘告警"
+  },
+  {
+    "case_id": "ZHJ-2026-002",
+    "model": "智己LS6",
+    "fault_code": "ADAS_C1203",
+    "software_signal": "front_camera_calibration=false",
+    "symptom": "高速领航功能不可用",
+    "historical_steps": ["检查摄像头遮挡", "读取标定状态", "执行静态标定"],
+    "result": "完成标定并清除历史故障码",
+    "escalate_when": "标定失败两次或镜头支架变形"
+  }
+]
