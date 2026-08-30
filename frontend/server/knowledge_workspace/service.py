@@ -649,6 +649,7 @@ class KnowledgeWorkspaceService:
         if_match: str | None,
         trial_task: str | None = None,
         resource_ids: Sequence[str] | None = None,
+        knowledge_source_refs: Sequence[Mapping[str, object]] | None = None,
         openviking_profile_ids: Sequence[str] | None = None,
         openviking_resource_refs: Sequence[str] | None = None,
         upload_ids: Sequence[str] | None = None,
@@ -721,7 +722,16 @@ class KnowledgeWorkspaceService:
                         "NOT_FOUND", "resource not found", 404
                     )
             updates["resource_ids"] = resources
-        if openviking_profile_ids is not None:
+        if knowledge_source_refs is not None:
+            normalized: list[Mapping[str, object]] = []
+            for ref in knowledge_source_refs:
+                if isinstance(ref, Mapping) and dict(ref) not in [dict(item) for item in normalized]:
+                    normalized.append(dict(ref))
+            updates["knowledge_source_refs"] = tuple(normalized)
+            profiles, resources = _provider_refs(normalized)
+            updates["openviking_profile_ids"] = profiles
+            updates["openviking_resource_refs"] = resources
+        elif openviking_profile_ids is not None:
             profiles = tuple(dict.fromkeys(str(item) for item in openviking_profile_ids))
             updates["openviking_profile_ids"] = profiles
             existing_refs = [ref for ref in updated_refs if ref.get("resource_ref")]
@@ -729,7 +739,7 @@ class KnowledgeWorkspaceService:
                 [{"provider": "openviking", "profile_ref": item} for item in profiles]
                 + existing_refs
             )
-        if openviking_resource_refs is not None:
+        if knowledge_source_refs is None and openviking_resource_refs is not None:
             resources = tuple(dict.fromkeys(str(item) for item in openviking_resource_refs))
             updates["openviking_resource_refs"] = resources
             existing_refs = [ref for ref in updated_refs if ref.get("profile_ref")]
@@ -756,7 +766,7 @@ class KnowledgeWorkspaceService:
         if (
             not updated.connection_ids
             and not updated.resource_ids
-            and not updated.openviking_resource_refs
+            and not updated.knowledge_source_refs
         ):
             raise KnowledgeWorkspaceError(
                 "CONNECTION_NOT_READY",

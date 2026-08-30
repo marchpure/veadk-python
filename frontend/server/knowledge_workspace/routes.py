@@ -1131,6 +1131,7 @@ def mount_knowledge_workspace_routes(
                 goal=body.goal,
                 connection_ids=body.connection_ids,
                 resource_ids=body.resource_ids,
+                knowledge_source_refs=body.knowledge_source_refs,
                 openviking_profile_ids=source_profiles if body.knowledge_source_refs is not None else body.openviking_profile_ids,
                 openviking_resource_refs=source_resources if body.knowledge_source_refs is not None else body.openviking_resource_refs,
                 if_match=if_match,
