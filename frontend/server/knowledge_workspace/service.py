@@ -1737,7 +1737,10 @@ class KnowledgeWorkspaceService:
                         invocation_policy=invocation_policy,
                     ),
                     model=model,
-                    state=self._state_for_invocation(session, invocation),
+                    state=(
+                        prepared_autoskill_state
+                        or self._state_for_invocation(session, invocation)
+                    ),
                     invocation_policy=invocation_policy,
                 )
             elif invocation.kind is InvocationKind.UPDATE:
@@ -1753,7 +1756,10 @@ class KnowledgeWorkspaceService:
                         invocation_policy=invocation_policy,
                     ),
                     model=model,
-                    state=self._state_for_invocation(session, invocation),
+                    state=(
+                        prepared_autoskill_state
+                        or self._state_for_invocation(session, invocation)
+                    ),
                     invocation_policy=invocation_policy,
                 )
             else:

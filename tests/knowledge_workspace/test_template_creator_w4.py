@@ -40,6 +40,26 @@ class RecordingFreezeAutoSkill(FreezeAutoSkill):
             yield item
 
 
+class PreparedStateRecordingAutoSkill(RecordingFreezeAutoSkill):
+    def __init__(self, events, *, prepared_state: bytes) -> None:
+        super().__init__(events)
+        self.command_states: list[bytes | None] = []
+        self.prepared_state = prepared_state
+
+    async def command(
+        self, command: str, **kwargs: object
+    ) -> AsyncIterator[ParsedUpstreamEvent]:
+        value = kwargs.get("state")
+        self.command_states.append(value if isinstance(value, bytes) else None)
+        async for item in super().command(command, **kwargs):
+            yield item
+
+
+class PreparedStateLeasePort(FakeLeasePort):
+    async def prepare_autoskill(self, **_: object) -> bytes:
+        return b"lease-scoped-mcp-state"
+
+
 def w4_skill_zip(name: str = "demo", marker: str = "") -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
@@ -251,6 +271,31 @@ async def test_w4_update_prompt_binds_current_revision_skill() -> None:
     assert first.skill_name == "demo"
     assert "current_revision_skill" in str(update_prompt)
     assert "existing Skill 'demo'" in str(update_prompt)
+
+
+@pytest.mark.asyncio
+async def test_w4_creator_passes_prepared_runtime_state_to_create() -> None:
+    autoskill = PreparedStateRecordingAutoSkill(
+        [
+            event("final_answer", {"answer": "created"}),
+            event("request_summary", policy_summary()),
+            event("done"),
+        ],
+        prepared_state=b"unused",
+    )
+    autoskill.skill_zip = w4_skill_zip("demo")
+    autoskill.config = type("Config", (), {"state_mode": "stateless"})()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        autoskill,
+        connection_context=PreparedStateLeasePort(),
+    )
+    actor = Actor("tenant", "workspace", "principal")
+    draft = service.create_draft(actor, "Create a dashboard skill", ["connection-a"])
+    service.start(actor, draft.draft_id, InvocationKind.GENERATE)
+    await asyncio.sleep(0)
+
+    assert autoskill.command_states == [b"lease-scoped-mcp-state"]
 
 
 @pytest.mark.asyncio
