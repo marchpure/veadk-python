@@ -465,6 +465,7 @@ export function KnowledgeWorkspacePage() {
   const [activeInvocation, setActiveInvocation] = useState<Invocation | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
   const pendingCreatedDraftRef = useRef<{ draft: Draft; etag: string } | null>(null);
+  const contextReturnRouteRef = useRef<WorkspaceRoute | null>(null);
   const lastCursorRef = useRef(new Map<string, string>());
   const terminalInvocationRef = useRef(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
@@ -537,7 +538,9 @@ export function KnowledgeWorkspacePage() {
           result.value.data,
         ]);
         writeQuery(`connection:${result.value.data.connection_id}`, result.value.data);
-        setSelectedConnectionIds([result.value.data.connection_id]);
+        if (!contextReturnRouteRef.current && result.value.data.status === "ready") {
+          setSelectedConnectionIds([result.value.data.connection_id]);
+        }
       })
       .catch((cause) => {
         if (!controller.signal.aborted) setError(errorMessage(cause));
@@ -574,12 +577,25 @@ export function KnowledgeWorkspacePage() {
         setEtag(result.etag);
         setSelectedConnectionIds(result.value.data.connection_ids);
         setSelectedResourceIds(result.value.data.resource_ids);
-        const [revisionResult, conversationResult] = await Promise.all([
+        const [revisionResult, conversationResult, publicationResult] = await Promise.all([
           knowledgeApi.listRevisions(route.draftId, controller.signal),
           knowledgeApi.getConversation(route.draftId, controller.signal),
+          knowledgeApi.listPublications(controller.signal),
         ]);
         setRevisions(revisionResult.data);
         writeQuery(`revisions:${route.draftId}`, revisionResult.data);
+        const currentRevisionId = result.value.data.current_revision_id
+          || revisionResult.data.reduce<Revision | null>(
+            (current, revision) =>
+              !current || revision.number > current.number ? revision : current,
+            null,
+          )?.revision_id;
+        const restoredPublication = [...publicationResult.data].reverse().find(
+          (publication) =>
+            publication.status === "published"
+            && publication.revision_id === currentRevisionId,
+        );
+        setPublication(restoredPublication || null);
         dispatchAssistant({
           type: "history.restored",
           entries: conversationResult.data,
@@ -662,6 +678,18 @@ export function KnowledgeWorkspacePage() {
     setShowConnectionForm(true);
   }, []);
 
+  const returnFromContextDetail = useCallback(() => {
+    const previous = contextReturnRouteRef.current;
+    contextReturnRouteRef.current = null;
+    if (previous?.file === "draft" || previous?.file === "published") {
+      setRoute(previous.file, previous.draftId);
+      setShowDataToolDrawer(true);
+      return;
+    }
+    setRoute("skill_new");
+    setShowDataToolDrawer(true);
+  }, []);
+
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     if (route.draftId || (route.file !== "draft" && route.file !== "published")) return;
@@ -739,6 +767,7 @@ export function KnowledgeWorkspacePage() {
         })
         .catch((cause) => setError(errorMessage(cause)));
     } else if (event.type === "revision.created" && draft) {
+      setPublication(null);
       void knowledgeApi.listRevisions(draft.draft_id)
         .then((result) => {
           setRevisions(result.data);
@@ -1254,6 +1283,7 @@ export function KnowledgeWorkspacePage() {
           <ConnectionDetailView
             connection={selectedConnection}
             connector={connectors.find((item) => item.connector_key === selectedConnection?.connector_key)}
+            onBack={contextReturnRouteRef.current ? returnFromContextDetail : undefined}
             onValidate={async (id) => {
               setBusy("validate");
               try {
@@ -1290,6 +1320,7 @@ export function KnowledgeWorkspacePage() {
         ) : route.file === "resource" ? (
           <WorkspaceResourceDetail
             resource={selectedResource}
+            onBack={contextReturnRouteRef.current ? returnFromContextDetail : undefined}
             onUse={() => {
               if (!selectedResource) return;
               setSelectedResourceIds([selectedResource.resource_id]);
@@ -1349,7 +1380,7 @@ export function KnowledgeWorkspacePage() {
       </div>
       <DataToolDrawer
         open={showDataToolDrawer}
-        connections={availableConnections}
+        connections={connections}
         resources={resources}
         selectedConnectionIds={selectedConnectionIds}
         selectedResourceIds={selectedResourceIds}
@@ -1360,8 +1391,18 @@ export function KnowledgeWorkspacePage() {
             .catch(() => undefined);
         }}
         onConfigureConnection={(connection) => {
+          contextReturnRouteRef.current = route.file === "draft" || route.file === "published"
+            ? route
+            : { ...route, file: "skill_new" };
           setShowDataToolDrawer(false);
           setRoute("connection", "", connection.connection_id);
+        }}
+        onInspectResource={(resource) => {
+          contextReturnRouteRef.current = route.file === "draft" || route.file === "published"
+            ? route
+            : { ...route, file: "skill_new" };
+          setShowDataToolDrawer(false);
+          setRoute("resource", "", "", resource.resource_id);
         }}
       />
       {showConnectionForm ? (
@@ -1717,6 +1758,7 @@ function WelcomeEntryView({
 function ConnectionDetailView({
   connection,
   connector,
+  onBack,
   onValidate,
   onDiscover,
   busy,
@@ -1724,6 +1766,7 @@ function ConnectionDetailView({
 }: {
   connection: ConnectionProfile | null;
   connector?: ConnectorDefinition;
+  onBack?: () => void;
   onValidate: (id: string) => Promise<void>;
   onDiscover: (id: string) => Promise<void>;
   busy: boolean;
@@ -1732,6 +1775,7 @@ function ConnectionDetailView({
   if (!connection) return <div className="kw-empty-page">请选择一个连接。</div>;
   return (
     <section className="kw-detail">
+      {onBack ? <button type="button" className="kw-detail-back" onClick={onBack}><ArrowLeft size={16} /> 返回选择</button> : null}
       <div className="kw-detail-heading">
         <div>
           <span className="kw-eyebrow">CONNECTION</span>
@@ -1761,9 +1805,11 @@ function ConnectionDetailView({
 
 function WorkspaceResourceDetail({
   resource,
+  onBack,
   onUse,
 }: {
   resource: WorkspaceResource | null;
+  onBack?: () => void;
   onUse: () => void;
 }) {
   const [preview, setPreview] = useState<JsonObject | null>(null);
@@ -1817,6 +1863,7 @@ function WorkspaceResourceDetail({
   const definitionId = typeof metadata.definition_id === "string" ? metadata.definition_id : "";
   return (
     <section className="kw-detail">
+      {onBack ? <button type="button" className="kw-detail-back" onClick={onBack}><ArrowLeft size={16} /> 返回选择</button> : null}
       <div className="kw-detail-heading">
         <div>
           <span className="kw-eyebrow">RESOURCE</span>

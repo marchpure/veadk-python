@@ -24,8 +24,8 @@ does not create, validate, discover, or simulate Connection Service records.
 - Agent directory/binding APIs are not exposed by the current Knowledge
   Workspace client. The existing bind surface shows a real empty state rather
   than sample Agents.
-- Publication refresh depends on the Draft lifecycle returned by the BFF;
-  there is no publication-list endpoint in the current frontend contract.
+- Publication refresh uses the existing BFF publication listing and matches
+  published records to the Draft's real Revision IDs.
 
 ## Verification evidence
 

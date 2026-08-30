@@ -30,14 +30,26 @@ test("new Skill starts with one business composer and Auto delivery", () => {
 test("data drawer selects only real usable contexts and preserves status semantics", () => {
   assert.match(page, /knowledgeApi\.listConnections/);
   assert.match(page, /knowledgeApi\.listResources/);
+  assert.match(page, /connections=\{connections\}/);
   assert.match(drawer, /connection\.status === "ready"/);
-  assert.match(drawer, /去配置|查看/);
+  assert.match(drawer, /已撤销/);
+  assert.match(drawer, /onInspectResource/);
+  assert.match(drawer, /去配置/);
+  assert.match(drawer, />查看</);
   assert.match(drawer, /数据库/);
   assert.match(drawer, /文件与表格/);
   assert.match(drawer, /对象存储/);
   assert.match(drawer, /API \/ MCP/);
   assert.match(drawer, /办公与知识/);
   assert.doesNotMatch(drawer, /verified.*ready|resourceStore|Zustand/i);
+});
+
+test("inspecting unavailable context returns to the in-progress creator", () => {
+  assert.match(page, /contextReturnRouteRef/);
+  assert.match(page, /contextReturnRouteRef\.current = route\.file/);
+  assert.match(page, /returnFromContextDetail/);
+  assert.match(page, /onBack=\{contextReturnRouteRef\.current \? returnFromContextDetail : undefined\}/);
+  assert.match(page, /onInspectResource=/);
 });
 
 test("first message maps to one real draft and generation invocation", () => {
@@ -70,6 +82,13 @@ test("artifacts are restored from conversation events and remain controlled", ()
   assert.match(toolbar, /发布 Skill/);
   assert.match(toolbar, /添加到 Agent/);
   assert.doesNotMatch(artifacts, /dangerouslySetInnerHTML|固定销售|mock/i);
+});
+
+test("publication state is restored from the existing BFF listing endpoint", () => {
+  assert.match(page, /knowledgeApi\.listPublications/);
+  assert.match(page, /currentRevisionId/);
+  assert.match(page, /publication\.revision_id === currentRevisionId/);
+  assert.match(page, /setPublication\(restoredPublication \|\| null\)/);
 });
 
 test("responsive workshop uses full-screen mobile drawers without horizontal overflow", () => {
