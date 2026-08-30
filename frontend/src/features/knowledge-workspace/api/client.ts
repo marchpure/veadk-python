@@ -53,8 +53,6 @@ export interface CreateDraftInput {
   goal: string;
   connection_ids: string[];
   resource_ids?: string[];
-  openviking_profile_ids?: string[];
-  openviking_resource_refs?: string[];
   trial_task?: string;
   upload_ids?: string[];
   knowledge_source_refs?: KnowledgeSourceRef[];
@@ -64,8 +62,6 @@ export interface UpdateDraftInput {
   goal?: string;
   connection_ids?: string[];
   resource_ids?: string[];
-  openviking_profile_ids?: string[];
-  openviking_resource_refs?: string[];
   trial_task?: string;
   knowledge_source_refs?: KnowledgeSourceRef[];
 }

@@ -80,8 +80,6 @@ export interface Draft {
   connection_ids: string[];
   resource_ids: string[];
   knowledge_source_refs: KnowledgeSourceRef[];
-  openviking_profile_ids: string[];
-  openviking_resource_refs: string[];
   lifecycle: DraftLifecycle;
   current_revision_id?: string;
   active_invocation_id?: string;
