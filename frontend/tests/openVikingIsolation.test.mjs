@@ -9,8 +9,8 @@ const knowledgePage = readFileSync(
 );
 
 test("OpenViking implementation is not statically imported by App", () => {
-  assert.match(appSource, /lazy\(\(\) =>\s*import\("\.\/extensions\/openviking\/OpenVikingWorkspace"\)/);
-  assert.doesNotMatch(appSource, /import\s*\{[^}]*OpenVikingWorkspace[^}]*\}\s*from/);
+  assert.match(appSource, /lazy\(loadOpenVikingWorkspace\)/);
+  assert.doesNotMatch(appSource, /from\s*["']\.\/extensions\/openviking\//);
 });
 
 test("legacy OpenViking source roots are removed", () => {
@@ -25,5 +25,5 @@ test("extension publishes opaque source contracts", () => {
 });
 
 test("legacy payload conversion is isolated in the extension", () => {
-  assert.match(knowledgePage, /extensions\/openviking\/public/);
+  assert.match(knowledgePage, /extensions\/optionalOpenViking/);
 });
