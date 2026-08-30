@@ -374,6 +374,22 @@ def test_skill_zip_accepts_standard_presentation_directory() -> None:
     assert "skillhub/demo/presentation/schema_browser.html" in checked["paths"]
 
 
+def test_skill_zip_accepts_standard_templates_directory() -> None:
+    source = io.BytesIO()
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+        archive.writestr("skillhub/demo/scripts/run.py", "print('ok')\n")
+        archive.writestr(
+            "skillhub/demo/templates/report_template.html",
+            "<!doctype html><html><body>template</body></html>",
+        )
+        archive.writestr("skillhub/demo/tests/test_run.py", "def test_run(): pass\n")
+
+    checked = validate_skill_zip(normalize_skill_zip(source.getvalue()))
+
+    assert "skillhub/demo/templates/report_template.html" in checked["paths"]
+
+
 def test_state_zip_extracts_only_requested_skill_subtree() -> None:
     source = io.BytesIO()
     with zipfile.ZipFile(source, "w") as archive:

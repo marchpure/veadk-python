@@ -215,6 +215,7 @@ def normalize_skill_zip(
                 "resources",
                 "schema_glossary.json",
                 "scripts",
+                "templates",
                 "tests",
                 "query_results.csv",
             }:
@@ -279,6 +280,7 @@ def validate_skill_zip(
             "resources",
             "schema_glossary.json",
             "scripts",
+            "templates",
             "tests",
             "query_results.csv",
         }
