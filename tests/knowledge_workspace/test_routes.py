@@ -416,8 +416,9 @@ async def test_invocation_response_has_same_origin_event_url_and_etag_guard() ->
             "model",
             "started_at",
             "finished_at",
-            "created_at",
-            "event_url",
+        "created_at",
+        "knowledge_source_refs",
+        "event_url",
         }
         stale = await client.post(
             f"/api/knowledge/v1/skills/drafts/{draft_id}/messages",

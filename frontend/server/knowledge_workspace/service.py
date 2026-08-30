@@ -421,6 +421,10 @@ class KnowledgeWorkspaceService:
             "kind": invocation.kind,
             "status": invocation.status,
             "message": invocation.message,
+            "knowledge_source_refs": [
+                ref.model_dump(mode="json", exclude_none=True)
+                for ref in invocation.knowledge_source_refs
+            ],
             "model": invocation.model,
             "started_at": invocation.started_at,
             "finished_at": invocation.finished_at,
@@ -989,17 +993,18 @@ class KnowledgeWorkspaceService:
     ) -> None:
         context: Mapping[str, object] | None = None
         try:
+            source_profiles, source_resources = _provider_refs(invocation.knowledge_source_refs)
             context = self._openviking_context(
                 actor,
-                invocation.openviking_profile_ids,
-                invocation.openviking_resource_refs,
+                source_profiles,
+                source_resources,
             )
             content_resolver = self.knowledge_content_resolver or self.openviking_content_resolver
             if context and content_resolver is not None:
                 context = await content_resolver(
                     actor,
-                    invocation.openviking_profile_ids,
-                    invocation.openviking_resource_refs,
+                    source_profiles,
+                    source_resources,
                 )
         except Exception as exc:
             code = str(getattr(exc, "code", "OPENVIKING_CONTEXT_UNAVAILABLE"))
