@@ -24,8 +24,19 @@ _BLOCKED = re.compile(
     re.IGNORECASE,
 )
 _BLOCKED_SCRIPT_CAPABILITY = re.compile(
-    r"""\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|navigator\.sendBeacon|document\.cookie|localStorage|sessionStorage|indexedDB|importScripts|Worker|SharedWorker|serviceWorker)\b|\beval\s*\(|\bnew\s+Function\b""",
-    re.IGNORECASE,
+    r"""(?:
+        \bfetch\s*\(
+        |\bnew\s+(?:XMLHttpRequest|WebSocket|EventSource|Worker|SharedWorker)\b
+        |\b(?:XMLHttpRequest|WebSocket|EventSource)\s*\(
+        |\bnavigator\s*\.\s*sendBeacon\s*\(
+        |\bdocument\s*\.\s*cookie\b
+        |\b(?:localStorage|sessionStorage|indexedDB)\s*\.
+        |\bimportScripts\s*\(
+        |\bserviceWorker\s*\.
+        |\beval\s*\(
+        |\bnew\s+Function\s*\(
+    )""",
+    re.IGNORECASE | re.VERBOSE,
 )
 _EXTERNAL = re.compile(
     r"""(?:src|href|srcset)\s*=\s*(?:["']\s*)?(?:https?:|//)""",
