@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type SVGProps,
@@ -31,7 +32,14 @@ import { ResourceContextTree } from './routes/resources/-components/context-tree
 import { FindPalette } from './routes/resources/-components/find-palette'
 import { LazyFilePreview } from './routes/resources/-components/lazy-file-preview'
 import { useInvalidateVikingFs } from './routes/resources/-hooks/viking-fm'
-import { fetchFsStat } from './routes/resources/-lib/api'
+import {
+  deleteFsResource,
+  fetchFsStat,
+} from './routes/resources/-lib/api'
+import {
+  ACTIVE_OPENVIKING_PROFILE_KEY,
+  selectReadyProfileId,
+} from './profile-selection'
 import {
   fileNameFromUri,
   normalizeDirUri,
@@ -286,7 +294,9 @@ function ResourceWorkspace({ rootUri }: { rootUri: string }) {
     rootEntry(normalizedRoot),
   )
   const [expandedUris, setExpandedUris] = useState<Set<string>>(new Set())
-  const { invalidateList, invalidatePreview } = useInvalidateVikingFs()
+  const { invalidateList, invalidatePreview, invalidateTree } =
+    useInvalidateVikingFs()
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     setSelectedFile(rootEntry(normalizedRoot))
@@ -321,6 +331,32 @@ function ResourceWorkspace({ rootUri }: { rootUri: string }) {
       invalidatePreview(selectedFile.uri),
     ])
   }, [invalidateList, invalidatePreview, selectedFile.uri])
+
+  const deleteSelected = useCallback(async () => {
+    if (selectedFile.uri === normalizedRoot) return
+    if (!window.confirm(`Delete ${selectedFile.name}? This cannot be undone.`)) {
+      return
+    }
+    setDeleting(true)
+    try {
+      await deleteFsResource(selectedFile.uri, selectedFile.isDir)
+      setSelectedFile(rootEntry(normalizedRoot))
+      setExpandedUris(new Set())
+      await Promise.all([
+        invalidateList(),
+        invalidateTree(),
+        invalidatePreview(selectedFile.uri),
+      ])
+    } finally {
+      setDeleting(false)
+    }
+  }, [
+    invalidateList,
+    invalidatePreview,
+    invalidateTree,
+    normalizedRoot,
+    selectedFile,
+  ])
 
   return (
     <ResourceUploadProvider>
@@ -358,6 +394,19 @@ function ResourceWorkspace({ rootUri }: { rootUri: string }) {
           </div>
         </section>
         <section className="ov-resource-preview" aria-label="Resource preview">
+          {selectedFile.uri !== normalizedRoot ? (
+            <div className="ov-resource-preview-actions">
+              <button
+                className="ov-danger-button"
+                type="button"
+                disabled={deleting}
+                onClick={() => void deleteSelected()}
+              >
+                <DeleteIcon />
+                {deleting ? 'Deleting…' : 'Delete resource'}
+              </button>
+            </div>
+          ) : null}
           <LazyFilePreview
             file={selectedFile}
             onClose={() => setSelectedFile(rootEntry(normalizedRoot))}
@@ -407,11 +456,18 @@ function returnToSkillCreator(profile: OpenVikingProfile) {
 export function OpenVikingWorkspace() {
   const [profiles, setProfiles] = useState<OpenVikingProfile[]>([])
   const [activeId, setActiveId] = useState('')
+  const activeIdRef = useRef(
+    window.localStorage.getItem(ACTIVE_OPENVIKING_PROFILE_KEY) ?? '',
+  )
   const [page, setPage] = useState<OpenVikingPage>('resources')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const activeProfile = useMemo(
-    () => profiles.find((profile) => profile.profile_id === activeId) ?? null,
+    () =>
+      profiles.find(
+        (profile) =>
+          profile.profile_id === activeId && profile.status === 'ready',
+      ) ?? null,
     [activeId, profiles],
   )
 
@@ -431,12 +487,15 @@ export function OpenVikingWorkspace() {
     try {
       const values = await openVikingApi.listProfiles()
       setProfiles(values)
-      setActiveId((current) =>
-        values.some((item) => item.profile_id === current)
-          ? current
-          : (values[0]?.profile_id ?? ''),
-      )
-      if (values.length === 0) setPage('connection')
+      const readyId = selectReadyProfileId(values, activeIdRef.current)
+      activeIdRef.current = readyId
+      if (readyId) {
+        window.localStorage.setItem(ACTIVE_OPENVIKING_PROFILE_KEY, readyId)
+      } else {
+        window.localStorage.removeItem(ACTIVE_OPENVIKING_PROFILE_KEY)
+      }
+      setActiveId(readyId)
+      if (!readyId) setPage('connection')
     } catch (value) {
       setError(value instanceof Error ? value.message : 'Unable to load profiles')
       setPage('connection')
@@ -454,6 +513,11 @@ export function OpenVikingWorkspace() {
       profile,
       ...current.filter((item) => item.profile_id !== profile.profile_id),
     ])
+    activeIdRef.current = profile.profile_id
+    window.localStorage.setItem(
+      ACTIVE_OPENVIKING_PROFILE_KEY,
+      profile.profile_id,
+    )
     setActiveId(profile.profile_id)
     setPage('resources')
   }, [])
@@ -540,10 +604,21 @@ export function OpenVikingWorkspace() {
                       <select
                         aria-label="OpenViking profile"
                         value={activeId}
-                        onChange={(event) => setActiveId(event.target.value)}
+                        onChange={(event) => {
+                          activeIdRef.current = event.target.value
+                          window.localStorage.setItem(
+                            ACTIVE_OPENVIKING_PROFILE_KEY,
+                            event.target.value,
+                          )
+                          setActiveId(event.target.value)
+                        }}
                       >
                         {profiles.map((profile) => (
-                          <option key={profile.profile_id} value={profile.profile_id}>
+                          <option
+                            key={profile.profile_id}
+                            value={profile.profile_id}
+                            disabled={profile.status !== 'ready'}
+                          >
                             {profile.display_name}
                           </option>
                         ))}

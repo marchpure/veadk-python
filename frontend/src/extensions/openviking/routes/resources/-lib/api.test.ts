@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchFsList } from './api'
+import { deleteFsResource, fetchFsList } from './api'
 
-const { getFsLsMock } = vi.hoisted(() => ({
+const { deleteMock, getFsLsMock } = vi.hoisted(() => ({
+  deleteMock: vi.fn(),
   getFsLsMock: vi.fn(),
 }))
 
@@ -11,6 +12,7 @@ vi.mock('#/lib/ov-client', async (importOriginal) => {
   return {
     ...original,
     getFsLs: getFsLsMock,
+    ovClient: { client: { delete: deleteMock } },
   }
 })
 
@@ -33,6 +35,25 @@ describe('fetchFsList', () => {
         sort_by: 'mtime',
         sort_order: 'desc',
       }),
+    })
+  })
+
+  it('deletes a resource recursively through the authenticated adapter', async () => {
+    deleteMock.mockResolvedValue({
+      data: { status: 'ok', result: { estimated_deleted_count: 2 } },
+      headers: {},
+      status: 200,
+    })
+
+    await deleteFsResource('viking://resources/guide', true)
+
+    expect(deleteMock).toHaveBeenCalledWith({
+      query: {
+        uri: 'viking://resources/guide',
+        recursive: true,
+        wait: true,
+      },
+      url: '/api/v1/fs',
     })
   })
 })

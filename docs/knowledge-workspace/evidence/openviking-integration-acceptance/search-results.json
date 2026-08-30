@@ -1,5 +1,373 @@
 {
-  "status": "BLOCKED_EXTERNAL",
-  "queries": [],
-  "reason": "No live import was completed, so canary retrieval cannot be asserted."
+  "queries": [
+    {
+      "canary_sha256": "d7d597975ead4e42d818da0048548bc0b6ae847d4608630c68f9342cea48b2a1",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "1. This is a formal acceptance testing reference guide intended to outline standardized processes for validating that a product, system, or service meets predefined requirements and stakeholder expectations.\n2. Its core content centers on official acceptance testing workflows, with the internal identifier OV_ACCEPTANCE_MANUAL_1788104734-a412209e_38426d04 tied to its file naming convention.\n3. Key takeaways include that it provides structured criteria and steps to confirm deliverables align with …",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-manual-1788104734-a412209e/acceptance-manual-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.9588350653648376,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "---",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-manual-1788104734-a412209e/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.853593111038208,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "manual_text"
+    },
+    {
+      "canary_sha256": "9e82058a07bdb7505eb7db539c401d361063b54d5c1e86d73eca1fc2ab017d28",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "This is a reference documentation file focused on acceptance text standards for the OV (likely OpenView or similar enterprise tech) framework, with the unique identifier 1788104734-a412209e-068710e2. Its core purpose is to define required formatting, content rules, and validation criteria for official acceptance text used in approval workflows. Covered topics include mandatory text fields, compliance language requirements, and structured acceptance verification checklists. Key takeaways include …",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-txt-1788104734-a412209e/acceptance-txt-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 1.0001239776611328,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "This is a dedicated reference documentation repository for enterprise acceptance text standards tied to an OV framework. It provides standardized rules, templates, and validation checklists for creating official approval and sign-off documentation for p...",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-txt-1788104734-a412209e/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8132796287536621,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "TXT"
+    },
+    {
+      "canary_sha256": "b5e5f074ba160f5facd2c4e42c0ba568943c7b137759b35a249f2b730beaea18",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "1. This is a reference documentation file focused on acceptance-related workflows, titled acceptance-markdown-1788104734-a412209e.md.\n2. Its core content centers on the top-level Acceptance heading, with a referenced internal identifier OV_ACCEPTANCE_MARKDOWN_1788104734-a412209e_398fb79c as its core reference tag.\n3. Key takeaways include its structured heading hierarchy built around core acceptance processes, serving as a standardized reference for acceptance validation tasks.\n4. This document …",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-markdown-1788104734-a412209e/acceptance-markdown-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.957678496837616,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "---",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-markdown-1788104734-a412209e/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8590946197509766,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "Markdown"
+    },
+    {
+      "canary_sha256": "116ff97bb175014c061c727494c92b6691117a737b8d1b90c2f822a7ea5cefcc",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "This is a reference documentation file focused on PDF acceptance workflows, titled OV_ACCEPTANCE_PDF_1788104734-a412209e_1356866f. Its primary purpose is to outline standards, checklists, or validation steps for confirming generated or submitted PDFs meet required quality and compliance specifications. The core covered topics include PDF acceptance validation criteria, likely tied to organizational or platform-specific acceptance rules. Key takeaways include standardized checks for PDF formattin…",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-pdf-1788104734-a412209e/acceptance-pdf-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.9553076028823853,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "---",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-pdf-1788104734-a412209e/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8656252026557922,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "PDF"
+    },
+    {
+      "canary_sha256": "c0907a45f4c00e13041069cfee72e3326f5f1b7b86125c7c1484ab229822deb6",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "This is a reference documentation file focused on a named canary configuration value for acceptance testing. Its primary purpose is to define and document a specific CSV-based acceptance test canary identifier for use in deployment or validation workflows. The single core section of this file is a simple key-value pair listing: the canary name is set to OV_ACCEPTANCE_CSV_1788104734-a412209e_25f10aaf, paired with the label \"canary\". Key takeaways include that this document provides a static, uniq…",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-csv-1788104734-a412209e/acceptance-csv-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.9088609218597412,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "---",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-csv-1788104734-a412209e/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8607500791549683,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "CSV"
+    },
+    {
+      "canary_sha256": "369ef63978301f4416693d6258978257f1ce375d0549f1013c85c8879a131f54",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "1. This is a reference documentation file focused on acceptance JSON configuration for a canary deployment tracking system, with the primary purpose of defining and validating a specific acceptance JSON canary identifier.\n2. The single core topic covered is the assigned canary token value for this acceptance JSON artifact, with no additional sections or hierarchical headings included in the file content.\n3. The key takeaway is the unique canary identifier string OV_ACCEPTANCE_JSON_1788104734-a41…",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-json-1788104734-a412209e/acceptance-json-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.930957555770874,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "This is a dedicated repository directory for an acceptance JSON canary deployment tracking artifact. It provides a reference configuration documentation file to define, validate, and track a unique canary deployment identifier for JSON-based acceptance ...",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-json-1788104734-a412209e/.overview.md",
+                "level": 1,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.7968457341194153,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "JSON"
+    },
+    {
+      "canary_sha256": "a3af9b2a77e89bb5eb288712dc5312a66b0d610d6b610c527c32a651d43a8e8a",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "Este documento é um guia de referência para um arquivo Excel de aceitação. Ele tem como objetivo detalhar a estrutura e o conteúdo de um arquivo XLSX de aceitação chamado OV_ACCEPTANCE_XLSX_1788104734-a412209e_2fbc873e. As seções principais incluem a contagem de abas da planilha, com apenas uma aba nomeada Sheet, e as dimensões da planilha, que contam 1 linha e 2 colunas. A única entrada de dados listada é o rótulo canary associado ao nome do arquivo de aceitação. Ele é voltado para equipes de t…",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-xlsx-1788104734-a412209e/acceptance-xlsx-1788104734-a412209e.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8835098743438721,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "1. **Title** (H1): acceptance-xlsx-1788104734-a412209e\n2. **Brief Description** (plain text paragraph, 50-150 words):\nEste é um repositório de suporte para validação de um arquivo Excel de aceitação de software. Ele contém um guia de referência para est...",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "acceptance-xlsx-1788104734-a412209e/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8698781728744507,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "XLSX"
+    },
+    {
+      "canary_sha256": "456eae7d683c4f22b6feb026cf630dc7e95d0e15073a475bc555bf2a513bfef5",
+      "response": {
+        "data": {
+          "result": {
+            "memories": [],
+            "resources": [
+              {
+                "abstract": "---",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "anything/.abstract.md",
+                "level": 0,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8716408014297485,
+                "uri": "viking://<redacted>"
+              },
+              {
+                "abstract": "This is a reference API documentation snippet for the httpbin.org /anything endpoint, which captures and returns full details of incoming HTTP requests.\n\nIt covers core request metadata including query string arguments (the `canary` test parameter with a sample acceptance test value), request headers (such as user agent, host, and AWS trace ID), HTTP method (GET), origin IP address, full request URL, and empty/form/json/data payloads for this test call.\n\nKey takeaways include that the endpoint e…",
+                "category": "",
+                "context_type": "resource",
+                "display_path": "anything/anything.md",
+                "level": 2,
+                "match_reason": "",
+                "overview": null,
+                "relations": [],
+                "resource_ref": "[redacted]",
+                "score": 0.8656147122383118,
+                "uri": "viking://<redacted>"
+              }
+            ],
+            "skills": [],
+            "total": 2
+          },
+          "status": "ok"
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "type": "URL_web"
+    }
+  ],
+  "status": "PASS"
 }

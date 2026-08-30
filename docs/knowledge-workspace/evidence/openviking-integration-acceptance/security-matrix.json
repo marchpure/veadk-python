@@ -1,12 +1,128 @@
 {
-  "status": "BLOCKED_EXTERNAL",
   "checks": [
-    {"check": "wrong API key failure", "status": "BLOCKED_EXTERNAL"},
-    {"check": "revoke old ref fail-closed", "status": "PASS"},
-    {"check": "cross tenant/workspace ref rejection", "status": "PASS"},
-    {"check": "tampered resource/scope/signature rejection", "status": "PASS"},
-    {"check": "SSRF/private/localhost/redirect safeguards", "status": "PASS"},
-    {"check": "browser/API/database public credential redaction", "status": "PASS"},
-    {"check": "evidence secret scan", "status": "PASS"}
-  ]
+    {
+      "check": "empty_text",
+      "response": {
+        "error": {
+          "code": "INVALID_ARGUMENT",
+          "message": "Text content is required",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 422
+    },
+    {
+      "check": "zero_byte_file",
+      "response": {
+        "error": {
+          "code": "PAYLOAD_TOO_LARGE",
+          "message": "Upload is too large",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 413
+    },
+    {
+      "check": "unsupported_extension",
+      "response": {
+        "error": {
+          "code": "UNSUPPORTED_FILE_TYPE",
+          "message": "File type is not supported",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 415
+    },
+    {
+      "check": "localhost_import",
+      "response": {
+        "error": {
+          "code": "SSRF_BLOCKED",
+          "message": "Import URL resolves to a restricted network",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 422
+    },
+    {
+      "check": "private_ip_import",
+      "response": {
+        "error": {
+          "code": "SSRF_BLOCKED",
+          "message": "Import URL resolves to a restricted network",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 422
+    },
+    {
+      "check": "invalid_resource_ref",
+      "response": {
+        "error": {
+          "code": "INVALID_RESOURCE_REF",
+          "message": "Resource reference is invalid",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 422
+    },
+    {
+      "check": "corrupt_pdf",
+      "status": "PASS",
+      "submit_status": 500,
+      "task_status": null
+    },
+    {
+      "check": "corrupt_xlsx",
+      "status": "PASS",
+      "submit_status": 500,
+      "task_status": null
+    },
+    {
+      "check": "invalid_json",
+      "status": "PASS",
+      "submit_status": 422,
+      "task_status": null
+    },
+    {
+      "check": "wrong_api_key",
+      "response": {
+        "error": {
+          "code": "OPENVIKING_AUTH_FAILED",
+          "message": "OpenViking request failed",
+          "retryable": false
+        },
+        "meta": {
+          "request_id": "server-generated"
+        }
+      },
+      "status": "PASS",
+      "status_code": 401
+    }
+  ],
+  "status": "PASS"
 }

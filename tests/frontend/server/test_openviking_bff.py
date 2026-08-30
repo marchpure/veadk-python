@@ -768,6 +768,54 @@ async def test_unknown_operation_is_not_a_general_proxy() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fs_delete_uses_signed_ref_and_forwards_delete_query() -> None:
+    observed: dict[str, object] = {}
+
+    def upstream(request: httpx.Request) -> httpx.Response:
+        observed["method"] = request.method
+        observed["path"] = request.url.path
+        observed["query"] = dict(request.url.params)
+        return httpx.Response(
+            200,
+            json={
+                "status": "ok",
+                "result": {
+                    "uri": "viking://resources/workspace-a/guide",
+                    "estimated_deleted_count": 3,
+                },
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    service = OpenVikingService(OpenVikingProfileRepository(), config(), client=client)
+    value = profile(service)
+    ref = service.resource_ref(
+        value, "viking://resources/workspace-a/guide"
+    )
+
+    result = await service.request(
+        value,
+        "fs_delete",
+        payload={"resource_ref": ref, "recursive": True, "wait": True, "timeout": 30},
+    )
+
+    assert observed == {
+        "method": "DELETE",
+        "path": "/api/v1/fs",
+        "query": {
+            "uri": "viking://resources/workspace-a/guide",
+            "recursive": "true",
+            "wait": "true",
+            "timeout": "30",
+        },
+    }
+    assert result["result"]["resource_ref"] == ref
+    assert result["result"]["uri"] == "viking://workspace/guide"
+    assert result["result"]["estimated_deleted_count"] == 3
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_operation_schema_rejects_unknown_owner_and_invalid_types() -> None:
     calls = 0
 
@@ -933,6 +981,14 @@ async def test_upload_rejects_type_and_oversize_before_upstream() -> None:
             content_type="application/pdf",
             content=b"x" * (50 * 1_048_576 + 1),
         )
+    with pytest.raises(OpenVikingError, match="JSON file is malformed") as malformed:
+        await service.upload(
+            value,
+            filename="broken.json",
+            content_type="application/json",
+            content=b"{",
+        )
+    assert malformed.value.code == "INVALID_FILE_CONTENT"
 
 
 @pytest.mark.asyncio
@@ -986,8 +1042,7 @@ async def test_manual_text_composes_target_from_opaque_parent_ref() -> None:
             "body": {
                 "temp_file_id": "upload-1.md",
                 "parent": "viking://resources/workspace-a/",
-                "wait": True,
-                "timeout": 30.0,
+                "wait": False,
             },
         },
     ]
@@ -1366,14 +1421,13 @@ async def test_connection_resource_import_reauthorizes_and_strips_secrets() -> N
         },
         {
             "path": "/api/v1/resources",
-            "body": {
-                "temp_file_id": "upload-orders.json",
-                "parent": "viking://resources/workspace-a/",
-                "wait": True,
-                "timeout": 30.0,
+                "body": {
+                    "temp_file_id": "upload-orders.json",
+                    "parent": "viking://resources/workspace-a/",
+                    "wait": False,
+                },
             },
-        },
-    ]
+        ]
     assert imported.status_code == 200
     assert gateway.calls == [("adapter-private-a", "tenant-a", "workspace-a", "user-a")]
     serialized = json.dumps(observed)

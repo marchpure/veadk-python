@@ -6,7 +6,7 @@ const resources = {
       title: '拖拽文件到此处，或点击选择文件',
       hint: '每次最多上传 10 个文件。',
       supportedFormats:
-        '支持 PDF、Word、PPTX、Excel、Markdown、代码文件、图片等',
+        '支持 PDF、XLSX、CSV、JSON、Markdown 和 TXT',
     },
     fileInfo: {
       name: '文件',

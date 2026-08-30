@@ -38,7 +38,7 @@ from functools import partial
 from pathlib import Path
 from time import monotonic, sleep
 from typing import Any, Literal
-from urllib.parse import urlparse
+from urllib.parse import unquote_plus, urlparse
 from uuid import uuid4
 
 import click
@@ -11156,7 +11156,16 @@ def _run_frontend_server(
             # the page's querystring; forward it onto every same-origin asset URL
             # in the served HTML so those requests pass the gateway too. (The
             # app's own API/navigation requests already forward it via auth.ts.)
-            qs = request.url.query
+            # SPA routing state must not become part of an ES module URL.
+            # In particular, appending view=openviking to the entry module but
+            # not its lazy chunks gives the browser two module identities and
+            # therefore two React instances. Preserve gateway parameters byte
+            # for byte while removing the local route selector.
+            qs = "&".join(
+                part
+                for part in request.url.query.split("&")
+                if unquote_plus(part.partition("=")[0]) != "view"
+            )
             if not qs:
                 return HTMLResponse(
                     _index_html,

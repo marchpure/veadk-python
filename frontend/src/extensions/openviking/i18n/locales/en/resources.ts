@@ -7,7 +7,7 @@ const resources = {
       title: 'Drag & drop a file here, or click to select',
       hint: 'Up to 10 files at a time.',
       supportedFormats:
-        'Supports PDF, Word, PPTX, Excel, Markdown, code files, images, and more',
+        'Supports PDF, XLSX, CSV, JSON, Markdown, and TXT',
     },
     fileInfo: {
       name: 'File',

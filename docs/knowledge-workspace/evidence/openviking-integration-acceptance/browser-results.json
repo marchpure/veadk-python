@@ -1,8 +1,43 @@
 {
-  "status": "BLOCKED_EXTERNAL",
-  "contract_suite": {"status": "PASS", "passed": 7, "skipped": 2, "failed": 0},
-  "skipped": ["mock-dependent W4 OpenViking journey", "unrelated W3 journey"],
-  "real_desktop": "BLOCKED_EXTERNAL",
-  "real_narrow_screen": "BLOCKED_EXTERNAL",
-  "screenshots": []
+  "status": "PASS",
+  "real_services": true,
+  "request_interception": false,
+  "results": [
+    {
+      "viewport": "desktop-1440x900",
+      "status": "PASS",
+      "no_openviking_request_interception": true,
+      "knowledge_workspace_direct_url": true,
+      "stale_profile_recovered": true,
+      "profile_created_ready": true,
+      "api_key_masked": true,
+      "real_task_history": true,
+      "refresh_recovery": true,
+      "tree_and_preview": true,
+      "search": true,
+      "delete": true,
+      "skill_creator_selection": true,
+      "revoke_ui": true,
+      "no_profile_404_or_409": true,
+      "api_responses_secret_free": true
+    },
+    {
+      "viewport": "narrow-390x844",
+      "status": "PASS",
+      "no_openviking_request_interception": true,
+      "knowledge_workspace_direct_url": true,
+      "stale_profile_recovered": true,
+      "profile_created_ready": true,
+      "api_key_masked": true,
+      "real_task_history": true,
+      "refresh_recovery": true,
+      "tree_and_preview": true,
+      "search": true,
+      "delete": true,
+      "skill_creator_selection": true,
+      "revoke_ui": true,
+      "no_profile_404_or_409": true,
+      "api_responses_secret_free": true
+    }
+  ]
 }
