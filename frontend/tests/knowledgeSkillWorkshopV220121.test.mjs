@@ -50,6 +50,7 @@ test("inspecting unavailable context returns to the in-progress creator", () => 
   assert.match(page, /returnFromContextDetail/);
   assert.match(page, /onBack=\{contextReturnRouteRef\.current \? returnFromContextDetail : undefined\}/);
   assert.match(page, /onInspectResource=/);
+  assert.match(page, /disabled=\{resource\.status !== "verified"\}/);
 });
 
 test("first message maps to one real draft and generation invocation", () => {
