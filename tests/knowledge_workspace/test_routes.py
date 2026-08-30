@@ -17,7 +17,11 @@ from frontend.server.knowledge_workspace.models import (
 )
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
 from frontend.server.knowledge_workspace.routes import mount_knowledge_workspace_routes
-from frontend.server.knowledge_workspace.service import Actor, KnowledgeWorkspaceService
+from frontend.server.knowledge_workspace.service import (
+    Actor,
+    KnowledgeWorkspaceError,
+    KnowledgeWorkspaceService,
+)
 
 
 @pytest.mark.asyncio
@@ -179,6 +183,79 @@ async def test_same_origin_routes_scope_draft_by_server_actor() -> None:
             json={"goal": "stale write"},
         )
         assert conflict.status_code == 412
+
+
+@pytest.mark.asyncio
+async def test_unidentified_draft_bootstrap_does_not_seed_local_demo() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    calls: list[Actor] = []
+
+    mount_knowledge_workspace_routes(
+        app,
+        service,
+        actor_resolver=lambda request: Actor(
+            request.headers.get("x-tenant-id", "local-tenant"),
+            request.headers.get("x-workspace-id", "local-workspace"),
+            request.headers.get("x-principal-id", "local"),
+        ),
+    )
+    app.state.knowledge_demo_seed = lambda actor, _service: calls.append(actor)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        unauthenticated = await client.get("/api/knowledge/v1/skills/drafts")
+        authenticated = await client.get(
+            "/api/knowledge/v1/skills/drafts",
+            headers={
+                "x-tenant-id": "tenant-a",
+                "x-workspace-id": "workspace-a",
+                "x-principal-id": "principal-a",
+            },
+        )
+
+    assert unauthenticated.status_code == 200
+    assert authenticated.status_code == 200
+    assert calls == [Actor("tenant-a", "workspace-a", "principal-a")]
+
+
+@pytest.mark.asyncio
+async def test_artifact_metadata_errors_are_structured_not_500() -> None:
+    app = FastAPI()
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(),
+        UnavailableAutoSkillClient("not configured"),
+    )
+    mount_knowledge_workspace_routes(
+        app, service, allow_insecure_test_headers=True
+    )
+
+    def missing_artifact(_actor: Actor, _artifact_id: str) -> None:
+        raise KnowledgeWorkspaceError("NOT_FOUND", "artifact not found", 404)
+
+    service.get_artifact = missing_artifact  # type: ignore[method-assign]
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/api/knowledge/v1/artifacts/artifact-missing",
+            headers={
+                "x-tenant-id": "tenant-a",
+                "x-workspace-id": "workspace-a",
+                "x-principal-id": "principal-a",
+            },
+        )
+
+    assert response.status_code == 404
+    assert response.json()["error"] == {
+        "code": "NOT_FOUND",
+        "message": "artifact not found",
+        "retryable": False,
+    }
 
 
 @pytest.mark.asyncio
