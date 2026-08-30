@@ -523,7 +523,12 @@ export function KnowledgeWorkspacePage({
   useEffect(() => {
     void resolveIdentity()
       .then((identity) => {
-        if (identity.local && identity.status === "unauthenticated") {
+        // The local Knowledge Workspace demo data is seeded into the
+        // dedicated `tester` tenant.  A stale username from another local
+        // Studio surface must not make the workspace render records that its
+        // BFF cannot read, which otherwise appears as a misleading
+        // `artifact not found` after opening a demo Skill.
+        if (identity.local) {
           setLocalUser("tester");
           setAuthStatus("authenticated");
           return;
