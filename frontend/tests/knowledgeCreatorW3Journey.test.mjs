@@ -304,7 +304,8 @@ test("W3 creator journey creates, runs, edits, publishes, and captures the works
 
   try {
     await page.goto(`${baseURL}/?view=knowledge-workspace&file=welcome`);
-    await page.getByRole("heading", { name: "连接数据，创建可复用 Skill" }).waitFor();
+    await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+    assert.match(new URL(page.url()).search, /view=knowledge-workspace(?!.*file=welcome)/);
     assert.equal(await page.locator(".kw-shell").count(), 1);
     assert.equal(await page.getByText("Dashboard").count(), 1);
     assert.equal(await page.getByText("SOP").count(), 1);
@@ -323,13 +324,10 @@ test("W3 creator journey creates, runs, edits, publishes, and captures the works
     await page.locator(".kw-connector-card", { hasText: "Feishu Docs" }).waitFor();
     await page.getByRole("button", { name: "取消" }).click();
 
-    await page.getByLabel("描述要创建的 Skill").fill(draft.goal);
-    await page.getByRole("button", { name: "开始创建" }).click();
-    await page.getByRole("heading", { name: "生成第一版 Skill" }).waitFor();
+    await page.getByLabel("描述业务任务").fill(draft.goal);
     await page.getByRole("checkbox", { name: /Revenue Warehouse/ }).check();
     await page.getByRole("checkbox", { name: /policy-notes\.csv/ }).check();
-    await page.getByLabel("可选：先试一句真实任务").fill(draft.trial_task);
-    await page.getByRole("button", { name: "生成并试用 Skill" }).click();
+    await page.getByRole("button", { name: "发送" }).click();
     await page.getByText("已生成可复用 Skill，并完成首轮校验。").waitFor();
     await page.getByTestId("skill-package").getByText("SKILL.md", { exact: true }).waitFor();
     await page.getByText("Store Margin Sentinel").waitFor();

@@ -89,7 +89,6 @@ import {
 import "./knowledge-workspace.css";
 
 type WorkspaceFile =
-  | "welcome"
   | "connection"
   | "resource"
   | "skill_new"
@@ -352,10 +351,15 @@ function manifestBundleRoot(revision: Revision | null): string | null {
 
 function routeFromLocation(): WorkspaceRoute {
   const query = new URLSearchParams(window.location.search);
-  const requestedFile = query.get("file") || "welcome";
+  const requestedFile = query.get("file") || "skill_new";
+  if (requestedFile === "welcome") {
+    query.delete("file");
+    query.set("view", "knowledge-workspace");
+    window.history.replaceState({}, "", `${window.location.pathname}?${query}`);
+  }
   const file: WorkspaceFile =
     requestedFile === "welcome"
-      ? "welcome"
+      ? "skill_new"
       : requestedFile === "skill_new"
         ? "skill_new"
       : requestedFile === "connection"
@@ -368,9 +372,9 @@ function routeFromLocation(): WorkspaceRoute {
               ? "published"
         : requestedFile.startsWith("pub_")
           ? "published"
-          : requestedFile.startsWith("draft_")
-            ? "draft"
-            : "welcome";
+            : requestedFile.startsWith("draft_")
+              ? "draft"
+            : "skill_new";
   return {
     file,
     draftId: query.get("draftId") || "",
@@ -1125,12 +1129,12 @@ export function KnowledgeWorkspacePage() {
   return (
     <div className={`kw-shell${selectedDraft ? " has-draft" : ""}${route.file === "draft" || route.file === "published" ? " is-workshop-route" : ""}${route.file === "skill_new" ? " is-create-route" : ""}`}>
       <header className="kw-studio-nav">
-        <button className="kw-studio-brand" type="button" onClick={() => setRoute("welcome")}>
+        <button className="kw-studio-brand" type="button" onClick={() => setRoute("skill_new")}>
           <span className="kw-studio-mark"><Database size={15} /></span>
           <span>Knowledge Asset</span>
         </button>
         <nav className="kw-studio-links" aria-label="Studio">
-          <button className="is-active" type="button" onClick={() => setRoute("welcome")}>工作台</button>
+          <button className="is-active" type="button" onClick={() => setRoute("skill_new")}>工作台</button>
           <button type="button" onClick={() => setRoute("skill_new")}>创建</button>
         </nav>
         <div className="kw-studio-search">
@@ -1152,9 +1156,9 @@ export function KnowledgeWorkspacePage() {
             <button type="button" aria-label="添加个人连接" onClick={() => openConnectionSelector("personal")}><CirclePlus size={13} /></button>
           </div>
           <button
-            className={`kw-tree-item${route.file === "welcome" ? " is-selected" : ""}`}
+            className={`kw-tree-item${route.file === "skill_new" ? " is-selected" : ""}`}
             type="button"
-            onClick={() => setRoute("welcome")}
+            onClick={() => setRoute("skill_new")}
           >
             <MessageSquare size={15} /> 工作台
           </button>
@@ -1233,14 +1237,14 @@ export function KnowledgeWorkspacePage() {
         {route.file === "connection" ? (
           <header className="kw-topbar">
             <div className="kw-breadcrumb">
-              <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
+              <button type="button" onClick={() => setRoute("skill_new")}>知识资产</button>
               {selectedConnection ? <><ChevronRight size={14} /><span>{selectedConnection.display_name}</span></> : null}
             </div>
           </header>
         ) : route.file === "resource" ? (
           <header className="kw-topbar">
             <div className="kw-breadcrumb">
-              <button type="button" onClick={() => setRoute("welcome")}>知识资产</button>
+              <button type="button" onClick={() => setRoute("skill_new")}>知识资产</button>
               {selectedResource ? <><ChevronRight size={14} /><span>{selectedResource.display_name}</span></> : null}
             </div>
           </header>
@@ -1251,20 +1255,7 @@ export function KnowledgeWorkspacePage() {
             <button type="button" onClick={() => setError("")} aria-label="关闭错误"><X size={14} /></button>
           </div>
         ) : null}
-        {route.file === "welcome" && !selectedDraft ? (
-          <WelcomeEntryView
-            connections={availableConnections}
-            resources={resources}
-            drafts={drafts}
-            onOpen={openDraft}
-            onCreate={(goal, templateKey) => {
-              setWelcomeGoal(goal);
-              setSelectedTemplateKey(templateKey);
-              setRoute("skill_new");
-            }}
-            onAddConnection={() => openConnectionSelector("personal")}
-          />
-        ) : route.file === "skill_new" ? (
+        {route.file === "skill_new" ? (
           <SkillCreateLanding
             goal={welcomeGoal}
             setGoal={setWelcomeGoal}
@@ -1666,101 +1657,6 @@ export function SkillNewView({
           生成并试用 Skill
         </button>
       </form>
-    </section>
-  );
-}
-
-function WelcomeEntryView({
-  connections,
-  resources,
-  drafts,
-  onOpen,
-  onCreate,
-  onAddConnection,
-}: {
-  connections: ConnectionProfile[];
-  resources: WorkspaceResource[];
-  drafts: Draft[];
-  onOpen: (draft: Draft) => void;
-  onCreate: (goal: string, templateKey: TemplateKey) => void;
-  onAddConnection: () => void;
-}) {
-  const [prompt, setPrompt] = useState("");
-  const [templateKey, setTemplateKey] = useState<TemplateKey>("semantic");
-  const readyConnections = connections.filter((connection) => connection.status === "ready");
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    onCreate(prompt.trim(), templateKey);
-  };
-  return (
-    <section className="kw-welcome-entry">
-      <div className="kw-welcome-dashboard">
-        <form className="kw-home-composer" onSubmit={submit}>
-          <div className="kw-home-composer-copy">
-            <span className="kw-section-kicker">AUTOSKILL CREATOR</span>
-            <h1>连接数据，创建可复用 Skill</h1>
-            <p>从一个真实业务任务开始，选择已授权连接或文件上下文，生成后直接试跑并沉淀为可发布 Revision。</p>
-          </div>
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            aria-label="描述要创建的 Skill"
-            placeholder="例如：让区域经理查询门店毛利异常，并解释退货率上升的原因"
-            rows={3}
-          />
-          <div className="kw-home-composer-footer">
-            <div className="kw-home-context">
-              <span><Database size={13} /> 可用连接 {readyConnections.length}</span>
-              <span><FileText size={13} /> 文件上下文 {resources.length}</span>
-            </div>
-            <div className="kw-home-actions">
-              <button type="button" onClick={onAddConnection}><CirclePlus size={14} /> 添加连接</button>
-              <button type="submit" className="kw-primary-small"><Play size={14} /> 开始创建</button>
-            </div>
-          </div>
-        </form>
-        <div className="kw-output-types" role="radiogroup" aria-label="Skill 模板">
-          {TEMPLATE_DEFINITIONS.map((item) => (
-            <button
-              type="button"
-              className={`kw-output-type${templateKey === item.key ? " is-selected" : ""}`}
-              aria-pressed={templateKey === item.key}
-              key={item.key}
-              onClick={() => setTemplateKey(item.key)}
-            >
-              <strong>{item.label}</strong>
-              <span>{item.description}</span>
-              <small>{templateKey === item.key ? "已选择" : "选择模板"}</small>
-            </button>
-          ))}
-        </div>
-        <div className="kw-welcome-dashboard-heading">
-          <h1>我的 Skill</h1>
-          <button type="button" className="kw-primary-small" onClick={() => onCreate("", templateKey)}><CirclePlus size={15} /> 新建 Skill</button>
-        </div>
-        <div className="kw-welcome-grid">
-          {drafts.map((draft) => (
-            <article className="kw-welcome-card" key={draft.draft_id}>
-              <div className="kw-welcome-card-heading">
-                <div className="kw-welcome-card-icon"><ToyBrick size={20} /></div>
-                <div className="kw-welcome-card-copy">
-                  <strong>{(draft as Draft & { display_name?: string }).display_name || draft.goal}</strong>
-                  <span>{draft.goal}</span>
-                </div>
-                <span className="kw-template-badge">{templateLabel(draft.template_key)}</span>
-                <span className={`kw-welcome-status is-${draft.lifecycle}`}>{draft.lifecycle === "published" ? "已发布" : "草稿"}</span>
-              </div>
-              <div className="kw-welcome-card-meta">
-                <span>最新任务</span><strong>{draft.trial_task || "初次制作"}</strong>
-                <span>Skill 状态</span><strong>{DRAFT_LIFECYCLE_LABELS[draft.lifecycle]}</strong>
-                <span>已连接资源</span><strong>{draft.connection_ids.length} 项</strong>
-              </div>
-              <button type="button" onClick={() => onOpen(draft)}>{draft.lifecycle === "published" ? "试用" : "继续完善"}<ChevronRight size={14} /></button>
-            </article>
-          ))}
-          {!drafts.length ? <div className="kw-welcome-empty"><MessageSquare size={30} /><span>暂无相关的 Skill</span></div> : null}
-        </div>
-      </div>
     </section>
   );
 }

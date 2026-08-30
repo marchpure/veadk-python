@@ -8,17 +8,24 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const featureRoot = path.join(root, "src/features/knowledge-workspace");
 const page = await readFile(path.join(featureRoot, "pages/KnowledgeWorkspacePage.tsx"), "utf8");
 const css = await readFile(path.join(featureRoot, "pages/knowledge-workspace.css"), "utf8");
+const creator = await readFile(path.join(featureRoot, "creator/SkillCreateLanding.tsx"), "utf8");
+const composer = await readFile(path.join(featureRoot, "creator/SkillComposer.tsx"), "utf8");
 const timeline = await readFile(path.join(featureRoot, "assistant/ActivityTimeline.tsx"), "utf8");
 const reducer = await readFile(path.join(featureRoot, "assistant/assistant-reducer.ts"), "utf8");
 
-test("W3 landing route starts from a central creator composer", () => {
-  assert.match(page, /kw-home-composer/);
-  assert.match(page, /连接数据，创建可复用 Skill/);
+test("landing route uses the single SkillCreateLanding composer", () => {
+  assert.match(page, /<SkillCreateLanding/);
+  assert.match(page, /route\.file === "skill_new"/);
+  assert.match(page, /requestedFile === "welcome"/);
+  assert.match(page, /replaceState/);
+  assert.match(creator, /创建一个新技能/);
   assert.match(page, /Dashboard/);
   assert.match(page, /SOP/);
   assert.match(page, /Semantic/);
-  assert.match(css, /kw-home-composer/);
-  assert.match(css, /kw-output-types/);
+  assert.match(composer, /Semantic/);
+  assert.match(css, /kw-skill-create-landing/);
+  assert.doesNotMatch(page, /WelcomeEntryView|kw-home-composer/);
+  assert.doesNotMatch(css, /kw-home-composer|kw-output-types/);
 });
 
 test("workspace headers expose personal and team connection creation", () => {

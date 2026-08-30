@@ -27,6 +27,14 @@ test("new Skill starts with one business composer and Auto delivery", () => {
   assert.match(creator, /if \(!selectedConnectionIds\.length && !selectedResourceIds\.length\)/);
 });
 
+test("root and legacy welcome links normalize to the same create route", () => {
+  assert.match(page, /const requestedFile = query\.get\("file"\) \|\| "skill_new"/);
+  assert.match(page, /requestedFile === "welcome"[\s\S]*?query\.delete\("file"\)/);
+  assert.match(page, /window\.history\.replaceState/);
+  assert.match(page, /requestedFile === "welcome"[\s\S]*?\? "skill_new"/);
+  assert.doesNotMatch(page, /WelcomeEntryView/);
+});
+
 test("data drawer selects only real usable contexts and preserves status semantics", () => {
   assert.match(page, /knowledgeApi\.listConnections/);
   assert.match(page, /knowledgeApi\.listResources/);

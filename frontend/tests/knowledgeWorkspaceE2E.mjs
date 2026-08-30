@@ -311,11 +311,8 @@ async function main() {
   });
 
   await page.goto(`${baseURL}/?view=knowledge-workspace&file=welcome`);
-  if (viewport.width >= 720) {
-    await page.getByRole("button", { name: "创建", exact: true }).click();
-  } else {
-    await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
-  }
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  assert.match(new URL(page.url()).search, /view=knowledge-workspace(?!.*file=welcome)/);
   await page.getByRole("button", { name: /添加连接/ }).first().click();
   assert.equal(await page.getByRole("combobox", { name: "连接类型" }).count(), 0);
   await page.locator(".kw-connector-card").first().click();
@@ -331,15 +328,14 @@ async function main() {
     await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
   }
   await page.getByRole("checkbox", { name: /Contract API/ }).check();
-  await page.getByLabel("谁使用，解决什么问题？").fill("让支持工程师排查线上告警并给出处理建议");
-  await page.getByLabel("可选：先试一句真实任务").fill("查询最近一条告警");
+  await page.getByLabel("描述业务任务").fill("让支持工程师排查线上告警并给出处理建议");
   await page.locator('input[type="file"]').setInputFiles({
     name: "incident.txt",
     mimeType: "text/plain",
     buffer: Buffer.from("incident data"),
   });
   await page.getByText(/incident\.txt/).waitFor();
-  await page.getByRole("button", { name: "生成并试用 Skill" }).click();
+  await page.getByRole("button", { name: "发送" }).click();
   await page.getByRole("button", { name: "继续接收" }).waitFor();
   assert.equal(eventStreamCalls, 1);
   await page.getByRole("button", { name: "继续接收" }).click();
@@ -400,8 +396,8 @@ async function main() {
   }
   await page.screenshot({ path: path.join(screenshotDir, screenshotName), fullPage: true });
   await page.getByRole("button", { name: "返回工作台" }).click();
-  await page.getByRole("heading", { name: "我的 Skill" }).waitFor();
-  assert.match(new URL(page.url()).search, /file=welcome/);
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  assert.doesNotMatch(new URL(page.url()).search, /file=welcome/);
 
   assert.equal(invocationCount, 4);
   assert.equal(eventStreamCalls, 5);

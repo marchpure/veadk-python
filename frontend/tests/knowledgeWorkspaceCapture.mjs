@@ -19,7 +19,7 @@ const prototypeDir = process.env.KW_PROTOTYPE_CAPTURE_DIR;
 const outputDir = process.env.KW_CAPTURE_OUTPUT_DIR || path.join(root, "docs/knowledge-workspace/evidence/captures");
 const referenceCacheDir = process.env.KW_CAPTURE_REFERENCE_CACHE_DIR || path.join(outputDir, "_prototype");
 const captureStates = [
-  ["/?file=welcome", "welcome"],
+  ["/?file=welcome", "skill_new"],
   ["/?file=draft_dash_anta", "draft"],
   ["/?file=draft_dash_anta&run_state=success", "draft"],
   ["/?file=draft_dash_anta&run_state=success&modal=publish", "draft"],
@@ -55,7 +55,6 @@ const expectedModalState = {
 };
 
 const expectedStateEvidence = {
-  welcome: [".kw-welcome-dashboard-heading h1"],
   draft: [".kw-draft-section-heading h2", ".kw-chat-title"],
   success: [".kw-run-state-card.is-success", ".kw-success-revision"],
   publish: ['[data-state-modal="publish"]'],
@@ -501,9 +500,7 @@ async function main() {
     const url = `${baseURL}/?${query}`;
     await page.goto(url);
     await page.locator(".kw-shell").waitFor({ state: "visible" });
-    if (capture.route === "welcome") {
-      await page.locator(".kw-welcome-grid").waitFor({ state: "visible", timeout: 10_000 });
-    } else if (capture.route === "skill_new") {
+    if (capture.route === "skill_new") {
       await page.locator(".kw-create-form").waitFor({ state: "visible", timeout: 10_000 });
     } else {
       await page.locator(capture.route === "published" ? ".kw-published" : ".kw-draft-center")
@@ -542,7 +539,7 @@ async function main() {
       const modalRect = modalElement?.getBoundingClientRect();
       const file = params.get("file") || "";
       const evidenceKey = modal
-        || (file === "welcome" ? "welcome"
+        || (file === "welcome" ? "skill_new"
           : file === "skill_new" ? "skill_new"
             : file === "pub_dash_anta" ? "published"
               : file === "draft_sop_bluetooth" ? "sop_bluetooth"
@@ -554,12 +551,6 @@ async function main() {
         shell: visible(".kw-shell"),
         route,
         state_url: stateUrl,
-        welcome: route === "welcome"
-          ? visible(".kw-welcome-grid")
-            && document.querySelectorAll(".kw-welcome-card").length > 0
-            && !document.querySelector(".kw-draft-center")
-            && !document.querySelector(".kw-create-form")
-          : false,
         draft: route === "draft"
           ? visible(".kw-draft-center")
             && visible(".kw-draft-artifact-card")
@@ -633,7 +624,6 @@ async function main() {
       expectedStateEvidence,
     });
     assert.equal(renderCheck.shell, true, `${capture.stateUrl}: shell did not render`);
-    if (capture.route === "welcome") assert.equal(renderCheck.welcome, true, `${capture.stateUrl}: welcome did not render`);
     if (capture.route === "draft") {
       assert.equal(renderCheck.draft, true, `${capture.stateUrl}: draft did not render`);
       assert.ok(renderCheck.chat_width >= 370, `${capture.stateUrl}: chat rail is not 380px: ${JSON.stringify(renderCheck)}`);
