@@ -1,0 +1,16 @@
+{
+  "status": "BLOCKED_EXTERNAL",
+  "types": [
+    {"type": "manual_text", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "URL_web", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "TXT", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "Markdown", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "PDF", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "CSV", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "JSON", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "XLSX", "status": "BLOCKED_EXTERNAL", "reason": "No mandated live credentials/upstream"},
+    {"type": "DOCX/PPTX/HTML/images/directories/batch/Git/Feishu", "status": "BLOCKED_EXTERNAL", "reason": "UI/upstream operation exists, but no live acceptance evidence"}
+  ],
+  "required_assertions": ["task id", "terminal success", "tree visibility", "content read", "canary search", "refresh recovery", "restart recovery", "delete effect"],
+  "completed_assertions": []
+}

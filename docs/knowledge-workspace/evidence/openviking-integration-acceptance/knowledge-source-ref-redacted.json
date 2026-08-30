@@ -1,0 +1,11 @@
+{
+  "status": "PASS_CONTRACT",
+  "shape": {
+    "provider": "openviking",
+    "profile_ref": "ovp_<opaque>",
+    "resource_ref": "ovr_<signed-opaque>",
+    "scope": "server-side tenant/workspace lookup; not serialized as raw URL or API key",
+    "capability": "ready profile and matching signed resource enforced by resolver"
+  },
+  "live_delivery": "BLOCKED_EXTERNAL"
+}
