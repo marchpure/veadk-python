@@ -1136,7 +1136,11 @@ def mount_knowledge_workspace_routes(
 
     @app.get(f"{prefix}/skills/drafts")
     async def list_drafts(request: Request) -> dict[str, Any]:
-        return envelope(service.list_drafts(actor(request)), request)
+        actor_value = actor(request)
+        seed = getattr(request.app.state, "knowledge_demo_seed", None)
+        if seed is not None and actor_value.principal_id != "local":
+            seed(actor_value, service)
+        return envelope(service.list_drafts(actor_value), request)
 
     @app.post(f"{prefix}/skills/drafts", status_code=201)
     async def create_draft(
@@ -1580,7 +1584,13 @@ def mount_knowledge_workspace_routes(
         response: Response,
         if_none_match: str | None = Header(default=None, alias="If-None-Match"),
     ) -> dict[str, Any] | Response:
-        result = service.get_artifact(actor(request), artifact_id)
+        try:
+            result = service.get_artifact(actor(request), artifact_id)
+        except KnowledgeWorkspaceError as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={"code": exc.code, "message": str(exc), "retryable": False},
+            ) from exc
         response.headers["ETag"] = result.sha256
         if if_none_match and if_none_match.strip('"') == result.sha256:
             return Response(status_code=304, headers={"ETag": result.sha256})

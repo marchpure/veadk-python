@@ -25,6 +25,7 @@ runtimes (the UI is still served).
 
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -1856,7 +1857,55 @@ def _run_frontend_server(
             display_name = str(getattr(scope_user, "display_name", "") or "")
             return StudioPrincipal.local(display_name)
 
-        return StudioPrincipal.local(request.headers.get("X-VeADK-Local-User", ""))
+        header_user = request.headers.get("X-VeADK-Local-User", "").strip()
+        if header_user:
+            return StudioPrincipal.local(header_user)
+        cookie = request.cookies.get("veadk_local_session", "")
+        try:
+            encoded_user, signature = cookie.rsplit(".", 1)
+            expected = hmac.new(
+                _local_session_signing_key(),
+                encoded_user.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+            if hmac.compare_digest(signature, expected):
+                return StudioPrincipal.local(encoded_user)
+        except (ValueError, UnicodeError):
+            pass
+        return None
+
+    def _local_session_signing_key() -> bytes:
+        configured = (
+            os.getenv("VEADK_STUDIO_LOCAL_SESSION_SECRET", "").strip()
+            or os.getenv("VEADK_STUDIO_KNOWLEDGE_SIGNING_KEY", "").strip()
+            or os.getenv("OAUTH2_CLIENT_SECRET", "").strip()
+        )
+        return (configured or "veadk-local-session-cookie").encode("utf-8")
+
+    @app.middleware("http")
+    async def _local_identity_cookie(request: Request, call_next):
+        local_mode = (
+            auth_mode != "gateway"
+            and getattr(app.state, "oauth2_handler", None) is None
+        )
+        header_user = request.headers.get("X-VeADK-Local-User", "").strip()
+        response = await call_next(request)
+        if local_mode and header_user and StudioPrincipal.local(header_user):
+            signature = hmac.new(
+                _local_session_signing_key(),
+                header_user.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+            secure = request.url.scheme == "https"
+            response.set_cookie(
+                "veadk_local_session",
+                f"{header_user}.{signature}",
+                httponly=True,
+                samesite="lax",
+                secure=secure,
+                path="/",
+            )
+        return response
 
     def _request_role(request: Request) -> StudioRole:
         principal = _current_principal(request)
@@ -2406,6 +2455,7 @@ def _run_frontend_server(
         from frontend.server.knowledge_workspace.demo_seed import ensure_demo_seed
 
         _demo_seed = ensure_demo_seed
+        app.state.knowledge_demo_seed = _demo_seed
 
     def _knowledge_workspace_actor(request: Request, resolver: Any) -> Actor:
         principal = resolver(request)
@@ -2415,8 +2465,6 @@ def _run_frontend_server(
             workspace_id="studio",
             principal_id=owner_id,
         )
-        if _demo_seed is not None:
-            _demo_seed(actor, knowledge_service)
         return actor
 
     mount_knowledge_workspace_routes(

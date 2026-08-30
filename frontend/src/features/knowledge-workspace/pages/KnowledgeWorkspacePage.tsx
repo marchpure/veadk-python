@@ -638,6 +638,12 @@ export function KnowledgeWorkspacePage({
     const controller = new AbortController();
     setBusy("load-draft");
     setDraftResourceError(null);
+    setArtifact(null);
+    setArtifacts([]);
+    setPublication(null);
+    setCurrentSession(null);
+    setSessions([]);
+    dispatchAssistant({ type: "history.replaced", entries: [] });
     const cachedDraft = readQuery<Draft>(`draft:${route.draftId}`);
     if (cachedDraft) setDraft(cachedDraft);
     const cachedRevisions = readQuery<Revision[]>(`revisions:${route.draftId}`);
