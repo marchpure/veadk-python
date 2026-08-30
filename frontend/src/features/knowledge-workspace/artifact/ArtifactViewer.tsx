@@ -7,6 +7,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { withAuth } from "../../../adk/auth";
+import { withLocalUser } from "../../../adk/identity";
 import type { AssistantArtifactPreview } from "../assistant/assistant-model";
 import type { Artifact, Revision } from "../domain/types";
 import { useDelayedValue } from "./useDelayedValue";
@@ -121,6 +122,7 @@ export function ArtifactViewer({
   const [pane, setPane] = useState<ArtifactPane>("preview");
   const [loadState, setLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [authenticatedSource, setAuthenticatedSource] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const source = useMemo(() => sourceFor(artifact, previewState), [artifact, previewState]);
   const debouncedSource = useDelayedValue(
@@ -139,6 +141,33 @@ export function ArtifactViewer({
     setLoadState("loading");
     return undefined;
   }, [source]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setAuthenticatedSource(null);
+    if (!debouncedSource) return () => undefined;
+    const controller = new AbortController();
+    void fetch(debouncedSource.href, {
+      headers: withLocalUser({ Accept: "text/html" }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Artifact preview HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setAuthenticatedSource(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthenticatedSource(null);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [debouncedSource, refreshKey]);
 
   const download = () => {
     const href = source?.href;
@@ -223,22 +252,22 @@ export function ArtifactViewer({
                 <span />
               </div>
             ) : null}
-            {debouncedSource && artifact && debouncedSource.kind === "final" ? (
+            {authenticatedSource && debouncedSource && artifact && debouncedSource.kind === "final" ? (
               <iframe
-                key={`${debouncedSource.href}:${refreshKey}`}
+                key={`${authenticatedSource}:${refreshKey}`}
                 title={title}
-                src={debouncedSource.href}
+                src={authenticatedSource}
                 sandbox={artifact.sandbox || ""}
                 referrerPolicy="no-referrer"
                 onLoad={() => setLoadState("loaded")}
                 onError={() => setLoadState("error")}
                 className={loadState === "loaded" ? "is-loaded" : "is-pending"}
               />
-            ) : debouncedSource ? (
+            ) : authenticatedSource && debouncedSource ? (
               <iframe
-                key={`${debouncedSource.href}:${refreshKey}`}
+                key={`${authenticatedSource}:${refreshKey}`}
                 title={title}
-                src={debouncedSource.href}
+                src={authenticatedSource}
                 sandbox={debouncedSource.sandbox || ""}
                 referrerPolicy="no-referrer"
                 onLoad={() => setLoadState("loaded")}
