@@ -42,7 +42,14 @@ async def _wait_invocation(
     actor: Actor,
     invocation_id: str,
 ) -> Any:
-    timeout = max(30, int(os.getenv("KNOWLEDGE_DEMO_GATE_TIMEOUT_SECONDS", "900")))
+    timeout = min(
+        480,
+        max(30, int(os.getenv("KNOWLEDGE_DEMO_GATE_TIMEOUT_SECONDS", "480"))),
+    )
+    max_turns = min(
+        30,
+        max(1, int(os.getenv("KNOWLEDGE_DEMO_GATE_MAX_TURNS", "30"))),
+    )
     for _ in range(timeout * 2):
         invocation = service.repository.get_invocation(
             invocation_id,
@@ -62,7 +69,18 @@ async def _wait_invocation(
                     f"{invocation.error_code or invocation.error_message or invocation.status}"
                 )
             return invocation
+        turn_count = sum(
+            1
+            for item in service.repository.events_after(invocation_id)
+            if item.get("event", {}).get("type") == "turn.started"
+        )
+        if turn_count >= max_turns:
+            await service.cancel(actor, invocation_id)
+            raise RuntimeError(
+                f"AutoSkill invocation exceeded hard turn limit ({max_turns})"
+            )
         await asyncio.sleep(0.5)
+    await service.cancel(actor, invocation_id)
     raise RuntimeError("AutoSkill invocation timed out")
 
 
@@ -273,11 +291,18 @@ class RealDemoGate:
             f"{scenario['scenario_id']}"
         )
         goal = (
-            f"{scenario['goal']} Create one reusable combined Semantic + Dashboard "
-            "Skill. It must call postgresql.execute_read_query against stores and "
-            "orders, calculate GMV and order count from live results, and produce "
-            "a self-contained static HTML dashboard without scripts, forms, iframes, "
-            "external URLs, or network-loaded assets."
+            f"{scenario['goal']} Create exactly one Skill named "
+            "`store-order-dashboard`; do not create or update any other Skill. "
+            "First call mcp__knowledge-connection-1__execute_action with "
+            "actionId=postgresql.execute_read_query against the real stores and "
+            "orders tables and use those returned rows. Implement only one "
+            "self-contained static HTML dashboard artifact. Keep HTML/CSS in an "
+            "independent template file or render it with string.Template. Never put "
+            "a complete HTML document containing CSS or JavaScript braces in a "
+            "Python f-string. Before validate_skill, run py_compile on every Python "
+            "file and run pytest once; fix failures, then call validate_skill exactly "
+            "for store-order-dashboard, and only after it succeeds call final_answer. "
+            "Do not add features, alternate Skills, or visual polish."
         )
         draft = self.service.create_draft(
             self.actor,
