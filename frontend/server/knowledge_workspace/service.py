@@ -2129,8 +2129,10 @@ class KnowledgeWorkspaceService:
                     "version": self._summary_skill_version(invocation.request_summary),
                 },
                 "connection_refs": list(invocation.connection_ids),
-                "openviking_profile_ids": list(invocation.openviking_profile_ids),
-                "openviking_resource_refs": list(invocation.openviking_resource_refs),
+                "knowledge_source_refs": [
+                    ref.model_dump(mode="json")
+                    for ref in invocation.knowledge_source_refs
+                ],
                 "allowed_action_ids": list(
                     (invocation.invocation_policy or {}).get("allowed_action_ids", [])
                 ),

@@ -342,7 +342,10 @@ async def test_openviking_only_revision_can_run_without_connection() -> None:
     await asyncio.sleep(0)
     revision = await service.freeze(actor, draft.draft_id, generated.invocation_id)
 
-    assert revision.manifest["openviking_profile_ids"] == ["ovp_a"]
+    assert revision.manifest["knowledge_source_refs"] == [
+        {"provider": "openviking", "profile_ref": "ovp_a"},
+        {"provider": "openviking", "resource_ref": "ovr_a"},
+    ]
     assert revision.manifest["openviking_resource_refs"] == ["ovr_a"]
     run = await service.run_revision(actor, revision.revision_id, "use it", ())
     await asyncio.sleep(0)
