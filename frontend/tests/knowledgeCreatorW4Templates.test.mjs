@@ -8,24 +8,25 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const featureRoot = path.join(root, "src/features/knowledge-workspace");
 const page = await readFile(path.join(featureRoot, "pages/KnowledgeWorkspacePage.tsx"), "utf8");
 const css = await readFile(path.join(featureRoot, "pages/knowledge-workspace.css"), "utf8");
+const composer = await readFile(path.join(featureRoot, "creator/SkillComposer.tsx"), "utf8");
 const artifact = await readFile(path.join(featureRoot, "artifact/ArtifactViewer.tsx"), "utf8");
 const toolActivity = await readFile(path.join(featureRoot, "assistant/ToolActivity.tsx"), "utf8");
 
-test("W4 template cards are selectable Creator entry points", () => {
+test("W4 template options are selectable Creator entry points", () => {
   assert.match(page, /TEMPLATE_DEFINITIONS/);
   assert.match(page, /key: "semantic"/);
   assert.match(page, /key: "dashboard"/);
   assert.match(page, /key: "sop"/);
-  assert.match(page, /role="radiogroup" aria-label="Skill 模板"/);
-  assert.match(page, /aria-pressed=\{templateKey === item.key\}/);
-  assert.match(page, /setSelectedTemplateKey\(templateKey\)/);
+  assert.match(composer, /role="listbox" aria-label="产物类型"/);
+  assert.match(composer, /aria-selected=\{templateKey === option.key\}/);
+  assert.match(composer, /onTemplateKeyChange\(option.key\)/);
   assert.doesNotMatch(page, /即将开放/);
 });
 
 test("W4 create flow submits template metadata through the existing draft API", () => {
   assert.match(page, /template_key: templateKey/);
   assert.match(page, /template_config: templateConfig/);
-  assert.match(page, /templateKey === item\.key/);
+  assert.match(composer, /templateKey === option\.key/);
   assert.match(page, /onCreate: \(goal: string, templateKey: TemplateKey, templateConfig: JsonObject/);
   assert.match(page, /final.*Skill|最终产物仍是一个 Skill/s);
 });
@@ -41,7 +42,7 @@ test("W4 generated package keeps HTML as presentation artifact with lineage", ()
 test("W4 styles expose selected template and compact lineage metadata", () => {
   assert.match(css, /kw-template-selector/);
   assert.match(css, /kw-template-choice/);
-  assert.match(css, /kw-output-type\.is-selected/);
+  assert.match(css, /kw-template-popover button\[aria-selected="true"\]/);
   assert.match(css, /kw-template-badge/);
 });
 

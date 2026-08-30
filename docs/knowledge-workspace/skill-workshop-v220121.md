@@ -8,6 +8,14 @@ The Knowledge Workspace Skill flow is conversation-led:
 4. Continue in the three-pane workshop: real Invocation history, conversation, and Artifact preview.
 5. Run the current Revision explicitly, publish it, then add the published Skill to an Agent.
 
+The canonical entry is `?view=knowledge-workspace`. The former
+`file=skill_new` deep link renders the same creator and state model, while
+`file=welcome` is replaced in-place with the canonical URL before paint. Brand
+and “工作台” navigation return to the canonical creator; explicit “创建” and
+“新建 Skill” actions reset any unsubmitted task, template, context selections,
+and errors. Inspecting a Connection or Resource from the context drawer keeps
+that in-progress creator state when returning.
+
 The create composer defaults to `generic` with `{ "mode": "auto" }`. Semantic,
 Dashboard, and SOP remain optional single-choice hints using their existing
 template configurations.
@@ -35,6 +43,13 @@ does not create, validate, discover, or simulate Connection Service records.
 
 Screenshots and measured layout bounds are under
 `docs/knowledge-workspace/evidence/skill-workshop-v220121/`.
+
+Default-entry evidence is:
+
+- `08-default-root-1440x1000.png`
+- `09-compatible-skill-new-1440x1000.png`
+- `10-default-root-1280x800.png`
+- `11-default-root-390x844.png`
 
 The capture harness uses Playwright route fixtures only for deterministic
 frontend contract and visual verification. It asserts one Draft creation, one

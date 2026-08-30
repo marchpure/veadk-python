@@ -27,6 +27,29 @@ test("new Skill starts with one business composer and Auto delivery", () => {
   assert.match(creator, /if \(!selectedConnectionIds\.length && !selectedResourceIds\.length\)/);
 });
 
+test("Knowledge Workspace root and legacy entry routes share the canonical creator", () => {
+  assert.match(page, /const requestedFile = query\.get\("file"\)/);
+  assert.match(page, /requestedFile === null \|\| requestedFile === "welcome" \|\| requestedFile === "skill_new"/);
+  assert.match(page, /function setRoute[\s\S]*?if \(file !== "skill_new"\) query\.set\("file", file\)/);
+  assert.match(page, /useLayoutEffect\(\(\) => \{[\s\S]*?query\.get\("file"\) !== "welcome"[\s\S]*?query\.delete\("file"\)[\s\S]*?replaceState/);
+  assert.match(page, /route\.file === "skill_new" \? \(\s*<SkillCreateLanding/);
+  assert.doesNotMatch(page, /WelcomeEntryView|连接数据，创建可复用 Skill/);
+});
+
+test("new Skill navigation resets unsubmitted creator state while context inspection preserves it", () => {
+  assert.match(page, /const startNewSkill = useCallback/);
+  assert.match(page, /setWelcomeGoal\(""\)/);
+  assert.match(page, /setSelectedTemplateKey\("generic"\)/);
+  assert.match(page, /setSelectedConnectionIds\(\[\]\)/);
+  assert.match(page, /setSelectedResourceIds\(\[\]\)/);
+  assert.match(page, /pendingCreatedDraftRef\.current = null/);
+  assert.match(page, /aria-label="新建 Skill" onClick=\{startNewSkill\}/);
+  assert.match(page, />创建<\/button>/);
+  assert.match(page, /contextReturnRouteRef/);
+  assert.match(page, /returnFromContextDetail/);
+  assert.doesNotMatch(page, /result\.value\.data\.status === "ready"[\s\S]*?setSelectedConnectionIds/);
+});
+
 test("data drawer selects only real usable contexts and preserves status semantics", () => {
   assert.match(page, /knowledgeApi\.listConnections/);
   assert.match(page, /knowledgeApi\.listResources/);

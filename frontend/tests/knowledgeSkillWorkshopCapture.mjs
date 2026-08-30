@@ -174,7 +174,13 @@ async function main() {
     }
     if (url.pathname === "/api/knowledge/v1/connector-definitions") return ok([]);
     if (url.pathname === "/api/knowledge/v1/connections") return ok([connection, unavailableConnection, revokedConnection]);
+    if (url.pathname === `/api/knowledge/v1/connections/${connection.connection_id}`) {
+      return ok(connection, { ETag: "connection-v1" });
+    }
     if (url.pathname === "/api/knowledge/v1/resources") return ok([resource, unavailableResource]);
+    if (url.pathname === `/api/knowledge/v1/resources/${resource.resource_id}`) {
+      return ok(resource, { ETag: "resource-v1" });
+    }
     if (url.pathname === "/api/knowledge/v1/publications") {
       return ok(publishCalls ? [{
         publication_id: "publication-workshop",
@@ -265,6 +271,104 @@ async function main() {
     await page.screenshot({ path: path.join(evidenceDir, name), fullPage: false });
   };
 
+  const creatorSnapshot = async () => page.locator(".kw-main").evaluate((node) => ({
+    text: node.textContent,
+    classes: [...node.querySelectorAll("*")].map((element) => element.className),
+    controls: [...node.querySelectorAll("button, textarea")].map((element) => ({
+      tag: element.tagName,
+      text: element.textContent,
+      label: element.getAttribute("aria-label"),
+      value: "value" in element ? element.value : null,
+    })),
+  }));
+  await page.goto(`${baseURL}/?view=knowledge-workspace`);
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  const canonicalSnapshot = await creatorSnapshot();
+  const canonicalScreenshot = await page.screenshot({
+    path: path.join(evidenceDir, "08-default-root-1440x1000.png"),
+  });
+  assert.equal(new URL(page.url()).search, "?view=knowledge-workspace");
+
+  await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  assert.deepEqual(await creatorSnapshot(), canonicalSnapshot);
+  const compatibleScreenshot = await page.screenshot({
+    path: path.join(evidenceDir, "09-compatible-skill-new-1440x1000.png"),
+  });
+  assert.deepEqual(compatibleScreenshot, canonicalScreenshot);
+
+  await page.goto(`${baseURL}/?view=knowledge-workspace&file=welcome`);
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  await page.waitForURL(`${baseURL}/?view=knowledge-workspace`);
+  assert.deepEqual(await creatorSnapshot(), canonicalSnapshot);
+
+  await page.getByLabel("描述业务任务").fill("保留详情返回中的任务");
+  await page.getByRole("button", { name: "添加数据与工具" }).click();
+  const defaultDataDrawer = page.getByRole("dialog", { name: "添加数据与工具" });
+  await defaultDataDrawer.getByRole("button", { name: /华东门店业务库/ }).click();
+  await page.getByRole("button", { name: "确认选择" }).click();
+  await page.getByRole("button", { name: "添加数据与工具" }).click();
+  await defaultDataDrawer.getByRole("button", { name: "查看" }).click();
+  await page.getByRole("button", { name: "返回选择" }).click();
+  await defaultDataDrawer.waitFor();
+  await page.getByRole("button", { name: "取消" }).click();
+  assert.equal(await page.getByLabel("描述业务任务").inputValue(), "保留详情返回中的任务");
+  await page.getByLabel("当前数据与工具").getByText("华东门店业务库", { exact: true }).waitFor();
+
+  await page.locator(".kw-studio-links").getByText("创建", { exact: true }).click();
+  assert.equal(await page.getByLabel("描述业务任务").inputValue(), "");
+  assert.equal(await page.getByLabel("当前数据与工具").count(), 0);
+  assert.match(await page.locator(".kw-template-trigger").innerText(), /Auto/);
+  assert.equal(new URL(page.url()).search, "?view=knowledge-workspace");
+
+  await page.getByLabel("描述业务任务").fill("浏览器历史中的任务");
+  await page.getByRole("complementary").getByText(connection.display_name, { exact: true }).click();
+  await page.getByRole("heading", { name: connection.display_name }).waitFor();
+  await page.goBack();
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+  assert.equal(await page.getByLabel("描述业务任务").inputValue(), "浏览器历史中的任务");
+  await page.goForward();
+  await page.getByRole("heading", { name: connection.display_name }).waitFor();
+  await page.goBack();
+  await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+
+  await page.getByLabel("描述业务任务").fill("侧栏新建前的任务");
+  await page.getByRole("button", { name: "添加数据与工具" }).click();
+  await defaultDataDrawer.getByRole("button", { name: /华东门店业务库/ }).click();
+  await page.getByRole("button", { name: "确认选择" }).click();
+  await page.getByRole("complementary").getByRole("button", { name: "新建 Skill" }).click();
+  assert.equal(await page.getByLabel("描述业务任务").inputValue(), "");
+  assert.equal(await page.getByLabel("当前数据与工具").count(), 0);
+
+  for (const entry of [
+    [`?view=knowledge-workspace&file=connection&connectionId=${connection.connection_id}`, connection.display_name],
+    [`?view=knowledge-workspace&file=resource&resourceId=${resource.resource_id}`, resource.display_name],
+    [`?view=knowledge-workspace&file=draft&draftId=${draft.draft_id}`, "Skill 对话"],
+    [`?view=knowledge-workspace&file=published&draftId=${draft.draft_id}`, "Skill 对话"],
+  ]) {
+    await page.goto(`${baseURL}/${entry[0]}`);
+    if (entry[1] === "Skill 对话") {
+      await page.getByRole("region", { name: entry[1] }).waitFor();
+    } else {
+      await page.getByRole("heading", { name: entry[1] }).waitFor();
+    }
+  }
+
+  for (const viewport of [
+    { width: 1280, height: 800, name: "10-default-root-1280x800.png" },
+    { width: 390, height: 844, name: "11-default-root-390x844.png" },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${baseURL}/?view=knowledge-workspace`);
+    await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+      true,
+    );
+    await page.screenshot({ path: path.join(evidenceDir, viewport.name) });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
   retryScenario = true;
   await page.goto(`${baseURL}/?view=knowledge-workspace&file=skill_new`);
   await page.getByRole("heading", { name: "创建一个新技能" }).waitFor();
@@ -306,7 +410,6 @@ async function main() {
   await page.getByRole("button", { name: "分析华东区域异常" }).click();
   assert.equal(await page.getByLabel("描述业务任务").inputValue(), draft.goal);
   await page.getByRole("button", { name: "发送" }).click();
-  dataDrawer = page.getByRole("dialog", { name: "添加数据与工具" });
   await dataDrawer.waitFor();
   await page.getByText("请先选择至少一个可用的 Connection 或 Resource。").waitFor();
   assert.equal(await dataDrawer.getByRole("button", { name: /正在验证的数据仓库/ }).isDisabled(), true);
