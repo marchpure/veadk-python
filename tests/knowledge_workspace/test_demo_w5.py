@@ -1,0 +1,165 @@
+from __future__ import annotations
+
+import asyncio
+import json
+from pathlib import Path
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from frontend.server.knowledge_workspace.demo import (
+    DemoConfig,
+    DemoSeedCoordinator,
+    DemoSeedStore,
+    build_demo_manifest,
+    mount_demo_routes,
+)
+from frontend.server.knowledge_workspace.service import Actor
+
+
+ACTOR = Actor("demo-tenant", "demo-workspace", "demo-principal")
+
+
+def test_disabled_by_default_is_empty_and_does_not_leak_demo_cards() -> None:
+    manifest = build_demo_manifest(
+        ACTOR, DemoConfig(enabled=False), DemoSeedStore(":memory:")
+    )
+    assert manifest == {
+        "enabled": False,
+        "status": "disabled",
+        "scenarios": [],
+        "next_step": "管理员需显式设置 KNOWLEDGE_DEMO_ENABLED=true。",
+    }
+
+
+def test_seed_is_idempotent_and_scoped_to_tenant_workspace_version(tmp_path: Path) -> None:
+    store = DemoSeedStore(tmp_path / "demo.sqlite")
+    coordinator = DemoSeedCoordinator(
+        DemoConfig(enabled=True, seed_version="w5-v1"), store
+    )
+    calls: list[str] = []
+
+    async def gate(scenario: dict[str, object]) -> dict[str, object]:
+        calls.append(str(scenario["scenario_id"]))
+        evidence = {
+            "validate", "discover", "lease", "autoskill_create",
+            "autoskill_validate", "revision", "artifact_html",
+        }
+        evidence.add("query" if scenario["connection_kind"] == "postgresql" else "invoke")
+        if scenario["scenario_id"] == "im-after-sales":
+            evidence.add("openviking")
+        required_skills = {
+            item.strip().casefold()
+            for item in str(scenario["skill_type"]).replace("+", ",").split(",")
+            if item.strip()
+        }
+        return {
+            "connection_status": "verified",
+            "skill_status": "generated",
+            "evidence": sorted(evidence),
+            "skill_types_generated": sorted(required_skills),
+            "last_verified_at": "2026-08-30T00:00:00+00:00",
+            "connection_id": f"real-{scenario['scenario_id']}",
+            "revision_ids": [
+                f"revision-{scenario['scenario_id']}-{item}"
+                for item in required_skills
+            ],
+            "artifact_ids": [
+                f"artifact-{scenario['scenario_id']}-{item}"
+                for item in required_skills
+            ],
+        }
+
+    first = asyncio.run(coordinator.seed(ACTOR, gate=gate))
+    second = asyncio.run(coordinator.seed(ACTOR, gate=gate))
+    assert first == second
+    assert calls == [
+        "anta-sports-daily",
+        "im-after-sales",
+        "haidilao-inspection",
+    ]
+    assert first["source"] == "demo_seed"
+    assert first["seed_version"] == "w5-v1"
+    assert all(item["status"] == "ready" for item in first["scenarios"])
+
+    other = Actor("other-tenant", ACTOR.workspace_id, ACTOR.principal_id)
+    third = asyncio.run(coordinator.seed(other, gate=gate))
+    assert third["tenant_id"] == other.tenant_id
+    assert len(calls) == 6
+
+
+def test_seed_fails_closed_when_a_real_gate_is_not_verified() -> None:
+    coordinator = DemoSeedCoordinator(
+        DemoConfig(enabled=True), DemoSeedStore(":memory:")
+    )
+
+    async def blocked(_: dict[str, object]) -> dict[str, object]:
+        return {"connection_status": "not_verified", "skill_status": "generated"}
+
+    with pytest.raises(RuntimeError, match="validate/discover"):
+        asyncio.run(coordinator.seed(ACTOR, gate=blocked))
+
+
+def test_routes_are_tenant_scoped_and_reset_requires_current_version(tmp_path: Path) -> None:
+    app = FastAPI()
+    store = DemoSeedStore(tmp_path / "demo.sqlite")
+
+    def actor(_: object) -> Actor:
+        return ACTOR
+
+    async def gate(scenario: dict[str, object]) -> dict[str, object]:
+        evidence = {
+            "validate", "discover", "lease", "autoskill_create",
+            "autoskill_validate", "revision", "artifact_html",
+        }
+        evidence.add("query" if scenario["connection_kind"] == "postgresql" else "invoke")
+        if scenario["scenario_id"] == "im-after-sales":
+            evidence.add("openviking")
+        required_skills = {
+            item.strip().casefold()
+            for item in str(scenario["skill_type"]).replace("+", ",").split(",")
+            if item.strip()
+        }
+        return {
+            "connection_status": "verified",
+            "skill_status": "generated",
+            "evidence": sorted(evidence),
+            "skill_types_generated": sorted(required_skills),
+            "revision_ids": [f"revision-{item}" for item in required_skills],
+            "artifact_ids": [f"artifact-{item}" for item in required_skills],
+        }
+
+    mount_demo_routes(
+        app,
+        config=DemoConfig(enabled=True, seed_version="w5-v1"),
+        store=store,
+        actor_resolver=actor,  # type: ignore[arg-type]
+        gate=gate,
+    )
+    client = TestClient(app)
+    assert client.get("/api/knowledge/v1/demo/manifest").json()["data"]["status"] == "not_initialized"
+    seeded = client.post("/api/knowledge/v1/demo/seed")
+    assert seeded.status_code == 200
+    assert seeded.json()["data"]["status"] == "ready"
+    assert "tenant_id" not in seeded.json()["data"]
+    wrong = client.post(
+        "/api/knowledge/v1/demo/reset", json={"seed_version": "w5-v0"}
+    )
+    assert wrong.status_code == 400
+    right = client.post(
+        "/api/knowledge/v1/demo/reset", json={"seed_version": "w5-v1"}
+    )
+    assert right.json()["data"]["deleted"] is True
+
+
+def test_contract_manifests_keep_oracle_as_unconnected_configuration_example() -> None:
+    seed = json.loads(Path("demo/seed-manifest.json").read_text())
+    assert seed["enabled_by_default"] is False
+    assert seed["idempotency"]["key"] == [
+        "tenant_id",
+        "workspace_id",
+        "seed_version",
+    ]
+    assert all("validate" in scenario["requires"] for scenario in seed["scenarios"])
+    assert seed["oracle_configuration_example"]["connected"] is False

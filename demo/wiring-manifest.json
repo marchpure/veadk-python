@@ -1,0 +1,12 @@
+{
+  "name": "knowledge-commercial-w5-demo-wiring",
+  "main_entry_modified": false,
+  "backend_mount": "frontend.server.knowledge_workspace.demo.mount_demo_routes",
+  "frontend_component": "frontend/src/features/knowledge-workspace/demo/DemoBootstrap.tsx",
+  "onboarding_component": "frontend/src/features/knowledge-workspace/demo/DemoOnboarding.tsx",
+  "scenario_component": "frontend/src/features/knowledge-workspace/demo/DemoScenarioCard.tsx",
+  "manifest_route": "/api/knowledge/v1/demo/manifest",
+  "seed_route": "/api/knowledge/v1/demo/seed",
+  "reset_route": "/api/knowledge/v1/demo/reset",
+  "mount_contract": "Integration mounts DemoBootstrap at the knowledge workspace landing surface after W1-W4 merge."
+}

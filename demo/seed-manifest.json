@@ -1,0 +1,21 @@
+{
+  "name": "knowledge-commercial-w5-demo-pack",
+  "seed_version": "w5-v1",
+  "enabled_by_default": false,
+  "source": "demo_seed",
+  "provenance": "knowledge-commercial-w5",
+  "scenarios": [
+    {"id": "anta-sports-daily", "connection": "postgresql", "skill_types": ["semantic", "dashboard"], "requires": ["validate", "discover", "lease", "query", "autoskill_create", "autoskill_validate", "artifact_html"]},
+    {"id": "im-after-sales", "connection": "rest_openapi", "skill_types": ["sop"], "requires": ["validate", "discover", "lease", "invoke", "openviking", "autoskill_create", "autoskill_validate", "artifact_html"]},
+    {"id": "haidilao-inspection", "connection": "form_api", "skill_types": ["sop", "dashboard"], "requires": ["validate", "discover", "lease", "invoke", "autoskill_create", "autoskill_validate", "artifact_html"]}
+  ],
+  "idempotency": {"key": ["tenant_id", "workspace_id", "seed_version"], "repeat": "return existing records", "upgrade": "new seed_version only"},
+  "reset_scope": ["tenant_id", "workspace_id", "seed_version"]
+  ,
+  "oracle_configuration_example": {
+    "display_name": "Oracle（需用户凭据）",
+    "connected": false,
+    "status": "needs_user_credentials",
+    "note": "没有真实 Oracle 凭据时禁止标记为已连接。"
+  }
+}
