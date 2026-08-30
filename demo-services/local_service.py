@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dependency-free local Web Action, form API, and MCP demo providers."""
+"""Dependency-free local Web Action, form API, and Streamable HTTP MCP providers."""
 
 from __future__ import annotations
 
@@ -11,13 +11,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class Handler(BaseHTTPRequestHandler):
     service = "web"
 
-    def _send(self, status: int, payload: object) -> None:
-        body = json.dumps(payload, ensure_ascii=False).encode()
+    def _send(self, status: int, payload: object | None) -> None:
+        body = (
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+            if payload is not None
+            else b""
+        )
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        if payload is not None:
+            self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if body:
+            self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/healthz":
@@ -39,7 +45,93 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.service == "mcp" and self.path == "/mcp":
             method = body.get("method")
-            self._send(200, {"jsonrpc": "2.0", "id": body.get("id"), "result": {"tool": method or "inspect_store", "rows": [{"store_id": "store-sh", "score": 98}]}})
+            if method == "notifications/initialized":
+                self._send(202, None)
+                return
+            result: object
+            if method == "initialize":
+                result = {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+                    "serverInfo": {
+                        "name": "knowledge-commercial-demo",
+                        "version": "1.0.0",
+                    },
+                }
+            elif method == "tools/list":
+                result = {
+                    "tools": [
+                        {
+                            "name": "inspect_store",
+                            "description": "Read the demo restaurant inspection result.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "store_id": {"type": "string"},
+                                },
+                                "additionalProperties": False,
+                            },
+                        }
+                    ]
+                }
+            elif method == "resources/list":
+                result = {
+                    "resources": [
+                        {
+                            "uri": "demo://inspection/store-sh",
+                            "name": "上海门店巡检结果",
+                            "mimeType": "application/json",
+                        }
+                    ]
+                }
+            elif method == "prompts/list":
+                result = {"prompts": []}
+            elif method == "tools/call":
+                params = body.get("params") if isinstance(body.get("params"), dict) else {}
+                if params.get("name") != "inspect_store":
+                    self._send(
+                        200,
+                        {
+                            "jsonrpc": "2.0",
+                            "id": body.get("id"),
+                            "error": {"code": -32602, "message": "unknown tool"},
+                        },
+                    )
+                    return
+                arguments = (
+                    params.get("arguments")
+                    if isinstance(params.get("arguments"), dict)
+                    else {}
+                )
+                result = {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "store_id": arguments.get("store_id", "store-sh"),
+                                    "score": 98,
+                                    "exceptions": ["后厨温度记录待补签"],
+                                },
+                                ensure_ascii=False,
+                            ),
+                        }
+                    ]
+                }
+            else:
+                self._send(
+                    200,
+                    {
+                        "jsonrpc": "2.0",
+                        "id": body.get("id"),
+                        "error": {"code": -32601, "message": "method not found"},
+                    },
+                )
+                return
+            self._send(
+                200,
+                {"jsonrpc": "2.0", "id": body.get("id"), "result": result},
+            )
             return
         self._send(404, {"error": "not_found"})
 
