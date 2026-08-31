@@ -749,6 +749,37 @@ def test_output_zip_rejects_compression_bombs() -> None:
     assert error.value.code == "ARTIFACT_OUTPUT_TOO_LARGE"
 
 
+@pytest.mark.parametrize(
+    "html",
+    [
+        b'<!doctype html><html><img src="https://example.com/image.png"></html>',
+        b"<!doctype html><html><script>fetch('/secret')</script></html>",
+        b"<!doctype html><html><script>localStorage.setItem('x', 'y')</script></html>",
+    ],
+)
+def test_output_zip_rejects_unsafe_html_after_manifest_validation(
+    html: bytes,
+) -> None:
+    manifest = {
+        "schemaVersion": "1",
+        "surface": "generic",
+        "entry": "output/index.html",
+        "mediaType": "text/html",
+        "source": "skill://test",
+        "sandboxProfile": "strict",
+        "viewport": {"width": 1440, "height": 900},
+        "digest": hashlib.sha256(html).hexdigest(),
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("output/index.html", html)
+        archive.writestr("presentation/manifest.json", json.dumps(manifest))
+
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(buffer.getvalue())
+    assert error.value.code in {"ARTIFACT_EXTERNAL_LINK", "ARTIFACT_UNSAFE"}
+
+
 @pytest.mark.asyncio
 async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() -> None:
     requests: list[httpx.Request] = []

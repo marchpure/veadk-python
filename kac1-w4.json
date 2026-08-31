@@ -14,8 +14,8 @@
     "tests/knowledge_workspace/test_autoskill_adapter.py"
   ],
   "verification": {
-    "artifact_security_tests": "72 passed",
-    "knowledge_workspace_tests": "187 passed",
+    "artifact_security_tests": "75 passed",
+    "knowledge_workspace_tests": "190 passed",
     "demo_manifest_contract": "3 packages passed",
     "frontend_tests": "917 passed; 2 skipped",
     "frontend_typecheck": "passed",
