@@ -76,18 +76,29 @@ def _id(prefix: str, value: str) -> str:
 
 def _zip_for(item: dict[str, Any]) -> bytes:
     package = ROOT / "demo" / "skills" / str(item["directory"])
-    entries = {
-        "SKILL.md": (package / "SKILL.md").read_bytes(),
-        "manifest.json": (package / "manifest.json").read_bytes(),
-        "output/index.html": (package / "output" / "index.html").read_bytes(),
-        f"data/{item['fixture']}": (
-            ROOT / "demo" / "fixtures" / str(item["fixture"])
-        ).read_bytes(),
-    }
+    if item["id"] == "haidilao-inspection":
+        entries = {
+            path.relative_to(package).as_posix(): path.read_bytes()
+            for path in sorted(package.rglob("*"))
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+        }
+    else:
+        entries = {
+            "SKILL.md": (package / "SKILL.md").read_bytes(),
+            "manifest.json": (package / "manifest.json").read_bytes(),
+            "output/index.html": (package / "output" / "index.html").read_bytes(),
+            f"data/{item['fixture']}": (
+                ROOT / "demo" / "fixtures" / str(item["fixture"])
+            ).read_bytes(),
+        }
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, content in sorted(entries.items()):
-            archive.writestr(f"skillhub/{item['directory']}/{name}", content)
+            info = zipfile.ZipInfo(f"skillhub/{item['directory']}/{name}")
+            info.date_time = (2020, 1, 1, 0, 0, 0)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, content)
     return output.getvalue()
 
 
@@ -183,8 +194,13 @@ def _ensure_demo_seed_locked(
                 zip_uri = service.repository.put_object(
                     zip_manifest["sha256"], desired_zip, suffix=".zip"
                 )
+                presentation_version = (
+                    "presentation-v3"
+                    if item["id"] == "haidilao-inspection"
+                    else "presentation-v2"
+                )
                 candidate_revision_id = _id(
-                    "revision", f"{draft.draft_id}:presentation-v2"
+                    "revision", f"{draft.draft_id}:{presentation_version}"
                 )
                 revision = service.repository.get_revision(
                     candidate_revision_id,
@@ -206,11 +222,12 @@ def _ensure_demo_seed_locked(
                         manifest={
                             **zip_manifest,
                             "provenance": "versioned_demo_bundle",
+                            "presentation_version": presentation_version,
                             "resource_refs": [resource.resource_id],
                             "connection_refs": [],
                         },
                         created_from_invocation=_id(
-                            "inv", f"{draft.draft_id}:presentation-v2:generate"
+                            "inv", f"{draft.draft_id}:{presentation_version}:generate"
                         ),
                     )
                     service.repository.freeze_revision(revision)
@@ -219,13 +236,13 @@ def _ensure_demo_seed_locked(
                     tenant_id=actor.tenant_id,
                     workspace_id=actor.workspace_id,
                 )[0]
-                run_id = _id("inv", f"{draft.draft_id}:presentation-v2:run")
+                run_id = _id("inv", f"{draft.draft_id}:{presentation_version}:run")
                 run = generate.model_copy(
                     update={
                         "invocation_id": run_id,
                         "revision_id": revision.revision_id,
                         "kind": InvocationKind.RUN,
-                        "lease_id": f"demo-lease-{item['id']}-v2",
+                        "lease_id": f"demo-lease-{item['id']}-{presentation_version}",
                         "autoskill_request_id": _id("request", run_id),
                         "autoskill_request_ids": (_id("request", run_id),),
                     }
@@ -287,7 +304,7 @@ def _ensure_demo_seed_locked(
                     revision.revision_id,
                     "personal",
                     idempotency_key=_id(
-                        "publication-key", f"{item['id']}:presentation-v2"
+                        "publication-key", f"{item['id']}:{presentation_version}"
                     ),
                     request_digest=revision.revision_id,
                 )
@@ -366,7 +383,8 @@ def _ensure_demo_seed_locked(
             autoskill_session_id=session.autoskill_session_id, autoskill_request_id=_id("request", generate_id),
             autoskill_request_ids=(_id("request", generate_id),), principal_id=actor.principal_id,
             message=item["goal"], request_summary={
-                "target_skill": item["directory"], "skill_version": "demo-1",
+                "target_skill": item["directory"],
+                "skill_version": "gold-v1" if item["id"] == "haidilao-inspection" else "demo-1",
                 "status": "succeeded",
                 "policy_evaluation": {"satisfied": True, "matched_calls": [{
                     "action_id": "workspace.resource.read", "resource_ref": resource.resource_id
@@ -403,7 +421,8 @@ def _ensure_demo_seed_locked(
             "autoskill_request_id": _id("request", run_id),
             "autoskill_request_ids": (_id("request", run_id),),
             "request_summary": {
-                "target_skill": item["directory"], "skill_version": "demo-1",
+                "target_skill": item["directory"],
+                "skill_version": "gold-v1" if item["id"] == "haidilao-inspection" else "demo-1",
                 "status": "succeeded",
                 "policy_evaluation": {"satisfied": True, "matched_calls": [{
                     "action_id": "workspace.resource.read", "resource_ref": resource.resource_id

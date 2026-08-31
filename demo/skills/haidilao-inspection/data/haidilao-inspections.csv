@@ -1,0 +1,5 @@
+store,inspection_date,item,score,exception,owner,due_date,status
+上海陆家嘴,2026-08-29,食品留样,5,,王敏,2026-08-30,closed
+上海陆家嘴,2026-08-29,消防通道,3,纸箱占用,李强,2026-08-30,in_progress
+杭州湖滨,2026-08-30,冷藏温度,4,记录缺一次,陈晨,2026-08-31,in_progress
+杭州湖滨,2026-08-30,员工培训,5,,赵琳,2026-09-02,closed

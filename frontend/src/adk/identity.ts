@@ -196,6 +196,16 @@ async function fetchIdentityResponse(): Promise<Response> {
 export async function resolveIdentity(): Promise<Identity> {
   const res = await fetchIdentityResponse();
 
+  // Local no-SSO mode deliberately returns 204 to avoid an expected browser
+  // error; handle it before the generic `res.ok` JSON branch.
+  if (res.status === 204) {
+    const saved = getLocalUser();
+    if (saved) {
+      return { status: "authenticated", userId: saved, info: { name: saved }, local: true };
+    }
+    return { status: "unauthenticated", userId: "", local: true };
+  }
+
   // SSO enabled, signed in.
   if (res.ok) {
     let info: Record<string, unknown>;
@@ -213,11 +223,11 @@ export async function resolveIdentity(): Promise<Identity> {
     return { status: "unauthenticated", userId: "", local: false };
   }
 
-  if (res.status !== 404) {
+  // Local server without SSO: the no-content identity response selects local
+  // username mode without surfacing an expected probe as a browser error.
+  if (res.status !== 204 && res.status !== 404) {
     throw new Error(`身份服务异常（HTTP ${res.status}），请稍后重试。`);
   }
-
-  // Legacy server without the identity endpoint: local username mode.
   const saved = getLocalUser();
   if (saved) {
     return { status: "authenticated", userId: saved, info: { name: saved }, local: true };

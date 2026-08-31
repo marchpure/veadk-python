@@ -9127,13 +9127,13 @@ def _run_frontend_server(
                 f"OAuth2 SSO enabled (provider={provider_id}, redirect_uri={redirect_uri})"
             )
         else:
-            from fastapi.responses import JSONResponse
+            from fastapi import Response
 
             @app.get("/oauth2/userinfo")
             async def _userinfo_no_sso():
-                # A JSON 404 is the SPA contract for local username mode and avoids
-                # parsing the HTML fallback while preserving 401 for real auth failures.
-                return JSONResponse({"status": "unauthenticated"}, status_code=404)
+                # A no-content response keeps local username mode explicit without
+                # producing a browser console error for the expected no-SSO probe.
+                return Response(status_code=204)
 
         @app.get("/web/auth-config")
         async def _web_auth_config():

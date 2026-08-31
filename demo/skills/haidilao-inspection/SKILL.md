@@ -1,4 +1,5 @@
-# 海底捞门店巡检
+# 海底捞门店巡检 Dashboard Gold
 
-读取 `haidilao-inspections.csv`，汇总评分、异常项、负责人、整改期限和状态，
-并按异常项输出整改 SOP。
+运行 `python scripts/build_artifact.py` 读取 `data/haidilao-inspections.csv`，
+生成完全自包含的巡检 Dashboard。Dashboard 由真实 CSV 计算 KPI、SVG 图表、
+异常明细和整改 SOP，支持门店与状态筛选联动。

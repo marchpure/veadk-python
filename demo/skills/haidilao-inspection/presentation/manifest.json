@@ -1,0 +1,13 @@
+{
+  "version": "gold-v1",
+  "title": "海底捞门店巡检 Dashboard",
+  "data": "data/haidilao-inspections.csv",
+  "visualizations": [
+    "store_average_score",
+    "remediation_status",
+    "exception_detail",
+    "remediation_timeline"
+  ],
+  "interactions": ["store_filter", "status_filter"],
+  "source": "local_skill_package"
+}
