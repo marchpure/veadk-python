@@ -2460,6 +2460,12 @@ def _run_frontend_server(
     def _knowledge_workspace_actor(request: Request, resolver: Any) -> Actor:
         principal = resolver(request)
         owner_id = str(getattr(principal, "owner_id", "") or "local")
+        # The bundled local Knowledge Workspace demo is seeded into the
+        # dedicated ``tester`` tenant.  Keep the demo URL usable on a fresh
+        # browser (before the SPA has established its local-user header);
+        # production deployments never enable this fallback.
+        if _demo_seed_enabled and owner_id in {"local", "local-principal", "local-tenant"}:
+            owner_id = "tester"
         actor = Actor(
             tenant_id=owner_id,
             workspace_id="studio",
