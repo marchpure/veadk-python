@@ -9,11 +9,10 @@ import {
 import { withAuth } from "../../../adk/auth";
 import { withLocalUser } from "../../../adk/identity";
 import type { AssistantArtifactPreview } from "../assistant/assistant-model";
-import type { Artifact, Revision } from "../domain/types";
+import type { Artifact, PresentationManifest, Revision } from "../domain/types";
 import { useDelayedValue } from "./useDelayedValue";
 
 type ArtifactPane = "preview" | "source" | "log";
-type PresentationSurface = "dashboard" | "semantic_graph" | "sop" | "generic";
 
 interface ArtifactViewerProps {
   artifact: Artifact | null;
@@ -95,10 +94,11 @@ function artifactSha(artifact: Artifact | null, previewState?: AssistantArtifact
   return artifact?.sha256 || previewState?.sha256;
 }
 
-function presentationMetadata(artifact: Artifact | null): Record<string, unknown> | null {
+function presentationMetadata(artifact: Artifact | null): PresentationManifest | null {
+  if (artifact?.presentation) return artifact.presentation;
   const value = artifact?.lineage?.presentation;
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
+  return value as unknown as PresentationManifest;
 }
 
 function sourceText(artifact: Artifact | null, previewState?: AssistantArtifactPreview): string {
@@ -140,7 +140,7 @@ export function ArtifactViewer({
   const title = artifactTitle(artifact, previewState);
   const logs = logLines(artifact, previewState);
   const presentation = presentationMetadata(artifact);
-  const surface = presentation?.surface as PresentationSurface | undefined;
+  const surface = presentation?.surface;
 
   useEffect(() => {
     if (!source) {

@@ -28,6 +28,7 @@ from frontend.server.knowledge_workspace.models import (
 )
 from frontend.server.knowledge_workspace.source_contracts import KnowledgeSourceRef
 from frontend.server.knowledge_workspace.repository import KnowledgeWorkspaceRepository
+from frontend.server.knowledge_workspace.service import KnowledgeWorkspaceService
 from frontend.server.knowledge_workspace.service import (
     Actor,
     KnowledgeWorkspaceError,
@@ -909,6 +910,41 @@ async def test_freeze_run_artifact_and_publication_require_real_gates() -> None:
     )
     publication = service.publish(actor, revision.revision_id, "personal")
     assert publication.revision_id == revision.revision_id
+
+
+def test_public_artifact_exposes_additive_presentation_manifest() -> None:
+    now = utc_now()
+    manifest = {
+        "schemaVersion": "1",
+        "surface": "semantic_graph",
+        "entry": "output/index.html",
+        "mediaType": "text/html",
+        "source": "skill://demo",
+        "sandboxProfile": "strict",
+        "viewport": {"width": 1440, "height": 900},
+        "digest": "a" * 64,
+    }
+    artifact = Artifact(
+        tenant_id="tenant",
+        workspace_id="workspace",
+        artifact_id="artifact",
+        revision_id="revision",
+        invocation_id="invocation",
+        uri="object://artifact",
+        sha256="a" * 64,
+        media_type="text/html",
+        encoding="utf-8",
+        size_bytes=32,
+        lineage={"presentation": manifest},
+        csp="default-src 'none'",
+        sandbox="allow-scripts",
+        created_at=now,
+    )
+
+    public = KnowledgeWorkspaceService.public_artifact(artifact)
+
+    assert public["presentation"] == manifest
+    assert public["lineage"]["presentation"] == manifest
 
 
 @pytest.mark.asyncio

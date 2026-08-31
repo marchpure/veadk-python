@@ -1311,6 +1311,7 @@ class KnowledgeWorkspaceService:
     @staticmethod
     def public_artifact(artifact: Artifact) -> dict[str, object]:
         lineage = KnowledgeWorkspaceService._public_value(artifact.lineage)
+        presentation = lineage.get("presentation")
         return {
             "artifact_id": artifact.artifact_id,
             "revision_id": artifact.revision_id,
@@ -1321,6 +1322,7 @@ class KnowledgeWorkspaceService:
             "encoding": artifact.encoding,
             "size_bytes": artifact.size_bytes,
             "lineage": lineage,
+            "presentation": presentation if isinstance(presentation, dict) else None,
             "csp": artifact.csp,
             "sandbox": artifact.sandbox,
             "created_at": artifact.created_at,

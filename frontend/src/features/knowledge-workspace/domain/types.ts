@@ -149,9 +149,21 @@ export interface Artifact {
   sha256: string;
   title?: string;
   lineage?: JsonObject;
+  presentation?: PresentationManifest;
   csp?: string;
   sandbox?: string;
   created_at: string;
+}
+
+export interface PresentationManifest {
+  schemaVersion: string;
+  surface: "dashboard" | "semantic_graph" | "sop" | "generic";
+  entry: string;
+  mediaType: "text/html";
+  source: string;
+  sandboxProfile: "strict";
+  viewport: { width: number; height: number };
+  digest: string;
 }
 
 export interface ArtifactPreviewEventData {
