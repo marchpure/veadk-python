@@ -672,6 +672,83 @@ def test_output_zip_requires_declared_single_entry() -> None:
     assert error.value.code == "ARTIFACT_MANIFEST_MISSING"
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("schemaVersion", "2"),
+        ("surface", "custom"),
+        ("entry", "output/missing.html"),
+        ("mediaType", "text/plain"),
+        ("source", ""),
+        ("sandboxProfile", "permissive"),
+        ("viewport", {"width": 100, "height": 900}),
+        ("digest", "not-a-sha256"),
+    ],
+)
+def test_output_zip_rejects_each_invalid_manifest_field(
+    field: str, value: object
+) -> None:
+    html = b"<!doctype html><html><body>safe</body></html>"
+    manifest: dict[str, object] = {
+        "schemaVersion": "1",
+        "surface": "generic",
+        "entry": "output/index.html",
+        "mediaType": "text/html",
+        "source": "skill://test",
+        "sandboxProfile": "strict",
+        "viewport": {"width": 1440, "height": 900},
+        "digest": hashlib.sha256(html).hexdigest(),
+    }
+    manifest[field] = value
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("output/index.html", html)
+        archive.writestr("presentation/manifest.json", json.dumps(manifest))
+
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(buffer.getvalue())
+    assert error.value.code in {"ARTIFACT_MANIFEST_INVALID", "ARTIFACT_MANIFEST_MISMATCH"}
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["../output/index.html", "/output/index.html", "output\\index.html"],
+)
+def test_output_zip_rejects_unsafe_paths(filename: str) -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(filename, b"<!doctype html><html>unsafe</html>")
+
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(buffer.getvalue())
+    assert error.value.code == "ARTIFACT_OUTPUT_INVALID"
+
+
+def test_output_zip_rejects_symlink_entries() -> None:
+    buffer = io.BytesIO()
+    link = zipfile.ZipInfo("output/index.html")
+    link.external_attr = (0o120777 << 16) | 0xA000
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(link, "target.html")
+
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(buffer.getvalue())
+    assert error.value.code == "ARTIFACT_OUTPUT_INVALID"
+
+
+def test_output_zip_rejects_compression_bombs() -> None:
+    buffer = io.BytesIO()
+    payload = b"A" * 100_000
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("output/index.html", payload)
+
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(
+            buffer.getvalue(), max_file_bytes=200_000, max_compression_ratio=2
+        )
+    assert error.value.code == "ARTIFACT_OUTPUT_TOO_LARGE"
+
+
 @pytest.mark.asyncio
 async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() -> None:
     requests: list[httpx.Request] = []
