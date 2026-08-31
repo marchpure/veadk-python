@@ -1,10 +1,11 @@
 {
-  "schemaVersion": "1",
+  "schemaVersion": "1.0",
   "surface": "dashboard",
+  "title": "海底捞门店巡检 · Dashboard Gold",
   "entry": "output/index.html",
   "mediaType": "text/html",
   "source": "skill://haidilao-inspection",
-  "sandboxProfile": "strict",
-  "viewport": {"width": 1440, "height": 900},
-  "digest": "21764d471af6536cc34809aa05e9e371d1a4e77de9354e469330eb9d99f4036f"
+  "sandboxProfile": "static-self-contained",
+  "viewport": {"responsive": true, "defaultWidth": 1440, "mobileWidth": 390, "minWidth": 320},
+  "integrity": {"sha256": "21764d471af6536cc34809aa05e9e371d1a4e77de9354e469330eb9d99f4036f"}
 }

@@ -1,10 +1,11 @@
 {
-  "schemaVersion": "1",
+  "schemaVersion": "1.0",
   "surface": "dashboard",
+  "title": "安踏经营日报",
   "entry": "output/index.html",
   "mediaType": "text/html",
   "source": "skill://anta-operations",
-  "sandboxProfile": "strict",
-  "viewport": {"width": 1440, "height": 900},
-  "digest": "e360541f78a8d59d457ac0aaaf07eb0a5328a64d738d23caf3e955559f794406"
+  "sandboxProfile": "static-self-contained",
+  "viewport": {"responsive": true, "defaultWidth": 1440, "mobileWidth": 390, "minWidth": 320},
+  "integrity": {"sha256": "e360541f78a8d59d457ac0aaaf07eb0a5328a64d738d23caf3e955559f794406"}
 }

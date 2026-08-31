@@ -9,7 +9,7 @@ import re
 import stat
 import zipfile
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, TypedDict
 
 
 class HtmlArtifactError(ValueError):
@@ -44,7 +44,18 @@ _EXTERNAL = re.compile(
     re.IGNORECASE,
 )
 _EXTERNAL_CSS = re.compile(r"""url\s*\(\s*["']?(?:https?:|//)""", re.IGNORECASE)
-_MANIFEST_KEYS = {
+_CANONICAL_MANIFEST_KEYS = {
+    "schemaVersion",
+    "surface",
+    "title",
+    "entry",
+    "mediaType",
+    "source",
+    "sandboxProfile",
+    "viewport",
+    "integrity",
+}
+_LEGACY_MANIFEST_KEYS = {
     "schemaVersion",
     "surface",
     "entry",
@@ -56,6 +67,112 @@ _MANIFEST_KEYS = {
 }
 _SURFACES = {"dashboard", "semantic_graph", "sop", "generic"}
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+class PresentationManifest(TypedDict):
+    schemaVersion: str
+    surface: str
+    title: str
+    entry: str
+    mediaType: str
+    source: str
+    sandboxProfile: str
+    viewport: dict[str, int | bool]
+    integrity: dict[str, str]
+
+
+def normalize_presentation_manifest(
+    raw: object,
+    *,
+    html_entry: str | None = None,
+    html_digest: str | None = None,
+) -> PresentationManifest:
+    """Validate raw manifests and expose one canonical BFF representation."""
+    if not isinstance(raw, dict):
+        raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+    version = raw.get("schemaVersion")
+    if version == "1.0":
+        if set(raw) != _CANONICAL_MANIFEST_KEYS:
+            raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+        title = raw.get("title")
+        viewport = raw.get("viewport")
+        integrity = raw.get("integrity")
+        if (
+            not isinstance(title, str) or not title.strip()
+            or raw.get("sandboxProfile") != "static-self-contained"
+            or not isinstance(viewport, dict)
+            or set(viewport) != {"responsive", "defaultWidth", "mobileWidth", "minWidth"}
+            or viewport.get("responsive") is not True
+            or any(
+                isinstance(viewport[key], bool)
+                or not isinstance(viewport[key], int)
+                or not (
+                    (640 <= viewport[key] <= 4096 if key == "defaultWidth"
+                     else 320 <= viewport[key] <= 640 if key == "mobileWidth"
+                     else 320 <= viewport[key] <= 4096)
+                )
+                for key in ("defaultWidth", "mobileWidth", "minWidth")
+            )
+            or not isinstance(integrity, dict)
+            or set(integrity) != {"sha256"}
+            or not isinstance(integrity.get("sha256"), str)
+            or not _SHA256.fullmatch(integrity["sha256"])
+        ):
+            raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+        digest = integrity["sha256"]
+        normalized_viewport = viewport
+    elif version == "1":
+        if set(raw) != _LEGACY_MANIFEST_KEYS:
+            raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+        viewport = raw.get("viewport")
+        digest = raw.get("digest")
+        if (
+            raw.get("sandboxProfile") != "strict"
+            or not isinstance(viewport, dict)
+            or set(viewport) != {"width", "height"}
+            or any(
+                isinstance(viewport[key], bool)
+                or not isinstance(viewport[key], int)
+                or not 320 <= viewport[key] <= 4096
+                for key in ("width", "height")
+            )
+            or not isinstance(digest, str)
+            or not _SHA256.fullmatch(digest)
+        ):
+            raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+        normalized_viewport = {
+            "responsive": True,
+            "defaultWidth": viewport["width"],
+            "mobileWidth": min(viewport["width"], 640),
+            "minWidth": 320,
+        }
+        title = "HTML Artifact"
+    else:
+        raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+    if (
+        raw.get("surface") not in _SURFACES
+        or raw.get("mediaType") != "text/html"
+        or not isinstance(raw.get("source"), str)
+        or not raw["source"].strip()
+        or not isinstance(raw.get("entry"), str)
+        or not raw["entry"].strip()
+    ):
+        raise HtmlArtifactError("ARTIFACT_MANIFEST_INVALID", "presentation manifest does not match the Artifact contract")
+    if html_entry is not None and raw["entry"] != html_entry and not html_entry.endswith("/" + raw["entry"].lstrip("/")):
+        raise HtmlArtifactError("ARTIFACT_MANIFEST_MISMATCH", "presentation entry does not identify the only HTML file")
+    if html_digest is not None and digest != html_digest:
+        raise HtmlArtifactError("ARTIFACT_MANIFEST_MISMATCH", "presentation digest does not match the HTML entry")
+    return {
+        "schemaVersion": "1.0",
+        "surface": raw["surface"],
+        "title": title,
+        "entry": raw["entry"],
+        "mediaType": "text/html",
+        "source": raw["source"],
+        "sandboxProfile": "static-self-contained",
+        "viewport": normalized_viewport,
+        "integrity": {"sha256": digest},
+    }
 
 
 def validate_html_artifact(
@@ -207,37 +324,9 @@ def validate_output_archive(
             raise HtmlArtifactError(
                 "ARTIFACT_MANIFEST_INVALID", "presentation manifest is not valid JSON"
             ) from exc
-        if (
-            not isinstance(manifest, dict)
-            or set(manifest) != _MANIFEST_KEYS
-            or manifest.get("schemaVersion") != "1"
-            or manifest.get("surface") not in _SURFACES
-            or manifest.get("mediaType") != "text/html"
-            or manifest.get("sandboxProfile") != "strict"
-            or not isinstance(manifest.get("source"), str)
-            or not manifest["source"].strip()
-            or not isinstance(manifest.get("entry"), str)
-            or not isinstance(manifest.get("digest"), str)
-            or not _SHA256.fullmatch(manifest["digest"])
-        ):
-            raise HtmlArtifactError(
-                "ARTIFACT_MANIFEST_INVALID",
-                "presentation manifest does not match the Artifact contract",
-            )
-        viewport = manifest.get("viewport")
-        if (
-            not isinstance(viewport, dict)
-            or set(viewport) != {"width", "height"}
-            or any(
-                isinstance(viewport[key], bool)
-                or not isinstance(viewport[key], int)
-                or not 320 <= viewport[key] <= 4096
-                for key in ("width", "height")
-            )
-        ):
-            raise HtmlArtifactError(
-                "ARTIFACT_MANIFEST_INVALID", "presentation viewport is invalid"
-            )
+        # Check the contract shape before resolving the single HTML entry so
+        # malformed manifests fail with the contract error deterministically.
+        normalize_presentation_manifest(manifest)
         candidates = [
             i
             for i in infos
@@ -257,19 +346,12 @@ def validate_output_archive(
                 "ARTIFACT_HTML_MISSING", "AutoSkill output contains no HTML file"
             )
         info = candidates[0]
-        if manifest["entry"] != info.filename and not info.filename.endswith(
-            "/" + manifest["entry"].lstrip("/")
-        ):
-            raise HtmlArtifactError(
-                "ARTIFACT_MANIFEST_MISMATCH",
-                "presentation entry does not identify the only HTML file",
-            )
         data = archive.read(info)
         metadata = validate_html_artifact(data)
-        if manifest["digest"] != metadata["sha256"]:
-            raise HtmlArtifactError(
-                "ARTIFACT_MANIFEST_MISMATCH",
-                "presentation digest does not match the HTML entry",
-            )
-        metadata["presentation"] = manifest
+        normalized_manifest = normalize_presentation_manifest(
+            manifest,
+            html_entry=info.filename,
+            html_digest=metadata["sha256"],
+        )
+        metadata["presentation"] = normalized_manifest
         return info.filename, data, metadata

@@ -1512,24 +1512,32 @@ components:
     PresentationManifest:
       type: object
       required:
-        [schemaVersion, surface, entry, mediaType, source, sandboxProfile, viewport, digest]
+        [schemaVersion, surface, title, entry, mediaType, source, sandboxProfile, viewport, integrity]
       properties:
-        schemaVersion: { type: string, const: "1" }
+        schemaVersion: { type: string, const: "1.0" }
         surface:
           type: string
           enum: [dashboard, semantic_graph, sop, generic]
+        title: { type: string, minLength: 1 }
         entry: { type: string, minLength: 1 }
         mediaType: { type: string, const: text/html }
         source: { type: string, minLength: 1 }
-        sandboxProfile: { type: string, const: strict }
+        sandboxProfile: { type: string, const: static-self-contained }
         viewport:
           type: object
-          required: [width, height]
+          required: [responsive, defaultWidth, mobileWidth, minWidth]
           properties:
-            width: { type: integer, minimum: 320, maximum: 4096 }
-            height: { type: integer, minimum: 320, maximum: 4096 }
+            responsive: { type: boolean, const: true }
+            defaultWidth: { type: integer, minimum: 640, maximum: 4096 }
+            mobileWidth: { type: integer, minimum: 320, maximum: 640 }
+            minWidth: { type: integer, minimum: 320, maximum: 4096 }
           additionalProperties: false
-        digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+        integrity:
+          type: object
+          required: [sha256]
+          properties:
+            sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+          additionalProperties: false
       additionalProperties: false
     ArtifactResponse:
       type: object

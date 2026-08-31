@@ -5,6 +5,9 @@ import hashlib
 import io
 import json
 import zipfile
+import subprocess
+import sys
+from pathlib import Path
 
 import httpx
 import pytest
@@ -649,6 +652,100 @@ def test_output_zip_returns_real_html_without_constructing_content() -> None:
     assert content == html
     assert metadata["sha256"] != ""
     assert metadata["presentation"]["surface"] == "generic"
+    assert metadata["presentation"]["schemaVersion"] == "1.0"
+    assert metadata["presentation"]["integrity"]["sha256"] == metadata["sha256"]
+    assert metadata["presentation"]["schemaVersion"] == "1.0"
+
+
+def test_output_zip_accepts_w2_canonical_manifest() -> None:
+    html = b"<!doctype html><html><body>w2</body></html>"
+    manifest = {
+        "schemaVersion": "1.0",
+        "surface": "generic",
+        "title": "W2 artifact",
+        "entry": "output/index.html",
+        "mediaType": "text/html",
+        "source": "skill://w2",
+        "sandboxProfile": "static-self-contained",
+        "viewport": {
+            "responsive": True,
+            "defaultWidth": 1280,
+            "mobileWidth": 390,
+            "minWidth": 320,
+        },
+        "integrity": {"sha256": hashlib.sha256(html).hexdigest()},
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("output/index.html", html)
+        archive.writestr("presentation/manifest.json", json.dumps(manifest))
+    _, _, metadata = validate_output_archive(buffer.getvalue())
+    assert metadata["presentation"]["schemaVersion"] == "1.0"
+    assert metadata["presentation"]["title"] == "W2 artifact"
+
+
+@pytest.mark.parametrize("surface", ["dashboard", "semantic_graph", "sop", "generic"])
+def test_real_w2_builder_output_is_accepted_by_w4(surface: str, tmp_path: Path) -> None:
+    w2 = Path("/Users/bytedance/.codex/worktrees/kac1-generic-artifact-authoring")
+    fixture_names = {
+        "dashboard": "dashboard_retail_ops.json",
+        "semantic_graph": "semantic_graph_logistics.json",
+        "sop": "sop_finance_close.json",
+        "generic": "generic_research_summary.json",
+    }
+    blueprint = w2 / "backend/test/fixtures/docs" / fixture_names[surface]
+    root = tmp_path / surface
+    subprocess.run(
+        [
+            sys.executable,
+            str(w2 / "backend/src/skill/presentation/scripts/build_artifact.py"),
+            "--root",
+            str(root),
+            "--surface",
+            surface,
+            "--input",
+            str(blueprint),
+            "--source",
+            f"cross-contract:{surface}",
+        ],
+        cwd=w2 / "backend",
+        check=True,
+    )
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as output:
+        for file in root.rglob("*"):
+            if file.is_file():
+                output.write(file, file.relative_to(root).as_posix())
+    _, _, metadata = validate_output_archive(archive.getvalue())
+    assert metadata["presentation"]["schemaVersion"] == "1.0"
+    assert metadata["presentation"]["surface"] == surface
+
+
+def test_real_w2_integrity_tampering_is_rejected(tmp_path: Path) -> None:
+    w2 = Path("/Users/bytedance/.codex/worktrees/kac1-generic-artifact-authoring")
+    root = tmp_path / "dashboard"
+    subprocess.run(
+        [
+            sys.executable,
+            str(w2 / "backend/src/skill/presentation/scripts/build_artifact.py"),
+            "--root", str(root), "--surface", "dashboard",
+            "--input", str(w2 / "backend/test/fixtures/docs/dashboard_retail_ops.json"),
+        ],
+        cwd=w2 / "backend",
+        check=True,
+    )
+    manifest_path = root / "presentation/manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["integrity"]["sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w") as output:
+        for file in root.rglob("*"):
+            if file.is_file():
+                output.write(file, file.relative_to(root).as_posix())
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(archive.getvalue())
+    assert error.value.code == "ARTIFACT_MANIFEST_MISMATCH"
 
 
 def test_output_zip_rejects_manifest_mismatch_and_multiple_html_entries() -> None:

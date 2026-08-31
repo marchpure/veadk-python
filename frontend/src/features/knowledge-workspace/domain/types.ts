@@ -156,14 +156,20 @@ export interface Artifact {
 }
 
 export interface PresentationManifest {
-  schemaVersion: string;
+  schemaVersion: "1.0";
   surface: "dashboard" | "semantic_graph" | "sop" | "generic";
+  title: string;
   entry: string;
   mediaType: "text/html";
   source: string;
-  sandboxProfile: "strict";
-  viewport: { width: number; height: number };
-  digest: string;
+  sandboxProfile: "static-self-contained";
+  viewport: {
+    responsive: boolean;
+    defaultWidth: number;
+    mobileWidth: number;
+    minWidth: number;
+  };
+  integrity: { sha256: string };
 }
 
 export interface ArtifactPreviewEventData {

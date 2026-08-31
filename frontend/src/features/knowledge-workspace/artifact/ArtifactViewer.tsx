@@ -244,7 +244,7 @@ export function ArtifactViewer({
           <div><dt>Source</dt><dd>{String(presentation.source || "—")}</dd></div>
           <div><dt>Viewport</dt><dd>
             {typeof presentation.viewport === "object" && presentation.viewport
-              ? `${String((presentation.viewport as Record<string, unknown>).width)} × ${String((presentation.viewport as Record<string, unknown>).height)}`
+              ? `${String(presentation.viewport.defaultWidth)} × ${String(presentation.viewport.minWidth)}`
               : "—"}
           </dd></div>
         </dl>

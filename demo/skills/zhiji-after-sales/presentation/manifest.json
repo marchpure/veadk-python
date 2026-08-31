@@ -1,10 +1,11 @@
 {
-  "schemaVersion": "1",
+  "schemaVersion": "1.0",
   "surface": "sop",
+  "title": "智己售后排障",
   "entry": "output/index.html",
   "mediaType": "text/html",
   "source": "skill://zhiji-after-sales",
-  "sandboxProfile": "strict",
-  "viewport": {"width": 1440, "height": 900},
-  "digest": "ee0eeb376fcc36d1b5516a609f7d3279ac82ee42304565f0279592105127bea8"
+  "sandboxProfile": "static-self-contained",
+  "viewport": {"responsive": true, "defaultWidth": 1440, "mobileWidth": 390, "minWidth": 320},
+  "integrity": {"sha256": "ee0eeb376fcc36d1b5516a609f7d3279ac82ee42304565f0279592105127bea8"}
 }
