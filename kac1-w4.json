@@ -17,8 +17,10 @@
     "artifact_security_tests": "59 passed",
     "knowledge_workspace_tests": "173 passed",
     "demo_manifest_contract": "3 packages passed",
-    "frontend_tests": "173 passed; remaining tests blocked by missing esbuild/typescript/vite dependencies",
-    "frontend_build": "blocked by missing installed frontend dependencies",
+    "frontend_tests": "917 passed; 2 skipped",
+    "frontend_typecheck": "passed",
+    "frontend_build": "passed",
+    "asset_verifier": "Verified 103 packaged WebUI files and 296 internal references",
     "openviking_changes": false,
     "customer_runtime_branching": false,
     "deployment": false
