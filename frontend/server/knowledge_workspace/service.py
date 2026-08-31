@@ -2939,6 +2939,7 @@ class KnowledgeWorkspaceService:
                 "invocation_id": invocation.invocation_id,
                 "artifact_sha256": digest,
                 "revision_sha256": revision.sha256,
+                "presentation": metadata.get("presentation", {}),
                 "source_refs": {
                     "connection_ids": list(invocation.connection_ids),
                     "resource_ids": list(invocation.resource_ids),

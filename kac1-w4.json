@@ -1,0 +1,32 @@
+{
+  "workstream": "KAC1-W4",
+  "status": "frozen",
+  "branch": "feat/kac1-studio-artifact-contract",
+  "base": "a4674dfed362761d9ff398fbd0570a192f4f7ae8",
+  "scope": "Studio/BFF generic Skill Artifact contract, validation, and presentation",
+  "surfaces": ["dashboard", "semantic_graph", "sop", "generic"],
+  "artifacts": [
+    "frontend/server/knowledge_workspace/html_artifact.py",
+    "frontend/server/knowledge_workspace/service.py",
+    "frontend/server/knowledge_workspace/demo_seed.py",
+    "frontend/src/features/knowledge-workspace/artifact/ArtifactViewer.tsx",
+    "demo/skills/*/presentation/manifest.json",
+    "tests/knowledge_workspace/test_autoskill_adapter.py"
+  ],
+  "verification": {
+    "artifact_security_tests": "59 passed",
+    "knowledge_workspace_tests": "173 passed",
+    "demo_manifest_contract": "3 packages passed",
+    "frontend_tests": "173 passed; remaining tests blocked by missing esbuild/typescript/vite dependencies",
+    "frontend_build": "blocked by missing installed frontend dependencies",
+    "openviking_changes": false,
+    "customer_runtime_branching": false,
+    "deployment": false
+  },
+  "handoff": {
+    "blob_url_sandboxed_iframe": true,
+    "generic_viewer_capabilities": ["preview", "source", "log", "revision", "refresh", "download", "fullscreen"],
+    "business_renderers_in_studio": false,
+    "integration_note": "Legacy Artifact/Revision API fields remain intact; presentation metadata is additive."
+  }
+}

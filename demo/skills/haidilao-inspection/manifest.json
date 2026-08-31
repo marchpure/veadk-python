@@ -1,1 +1,1 @@
-{"name":"haidilao-inspection","version":"gold-v1","template":"dashboard","provenance":"versioned_demo_bundle","entrypoint":"scripts/build_artifact.py","presentation":"presentation/manifest.json","data":"data/haidilao-inspections.csv"}
+{"name":"haidilao-inspection","version":"demo-1","template":"dashboard","provenance":"versioned_demo_bundle","entrypoint":"scripts/build_artifact.py","presentation":"presentation/manifest.json","data":"data/haidilao-inspections.csv"}

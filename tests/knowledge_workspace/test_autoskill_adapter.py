@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import zipfile
@@ -628,10 +629,47 @@ def test_output_zip_returns_real_html_without_constructing_content() -> None:
     html = b"<!doctype html><html><body>real</body></html>"
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("output/report.html", html)
+        archive.writestr(
+            "presentation/manifest.json",
+            json.dumps(
+                {
+                    "schemaVersion": "1",
+                    "surface": "generic",
+                    "entry": "output/report.html",
+                    "mediaType": "text/html",
+                    "source": "skill://test",
+                    "sandboxProfile": "strict",
+                    "viewport": {"width": 1440, "height": 900},
+                    "digest": hashlib.sha256(html).hexdigest(),
+                },
+            ),
+        )
     name, content, metadata = validate_output_archive(buffer.getvalue())
     assert name == "output/report.html"
     assert content == html
     assert metadata["sha256"] != ""
+    assert metadata["presentation"]["surface"] == "generic"
+
+
+def test_output_zip_rejects_manifest_mismatch_and_multiple_html_entries() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("output/a.html", b"<!doctype html><html>a</html>")
+        archive.writestr("output/b.html", b"<!doctype html><html>b</html>")
+        archive.writestr("presentation/manifest.json", "{}")
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(buffer.getvalue())
+    assert error.value.code == "ARTIFACT_MANIFEST_INVALID"
+
+
+def test_output_zip_requires_declared_single_entry() -> None:
+    buffer = io.BytesIO()
+    html = b"<!doctype html><html>safe</html>"
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("output/index.html", html)
+    with pytest.raises(HtmlArtifactError) as error:
+        validate_output_archive(buffer.getvalue())
+    assert error.value.code == "ARTIFACT_MANIFEST_MISSING"
 
 
 @pytest.mark.asyncio

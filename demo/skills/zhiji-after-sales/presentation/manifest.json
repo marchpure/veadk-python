@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1",
-  "surface": "dashboard",
+  "surface": "sop",
   "entry": "output/index.html",
   "mediaType": "text/html",
-  "source": "skill://haidilao-inspection",
+  "source": "skill://zhiji-after-sales",
   "sandboxProfile": "strict",
   "viewport": {"width": 1440, "height": 900},
-  "digest": "21764d471af6536cc34809aa05e9e371d1a4e77de9354e469330eb9d99f4036f"
+  "digest": "ee0eeb376fcc36d1b5516a609f7d3279ac82ee42304565f0279592105127bea8"
 }

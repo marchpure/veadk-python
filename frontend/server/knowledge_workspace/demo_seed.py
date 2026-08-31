@@ -15,7 +15,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from .html_artifact import validate_html_artifact
+from .html_artifact import validate_output_archive
 from .models import (
     Artifact,
     AuthoringSession,
@@ -76,21 +76,18 @@ def _id(prefix: str, value: str) -> str:
 
 def _zip_for(item: dict[str, Any]) -> bytes:
     package = ROOT / "demo" / "skills" / str(item["directory"])
-    if item["id"] == "haidilao-inspection":
-        entries = {
-            path.relative_to(package).as_posix(): path.read_bytes()
-            for path in sorted(package.rglob("*"))
-            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
-        }
-    else:
-        entries = {
-            "SKILL.md": (package / "SKILL.md").read_bytes(),
-            "manifest.json": (package / "manifest.json").read_bytes(),
-            "output/index.html": (package / "output" / "index.html").read_bytes(),
-            f"data/{item['fixture']}": (
-                ROOT / "demo" / "fixtures" / str(item["fixture"])
-            ).read_bytes(),
-        }
+    entries = {
+        "SKILL.md": (package / "SKILL.md").read_bytes(),
+        "manifest.json": (package / "manifest.json").read_bytes(),
+        "presentation/manifest.json": (
+            package / "presentation" / "manifest.json"
+        ).read_bytes(),
+        "output/index.html": (package / "output" / "index.html").read_bytes(),
+    }
+    data_path = package / "data" / str(item["fixture"])
+    entries[f"data/{item['fixture']}"] = (
+        data_path if data_path.exists() else ROOT / "demo" / "fixtures" / str(item["fixture"])
+    ).read_bytes()
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, content in sorted(entries.items()):
@@ -194,11 +191,7 @@ def _ensure_demo_seed_locked(
                 zip_uri = service.repository.put_object(
                     zip_manifest["sha256"], desired_zip, suffix=".zip"
                 )
-                presentation_version = (
-                    "presentation-v3"
-                    if item["id"] == "haidilao-inspection"
-                    else "presentation-v2"
-                )
+                presentation_version = "presentation-v1"
                 candidate_revision_id = _id(
                     "revision", f"{draft.draft_id}:{presentation_version}"
                 )
@@ -261,7 +254,7 @@ def _ensure_demo_seed_locked(
                     html_bytes = archive.read(
                         f"skillhub/{item['directory']}/output/index.html"
                     )
-                html = validate_html_artifact(html_bytes)
+                _, html_bytes, html = validate_output_archive(desired_zip)
                 artifact_digest = hashlib.sha256(html_bytes).hexdigest()
                 artifact_uri = service.repository.put_object(
                     artifact_digest, html_bytes, suffix=".html"
@@ -288,6 +281,7 @@ def _ensure_demo_seed_locked(
                         lineage={
                             "source": "versioned_demo_bundle",
                             "revision_id": revision.revision_id,
+                            "presentation": html.get("presentation", {}),
                         },
                         csp=str(html["csp"]),
                         sandbox=str(html["sandbox"]),
@@ -384,7 +378,7 @@ def _ensure_demo_seed_locked(
             autoskill_request_ids=(_id("request", generate_id),), principal_id=actor.principal_id,
             message=item["goal"], request_summary={
                 "target_skill": item["directory"],
-                "skill_version": "gold-v1" if item["id"] == "haidilao-inspection" else "demo-1",
+                "skill_version": "demo-1",
                 "status": "succeeded",
                 "policy_evaluation": {"satisfied": True, "matched_calls": [{
                     "action_id": "workspace.resource.read", "resource_ref": resource.resource_id
@@ -411,9 +405,7 @@ def _ensure_demo_seed_locked(
         )
         service.repository.freeze_revision(revision)
         _event(service.repository, generate_id, "revision.created", {"revision_id": revision.revision_id})
-        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
-            html_bytes = archive.read(f"skillhub/{item['directory']}/output/index.html")
-        html = validate_html_artifact(html_bytes)
+        _, html_bytes, html = validate_output_archive(zip_bytes)
         run_id = _id("inv", f"{draft.draft_id}:run")
         run = generate.model_copy(update={
             "invocation_id": run_id, "revision_id": revision.revision_id,
@@ -422,7 +414,7 @@ def _ensure_demo_seed_locked(
             "autoskill_request_ids": (_id("request", run_id),),
             "request_summary": {
                 "target_skill": item["directory"],
-                "skill_version": "gold-v1" if item["id"] == "haidilao-inspection" else "demo-1",
+                "skill_version": "demo-1",
                 "status": "succeeded",
                 "policy_evaluation": {"satisfied": True, "matched_calls": [{
                     "action_id": "workspace.resource.read", "resource_ref": resource.resource_id
@@ -441,7 +433,11 @@ def _ensure_demo_seed_locked(
             artifact_id=_id("artifact", revision.revision_id), revision_id=revision.revision_id,
             invocation_id=run_id, uri=artifact_uri, sha256=artifact_digest,
             media_type="text/html", encoding="utf-8", size_bytes=len(html_bytes),
-            lineage={"source": "versioned_demo_bundle", "revision_id": revision.revision_id},
+            lineage={
+                "source": "versioned_demo_bundle",
+                "revision_id": revision.revision_id,
+                "presentation": html.get("presentation", {}),
+            },
             csp=str(html["csp"]), sandbox=str(html["sandbox"]),
         )
         service.repository.save_artifact(artifact)

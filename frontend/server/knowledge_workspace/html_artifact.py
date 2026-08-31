@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import re
 import stat
 import zipfile
@@ -43,6 +44,18 @@ _EXTERNAL = re.compile(
     re.IGNORECASE,
 )
 _EXTERNAL_CSS = re.compile(r"""url\s*\(\s*["']?(?:https?:|//)""", re.IGNORECASE)
+_MANIFEST_KEYS = {
+    "schemaVersion",
+    "surface",
+    "entry",
+    "mediaType",
+    "source",
+    "sandboxProfile",
+    "viewport",
+    "digest",
+}
+_SURFACES = {"dashboard", "semantic_graph", "sop", "generic"}
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def validate_html_artifact(
@@ -96,7 +109,12 @@ def validate_output_archive(
     max_depth: int = 16,
     max_compression_ratio: int = 200,
 ) -> tuple[str, bytes, dict[str, Any]]:
-    """Find a real HTML file in AutoSkill's output ZIP without inventing one."""
+    """Validate and extract one manifest-declared HTML entry.
+
+    The presentation manifest is deliberately the contract boundary between
+    AutoSkill and Studio.  HTML is still inspected independently so a
+    manifest cannot make active content safe.
+    """
 
     if len(content) > max_file_bytes * 4:
         raise HtmlArtifactError("ARTIFACT_OUTPUT_TOO_LARGE", "output ZIP is too large")
@@ -168,6 +186,58 @@ def validate_output_archive(
                     "ARTIFACT_OUTPUT_TOO_LARGE",
                     "output ZIP has a suspicious compression ratio",
                 )
+        manifest_infos = [
+            i
+            for i in infos
+            if not i.is_dir()
+            and (
+                i.filename == "presentation/manifest.json"
+                or i.filename.endswith("/presentation/manifest.json")
+            )
+        ]
+        if len(manifest_infos) != 1:
+            raise HtmlArtifactError(
+                "ARTIFACT_MANIFEST_MISSING",
+                "output ZIP must contain presentation/manifest.json",
+            )
+        manifest_info = manifest_infos[0]
+        try:
+            manifest = json.loads(archive.read(manifest_info).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise HtmlArtifactError(
+                "ARTIFACT_MANIFEST_INVALID", "presentation manifest is not valid JSON"
+            ) from exc
+        if (
+            not isinstance(manifest, dict)
+            or set(manifest) != _MANIFEST_KEYS
+            or manifest.get("schemaVersion") != "1"
+            or manifest.get("surface") not in _SURFACES
+            or manifest.get("mediaType") != "text/html"
+            or manifest.get("sandboxProfile") != "strict"
+            or not isinstance(manifest.get("source"), str)
+            or not manifest["source"].strip()
+            or not isinstance(manifest.get("entry"), str)
+            or not isinstance(manifest.get("digest"), str)
+            or not _SHA256.fullmatch(manifest["digest"])
+        ):
+            raise HtmlArtifactError(
+                "ARTIFACT_MANIFEST_INVALID",
+                "presentation manifest does not match the Artifact contract",
+            )
+        viewport = manifest.get("viewport")
+        if (
+            not isinstance(viewport, dict)
+            or set(viewport) != {"width", "height"}
+            or any(
+                isinstance(viewport[key], bool)
+                or not isinstance(viewport[key], int)
+                or not 320 <= viewport[key] <= 4096
+                for key in ("width", "height")
+            )
+        ):
+            raise HtmlArtifactError(
+                "ARTIFACT_MANIFEST_INVALID", "presentation viewport is invalid"
+            )
         candidates = [
             i
             for i in infos
@@ -178,12 +248,28 @@ def validate_output_archive(
                 "ARTIFACT_HTML_MISSING", "AutoSkill output contains no HTML file"
             )
         if len(candidates) > 1:
-            # Deterministic selection is safe only when the service names one
-            # index explicitly; ambiguous output is retained as a file result.
             raise HtmlArtifactError(
                 "ARTIFACT_HTML_AMBIGUOUS",
-                "AutoSkill output contains multiple HTML files",
+                "AutoSkill output must contain exactly one HTML file",
+            )
+        if not candidates:
+            raise HtmlArtifactError(
+                "ARTIFACT_HTML_MISSING", "AutoSkill output contains no HTML file"
             )
         info = candidates[0]
+        if manifest["entry"] != info.filename and not info.filename.endswith(
+            "/" + manifest["entry"].lstrip("/")
+        ):
+            raise HtmlArtifactError(
+                "ARTIFACT_MANIFEST_MISMATCH",
+                "presentation entry does not identify the only HTML file",
+            )
         data = archive.read(info)
-        return info.filename, data, validate_html_artifact(data)
+        metadata = validate_html_artifact(data)
+        if manifest["digest"] != metadata["sha256"]:
+            raise HtmlArtifactError(
+                "ARTIFACT_MANIFEST_MISMATCH",
+                "presentation digest does not match the HTML entry",
+            )
+        metadata["presentation"] = manifest
+        return info.filename, data, metadata

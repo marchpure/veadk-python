@@ -13,6 +13,7 @@ import type { Artifact, Revision } from "../domain/types";
 import { useDelayedValue } from "./useDelayedValue";
 
 type ArtifactPane = "preview" | "source" | "log";
+type PresentationSurface = "dashboard" | "semantic_graph" | "sop" | "generic";
 
 interface ArtifactViewerProps {
   artifact: Artifact | null;
@@ -94,6 +95,12 @@ function artifactSha(artifact: Artifact | null, previewState?: AssistantArtifact
   return artifact?.sha256 || previewState?.sha256;
 }
 
+function presentationMetadata(artifact: Artifact | null): Record<string, unknown> | null {
+  const value = artifact?.lineage?.presentation;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 function sourceText(artifact: Artifact | null, previewState?: AssistantArtifactPreview): string {
   if (artifact?.lineage) return JSON.stringify(artifact.lineage, null, 2);
   if (previewState?.status === "final" && previewState.source) return previewState.source;
@@ -132,6 +139,8 @@ export function ArtifactViewer({
   const sha = artifactSha(artifact, previewState);
   const title = artifactTitle(artifact, previewState);
   const logs = logLines(artifact, previewState);
+  const presentation = presentationMetadata(artifact);
+  const surface = presentation?.surface as PresentationSurface | undefined;
 
   useEffect(() => {
     if (!source) {
@@ -202,6 +211,7 @@ export function ArtifactViewer({
         <div className="kw-artifact-identity">
           <span>{title}</span>
           {sha ? <code title={sha}>sha256:{sha.slice(0, 12)}...</code> : null}
+          {surface ? <span className="kw-artifact-surface">{surface}</span> : null}
         </div>
         <div className="kw-artifact-controls">
           {revisions.length > 1 ? (
@@ -228,6 +238,17 @@ export function ArtifactViewer({
           </button>
         </div>
       </div>
+      {presentation ? (
+        <dl className="kw-artifact-presentation-meta" aria-label="Artifact metadata">
+          <div><dt>Surface</dt><dd>{String(presentation.surface || "generic")}</dd></div>
+          <div><dt>Source</dt><dd>{String(presentation.source || "—")}</dd></div>
+          <div><dt>Viewport</dt><dd>
+            {typeof presentation.viewport === "object" && presentation.viewport
+              ? `${String((presentation.viewport as Record<string, unknown>).width)} × ${String((presentation.viewport as Record<string, unknown>).height)}`
+              : "—"}
+          </dd></div>
+        </dl>
+      ) : null}
       <div className="kw-artifact-pane-tabs" role="tablist" aria-label="Artifact 视图">
         {(["preview", "source", "log"] as const).map((id) => (
           <button
