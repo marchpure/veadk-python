@@ -801,6 +801,28 @@ Only Studio administrators and developers who can access the Runtime may read
 the user list. A storage failure never interrupts the Agent response; the tab
 instead reports that usage statistics are temporarily unavailable.
 
+## Knowledge Workspace native AutoSkill runtime
+
+The Knowledge Workspace BFF invokes AutoSkill through the native AgentKit
+session API and `POST /run_sse`. The BFF always uses
+`appName=autoskill_creator`, creates the requested user/session when absent,
+maps ADK text and function parts into the workspace event stream, and downloads
+ZIP output from the exact version announced by `artifactDelta`.
+
+Connection access is delegated per invocation with
+`customMetadata.autoskill_connection`. The Connection principal is sent only in
+the server-side `X-Autoskill-Connection-Authorization` header. It is never
+written to ADK state, persisted events, browser responses, logs, or artifacts.
+The native AutoSkill runtime issues and revokes its own short-lived lease.
+Studio does not generate `mcp_config.yaml` or upload a lease-bearing
+`state.zip`.
+
+Production requires explicit HTTPS values for
+`KNOWLEDGE_AUTOSKILL_BASE_URL` and
+`KNOWLEDGE_CONNECTION_SERVICE_BASE_URL`; there is no hosted test or loopback
+fallback. Use `tools/kac2_w3_staging_harness.py` with separate
+`--autoskill-url` and `--connection-url` HTTPS values for staging verification.
+
 ## Agent naming
 
 Studio validates every root and nested Agent name against Google ADK rules.

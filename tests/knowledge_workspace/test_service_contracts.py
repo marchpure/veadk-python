@@ -32,7 +32,6 @@ from frontend.server.knowledge_workspace.service import KnowledgeWorkspaceServic
 from frontend.server.knowledge_workspace.service import (
     Actor,
     KnowledgeWorkspaceError,
-    KnowledgeWorkspaceService,
 )
 from frontend.server.knowledge_workspace.sse import ParsedUpstreamEvent
 
@@ -163,8 +162,13 @@ def make_template_skill_zip(name: str, content: str) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr(f"skillhub/{name}/SKILL.md", content)
-        archive.writestr(f"skillhub/{name}/scripts/run.py", "def main():\n    return {}\n")
-        archive.writestr(f"skillhub/{name}/tests/test_skill.py", "def test_contract():\n    assert True\n")
+        archive.writestr(
+            f"skillhub/{name}/scripts/run.py", "def main():\n    return {}\n"
+        )
+        archive.writestr(
+            f"skillhub/{name}/tests/test_skill.py",
+            "def test_contract():\n    assert True\n",
+        )
     return buffer.getvalue()
 
 
@@ -262,7 +266,9 @@ def make_service(
 
 
 @pytest.mark.asyncio
-async def test_run_stream_creates_controlled_preview_snapshot_without_mock_html() -> None:
+async def test_run_stream_creates_controlled_preview_snapshot_without_mock_html() -> (
+    None
+):
     html = "<!doctype html><html><body><h1>Real preview</h1></body></html>"
     service, actor, _ = make_service(
         [
@@ -295,14 +301,14 @@ async def test_run_stream_creates_controlled_preview_snapshot_without_mock_html(
     browser_events = [
         item["event"] for item in service.repository.events_after(run.invocation_id)
     ]
-    preview = next(item for item in browser_events if item["type"] == "artifact.preview")
+    preview = next(
+        item for item in browser_events if item["type"] == "artifact.preview"
+    )
     assert preview["data"]["status"] == "preview"
     assert preview["data"]["media_type"] == "text/html"
     assert preview["data"]["sandbox"] == "allow-scripts"
     assert "connect-src 'none'" in preview["data"]["csp"]
-    assert preview["data"]["uri"].startswith(
-        "/api/knowledge/v1/artifact-snapshots/"
-    )
+    assert preview["data"]["uri"].startswith("/api/knowledge/v1/artifact-snapshots/")
     content, media_type, csp = service.artifact_snapshot_content(
         actor, preview["data"]["snapshot_id"]
     )
@@ -314,7 +320,9 @@ async def test_run_stream_creates_controlled_preview_snapshot_without_mock_html(
 
 
 @pytest.mark.asyncio
-async def test_run_stream_keeps_provider_preview_event_and_controlled_snapshot() -> None:
+async def test_run_stream_keeps_provider_preview_event_and_controlled_snapshot() -> (
+    None
+):
     html = "<!doctype html><html><body><h1>Real preview</h1></body></html>"
     service, actor, _ = make_service(
         [
@@ -371,7 +379,9 @@ async def test_run_stream_keeps_provider_preview_event_and_controlled_snapshot()
 
 
 @pytest.mark.asyncio
-async def test_run_stream_blocks_preview_when_provider_snapshot_is_not_legal_html() -> None:
+async def test_run_stream_blocks_preview_when_provider_snapshot_is_not_legal_html() -> (
+    None
+):
     service, actor, _ = make_service(
         [
             event("final_answer", {"answer": "created"}),
@@ -387,7 +397,11 @@ async def test_run_stream_blocks_preview_when_provider_snapshot_is_not_legal_htm
     fake = service.autoskill
     assert isinstance(fake, FakeAutoSkill)
     fake.invoke_events = (
-        event("artifact_preview", {"html": "<div>partial</div>"}, event_id="preview-invalid"),
+        event(
+            "artifact_preview",
+            {"html": "<div>partial</div>"},
+            event_id="preview-invalid",
+        ),
         event("artifact_preview", {"message": "working"}, event_id="preview-missing"),
         event("final_answer", {"answer": "ran"}),
         event("request_summary", policy_summary(skills_field="skills_used")),
@@ -758,6 +772,7 @@ async def test_stateless_run_state_contains_fixed_revision_skill() -> None:
     with zipfile.ZipFile(io.BytesIO(autoskill.invoke_states[-1])) as archive:
         assert "skillhub/demo/SKILL.md" in archive.namelist()
     assert not autoskill.uploads
+
     async def download(self, **_kwargs: object) -> bytes:
         raise AutoSkillProtocolError("AutoSkill download returned HTTP 404")
 
@@ -1365,7 +1380,9 @@ async def test_cancel_is_idempotent_and_archives_cancelled_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
+async def test_resume_pending_replays_persisted_events_without_agentkit_reconnect() -> (
+    None
+):
     class Resumable(FakeAutoSkill):
         def __init__(self) -> None:
             super().__init__(
@@ -1457,15 +1474,16 @@ async def test_resume_pending_uses_reconnect_without_reinvoking() -> None:
         invocation.invocation_id, tenant_id="tenant", workspace_id="workspace"
     )
     assert saved is not None
-    assert saved.status is InvocationStatus.SUCCEEDED
+    assert saved.status is InvocationStatus.FAILED
+    assert saved.error_code == "AGENTKIT_RUN_INTERRUPTED"
     assert autoskill.commands == 0
-    assert autoskill.reconnects == 1
-    assert resolved == [((), ("kb://restart",))]
-    assert lease.revoked == [
-        "lease-before-restart",
-        f"lease-{invocation.autoskill_request_id}",
-    ]
-    assert len(lease.issued) == 1
+    assert autoskill.reconnects == 0
+    assert resolved == []
+    assert lease.revoked == ["lease-before-restart"]
+    assert lease.issued == []
+    assert repository.events_after(invocation.invocation_id)[-1]["event"]["type"] == (
+        "run.failed"
+    )
 
 
 def test_sqlite_repository_reopens_durable_workspace_state(tmp_path: Path) -> None:
@@ -1532,7 +1550,9 @@ def test_authoring_drafts_are_scoped_by_principal() -> None:
 
 
 @pytest.mark.asyncio
-async def test_authoring_invocation_and_artifact_reads_are_scoped_by_principal() -> None:
+async def test_authoring_invocation_and_artifact_reads_are_scoped_by_principal() -> (
+    None
+):
     service, owner, _lease = make_service(
         [
             event("final_answer", {"answer": "created"}),
@@ -1596,7 +1616,10 @@ async def test_authoring_invocation_and_artifact_reads_are_scoped_by_principal()
     )
     service.repository.save_artifact(artifact)
 
-    assert service.get_artifact(owner, artifact.artifact_id).artifact_id == artifact.artifact_id
+    assert (
+        service.get_artifact(owner, artifact.artifact_id).artifact_id
+        == artifact.artifact_id
+    )
     with pytest.raises(KnowledgeWorkspaceError, match="artifact not found"):
         service.get_artifact(other, artifact.artifact_id)
 
@@ -1690,7 +1713,9 @@ def test_archived_only_draft_does_not_backfill_another_session() -> None:
     draft = service.create_draft(actor, "session goal", ["connection-a"])
     session = service.list_sessions(actor, draft.draft_id)[0]
 
-    service.update_session(actor, draft.draft_id, session.authoring_session_id, archive=True)
+    service.update_session(
+        actor, draft.draft_id, session.authoring_session_id, archive=True
+    )
 
     assert service.list_sessions(actor, draft.draft_id) == ()
     assert len(service.list_sessions(actor, draft.draft_id, include_archived=True)) == 1
@@ -1862,7 +1887,9 @@ async def test_connection_backed_generate_builds_policy_from_lease_actions() -> 
 
 
 def test_autoskill_prompt_requires_live_context_evidence() -> None:
-    service = KnowledgeWorkspaceService(KnowledgeWorkspaceRepository(), FakeAutoSkill([]))
+    service = KnowledgeWorkspaceService(
+        KnowledgeWorkspaceRepository(), FakeAutoSkill([])
+    )
     actor = Actor("tenant", "workspace", "principal")
     draft = service.create_draft(
         actor,
@@ -2093,7 +2120,9 @@ async def test_run_and_publication_reject_connections_outside_revision_manifest(
 
 
 @pytest.mark.asyncio
-async def test_resource_only_revision_keeps_policy_and_authorized_resource_refs() -> None:
+async def test_resource_only_revision_keeps_policy_and_authorized_resource_refs() -> (
+    None
+):
     actor = Actor("tenant", "workspace", "principal")
     resource = WorkspaceResource(
         tenant_id=actor.tenant_id,
@@ -2186,7 +2215,9 @@ async def test_resource_only_revision_keeps_policy_and_authorized_resource_refs(
         resource_ids=(resource.resource_id,),
     )
     await asyncio.sleep(0)
-    assert service.get_draft(actor, draft.draft_id).status is DraftStatus.READY_TO_PUBLISH
+    assert (
+        service.get_draft(actor, draft.draft_id).status is DraftStatus.READY_TO_PUBLISH
+    )
     assert service.publish(actor, revision.revision_id, "personal").revision_id == (
         revision.revision_id
     )

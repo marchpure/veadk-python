@@ -5,18 +5,16 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import io
 import json
 import os
 import re
-import zipfile
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Mapping, Protocol, Sequence
-from urllib.parse import urlencode, urlsplit
+from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 import httpx
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -52,6 +50,7 @@ class ConnectionInvocationContextPort(Protocol):
         resource_ids: Sequence[str] = (),
     ) -> EphemeralConnectionContext:
         """Issue a short-lived, invocation-bound least-privilege context."""
+        ...
 
     async def revoke(self, lease_id: str) -> None:
         """Revoke the context at invocation termination."""
@@ -64,8 +63,9 @@ class ConnectionInvocationContextPort(Protocol):
         agent_id: str,
         session_id: str,
         invocation_id: str,
-    ) -> bytes:
-        """Attach the lease-scoped runtime tools before invoking AutoSkill."""
+    ) -> Mapping[str, Any]:
+        """Build the native AgentKit metadata/header binding for one invocation."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,7 @@ class ConnectionServiceConfig:
     timeout_seconds: float = 30.0
 
     @classmethod
-    def from_env(cls) -> "ConnectionServiceConfig":
+    def from_env(cls) -> ConnectionServiceConfig:
         base_url = os.getenv("KNOWLEDGE_CONNECTION_SERVICE_BASE_URL", "").rstrip("/")
         auth_secret = os.getenv("KNOWLEDGE_CONNECTION_SERVICE_AUTH_SECRET", "")
         if not base_url or not auth_secret:
@@ -94,8 +94,9 @@ class ConnectionServiceConfig:
                 "knowledge-runtime",
             ),
             runtime_public_url=(
-                os.getenv("KNOWLEDGE_CONNECTION_SERVICE_RUNTIME_PUBLIC_URL", "")
-                .rstrip("/")
+                os.getenv("KNOWLEDGE_CONNECTION_SERVICE_RUNTIME_PUBLIC_URL", "").rstrip(
+                    "/"
+                )
                 or base_url
             ),
         )
@@ -140,6 +141,9 @@ class ConnectionServiceGateway:
     ) -> None:
         parsed = urlsplit(config.base_url)
         hostname = (parsed.hostname or "").casefold()
+        environment = os.getenv(
+            "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
+        ).casefold()
         if (
             (
                 parsed.scheme != "https"
@@ -151,12 +155,15 @@ class ConnectionServiceGateway:
             or not hostname
             or parsed.query
             or parsed.fragment
+            or (environment in {"production", "prod"} and parsed.scheme != "https")
         ):
             raise ValueError(
-                "Connection Service base URL must be HTTPS or loopback HTTP"
+                "Connection Service base URL must be HTTPS "
+                "(loopback HTTP is development-only)"
             )
         self.config = config
         self._client = client
+        self._native_authorizations: dict[str, str] = {}
 
     @staticmethod
     def _b64url(value: bytes) -> str:
@@ -295,13 +302,11 @@ class ConnectionServiceGateway:
         return [self._catalog_item(item) for item in items if isinstance(item, Mapping)]
 
     async def adapter_capabilities(self, **actor: str) -> list[dict[str, Any]]:
-        payload = (await self._request("GET", "/v1/adapters/capabilities", **actor)).json()
+        payload = (
+            await self._request("GET", "/v1/adapters/capabilities", **actor)
+        ).json()
         items = payload.get("items", [])
-        return [
-            self._adapter_item(item)
-            for item in items
-            if isinstance(item, Mapping)
-        ]
+        return [self._adapter_item(item) for item in items if isinstance(item, Mapping)]
 
     async def list_adapter_resources(self, **actor: str) -> list[dict[str, Any]]:
         payload = (await self._request("GET", "/v1/adapter-resources", **actor)).json()
@@ -486,9 +491,7 @@ class ConnectionServiceGateway:
         return [dict(item) for item in items if isinstance(item, Mapping)]
 
     async def preview_file(self, file_id: str, **actor: str) -> dict[str, Any]:
-        response = await self._request(
-            "GET", f"/v1/files/{file_id}/preview", **actor
-        )
+        response = await self._request("GET", f"/v1/files/{file_id}/preview", **actor)
         return dict(response.json().get("preview", {}))
 
     async def _catalog_by_service(self, **actor: str) -> dict[str, Mapping[str, Any]]:
@@ -518,8 +521,9 @@ class ConnectionServiceGateway:
         **actor: str,
     ) -> dict[str, Any]:
         credential = body.get("credential")
+        config = body.get("config")
         values = {
-            **(body.get("config") if isinstance(body.get("config"), Mapping) else {}),
+            **(config if isinstance(config, Mapping) else {}),
             **(credential if isinstance(credential, Mapping) else {}),
         }
         requested_auth_type = values.pop("_auth_type", None)
@@ -734,7 +738,7 @@ class ConnectionServiceGateway:
             )
         action_ids_by_connection: dict[str, tuple[str, ...]] = {}
         all_actions: list[str] = [
-            f"adapter.{str(resources[item].get('kind') or 'resource')}.read"
+            f"adapter.{resources[item].get('kind') or 'resource'!s}.read"
             for item in resource_ids
         ]
         for connection_id in connection_ids:
@@ -753,86 +757,42 @@ class ConnectionServiceGateway:
             action_ids_by_connection[connection_id] = action_ids
             all_actions.extend(action_ids)
 
-        issued: list[tuple[str, str, str]] = []
-        expires_at: datetime | None = None
-        try:
-            for connection_id in connection_ids:
-                response = await self._request(
-                    "POST",
-                    f"/v1/connections/{connection_id}/lease",
-                    json={
-                        "invocationId": invocation_id,
-                        "audience": self.config.audience,
-                        "allowedActions": list(action_ids_by_connection[connection_id]),
-                        "ttlSeconds": min(ttl_seconds, 900),
-                    },
-                    **actor,
-                )
-                payload = response.json()
-                claims = payload["claims"]
-                issued.append(
-                    (
-                        connection_id,
-                        str(claims["jti"]),
-                        str(payload["token"]),
-                    )
-                )
-                candidate = datetime.fromisoformat(
-                    str(claims["expiresAt"]).replace("Z", "+00:00")
-                )
-                expires_at = (
-                    candidate if expires_at is None else min(expires_at, candidate)
-                )
-        except Exception:
-            for _, lease_jti, _ in issued:
-                try:
-                    await self._request(
-                        "POST",
-                        f"/v1/leases/{lease_jti}/revoke",
-                        **actor,
-                    )
-                except ConnectionServiceError:
-                    pass
-            raise
-        lease_id = self._lease_reference(
-            tenant_id,
-            workspace_id,
-            principal_id,
-            tuple(jti for _, jti, _ in issued),
+        if len(connection_ids) != 1 or resource_ids:
+            raise ConnectionServiceError(
+                "CONNECTION_SELECTION_UNSUPPORTED",
+                "native AutoSkill AgentKit currently requires exactly one connection",
+                409,
+            )
+        lease_id = f"native:{invocation_id}"
+        self._native_authorizations[lease_id] = (
+            f"Bearer {self._token(tenant_id, workspace_id, principal_id)}"
         )
         return EphemeralConnectionContext(
             lease_id=lease_id,
             connection_ids=tuple(connection_ids),
             resource_ids=tuple(resource_ids),
             allowed_actions=tuple(dict.fromkeys(all_actions)),
-            expires_at=expires_at or datetime.now(timezone.utc),
+            expires_at=datetime.fromtimestamp(
+                datetime.now(timezone.utc).timestamp() + min(ttl_seconds, 900),
+                timezone.utc,
+            ),
             runtime_ref=json.dumps(
                 {
                     "audience": self.config.audience,
-                    "leases": [
-                        {
-                            "connection_id": connection_id,
-                            "token": token,
-                            "allowed_actions": list(
-                                action_ids_by_connection[connection_id]
-                            ),
-                        }
-                        for connection_id, _, token in issued
-                    ],
-                    "resources": [
-                        {
-                            "resource_id": resource_id,
-                            "kind": resources[resource_id].get("kind"),
-                            "metadata": resources[resource_id].get("metadata", {}),
-                        }
-                        for resource_id in resource_ids
-                    ],
+                    "connection_id": connection_ids[0],
+                    "allowed_actions": list(
+                        action_ids_by_connection[connection_ids[0]]
+                    ),
+                    "ttl_seconds": min(ttl_seconds, 900),
                 },
                 separators=(",", ":"),
             ),
         )
 
     async def revoke(self, lease_id: str) -> None:
+        if lease_id.startswith("native:"):
+            self._native_authorizations.pop(lease_id, None)
+            return
         (tenant_id, workspace_id, principal_id), lease_ids = self._read_lease_reference(
             lease_id
         )
@@ -857,7 +817,7 @@ class ConnectionServiceGateway:
         agent_id: str,
         session_id: str,
         invocation_id: str,
-    ) -> None:
+    ) -> Mapping[str, Any]:
         parsed_runtime = (
             urlsplit(self.config.runtime_public_url)
             if self.config.runtime_public_url
@@ -871,110 +831,31 @@ class ConnectionServiceGateway:
             )
 
         runtime = json.loads(context.runtime_ref)
-        leases = runtime.get("leases")
-        resources = runtime.get("resources")
-        if (not isinstance(leases, list) or not leases) and (
-            not isinstance(resources, list) or not resources
+        connection_id = str(runtime.get("connection_id") or "")
+        allowed_actions = runtime.get("allowed_actions")
+        authorization = self._native_authorizations.get(context.lease_id)
+        if (
+            not connection_id
+            or not isinstance(allowed_actions, list)
+            or not allowed_actions
+            or not authorization
         ):
             raise ConnectionServiceError(
                 "CONNECTION_NOT_READY",
-                "Connection Service did not issue runtime context",
+                "Connection Service did not prepare native AgentKit context",
                 409,
             )
-        servers: dict[str, dict[str, Any]] = {}
-        for index, item in enumerate(leases or []):
-            if not isinstance(item, Mapping):
-                raise ConnectionServiceError(
-                    "CONNECTION_RUNTIME_INVALID",
-                    "Connection Service returned an invalid runtime lease",
-                    502,
-                )
-            connection_id = str(item.get("connection_id") or "")
-            lease_token = str(item.get("token") or "")
-            if not connection_id or not lease_token:
-                raise ConnectionServiceError(
-                    "CONNECTION_RUNTIME_INVALID",
-                    "Connection Service returned an invalid runtime lease",
-                    502,
-                )
-            query = urlencode(
-                {
-                    "connectionId": connection_id,
-                    "invocationId": invocation_id,
-                    "audience": self.config.audience,
-                }
-            )
-            servers[f"knowledge-connection-{index + 1}"] = {
-                "transport": "http",
-                "url": (
-                    f"{self.config.runtime_public_url}/v1/runtime/mcp/sse?{query}"
-                ),
-                "headers": {"X-Connection-Lease": lease_token},
-            }
-        state = await autoskill.download_optional_state(
-            agent_id=agent_id, session_id=session_id
-        )
-        configured = self._state_with_mcp(state, servers, resources or [])
-        autoskill_config = getattr(autoskill, "config", None)
-        if (
-            autoskill_config is None
-            or str(getattr(autoskill_config, "state_mode", "stateful")).casefold()
-            != "stateless"
-        ):
-            await autoskill.upload(
-                agent_id=agent_id,
-                session_id=session_id,
-                file_type="state",
-                file_name="state.zip",
-                content=configured,
-            )
-        return configured
-
-    @staticmethod
-    def _state_with_mcp(
-        state: bytes | None,
-        servers: Mapping[str, Mapping[str, Any]],
-        resources: Sequence[Mapping[str, Any]] = (),
-    ) -> bytes:
-        import yaml
-
-        entries: dict[str, bytes] = {}
-        if state:
-            with zipfile.ZipFile(io.BytesIO(state)) as archive:
-                for info in archive.infolist():
-                    if info.is_dir() or info.filename == "mcp_config.yaml":
-                        continue
-                    if (
-                        info.filename.startswith("/")
-                        or ".." in info.filename.split("/")
-                        or "\\" in info.filename
-                    ):
-                        raise ConnectionServiceError(
-                            "AUTOSKILL_STATE_INVALID",
-                            "AutoSkill state archive contains an unsafe path",
-                            502,
-                        )
-                    entries[info.filename] = archive.read(info)
-        entries["mcp_config.yaml"] = yaml.safe_dump(
-            {
-                "servers": dict(servers),
-                "knowledge_adapter_resources": [
-                    {
-                        "resource_id": str(item.get("resource_id") or ""),
-                        "kind": str(item.get("kind") or ""),
-                        "metadata": item.get("metadata", {}),
-                    }
-                    for item in resources
-                    if item.get("resource_id")
-                ],
+        return {
+            "metadata": {
+                "connection_id": connection_id,
+                "connection_service_url": self.config.runtime_public_url,
+                "allowedActions": [str(item) for item in allowed_actions],
+                "invocationId": invocation_id,
+                "audience": self.config.audience,
+                "ttlSeconds": int(runtime.get("ttl_seconds") or 300),
             },
-            sort_keys=True,
-        ).encode("utf-8")
-        output = io.BytesIO()
-        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name, content in entries.items():
-                archive.writestr(name, content)
-        return output.getvalue()
+            "authorization": authorization,
+        }
 
     @classmethod
     def _catalog_item(cls, item: Mapping[str, Any]) -> dict[str, Any]:
@@ -1033,8 +914,7 @@ class ConnectionServiceGateway:
             "scope": str(item.get("visibility") or default_scope),
             "status": str(item.get("status") or default_status),
             "definition_version": str(
-                item.get("connectorDefinitionVersion")
-                or default_definition_version
+                item.get("connectorDefinitionVersion") or default_definition_version
             ),
             "profile": item.get("profile", {}),
             "created_at": str(item["createdAt"]),
@@ -1051,4 +931,4 @@ def service_connection_name(display_name: str, connector_key: str) -> str:
     if normalized and normalized[0].isalnum():
         return normalized
     fallback = re.sub(r"[^A-Za-z0-9_-]+", "-", connector_key).strip("-_")
-    return (fallback[:64].rstrip("-_") or "connection")
+    return fallback[:64].rstrip("-_") or "connection"

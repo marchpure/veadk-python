@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import io
 import json
-import zipfile
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import httpx
@@ -35,29 +36,216 @@ from frontend.server.knowledge_workspace.zip_validator import (
     validate_skill_zip,
 )
 
-OFFICIAL_AUTOSKILL_BASE_URL = "https://test-bytebrain.byted.org"
-
 
 @pytest.mark.asyncio
-async def test_official_autoskill_defaults_to_anonymous_requests(
+async def test_native_agentkit_creates_session_and_runs_with_server_only_connection_auth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("KNOWLEDGE_AUTOSKILL_BASE_URL", raising=False)
-    monkeypatch.delenv("KNOWLEDGE_AUTOSKILL_TOKEN", raising=False)
     requests: list[httpx.Request] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        return httpx.Response(200, json={"status": "ok", "state_mode": "stateful"})
+        if request.method == "GET":
+            return httpx.Response(404, json={"detail": "Session not found"})
+        if "/sessions" in request.url.path:
+            return httpx.Response(200, json={"id": "session-a"})
+        assert request.url.path == "/run_sse"
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=(
+                'data: {"content":{"parts":[{"text":"done"}]},"turnComplete":true}\n\n'
+            ),
+        )
 
-    config = AutoSkillConfig.from_env()
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-        client = AutoSkillClient(config, client=http)
-        assert (await client.health())["status"] == "ok"
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="https://autoskill.example"),
+            client=http,
+        )
+        events = [
+            event
+            async for event in client.invoke(
+                agent_id="user-a",
+                session_id="session-a",
+                request_id="invoke-a",
+                message="build",
+                connection={
+                    "metadata": {
+                        "connection_id": "connection-a",
+                        "connection_service_url": "https://connections.example",
+                        "allowedActions": ["fixture.read"],
+                        "invocationId": "invoke-a",
+                        "audience": "knowledge-runtime",
+                        "ttlSeconds": 300,
+                    },
+                    "authorization": "Bearer principal-secret",
+                },
+            )
+        ]
 
-    assert config.base_url == OFFICIAL_AUTOSKILL_BASE_URL
-    assert config.token is None
-    assert "authorization" not in requests[0].headers
+    assert [request.method for request in requests] == ["GET", "POST", "POST"]
+    payload = json.loads(requests[-1].content)
+    assert payload == {
+        "appName": "autoskill_creator",
+        "userId": "user-a",
+        "sessionId": "session-a",
+        "invocationId": "invoke-a",
+        "streaming": True,
+        "newMessage": {"role": "user", "parts": [{"text": "build"}]},
+        "customMetadata": {
+            "autoskill_connection": {
+                "connection_id": "connection-a",
+                "connection_service_url": "https://connections.example",
+                "allowedActions": ["fixture.read"],
+                "invocationId": "invoke-a",
+                "audience": "knowledge-runtime",
+                "ttlSeconds": 300,
+            }
+        },
+    }
+    assert (
+        requests[-1].headers["x-autoskill-connection-authorization"]
+        == "Bearer principal-secret"
+    )
+    assert "principal-secret" not in requests[-1].content.decode()
+    assert events[-1].event_type == "done"
+
+
+@pytest.mark.asyncio
+async def test_native_agentkit_maps_adk_events_and_downloads_artifact_version() -> None:
+    artifact = io.BytesIO()
+    with zipfile.ZipFile(artifact, "w") as archive:
+        archive.writestr("skillhub/demo/SKILL.md", "# Demo\n")
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET" and request.url.path.endswith("/sessions/session-a"):
+            return httpx.Response(200, json={"id": "session-a"})
+        if request.method == "POST" and request.url.path == "/run_sse":
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=(
+                    'data: {"content":{"parts":[{"functionCall":{"id":"call-1",'
+                    '"name":"create_skill","args":{"name":"demo"}}}]}}\n\n'
+                    'data: {"content":{"parts":[{"functionResponse":{"id":"call-1",'
+                    '"name":"create_skill","response":{"ok":true}}}]}}\n\n'
+                    'data: {"actions":{"artifactDelta":'
+                    '{"autoskill_artifact.zip":0}}}\n\n'
+                    'data: {"content":{"parts":[{"text":"Created demo"}]},'
+                    '"turnComplete":true}\n\n'
+                ),
+            )
+        if request.method == "GET" and "/artifacts/" in request.url.path:
+            return httpx.Response(
+                200,
+                json={
+                    "inlineData": {
+                        "mimeType": "application/zip",
+                        "data": base64.b64encode(artifact.getvalue()).decode(),
+                    }
+                },
+            )
+        raise AssertionError(f"{request.method} {request.url}")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="https://autoskill.example"), client=http
+        )
+        events = [
+            event
+            async for event in client.command(
+                "create_skill",
+                agent_id="user-a",
+                session_id="session-a",
+                request_id="invoke-a",
+                prompt="build demo",
+            )
+        ]
+        downloaded = await client.download(
+            agent_id="user-a",
+            session_id="session-a",
+            file_type="skill",
+            name="demo",
+        )
+
+    assert [event.event_type for event in events] == [
+        "action",
+        "observation",
+        "artifact_delta",
+        "assistant_delta",
+        "final_answer",
+        "request_summary",
+        "done",
+    ]
+    assert events[-2].payload["data"]["target_skill"] == "demo"
+    assert requests[-1].url.path.endswith(
+        "/artifacts/autoskill_artifact.zip/versions/0"
+    )
+    with zipfile.ZipFile(io.BytesIO(downloaded)) as archive:
+        assert archive.read("skillhub/demo/SKILL.md") == b"# Demo\n"
+
+
+@pytest.mark.asyncio
+async def test_native_agentkit_summary_proves_successful_allowed_connection_action() -> (
+    None
+):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"id": "session-a"})
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=(
+                'data: {"content":{"parts":[{"functionCall":{"id":"call-1",'
+                '"name":"execute_action","args":{"actionId":"fixture.read","input":{}}}}]}}\n\n'
+                'data: {"content":{"parts":[{"functionResponse":{"id":"call-1",'
+                '"name":"execute_action","response":{"ok":true}}}]}}\n\n'
+            ),
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        client = AutoSkillClient(
+            AutoSkillConfig(base_url="https://autoskill.example"), client=http
+        )
+        events = [
+            event
+            async for event in client.invoke(
+                agent_id="user-a",
+                session_id="session-a",
+                request_id="invoke-a",
+                message="query",
+                connection={
+                    "metadata": {
+                        "connection_id": "connection-a",
+                        "connection_service_url": "https://connections.example",
+                        "allowedActions": ["fixture.read"],
+                        "invocationId": "invoke-a",
+                        "audience": "knowledge-runtime",
+                        "ttlSeconds": 300,
+                    },
+                    "authorization": "Bearer principal-secret",
+                },
+            )
+        ]
+
+    summary = next(
+        event.payload["data"]
+        for event in events
+        if event.event_type == "request_summary"
+    )
+    assert summary["policy_evaluation"] == {
+        "satisfied": True,
+        "matched_calls": [
+            {
+                "tool": "mcp__knowledge-connection-1__execute_action",
+                "actionId": "fixture.read",
+                "ok": True,
+            }
+        ],
+    }
 
 
 def test_production_autoskill_requires_an_explicit_endpoint(
@@ -85,22 +273,13 @@ def test_production_autoskill_accepts_an_explicit_endpoint(
     assert AutoSkillConfig.from_env().base_url == "https://autoskill.production.example"
 
 
-@pytest.mark.asyncio
-async def test_configured_autoskill_token_is_sent_as_bearer_auth() -> None:
-    requests: list[httpx.Request] = []
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        return httpx.Response(200, json={"status": "ok", "state_mode": "stateful"})
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-        client = AutoSkillClient(
-            AutoSkillConfig(token="configured-token"),
-            client=http,
-        )
-        assert (await client.health())["status"] == "ok"
-
-    assert requests[0].headers["authorization"] == "Bearer configured-token"
+def test_development_autoskill_does_not_fall_back_to_legacy_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KNOWLEDGE_AUTOSKILL_BASE_URL", raising=False)
+    monkeypatch.setenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development")
+    with pytest.raises(AutoSkillProtocolError, match="base URL is not configured"):
+        AutoSkillConfig.from_env()
 
 
 def test_sse_parser_handles_split_frames_heartbeat_and_multiline_data() -> None:
@@ -728,8 +907,12 @@ def test_real_w2_integrity_tampering_is_rejected(tmp_path: Path) -> None:
         [
             sys.executable,
             str(w2 / "backend/src/skill/presentation/scripts/build_artifact.py"),
-            "--root", str(root), "--surface", "dashboard",
-            "--input", str(w2 / "backend/test/fixtures/docs/dashboard_retail_ops.json"),
+            "--root",
+            str(root),
+            "--surface",
+            "dashboard",
+            "--input",
+            str(w2 / "backend/test/fixtures/docs/dashboard_retail_ops.json"),
         ],
         cwd=w2 / "backend",
         check=True,
@@ -804,7 +987,10 @@ def test_output_zip_rejects_each_invalid_manifest_field(
 
     with pytest.raises(HtmlArtifactError) as error:
         validate_output_archive(buffer.getvalue())
-    assert error.value.code in {"ARTIFACT_MANIFEST_INVALID", "ARTIFACT_MANIFEST_MISMATCH"}
+    assert error.value.code in {
+        "ARTIFACT_MANIFEST_INVALID",
+        "ARTIFACT_MANIFEST_MISMATCH",
+    }
 
 
 @pytest.mark.parametrize(
@@ -878,6 +1064,7 @@ def test_output_zip_rejects_unsafe_html_after_manifest_validation(
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="legacy AutoSkill multipart protocol removed")
 async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() -> None:
     requests: list[httpx.Request] = []
 
@@ -930,6 +1117,7 @@ async def test_command_uses_multipart_form_fields_and_query_for_skill_reads() ->
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="legacy AutoSkill multipart protocol removed")
 async def test_find_skill_uses_documented_multipart_post_form() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "POST"
@@ -968,6 +1156,7 @@ async def test_find_skill_uses_documented_multipart_post_form() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="legacy invocation_policy form field removed")
 async def test_create_update_and_invoke_send_invocation_policy_as_json_form_field() -> (
     None
 ):
@@ -1032,6 +1221,7 @@ async def test_create_update_and_invoke_send_invocation_policy_as_json_form_fiel
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="legacy command JSON envelope removed")
 async def test_query_skill_command_accepts_documented_json_envelope() -> None:
     async def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1066,6 +1256,7 @@ async def test_query_skill_command_accepts_documented_json_envelope() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="AgentKit does not expose Last-Event-ID replay")
 async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout() -> (
     None
 ):
@@ -1108,6 +1299,7 @@ async def test_stream_reconnects_with_last_event_id_and_enforces_total_timeout()
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="covered by native AgentKit stream contract")
 async def test_stream_first_event_timeout_fails_closed() -> None:
     class SlowStream(httpx.AsyncByteStream):
         async def __aiter__(self):
@@ -1143,6 +1335,7 @@ async def test_stream_first_event_timeout_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="ADK stream completion does not use legacy done frame")
 async def test_stream_disconnect_before_done_fails_closed() -> None:
     async def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1182,6 +1375,7 @@ def test_normalization_bounds_invalid_duration_and_plan_status() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="native path forbids BFF state.zip upload")
 async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> None:
     import base64
 
@@ -1228,6 +1422,7 @@ async def test_stateless_invoke_sends_state_zip_and_get_state_decodes_it() -> No
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="native path forbids multipart state.zip commands")
 @pytest.mark.parametrize(
     ("command", "prompt", "name", "expected"),
     [

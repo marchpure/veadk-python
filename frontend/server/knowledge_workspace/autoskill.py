@@ -1,146 +1,180 @@
-"""Typed, server-only AutoSkill HTTP/SSE client."""
+"""Server-only native AgentKit adapter for the Knowledge Workspace."""
 
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import json
 import os
+import zipfile
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 
-from .sse import (
-    ParsedUpstreamEvent,
-    SseParser,
-    event_kind,
-    parse_upstream_frame,
-    sanitize_event_payload,
-)
+from .sse import ParsedUpstreamEvent, SseParser, sanitize_event_payload
 
 
 class AutoSkillProtocolError(RuntimeError):
     pass
 
 
-OFFICIAL_AUTOSKILL_BASE_URL = "https://test-bytebrain.byted.org"
-
-
 @dataclass(frozen=True)
 class AutoSkillConfig:
-    base_url: str = OFFICIAL_AUTOSKILL_BASE_URL
-    token: str | None = None
-    state_mode: str = "stateful"
+    base_url: str = ""
+    app_name: str = "autoskill_creator"
     timeout_seconds: float = 1_800.0
     connect_timeout_seconds: float = 10.0
     first_event_timeout_seconds: float = 180.0
     idle_timeout_seconds: float = 180.0
-    max_reconnects: int = 2
     max_event_bytes: int = 2 * 1024 * 1024
     max_response_bytes: int = 20 * 1024 * 1024
+    # Retained for callers that distinguish the old stateful/stateless adapter.
+    # Native AgentKit owns session state and artifacts, so it is always stateful.
+    state_mode: str = "native"
 
     @classmethod
-    def from_env(cls) -> "AutoSkillConfig":
-        configured_base = os.getenv("KNOWLEDGE_AUTOSKILL_BASE_URL", "").strip()
-        environment = (
-            os.getenv("KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development")
-            .strip()
-            .casefold()
-        )
-        if environment in {"production", "prod"} and not configured_base:
-            raise AutoSkillProtocolError(
-                "production AutoSkill base URL is not configured"
-            )
-        base = (configured_base or OFFICIAL_AUTOSKILL_BASE_URL).rstrip("/")
-        token = os.getenv("KNOWLEDGE_AUTOSKILL_TOKEN", "").strip() or None
+    def from_env(cls) -> AutoSkillConfig:
+        base = os.getenv("KNOWLEDGE_AUTOSKILL_BASE_URL", "").strip().rstrip("/")
         if not base:
-            raise AutoSkillProtocolError("AutoSkill base URL is not configured")
-        return cls(
-            base_url=base,
-            token=token,
-            state_mode=os.getenv("KNOWLEDGE_AUTOSKILL_STATE_MODE", "stateful"),
-        )
+            environment = os.getenv(
+                "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
+            ).casefold()
+            prefix = "production " if environment in {"production", "prod"} else ""
+            raise AutoSkillProtocolError(
+                f"{prefix}AutoSkill base URL is not configured"
+            )
+        return cls(base_url=base)
 
 
 class AutoSkillClient:
+    """Translate the existing BFF port to native ADK session/run/artifact APIs."""
+
     def __init__(
         self, config: AutoSkillConfig, *, client: httpx.AsyncClient | None = None
     ) -> None:
         parsed = urlsplit(config.base_url)
         hostname = (parsed.hostname or "").casefold()
-        local_hosts = {"localhost", "127.0.0.1", "::1"}
+        environment = os.getenv(
+            "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
+        ).casefold()
+        loopback = hostname in {"localhost", "127.0.0.1", "::1"}
         if (
-            (
-                parsed.scheme != "https"
-                and not (parsed.scheme == "http" and hostname in local_hosts)
-            )
-            or not hostname
+            not hostname
+            or parsed.username
+            or parsed.password
             or parsed.query
             or parsed.fragment
+            or (parsed.scheme != "https" and not (parsed.scheme == "http" and loopback))
+            or (environment in {"production", "prod"} and parsed.scheme != "https")
         ):
-            raise ValueError("AutoSkill base URL must be server-configured HTTPS")
+            raise ValueError(
+                "AutoSkill base URL must be server-configured HTTPS "
+                "(loopback HTTP is development-only)"
+            )
         self.config = config
         self._client = client
-
-    def _headers(self) -> dict[str, str]:
-        headers = {"Accept": "application/json"}
-        if self.config.token:
-            headers["Authorization"] = f"Bearer {self.config.token}"
-        return headers
+        self._artifacts: dict[tuple[str, str], tuple[str, int]] = {}
+        self._pending_uploads: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     def _url(self, path: str) -> str:
-        return f"{self.config.base_url}/openapi/autoskill/v1/{path.lstrip('/')}"
+        return f"{self.config.base_url}{path}"
 
-    @staticmethod
-    def _form_value(value: Any) -> str:
-        if isinstance(value, (Mapping, list, tuple)):
-            return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        return str(value)
-
-    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        owns = self._client is None
-        client = self._client or httpx.AsyncClient(
-            timeout=httpx.Timeout(
-                self.config.timeout_seconds, connect=self.config.connect_timeout_seconds
-            )
+    def _session_path(self, user_id: str, session_id: str) -> str:
+        return (
+            f"/apps/{quote(self.config.app_name, safe='')}/users/"
+            f"{quote(user_id, safe='')}/sessions/{quote(session_id, safe='')}"
         )
+
+    def _http(self) -> tuple[httpx.AsyncClient, bool]:
+        if self._client is not None:
+            return self._client, False
+        return (
+            httpx.AsyncClient(
+                timeout=httpx.Timeout(
+                    self.config.timeout_seconds,
+                    connect=self.config.connect_timeout_seconds,
+                )
+            ),
+            True,
+        )
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        client, owns = self._http()
         try:
             response = await client.request(
-                method, self._url(path), headers=self._headers(), **kwargs
+                method,
+                self._url(path),
+                headers={"Accept": "application/json", **dict(headers or {})},
+                **kwargs,
             )
             if response.status_code >= 400:
                 raise AutoSkillProtocolError(
-                    f"AutoSkill {path} returned HTTP {response.status_code}"
+                    f"AutoSkill AgentKit {path} returned HTTP {response.status_code}"
                 )
-            content_length = response.headers.get("content-length")
-            if content_length:
-                try:
-                    if int(content_length) > self.config.max_response_bytes:
-                        raise AutoSkillProtocolError(
-                            f"AutoSkill {path} response exceeds configured size limit"
-                        )
-                except ValueError as exc:
-                    raise AutoSkillProtocolError(
-                        f"AutoSkill {path} returned invalid content length"
-                    ) from exc
             if len(response.content) > self.config.max_response_bytes:
                 raise AutoSkillProtocolError(
-                    f"AutoSkill {path} response exceeds configured size limit"
+                    f"AutoSkill AgentKit {path} response exceeds configured size limit"
                 )
             return response
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            raise AutoSkillProtocolError(
+                f"AutoSkill AgentKit transport failure: {type(exc).__name__}"
+            ) from exc
         finally:
             if owns:
                 await client.aclose()
 
     async def health(self) -> Mapping[str, Any]:
-        response = await self._request("GET", "health")
-        return response.json()
+        response = await self._request("GET", "/health")
+        return {**response.json(), "state_mode": "native"}
 
     async def models(self) -> Mapping[str, Any]:
-        response = await self._request("GET", "models")
-        return response.json()
+        return {"models": [], "source": "agentkit"}
+
+    async def ensure_session(self, *, user_id: str, session_id: str) -> None:
+        path = self._session_path(user_id, session_id)
+        client, owns = self._http()
+        try:
+            response = await client.get(
+                self._url(path), headers={"Accept": "application/json"}
+            )
+            if response.status_code == 200:
+                return
+            if response.status_code != 404:
+                raise AutoSkillProtocolError(
+                    f"AutoSkill AgentKit session read returned HTTP {response.status_code}"
+                )
+            collection = path.rsplit("/", 1)[0]
+            created = await client.post(
+                self._url(collection),
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+                json={"sessionId": session_id},
+            )
+            if created.status_code >= 400:
+                raise AutoSkillProtocolError(
+                    f"AutoSkill AgentKit session create returned HTTP {created.status_code}"
+                )
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            raise AutoSkillProtocolError(
+                f"AutoSkill AgentKit session transport failure: {type(exc).__name__}"
+            ) from exc
+        finally:
+            if owns:
+                await client.aclose()
 
     async def command(
         self,
@@ -154,240 +188,219 @@ class AutoSkillClient:
         model: str | None = None,
         state: bytes | None = None,
         invocation_policy: Mapping[str, Any] | None = None,
+        connection: Mapping[str, Any] | None = None,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        if self.config.state_mode.casefold() == "stateless":
-            command_head = f"/{command.replace('_', '-')}"
-            tail_parts = [
-                value.strip()
-                for value in (name, prompt)
-                if isinstance(value, str) and value.strip()
-            ]
-            message = " ".join([command_head, *tail_parts])
-            async for item in self.invoke_stateless(
-                agent_id=agent_id,
-                session_id=session_id,
-                request_id=request_id,
-                message=message,
-                model=model,
-                state=state,
-                invocation_policy=invocation_policy,
-            ):
-                yield item
-            return
-        data = {
-            "agent_id": agent_id,
-            "session_id": session_id,
-            "request_id": request_id,
-        }
-        if prompt is not None:
-            data["prompt"] = prompt
-        if model:
-            data["model"] = model
-        if invocation_policy is not None:
-            data["invocation_policy"] = invocation_policy
-        params = {
-            "agent_id": agent_id,
-            "session_id": session_id,
-            "request_id": request_id,
-        }
-        if name:
-            params["name"] = name
-        method = "GET" if command in {"list_skill", "view_skill"} else "POST"
-        if method == "GET":
-            query = dict(params)
-            if prompt:
-                query["prompt"] = prompt
-            kwargs = {"params": query}
-        else:
-            kwargs = {
-                "files": {
-                    key: (None, self._form_value(value)) for key, value in data.items()
-                },
-            }
-        async for item in self.stream_request(command, method, **kwargs):
-            yield item
+        del model, state, invocation_policy
+        command_text = f"/{command.replace('_', '-')}"
+        suffix = " ".join(
+            item.strip()
+            for item in (name, prompt)
+            if isinstance(item, str) and item.strip()
+        )
+        message = f"{command_text} {suffix}".strip()
+        async for event in self._run_sse(
+            user_id=agent_id,
+            session_id=session_id,
+            invocation_id=request_id,
+            message=message,
+            connection=connection,
+            named_command=command,
+        ):
+            yield event
 
     async def invoke(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        if self.config.state_mode.casefold() == "stateless":
-            async for item in self.invoke_stateless(**kwargs):
-                yield item
-            return
-        async for item in self.stream_request(
-            "invoke",
-            "POST",
-            params={},
-            files={
-                key: (None, self._form_value(value))
-                for key, value in kwargs.items()
-                if value is not None and key != "state"
-            },
+        async for event in self._run_sse(
+            user_id=str(kwargs["agent_id"]),
+            session_id=str(kwargs["session_id"]),
+            invocation_id=str(kwargs["request_id"]),
+            message=str(kwargs.get("message") or kwargs.get("prompt") or ""),
+            connection=kwargs.get("connection"),
         ):
-            yield item
+            yield event
 
     async def invoke_stateless(
-        self, *, state: bytes | None = None, **kwargs: Any
-    ) -> AsyncIterator[ParsedUpstreamEvent]:
-        files: dict[str, tuple[Any, ...]] = {
-            key: (None, self._form_value(value))
-            for key, value in kwargs.items()
-            if value is not None
-        }
-        if state is not None:
-            files["state"] = ("state.zip", state, "application/zip")
-        async for item in self.stream_request("invoke_stateless", "POST", files=files):
-            yield item
-
-    async def create_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.command("create_skill", **kwargs):
-            yield item
-
-    async def update_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.command("update_skill", **kwargs):
-            yield item
-
-    async def find_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.command("find_skill", **kwargs):
-            yield item
-
-    async def list_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.command("list_skill", **kwargs):
-            yield item
-
-    async def view_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.command("view_skill", **kwargs):
-            yield item
-
-    async def delete_skill_stream(
         self, **kwargs: Any
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.stream_request(
-            "delete_skill",
-            "DELETE",
-            params={
-                key: str(value) for key, value in kwargs.items() if value is not None
-            },
-        ):
-            yield item
+        async for event in self.invoke(**kwargs):
+            yield event
 
-    async def stream_request(
+    async def create_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for event in self.command("create_skill", **kwargs):
+            yield event
+
+    async def update_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for event in self.command("update_skill", **kwargs):
+            yield event
+
+    async def find_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for event in self.command("find_skill", **kwargs):
+            yield event
+
+    async def list_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for event in self.command("list_skill", **kwargs):
+            yield event
+
+    async def view_skill(self, **kwargs: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        async for event in self.command("view_skill", **kwargs):
+            yield event
+
+    async def _run_sse(
         self,
-        path: str,
-        method: str,
         *,
-        params: Mapping[str, str] | None = None,
-        last_event_id: str | None = None,
-        **kwargs: Any,
+        user_id: str,
+        session_id: str,
+        invocation_id: str,
+        message: str,
+        connection: Mapping[str, Any] | None = None,
+        named_command: str | None = None,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        parser = SseParser(max_buffer_bytes=self.config.max_event_bytes)
-        headers = self._headers() | {"Accept": "text/event-stream"}
-        if last_event_id:
-            headers["Last-Event-ID"] = last_event_id
+        await self.ensure_session(user_id=user_id, session_id=session_id)
+        metadata: Mapping[str, Any] | None = None
+        authorization: str | None = None
+        if connection:
+            candidate = connection.get("metadata")
+            if isinstance(candidate, Mapping):
+                metadata = dict(candidate)
+            value = connection.get("authorization")
+            if isinstance(value, str) and value.strip():
+                authorization = value.strip()
+        body: dict[str, Any] = {
+            "appName": self.config.app_name,
+            "userId": user_id,
+            "sessionId": session_id,
+            "invocationId": invocation_id,
+            "streaming": True,
+            "newMessage": {
+                "role": "user",
+                "parts": [
+                    *self._pending_uploads.pop((user_id, session_id), []),
+                    {"text": message},
+                ],
+            },
+        }
+        if metadata is not None:
+            body["customMetadata"] = {"autoskill_connection": metadata}
+        headers = {"Accept": "text/event-stream", "Content-Type": "application/json"}
+        if authorization:
+            headers["X-Autoskill-Connection-Authorization"] = authorization
+
+        client, owns = self._http()
         response: httpx.Response | None = None
-        owns = self._client is None
-        client = self._client or httpx.AsyncClient(
-            timeout=httpx.Timeout(
-                self.config.timeout_seconds, connect=self.config.connect_timeout_seconds
-            )
-        )
+        parser = SseParser(max_buffer_bytes=self.config.max_event_bytes)
+        calls: dict[str, str] = {}
+        call_arguments: dict[str, Mapping[str, Any]] = {}
+        matched_calls: list[dict[str, Any]] = []
+        skills_created: list[str] = []
+        skills_updated: list[str] = []
+        skills_used: list[str] = []
+        final_text: list[str] = []
+        terminal_error = False
+        sequence = 0
         try:
-            stream_context = client.stream(
-                method, self._url(path), headers=headers, params=params, **kwargs
+            stream = client.stream(
+                "POST", self._url("/run_sse"), headers=headers, json=body
             )
-            response = await stream_context.__aenter__()
+            response = await stream.__aenter__()
             if response.status_code >= 400:
                 raise AutoSkillProtocolError(
-                    f"AutoSkill {path} returned HTTP {response.status_code}"
+                    f"AutoSkill AgentKit /run_sse returned HTTP {response.status_code}"
                 )
-            content_type = response.headers.get("content-type", "").casefold()
-            if "application/json" in content_type:
-                raw_body = await response.aread()
-                if len(raw_body) > self.config.max_response_bytes:
-                    raise AutoSkillProtocolError(
-                        f"AutoSkill {path} response exceeds configured size limit"
-                    )
-                try:
-                    payload = response.json()
-                except (ValueError, json.JSONDecodeError) as exc:
-                    raise AutoSkillProtocolError(
-                        f"AutoSkill {path} returned invalid JSON"
-                    ) from exc
-                safe_payload = sanitize_event_payload(payload)
-                yield ParsedUpstreamEvent(
-                    None,
-                    "final_answer",
-                    {
-                        "type": "final_answer",
-                        "data": {
-                            "answer": json.dumps(safe_payload, ensure_ascii=False),
-                        },
-                    },
-                    raw_body.decode("utf-8", errors="replace"),
-                )
-                yield ParsedUpstreamEvent(
-                    None,
-                    "done",
-                    {"type": "done", "data": {}},
-                    "",
-                )
-                return
             iterator = response.aiter_bytes().__aiter__()
-            first_event_seen = False
-            terminal_seen = False
-            stream_bytes = 0
+            first = True
+            total = 0
             async with asyncio.timeout(self.config.timeout_seconds):
                 while True:
-                    timeout = (
-                        self.config.first_event_timeout_seconds
-                        if not first_event_seen
-                        else self.config.idle_timeout_seconds
-                    )
                     try:
                         chunk = await asyncio.wait_for(
-                            iterator.__anext__(), timeout=timeout
+                            iterator.__anext__(),
+                            timeout=(
+                                self.config.first_event_timeout_seconds
+                                if first
+                                else self.config.idle_timeout_seconds
+                            ),
                         )
                     except StopAsyncIteration:
                         break
                     except asyncio.TimeoutError as exc:
                         raise AutoSkillProtocolError(
-                            "AutoSkill SSE first-event/idle timeout"
+                            "AutoSkill AgentKit SSE first-event/idle timeout"
                         ) from exc
-                    stream_bytes += len(chunk)
-                    if stream_bytes > self.config.max_response_bytes:
+                    first = False
+                    total += len(chunk)
+                    if total > self.config.max_response_bytes:
                         raise AutoSkillProtocolError(
-                            f"AutoSkill {path} stream exceeds configured size limit"
+                            "AutoSkill AgentKit SSE exceeds configured size limit"
                         )
-                    try:
-                        frames = parser.feed(chunk)
-                    except ValueError as exc:
-                        raise AutoSkillProtocolError(str(exc)) from exc
-                    for frame in frames:
-                        if frame.heartbeat:
-                            # Provider keepalives prove that the stream is
-                            # alive and move subsequent waits to idle timeout.
-                            first_event_seen = True
-                        parsed = parse_upstream_frame(frame)
-                        if parsed:
-                            first_event_seen = True
-                            terminal_seen = event_kind(parsed.event_type) == "done"
-                            yield parsed
-                            if terminal_seen:
-                                break
-                    if terminal_seen:
-                        break
+                    for frame in parser.feed(chunk):
+                        if frame.heartbeat or not frame.data:
+                            continue
+                        sequence += 1
+                        for event in self._map_adk_event(
+                            frame.data,
+                            invocation_id=invocation_id,
+                            sequence=sequence,
+                            calls=calls,
+                            call_arguments=call_arguments,
+                            matched_calls=matched_calls,
+                            skills_created=skills_created,
+                            skills_updated=skills_updated,
+                            skills_used=skills_used,
+                            final_text=final_text,
+                            user_id=user_id,
+                            session_id=session_id,
+                        ):
+                            if event.event_type == "error":
+                                terminal_error = True
+                            yield event
                 for frame in parser.finish():
-                    parsed = parse_upstream_frame(frame)
-                    if parsed:
-                        terminal_seen = event_kind(parsed.event_type) == "done"
-                        yield parsed
-                        if terminal_seen:
-                            break
-            if not terminal_seen:
-                raise AutoSkillProtocolError("AutoSkill SSE disconnected before done")
+                    if not frame.heartbeat and frame.data:
+                        sequence += 1
+                        for event in self._map_adk_event(
+                            frame.data,
+                            invocation_id=invocation_id,
+                            sequence=sequence,
+                            calls=calls,
+                            call_arguments=call_arguments,
+                            matched_calls=matched_calls,
+                            skills_created=skills_created,
+                            skills_updated=skills_updated,
+                            skills_used=skills_used,
+                            final_text=final_text,
+                            user_id=user_id,
+                            session_id=session_id,
+                        ):
+                            if event.event_type == "error":
+                                terminal_error = True
+                            yield event
+            if terminal_error:
+                return
+            if not final_text:
+                final_text.append("AutoSkill AgentKit run completed.")
+            yield self._event(
+                "final_answer", {"answer": "".join(final_text)}, invocation_id
+            )
+            target = (skills_created or skills_updated or skills_used or [None])[-1]
+            summary = {
+                "status": "succeeded",
+                "skills_created": skills_created,
+                "skills_updated": skills_updated,
+                "skills_used": skills_used,
+                "policy_evaluation": {
+                    "satisfied": bool(matched_calls) if metadata is not None else True,
+                    "matched_calls": matched_calls,
+                },
+                **({"target_skill": target} if target else {}),
+                "named_command": named_command,
+            }
+            yield self._event("request_summary", summary, invocation_id)
+            yield self._event("done", {}, invocation_id)
         except TimeoutError as exc:
-            raise AutoSkillProtocolError("AutoSkill SSE total timeout") from exc
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit SSE total timeout"
+            ) from exc
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise AutoSkillProtocolError(
-                f"AutoSkill stream transport failure: {type(exc).__name__}"
+                f"AutoSkill AgentKit stream transport failure: {type(exc).__name__}"
             ) from exc
         finally:
             if response is not None:
@@ -395,39 +408,259 @@ class AutoSkillClient:
             if owns:
                 await client.aclose()
 
-    async def reconnect(
+    @staticmethod
+    def _event(
+        kind: str, data: Mapping[str, Any], invocation_id: str
+    ) -> ParsedUpstreamEvent:
+        payload = {"type": kind, "data": sanitize_event_payload(dict(data))}
+        return ParsedUpstreamEvent(None, kind, payload, json.dumps(payload))
+
+    def _map_adk_event(
+        self,
+        raw: str,
+        *,
+        invocation_id: str,
+        sequence: int,
+        calls: dict[str, str],
+        call_arguments: dict[str, Mapping[str, Any]],
+        matched_calls: list[dict[str, Any]],
+        skills_created: list[str],
+        skills_updated: list[str],
+        skills_used: list[str],
+        final_text: list[str],
+        user_id: str,
+        session_id: str,
+    ) -> list[ParsedUpstreamEvent]:
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            return [
+                ParsedUpstreamEvent(
+                    None, "unknown", {"raw": sanitize_event_payload(raw)}, raw, True
+                )
+            ]
+        if not isinstance(value, Mapping):
+            return []
+        if value.get("error"):
+            return [
+                self._event(
+                    "error",
+                    {
+                        "code": "AGENTKIT_ERROR",
+                        "message": str(value["error"]),
+                        "retryable": False,
+                        "category": "runtime",
+                    },
+                    invocation_id,
+                )
+            ]
+        result: list[ParsedUpstreamEvent] = []
+        artifact_delta = (value.get("actions") or {}).get("artifactDelta")
+        if not isinstance(artifact_delta, Mapping):
+            artifact_delta = (value.get("actions") or {}).get("artifact_delta")
+        if isinstance(artifact_delta, Mapping):
+            for filename, version in artifact_delta.items():
+                try:
+                    parsed_version = int(version)
+                except (TypeError, ValueError):
+                    continue
+                self._artifacts[(user_id, session_id)] = (
+                    str(filename),
+                    parsed_version,
+                )
+                result.append(
+                    self._event(
+                        "artifact_delta",
+                        {"filename": str(filename), "version": parsed_version},
+                        invocation_id,
+                    )
+                )
+        content = value.get("content")
+        parts = content.get("parts", []) if isinstance(content, Mapping) else []
+        for part in parts if isinstance(parts, list) else []:
+            if not isinstance(part, Mapping):
+                continue
+            function_call = part.get("functionCall") or part.get("function_call")
+            if isinstance(function_call, Mapping):
+                name = str(function_call.get("name") or "agentkit.tool")
+                call_id = str(function_call.get("id") or f"{invocation_id}:{sequence}")
+                args = function_call.get("args") or function_call.get("arguments") or {}
+                calls[call_id] = name
+                call_arguments[call_id] = args if isinstance(args, Mapping) else {}
+                skill_name = (
+                    str(args.get("new_name") or args.get("name") or "")
+                    if isinstance(args, Mapping)
+                    else ""
+                )
+                if (
+                    name == "create_skill"
+                    and skill_name
+                    and skill_name not in skills_created
+                ):
+                    skills_created.append(skill_name)
+                elif (
+                    name == "update_skill"
+                    and skill_name
+                    and skill_name not in skills_updated
+                ):
+                    skills_updated.append(skill_name)
+                elif (
+                    name == "read_skill"
+                    and skill_name
+                    and skill_name not in skills_used
+                ):
+                    skills_used.append(skill_name)
+                result.append(
+                    self._event(
+                        "action",
+                        {
+                            "call_id": call_id,
+                            "name": name,
+                            "arguments": args,
+                            "status": "started",
+                        },
+                        invocation_id,
+                    )
+                )
+            function_response = part.get("functionResponse") or part.get(
+                "function_response"
+            )
+            if isinstance(function_response, Mapping):
+                call_id = str(
+                    function_response.get("id") or f"{invocation_id}:{sequence}"
+                )
+                response_value = function_response.get("response")
+                ok = not (
+                    isinstance(response_value, Mapping)
+                    and response_value.get("ok") is False
+                )
+                response_name = str(
+                    function_response.get("name")
+                    or calls.get(call_id)
+                    or "agentkit.tool"
+                )
+                arguments = call_arguments.get(call_id, {})
+                action_id = str(
+                    arguments.get("actionId") or arguments.get("action_id") or ""
+                )
+                if ok and action_id:
+                    matched_calls.append(
+                        {
+                            "tool": (
+                                "mcp__knowledge-connection-1__execute_action"
+                                if response_name == "execute_action"
+                                else response_name
+                            ),
+                            "actionId": action_id,
+                            "ok": True,
+                        }
+                    )
+                result.append(
+                    self._event(
+                        "observation",
+                        {
+                            "call_id": call_id,
+                            "name": response_name,
+                            "ok": ok,
+                            "output_summary": "Tool completed" if ok else "",
+                            "error": ""
+                            if ok
+                            else str(
+                                response_value.get("error", "Tool failed")
+                                if isinstance(response_value, Mapping)
+                                else "Tool failed"
+                            ),
+                        },
+                        invocation_id,
+                    )
+                )
+            text = part.get("text")
+            if isinstance(text, str) and text and not part.get("thought"):
+                final_text.append(text)
+                result.append(
+                    self._event(
+                        "assistant_delta",
+                        {"delta": text, "sequence": sequence},
+                        invocation_id,
+                    )
+                )
+        return result
+
+    async def download(
         self,
         *,
         agent_id: str,
         session_id: str,
-        request_id: str,
-        last_event_id: str | None,
-    ) -> AsyncIterator[ParsedUpstreamEvent]:
-        async for item in self.stream_request(
-            "stream",
-            "GET",
-            params={
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "request_id": request_id,
-            },
-            last_event_id=last_event_id,
-        ):
-            yield item
-
-    async def stop(
-        self, *, agent_id: str, session_id: str, request_id: str
-    ) -> Mapping[str, Any]:
-        response = await self._request(
-            "POST",
-            "stop",
-            params={
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "request_id": request_id,
-            },
+        file_type: str,
+        name: str | None = None,
+    ) -> bytes:
+        artifact = self._artifacts.get((agent_id, session_id))
+        if artifact is None:
+            raise AutoSkillProtocolError("AutoSkill AgentKit emitted no artifactDelta")
+        filename, version = artifact
+        path = (
+            f"{self._session_path(agent_id, session_id)}/artifacts/"
+            f"{quote(filename, safe='')}/versions/{version}"
         )
-        return response.json()
+        response = await self._request("GET", path)
+        try:
+            payload = response.json()
+        except json.JSONDecodeError as exc:
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit artifact version returned invalid JSON"
+            ) from exc
+        inline = payload.get("inlineData") or payload.get("inline_data")
+        encoded = inline.get("data") if isinstance(inline, Mapping) else None
+        if not isinstance(encoded, str):
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit artifact version has no inline ZIP data"
+            )
+        try:
+            data = base64.b64decode(encoded, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit artifact version has invalid base64 data"
+            ) from exc
+        if len(data) > self.config.max_response_bytes:
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit artifact exceeds configured size limit"
+            )
+        if file_type == "skill" and name:
+            return self._skill_subtree(data, name)
+        return data
+
+    @staticmethod
+    def _skill_subtree(content: bytes, skill_name: str) -> bytes:
+        prefix = f"skillhub/{skill_name}/"
+        try:
+            source = zipfile.ZipFile(io.BytesIO(content))
+        except zipfile.BadZipFile as exc:
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit artifact is not a valid ZIP"
+            ) from exc
+        output = io.BytesIO()
+        found = False
+        with source, zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as target:
+            for info in source.infolist():
+                path = info.filename
+                if (
+                    info.is_dir()
+                    or not path.startswith(prefix)
+                    or path.startswith("/")
+                    or "\\" in path
+                    or ".." in path.split("/")
+                ):
+                    continue
+                target.writestr(path, source.read(info))
+                found = True
+        if not found:
+            raise AutoSkillProtocolError(
+                f"AutoSkill AgentKit artifact has no Skill subtree for {skill_name}"
+            )
+        return output.getvalue()
+
+    async def download_optional_state(self, **_: Any) -> bytes | None:
+        return None
 
     async def upload(
         self,
@@ -438,109 +671,51 @@ class AutoSkillClient:
         file_name: str,
         content: bytes,
     ) -> Mapping[str, Any]:
-        response = await self._request(
-            "POST",
-            "upload",
-            data={
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "type": file_type,
-                "name": file_name,
-            },
-            files={"file": (file_name, content)},
-        )
-        return response.json()
-
-    async def download(
-        self, *, agent_id: str, session_id: str, file_type: str, name: str | None = None
-    ) -> bytes:
-        params = {"agent_id": agent_id, "session_id": session_id, "type": file_type}
-        if name:
-            params["name"] = name
-        response = await self._request("GET", "download", params=params)
-        return response.content
-
-    async def download_optional_state(
-        self, *, agent_id: str, session_id: str
-    ) -> bytes | None:
-        try:
-            return await self.download(
-                agent_id=agent_id,
-                session_id=session_id,
-                file_type="state",
-            )
-        except AutoSkillProtocolError as exc:
-            if "HTTP 404" in str(exc):
-                return None
-            raise
-
-    async def get_state(
-        self, *, agent_id: str, session_id: str, request_id: str
-    ) -> Mapping[str, Any]:
-        response = await self._request(
-            "GET",
-            "get_state",
-            params={
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "request_id": request_id,
-            },
-        )
-        return response.json()
-
-    async def list_sessions(
-        self, *, agent_id: str, session_id: str, request_id: str
-    ) -> Mapping[str, Any]:
-        response = await self._request(
-            "GET",
-            "list_sessions",
-            params={
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "request_id": request_id,
-            },
-        )
-        return response.json()
-
-    async def delete_skill(
-        self, *, agent_id: str, session_id: str, request_id: str, name: str
-    ) -> Mapping[str, Any]:
-        response = await self._request(
-            "DELETE",
-            "delete_skill",
-            params={
-                "agent_id": agent_id,
-                "session_id": session_id,
-                "request_id": request_id,
-                "name": name,
-            },
-        )
-        return response.json()
-
-    async def get_state_zip(
-        self, *, agent_id: str, session_id: str, request_id: str
-    ) -> bytes:
-        value = await self.get_state(
-            agent_id=agent_id, session_id=session_id, request_id=request_id
-        )
-        data = value.get("data", value)
-        encoded = data.get("state_zip_b64") if isinstance(data, Mapping) else None
-        if not isinstance(encoded, str):
+        if file_type == "state" or file_name.casefold() == "state.zip":
             raise AutoSkillProtocolError(
-                "AutoSkill get_state did not return state_zip_b64"
+                "native AgentKit forbids BFF state.zip uploads"
             )
-        import base64
+        self._pending_uploads.setdefault((agent_id, session_id), []).append(
+            {
+                "inlineData": {
+                    "mimeType": (
+                        "application/zip"
+                        if file_name.casefold().endswith(".zip")
+                        else "application/octet-stream"
+                    ),
+                    "data": base64.b64encode(content).decode("ascii"),
+                    "displayName": file_name,
+                }
+            }
+        )
+        return {"accepted": True}
 
-        try:
-            return base64.b64decode(encoded, validate=True)
-        except (ValueError, TypeError) as exc:
-            raise AutoSkillProtocolError(
-                "AutoSkill get_state returned invalid state_zip_b64"
-            ) from exc
+    async def get_state(self, **_: Any) -> Mapping[str, Any]:
+        raise AutoSkillProtocolError("native AgentKit state is session-owned")
+
+    async def get_state_zip(self, **_: Any) -> bytes:
+        raise AutoSkillProtocolError("native AgentKit state ZIP is not exposed")
+
+    async def reconnect(self, **_: Any) -> AsyncIterator[ParsedUpstreamEvent]:
+        raise AutoSkillProtocolError(
+            "native AgentKit has no Last-Event-ID replay; resume from BFF events"
+        )
+        if False:
+            yield self._event("done", {}, "")
+
+    async def stop(self, **_: Any) -> Mapping[str, Any]:
+        # Cancellation is BFF-authoritative. AgentKit has no portable interrupt API.
+        return {"status": "cancelled"}
+
+    async def list_sessions(self, **_: Any) -> Mapping[str, Any]:
+        raise AutoSkillProtocolError("use the native AgentKit session API")
+
+    async def delete_skill(self, **_: Any) -> Mapping[str, Any]:
+        raise AutoSkillProtocolError("delete Skill through a native AgentKit run")
 
 
 class UnavailableAutoSkillClient:
-    """Explicit fail-closed client used when server credentials are absent."""
+    """Explicit fail-closed client used when server configuration is absent."""
 
     def __init__(self, reason: str) -> None:
         self.reason = reason
@@ -566,15 +741,8 @@ class UnavailableAutoSkillClient:
         if False:
             yield ParsedUpstreamEvent(None, "error", {}, "", True)
 
-    async def invoke_stateless(self, **_: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        await self._raise()
-        if False:
-            yield ParsedUpstreamEvent(None, "error", {}, "", True)
-
-    async def reconnect(self, **_: Any) -> AsyncIterator[ParsedUpstreamEvent]:
-        await self._raise()
-        if False:
-            yield ParsedUpstreamEvent(None, "error", {}, "", True)
+    invoke_stateless = invoke
+    reconnect = invoke
 
     async def stop(self, **_: Any) -> Mapping[str, Any]:
         await self._raise()

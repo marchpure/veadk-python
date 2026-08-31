@@ -10,6 +10,7 @@ import time
 import zipfile
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from .autoskill import AutoSkillClient, AutoSkillProtocolError
 from .connection import ConnectionInvocationContextPort, ConnectionServiceError
@@ -1008,8 +1009,7 @@ class KnowledgeWorkspaceService:
             invocation.invocation_id != excluding_invocation_id
             and (principal_id is None or invocation.principal_id == principal_id)
             and invocation.kind is not InvocationKind.RUN
-            and invocation.status
-            in {InvocationStatus.QUEUED, InvocationStatus.RUNNING}
+            and invocation.status in {InvocationStatus.QUEUED, InvocationStatus.RUNNING}
             for invocation in self.repository.invocations_for_draft(
                 draft_id, tenant_id=tenant_id, workspace_id=workspace_id
             )
@@ -1116,7 +1116,8 @@ class KnowledgeWorkspaceService:
             authoring_session_id=session_id or new_id("authoring"),
             autoskill_agent_id=new_id("agent"),
             autoskill_session_id=new_id("session"),
-            title=(title or "").strip()[:160] or self._session_title_from_message(draft.goal),
+            title=(title or "").strip()[:160]
+            or self._session_title_from_message(draft.goal),
             created_at=now,
             updated_at=now,
         )
@@ -1240,7 +1241,9 @@ class KnowledgeWorkspaceService:
         invocations = (
             self.repository.invocations_for_session(
                 draft_id,
-                self._session(actor, draft_id, authoring_session_id).authoring_session_id,
+                self._session(
+                    actor, draft_id, authoring_session_id
+                ).authoring_session_id,
                 tenant_id=actor.tenant_id,
                 workspace_id=actor.workspace_id,
             )
@@ -2073,7 +2076,9 @@ class KnowledgeWorkspaceService:
             "data": {
                 "artifact_id": snapshot_id,
                 "snapshot_id": snapshot_id,
-                "revision_id": str(data.get("revision_id") or invocation.revision_id or ""),
+                "revision_id": str(
+                    data.get("revision_id") or invocation.revision_id or ""
+                ),
                 "media_type": metadata["media_type"],
                 "sha256": digest,
                 "title": str(data.get("title") or "临时 HTML 预览"),
@@ -2153,6 +2158,7 @@ class KnowledgeWorkspaceService:
         terminal_event: ParsedUpstreamEvent | None = None
         malformed_event: ParsedUpstreamEvent | None = None
         prepared_autoskill_state: bytes | None = None
+        native_connection: Mapping[str, Any] | None = None
         try:
             session = self._mark_session_running(session, current, message)
             prior_events = self.repository.raw_events(invocation.invocation_id)
@@ -2272,7 +2278,9 @@ class KnowledgeWorkspaceService:
                         session_id=invocation.autoskill_session_id,
                         invocation_id=invocation.autoskill_request_id,
                     )
-                    if (
+                    if isinstance(prepared_state, Mapping):
+                        native_connection = prepared_state
+                    elif (
                         isinstance(prepared_state, bytes)
                         and getattr(self.autoskill, "config", None) is not None
                         and self.autoskill.config.state_mode.casefold() == "stateless"
@@ -2386,20 +2394,7 @@ class KnowledgeWorkspaceService:
                     file_name=upload.filename,
                     content=self.repository.read_object(upload.uri),
                 )
-            if resume:
-                last = self.repository.raw_events(invocation.invocation_id)
-                cursor = (
-                    str(last[-1]["upstream_id"])
-                    if last and last[-1]["upstream_id"]
-                    else None
-                )
-                stream = self.autoskill.reconnect(
-                    agent_id=invocation.autoskill_agent_id,
-                    session_id=invocation.autoskill_session_id,
-                    request_id=invocation.autoskill_request_id,
-                    last_event_id=cursor,
-                )
-            elif invocation.kind is InvocationKind.GENERATE:
+            if invocation.kind is InvocationKind.GENERATE:
                 stream = self.autoskill.command(
                     "create_skill",
                     agent_id=invocation.autoskill_agent_id,
@@ -2418,6 +2413,7 @@ class KnowledgeWorkspaceService:
                         or self._state_for_invocation(session, invocation)
                     ),
                     invocation_policy=invocation_policy,
+                    connection=native_connection,
                 )
             elif invocation.kind is InvocationKind.UPDATE:
                 stream = self.autoskill.command(
@@ -2438,6 +2434,7 @@ class KnowledgeWorkspaceService:
                         or self._state_for_invocation(session, invocation)
                     ),
                     invocation_policy=invocation_policy,
+                    connection=native_connection,
                 )
             else:
                 state = (
@@ -2470,8 +2467,9 @@ class KnowledgeWorkspaceService:
                     model=model,
                     state=state,
                     invocation_policy=invocation_policy,
+                    connection=native_connection,
                 )
-            async for event in self._with_reconnect(stream, actor, current, session):
+            async for event in stream:
                 last_event_id = event.event_id or last_event_id
                 kind = event_kind(event.event_type)
                 if kind == "error":
@@ -2677,14 +2675,18 @@ class KnowledgeWorkspaceService:
                 None,
             )
             done_cursor = len(self.repository.raw_events(invocation.invocation_id)) + 1
-            artifact_ids = [
-                item.artifact_id
-                for item in self.repository.artifacts_for_revision(
-                    invocation.revision_id,
-                    tenant_id=actor.tenant_id,
-                    workspace_id=actor.workspace_id,
-                )
-            ] if invocation.revision_id else []
+            artifact_ids = (
+                [
+                    item.artifact_id
+                    for item in self.repository.artifacts_for_revision(
+                        invocation.revision_id,
+                        tenant_id=actor.tenant_id,
+                        workspace_id=actor.workspace_id,
+                    )
+                ]
+                if invocation.revision_id
+                else []
+            )
             self.repository.append_event(
                 invocation.invocation_id,
                 {"type": "done", "data": {"status": "succeeded"}},
@@ -3132,32 +3134,9 @@ class KnowledgeWorkspaceService:
         invocation: Invocation,
         session: AuthoringSession,
     ) -> AsyncIterator[ParsedUpstreamEvent]:
-        current = stream
-        reconnects = 0
-        while True:
-            try:
-                async for event in current:
-                    yield event
-                return
-            except AutoSkillProtocolError:
-                max_reconnects = getattr(
-                    getattr(self.autoskill, "config", None), "max_reconnects", 2
-                )
-                if reconnects >= max_reconnects:
-                    raise
-                reconnects += 1
-                last = self.repository.raw_events(invocation.invocation_id)
-                cursor = (
-                    str(last[-1]["upstream_id"])
-                    if last and last[-1]["upstream_id"]
-                    else None
-                )
-                current = self.autoskill.reconnect(
-                    agent_id=invocation.autoskill_agent_id,
-                    session_id=invocation.autoskill_session_id,
-                    request_id=invocation.autoskill_request_id,
-                    last_event_id=cursor,
-                )
+        del actor, invocation, session
+        async for event in stream:
+            yield event
 
     async def cancel(
         self,
@@ -3170,7 +3149,9 @@ class KnowledgeWorkspaceService:
         invocation = self.repository.get_invocation(
             invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
-        if invocation is None or not self._invocation_visible_to_actor(invocation, actor):
+        if invocation is None or not self._invocation_visible_to_actor(
+            invocation, actor
+        ):
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
         if idempotency_key:
             try:
@@ -3269,7 +3250,9 @@ class KnowledgeWorkspaceService:
         invocation = self.repository.get_invocation(
             invocation_id, tenant_id=actor.tenant_id, workspace_id=actor.workspace_id
         )
-        if invocation is None or not self._invocation_visible_to_actor(invocation, actor):
+        if invocation is None or not self._invocation_visible_to_actor(
+            invocation, actor
+        ):
             raise KnowledgeWorkspaceError("NOT_FOUND", "invocation not found", 404)
         cursor = after
         while True:
@@ -3525,7 +3508,6 @@ class KnowledgeWorkspaceService:
                 },
                 "connection_refs": list(invocation.connection_ids),
                 "resource_refs": list(invocation.resource_ids),
-                "resource_refs": list(invocation.resource_ids),
                 "knowledge_source_refs": [
                     ref.model_dump(mode="json", exclude_none=True)
                     for ref in invocation.knowledge_source_refs
@@ -3609,6 +3591,60 @@ class KnowledgeWorkspaceService:
             )
             if draft is None or session is None:
                 continue
+            if invocation.status is InvocationStatus.RUNNING:
+                if invocation.lease_id and self.connection_context is not None:
+                    try:
+                        await self.connection_context.revoke(invocation.lease_id)
+                    except Exception:
+                        pass
+                failed = invocation.model_copy(
+                    update={
+                        "status": InvocationStatus.FAILED,
+                        "error_code": "AGENTKIT_RUN_INTERRUPTED",
+                        "error_message": (
+                            "The AgentKit stream ended when the BFF restarted; "
+                            "persisted events remain available and the run can be retried."
+                        ),
+                        "finished_at": utc_now(),
+                    }
+                )
+                self.repository.save_invocation(failed)
+                self._mark_session_finished(session, failed)
+                self.repository.append_event(
+                    invocation.invocation_id,
+                    {
+                        "type": "error",
+                        "data": {
+                            "code": failed.error_code,
+                            "message": failed.error_message,
+                        },
+                    },
+                    {
+                        "id": f"{invocation.invocation_id}:interrupted",
+                        "type": "run.failed",
+                        "invocation_id": invocation.invocation_id,
+                        "occurred_at": utc_now().isoformat(),
+                        "data": {
+                            "status": "failed",
+                            "error": {
+                                "code": failed.error_code,
+                                "message": failed.error_message,
+                                "retryable": True,
+                            },
+                        },
+                    },
+                    None,
+                )
+                if invocation.kind is not InvocationKind.RUN:
+                    self.repository.save_draft(
+                        draft.model_copy(
+                            update={
+                                "status": DraftStatus.FAILED,
+                                "updated_at": utc_now(),
+                            }
+                        )
+                    )
+                continue
             actor = Actor(
                 invocation.tenant_id, invocation.workspace_id, invocation.principal_id
             )
@@ -3620,7 +3656,7 @@ class KnowledgeWorkspaceService:
                     session,
                     invocation.message or draft.goal,
                     invocation.model,
-                    resume=invocation.status is InvocationStatus.RUNNING,
+                    resume=False,
                 )
             )
 
