@@ -25,6 +25,7 @@ class AutoSkillProtocolError(RuntimeError):
 @dataclass(frozen=True)
 class AutoSkillConfig:
     base_url: str = ""
+    runtime_api_key: str = ""
     app_name: str = "autoskill_creator"
     timeout_seconds: float = 1_800.0
     connect_timeout_seconds: float = 10.0
@@ -39,15 +40,20 @@ class AutoSkillConfig:
     @classmethod
     def from_env(cls) -> AutoSkillConfig:
         base = os.getenv("KNOWLEDGE_AUTOSKILL_BASE_URL", "").strip().rstrip("/")
+        api_key = os.getenv("KNOWLEDGE_AUTOSKILL_API_KEY", "").strip()
+        environment = os.getenv(
+            "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
+        ).casefold()
         if not base:
-            environment = os.getenv(
-                "KNOWLEDGE_AUTOSKILL_ENVIRONMENT", "development"
-            ).casefold()
             prefix = "production " if environment in {"production", "prod"} else ""
             raise AutoSkillProtocolError(
                 f"{prefix}AutoSkill base URL is not configured"
             )
-        return cls(base_url=base)
+        if environment in {"production", "prod"} and not api_key:
+            raise AutoSkillProtocolError(
+                "production AutoSkill Runtime API key is not configured"
+            )
+        return cls(base_url=base, runtime_api_key=api_key)
 
 
 class AutoSkillClient:
@@ -76,12 +82,36 @@ class AutoSkillClient:
                 "(loopback HTTP is development-only)"
             )
         self.config = config
+        if environment in {"production", "prod"} and not config.runtime_api_key:
+            raise AutoSkillProtocolError(
+                "production AutoSkill Runtime API key is not configured"
+            )
         self._client = client
         self._artifacts: dict[tuple[str, str], tuple[str, int]] = {}
         self._pending_uploads: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     def _url(self, path: str) -> str:
         return f"{self.config.base_url}{path}"
+
+    @staticmethod
+    def _bearer_authorization(value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            return ""
+        if any(character in stripped for character in ("\r", "\n")):
+            raise AutoSkillProtocolError(
+                "AutoSkill Runtime API key contains invalid characters"
+            )
+        if stripped.casefold().startswith("bearer "):
+            return stripped
+        return f"Bearer {stripped}"
+
+    def _headers(self, headers: Mapping[str, str] | None = None) -> dict[str, str]:
+        prepared = {"Accept": "application/json", **dict(headers or {})}
+        authorization = self._bearer_authorization(self.config.runtime_api_key)
+        if authorization:
+            prepared["Authorization"] = authorization
+        return prepared
 
     def _session_path(self, user_id: str, session_id: str) -> str:
         return (
@@ -115,7 +145,7 @@ class AutoSkillClient:
             response = await client.request(
                 method,
                 self._url(path),
-                headers={"Accept": "application/json", **dict(headers or {})},
+                headers=self._headers(headers),
                 **kwargs,
             )
             if response.status_code >= 400:
@@ -136,19 +166,28 @@ class AutoSkillClient:
                 await client.aclose()
 
     async def health(self) -> Mapping[str, Any]:
-        response = await self._request("GET", "/health")
+        try:
+            response = await self._request("GET", "/ping")
+        except AutoSkillProtocolError as exc:
+            if "HTTP 404" not in str(exc):
+                raise
+            response = await self._request("GET", "/health")
         return {**response.json(), "state_mode": "native"}
 
     async def models(self) -> Mapping[str, Any]:
-        return {"models": [], "source": "agentkit"}
+        response = await self._request("GET", "/list-apps")
+        apps = response.json()
+        if not isinstance(apps, list):
+            raise AutoSkillProtocolError(
+                "AutoSkill AgentKit /list-apps returned invalid JSON"
+            )
+        return {"models": [], "apps": apps, "source": "agentkit"}
 
     async def ensure_session(self, *, user_id: str, session_id: str) -> None:
         path = self._session_path(user_id, session_id)
         client, owns = self._http()
         try:
-            response = await client.get(
-                self._url(path), headers={"Accept": "application/json"}
-            )
+            response = await client.get(self._url(path), headers=self._headers())
             if response.status_code == 200:
                 return
             if response.status_code != 404:
@@ -159,7 +198,7 @@ class AutoSkillClient:
             created = await client.post(
                 self._url(collection),
                 headers={
-                    "Accept": "application/json",
+                    **self._headers(),
                     "Content-Type": "application/json",
                 },
                 json={"sessionId": session_id},
@@ -280,7 +319,9 @@ class AutoSkillClient:
         }
         if metadata is not None:
             body["customMetadata"] = {"autoskill_connection": metadata}
-        headers = {"Accept": "text/event-stream", "Content-Type": "application/json"}
+        headers = self._headers(
+            {"Accept": "text/event-stream", "Content-Type": "application/json"}
+        )
         if authorization:
             headers["X-Autoskill-Connection-Authorization"] = authorization
 
@@ -301,6 +342,7 @@ class AutoSkillClient:
                 "POST", self._url("/run_sse"), headers=headers, json=body
             )
             response = await stream.__aenter__()
+            assert response is not None
             if response.status_code >= 400:
                 raise AutoSkillProtocolError(
                     f"AutoSkill AgentKit /run_sse returned HTTP {response.status_code}"
@@ -598,6 +640,16 @@ class AutoSkillClient:
         if artifact is None:
             raise AutoSkillProtocolError("AutoSkill AgentKit emitted no artifactDelta")
         filename, version = artifact
+        await self._request(
+            "GET", f"{self._session_path(agent_id, session_id)}/artifacts"
+        )
+        await self._request(
+            "GET",
+            (
+                f"{self._session_path(agent_id, session_id)}/artifacts/"
+                f"{quote(filename, safe='')}/versions"
+            ),
+        )
         path = (
             f"{self._session_path(agent_id, session_id)}/artifacts/"
             f"{quote(filename, safe='')}/versions/{version}"
@@ -616,8 +668,10 @@ class AutoSkillClient:
                 "AutoSkill AgentKit artifact version has no inline ZIP data"
             )
         try:
-            data = base64.b64decode(encoded, validate=True)
-        except (ValueError, TypeError) as exc:
+            normalized = encoded.strip()
+            normalized += "=" * (-len(normalized) % 4)
+            data = base64.b64decode(normalized, altchars=b"-_", validate=True)
+        except (ValueError, TypeError, base64.binascii.Error) as exc:
             raise AutoSkillProtocolError(
                 "AutoSkill AgentKit artifact version has invalid base64 data"
             ) from exc

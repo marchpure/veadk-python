@@ -31,6 +31,7 @@ def test_staging_harness_accepts_only_https_urls() -> None:
     ast.parse(source)
     assert "--autoskill-url" in source
     assert "--connection-url" in source
+    assert "KNOWLEDGE_AUTOSKILL_API_KEY" in source
     assert "KAC2_CONNECTION_PRINCIPAL_AUTHORIZATION" in source
 
 

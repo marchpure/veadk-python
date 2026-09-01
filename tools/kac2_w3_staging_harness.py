@@ -32,7 +32,17 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
     authorization = os.getenv("KAC2_CONNECTION_PRINCIPAL_AUTHORIZATION", "").strip()
     if not authorization:
         raise RuntimeError("KAC2_CONNECTION_PRINCIPAL_AUTHORIZATION is required")
-    client = AutoSkillClient(AutoSkillConfig(base_url=args.autoskill_url))
+    runtime_api_key = os.getenv("KNOWLEDGE_AUTOSKILL_API_KEY", "").strip()
+    if not runtime_api_key:
+        raise RuntimeError("KNOWLEDGE_AUTOSKILL_API_KEY is required")
+    client = AutoSkillClient(
+        AutoSkillConfig(
+            base_url=args.autoskill_url,
+            runtime_api_key=runtime_api_key,
+        )
+    )
+    health = await client.health()
+    apps = await client.models()
     events = [
         event
         async for event in client.invoke(
@@ -73,6 +83,8 @@ async def run(args: argparse.Namespace) -> dict[str, object]:
         "status": "KAC2_W3_STAGING_READY",
         "autoskill_url": args.autoskill_url,
         "connection_url": args.connection_url,
+        "autoskill_health": str(health.get("status", "unknown")),
+        "autoskill_apps": apps.get("apps", []),
         "event_types": kinds,
         "artifact_versions": artifacts,
         "downloaded_bytes": downloaded,
