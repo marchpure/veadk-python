@@ -2482,6 +2482,37 @@ def _run_frontend_server(
         connection_gateway=connection_gateway,
     )
 
+    # The runtime token is represented by a server-side credential reference.
+    # It is resolved and injected by AgentKit, never sent to the browser or
+    # persisted in the publication record.
+    from frontend.server.extensions.agentkit_mcp import (
+        AgentKitMcpClient,
+        AgentKitMcpPublicationRepository,
+        AgentKitMcpPublisher,
+        mount_agentkit_mcp_routes,
+    )
+
+    agentkit_mcp_publisher = AgentKitMcpPublisher(
+        AgentKitMcpPublicationRepository(
+            os.getenv(
+                "DATA_WORKSHOP_MCP_PUBLICATION_DATABASE",
+                ".veadk/data-workshop-mcp-publications.sqlite3",
+            )
+        ),
+        AgentKitMcpClient(
+            lambda **kwargs: _agentkit_openapi_post(**kwargs),
+            region=_coerce_cloud_region(os.getenv("VEADK_STUDIO_DEPLOY_REGION")),
+        ),
+    )
+    app.state.agentkit_mcp_publisher = agentkit_mcp_publisher
+    mount_agentkit_mcp_routes(
+        app,
+        agentkit_mcp_publisher,
+        actor_resolver=lambda request: _knowledge_workspace_actor(
+            request, _knowledge_identity
+        ),
+    )
+
     from frontend.server.knowledge_workspace.demo import mount_demo_routes
     from frontend.server.knowledge_workspace.demo_gate import build_real_demo_gate
 
