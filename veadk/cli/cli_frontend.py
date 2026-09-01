@@ -2489,9 +2489,13 @@ def _run_frontend_server(
         AgentKitMcpClient,
         AgentKitMcpPublicationRepository,
         AgentKitMcpPublisher,
+        IdentityM2MGatewayVerifier,
         mount_agentkit_mcp_routes,
     )
 
+    agentkit_mcp_region = _coerce_cloud_region(
+        os.getenv("VEADK_STUDIO_DEPLOY_REGION")
+    )
     agentkit_mcp_publisher = AgentKitMcpPublisher(
         AgentKitMcpPublicationRepository(
             os.getenv(
@@ -2501,7 +2505,11 @@ def _run_frontend_server(
         ),
         AgentKitMcpClient(
             lambda **kwargs: _agentkit_openapi_post(**kwargs),
-            region=_coerce_cloud_region(os.getenv("VEADK_STUDIO_DEPLOY_REGION")),
+            region=agentkit_mcp_region,
+        ),
+        verifier=IdentityM2MGatewayVerifier.from_env(
+            credential_resolver=_resolve_ve_credentials,
+            region=agentkit_mcp_region,
         ),
     )
     app.state.agentkit_mcp_publisher = agentkit_mcp_publisher

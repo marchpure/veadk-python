@@ -57,3 +57,38 @@ class AgentKitMcpPublicationRepository:
                 ),
             )
             self._db.commit()
+
+    def reserve(
+        self,
+        publication: AgentKitMcpPublication,
+        *,
+        idempotency_key: str,
+    ) -> AgentKitMcpPublication:
+        """Atomically claim a business idempotency key across processes."""
+        payload = publication.model_dump_json(by_alias=True)
+        with self._lock:
+            self._db.execute(
+                """INSERT OR IGNORE INTO agentkit_mcp_publications
+                (publication_id,tenant_id,workspace_id,idempotency_key,payload)
+                VALUES(?,?,?,?,?)""",
+                (
+                    publication.publication_id,
+                    publication.tenant_id,
+                    publication.workspace_id,
+                    idempotency_key,
+                    payload,
+                ),
+            )
+            row = self._db.execute(
+                """SELECT payload FROM agentkit_mcp_publications
+                WHERE tenant_id=? AND workspace_id=? AND idempotency_key=?""",
+                (
+                    publication.tenant_id,
+                    publication.workspace_id,
+                    idempotency_key,
+                ),
+            ).fetchone()
+            self._db.commit()
+        if row is None:
+            raise RuntimeError("publication reservation disappeared")
+        return AgentKitMcpPublication.model_validate(json.loads(row["payload"]))

@@ -1,0 +1,46 @@
+{
+  "status": "AGENTKIT_MCP_PUBLISHER_CODE_READY_BLOCKED",
+  "recorded_at": "2026-09-02",
+  "base_sha": "96dc97054f5e8dde3bf9104be5aba3519a32645f",
+  "connection_input_sha": null,
+  "control_plane_contract": {
+    "api_version": "2025-10-30",
+    "create_service_document": "https://docs.volcengine.com/docs/86681/1913810",
+    "create_toolset_document": "https://docs.volcengine.com/docs/86681/1913811",
+    "get_toolset_document": "https://docs.volcengine.com/docs/86681/1913816",
+    "update_toolset_document": "https://docs.volcengine.com/docs/86681/1913821",
+    "backend_types": [
+      "ECS",
+      "Domain"
+    ],
+    "outbound_auth": "Identity ApiKey Credential Provider",
+    "inbound_auth": "CustomJWT"
+  },
+  "verified": {
+    "contract_tests": 26,
+    "mypy": true,
+    "compileall": true,
+    "git_diff_check": true,
+    "mock_results_promoted_to_live": false
+  },
+  "live_gate": {
+    "publication_id": null,
+    "mcp_service_id": null,
+    "toolset_id": null,
+    "gateway_endpoint": null,
+    "live_tools_count": 0,
+    "allowed_call_pass": false,
+    "denied_call_pass": false,
+    "idempotency_pass": false
+  },
+  "blockers": [
+    {
+      "code": "STEP1_HANDOFF_MISSING",
+      "detail": "No frozen STEP 1 endpoint, access package, Runtime Token Credential Provider, or connection input SHA was found."
+    },
+    {
+      "code": "VOLCENGINE_IDENTITY_INVALID",
+      "detail": "Read-only GetCallerIdentity returned SignatureDoesNotMatch."
+    }
+  ]
+}

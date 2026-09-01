@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from pydantic import ValidationError
 
 from frontend.server.knowledge_workspace.service import Actor
 
@@ -38,15 +39,55 @@ def mount_agentkit_mcp_routes(
         value = data.model_dump(mode="json", by_alias=True) if hasattr(data, "model_dump") else data
         return {"data": value, "meta": {"request_id": request.headers.get("x-request-id", "server-generated")}}
 
+    def status_for(error: AgentKitMcpError) -> int:
+        if error.code in {"PUBLICATION_NOT_FAILED", "IDEMPOTENCY_CONFLICT"}:
+            return 409
+        if error.code in {"PUBLICATION_DISABLED", "RESOURCE_NOT_OWNED"}:
+            return 403
+        if error.code in {"TOOLSET_NOT_PROVISIONED", "TOOLSET_NOT_READY"}:
+            return 409
+        if error.code == "GATEWAY_VERIFIER_UNAVAILABLE":
+            return 503
+        return 502
+
+    async def invoke(call: Any) -> Any:
+        try:
+            return await call
+        except AgentKitMcpError as error:
+            raise HTTPException(
+                status_for(error),
+                {
+                    "code": error.code,
+                    "message": str(error),
+                    "retryable": error.retryable,
+                    "request_id": error.request_id,
+                },
+            ) from error
+
     @app.post(f"{prefix}/publications", status_code=202)
-    async def create(request: Request, body: PublicationCreateRequest):
+    async def create(request: Request, body: dict[str, Any]):
         current_actor = actor(request)
-        key = request.headers.get("idempotency-key", "").strip()
-        if not key:
-            raise HTTPException(400, {"code": "IDEMPOTENCY_KEY_REQUIRED", "message": "idempotency-key is required"})
-        value = await publisher.create_or_reuse(
-            tenant_id=current_actor.tenant_id, workspace_id=current_actor.workspace_id,
-            request=body, idempotency_key=key,
+        try:
+            publication_request = PublicationCreateRequest.model_validate(body)
+        except ValidationError as error:
+            raise HTTPException(
+                422,
+                {
+                    "code": "INVALID_ARGUMENT",
+                    "message": "Publication request validation failed",
+                    "retryable": False,
+                    "fields": [
+                        ".".join(str(part) for part in item["loc"])
+                        for item in error.errors(include_input=False)
+                    ],
+                },
+            ) from error
+        value = await invoke(
+            publisher.create_or_reuse(
+                tenant_id=current_actor.tenant_id,
+                workspace_id=current_actor.workspace_id,
+                request=publication_request,
+            )
         )
         return envelope(value, request)
 
@@ -56,18 +97,17 @@ def mount_agentkit_mcp_routes(
 
     @app.post(f"{prefix}/publications/{{publication_id}}/retry", status_code=202)
     async def retry(request: Request, publication_id: str):
-        key = request.headers.get("idempotency-key", "").strip() or f"retry:{publication_id}"
-        return envelope(await publisher.retry(publication(request, publication_id), idempotency_key=key), request)
+        return envelope(
+            await invoke(publisher.retry(publication(request, publication_id))),
+            request,
+        )
 
     @app.post(f"{prefix}/publications/{{publication_id}}/disable")
     async def disable(request: Request, publication_id: str):
         value = publication(request, publication_id)
-        return envelope(await publisher.disable(value, idempotency_key=f"disable:{publication_id}"), request)
+        return envelope(await invoke(publisher.disable(value)), request)
 
     @app.post(f"{prefix}/publications/{{publication_id}}/verify")
     async def verify(request: Request, publication_id: str):
-        try:
-            result = await publisher.verify(publication(request, publication_id))
-        except AgentKitMcpError as error:
-            raise HTTPException(502, {"code": "GATEWAY_VERIFY_FAILED", "message": str(error)}) from error
+        result = await invoke(publisher.verify(publication(request, publication_id)))
         return envelope(result, request)
