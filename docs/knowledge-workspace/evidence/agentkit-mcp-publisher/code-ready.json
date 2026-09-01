@@ -17,10 +17,12 @@
     "inbound_auth": "CustomJWT"
   },
   "verified": {
-    "contract_tests": 26,
+    "contract_and_identity_tests": 29,
+    "bff_regression_tests": 31,
     "mypy": true,
     "compileall": true,
     "git_diff_check": true,
+    "secret_scan": true,
     "mock_results_promoted_to_live": false
   },
   "live_gate": {
@@ -33,14 +35,8 @@
     "denied_call_pass": false,
     "idempotency_pass": false
   },
-  "blockers": [
-    {
-      "code": "STEP1_HANDOFF_MISSING",
-      "detail": "No frozen STEP 1 endpoint, access package, Runtime Token Credential Provider, or connection input SHA was found."
-    },
-    {
-      "code": "VOLCENGINE_IDENTITY_INVALID",
-      "detail": "Read-only GetCallerIdentity returned SignatureDoesNotMatch."
-    }
-  ]
+  "blocker": {
+    "code": "LIVE_ACCEPTANCE_CONTEXT_UNAVAILABLE",
+    "detail": "The frozen STEP 1 endpoint, access package, Runtime Token Credential Provider, and connection input SHA are missing, and the current read-only Volcengine identity check returns SignatureDoesNotMatch."
+  }
 }

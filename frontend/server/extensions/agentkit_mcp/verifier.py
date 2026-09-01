@@ -14,6 +14,7 @@ from google.adk.tools.mcp_tool.mcp_session_manager import (
 
 from veadk.integrations.ve_identity import VeIdentityMcpToolset, oauth2_auth
 from veadk.integrations.ve_identity.identity_client import IdentityClient
+from veadk.integrations.ve_identity.utils import generate_headers
 
 from .client import AgentKitMcpError
 from .models import AgentKitMcpPublication, GatewayVerification
@@ -66,6 +67,7 @@ class IdentityM2MGatewayVerifier:
         allowed_arguments: dict[str, Any],
         denied_tool: str,
         denied_arguments: dict[str, Any],
+        denied_error_marker: str,
         scopes: list[str] | None = None,
         timeout_seconds: float = 60,
     ) -> None:
@@ -77,6 +79,7 @@ class IdentityM2MGatewayVerifier:
         self._allowed_arguments = allowed_arguments
         self._denied_tool = denied_tool
         self._denied_arguments = denied_arguments
+        self._denied_error_marker = denied_error_marker
         self._scopes = scopes or ["openid"]
         self._timeout = timeout_seconds
 
@@ -95,7 +98,12 @@ class IdentityM2MGatewayVerifier:
             "DATA_WORKSHOP_MCP_VERIFY_ALLOWED_TOOL", ""
         ).strip()
         denied_tool = os.getenv("DATA_WORKSHOP_MCP_VERIFY_DENIED_TOOL", "").strip()
-        if not all((workload, provider, allowed_tool, denied_tool)):
+        denied_error_marker = os.getenv(
+            "DATA_WORKSHOP_MCP_VERIFY_DENIED_ERROR_MARKER", ""
+        ).strip()
+        if not all(
+            (workload, provider, allowed_tool, denied_tool, denied_error_marker)
+        ):
             return None
         try:
             allowed_arguments = _json_object_env(
@@ -124,6 +132,7 @@ class IdentityM2MGatewayVerifier:
             allowed_arguments=allowed_arguments,
             denied_tool=denied_tool,
             denied_arguments=denied_arguments,
+            denied_error_marker=denied_error_marker,
             scopes=scopes,
         )
 
@@ -162,8 +171,7 @@ class IdentityM2MGatewayVerifier:
             tools = await toolset.get_tools(context)  # type: ignore[arg-type]
             mapping = {tool.name: tool for tool in tools}
             allowed = _resolve_tool(mapping, self._allowed_tool)
-            denied = _resolve_tool(mapping, self._denied_tool)
-            if allowed is None or denied is None:
+            if allowed is None:
                 return GatewayVerification(
                     initialize_pass=True,
                     tools_list_pass=bool(tools),
@@ -175,15 +183,21 @@ class IdentityM2MGatewayVerifier:
                 args=self._allowed_arguments,
                 tool_context=context,  # type: ignore[arg-type]
             )
-            denied_result = await denied.run_async(
-                args=self._denied_arguments,
-                tool_context=context,  # type: ignore[arg-type]
+            credential = await toolset._get_credential(tool_context=context)
+            session = await toolset._mcp_session_manager.create_session(
+                headers=generate_headers(credential)
+            )
+            denied_result = await session.call_tool(
+                self._denied_tool,
+                arguments=self._denied_arguments,
             )
             return GatewayVerification(
                 initialize_pass=True,
                 tools_list_pass=True,
                 allowed_call_pass=not _is_mcp_error(allowed_result),
-                denied_call_pass=_is_mcp_error(denied_result),
+                denied_call_pass=_is_expected_denial(
+                    denied_result, self._denied_error_marker
+                ),
                 live_tools_count=len(tools),
                 observed_version="2025-03-26+",
             )
@@ -222,3 +236,12 @@ def _is_mcp_error(result: Any) -> bool:
         isinstance(result, dict)
         and (result.get("isError") is True or result.get("is_error") is True)
     )
+
+
+def _is_expected_denial(result: Any, marker: str) -> bool:
+    if hasattr(result, "model_dump"):
+        result = result.model_dump(by_alias=True, exclude_none=True)
+    if not _is_mcp_error(result):
+        return False
+    serialized = json.dumps(result, ensure_ascii=False).casefold()
+    return marker.casefold() in serialized
