@@ -3,8 +3,6 @@
   "recorded_at": "2026-09-02",
   "branch": "feat/data-workshop-p0-gateway-publisher",
   "base_sha": "2b2a80080c43541af8cbcaa76b8d28e8dab988f8",
-  "final_local_sha": "7df972ba05338e679d2e83d3b87260b45f8fd8bd",
-  "remote_sha": "7df972ba05338e679d2e83d3b87260b45f8fd8bd",
   "summary": "STEP2 MCP Publication code, local tests, generated WebUI assets, and safety checks are prepared. Real cloud data-plane acceptance is blocked because the required STEP1 Connection Service and AgentKit/Identity verifier configuration is absent from the current environment.",
   "business_api": [
     "GET /api/data-workshop/v1/mcp-publications/capabilities",
