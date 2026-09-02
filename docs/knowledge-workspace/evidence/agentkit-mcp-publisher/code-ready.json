@@ -53,7 +53,7 @@
     "frontend_tests": {
       "command": "cd frontend && npm test -- mcpPublicationWorkflow.test.mjs",
       "status": "pass",
-      "result": "922 passed, 2 skipped"
+      "result": "923 passed, 2 skipped"
     },
     "frontend_build": {
       "command": "cd frontend && npm run build",
