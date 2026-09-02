@@ -25,7 +25,15 @@
       "791843fb-04d7-4cfd-ac1c-bdc58b88640b",
       "c9a6b1a0-55d8-43e6-be03-48f7328ddbb9"
     ],
-    "notes": "The deployed OOMOL Connect service exposes HTTP /api/connections and /api/providers. It does not provide the formal tenant-scoped /v1 contract or HTTPS origin."
+    "notes": "The deployed OOMOL Connect service exposes HTTP /api/connections and /api/providers. It does not provide the formal tenant-scoped /v1 contract or HTTPS origin.",
+    "runtime_token_smoke": {
+      "connection_id": "c9a6b1a0-55d8-43e6-be03-48f7328ddbb9",
+      "action_id": "postgresql.execute_read_query",
+      "create": "PASS",
+      "revoke": "PASS",
+      "plaintext_persisted": false,
+      "post_revoke_summary_present": false
+    }
   },
   "internal_api": [
     "POST /api/data-workshop/internal/v1/publications",
@@ -126,6 +134,7 @@
   "notes": [
     "P0 exposes application-client audience only.",
     "User/group audience remains disabled and fail-closed because no executable Publication Access Broker is configured.",
-    "No live cloud Publication, Revision, Runtime Token, Credential Provider, MCP Service, Toolset, or Gateway endpoint was created in this environment."
+    "A real OOMOL Connect Runtime API Key was created and immediately revoked for smoke verification; its plaintext was never persisted or recorded.",
+    "No live AgentKit Publication, Revision, Credential Provider, MCP Service, Toolset, or Gateway endpoint was created in this environment."
   ]
 }
