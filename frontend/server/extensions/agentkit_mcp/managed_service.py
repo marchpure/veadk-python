@@ -237,6 +237,7 @@ class ManagedPublicationService:
             self._low_level(revision, publication)
         )
         revision.verification_summary = result.model_dump(mode="json")
+        self.repository.save_revision(revision)
         if not result.live:
             raise ManagedPublicationError(
                 "VERIFICATION_FAILED",
@@ -283,13 +284,29 @@ class ManagedPublicationService:
         revision = self._active_or_latest(publication)
         publication.status = ManagedPublicationStatus.DISABLING
         self.repository.save_publication(publication)
-        await self.gateway_publisher.disable(self._low_level(revision, publication))
-        if revision.runtime_token_record_id:
-            await self.connection_gateway.revoke_runtime_token(
-                revision.runtime_token_record_id, **_actor_kwargs(actor)
+        try:
+            await self.gateway_publisher.disable(self._low_level(revision, publication))
+            if revision.runtime_token_record_id:
+                await self.connection_gateway.revoke_runtime_token(
+                    revision.runtime_token_record_id, **_actor_kwargs(actor)
+                )
+            if revision.credential_provider_ref:
+                await self.credential_provider.delete(revision.credential_provider_ref)
+        except Exception as error:
+            publication.status = ManagedPublicationStatus.FAILED
+            revision.state = RevisionState.FAILED
+            self.repository.save_revision(revision)
+            self.repository.save_publication(publication)
+            self._audit(
+                publication, revision, actor, "publication.disable_failed", request_id
             )
-        if revision.credential_provider_ref:
-            await self.credential_provider.delete(revision.credential_provider_ref)
+            safe = _safe_error(error)
+            raise ManagedPublicationError(
+                str(safe["code"]),
+                str(safe["message"]),
+                status_code=502,
+                retryable=True,
+            ) from error
         revision.state = RevisionState.DISABLED
         publication.status = ManagedPublicationStatus.DISABLED
         self.repository.save_revision(revision)

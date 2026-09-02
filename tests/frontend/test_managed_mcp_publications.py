@@ -82,6 +82,7 @@ class FakeCredentialProvider:
         self.created: list[tuple[str, str]] = []
         self.deleted: list[str] = []
         self.fail_once = False
+        self.fail_delete = False
 
     async def create(self, *, name: str, plaintext: str) -> str:
         self.created.append((name, plaintext))
@@ -91,6 +92,8 @@ class FakeCredentialProvider:
         return f"credential-provider://{name}"
 
     async def delete(self, provider_ref: str) -> None:
+        if self.fail_delete:
+            raise RuntimeError("credential secret=must-not-leak")
         self.deleted.append(provider_ref)
 
 
@@ -132,12 +135,14 @@ class FakeTransport:
 
 
 class FakeVerifier:
+    live = True
+
     async def verify(self, publication):
         return GatewayVerification(
             initialize_pass=True,
             tools_list_pass=True,
-            allowed_call_pass=True,
-            denied_call_pass=True,
+            allowed_call_pass=self.live,
+            denied_call_pass=self.live,
             live_tools_count=4,
             observed_version="test",
         )
@@ -295,6 +300,47 @@ async def test_rotation_activates_new_revision_before_retiring_old(tmp_path):
     assert connection.revoked == ["runtime-record-1"]
     assert len(credential.deleted) == 1
     assert [action for action, _ in transport.calls].count("CreateMCPToolset") == 2
+
+
+@pytest.mark.asyncio
+async def test_failed_verification_persists_summary_for_recovery(tmp_path):
+    connection = FakeConnectionGateway()
+    credential = FakeCredentialProvider()
+    transport = FakeTransport()
+    verifier = FakeVerifier()
+    verifier.live = False
+    low_repository = AgentKitMcpPublicationRepository(tmp_path / "low.sqlite3")
+    publisher = AgentKitMcpPublisher(
+        low_repository,
+        AgentKitMcpClient(transport, poll_interval_seconds=0),
+        verifier=verifier,
+    )
+    managed = ManagedPublicationService(
+        ManagedPublicationRepository(tmp_path / "managed.sqlite3"),
+        connection,  # type: ignore[arg-type]
+        credential,
+        publisher,
+        jwt_discovery_url="https://identity.example/.well-known/openid-configuration",
+    )
+
+    failed = await managed.create(request(), actor(), "request-verification-failure")
+
+    assert failed.publication.status == "failed"
+    assert failed.revisions[0].verification_summary["allowed_call_pass"] is False
+
+
+@pytest.mark.asyncio
+async def test_disable_failure_returns_to_retryable_failed_state(tmp_path):
+    managed, _, credential, _ = service(tmp_path)
+    created = await managed.create(request(), actor(), "request-disable-failure")
+    credential.fail_delete = True
+
+    with pytest.raises(Exception) as error:
+        await managed.disable(created.publication, actor(), "request-disable-failure")
+
+    assert getattr(error.value, "code", "") == "GATEWAY_PROVISION_FAILED"
+    current = managed.require(created.publication.id, actor())
+    assert current.status == ManagedPublicationStatus.FAILED
 
 
 @pytest.mark.asyncio
