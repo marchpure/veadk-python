@@ -30,7 +30,11 @@ class AgentKitMcpPublicationRepository:
                 "SELECT payload FROM agentkit_mcp_publications WHERE publication_id=? AND tenant_id=? AND workspace_id=?",
                 (publication_id, tenant_id, workspace_id),
             ).fetchone()
-        return AgentKitMcpPublication.model_validate(json.loads(row["payload"])) if row else None
+        return (
+            AgentKitMcpPublication.model_validate(json.loads(row["payload"]))
+            if row
+            else None
+        )
 
     def get_by_key(self, key: str, *, tenant_id: str, workspace_id: str):
         with self._lock:
@@ -38,9 +42,15 @@ class AgentKitMcpPublicationRepository:
                 "SELECT payload FROM agentkit_mcp_publications WHERE idempotency_key=? AND tenant_id=? AND workspace_id=?",
                 (key, tenant_id, workspace_id),
             ).fetchone()
-        return AgentKitMcpPublication.model_validate(json.loads(row["payload"])) if row else None
+        return (
+            AgentKitMcpPublication.model_validate(json.loads(row["payload"]))
+            if row
+            else None
+        )
 
-    def save(self, publication: AgentKitMcpPublication, *, idempotency_key: str) -> None:
+    def save(
+        self, publication: AgentKitMcpPublication, *, idempotency_key: str
+    ) -> None:
         payload = publication.model_dump_json(by_alias=True)
         with self._lock:
             self._db.execute(

@@ -41,6 +41,8 @@ export interface ConnectorDefinition {
   config_schema: JsonObject;
   auth_schema: JsonObject;
   endpoints?: string[];
+  action_ids?: string[];
+  mcp_endpoint?: string;
 }
 
 export interface ConnectionProfile {

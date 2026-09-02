@@ -687,6 +687,67 @@ class ConnectionServiceGateway:
             )
         return [dict(item) for item in items if isinstance(item, Mapping)]
 
+    async def create_runtime_token(
+        self,
+        *,
+        name: str,
+        allowed_connections: Sequence[str],
+        allowed_actions: Sequence[str],
+        idempotency_key: str,
+        **actor: str,
+    ) -> tuple[str, str]:
+        """Create a publication-owned STEP1 token and return id plus transient secret."""
+        connections = tuple(
+            dict.fromkeys(item.strip() for item in allowed_connections if item.strip())
+        )
+        actions = tuple(
+            dict.fromkeys(item.strip() for item in allowed_actions if item.strip())
+        )
+        if not connections:
+            raise ConnectionServiceError(
+                "EMPTY_CONNECTION_SCOPE", "Connection allowlist must not be empty", 422
+            )
+        if not actions:
+            raise ConnectionServiceError(
+                "EMPTY_ACTION_SCOPE", "Action allowlist must not be empty", 422
+            )
+        response = await self._request(
+            "POST",
+            "/v1/admin/runtime-tokens",
+            headers={"Idempotency-Key": idempotency_key},
+            json={
+                "name": name,
+                "allowedConnections": list(connections),
+                "allowedActions": list(actions),
+                "blockedActions": [],
+                "allowedProxies": [],
+            },
+            **actor,
+        )
+        payload = response.json()
+        token = (
+            payload.get("runtimeToken") or payload.get("token") or payload.get("data")
+        )
+        if isinstance(token, Mapping):
+            record_id = str(token.get("id") or token.get("recordId") or "")
+            plaintext = str(
+                token.get("apiKey") or token.get("token") or token.get("secret") or ""
+            )
+        else:
+            record_id = plaintext = ""
+        if not record_id or not plaintext:
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "Runtime Token response did not contain a record id and one-time secret",
+                502,
+            )
+        return record_id, plaintext
+
+    async def revoke_runtime_token(self, record_id: str, **actor: str) -> None:
+        await self._request(
+            "POST", f"/v1/admin/runtime-tokens/{record_id}/revoke", json={}, **actor
+        )
+
     async def issue(
         self,
         *,
@@ -872,6 +933,7 @@ class ConnectionServiceGateway:
             "capabilities": capabilities,
             "config_schema": cls._schema(item, "configSchema"),
             "auth_schema": cls._schema(item, "authSchema"),
+            "action_ids": action_ids,
         }
 
     @staticmethod
@@ -915,6 +977,9 @@ class ConnectionServiceGateway:
             "status": str(item.get("status") or default_status),
             "definition_version": str(
                 item.get("connectorDefinitionVersion") or default_definition_version
+            ),
+            "mcp_endpoint": str(
+                item.get("mcpEndpoint") or item.get("mcp_endpoint") or ""
             ),
             "profile": item.get("profile", {}),
             "created_at": str(item["createdAt"]),

@@ -6,7 +6,7 @@ import json
 import os
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 from google.adk.tools.mcp_tool.mcp_session_manager import (
     StreamableHTTPConnectionParams,
@@ -90,13 +90,9 @@ class IdentityM2MGatewayVerifier:
         credential_resolver: CredentialResolver,
         region: str,
     ) -> "IdentityM2MGatewayVerifier | None":
-        workload = os.getenv(
-            "DATA_WORKSHOP_MCP_VERIFY_WORKLOAD_IDENTITY", ""
-        ).strip()
+        workload = os.getenv("DATA_WORKSHOP_MCP_VERIFY_WORKLOAD_IDENTITY", "").strip()
         provider = os.getenv("DATA_WORKSHOP_MCP_VERIFY_OAUTH_PROVIDER", "").strip()
-        allowed_tool = os.getenv(
-            "DATA_WORKSHOP_MCP_VERIFY_ALLOWED_TOOL", ""
-        ).strip()
+        allowed_tool = os.getenv("DATA_WORKSHOP_MCP_VERIFY_ALLOWED_TOOL", "").strip()
         denied_tool = os.getenv("DATA_WORKSHOP_MCP_VERIFY_DENIED_TOOL", "").strip()
         denied_error_marker = os.getenv(
             "DATA_WORKSHOP_MCP_VERIFY_DENIED_ERROR_MARKER", ""
@@ -136,9 +132,7 @@ class IdentityM2MGatewayVerifier:
             scopes=scopes,
         )
 
-    async def verify(
-        self, publication: AgentKitMcpPublication
-    ) -> GatewayVerification:
+    async def verify(self, publication: AgentKitMcpPublication) -> GatewayVerification:
         if not publication.gateway_endpoint:
             raise AgentKitMcpError(
                 "GATEWAY_ENDPOINT_MISSING",
@@ -183,7 +177,7 @@ class IdentityM2MGatewayVerifier:
                 args=self._allowed_arguments,
                 tool_context=context,  # type: ignore[arg-type]
             )
-            credential = await toolset._get_credential(tool_context=context)
+            credential = await toolset._get_credential(tool_context=cast(Any, context))
             session = await toolset._mcp_session_manager.create_session(
                 headers=generate_headers(credential)
             )

@@ -11,6 +11,7 @@ from frontend.server.extensions.agentkit_mcp import (
     AgentKitMcpPublisher,
     GatewayVerification,
     PublicationCreateRequest,
+    PublicationStatus,
     mount_agentkit_mcp_routes,
 )
 from frontend.server.knowledge_workspace.service import Actor
@@ -54,9 +55,7 @@ class FakeTransport:
                         "Id": toolset_id,
                         "Status": "Ready",
                         "Path": "/mcp",
-                        "NetworkConfigurations": [
-                            {"Endpoint": "gateway.example"}
-                        ],
+                        "NetworkConfigurations": [{"Endpoint": "gateway.example"}],
                     }
                 },
             }
@@ -108,7 +107,9 @@ def build_publisher(
 
 
 @pytest.mark.asyncio
-async def test_official_payload_is_idempotent_and_code_ready_until_live_verify() -> None:
+async def test_official_payload_is_idempotent_and_code_ready_until_live_verify() -> (
+    None
+):
     fake = FakeTransport()
     verifier = FakeVerifier()
     publisher = build_publisher(fake, verifier=verifier)
@@ -242,17 +243,17 @@ async def test_routes_scope_publications_and_reject_plain_runtime_token() -> Non
     ) as client:
         headers = {"x-tenant-id": "tenant-a", "x-workspace-id": "workspace-a"}
         rejected = await client.post(
-            "/api/data-workshop/v1/publications",
+            "/api/data-workshop/internal/v1/publications",
             headers=headers,
             json={**body, "runtimeTokenId": "oct_plaintext"},
         )
         created = await client.post(
-            "/api/data-workshop/v1/publications",
+            "/api/data-workshop/internal/v1/publications",
             headers=headers,
             json=body,
         )
         foreign = await client.get(
-            f"/api/data-workshop/v1/publications/{created.json()['data']['publicationId']}",
+            f"/api/data-workshop/internal/v1/publications/{created.json()['data']['publicationId']}",
             headers={**headers, "x-workspace-id": "workspace-b"},
         )
 
@@ -330,9 +331,7 @@ async def test_same_business_key_rejects_different_configuration() -> None:
 async def test_toolset_error_and_timeout_are_not_code_ready() -> None:
     class ErrorTransport(FakeTransport):
         async def post(self, *, region: str, action: str, payload: dict) -> dict:
-            response = await super().post(
-                region=region, action=action, payload=payload
-            )
+            response = await super().post(region=region, action=action, payload=payload)
             if action == "GetMCPToolset":
                 response["Result"]["MCPToolset"]["Status"] = "Error"
             return response
@@ -347,9 +346,7 @@ async def test_toolset_error_and_timeout_are_not_code_ready() -> None:
 
     class PendingTransport(FakeTransport):
         async def post(self, *, region: str, action: str, payload: dict) -> dict:
-            response = await super().post(
-                region=region, action=action, payload=payload
-            )
+            response = await super().post(region=region, action=action, payload=payload)
             if action == "GetMCPService":
                 response["Result"]["MCPService"]["Status"] = "Creating"
             return response
@@ -379,9 +376,7 @@ async def test_verify_without_live_verifier_fails_closed() -> None:
     assert publication.status == "CODE_READY"
 
 
-def _publication(
-    publication_id: str, request: PublicationCreateRequest
-):
+def _publication(publication_id: str, request: PublicationCreateRequest):
     from frontend.server.extensions.agentkit_mcp.models import (
         AgentKitMcpPublication,
     )
@@ -397,5 +392,5 @@ def _publication(
         allowedClientRef=request.allowed_client_ref,
         customJwtDiscoveryUrl=request.custom_jwt_discovery_url,
         desiredVersion=request.desired_version,
-        status="PROVISIONING",
+        status=PublicationStatus.PROVISIONING,
     )

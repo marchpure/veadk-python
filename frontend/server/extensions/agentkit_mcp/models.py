@@ -34,21 +34,20 @@ class AgentKitMcpPublication(BaseModel):
     access_package_id: str = Field(alias="accessPackageId", min_length=1)
     runtime_token_id: str = Field(alias="runtimeTokenId", min_length=1)
     backend_endpoint_ref: str = Field(alias="backendEndpointRef", min_length=1)
-    backend_type: str = Field(default="Domain", alias="backendType", min_length=1)
-    backend_instance_id: str | None = Field(
-        default=None, alias="backendInstanceId"
+    backend_type: Literal["Domain", "ECS"] = Field(
+        default="Domain", alias="backendType"
     )
-    backend_instance_ip: str | None = Field(
-        default=None, alias="backendInstanceIp"
-    )
+    backend_instance_id: str | None = Field(default=None, alias="backendInstanceId")
+    backend_instance_ip: str | None = Field(default=None, alias="backendInstanceIp")
     mcp_service_id: str | None = Field(default=None, alias="mcpServiceId")
     toolset_id: str | None = Field(default=None, alias="toolsetId")
     gateway_endpoint: str | None = Field(default=None, alias="gatewayEndpoint")
-    inbound_auth_mode: str = Field(alias="inboundAuthMode", min_length=1)
-    allowed_client_ref: str | None = Field(default=None, alias="allowedClientRef")
-    custom_jwt_discovery_url: str | None = Field(
-        default=None, alias="customJwtDiscoveryUrl"
+    inbound_auth_mode: Literal["CustomJWT"] = Field(alias="inboundAuthMode")
+    allowed_client_ref: str = Field(alias="allowedClientRef", min_length=1)
+    allowed_client_refs: tuple[str, ...] = Field(
+        default_factory=tuple, alias="allowedClientRefs"
     )
+    custom_jwt_discovery_url: str = Field(alias="customJwtDiscoveryUrl", min_length=1)
     desired_version: str = Field(alias="desiredVersion", min_length=1)
     observed_version: str | None = Field(default=None, alias="observedVersion")
     status: PublicationStatus
@@ -73,9 +72,10 @@ class PublicationCreateRequest(BaseModel):
     backend_endpoint_ref: str = Field(alias="backendEndpointRef", min_length=1)
     desired_version: str = Field(alias="desiredVersion", min_length=1)
     allowed_client_ref: str = Field(alias="allowedClientRef", min_length=1)
-    custom_jwt_discovery_url: str = Field(
-        alias="customJwtDiscoveryUrl", min_length=1
+    allowed_client_refs: tuple[str, ...] = Field(
+        default_factory=tuple, alias="allowedClientRefs"
     )
+    custom_jwt_discovery_url: str = Field(alias="customJwtDiscoveryUrl", min_length=1)
     inbound_auth_mode: Literal["CustomJWT"] = Field(
         default="CustomJWT", alias="inboundAuthMode"
     )
@@ -108,7 +108,9 @@ class PublicationCreateRequest(BaseModel):
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             raise ValueError("backendEndpointRef must be an HTTP(S) endpoint")
         if parsed.query or parsed.fragment or parsed.username or parsed.password:
-            raise ValueError("backendEndpointRef must not contain credentials or query data")
+            raise ValueError(
+                "backendEndpointRef must not contain credentials or query data"
+            )
         path = parsed.path.rstrip("/")
         if path and path != "/mcp":
             raise ValueError("backendEndpointRef path must be /mcp")
@@ -144,6 +146,16 @@ class PublicationCreateRequest(BaseModel):
             raise ValueError(
                 "backendInstanceId and backendInstanceIp are required for ECS"
             )
+        clients = tuple(
+            dict.fromkeys(
+                value.strip()
+                for value in (self.allowed_client_ref, *self.allowed_client_refs)
+                if value.strip()
+            )
+        )
+        if not clients:
+            raise ValueError("at least one allowed client is required")
+        self.allowed_client_refs = clients
         return self
 
 
@@ -188,7 +200,9 @@ class ControlPlaneResources(BaseModel):
         gateway_endpoint = (
             f"https://{endpoint.strip('/')}{path}"
             if endpoint and "://" not in endpoint
-            else f"{endpoint.rstrip('/')}{path}" if endpoint else None
+            else f"{endpoint.rstrip('/')}{path}"
+            if endpoint
+            else None
         )
         return cls(
             toolset_id=toolset.get("MCPToolsetId") or toolset.get("Id"),

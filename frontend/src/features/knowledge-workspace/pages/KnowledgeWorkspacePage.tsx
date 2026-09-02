@@ -73,6 +73,7 @@ import {
 } from "../../../extensions/knowledgeSources";
 import { Modal } from "../components/Modal";
 import { SkillWorkspaceShell } from "../workspace/SkillWorkspaceShell";
+import { ConnectionPublications, McpPublicationPage } from "./McpPublications";
 import { readQuery, writeQuery } from "../application/cache";
 import type {
   Artifact,
@@ -98,6 +99,7 @@ import "./knowledge-workspace.css";
 
 type WorkspaceFile =
   | "connection"
+  | "mcp_publications"
   | "resource"
   | "skill_new"
   | "draft"
@@ -109,6 +111,7 @@ interface WorkspaceRoute {
   connectionId: string;
   resourceId: string;
   sessionId: string;
+  publicationId: string;
   modal: string;
 }
 
@@ -373,6 +376,8 @@ function routeFromLocation(): WorkspaceRoute {
       ? "skill_new"
       : requestedFile === "connection"
         ? "connection"
+        : requestedFile === "mcp_publications"
+          ? "mcp_publications"
         : requestedFile === "resource"
           ? "resource"
         : requestedFile === "draft"
@@ -390,11 +395,12 @@ function routeFromLocation(): WorkspaceRoute {
     connectionId: query.get("connectionId") || query.get("connection_id") || "",
     resourceId: query.get("resourceId") || query.get("resource_id") || "",
     sessionId: query.get("sessionId") || "",
+    publicationId: query.get("publicationId") || "",
     modal: query.get("modal") || "",
   };
 }
 
-function setRoute(file: WorkspaceFile, draftId = "", connectionId = "", resourceId = "", sessionId = "") {
+function setRoute(file: WorkspaceFile, draftId = "", connectionId = "", resourceId = "", sessionId = "", publicationId = "") {
   const query = new URLSearchParams();
   query.set("view", "knowledge-workspace");
   if (file !== "skill_new") query.set("file", file);
@@ -402,6 +408,7 @@ function setRoute(file: WorkspaceFile, draftId = "", connectionId = "", resource
   if (connectionId) query.set("connectionId", connectionId);
   if (resourceId) query.set("resourceId", resourceId);
   if (sessionId) query.set("sessionId", sessionId);
+  if (publicationId) query.set("publicationId", publicationId);
   window.history.pushState({}, "", `${window.location.pathname}?${query}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
@@ -1495,6 +1502,14 @@ export function KnowledgeWorkspacePage({
               <span className="kw-truncate">{(item as Draft & { display_name?: string }).display_name || item.goal}</span>
             </button>
           ))}
+          <button
+            className={`kw-tree-item${route.file === "mcp_publications" ? " is-selected" : ""}`}
+            type="button"
+            onClick={() => setRoute("mcp_publications")}
+          >
+            <Share2 size={15} />
+            <span>MCP 发布</span>
+          </button>
           <div className="kw-tree-label kw-tree-label-row">
             <span>团队工作区</span>
             <button type="button" aria-label="添加团队连接" onClick={() => openConnectionSelector("team")}><CirclePlus size={13} /></button>
@@ -1515,11 +1530,11 @@ export function KnowledgeWorkspacePage({
         </aside>
 
         <main className="kw-main">
-        {route.file === "connection" ? (
+        {route.file === "connection" || route.file === "mcp_publications" ? (
           <header className="kw-topbar">
             <div className="kw-breadcrumb">
               <button type="button" onClick={openWorkspace}>知识资产</button>
-              {selectedConnection ? <><ChevronRight size={14} /><span>{selectedConnection.display_name}</span></> : null}
+              {route.file === "mcp_publications" ? <><ChevronRight size={14} /><span>MCP 发布</span></> : selectedConnection ? <><ChevronRight size={14} /><span>{selectedConnection.display_name}</span></> : null}
             </div>
           </header>
         ) : route.file === "resource" ? (
@@ -1608,6 +1623,15 @@ export function KnowledgeWorkspacePage({
             }}
             busy={busy === "validate" || busy === "discover"}
             job={connectionJob}
+            connections={availableConnections}
+            connectors={connectors}
+            onOpenPublication={(id) => setRoute("mcp_publications", "", "", "", "", id)}
+          />
+        ) : route.file === "mcp_publications" ? (
+          <McpPublicationPage
+            publicationId={route.publicationId}
+            connections={availableConnections}
+            onSelect={(id) => setRoute("mcp_publications", "", "", "", "", id)}
           />
         ) : route.file === "resource" ? (
           <WorkspaceResourceDetail
@@ -1780,6 +1804,9 @@ function ConnectionDetailView({
   onDiscover,
   busy,
   job,
+  connections,
+  connectors,
+  onOpenPublication,
 }: {
   connection: ConnectionProfile | null;
   connector?: ConnectorDefinition;
@@ -1788,6 +1815,9 @@ function ConnectionDetailView({
   onDiscover: (id: string) => Promise<void>;
   busy: boolean;
   job: { kind: "validate" | "discover"; status: JobResult["status"] } | null;
+  connections: ConnectionProfile[];
+  connectors: ConnectorDefinition[];
+  onOpenPublication: (id: string) => void;
 }) {
   if (!connection) return <div className="kw-empty-page">请选择一个连接。</div>;
   return (
@@ -1816,6 +1846,12 @@ function ConnectionDetailView({
         </div>
       </div>
       <pre className="kw-safe-profile">{JSON.stringify(connection.profile || {}, null, 2)}</pre>
+      <ConnectionPublications
+        connection={connection}
+        connections={connections}
+        connectors={connectors}
+        onOpenPublication={onOpenPublication}
+      />
     </section>
   );
 }

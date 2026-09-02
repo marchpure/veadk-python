@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import re
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from urllib.parse import urlsplit
 
 from .models import ControlPlaneResources, PublicationCreateRequest
@@ -62,11 +62,15 @@ class AgentKitMcpClient:
         for attempt in range(self._attempts):
             try:
                 if hasattr(self._transport, "post"):
-                    call = self._transport.post(
+                    transport = cast(AgentKitControlPlaneTransport, self._transport)
+                    call = transport.post(
                         region=self._region, action=action, payload=payload
                     )
                 else:
-                    call = self._transport(
+                    transport_call = cast(
+                        Callable[..., Awaitable[dict[str, Any]]], self._transport
+                    )
+                    call = transport_call(
                         region=self._region, action=action, payload=payload
                     )
                 response = await asyncio.wait_for(call, timeout=self._timeout)
@@ -191,12 +195,8 @@ class AgentKitMcpClient:
             partial = error.resources or ControlPlaneResources()
             partial.mcp_service_id = partial.mcp_service_id or service.mcp_service_id
             partial.toolset_id = partial.toolset_id or toolset.toolset_id
-            partial.service_created = (
-                partial.service_created or service.service_created
-            )
-            partial.toolset_created = (
-                partial.toolset_created or toolset.toolset_created
-            )
+            partial.service_created = partial.service_created or service.service_created
+            partial.toolset_created = partial.toolset_created or toolset.toolset_created
             raise AgentKitMcpError(
                 error.code,
                 str(error),
@@ -206,15 +206,11 @@ class AgentKitMcpClient:
             ) from error
 
     async def disable(self, *, toolset_id: str) -> str | None:
-        response = await self._post(
-            "DeleteMCPToolset", {"MCPToolsetId": toolset_id}
-        )
+        response = await self._post("DeleteMCPToolset", {"MCPToolsetId": toolset_id})
         return (response.get("ResponseMetadata") or {}).get("RequestId")
 
     async def get_toolset(self, *, toolset_id: str) -> ControlPlaneResources:
-        response = await self._post(
-            "GetMCPToolset", {"MCPToolsetId": toolset_id}
-        )
+        response = await self._post("GetMCPToolset", {"MCPToolsetId": toolset_id})
         return ControlPlaneResources.from_toolset_response(response)
 
     async def _poll(
@@ -267,9 +263,7 @@ class AgentKitMcpClient:
                     "Port": port,
                     "ProtocolType": endpoint.scheme.upper(),
                     "TlsSettings": {
-                        "TlsMode": "SIMPLE"
-                        if endpoint.scheme == "https"
-                        else "DISABLE"
+                        "TlsMode": "SIMPLE" if endpoint.scheme == "https" else "DISABLE"
                     },
                 }
             }
@@ -318,9 +312,7 @@ class AgentKitMcpClient:
         toolset_generation: int,
     ) -> dict[str, Any]:
         return {
-            "Name": _resource_name(
-                "dw-toolset", workspace_id, request.desired_version
-            ),
+            "Name": _resource_name("dw-toolset", workspace_id, request.desired_version),
             "ClientToken": _client_token(
                 "toolset",
                 workspace_id,
@@ -330,9 +322,7 @@ class AgentKitMcpClient:
             ),
             "Path": "/mcp",
             "MCPServiceIds": [service_id],
-            "MCPServices": [
-                {"MCPServiceId": service_id, "IsAllTools": True}
-            ],
+            "MCPServices": [{"MCPServiceId": service_id, "IsAllTools": True}],
             "Mode": "AllTools",
             "NetworkConfigurations": [{"NetworkType": "Public"}],
             "AuthorizerConfiguration": {
@@ -340,7 +330,7 @@ class AgentKitMcpClient:
                 "Authorizer": {
                     "CustomJwtAuthorizer": {
                         "DiscoveryUrl": request.custom_jwt_discovery_url,
-                        "AllowedClients": [request.allowed_client_ref],
+                        "AllowedClients": list(request.allowed_client_refs),
                     }
                 },
             },

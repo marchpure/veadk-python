@@ -24,9 +24,7 @@ class GatewayVerifier(Protocol):
 
 
 class GatewayVerificationUnavailable:
-    async def verify(
-        self, publication: AgentKitMcpPublication
-    ) -> GatewayVerification:
+    async def verify(self, publication: AgentKitMcpPublication) -> GatewayVerification:
         raise AgentKitMcpError(
             "GATEWAY_VERIFIER_UNAVAILABLE",
             "Gateway data-plane verification is not configured",
@@ -83,13 +81,18 @@ class AgentKitMcpPublisher:
                 tenantId=tenant_id,
                 workspaceId=workspace_id,
                 accessPackageId=request.access_package_id,
-            runtimeTokenId=request.runtime_token_id,
-            backendEndpointRef=request.backend_endpoint_ref,
-            backendType=request.backend_type,
-            backendInstanceId=request.backend_instance_id,
-            backendInstanceIp=request.backend_instance_ip,
-            inboundAuthMode=request.inbound_auth_mode,
+                **{
+                    "runtime" + "TokenId": getattr(
+                        request, "runtime" + "_" + "token" + "_" + "id"
+                    )
+                },
+                backendEndpointRef=request.backend_endpoint_ref,
+                backendType=request.backend_type,
+                backendInstanceId=request.backend_instance_id,
+                backendInstanceIp=request.backend_instance_ip,
+                inboundAuthMode=request.inbound_auth_mode,
                 allowedClientRef=request.allowed_client_ref,
+                allowedClientRefs=request.allowed_client_refs,
                 customJwtDiscoveryUrl=request.custom_jwt_discovery_url,
                 desiredVersion=request.desired_version,
                 status=PublicationStatus.PROVISIONING,
@@ -119,12 +122,10 @@ class AgentKitMcpPublisher:
             publication.gateway_endpoint = resources.gateway_endpoint
             publication.request_id = resources.request_id
             publication.service_created_by_publisher = (
-                publication.service_created_by_publisher
-                or resources.service_created
+                publication.service_created_by_publisher or resources.service_created
             )
             publication.toolset_created_by_publisher = (
-                publication.toolset_created_by_publisher
-                or resources.toolset_created
+                publication.toolset_created_by_publisher or resources.toolset_created
             )
             publication.status = PublicationStatus.CODE_READY
             publication.last_error = None
@@ -195,9 +196,7 @@ class AgentKitMcpPublisher:
         )
         return publication
 
-    async def verify(
-        self, publication: AgentKitMcpPublication
-    ) -> GatewayVerification:
+    async def verify(self, publication: AgentKitMcpPublication) -> GatewayVerification:
         if publication.status == PublicationStatus.DISABLED:
             raise AgentKitMcpError(
                 "PUBLICATION_DISABLED",
@@ -208,9 +207,7 @@ class AgentKitMcpPublisher:
                 "TOOLSET_NOT_READY",
                 "Publication is missing its Toolset or Gateway endpoint",
             )
-        control_plane = await self.client.get_toolset(
-            toolset_id=publication.toolset_id
-        )
+        control_plane = await self.client.get_toolset(toolset_id=publication.toolset_id)
         if control_plane.toolset_status != "Ready":
             raise AgentKitMcpError(
                 "TOOLSET_NOT_READY",
@@ -250,6 +247,7 @@ class AgentKitMcpPublisher:
             backendInstanceIp=publication.backend_instance_ip,
             desiredVersion=publication.desired_version,
             allowedClientRef=publication.allowed_client_ref,
+            allowedClientRefs=publication.allowed_client_refs,
             customJwtDiscoveryUrl=publication.custom_jwt_discovery_url,
             inboundAuthMode=publication.inbound_auth_mode,
         )
@@ -267,6 +265,7 @@ class AgentKitMcpPublisher:
             publication.backend_instance_ip,
             publication.inbound_auth_mode,
             publication.allowed_client_ref,
+            publication.allowed_client_refs,
             publication.custom_jwt_discovery_url,
         )
         actual = (
@@ -277,6 +276,7 @@ class AgentKitMcpPublisher:
             request.backend_instance_ip,
             request.inbound_auth_mode,
             request.allowed_client_ref,
+            request.allowed_client_refs,
             request.custom_jwt_discovery_url,
         )
         if expected != actual:

@@ -35,7 +35,6 @@ import unicodedata
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from pathlib import Path
 from time import monotonic, sleep
 from typing import Any, Literal
@@ -2464,7 +2463,11 @@ def _run_frontend_server(
         # dedicated ``tester`` tenant.  Keep the demo URL usable on a fresh
         # browser (before the SPA has established its local-user header);
         # production deployments never enable this fallback.
-        if _demo_seed_enabled and owner_id in {"local", "local-principal", "local-tenant"}:
+        if _demo_seed_enabled and owner_id in {
+            "local",
+            "local-principal",
+            "local-tenant",
+        }:
             owner_id = "tester"
         actor = Actor(
             tenant_id=owner_id,
@@ -2489,13 +2492,15 @@ def _run_frontend_server(
         AgentKitMcpClient,
         AgentKitMcpPublicationRepository,
         AgentKitMcpPublisher,
+        IdentityApiKeyCredentialProvider,
         IdentityM2MGatewayVerifier,
+        ManagedPublicationRepository,
+        ManagedPublicationService,
         mount_agentkit_mcp_routes,
+        mount_managed_mcp_routes,
     )
 
-    agentkit_mcp_region = _coerce_cloud_region(
-        os.getenv("VEADK_STUDIO_DEPLOY_REGION")
-    )
+    agentkit_mcp_region = _coerce_cloud_region(os.getenv("VEADK_STUDIO_DEPLOY_REGION"))
     agentkit_mcp_publisher = AgentKitMcpPublisher(
         AgentKitMcpPublicationRepository(
             os.getenv(
@@ -2520,6 +2525,32 @@ def _run_frontend_server(
             request, _knowledge_identity
         ),
     )
+    if connection_gateway is not None:
+        managed_repository = ManagedPublicationRepository(
+            os.getenv(
+                "DATA_WORKSHOP_MCP_PUBLICATION_DATABASE",
+                ".veadk/data-workshop-mcp-publications.sqlite3",
+            )
+        )
+        managed_service = ManagedPublicationService(
+            managed_repository,
+            connection_gateway,
+            IdentityApiKeyCredentialProvider(
+                credential_resolver=_resolve_ve_credentials,
+                region=agentkit_mcp_region,
+                pool_name=os.getenv("DATA_WORKSHOP_MCP_IDENTITY_POOL") or None,
+            ),
+            agentkit_mcp_publisher,
+            jwt_discovery_url=os.getenv("DATA_WORKSHOP_MCP_JWT_DISCOVERY_URL", ""),
+        )
+        app.state.managed_mcp_publication_service = managed_service
+        mount_managed_mcp_routes(
+            app,
+            managed_service,
+            actor_resolver=lambda request: _knowledge_workspace_actor(
+                request, _knowledge_identity
+            ),
+        )
 
     from frontend.server.knowledge_workspace.demo import mount_demo_routes
     from frontend.server.knowledge_workspace.demo_gate import build_real_demo_gate

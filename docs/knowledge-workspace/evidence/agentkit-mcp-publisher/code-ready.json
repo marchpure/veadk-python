@@ -1,42 +1,117 @@
 {
-  "status": "AGENTKIT_MCP_PUBLISHER_CODE_READY_BLOCKED",
+  "status": "BLOCKED_UPSTREAM",
   "recorded_at": "2026-09-02",
-  "base_sha": "96dc97054f5e8dde3bf9104be5aba3519a32645f",
-  "connection_input_sha": null,
-  "control_plane_contract": {
-    "api_version": "2025-10-30",
-    "create_service_document": "https://docs.volcengine.com/docs/86681/1913810",
-    "create_toolset_document": "https://docs.volcengine.com/docs/86681/1913811",
-    "get_toolset_document": "https://docs.volcengine.com/docs/86681/1913816",
-    "update_toolset_document": "https://docs.volcengine.com/docs/86681/1913821",
-    "backend_types": [
-      "ECS",
-      "Domain"
-    ],
-    "outbound_auth": "Identity ApiKey Credential Provider",
-    "inbound_auth": "CustomJWT"
+  "branch": "feat/data-workshop-p0-gateway-publisher",
+  "base_sha": "2b2a80080c43541af8cbcaa76b8d28e8dab988f8",
+  "summary": "STEP2 MCP Publication code, local tests, generated WebUI assets, and safety checks are prepared. Real cloud data-plane acceptance is blocked because the required STEP1 Connection Service and AgentKit/Identity verifier configuration is absent from the current environment.",
+  "business_api": [
+    "GET /api/data-workshop/v1/mcp-publications/capabilities",
+    "GET /api/data-workshop/v1/mcp-publications",
+    "POST /api/data-workshop/v1/mcp-publications",
+    "GET /api/data-workshop/v1/mcp-publications/{id}",
+    "POST /api/data-workshop/v1/mcp-publications/{id}/revisions",
+    "POST /api/data-workshop/v1/mcp-publications/{id}/verify",
+    "POST /api/data-workshop/v1/mcp-publications/{id}/retry",
+    "POST /api/data-workshop/v1/mcp-publications/{id}/rotate-credential",
+    "POST /api/data-workshop/v1/mcp-publications/{id}/disable"
+  ],
+  "internal_api": [
+    "POST /api/data-workshop/internal/v1/publications",
+    "GET /api/data-workshop/internal/v1/publications/{id}",
+    "POST /api/data-workshop/internal/v1/publications/{id}/retry",
+    "POST /api/data-workshop/internal/v1/publications/{id}/disable",
+    "POST /api/data-workshop/internal/v1/publications/{id}/verify"
+  ],
+  "local_verification": {
+    "compileall": {
+      "command": "python -m compileall frontend/server/extensions/agentkit_mcp tests/frontend/test_managed_mcp_publications.py",
+      "status": "pass"
+    },
+    "backend_focused": {
+      "command": "python -m pytest tests/frontend/test_managed_mcp_publications.py tests/frontend/test_agentkit_mcp_publisher.py tests/frontend/test_agentkit_mcp_verifier.py",
+      "status": "pass",
+      "result": "23 passed, 4 warnings"
+    },
+    "backend_broader": {
+      "command": "python -m pytest tests/frontend/test_managed_mcp_publications.py tests/frontend/test_agentkit_mcp_publisher.py tests/frontend/test_agentkit_mcp_verifier.py tests/frontend/test_knowledge_service.py tests/frontend/test_migration_gateway_edges.py tests/frontend/test_migration_routes.py tests/frontend/test_migration_service_edges.py",
+      "status": "pass",
+      "result": "132 passed, 4 warnings"
+    },
+    "ruff": {
+      "command": "uvx ruff@0.11.12 check frontend/server/extensions/agentkit_mcp tests/frontend/test_managed_mcp_publications.py tests/frontend/test_agentkit_mcp_publisher.py frontend/server/knowledge_workspace/connection.py veadk/cli/cli_frontend.py",
+      "status": "pass"
+    },
+    "pyright_mcp_slice": {
+      "command": "npx pyright --pythonpath /Users/bytedance/.pyenv/versions/3.13.7/bin/python frontend/server/extensions/agentkit_mcp tests/frontend/test_managed_mcp_publications.py tests/frontend/test_agentkit_mcp_publisher.py",
+      "status": "pass",
+      "result": "0 errors, 0 warnings, 0 informations"
+    },
+    "typescript": {
+      "command": "cd frontend && npm run typecheck",
+      "status": "pass"
+    },
+    "frontend_tests": {
+      "command": "cd frontend && npm test -- mcpPublicationWorkflow.test.mjs",
+      "status": "pass",
+      "result": "921 passed, 2 skipped"
+    },
+    "frontend_build": {
+      "command": "cd frontend && npm run build",
+      "status": "pass"
+    },
+    "webui_assets": {
+      "command": "cd frontend && npm run test:webui-assets",
+      "status": "pass",
+      "result": "Verified 103 packaged WebUI files and 296 internal references"
+    },
+    "visualization_compatibility": {
+      "command": "cd frontend && npm run test:visualizations",
+      "status": "blocked_input",
+      "reason": "Script requires a Studio session JSON URL; no such acceptance input was provided."
+    },
+    "diff_whitespace": {
+      "command": "git diff --check",
+      "status": "pass"
+    }
   },
-  "verified": {
-    "contract_and_identity_tests": 29,
-    "bff_regression_tests": 31,
-    "mypy": true,
-    "compileall": true,
-    "git_diff_check": true,
-    "secret_scan": true,
-    "mock_results_promoted_to_live": false
+  "security_evidence": {
+    "runtime_token_plaintext": "Transient test-only token material is asserted absent from managed and low-level SQLite databases.",
+    "public_api_redaction": "Route tests assert public responses omit runtime token record IDs, credential provider refs, MCP service IDs, toolset IDs, and one-time token material.",
+    "external_managed": "Legacy low-level AgentKit publication records are imported as external-managed and mutation attempts fail closed.",
+    "secret_scan": "pre-commit gitleaks hook passed for all changed files after excluding a false-positive source spelling of the runtime token field alias"
   },
   "live_gate": {
+    "status": "not_run",
     "publication_id": null,
+    "revision_id": null,
+    "runtime_token_record_id": null,
+    "credential_provider_ref": null,
     "mcp_service_id": null,
     "toolset_id": null,
     "gateway_endpoint": null,
-    "live_tools_count": 0,
     "allowed_call_pass": false,
     "denied_call_pass": false,
-    "idempotency_pass": false
+    "unauthorized_client_denied": false
   },
   "blocker": {
-    "code": "LIVE_ACCEPTANCE_CONTEXT_UNAVAILABLE",
-    "detail": "The frozen STEP 1 endpoint, access package, Runtime Token Credential Provider, and connection input SHA are missing, and the current read-only Volcengine identity check returns SignatureDoesNotMatch."
-  }
+    "code": "UPSTREAM_ENVIRONMENT_UNCONFIGURED",
+    "owner": "STEP1 Connection Service / AgentKit Identity environment owner",
+    "minimum_recovery_action": "Provide a ready STEP1 Connection Service endpoint with admin token APIs, OpenConnector runtime public URL, AgentKit Identity pool/JWT discovery URL, and verifier workload/OAuth provider plus allowed and denied data-plane tool inputs.",
+    "missing_inputs": [
+      "KNOWLEDGE_CONNECTION_SERVICE_BASE_URL",
+      "KNOWLEDGE_CONNECTION_SERVICE_AUTH_SECRET",
+      "KNOWLEDGE_CONNECTION_SERVICE_RUNTIME_PUBLIC_URL",
+      "DATA_WORKSHOP_MCP_JWT_DISCOVERY_URL",
+      "DATA_WORKSHOP_MCP_IDENTITY_POOL",
+      "DATA_WORKSHOP_MCP_VERIFY_WORKLOAD_IDENTITY",
+      "DATA_WORKSHOP_MCP_VERIFY_OAUTH_PROVIDER",
+      "DATA_WORKSHOP_MCP_VERIFY_ALLOWED_TOOL",
+      "DATA_WORKSHOP_MCP_VERIFY_DENIED_TOOL"
+    ]
+  },
+  "notes": [
+    "P0 exposes application-client audience only.",
+    "User/group audience remains disabled and fail-closed because no executable Publication Access Broker is configured.",
+    "No live cloud Publication, Revision, Runtime Token, Credential Provider, MCP Service, Toolset, or Gateway endpoint was created in this environment."
+  ]
 }
