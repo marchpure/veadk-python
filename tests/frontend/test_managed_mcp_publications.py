@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -23,6 +24,9 @@ from frontend.server.extensions.agentkit_mcp.domain import (
 )
 from frontend.server.extensions.agentkit_mcp.managed_service import resolve_actions
 from frontend.server.knowledge_workspace.connection import ConnectionServiceConfig
+from frontend.server.knowledge_workspace.connection import (
+    UnavailableConnectionServiceGateway,
+)
 from frontend.server.knowledge_workspace.service import Actor
 
 
@@ -188,6 +192,30 @@ def service(tmp_path, *, credential=None):
         jwt_discovery_url="https://identity.example/.well-known/openid-configuration",
     )
     return managed, connection, credential, transport
+
+
+@pytest.mark.asyncio
+async def test_unavailable_connection_service_fails_business_route_closed(tmp_path):
+    managed, _, _, _ = service(tmp_path)
+    managed.connection_gateway = cast(Any, UnavailableConnectionServiceGateway())
+    app = FastAPI()
+    mount_managed_mcp_routes(
+        app,
+        managed,
+        actor_resolver=lambda request: actor(),
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/api/data-workshop/v1/mcp-publications",
+            json=request().model_dump(mode="json", by_alias=True),
+        )
+    assert response.status_code == 202
+    assert response.json()["data"]["publication"]["status"] == "failed"
+    assert response.json()["data"]["operations"][0]["last_error"]["code"] == (
+        "CONNECTION_SERVICE_UNAVAILABLE"
+    )
 
 
 def test_read_only_is_allowlist_and_unknown_actions_fail_closed():

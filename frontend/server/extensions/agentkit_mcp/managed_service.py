@@ -590,7 +590,14 @@ class ManagedPublicationService:
                 "MIXED_MCP_ENDPOINTS",
                 "Selected connections must share one OpenConnector MCP endpoint",
             )
-        return endpoints[0], resolved
+        endpoint = next(iter(endpoints), "")
+        if not endpoint:
+            raise ManagedPublicationError(
+                "CONNECTION_NOT_READY",
+                "OpenConnector MCP endpoint is not configured",
+                status_code=503,
+            )
+        return endpoint, resolved
 
     async def _retire(
         self, revision: ManagedRevision, publication: ManagedPublication, actor: Actor

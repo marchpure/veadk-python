@@ -2410,6 +2410,7 @@ def _run_frontend_server(
         Actor,
         ConnectionServiceConfig,
         ConnectionServiceGateway,
+        UnavailableConnectionServiceGateway,
         KnowledgeWorkspaceRepository,
         KnowledgeWorkspaceService,
         UnavailableAutoSkillClient,
@@ -2428,6 +2429,9 @@ def _run_frontend_server(
         )
     except Exception:
         connection_gateway = None
+    managed_connection_gateway = (
+        connection_gateway or UnavailableConnectionServiceGateway()
+    )
     knowledge_service = KnowledgeWorkspaceService(
         KnowledgeWorkspaceRepository(
             os.getenv(
@@ -2525,32 +2529,31 @@ def _run_frontend_server(
             request, _knowledge_identity
         ),
     )
-    if connection_gateway is not None:
-        managed_repository = ManagedPublicationRepository(
-            os.getenv(
-                "DATA_WORKSHOP_MCP_PUBLICATION_DATABASE",
-                ".veadk/data-workshop-mcp-publications.sqlite3",
-            )
+    managed_repository = ManagedPublicationRepository(
+        os.getenv(
+            "DATA_WORKSHOP_MCP_PUBLICATION_DATABASE",
+            ".veadk/data-workshop-mcp-publications.sqlite3",
         )
-        managed_service = ManagedPublicationService(
-            managed_repository,
-            connection_gateway,
-            IdentityApiKeyCredentialProvider(
-                credential_resolver=_resolve_ve_credentials,
-                region=agentkit_mcp_region,
-                pool_name=os.getenv("DATA_WORKSHOP_MCP_IDENTITY_POOL") or None,
-            ),
-            agentkit_mcp_publisher,
-            jwt_discovery_url=os.getenv("DATA_WORKSHOP_MCP_JWT_DISCOVERY_URL", ""),
-        )
-        app.state.managed_mcp_publication_service = managed_service
-        mount_managed_mcp_routes(
-            app,
-            managed_service,
-            actor_resolver=lambda request: _knowledge_workspace_actor(
-                request, _knowledge_identity
-            ),
-        )
+    )
+    managed_service = ManagedPublicationService(
+        managed_repository,
+        managed_connection_gateway,
+        IdentityApiKeyCredentialProvider(
+            credential_resolver=_resolve_ve_credentials,
+            region=agentkit_mcp_region,
+            pool_name=os.getenv("DATA_WORKSHOP_MCP_IDENTITY_POOL") or None,
+        ),
+        agentkit_mcp_publisher,
+        jwt_discovery_url=os.getenv("DATA_WORKSHOP_MCP_JWT_DISCOVERY_URL", ""),
+    )
+    app.state.managed_mcp_publication_service = managed_service
+    mount_managed_mcp_routes(
+        app,
+        managed_service,
+        actor_resolver=lambda request: _knowledge_workspace_actor(
+            request, _knowledge_identity
+        ),
+    )
 
     from frontend.server.knowledge_workspace.demo import mount_demo_routes
     from frontend.server.knowledge_workspace.demo_gate import build_real_demo_gate

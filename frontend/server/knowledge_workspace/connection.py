@@ -102,6 +102,36 @@ class ConnectionServiceConfig:
         )
 
 
+class UnavailableConnectionServiceGateway:
+    """Fail-closed adapter used to keep business BFF routes mounted."""
+
+    config = ConnectionServiceConfig(
+        base_url="", auth_secret="", runtime_public_url=None
+    )
+
+    def _unavailable(self) -> None:
+        raise ConnectionServiceError(
+            "CONNECTION_SERVICE_UNAVAILABLE",
+            "Connection Service is not configured",
+            503,
+        )
+
+    async def list_connections(self, **actor: str) -> list[dict[str, Any]]:
+        self._unavailable()
+        return []
+
+    async def catalog(self, **actor: str) -> list[dict[str, Any]]:
+        self._unavailable()
+        return []
+
+    async def create_runtime_token(self, **kwargs: Any) -> tuple[str, str]:
+        self._unavailable()
+        raise AssertionError("unreachable")
+
+    async def revoke_runtime_token(self, record_id: str, **actor: str) -> None:
+        self._unavailable()
+
+
 def _runtime_url_allowed(parsed: Any) -> bool:
     if (
         parsed is None
