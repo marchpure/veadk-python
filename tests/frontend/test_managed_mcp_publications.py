@@ -386,6 +386,10 @@ async def test_business_routes_hide_low_level_fields_and_scope_tenant(tmp_path):
     assert "credential-provider" not in created.text
     assert "service-1" not in created.text
     assert "toolset-1" not in created.text
+    assert "tenant_id" not in created.text
+    assert "workspace_id" not in created.text
+    assert "created_by" not in created.text
+    assert "endpoint_ref" not in created.text
     assert foreign.status_code == 404
 
 

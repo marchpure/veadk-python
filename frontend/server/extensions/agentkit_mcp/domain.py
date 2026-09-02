@@ -248,7 +248,6 @@ class ManagedPublicationView(BaseModel):
                 "id": value.id,
                 "publication_id": value.publication_id,
                 "version": value.version,
-                "endpoint_ref": value.endpoint_ref,
                 "connection_scope": list(value.connection_scope),
                 "resolved_action_scope": list(value.resolved_action_scope),
                 "action_policy_source": value.action_policy_source.model_dump(
@@ -262,7 +261,14 @@ class ManagedPublicationView(BaseModel):
             }
 
         return {
-            "publication": self.publication.model_dump(mode="json"),
+            "publication": {
+                "id": self.publication.id,
+                "name": self.publication.name,
+                "status": self.publication.status,
+                "active_revision_id": self.publication.active_revision_id,
+                "created_at": self.publication.created_at.isoformat(),
+                "updated_at": self.publication.updated_at.isoformat(),
+            },
             "activeRevision": (
                 revision(self.active_revision) if self.active_revision else None
             ),
