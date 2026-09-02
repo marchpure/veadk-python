@@ -193,6 +193,7 @@ class PublicationOperation(BaseModel):
     idempotency_key: str
     request_digest: str
     stage: OperationStage
+    kind: Literal["provision", "disable"] = "provision"
     attempt: int = Field(default=1, ge=1)
     last_error: dict[str, object] | None = None
     external_request_ids: tuple[str, ...] = ()

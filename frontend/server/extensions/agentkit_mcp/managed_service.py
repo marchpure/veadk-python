@@ -203,18 +203,12 @@ class ManagedPublicationService:
         self, publication: ManagedPublication, actor: Actor, request_id: str
     ) -> ManagedPublicationView:
         self._ensure_mutable(publication)
-        latest_audit = self.repository.list_audit(publication.id)
-        if (
-            publication.status == ManagedPublicationStatus.FAILED
-            and latest_audit
-            and latest_audit[0].event_type == "publication.disable_failed"
-        ):
-            return await self.disable(publication, actor, request_id)
         operation = next(
             (
                 item
                 for item in self.repository.list_operations(publication.id)
                 if item.stage == OperationStage.FAILED
+                and (item.kind == "disable" or item.kind == "provision")
             ),
             None,
         )
@@ -224,6 +218,10 @@ class ManagedPublicationService:
                 "No failed publication operation can be retried",
                 status_code=409,
             )
+        if operation.kind == "disable":
+            publication.status = ManagedPublicationStatus.RETRYING
+            self.repository.save_publication(publication)
+            return await self.disable(publication, actor, request_id)
         revision = self.repository.get_revision(operation.revision_id)
         assert revision is not None
         operation.attempt += 1
@@ -290,27 +288,43 @@ class ManagedPublicationService:
             return self.view(publication)
         revision = self._active_or_latest(publication)
         publication.status = ManagedPublicationStatus.DISABLING
+        operation = PublicationOperation(
+            operation_id=f"op_{uuid4().hex}",
+            publication_id=publication.id,
+            revision_id=revision.id,
+            idempotency_key=f"disable-{publication.id}-{uuid4()}",
+            request_digest=_digest(
+                {"publicationId": publication.id, "revisionId": revision.id}
+            ),
+            stage=OperationStage.DISABLING,
+            kind="disable",
+        )
         self.repository.save_publication(publication)
+        self.repository.reserve_operation(operation)
         try:
             await self.gateway_publisher.disable(self._low_level(revision, publication))
+            operation.stage = OperationStage.DISABLED
             if revision.runtime_token_record_id:
                 await self.connection_gateway.revoke_runtime_token(
                     revision.runtime_token_record_id, **_actor_kwargs(actor)
                 )
             if revision.credential_provider_ref:
                 await self.credential_provider.delete(revision.credential_provider_ref)
+            self.repository.save_operation(operation)
         except Exception as error:
             publication.status = ManagedPublicationStatus.FAILED
             revision.state = RevisionState.FAILED
+            operation.stage = OperationStage.FAILED
+            operation.last_error = _safe_error(error)
             self.repository.save_revision(revision)
             self.repository.save_publication(publication)
+            self.repository.save_operation(operation)
             self._audit(
                 publication, revision, actor, "publication.disable_failed", request_id
             )
-            safe = _safe_error(error)
             raise ManagedPublicationError(
-                str(safe["code"]),
-                str(safe["message"]),
+                str(operation.last_error["code"]),
+                str(operation.last_error["message"]),
                 status_code=502,
                 retryable=True,
             ) from error
