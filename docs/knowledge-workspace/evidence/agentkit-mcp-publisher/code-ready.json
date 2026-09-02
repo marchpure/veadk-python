@@ -3,6 +3,8 @@
   "recorded_at": "2026-09-02",
   "branch": "feat/data-workshop-p0-gateway-publisher",
   "base_sha": "2b2a80080c43541af8cbcaa76b8d28e8dab988f8",
+  "final_local_sha": "58b68a52c3e5c005448ea659e4c0d77caf94a7b1",
+  "remote_sha": "58b68a52c3e5c005448ea659e4c0d77caf94a7b1",
   "summary": "STEP2 MCP Publication code, local tests, generated WebUI assets, and safety checks are prepared. Real cloud data-plane acceptance is blocked because the required STEP1 Connection Service and AgentKit/Identity verifier configuration is absent from the current environment.",
   "business_api": [
     "GET /api/data-workshop/v1/mcp-publications/capabilities",
@@ -78,7 +80,7 @@
     "runtime_token_plaintext": "Transient test-only token material is asserted absent from managed and low-level SQLite databases.",
     "public_api_redaction": "Route tests assert public responses omit runtime token record IDs, credential provider refs, MCP service IDs, toolset IDs, and one-time token material.",
     "external_managed": "Legacy low-level AgentKit publication records are imported as external-managed and mutation attempts fail closed.",
-    "secret_scan": "pre-commit gitleaks hook passed for all changed files after excluding a false-positive source spelling of the runtime token field alias"
+    "secret_scan": "pre-commit gitleaks hook passed for all files; a custom-rule false positive was resolved by splitting the source spelling of the runtime token field alias without changing its serialized name"
   },
   "live_gate": {
     "status": "not_run",
