@@ -341,6 +341,9 @@ async def test_disable_failure_returns_to_retryable_failed_state(tmp_path):
     assert getattr(error.value, "code", "") == "GATEWAY_PROVISION_FAILED"
     current = managed.require(created.publication.id, actor())
     assert current.status == ManagedPublicationStatus.FAILED
+    credential.fail_delete = False
+    recovered = await managed.retry(current, actor(), "request-disable-retry")
+    assert recovered.publication.status == ManagedPublicationStatus.DISABLED
 
 
 @pytest.mark.asyncio

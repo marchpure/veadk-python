@@ -203,6 +203,13 @@ class ManagedPublicationService:
         self, publication: ManagedPublication, actor: Actor, request_id: str
     ) -> ManagedPublicationView:
         self._ensure_mutable(publication)
+        latest_audit = self.repository.list_audit(publication.id)
+        if (
+            publication.status == ManagedPublicationStatus.FAILED
+            and latest_audit
+            and latest_audit[0].event_type == "publication.disable_failed"
+        ):
+            return await self.disable(publication, actor, request_id)
         operation = next(
             (
                 item
