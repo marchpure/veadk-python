@@ -68,6 +68,8 @@ class IdentityM2MGatewayVerifier:
         denied_tool: str,
         denied_arguments: dict[str, Any],
         denied_error_marker: str,
+        unauthorized_workload_identity: str,
+        unauthorized_error_marker: str,
         scopes: list[str] | None = None,
         timeout_seconds: float = 60,
     ) -> None:
@@ -80,6 +82,8 @@ class IdentityM2MGatewayVerifier:
         self._denied_tool = denied_tool
         self._denied_arguments = denied_arguments
         self._denied_error_marker = denied_error_marker
+        self._unauthorized_workload_identity = unauthorized_workload_identity
+        self._unauthorized_error_marker = unauthorized_error_marker
         self._scopes = scopes or ["openid"]
         self._timeout = timeout_seconds
 
@@ -97,8 +101,22 @@ class IdentityM2MGatewayVerifier:
         denied_error_marker = os.getenv(
             "DATA_WORKSHOP_MCP_VERIFY_DENIED_ERROR_MARKER", ""
         ).strip()
+        unauthorized_workload = os.getenv(
+            "DATA_WORKSHOP_MCP_VERIFY_UNAUTHORIZED_WORKLOAD_IDENTITY", ""
+        ).strip()
+        unauthorized_error_marker = os.getenv(
+            "DATA_WORKSHOP_MCP_VERIFY_UNAUTHORIZED_ERROR_MARKER", ""
+        ).strip()
         if not all(
-            (workload, provider, allowed_tool, denied_tool, denied_error_marker)
+            (
+                workload,
+                provider,
+                allowed_tool,
+                denied_tool,
+                denied_error_marker,
+                unauthorized_workload,
+                unauthorized_error_marker,
+            )
         ):
             return None
         try:
@@ -129,6 +147,8 @@ class IdentityM2MGatewayVerifier:
             denied_tool=denied_tool,
             denied_arguments=denied_arguments,
             denied_error_marker=denied_error_marker,
+            unauthorized_workload_identity=unauthorized_workload,
+            unauthorized_error_marker=unauthorized_error_marker,
             scopes=scopes,
         )
 
@@ -171,6 +191,7 @@ class IdentityM2MGatewayVerifier:
                     tools_list_pass=bool(tools),
                     allowed_call_pass=False,
                     denied_call_pass=False,
+                    unauthorized_client_denied=False,
                     live_tools_count=len(tools),
                 )
             allowed_result = await allowed.run_async(
@@ -185,6 +206,9 @@ class IdentityM2MGatewayVerifier:
                 self._denied_tool,
                 arguments=self._denied_arguments,
             )
+            unauthorized_denied = await self._verify_unauthorized_client(
+                publication.gateway_endpoint
+            )
             return GatewayVerification(
                 initialize_pass=True,
                 tools_list_pass=True,
@@ -192,6 +216,7 @@ class IdentityM2MGatewayVerifier:
                 denied_call_pass=_is_expected_denial(
                     denied_result, self._denied_error_marker
                 ),
+                unauthorized_client_denied=unauthorized_denied,
                 live_tools_count=len(tools),
                 observed_version="2025-03-26+",
             )
@@ -203,6 +228,47 @@ class IdentityM2MGatewayVerifier:
                 "Gateway data-plane verification failed",
                 retryable=True,
             ) from error
+        finally:
+            await toolset.close()
+
+    async def _verify_unauthorized_client(self, endpoint: str) -> bool:
+        access_key, secret_key, session_token = self._credential_resolver()
+        identity_client = _BoundIdentityClient(
+            workload_identity=self._unauthorized_workload_identity,
+            access_key=access_key,
+            secret_key=secret_key,
+            session_token=session_token,
+            region=self._region,
+        )
+        toolset = VeIdentityMcpToolset(
+            auth_config=oauth2_auth(
+                provider_name=self._oauth_provider,
+                scopes=self._scopes,
+                auth_flow="M2M",
+                identity_client=identity_client,
+                region=self._region,
+            ),
+            connection_params=StreamableHTTPConnectionParams(
+                url=endpoint,
+                timeout=self._timeout,
+                sse_read_timeout=self._timeout,
+            ),
+        )
+        context = _VerificationContext(self._unauthorized_workload_identity)
+        try:
+            tools = await toolset.get_tools(context)  # type: ignore[arg-type]
+            allowed = _resolve_tool(
+                {tool.name: tool for tool in tools}, self._allowed_tool
+            )
+            if allowed is None:
+                return False
+            result = await allowed.run_async(
+                args=self._allowed_arguments,
+                tool_context=context,  # type: ignore[arg-type]
+            )
+            return _is_expected_denial(result, self._unauthorized_error_marker)
+        except Exception as error:
+            return _is_expected_identity_denial(error, self._unauthorized_error_marker)
         finally:
             await toolset.close()
 
@@ -239,3 +305,7 @@ def _is_expected_denial(result: Any, marker: str) -> bool:
         return False
     serialized = json.dumps(result, ensure_ascii=False).casefold()
     return marker.casefold() in serialized
+
+
+def _is_expected_identity_denial(error: Exception, marker: str) -> bool:
+    return bool(marker and marker.casefold() in str(error).casefold())

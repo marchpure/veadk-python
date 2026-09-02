@@ -52,6 +52,8 @@ def test_live_verifier_parses_non_secret_action_configuration(monkeypatch) -> No
         "DATA_WORKSHOP_MCP_VERIFY_DENIED_TOOL": "denied_action",
         "DATA_WORKSHOP_MCP_VERIFY_DENIED_ARGUMENTS": json.dumps({"value": "x"}),
         "DATA_WORKSHOP_MCP_VERIFY_DENIED_ERROR_MARKER": "ACTION_NOT_ALLOWED",
+        "DATA_WORKSHOP_MCP_VERIFY_UNAUTHORIZED_WORKLOAD_IDENTITY": "workload-denied",
+        "DATA_WORKSHOP_MCP_VERIFY_UNAUTHORIZED_ERROR_MARKER": "CLIENT_NOT_ALLOWED",
     }
     for key, value in values.items():
         monkeypatch.setenv(key, value)

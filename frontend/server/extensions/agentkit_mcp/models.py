@@ -219,6 +219,7 @@ class GatewayVerification(BaseModel):
     tools_list_pass: bool
     allowed_call_pass: bool
     denied_call_pass: bool
+    unauthorized_client_denied: bool
     live_tools_count: int = Field(ge=0)
     observed_version: str | None = None
 
@@ -230,5 +231,6 @@ class GatewayVerification(BaseModel):
                 self.tools_list_pass,
                 self.allowed_call_pass,
                 self.denied_call_pass,
+                self.unauthorized_client_denied,
             )
         )

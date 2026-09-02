@@ -76,6 +76,7 @@ class FakeVerifier:
             tools_list_pass=self.live,
             allowed_call_pass=self.live,
             denied_call_pass=self.live,
+            unauthorized_client_denied=self.live,
             live_tools_count=6 if self.live else 0,
             observed_version="2025-03-26" if self.live else None,
         )

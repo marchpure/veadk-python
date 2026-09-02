@@ -143,6 +143,7 @@ class FakeVerifier:
             tools_list_pass=True,
             allowed_call_pass=self.live,
             denied_call_pass=self.live,
+            unauthorized_client_denied=self.live,
             live_tools_count=4,
             observed_version="test",
         )
