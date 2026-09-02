@@ -30,6 +30,12 @@ function audienceLabel(view: McpPublicationView): string {
   return subjects.map((item) => item.subject_ref).join("、") || "未配置";
 }
 
+function normalizedEndpoint(value?: string): string {
+  const endpoint = value?.trim().replace(/\/+$/, "") || "";
+  if (!endpoint) return "";
+  return endpoint.endsWith("/mcp") ? endpoint : `${endpoint}/mcp`;
+}
+
 export function McpPublicationWizard({
   initialConnection,
   connections,
@@ -57,6 +63,9 @@ export function McpPublicationWizard({
     () => new Map(connectors.map((item) => [item.connector_key, item])),
     [connectors],
   );
+  const initialEndpoint = normalizedEndpoint(
+    initialConnection.mcp_endpoint,
+  );
   const selected = connections.filter((item) => connectionIds.includes(item.connection_id));
   const actionIds = Array.from(new Set(selected.flatMap(
     (item) => connectorByKey.get(item.connector_key)?.action_ids || [],
@@ -66,9 +75,17 @@ export function McpPublicationWizard({
   );
   const resolved = policy === "read_only" ? readActions : policy === "custom" ? customActions : actionIds;
   const clients = clientText.split(/[\s,，]+/).map((item) => item.trim()).filter(Boolean);
-  const eligible = connections.filter((item) => item.status === "ready");
+  const eligible = connections.filter((item) => {
+    if (item.status !== "ready" || item.connection_id === initialConnection.connection_id) {
+      return false;
+    }
+    const endpoint = normalizedEndpoint(item.mcp_endpoint);
+    return Boolean(initialEndpoint && endpoint && endpoint === initialEndpoint);
+  });
   const valid = [
-    connectionIds.length > 0 && selected.every((item) => item.status === "ready"),
+    connectionIds.length > 0 &&
+      Boolean(initialEndpoint) &&
+      selected.every((item) => item.status === "ready" && normalizedEndpoint(item.mcp_endpoint) === initialEndpoint),
     resolved.length > 0,
     clients.length > 0,
     policy === "read_only" || confirmWrite,
@@ -92,7 +109,7 @@ export function McpPublicationWizard({
               <span><strong>{initialConnection.display_name}</strong><small>{initialConnection.connector_key} · {initialConnection.status}</small></span>
             </label>
             <button type="button" className="kw-link-button" onClick={() => setAdvanced(!advanced)}>添加更多连接（高级）</button>
-            {advanced ? eligible.filter((item) => item.connection_id !== initialConnection.connection_id).map((item) => (
+            {advanced ? eligible.map((item) => (
               <label className="kw-mcp-choice" key={item.connection_id}>
                 <input
                   type="checkbox"

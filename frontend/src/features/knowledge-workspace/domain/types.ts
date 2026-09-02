@@ -52,6 +52,7 @@ export interface ConnectionProfile {
   scope: ConnectionScope;
   status: ConnectionStatus;
   definition_version: string;
+  mcp_endpoint?: string;
   profile?: JsonObject;
   last_validated_at?: string;
   created_at: string;

@@ -22,6 +22,13 @@ test("connection detail opens the four-step MCP publication wizard", () => {
   assert.match(publication, /我确认此发布包含写入能力/);
 });
 
+test("connection selection is limited to ready connections sharing the registered MCP endpoint", () => {
+  assert.match(publication, /normalizedEndpoint/);
+  assert.match(publication, /item\.mcp_endpoint/);
+  assert.match(publication, /Endpoint 与当前连接一致/);
+  assert.match(publication, /Boolean\(initialEndpoint\)/);
+});
+
 test("application audience is enabled while user-group mode fails closed", () => {
   assert.match(publication, /应用客户端授权/);
   assert.match(publication, /当前环境未配置可执行的 Publication Access Broker/);
