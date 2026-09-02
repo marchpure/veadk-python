@@ -215,11 +215,13 @@ export function McpPublicationPage({
   publicationId,
   connections,
   connectors,
+  onRefreshConnections,
   onSelect,
 }: {
   publicationId?: string;
   connections: ConnectionProfile[];
   connectors: ConnectorDefinition[];
+  onRefreshConnections: () => Promise<void>;
   onSelect: (id: string) => void;
 }) {
   const [items, setItems] = useState<McpPublicationView[]>([]);
@@ -227,10 +229,17 @@ export function McpPublicationPage({
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [capabilities, setCapabilities] = useState<McpPublicationView["capabilities"]>({
+    audienceTypes: ["applications"],
+  });
   const load = useCallback(async () => {
     try {
-      const list = await mcpPublicationApi.list();
+      const [list, availableCapabilities] = await Promise.all([
+        mcpPublicationApi.list(),
+        mcpPublicationApi.capabilities(),
+      ]);
       setItems(list);
+      setCapabilities(availableCapabilities);
       const target = publicationId ? list.find((item) => item.publication.id === publicationId) : null;
       setSelected(target || null);
       setError("");
@@ -254,7 +263,17 @@ export function McpPublicationPage({
   };
   if (!selected) return (
     <section className="kw-detail kw-mcp-page">
-      <div className="kw-detail-heading"><div><h1>MCP 发布</h1><p>面向应用客户端发布可审计的 Connection 与 Action 权限。</p></div></div>
+      <div className="kw-detail-heading">
+        <div><h1>MCP 发布</h1><p>面向应用客户端发布可审计的 Connection 与 Action 权限。</p></div>
+        <div className="kw-detail-actions">
+          {capabilities.connectionConsoleUrl ? <a className="kw-primary-small" href={capabilities.connectionConsoleUrl} target="_blank" rel="noreferrer">创建/管理连接</a> : null}
+          <button type="button" onClick={() => void onRefreshConnections()}>刷新连接</button>
+        </div>
+      </div>
+      <div className="kw-state-card">
+        <strong>{connections.length ? "已连接" : "Connection Service 暂无可发布连接"}</strong>
+        <span>{connections.length ? `已加载 ${connections.length} 个连接。` : "请先在连接管理中创建并验证连接，然后返回此处刷新连接。"}</span>
+      </div>
       {error ? <div className="kw-form-error">{error}</div> : null}
       <div className="kw-mcp-list">
         {items.length ? items.map((item) => (

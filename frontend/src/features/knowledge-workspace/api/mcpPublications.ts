@@ -74,6 +74,7 @@ export interface McpPublicationView {
   auditEvents: McpAudit[];
   capabilities: {
     audienceTypes: McpAudience["type"][];
+    connectionConsoleUrl?: string;
     usersAndGroups?: { enabled: boolean; reason?: string };
   };
 }
@@ -113,6 +114,7 @@ function key(prefix: string): string {
 }
 
 export const mcpPublicationApi = {
+  capabilities: () => call<McpPublicationView["capabilities"]>("/capabilities"),
   list: () => call<McpPublicationView[]>(),
   get: (id: string) => call<McpPublicationView>(`/${encodeURIComponent(id)}`),
   create: (input: Omit<CreateMcpPublicationInput, "idempotencyKey">) =>

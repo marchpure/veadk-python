@@ -1632,6 +1632,13 @@ export function KnowledgeWorkspacePage({
             publicationId={route.publicationId}
             connections={availableConnections}
             connectors={connectors}
+            onRefreshConnections={async () => {
+              try {
+                await reloadDirectory();
+              } catch (cause) {
+                setError(errorMessage(cause));
+              }
+            }}
             onSelect={(id) => setRoute("mcp_publications", "", "", "", "", id)}
           />
         ) : route.file === "resource" ? (

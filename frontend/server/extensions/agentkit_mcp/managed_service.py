@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -75,6 +76,9 @@ class ManagedPublicationService:
     def capabilities(self) -> dict[str, object]:
         return {
             "audienceTypes": ["applications"],
+            "connectionConsoleUrl": os.getenv(
+                "DATA_WORKSHOP_CONNECTION_CONSOLE_URL", ""
+            ).strip(),
             "usersAndGroups": {
                 "enabled": False,
                 "reason": "当前环境未配置可执行的 Publication Access Broker。",

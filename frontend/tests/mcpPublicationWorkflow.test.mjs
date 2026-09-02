@@ -64,3 +64,10 @@ test("active publication details expose immutable revision editing", () => {
   assert.match(publication, /mcpPublicationApi\.revise/);
   assert.match(api, /\/revisions/);
 });
+
+test("empty publication state provides connection refresh and management entry", () => {
+  assert.match(publication, /刷新连接/);
+  assert.match(publication, /创建\/管理连接/);
+  assert.match(publication, /Connection Service 暂无可发布连接/);
+  assert.match(api, /capabilities/);
+});

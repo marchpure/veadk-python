@@ -1,9 +1,9 @@
 {
-  "status": "BLOCKED_UPSTREAM",
+  "status": "STEP2_CONNECTION_WIRED_BLOCKED_UPSTREAM",
   "recorded_at": "2026-09-02",
   "branch": "feat/data-workshop-p0-gateway-publisher",
   "base_sha": "2b2a80080c43541af8cbcaa76b8d28e8dab988f8",
-  "summary": "STEP2 MCP Publication code, local tests, generated WebUI assets, and safety checks are prepared. Real cloud data-plane acceptance is blocked because the required STEP1 Connection Service and AgentKit/Identity verifier configuration is absent from the current environment.",
+  "summary": "STEP1 OOMOL Connect compatibility is wired in explicit DEMO_ONLY mode and the deployed service returned 22 real connections plus 15,304 catalog actions. Formal HTTPS Connection Service and AgentKit/Identity data-plane acceptance remain blocked.",
   "business_api": [
     "GET /api/data-workshop/v1/mcp-publications/capabilities",
     "GET /api/data-workshop/v1/mcp-publications",
@@ -15,6 +15,18 @@
     "POST /api/data-workshop/v1/mcp-publications/{id}/rotate-credential",
     "POST /api/data-workshop/v1/mcp-publications/{id}/disable"
   ],
+  "connection_wiring": {
+    "mode": "DEMO_ONLY",
+    "service_url": "http://101.126.155.97",
+    "console_url": "http://101.126.155.97/overview",
+    "real_connection_count": 22,
+    "real_catalog_action_count": 15304,
+    "verified_connection_ids": [
+      "791843fb-04d7-4cfd-ac1c-bdc58b88640b",
+      "c9a6b1a0-55d8-43e6-be03-48f7328ddbb9"
+    ],
+    "notes": "The deployed OOMOL Connect service exposes HTTP /api/connections and /api/providers. It does not provide the formal tenant-scoped /v1 contract or HTTPS origin."
+  },
   "internal_api": [
     "POST /api/data-workshop/internal/v1/publications",
     "GET /api/data-workshop/internal/v1/publications/{id}",
@@ -53,7 +65,7 @@
     "frontend_tests": {
       "command": "cd frontend && npm test -- mcpPublicationWorkflow.test.mjs",
       "status": "pass",
-      "result": "923 passed, 2 skipped"
+      "result": "924 passed, 2 skipped"
     },
     "frontend_build": {
       "command": "cd frontend && npm run build",
@@ -94,9 +106,9 @@
     "unauthorized_client_denied": false
   },
   "blocker": {
-    "code": "UPSTREAM_ENVIRONMENT_UNCONFIGURED",
-    "owner": "STEP1 Connection Service / AgentKit Identity environment owner",
-    "minimum_recovery_action": "Provide a ready STEP1 Connection Service endpoint with admin token APIs, OpenConnector runtime public URL, AgentKit Identity pool/JWT discovery URL, and verifier workload/OAuth provider plus allowed and denied data-plane tool inputs.",
+    "code": "FORMAL_HTTPS_AND_AGENTKIT_DATA_PLANE_UNAVAILABLE",
+    "owner": "STEP1 Connection Service deployment owner and AgentKit Identity/Gateway owner",
+    "minimum_recovery_action": "Provide a stable HTTPS origin for the Connection Service with the formal /v1 contract, then provide AgentKit Identity discovery, authorized/unauthorized verifier workloads, and an HTTPS MCP Gateway data-plane input.",
     "missing_inputs": [
       "KNOWLEDGE_CONNECTION_SERVICE_BASE_URL",
       "KNOWLEDGE_CONNECTION_SERVICE_AUTH_SECRET",

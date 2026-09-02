@@ -2410,6 +2410,7 @@ def _run_frontend_server(
         Actor,
         ConnectionServiceConfig,
         ConnectionServiceGateway,
+        OomolConnectGateway,
         UnavailableConnectionServiceGateway,
         KnowledgeWorkspaceRepository,
         KnowledgeWorkspaceService,
@@ -2424,9 +2425,17 @@ def _run_frontend_server(
             f"AutoSkill is not configured: {type(error).__name__}"
         )
     try:
-        connection_gateway = ConnectionServiceGateway(
-            ConnectionServiceConfig.from_env()
-        )
+        if os.getenv("KNOWLEDGE_CONNECTION_SERVICE_COMPAT") == "oomol_connect":
+            connection_gateway = OomolConnectGateway(
+                os.getenv("KNOWLEDGE_CONNECTION_SERVICE_BASE_URL", ""),
+                runtime_public_url=os.getenv(
+                    "KNOWLEDGE_CONNECTION_SERVICE_RUNTIME_PUBLIC_URL"
+                ),
+            )
+        else:
+            connection_gateway = ConnectionServiceGateway(
+                ConnectionServiceConfig.from_env()
+            )
     except Exception:
         connection_gateway = None
     managed_connection_gateway = (

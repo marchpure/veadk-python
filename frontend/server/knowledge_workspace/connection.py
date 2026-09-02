@@ -132,6 +132,153 @@ class UnavailableConnectionServiceGateway:
         self._unavailable()
 
 
+class OomolConnectGateway:
+    """Demo-only adapter for the deployed OOMOL Connect HTTP contract.
+
+    OOMOL Connect is a local/runtime API with no tenant principal boundary.
+    It is therefore intentionally opt-in and cannot be used as the formal
+    STEP1 Connection Service adapter.
+    """
+
+    def __init__(self, base_url: str, *, runtime_public_url: str | None = None) -> None:
+        if os.getenv("KNOWLEDGE_CONNECTION_SERVICE_DEMO_ONLY") != "1":
+            raise ValueError("OOMOL Connect compatibility mode requires DEMO_ONLY=1")
+        parsed = urlsplit(base_url)
+        if parsed.scheme != "http" or not parsed.hostname:
+            raise ValueError("OOMOL Connect compatibility mode requires an HTTP origin")
+        self.base_url = base_url.rstrip("/")
+        self._client: httpx.AsyncClient | None = None
+        public_url = (runtime_public_url or self.base_url).rstrip("/")
+        self.config = ConnectionServiceConfig(
+            base_url=self.base_url,
+            auth_secret="",
+            runtime_public_url=public_url,
+        )
+
+    async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        owns_client = self._client is None
+        client = getattr(self, "_client", None) or httpx.AsyncClient(timeout=30)
+        try:
+            response = await client.request(method, f"{self.base_url}{path}", **kwargs)
+        except httpx.HTTPError as error:
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_UNAVAILABLE",
+                "OOMOL Connect is unreachable",
+                503,
+            ) from error
+        finally:
+            if owns_client:
+                await client.aclose()
+        if response.status_code >= 400:
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_ERROR",
+                f"OOMOL Connect returned HTTP {response.status_code}",
+                response.status_code,
+            )
+        return response
+
+    async def catalog(self, **actor: str) -> list[dict[str, Any]]:
+        items = (await self._request("GET", "/api/providers")).json()
+        return [
+            {
+                "connector_key": str(item.get("service") or ""),
+                "version": "oomol-connect",
+                "display_name": str(
+                    item.get("displayName") or item.get("service") or ""
+                ),
+                "category": "connection",
+                "status": "verified",
+                "capabilities": ["action"],
+                "config_schema": {},
+                "auth_schema": {},
+                "action_ids": [
+                    str(action.get("id"))
+                    for action in item.get("actions", [])
+                    if isinstance(action, Mapping) and action.get("id")
+                ],
+            }
+            for item in items
+            if isinstance(item, Mapping) and item.get("service")
+        ]
+
+    async def adapter_capabilities(self, **actor: str) -> list[dict[str, Any]]:
+        return []
+
+    async def list_connections(self, **actor: str) -> list[dict[str, Any]]:
+        items = (await self._request("GET", "/api/connections")).json()
+        endpoint = (
+            f"{(self.config.runtime_public_url or self.base_url).rstrip('/')}/mcp"
+        )
+        now = datetime.now(timezone.utc).isoformat()
+        return [
+            {
+                "connection_id": str(item["id"]),
+                "connector_key": str(item.get("service") or ""),
+                "display_name": str(
+                    (item.get("profile") or {}).get("displayName")
+                    or item.get("connectionName")
+                    or item.get("service")
+                ),
+                "scope": "personal",
+                "status": "ready" if item.get("configured") else "error",
+                "definition_version": "oomol-connect",
+                "mcp_endpoint": endpoint,
+                "profile": dict(item.get("profile") or {}),
+                "created_at": now,
+                "updated_at": now,
+                "_revision": 1,
+            }
+            for item in items
+            if isinstance(item, Mapping) and item.get("id")
+        ]
+
+    async def get_connection(self, connection_id: str, **actor: str) -> dict[str, Any]:
+        for item in await self.list_connections(**actor):
+            if item["connection_id"] == connection_id:
+                return item
+        raise ConnectionServiceError("NOT_FOUND", "connection not found", 404)
+
+    async def create_runtime_token(
+        self,
+        *,
+        name: str,
+        allowed_connections: Sequence[str],
+        allowed_actions: Sequence[str],
+        idempotency_key: str,
+        **actor: str,
+    ) -> tuple[str, str]:
+        if not allowed_connections or not allowed_actions:
+            raise ConnectionServiceError(
+                "EMPTY_SCOPE", "Runtime token scope must not be empty", 422
+            )
+        payload = (
+            await self._request(
+                "POST",
+                "/api/runtime-tokens",
+                json={
+                    "name": name,
+                    "allowedConnections": list(allowed_connections),
+                    "allowedActions": list(allowed_actions),
+                    "blockedActions": [],
+                    "allowedProxies": [],
+                },
+            )
+        ).json()
+        record = payload.get("record") or {}
+        token = str(payload.get("token") or "")
+        record_id = str(record.get("id") or "")
+        if not token or not record_id:
+            raise ConnectionServiceError(
+                "CONNECTION_SERVICE_INVALID_RESPONSE",
+                "OOMOL Connect did not return a runtime token",
+                502,
+            )
+        return record_id, token
+
+    async def revoke_runtime_token(self, record_id: str, **actor: str) -> None:
+        await self._request("DELETE", f"/api/runtime-tokens/{record_id}")
+
+
 def _runtime_url_allowed(parsed: Any) -> bool:
     if (
         parsed is None

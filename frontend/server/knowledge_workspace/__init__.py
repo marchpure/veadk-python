@@ -12,6 +12,7 @@ from .connection import (
     ConnectionServiceError,
     ConnectionServiceGateway,
     EphemeralConnectionContext,
+    OomolConnectGateway,
     UnavailableConnectionServiceGateway,
 )
 from .html_artifact import HtmlArtifactError, validate_output_archive
@@ -44,6 +45,7 @@ __all__ = [
     "ConnectionServiceConfig",
     "ConnectionServiceError",
     "ConnectionServiceGateway",
+    "OomolConnectGateway",
     "UnavailableConnectionServiceGateway",
     "EphemeralConnectionContext",
     "UnavailableAutoSkillClient",
