@@ -30,7 +30,7 @@
     "backend_focused": {
       "command": "python -m pytest tests/frontend/test_managed_mcp_publications.py tests/frontend/test_agentkit_mcp_publisher.py tests/frontend/test_agentkit_mcp_verifier.py",
       "status": "pass",
-      "result": "26 passed, 4 warnings"
+      "result": "27 passed, 4 warnings"
     },
     "backend_broader": {
       "command": "python -m pytest tests/frontend/test_managed_mcp_publications.py tests/frontend/test_agentkit_mcp_publisher.py tests/frontend/test_agentkit_mcp_verifier.py tests/frontend/test_knowledge_service.py tests/frontend/test_migration_gateway_edges.py tests/frontend/test_migration_routes.py tests/frontend/test_migration_service_edges.py",
