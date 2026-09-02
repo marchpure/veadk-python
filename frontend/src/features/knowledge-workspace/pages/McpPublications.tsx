@@ -42,19 +42,25 @@ export function McpPublicationWizard({
   connectors,
   onClose,
   onCreated,
+  editPublication,
 }: {
   initialConnection: ConnectionProfile;
   connections: ConnectionProfile[];
   connectors: ConnectorDefinition[];
   onClose: () => void;
   onCreated: (value: McpPublicationView) => void;
+  editPublication?: McpPublicationView;
 }) {
+  const editRevision = editPublication?.activeRevision || editPublication?.revisions[0];
+  const editClients = editPublication?.subjects
+    .filter((item) => item.revision_id === editRevision?.id && item.subject_type === "application")
+    .map((item) => item.subject_ref) || [];
   const [step, setStep] = useState(0);
-  const [name, setName] = useState(`${initialConnection.display_name} MCP`);
-  const [connectionIds, setConnectionIds] = useState([initialConnection.connection_id]);
-  const [policy, setPolicy] = useState<McpActionPolicy["preset"]>("read_only");
-  const [customActions, setCustomActions] = useState<string[]>([]);
-  const [clientText, setClientText] = useState("");
+  const [name, setName] = useState(editPublication?.publication.name || `${initialConnection.display_name} MCP`);
+  const [connectionIds, setConnectionIds] = useState(editRevision?.connection_scope || [initialConnection.connection_id]);
+  const [policy, setPolicy] = useState<McpActionPolicy["preset"]>(editRevision?.action_policy_source.preset || "read_only");
+  const [customActions, setCustomActions] = useState<string[]>(editRevision?.action_policy_source.actionIds || []);
+  const [clientText, setClientText] = useState(editClients.join("\n"));
   const [advanced, setAdvanced] = useState(false);
   const [confirmWrite, setConfirmWrite] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -185,17 +191,19 @@ export function McpPublicationWizard({
               onClick={async () => {
                 setBusy(true); setError("");
                 try {
-                  const value = await mcpPublicationApi.create({
-                    name: name.trim(),
+                  const input = {
                     connectionIds,
                     actionPolicy: { preset: policy, ...(policy === "custom" ? { actionIds: customActions } : {}) },
-                    audience: { type: "applications", clientIds: clients },
-                  });
+                    audience: { type: "applications" as const, clientIds: clients },
+                  };
+                  const value = editPublication
+                    ? await mcpPublicationApi.revise(editPublication.publication.id, input)
+                    : await mcpPublicationApi.create({ name: name.trim(), ...input });
                   onCreated(value);
                 } catch (cause) { setError(errorText(cause)); }
                 finally { setBusy(false); }
               }}
-            >{busy ? "发布中…" : "确认发布"}</button>
+            >{busy ? "发布中…" : editPublication ? "确认修改" : "确认发布"}</button>
           )}
         </footer>
       </div>
@@ -206,14 +214,17 @@ export function McpPublicationWizard({
 export function McpPublicationPage({
   publicationId,
   connections,
+  connectors,
   onSelect,
 }: {
   publicationId?: string;
   connections: ConnectionProfile[];
+  connectors: ConnectorDefinition[];
   onSelect: (id: string) => void;
 }) {
   const [items, setItems] = useState<McpPublicationView[]>([]);
   const [selected, setSelected] = useState<McpPublicationView | null>(null);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const load = useCallback(async () => {
@@ -256,6 +267,19 @@ export function McpPublicationPage({
     </section>
   );
   const revision = selected.activeRevision || selected.revisions[0];
+  const editConnection = connections.find((item) => item.connection_id === revision?.connection_scope[0]);
+  if (editing && editConnection) {
+    return (
+      <McpPublicationWizard
+        initialConnection={editConnection}
+        connections={connections}
+        connectors={connectors}
+        editPublication={selected}
+        onClose={() => setEditing(false)}
+        onCreated={(value) => { setEditing(false); setSelected(value); void load(); }}
+      />
+    );
+  }
   const operation = selected.operations[0];
   return (
     <section className="kw-detail kw-mcp-page">
@@ -287,6 +311,7 @@ export function McpPublicationPage({
         {selected.publication.status === "failed" ? <button type="button" disabled={Boolean(busy)} onClick={() => void act("retry")}>重试</button> : null}
         {selected.publication.status === "active" ? <>
           <button type="button" disabled={Boolean(busy)} onClick={() => void act("verify")}>验证</button>
+          <button type="button" disabled={Boolean(busy) || !editConnection} onClick={() => setEditing(true)}>修改</button>
           <button type="button" disabled={Boolean(busy)} onClick={() => void act("rotate")}>轮换凭据</button>
           <button type="button" disabled={Boolean(busy)} onClick={() => void act("disable")}>停用</button>
         </> : null}

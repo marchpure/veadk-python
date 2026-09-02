@@ -1631,6 +1631,7 @@ export function KnowledgeWorkspacePage({
           <McpPublicationPage
             publicationId={route.publicationId}
             connections={availableConnections}
+            connectors={connectors}
             onSelect={(id) => setRoute("mcp_publications", "", "", "", "", id)}
           />
         ) : route.file === "resource" ? (

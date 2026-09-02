@@ -58,3 +58,9 @@ test("progress, detail, history and audit are server-backed and responsive", () 
   assert.match(css, /\.kw-mcp-policy-grid/);
   assert.match(css, /@media \(max-width: 720px\)/);
 });
+
+test("active publication details expose immutable revision editing", () => {
+  assert.match(publication, /修改/);
+  assert.match(publication, /mcpPublicationApi\.revise/);
+  assert.match(api, /\/revisions/);
+});
