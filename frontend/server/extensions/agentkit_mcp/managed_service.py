@@ -536,29 +536,23 @@ class ManagedPublicationService:
             raise ManagedPublicationError(
                 "EMPTY_ACTION_SCOPE", "Action policy resolved to an empty allowlist"
             )
-        endpoints = tuple(
-            dict.fromkeys(
-                _normalize_mcp_endpoint(str(item.get("mcp_endpoint") or ""))
-                for item in visible.values()
-                if str(item.get("mcp_endpoint") or "").strip()
-            )
+        selected_endpoints = tuple(
+            _normalize_mcp_endpoint(str(item.get("mcp_endpoint") or ""))
+            for item in visible.values()
         )
+        if any(not endpoint for endpoint in selected_endpoints):
+            raise ManagedPublicationError(
+                "CONNECTION_NOT_READY",
+                "Every selected connection must have a registered OpenConnector MCP endpoint",
+                status_code=409,
+            )
+        endpoints = tuple(dict.fromkeys(selected_endpoints))
         if len(endpoints) > 1:
             raise ManagedPublicationError(
                 "MIXED_MCP_ENDPOINTS",
                 "Selected connections must share one OpenConnector MCP endpoint",
             )
-        configured_endpoint = _normalize_mcp_endpoint(
-            self.connection_gateway.config.runtime_public_url or ""
-        )
-        endpoint = endpoints[0] if endpoints else configured_endpoint
-        if not endpoint:
-            raise ManagedPublicationError(
-                "CONNECTION_NOT_READY",
-                "OpenConnector MCP endpoint is not configured",
-                status_code=503,
-            )
-        return endpoint, resolved
+        return endpoints[0], resolved
 
     async def _retire(
         self, revision: ManagedRevision, publication: ManagedPublication, actor: Actor

@@ -215,6 +215,25 @@ async def test_mixed_connection_endpoints_fail_closed(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_missing_connection_endpoint_fails_closed(tmp_path):
+    managed, connection, _, _ = service(tmp_path)
+    original = connection.list_connections
+
+    async def missing_endpoint(**actor):
+        items = await original(**actor)
+        items[0] = {**items[0], "mcp_endpoint": ""}
+        return items
+
+    connection.list_connections = missing_endpoint
+    failed = await managed.create(request(), actor(), "request-missing-endpoint")
+
+    assert failed.publication.status == "failed"
+    assert failed.operations[0].last_error is not None
+    assert failed.operations[0].last_error["code"] == "CONNECTION_NOT_READY"
+    assert not connection.created
+
+
+@pytest.mark.asyncio
 async def test_create_is_idempotent_and_never_persists_plaintext(tmp_path):
     managed, connection, credential, transport = service(tmp_path)
     first = await managed.create(request(), actor(), "request-a")
